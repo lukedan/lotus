@@ -10,18 +10,28 @@
 #include <algorithm>
 #include <array>
 
+#include "../common.h"
+
 namespace pbd {
 	/// A <tt>Rows x Cols</tt> matrix.
 	template <std::size_t Rows, std::size_t Cols, typename T> struct matrix {
 	public:
+		static_assert(Rows > 0 && Cols > 0, "Matrices with zero dimensions are invalid");
+
 		constexpr static std::size_t
 			num_rows = Rows, ///< The number of rows.
 			num_columns = Cols, ///< The number of columns.
 			dimensionality = std::max(Rows, Cols); ///< Maximum of \ref num_rows and \ref num_columns.
 		using value_type = T; ///< Value type.
 
+		/// Does not initialize the matrix.
+		matrix(uninitialized_t) {
+		}
+		/// Value-initializes (zero-initialize for primitive types) this matrix.
+		constexpr matrix(zero_t) : elements{} {
+		}
 		/// Initializes the entire matrix.
-		constexpr explicit matrix(std::initializer_list<std::initializer_list<T>> data) : elements{} {
+		constexpr matrix(std::initializer_list<std::initializer_list<T>> data) : elements{} {
 			assert(data.size() == Rows);
 			for (auto row_it = data.begin(); row_it != data.end(); ++row_it) {
 				assert(row_it->size() == Cols);
@@ -39,19 +49,21 @@ namespace pbd {
 		/// Default copy assignment.
 		constexpr matrix &operator=(const matrix&) = default;
 
-		/// Returns an uninitialized matrix.
-		[[nodiscard]] inline static matrix uninitialized() {
-			return matrix();
-		}
-		/// Returns a zero matrix.
-		[[nodiscard]] inline static constexpr matrix zero() {
-			return matrix{ _zero_init() };
-		}
 		/// Returns an identity matrix.
 		[[nodiscard]] inline static constexpr matrix identity() {
-			matrix result = zero();
+			matrix result = zero;
 			for (std::size_t i = 0; i < std::min(Rows, Cols); ++i) {
 				result(i, i) = static_cast<T>(1);
+			}
+			return result;
+		}
+		/// Returns a diagonal matrix with the given values on its diagonal.
+		[[nodiscard]] inline static constexpr matrix diagonal(std::initializer_list<T> diag) {
+			assert(diag.size() == std::min(Rows, Cols));
+			matrix result = zero;
+			std::size_t i = 0;
+			for (auto it = diag.begin(); it != diag.end(); ++i, ++it) {
+				result(i, i) = std::move(*it);
 			}
 			return result;
 		}
@@ -87,7 +99,7 @@ namespace pbd {
 
 		/// Returns the transposed matrix.
 		[[nodiscard]] constexpr matrix<Cols, Rows, T> transposed() const {
-			auto result = matrix<Cols, Rows, T>::zero();
+			matrix<Cols, Rows, T> result = zero;
 			for (std::size_t y = 0; y < Rows; ++y) {
 				for (std::size_t x = 0; x < Cols; ++x) {
 					result(x, y) = elements[y][x];
@@ -98,13 +110,13 @@ namespace pbd {
 
 		/// Returns the i-th row.
 		[[nodiscard]] constexpr matrix<1, Cols, T> row(std::size_t r) const {
-			auto result = matrix<1, Cols, T>::zero();
+			matrix<1, Cols, T> result = zero;
 			result.elements[0] = elements[r];
 			return result;
 		}
 		/// Returns the i-th column.
 		[[nodiscard]] constexpr matrix<Rows, 1, T> column(std::size_t c) const {
-			auto result = matrix<Rows, 1, T>::zero();
+			matrix<Rows, 1, T> result = zero;
 			for (std::size_t i = 0; i < Rows; ++i) {
 				result(i, 0) = elements[i][c];
 			}
@@ -116,7 +128,7 @@ namespace pbd {
 		> [[nodiscard]] constexpr matrix<RowCount, ColCount, T> block(
 			std::size_t row_start, std::size_t col_start
 		) const {
-			auto result = matrix<RowCount, ColCount, T>::zero();
+			matrix<RowCount, ColCount, T> result = zero;
 			for (std::size_t srcy = row_start, dsty = 0; dsty < RowCount; ++srcy, ++dsty) {
 				for (std::size_t srcx = col_start, dstx = 0; dstx < ColCount; ++srcx, ++dstx) {
 					result(dsty, dstx) = elements[srcy][srcx];
@@ -124,6 +136,20 @@ namespace pbd {
 			}
 			return result;
 		}
+
+		/// Sets a submatrix to the given value.
+		template <
+			std::size_t RowCount, std::size_t ColCount
+		> constexpr void set_block(std::size_t row_start, std::size_t col_start, matrix<RowCount, ColCount, T> mat) {
+			assert(row_start + RowCount <= Rows);
+			assert(col_start + ColCount <= Cols);
+			for (std::size_t srcy = 0, dsty = row_start; srcy < RowCount; ++srcy, ++dsty) {
+				for (std::size_t srcx = 0, dstx = col_start; srcx < ColCount; ++srcx, ++dstx) {
+					elements[dsty][dstx] = std::move(mat(srcy, srcx));
+				}
+			}
+		}
+
 
 		/// Computes the squared Frobenius norm of this matrix.
 		[[nodiscard]] constexpr T squared_norm() const {
@@ -143,16 +169,6 @@ namespace pbd {
 		}
 
 		std::array<std::array<T, Cols>, Rows> elements; ///< The elements of this matrix.
-	protected:
-		/// Used for zero-initializing this matrix.
-		struct _zero_init {
-		};
-
-		/// Does not initialize the matrix.
-		matrix() = default;
-		/// Value-initializes (zero-initialize for primitive types) this matrix.
-		constexpr explicit matrix(_zero_init) : elements{} {
-		}
 	};
 
 
@@ -163,7 +179,7 @@ namespace pbd {
 	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator*(
 		const matrix<Rows, Col1Row2, T> &lhs, const matrix<Col1Row2, Cols, T> &rhs
 	) {
-		auto result = matrix<Rows, Cols, T>::zero();
+		matrix<Rows, Cols, T> result = zero;
 		for (std::size_t y = 0; y < Rows; ++y) {
 			for (std::size_t x = 0; x < Cols; ++x) {
 				T &res = result(y, x);
@@ -274,6 +290,76 @@ namespace pbd {
 	}
 
 
+	/// Matrix utilities.
+	template <typename T> class mat {
+	public:
+		/// This class only contains utility functions.
+		mat() = delete;
+
+	protected:
+		/// Implementation of \ref concat_columns() and \ref concat_rows().
+		template <
+			std::size_t Current, typename OutMat, typename CurMat, typename ...OtherMats
+		> inline static void _concat_impl(OutMat &out, CurMat &&cur, OtherMats &&...others) {
+			constexpr bool _is_rows = CurMat::num_columns == OutMat::num_columns;
+
+			out.set_block<CurMat::num_rows, CurMat::num_columns>(
+				_is_rows ? Current : 0,
+				_is_rows ? 0 : Current,
+				std::forward<CurMat>(cur)
+			);
+			if constexpr (sizeof...(OtherMats) > 0) {
+				_concat_impl<Current + (_is_rows ? CurMat::num_rows : CurMat::num_columns)>(
+					out, std::forward<OtherMats>(others)...
+				);
+			}
+		}
+		/// Returns the sum of all inputs.
+		template <std::size_t ...Is> [[nodiscard]] constexpr inline static std::size_t _sum() {
+			return (Is + ...);
+		}
+		/// Returns the first input.
+		template <std::size_t I, std::size_t...> [[nodiscard]] constexpr inline static std::size_t _take() {
+			return I;
+		}
+	public:
+		/// Creates a new matrix by concatenating the given matrices horizontally.
+		template <typename ...Mats> [[nodiscard]] inline static constexpr matrix<
+			_take<Mats::num_rows...>(), _sum<Mats::num_columns...>(), T
+		> concat_columns(Mats &&...mats) {
+			constexpr std::size_t
+				_rows = _take<Mats::num_rows...>(),
+				_cols = _sum<Mats::num_columns...>();
+			using _mat = matrix<_rows, _cols, T>;
+
+			static_assert(
+				((Mats::num_rows == _rows) && ...),
+				"Arguments contain matrices with different numbers of rows"
+			);
+			_mat result = zero;
+			_concat_impl<0>(result, std::forward<Mats>(mats)...);
+			return result;
+		}
+		/// Creates a new matrix by concatenating the given matrices vertically.
+		template <typename ...Mats> [[nodiscard]] inline static constexpr matrix<
+			_sum<Mats::num_rows...>(), _take<Mats::num_columns...>(), T
+		> concat_rows(Mats &&...mats) {
+			constexpr std::size_t
+				_rows = _sum<Mats::num_rows...>(),
+				_cols = _take<Mats::num_columns...>();
+			using _mat = matrix<_rows, _cols, T>;
+
+			static_assert(
+				((Mats::num_columns == _cols) && ...),
+				"Arguments contain matrices with different numbers of columns"
+			);
+			_mat result = zero;
+			_concat_impl<0>(result, std::forward<Mats>(mats)...);
+			return result;
+		}
+	};
+
+
 	// typedefs
 	template <typename T> using mat22 = matrix<2, 2, T>; ///< 2x2 matrices.
 	using mat22f = matrix<2, 2, float>; ///< 2x2 matrices of \p float.
@@ -294,4 +380,7 @@ namespace pbd {
 	template <typename T> using mat44 = matrix<4, 4, T>; ///< 4x4 matrices.
 	using mat44f = matrix<4, 4, float>; ///< 2x2 matrices of \p float.
 	using mat44d = matrix<4, 4, double>; ///< 2x2 matrices of \p double.
+
+	using matf = mat<float>; ///< Utilities for matrices of \p float.
+	using matd = mat<double>; ///< Utilities for matrices of \p double.
 }

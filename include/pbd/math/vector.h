@@ -20,7 +20,7 @@ namespace pbd {
 			std::initializer_list<typename Vec::value_type> val
 		) {
 			assert(val.size() == Vec::dimensionality);
-			auto result = Vec::zero();
+			Vec result = zero;
 			for (auto it = val.begin(); it != val.end(); ++it) {
 				result[it - val.begin()] = std::move(*it);
 			}
@@ -37,6 +37,17 @@ namespace pbd {
 			}
 			return result;
 		}
+		template <
+			typename Vec
+		> [[nodiscard]] inline static constexpr std::enable_if_t<Vec::dimensionality == 3, Vec> cross(
+			const Vec &lhs, const Vec &rhs
+		) {
+			return create<Vec>({
+				lhs[1] * rhs[2] - lhs[2] * rhs[1],
+				lhs[2] * rhs[0] - lhs[0] * rhs[2],
+				lhs[0] * rhs[1] - lhs[1] * rhs[0]
+			});
+		}
 
 		/// Normalizes the given vector without any safety checks.
 		template <typename Vec> [[nodiscard]] inline static constexpr Vec unsafe_normalize(Vec v) {
@@ -51,14 +62,9 @@ namespace pbd {
 		/// The corresponding matrix type that's used to store the matrix.
 		using matrix_type = column_vector<Dim, T>;
 
-		/// Shorthand for \ref matrix::uninitialized().
-		[[nodiscard]] inline static matrix_type uninitialized() {
-			return matrix_type::uninitialized();
-		}
-		/// Shorthand for \ref matrix::zero().
-		[[nodiscard]] inline static constexpr matrix_type zero() {
-			return matrix_type::zero();
-		}
+		/// This class only contains utility functions.
+		cvec() = delete;
+
 		/// Shorthand for \ref vec::create().
 		[[nodiscard]] inline static constexpr matrix_type create(std::initializer_list<T> val) {
 			return vec::create<matrix_type>(val);
@@ -95,7 +101,7 @@ namespace pbd {
 	template <typename T> using cvec2 = cvec<2, T>; ///< Utility for 2D column vectors.
 	using cvec2f = cvec2<float>; ///< Utility for 2D column vectors of \p float.
 	using cvec2d = cvec2<double>; ///< Utility for 2D column vectors of \p double.
-	
+
 	template <typename T> using cvec3 = cvec<3, T>; ///< Utility for 3D column vectors.
 	using cvec3f = cvec3<float>; ///< Utility for 3D column vectors of \p float.
 	using cvec3d = cvec3<double>; ///< Utility for 3D column vectors of \p double.

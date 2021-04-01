@@ -24,7 +24,19 @@ namespace pbd {
 		using value_type = T; ///< Value type.
 		constexpr static quaternion_kind kind = Kind; ///< Whether this quaternion is a unit quaternion.
 
-
+		/// Does not initialize the components.
+		quaternion(uninitialized_t) {
+		}
+		/// Zero-initializes this quaternion.
+		constexpr quaternion(zero_t) : quaternion(0, 0, 0, 0) {
+		}
+		/// Unit quaternions can be implicitly converted into arbitrary quaternions.
+		template <
+			typename Dummy = int,
+			std::enable_if_t<Kind == quaternion_kind::arbitrary, Dummy> = 0
+		> constexpr quaternion(const quaternion<T, quaternion_kind::unit> &src) :
+			quaternion(src.w(), src.x(), src.y(), src.z()) {
+		}
 		/// Default move constructor.
 		constexpr quaternion(quaternion&&) = default;
 		/// Default copy constructor.
@@ -33,6 +45,17 @@ namespace pbd {
 		constexpr quaternion &operator=(quaternion&&) = default;
 		/// Default copy assignment.
 		constexpr quaternion &operator=(const quaternion&) = default;
+
+		/// Creates a quaternion using the given elements.
+		[[nodiscard]] inline static constexpr quaternion from_wxyz(T w, T x, T y, T z) {
+			return quaternion(std::move(w), std::move(x), std::move(y), std::move(z));
+		}
+		/// Creates a quaternion using the given 3D vector for X, Y, and Z, leaving W empty.
+		template <typename Vec> [[nodiscard]] inline static constexpr std::enable_if_t<
+			Vec::dimensionality == 3 && Kind == quaternion_kind::arbitrary, quaternion
+		> from_vector(const Vec &v) {
+			return from_wxyz(static_cast<T>(0), v[0], v[1], v[2]);
+		}
 
 
 		/// Indexing.
@@ -96,7 +119,9 @@ namespace pbd {
 		template <
 			quaternion_kind OtherKind,
 			typename Dummy = int, std::enable_if_t<Kind == quaternion_kind::arbitrary, Dummy> = 0
-		> friend constexpr quaternion operator+(quaternion<T, Kind> lhs, const quaternion<T, OtherKind> &rhs) {
+		> [[nodiscard]] friend constexpr quaternion operator+(
+			quaternion<T, Kind> lhs, const quaternion<T, OtherKind> &rhs
+		) {
 			lhs += rhs;
 			return std::move(lhs);
 		}
@@ -116,9 +141,65 @@ namespace pbd {
 		template <
 			quaternion_kind OtherKind,
 			typename Dummy = int, std::enable_if_t<Kind == quaternion_kind::arbitrary, Dummy> = 0
-		> friend constexpr quaternion operator-(quaternion<T, Kind> lhs, const quaternion<T, OtherKind> &rhs) {
+		> [[nodiscard]] friend constexpr quaternion operator-(
+			quaternion<T, Kind> lhs, const quaternion<T, OtherKind> &rhs
+		) {
 			lhs -= rhs;
 			return std::move(lhs);
+		}
+
+		/// In-place scalar multiplication.
+		template <
+			typename Dummy = int, std::enable_if_t<Kind == quaternion_kind::arbitrary, Dummy> = 0
+		> constexpr quaternion &operator*=(const T &rhs) {
+			w() *= rhs;
+			x() *= rhs;
+			y() *= rhs;
+			z() *= rhs;
+			return *this;
+		}
+		/// Scalar multiplication.
+		[[nodiscard]] friend constexpr quaternion<T, quaternion_kind::arbitrary> operator*(
+			const quaternion<T, Kind> &lhs, const T &rhs
+		) {
+			quaternion<T, quaternion_kind::arbitrary> res = lhs;
+			res *= rhs;
+			return std::move(res);
+		}
+		/// Scalar multiplication.
+		[[nodiscard]] friend constexpr quaternion<T, quaternion_kind::arbitrary> operator*(
+			const T &lhs, const quaternion<T, Kind> &rhs
+		) {
+			quaternion<T, quaternion_kind::arbitrary> res = rhs;
+			res *= lhs;
+			return std::move(res);
+		}
+
+		/// In-place quaternion multiplication.
+		template <quaternion_kind OtherKind> constexpr std::enable_if_t<
+			Kind == quaternion_kind::arbitrary || OtherKind == quaternion_kind::unit, quaternion&
+		> operator*=(const quaternion<T, OtherKind> &rhs) {
+			T res_w = w() * rhs.w() - vec::dot(axis(), rhs.axis());
+			auto res_axis = w() * rhs.axis() + rhs.w() * axis() + vec::cross(axis(), rhs.axis());
+			_w = std::move(res_w);
+			_x = std::move(res_axis[0]);
+			_y = std::move(res_axis[1]);
+			_z = std::move(res_axis[2]);
+			return *this;
+		}
+		/// Quaternion multiplication.
+		template <quaternion_kind OtherKind> [[nodiscard]] friend constexpr quaternion<
+			T,
+			Kind == quaternion_kind::arbitrary || OtherKind == quaternion_kind::arbitrary ?
+				quaternion_kind::arbitrary : quaternion_kind::unit
+		> operator*(const quaternion<T, Kind> &lhs, const quaternion<T, OtherKind> &rhs) {
+			quaternion<
+				T,
+				Kind == quaternion_kind::arbitrary || OtherKind == quaternion_kind::arbitrary ?
+					quaternion_kind::arbitrary : quaternion_kind::unit
+			> result = lhs;
+			result *= rhs;
+			return result;
 		}
 
 		/// In-place scalar division.
@@ -132,11 +213,12 @@ namespace pbd {
 			return *this;
 		}
 		/// Scalar division.
-		template <
-			typename Dummy = int, std::enable_if_t<Kind == quaternion_kind::arbitrary, Dummy> = 0
-		> friend constexpr quaternion operator/(quaternion<T, Kind> lhs, const T &rhs) {
-			lhs /= rhs;
-			return std::move(lhs);
+		[[nodiscard]] friend constexpr quaternion<T, quaternion_kind::arbitrary> operator/(
+			const quaternion<T, Kind> &lhs, const T &rhs
+		) {
+			quaternion<T, quaternion_kind::arbitrary> res = lhs;
+			res /= rhs;
+			return std::move(res);
 		}
 
 
@@ -154,12 +236,25 @@ namespace pbd {
 			return cvec3<T>::create({ x(), y(), z() });
 		}
 
+		/// Returns the conjugate of this quaternion.
+		[[nodiscard]] constexpr quaternion conjugate() const {
+			return quaternion(_w, -_x, -_y, -_z);
+		}
+		/// Returns the inverse of this quaternion.
 		[[nodiscard]] constexpr quaternion inverse() const {
-			quaternion result(_w, -_x, -_y, -_z);
+			quaternion result = conjugate();
 			if constexpr (Kind != quaternion_kind::unit) {
 				result /= result.squared_magnitude();
 			}
 			return result;
+		}
+
+		/// Rotates a vector.
+		template <typename Vec> [[nodiscard]] constexpr std::enable_if_t<Vec::dimensionality == 3, Vec> rotate(
+			const Vec &v
+		) {
+			auto result = *this * quaternion<T, quaternion_kind::arbitrary>::from_vector(v) * inverse();
+			return result.axis();
 		}
 	protected:
 		T
@@ -168,8 +263,6 @@ namespace pbd {
 			_y, ///< Rotation axis Y times the sine of half the rotation angle.
 			_z; ///< Rotation axis Z times the sine of half the rotation angle.
 
-		/// Default constructor. Does not initialize the components.
-		quaternion() = default;
 		/// Initializes all components of this quaternion.
 		constexpr quaternion(T cw, T cx, T cy, T cz) :
 			_w(std::move(cw)), _x(std::move(cx)), _y(std::move(cy)), _z(std::move(cz)) {
@@ -183,24 +276,6 @@ namespace pbd {
 		using quaternion_t = quaternion<T>; ///< Arbitrary quaternions.
 		using unit_quaternion_t = unit_quaternion<T>; ///< Unit quaternions.
 
-		/// Returns an uninitialized quaternion.
-		[[nodiscard]] inline static quaternion_t uninitialized() {
-			return quaternion_t();
-		}
-		/// Creates a quaternion using the given elements.
-		[[nodiscard]] inline static constexpr quaternion_t from_wxyz(std::initializer_list<T> elems) {
-			assert(elems.size() == 4);
-			auto it = elems.begin();
-			T w = std::move(*it);
-			T x = std::move(*++it);
-			T y = std::move(*++it);
-			T z = std::move(*++it);
-			return quaternion_t(std::move(w), std::move(x), std::move(y), std::move(z));
-		}
-		/// Returns the `zero' quaternion (1, 0, 0, 0).
-		[[nodiscard]] inline static constexpr unit_quaternion_t zero() {
-			return unit_quaternion_t(static_cast<T>(1), static_cast<T>(0), static_cast<T>(0), static_cast<T>(0));
-		}
 		/// Creates a quaternion from the given normalized axis and rotation angle.
 		template <typename Vec> [[nodiscard]] inline static constexpr std::enable_if_t<
 			Vec::dimensionality == 3, unit_quaternion_t
@@ -221,4 +296,13 @@ namespace pbd {
 
 	using quatf = quat<float>; ///< Utilities for quaternions of \p float.
 	using quatd = quat<double>; ///< Utilities for quaternions of \p double.
+
+
+	template <typename T> using quat_t = quaternion<T>; ///< Shorthand for \ref quaternion.
+	using quatf_t = quat_t<float>; ///< Shorthand for quaternions of \p float.
+	using quatd_t = quat_t<double>; ///< Shorthand for quaternions of \p double.
+
+	template <typename T> using uquat_t = unit_quaternion<T>; ///< Shorthand for \ref unit_quaternion.
+	using uquatf_t = uquat_t<float>; ///< Shorthand for unit quaternions of \p float.
+	using uquatd_t = uquat_t<double>; ///< Shorthand for unit quaternions of \p double.
 }

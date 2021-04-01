@@ -11,11 +11,20 @@ target_sources(pbd
 	PUBLIC
 		"include/pbd/collision/gjk.h"
 
+		"include/pbd/math/constants.h"
 		"include/pbd/math/matrix.h"
 		"include/pbd/math/quaternion.h"
 		"include/pbd/math/vector.h"
+
+		"include/pbd/shapes/shape.h"
+		"include/pbd/shapes/sphere.h"
+
+		"include/pbd/body.h"
+		"include/pbd/engine.h"
 	PRIVATE
-		"src/collision/gjk.cpp")
+		"src/collision/gjk.cpp"
+		
+		"src/body.cpp" "include/pbd/camera.h" "include/pbd/common.h" "include/pbd/constraints/spring.h")
 
 target_include_directories(pbd
 	PUBLIC

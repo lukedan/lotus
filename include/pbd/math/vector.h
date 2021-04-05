@@ -15,18 +15,6 @@ namespace pbd {
 	/// Generic vector utilities.
 	class vec {
 	public:
-		/// Creates a vector with the given elements.
-		template <typename Vec> [[nodiscard]] inline static constexpr Vec create(
-			std::initializer_list<typename Vec::value_type> val
-		) {
-			assert(val.size() == Vec::dimensionality);
-			Vec result = zero;
-			for (auto it = val.begin(); it != val.end(); ++it) {
-				result[it - val.begin()] = std::move(*it);
-			}
-			return result;
-		}
-
 		/// Dot product.
 		template <typename Vec> [[nodiscard]] inline static constexpr typename Vec::value_type dot(
 			const Vec &lhs, const Vec &rhs
@@ -42,11 +30,11 @@ namespace pbd {
 		> [[nodiscard]] inline static constexpr std::enable_if_t<Vec::dimensionality == 3, Vec> cross(
 			const Vec &lhs, const Vec &rhs
 		) {
-			return create<Vec>({
+			return {
 				lhs[1] * rhs[2] - lhs[2] * rhs[1],
 				lhs[2] * rhs[0] - lhs[0] * rhs[2],
 				lhs[0] * rhs[1] - lhs[1] * rhs[0]
-			});
+			};
 		}
 
 		/// Normalizes the given vector without any safety checks.
@@ -56,57 +44,29 @@ namespace pbd {
 		}
 	};
 
-	/// Column vector utilities.
-	template <std::size_t Dim, typename T> class cvec {
-	public:
-		/// The corresponding matrix type that's used to store the matrix.
-		using matrix_type = column_vector<Dim, T>;
 
-		/// This class only contains utility functions.
-		cvec() = delete;
+	template <typename T> using cvec2 = column_vector<2, T>; ///< 2D column vectors.
+	using cvec2f = cvec2<float>; ///< 2D column vectors of \p float.
+	using cvec2d = cvec2<double>; ///< 2D column vectors of \p double.
 
-		/// Shorthand for \ref vec::create().
-		[[nodiscard]] inline static constexpr matrix_type create(std::initializer_list<T> val) {
-			return vec::create<matrix_type>(val);
-		}
-	};
+	template <typename T> using cvec3 = column_vector<3, T>; ///< 3D column vectors.
+	using cvec3f = cvec3<float>; ///< 3D column vectors of \p float.
+	using cvec3d = cvec3<double>; ///< 3D column vectors of \p double.
+
+	template <typename T> using cvec4 = column_vector<4, T>; ///< 4D column vectors.
+	using cvec4f = cvec4<float>; ///< 4D column vectors of \p float.
+	using cvec4d = cvec4<double>; ///< 4D column vectors of \p double.
 
 
-	template <typename T> using cvec2_t = column_vector<2, T>; ///< 2D column vectors.
-	using cvec2f_t = cvec2_t<float>; ///< 2D column vectors of \p float.
-	using cvec2d_t = cvec2_t<double>; ///< 2D column vectors of \p double.
+	template <typename T> using rvec2 = row_vector<2, T>; ///< 2D row vectors.
+	using rvec2f = rvec2<float>; ///< 2D row vectors of \p float.
+	using rvec2d = rvec2<double>; ///< 2D row vectors of \p double.
 
-	template <typename T> using cvec3_t = column_vector<3, T>; ///< 3D column vectors.
-	using cvec3f_t = cvec3_t<float>; ///< 3D column vectors of \p float.
-	using cvec3d_t = cvec3_t<double>; ///< 3D column vectors of \p double.
+	template <typename T> using rvec3 = row_vector<3, T>; ///< 3D row vectors.
+	using rvec3f = rvec3<float>; ///< 3D row vectors of \p float.
+	using rvec3d = rvec3<double>; ///< 3D row vectors of \p double.
 
-	template <typename T> using cvec4_t = column_vector<4, T>; ///< 4D column vectors.
-	using cvec4f_t = cvec4_t<float>; ///< 4D column vectors of \p float.
-	using cvec4d_t = cvec4_t<double>; ///< 4D column vectors of \p double.
-
-
-	template <typename T> using rvec2_t = row_vector<2, T>; ///< 2D row vectors.
-	using rvec2f_t = rvec2_t<float>; ///< 2D row vectors of \p float.
-	using rvec2d_t = rvec2_t<double>; ///< 2D row vectors of \p double.
-
-	template <typename T> using rvec3_t = row_vector<3, T>; ///< 3D row vectors.
-	using rvec3f_t = rvec3_t<float>; ///< 3D row vectors of \p float.
-	using rvec3d_t = rvec3_t<double>; ///< 3D row vectors of \p double.
-
-	template <typename T> using rvec4_t = row_vector<4, T>; ///< 4D row vectors.
-	using rvec4f_t = rvec4_t<float>; ///< 4D row vectors of \p float.
-	using rvec4d_t = rvec4_t<double>; ///< 4D row vectors of \p double.
-
-
-	template <typename T> using cvec2 = cvec<2, T>; ///< Utility for 2D column vectors.
-	using cvec2f = cvec2<float>; ///< Utility for 2D column vectors of \p float.
-	using cvec2d = cvec2<double>; ///< Utility for 2D column vectors of \p double.
-
-	template <typename T> using cvec3 = cvec<3, T>; ///< Utility for 3D column vectors.
-	using cvec3f = cvec3<float>; ///< Utility for 3D column vectors of \p float.
-	using cvec3d = cvec3<double>; ///< Utility for 3D column vectors of \p double.
-
-	template <typename T> using cvec4 = cvec<4, T>; ///< Utility for 4D column vectors.
-	using cvec4f = cvec4<float>; ///< Utility for 4D column vectors of \p float.
-	using cvec4d = cvec4<double>; ///< Utility for 4D column vectors of \p double.
+	template <typename T> using rvec4 = row_vector<4, T>; ///< 4D row vectors.
+	using rvec4f = rvec4<float>; ///< 4D row vectors of \p float.
+	using rvec4d = rvec4<double>; ///< 4D row vectors of \p double.
 }

@@ -9,8 +9,14 @@
 namespace pbd::shapes {
 	/// A sphere centered at the origin.
 	struct sphere {
-		/// Initializes \ref radius.
-		constexpr explicit sphere(double r) : radius(r) {
+	public:
+		/// No initialization.
+		sphere(uninitialized_t) {
+		}
+
+		/// Creates a new sphere shape with the given radius.
+		[[nodiscard]] constexpr static sphere from_radius(double r) {
+			return sphere(r);
 		}
 
 		double radius; ///< The radius of this sphere.
@@ -19,7 +25,11 @@ namespace pbd::shapes {
 		[[nodiscard]] constexpr body_properties get_body_properties(double density) const {
 			double mass = (4.0 / 3.0) * pi * radius * radius * radius;
 			double diag = 0.4 * mass * radius * radius;
-			return body_properties(mass, zero, mat33d::diagonal({ diag, diag, diag }));
+			return body_properties::create(mat33d::diagonal({ diag, diag, diag }), zero, mass);
+		}
+	protected:
+		/// Initializes all fields of this struct.
+		explicit constexpr sphere(double r) : radius(r) {
 		}
 	};
 }

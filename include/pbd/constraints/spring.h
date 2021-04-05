@@ -8,7 +8,6 @@
 namespace pbd::constraints {
 	/// A constraint that follows the Hooke's law.
 	struct spring {
-	public:
 		/// Properties of a spring constraint.
 		struct constraint_properties {
 			/// No initialization.
@@ -28,18 +27,17 @@ namespace pbd::constraints {
 		}
 
 		/// Projects this constraint.
-		void project(cvec3d_t &x1, cvec3d_t &x2, double inv_m1, double inv_m2, double inv_dt2, double &lambda) const {
-			cvec3d_t t = x2 - x1;
-			double t_norm = t.norm();
-			double t_diff = t_norm - properties.length;
-			double c_over_k = 0.5 * t_diff * t_diff;
-			double inv_k = properties.inverse_stiffness;
-			double delta_lambda_times_k =
-				-(c_over_k + inv_k * inv_k * inv_dt2 * lambda) /
-				((inv_m1 + inv_m2) * t_diff * t_diff + inv_k * inv_k * inv_k * inv_dt2);
-			lambda += delta_lambda_times_k * inv_k;
-			x1 -= inv_m1 * t_diff * delta_lambda_times_k * (t / t_norm);
-			x2 += inv_m2 * t_diff * delta_lambda_times_k * (t / t_norm);
+		void project(cvec3d &x1, cvec3d &x2, double inv_m1, double inv_m2, double inv_dt2, double &lambda) const {
+			cvec3d t = x2 - x1;
+			double t_len = t.norm();
+			double t_diff = t_len - properties.length;
+			double c = t_diff;
+			double inv_k_dt2 = properties.inverse_stiffness * inv_dt2;
+			double delta_lambda = -(c + inv_k_dt2 * lambda) / (inv_m1 + inv_m2 + inv_k_dt2);
+			lambda += delta_lambda;
+			cvec3d dx = (delta_lambda / t_len) * t;
+			x1 -= inv_m1 * dx;
+			x2 += inv_m2 * dx;
 		}
 
 		constraint_properties properties = uninitialized; ///< Properties of this constraint.

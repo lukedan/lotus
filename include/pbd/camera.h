@@ -13,7 +13,7 @@ namespace pbd {
 		camera_parameters(uninitialized_t) {
 		}
 
-		cvec3d_t
+		cvec3d
 			position = uninitialized, ///< The position of this camera.
 			look_at = uninitialized, ///< The direction this camera points to.
 			world_up = uninitialized; ///< The general upwards direction.
@@ -25,7 +25,7 @@ namespace pbd {
 
 		/// Creates a new \ref camera_parameters object.
 		[[nodiscard]] inline constexpr static camera_parameters create_look_at(
-			cvec3d_t at, cvec3d_t from_pos, cvec3d_t up = cvec3d::create({ 0.0, 0.0, 1.0 }),
+			cvec3d at, cvec3d from_pos, cvec3d up = { 0.0, 0.0, 1.0 },
 			double asp_ratio = 1.333, double fovy_rads = 1.0472, // 4:3, 60 degrees
 			double near = 0.1, double far = 1000.0
 		) {
@@ -34,7 +34,7 @@ namespace pbd {
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr camera_parameters(
-			cvec3d_t pos, cvec3d_t lookat, cvec3d_t up,
+			cvec3d pos, cvec3d lookat, cvec3d up,
 			double near, double far, double fovy, double asp_ratio
 		) :
 			position(pos), look_at(lookat), world_up(up),
@@ -54,21 +54,19 @@ namespace pbd {
 			projection_matrix = uninitialized, ///< Projects objects from camera space onto a 2D plane.
 			projection_view_matrix = uninitialized, ///< Product of \ref projection_matrix and \ref view_matrix.
 			inverse_view_matrix = uninitialized; ///< Inverse of \ref view_matrix.
-		cvec3d_t
+		cvec3d
 			unit_forward = uninitialized, ///< Unit vector corresponding to the forward direction.
 			unit_right = uninitialized, ///< Unit vector corresponding to the right direction.
 			unit_up = uninitialized; ///< Unit vector corresponding to the up direction.
 
 		/// Computes the \ref camera object that corresponds to the given \ref camera_parameters.
 		[[nodiscard]] inline /*constexpr*/ static camera from_parameters(const camera_parameters &param) {
-			cvec3d_t unit_forward = vec::unsafe_normalize(param.look_at - param.position);
-			cvec3d_t unit_right = vec::unsafe_normalize(vec::cross(unit_forward, param.world_up));
-			cvec3d_t unit_up = vec::cross(unit_right, unit_forward);
+			cvec3d unit_forward = vec::unsafe_normalize(param.look_at - param.position);
+			cvec3d unit_right = vec::unsafe_normalize(vec::cross(unit_forward, param.world_up));
+			cvec3d unit_up = vec::cross(unit_right, unit_forward);
 
-			mat33d rotation = matd::concat_rows(
-				unit_right.transposed(), unit_up.transposed(), unit_forward.transposed()
-			);
-			cvec3d_t offset = -(rotation * param.position);
+			mat33d rotation = matd::concat_columns(unit_right, unit_up, unit_forward).transposed();
+			cvec3d offset = -(rotation * param.position);
 
 			mat44d view = zero;
 			view.set_block(0, 0, rotation);
@@ -88,7 +86,7 @@ namespace pbd {
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr camera(
-			cvec3d_t forward, cvec3d_t right, cvec3d_t up, mat44d view, mat44d proj
+			cvec3d forward, cvec3d right, cvec3d up, mat44d view, mat44d proj
 		) :
 			view_matrix(view), projection_matrix(proj),
 			projection_view_matrix(proj * view), inverse_view_matrix(mat44d::identity()), // TODO mat::invert()

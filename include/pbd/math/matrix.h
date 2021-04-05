@@ -40,6 +40,13 @@ namespace pbd {
 				}
 			}
 		}
+		/// Initializes a vector.
+		template <
+			typename ...Args, typename Dummy = int,
+			std::enable_if_t<sizeof...(Args) == dimensionality && (Rows == 1 || Cols == 1), Dummy> = 0
+		> constexpr matrix(Args &&...data) :
+			matrix(std::make_index_sequence<dimensionality>(), std::forward<Args>(data)...) {
+		}
 		/// Default move constructor.
 		constexpr matrix(matrix&&) = default;
 		/// Default copy constructor.
@@ -108,6 +115,18 @@ namespace pbd {
 			return result;
 		}
 
+		/// Returns the inverse of this matrix.
+		[[nodiscard]] constexpr matrix<Rows, Cols, T> inverse() const;
+
+		/// Returns the trace of this matrix.
+		[[nodiscard]] constexpr T trace() const {
+			auto result = static_cast<T>(0);
+			for (std::size_t i = 0; i < std::min(Rows, Cols); ++i) {
+				result += elements[i][i];
+			}
+			return result;
+		}
+
 		/// Returns the i-th row.
 		[[nodiscard]] constexpr matrix<1, Cols, T> row(std::size_t r) const {
 			matrix<1, Cols, T> result = zero;
@@ -138,9 +157,9 @@ namespace pbd {
 		}
 
 		/// Sets a submatrix to the given value.
-		template <
-			std::size_t RowCount, std::size_t ColCount
-		> constexpr void set_block(std::size_t row_start, std::size_t col_start, matrix<RowCount, ColCount, T> mat) {
+		template <std::size_t RowCount, std::size_t ColCount> constexpr void set_block(
+			std::size_t row_start, std::size_t col_start, const matrix<RowCount, ColCount, T> &mat
+		) {
 			assert(row_start + RowCount <= Rows);
 			assert(col_start + ColCount <= Cols);
 			for (std::size_t srcy = 0, dsty = row_start; srcy < RowCount; ++srcy, ++dsty) {
@@ -169,6 +188,14 @@ namespace pbd {
 		}
 
 		std::array<std::array<T, Cols>, Rows> elements; ///< The elements of this matrix.
+	protected:
+		/// Initializes this matrix as a vector.
+		template <typename ...Args, std::size_t ...Is> constexpr matrix(
+			std::index_sequence<Is...>, Args &&...args
+		) : elements{} {
+			static_assert(sizeof...(Args) == dimensionality, "incorrect number of dimensions");
+			(((*this)[Is] = std::forward<Args>(args)), ...);
+		}
 	};
 
 
@@ -290,6 +317,7 @@ namespace pbd {
 	}
 
 
+	template <std::size_t N, typename T> class lup_decomposition;
 	/// Matrix utilities.
 	template <typename T> class mat {
 	public:
@@ -297,19 +325,27 @@ namespace pbd {
 		mat() = delete;
 
 	protected:
+		/// Returns the number of rows in the given matrix.
+		template <typename Mat> constexpr static std::size_t _num_rows() {
+			return std::decay_t<Mat>::num_rows;
+		}
+		/// Returns the number of columns in the given matrix.
+		template <typename Mat> constexpr static std::size_t _num_cols() {
+			return std::decay_t<Mat>::num_columns;
+		}
 		/// Implementation of \ref concat_columns() and \ref concat_rows().
 		template <
 			std::size_t Current, typename OutMat, typename CurMat, typename ...OtherMats
-		> inline static void _concat_impl(OutMat &out, CurMat &&cur, OtherMats &&...others) {
-			constexpr bool _is_rows = CurMat::num_columns == OutMat::num_columns;
+		> constexpr inline static void _concat_impl(OutMat &out, CurMat &&cur, OtherMats &&...others) {
+			constexpr bool _is_rows = _num_cols<CurMat>() == _num_cols<OutMat>();
 
-			out.set_block<CurMat::num_rows, CurMat::num_columns>(
+			out.set_block(
 				_is_rows ? Current : 0,
 				_is_rows ? 0 : Current,
 				std::forward<CurMat>(cur)
 			);
 			if constexpr (sizeof...(OtherMats) > 0) {
-				_concat_impl<Current + (_is_rows ? CurMat::num_rows : CurMat::num_columns)>(
+				_concat_impl<Current + (_is_rows ? _num_rows<CurMat>() : _num_cols<CurMat>())>(
 					out, std::forward<OtherMats>(others)...
 				);
 			}
@@ -325,15 +361,15 @@ namespace pbd {
 	public:
 		/// Creates a new matrix by concatenating the given matrices horizontally.
 		template <typename ...Mats> [[nodiscard]] inline static constexpr matrix<
-			_take<Mats::num_rows...>(), _sum<Mats::num_columns...>(), T
+			_take<_num_rows<Mats>()...>(), _sum<_num_cols<Mats>()...>(), T
 		> concat_columns(Mats &&...mats) {
 			constexpr std::size_t
-				_rows = _take<Mats::num_rows...>(),
-				_cols = _sum<Mats::num_columns...>();
+				_rows = _take<_num_rows<Mats>()...>(),
+				_cols = _sum<_num_cols<Mats>()...>();
 			using _mat = matrix<_rows, _cols, T>;
 
 			static_assert(
-				((Mats::num_rows == _rows) && ...),
+				((_num_rows<Mats>() == _rows) && ...),
 				"Arguments contain matrices with different numbers of rows"
 			);
 			_mat result = zero;
@@ -342,20 +378,140 @@ namespace pbd {
 		}
 		/// Creates a new matrix by concatenating the given matrices vertically.
 		template <typename ...Mats> [[nodiscard]] inline static constexpr matrix<
-			_sum<Mats::num_rows...>(), _take<Mats::num_columns...>(), T
+			_sum<_num_rows<Mats>()...>(), _take<_num_cols<Mats>()...>(), T
 		> concat_rows(Mats &&...mats) {
 			constexpr std::size_t
-				_rows = _sum<Mats::num_rows...>(),
-				_cols = _take<Mats::num_columns...>();
+				_rows = _sum<_num_rows<Mats>()...>(),
+				_cols = _take<_num_cols<Mats>()...>();
 			using _mat = matrix<_rows, _cols, T>;
 
 			static_assert(
-				((Mats::num_columns == _cols) && ...),
+				((std::decay_t<Mats>::num_columns == _cols) && ...),
 				"Arguments contain matrices with different numbers of columns"
 			);
 			_mat result = zero;
 			_concat_impl<0>(result, std::forward<Mats>(mats)...);
 			return result;
+		}
+
+		/// Returns the inner product of the two matrices.
+		template <typename Mat> [[nodiscard]] constexpr static typename Mat::value_type inner_product(
+			const Mat &lhs, const Mat &rhs
+		) {
+			auto result = static_cast<typename Mat::value_type>(0);
+			for (std::size_t y = 0; y < Mat::num_rows; ++y) {
+				for (std::size_t x = 0; x < Mat::num_columns; ++x) {
+					result += lhs(y, x) * rhs(y, x);
+				}
+			}
+			return result;
+		}
+
+		/// Shorthand for \ref lup_decomposition::compute().
+		template <std::size_t N> [[nodiscard]] constexpr static lup_decomposition<N, T> lup_decompose(
+			const matrix<N, N, T>&
+		);
+	};
+
+
+	/// LUP decomposition.
+	///
+	/// \sa https://en.wikipedia.org/wiki/LU_decomposition
+	template <std::size_t N, typename T> class lup_decomposition {
+	public:
+		/// No initialization.
+		lup_decomposition(uninitialized_t) {
+		}
+
+		/// Computes the decomposition of the given matrix.
+		[[nodiscard]] constexpr static lup_decomposition compute(const matrix<N, N, T> &mat) {
+			lup_decomposition res(mat);
+			for (std::size_t x = 0; x < N; ++x) {
+				T max = std::abs(res.result_rows(res.permutation[x], x));
+				std::size_t max_id = x;
+				for (std::size_t y = x + 1; y < N; ++y) {
+					if (T cur = std::abs(res.result_rows(res.permutation[y], x)); cur > max) {
+						max = cur;
+						max_id = y;
+					}
+				}
+
+				// TODO check degeneracy
+
+				if (max_id != x) {
+					std::swap(res.permutation[x], res.permutation[max_id]);
+					++res.num_permutations;
+				}
+
+				for (std::size_t y = x + 1; y < N; ++y) {
+					res.result_rows(res.permutation[y], x) /= res.result_rows(res.permutation[x], x);
+					for (std::size_t k = x + 1; k < N; ++k) {
+						res.result_rows(res.permutation[y], k) -=
+							res.result_rows(res.permutation[y], x) * res.result_rows(res.permutation[x], k);
+					}
+				}
+			}
+			return res;
+		}
+
+		/// Inverts the matrix used to compute this decomposition.
+		[[nodiscard]] constexpr matrix<N, N, T> invert() const {
+			matrix<N, N, T> result = zero;
+			for (std::size_t x = 0; x < N; ++x) {
+				for (std::size_t y = 0; y < N; ++y) {
+					if (permutation[y] == x) {
+						result(y, x) = static_cast<T>(1);
+					}
+					for (std::size_t k = 0; k < y; ++k) {
+						result(y, x) -= result_rows(permutation[y], k) * result(k, x);
+					}
+				}
+				for (std::size_t y = N; y > 0; ) {
+					--y;
+					for (std::size_t k = y + 1; k < N; ++k) {
+						result(y, x) -= result_rows(permutation[y], k) * result(k, x);
+					}
+					result(y, x) /= result_rows(permutation[y], y);
+				}
+			}
+			return result;
+		}
+
+		/// Solves the linear system Ax = b where A is the matrix used to compute this decomposition.
+		[[nodiscard]] constexpr matrix<N, 1, T> solve(const matrix<N, 1, T> &rhs) const {
+			matrix<N, 1, T> result = zero;
+			for (std::size_t i = 0; i < N; ++i) {
+				result[i] = rhs[permutation[i]];
+				for (std::size_t k = 0; k < i; ++k) {
+					result[i] -= result_rows(permutation[i], k) * result[k];
+				}
+			}
+			for (std::size_t i = N; i > 0; ) {
+				--i;
+				for (std::size_t k = i + 1; k < N; ++k) {
+					result[i] -= result_rows(permutation[i], k) * result[k];
+				}
+				result[i] /= result_rows(permutation[i], i);
+			}
+			return result;
+		}
+
+		/// Rows of the decomposed matrices. The order of these rows are determined by \ref permutation. Its
+		/// upper-right triangle as well as the diagonal stores the U matrix, and its lower-left triangle stores the
+		/// L matrix without its diagonal. All elements on the diagonal of L are 1.
+		matrix<N, N, T> result_rows = uninitialized;
+		/// Permutation indices. This is the order of the rows in \ref result_rows.
+		matrix<N, 1, std::size_t> permutation = uninitialized;
+		std::size_t num_permutations; ///< Total permutation count, used for determinant computation.
+	protected:
+		/// Initializes this struct as the starting state of decomposition computation for the given matrix.
+		/// Essentially initializes the result to the given matrix without permutation.
+		constexpr explicit lup_decomposition(const matrix<N, N, T> &mat) :
+			result_rows(mat), permutation(zero), num_permutations(N) {
+
+			for (std::size_t i = 1; i < N; ++i) {
+				permutation[i] = i;
+			}
 		}
 	};
 
@@ -383,4 +539,19 @@ namespace pbd {
 
 	using matf = mat<float>; ///< Utilities for matrices of \p float.
 	using matd = mat<double>; ///< Utilities for matrices of \p double.
+
+
+	// implementations
+	template <
+		std::size_t Rows, std::size_t Cols, typename T
+	> constexpr matrix<Rows, Cols, T> matrix<Rows, Cols, T>::inverse() const {
+		return lup_decomposition<Cols, T>::compute(*this).invert();
+	}
+
+
+	template <typename T> template <std::size_t N> constexpr lup_decomposition<N, T> mat<T>::lup_decompose(
+		const matrix<N, N, T> &mat
+	) {
+		return lup_decomposition<N, T>::compute(mat);
+	}
 }

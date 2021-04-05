@@ -6,8 +6,11 @@ find_package(imgui CONFIG REQUIRED)
 
 target_sources(testbed
 	PRIVATE
-		"tests/cloth_test.h"
+		"tests/fem_cloth_test.h"
+		"tests/spring_cloth_test.h"
 
 		"test.h"
-		"testbed.cpp")
+		"testbed.cpp"
+		"utils.cpp"
+		"utils.h")
 target_link_libraries(testbed PRIVATE pbd glfw OpenGL::GL imgui::imgui)

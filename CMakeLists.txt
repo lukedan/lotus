@@ -11,6 +11,9 @@ target_sources(pbd
 	PUBLIC
 		"include/pbd/collision/gjk.h"
 
+		"include/pbd/constraints/face.h"
+		"include/pbd/constraints/spring.h"
+
 		"include/pbd/math/constants.h"
 		"include/pbd/math/matrix.h"
 		"include/pbd/math/quaternion.h"
@@ -20,11 +23,13 @@ target_sources(pbd
 		"include/pbd/shapes/sphere.h"
 
 		"include/pbd/body.h"
+		"include/pbd/camera.h"
+		"include/pbd/common.h"
 		"include/pbd/engine.h"
 	PRIVATE
 		"src/collision/gjk.cpp"
 		
-		"src/body.cpp" "include/pbd/camera.h" "include/pbd/common.h" "include/pbd/constraints/spring.h")
+		"src/body.cpp")
 
 target_include_directories(pbd
 	PUBLIC

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <chrono>
+#include <functional>
 
 #include <GLFW/glfw3.h>
 
@@ -13,8 +14,9 @@
 #include <pbd/math/quaternion.h>
 #include <pbd/camera.h>
 
-#include "test.h"
-#include "tests/cloth_test.h"
+#include "utils.h"
+#include "tests/spring_cloth_test.h"
+#include "tests/fem_cloth_test.h"
 
 constexpr auto mat1 = pbd::mat34d::identity();
 constexpr pbd::mat34d mat2 = pbd::zero;
@@ -23,7 +25,7 @@ constexpr pbd::mat34d mat3{
 	{2.0, 3.0, 4.0, 5.0},
 	{0.0, 1.0, 2.0, 3.0}
 };
-constexpr auto vec1 = pbd::cvec3d::create({ 1.0, 2.0, 3.0 });
+constexpr pbd::cvec3d vec1 = { 1.0, 2.0, 3.0 };
 
 constexpr auto trans = mat1.transposed();
 constexpr auto elem = mat2(2, 1);
@@ -32,6 +34,9 @@ constexpr auto comp = row[2];
 constexpr auto col = trans.column(2);
 constexpr auto block = trans.block<4, 3>(0, 0);
 constexpr auto block2 = trans.block<3, 2>(1, 1);
+
+constexpr auto rows = pbd::matd::concat_rows(vec1.transposed(), block.row(1), row);
+constexpr auto cols = pbd::matd::concat_columns(vec1, mat3.column(1), row.transposed());
 
 constexpr auto mul = mat3 * trans;
 constexpr auto add = mat3 + mat1;
@@ -45,8 +50,14 @@ constexpr auto sqr_norm = vec1.squared_norm();
 constexpr auto dot_prod = pbd::vec::dot(vec1, trans.row(1).transposed());
 
 // doesn't work on MSVC
-/*constexpr auto quat = pbd::quatd::zero();
-constexpr auto quat2 = pbd::quatd::from_wxyz({ 1.0, 2.0, 3.0, 4.0 });
+/*constexpr auto lu_decomp = pbd::matd::lup_decompose(pbd::mat33d({
+	{2.0, -1.0, -2.0},
+	{-4.0, 6.0, 3.0},
+	{-4.0, -2.0, 8.0}
+}));
+
+constexpr auto quat = pbd::quatd::zero();
+constexpr auto quat2 = pbd::quatd::from_wxyz(1.0, 2.0, 3.0, 4.0);
 constexpr auto inv_quat2 = quat2.inverse();
 constexpr auto quat3 = quat2 + inv_quat2;
 constexpr auto quat4 = quat2 - inv_quat2;
@@ -54,17 +65,22 @@ constexpr auto quat4 = quat2 - inv_quat2;
 constexpr auto quat_w = quat.w();
 constexpr auto quat_mag = quat.squared_magnitude();*/
 
-/// A mesh.
-struct mesh {
-	std::vector<pbd::cvec3d> vertices; ///< Vertices of the mesh.
-	std::vector<pbd::cvec3d> normals; ///< Normals of the mesh.
-	std::vector<int> indices; ///< Triangle indices.
-};
 
-/// Returns the vertices on a sphere.
-mesh get_sphere(std::size_t divisions) {
-	return mesh();
-}
+/// Used for selecting and creating tests.
+struct test_creator {
+	/// Returns a \ref test_creator for the given test type.
+	template <typename Test> [[nodiscard]] inline static test_creator get_creator_for() {
+		test_creator result;
+		result.name = std::string(Test::get_name());
+		result.create = []() {
+			return std::make_unique<Test>();
+		};
+		return result;
+	}
+
+	std::string name; ///< The name of this test.
+	std::function<std::unique_ptr<test>()> create;///< Creates a test.
+};
 
 /// The testbed applicaiton.
 class testbed {
@@ -108,12 +124,6 @@ public:
 		});
 
 		_reset_camera();
-
-		_test = std::make_unique<cloth_test>();
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable(GL_DEPTH_TEST);
 	}
 	/// No copy construction.
 	testbed(const testbed&) = delete;
@@ -131,21 +141,64 @@ public:
 		ImGui::NewFrame();
 		ImGui::Begin("Testbed");
 
-		if (ImGui::Button("Reset Camera")) {
-			_reset_camera();
-		}
-		ImGui::Separator();
-
-		if (ImGui::Checkbox("Test Running", &_test_running)) {
-			if (_test_running) {
-				_last_update = std::chrono::high_resolution_clock::now();
+		if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (ImGui::Button("Reset Camera")) {
+				_reset_camera();
 			}
 		}
-		ImGui::SliderFloat("Time Scaling", &_time_scale, 0.0f, 1.0f);
-		ImGui::SliderFloat("Time Step", &_time_step, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
-		if (ImGui::Button("Reset Test")) {
-			_test = std::make_unique<cloth_test>();
-			_test_running = false;
+
+		if (ImGui::CollapsingHeader("Simulation Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (ImGui::BeginCombo(
+				"Test", _test_index < tests.size() ? tests[_test_index].name.c_str() : "Select Test"
+			)) {
+				for (std::size_t i = 0; i < tests.size(); ++i) {
+					bool selected = _test_index == i;
+					if (ImGui::Selectable(tests[i].name.c_str(), &selected)) {
+						_test_index = i;
+						_test_running = false;
+						_test.reset();
+						_test = tests[i].create();
+					}
+				}
+				ImGui::EndCombo();
+			}
+			if (ImGui::Checkbox("Test Running", &_test_running)) {
+				if (_test_running) {
+					_last_update = std::chrono::high_resolution_clock::now();
+				}
+			}
+			ImGui::SliderFloat("Time Scaling", &_time_scale, 0.0f, 100.0f, "%.1f%%");
+			ImGui::SliderFloat("Time Step", &_time_step, 0.001f, 0.1f, "%.3fs", ImGuiSliderFlags_Logarithmic);
+			ImGui::SliderInt("Iterations", &_iters, 1, 100);
+			if (ImGui::Button("Execute Single Time Step")) {
+				if (_test) {
+					_test->timestep(_time_step, _iters);
+				}
+			}
+			if (ImGui::Button("Reset Test")) {
+				_test_running = false;
+				_test.reset();
+				if (_test_index < tests.size()) {
+					_test = tests[_test_index].create();
+				}
+			}
+		}
+
+		if (ImGui::CollapsingHeader("Simulation Statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (_update_truncated) {
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+			}
+			if (_time_scale < 100.0) {
+				ImGui::LabelText(
+					"Simulation Speed", "%5.1f%% x %.1f%% = %5.1f%%",
+					_simulation_speed * 100.0, _time_scale, _simulation_speed * _time_scale
+				);
+			} else {
+				ImGui::LabelText("Simulation Speed", "%5.1f%%", _simulation_speed * 100.0);
+			}
+			if (_update_truncated) {
+				ImGui::PopStyleColor();
+			}
 		}
 
 		ImGui::End();
@@ -155,18 +208,11 @@ public:
 
 	/// Renders all objects.
 	void render() {
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();
-		auto &mat = _camera.projection_view_matrix;
-		GLdouble values[16]{
-			mat(0, 0), mat(1, 0), mat(2, 0), mat(3, 0),
-			mat(0, 1), mat(1, 1), mat(2, 1), mat(3, 1),
-			mat(0, 2), mat(1, 2), mat(2, 2), mat(3, 2),
-			mat(0, 3), mat(1, 3), mat(2, 3), mat(3, 3)
-		};
-		glLoadMatrixd(values);
-
 		glDisable(GL_CULL_FACE);
+		glEnable(GL_NORMALIZE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable(GL_DEPTH_TEST);
 
 		glEnable(GL_COLOR_MATERIAL);
 		glEnable(GL_LIGHTING);
@@ -176,11 +222,16 @@ public:
 		float lightdir[4]{ 0.3, 0.4, 0.5, 0.0 };
 		glLightfv(GL_LIGHT0, GL_POSITION, lightdir);
 
+		glMatrixMode(GL_PROJECTION);
+		set_matrix(_camera.projection_view_matrix);
+		glMatrixMode(GL_MODELVIEW);
+
 		if (_test) {
 			_test->render();
 		}
 
 		// draw ground
+		glLoadIdentity();
 		glColor4d(1.0, 1.0, 0.8, 0.5);
 		glBegin(GL_TRIANGLE_STRIP);
 		glNormal3d(0.0, 0.0, 1.0);
@@ -191,29 +242,52 @@ public:
 		glEnd();
 	}
 
+	/// Updates the simulation.
+	void update() {
+		if (_test_running) {
+			auto now = std::chrono::high_resolution_clock::now();
+			double dt = std::chrono::duration<double>(now - _last_update).count();
+			if (_test) {
+				_update_truncated = false;
+				double target = dt * (_time_scale / 100.0), consumed = 0.0;
+				_time_accum += target;
+				for (; _time_accum >= _time_step; _time_accum -= _time_step, consumed += _time_step) {
+					_test->timestep(_time_step, _iters);
+					auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+						std::chrono::high_resolution_clock::now() - now
+						).count();
+					if (ms > 100) {
+						_update_truncated = true;
+						_time_accum = 0.0;
+						break;
+					}
+				}
+				_simulation_speed = consumed / target;
+			}
+			_last_update = now;
+		}
+	}
+
 	/// The main loop body.
 	[[nodiscard]] bool loop() {
 		if (glfwWindowShouldClose(_wnd)) {
 			return false;
 		}
+
+		update();
+
 		glfwMakeContextCurrent(_wnd);
 		glClearColor(0.5f, 0.7f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		if (_test_running) {
-			auto now = std::chrono::high_resolution_clock::now();
-			double dt = std::chrono::duration<double>(now - _last_update).count();
-			if (_test) {
-				_test->update(dt * _time_scale, _time_step);
-			}
-			_last_update = now;
-		}
 		render();
 		gui();
 
 		glfwSwapBuffers(_wnd);
 		return true;
 	}
+
+	std::vector<test_creator> tests; ///< The list of tests.
 protected:
 	GLFWwindow *_wnd = nullptr; ///< The GLFW window.
 	int
@@ -221,15 +295,22 @@ protected:
 		_height = 600; ///< The height of this window.
 
 	std::unique_ptr<test> _test; ///< The currently active test.
+	std::size_t _test_index = std::numeric_limits<std::size_t>::max(); ///< The test that's currently selected.
 	std::chrono::high_resolution_clock::time_point _last_update; ///< The time when the simulation was last updated.
+	double _time_accum = 0.0; ///< Accumulated time.
+
 	bool _test_running = false; ///< Whether the test is currently running.
-	float _time_scale = 1.0f; ///< Time scaling.
+	float _time_scale = 100.0f; ///< Time scaling.
 	float _time_step = 0.001f; ///< Time step.
+	int _iters = 1; ///< Solver iterations.
+
+	double _simulation_speed = 0.0f; ///< Simulation speed.
+	bool _update_truncated = false; ///< Whether the update was terminated early to prevent locking up.
 
 	pbd::camera_parameters _camera_params = pbd::uninitialized; ///< Camera parameters.
 	pbd::camera _camera = pbd::uninitialized; ///< Camera.
 
-	pbd::cvec2d_t _prev_mouse_position = pbd::uninitialized; ///< Last mouse position.
+	pbd::cvec2d _prev_mouse_position = pbd::uninitialized; ///< Last mouse position.
 	bool _mouse_buttons[8]{}; ///< State of all mouse buttons.
 
 	/// Size changed callback.
@@ -246,7 +327,7 @@ protected:
 	}
 	/// Resets \ref _camera_parameters and \ref _camera.
 	void _reset_camera() {
-		_camera_params = pbd::camera_parameters::create_look_at(pbd::zero, pbd::cvec3d::create({ 6.0, 8.0, 10.0 }));
+		_camera_params = pbd::camera_parameters::create_look_at(pbd::zero, { 6.0, 8.0, 10.0 });
 		_on_size(_width, _height);
 	}
 
@@ -254,7 +335,7 @@ protected:
 	void _on_mouse_move(double x, double y) {
 		bool camera_changed = false;
 
-		auto new_position = pbd::cvec2d::create({ x, y });
+		pbd::cvec2d new_position = { x, y };
 		auto offset = new_position - _prev_mouse_position;
 		if (_mouse_buttons[GLFW_MOUSE_BUTTON_MIDDLE]) {
 			auto offset3 = 0.1 * (_camera.unit_up * offset[1] - _camera.unit_right * offset[0]);
@@ -297,6 +378,8 @@ int main() {
 
 	{
 		testbed tb;
+		tb.tests.emplace_back(test_creator::get_creator_for<spring_cloth_test>());
+		tb.tests.emplace_back(test_creator::get_creator_for<fem_cloth_test>());
 		while (tb.loop()) {
 			glfwPollEvents();
 		}

@@ -30,6 +30,6 @@ namespace pbd {
 			return static_cast<type>(value.index());
 		}
 
-		storage value;
+		storage value; ///< The value of this shape.
 	};
 }

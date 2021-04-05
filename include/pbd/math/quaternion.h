@@ -232,8 +232,8 @@ namespace pbd {
 		}
 
 		/// Returns the rotation axis. This is unnormalized even for unit quaternions.
-		[[nodiscard]] constexpr cvec3_t<T> axis() const {
-			return cvec3<T>::create({ x(), y(), z() });
+		[[nodiscard]] constexpr cvec3<T> axis() const {
+			return { x(), y(), z() };
 		}
 
 		/// Returns the conjugate of this quaternion.

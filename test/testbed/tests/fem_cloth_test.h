@@ -7,7 +7,7 @@
 
 class fem_cloth_test : public test {
 public:
-	constexpr static std::size_t side_segments = 10;
+	constexpr static std::size_t side_segments = 30;
 	constexpr static double cloth_size = 1.0;
 	constexpr static double cloth_mass = 10.0;
 	constexpr static double node_mass = cloth_mass / (side_segments * side_segments);
@@ -18,8 +18,12 @@ public:
 	constexpr static double youngs_modulus_long = 500;
 
 	fem_cloth_test() {
+		_render.engine = &_engine;
+
 		_engine.gravity = { 0.0, 0.0, -10.0 };
 
+		auto &surface = _render.surfaces.emplace_back();
+		surface.color = debug_render::colorf(1.0f, 0.4f, 0.2f, 0.5f);
 		std::size_t pid[side_segments][side_segments];
 		for (std::size_t y = 0; y < side_segments; ++y) {
 			for (std::size_t x = 0; x < side_segments; ++x) {
@@ -39,13 +43,8 @@ public:
 				_add_face(pid[x - 1][y - 1], pid[x - 1][y], pid[x][y - 1]);
 				_add_face(pid[x - 1][y], pid[x][y], pid[x][y - 1]);
 
-				_triangles.emplace_back(pid[x - 1][y - 1]);
-				_triangles.emplace_back(pid[x - 1][y]);
-				_triangles.emplace_back(pid[x][y - 1]);
-
-				_triangles.emplace_back(pid[x][y - 1]);
-				_triangles.emplace_back(pid[x - 1][y]);
-				_triangles.emplace_back(pid[x][y]);
+				surface.triangles.emplace_back(pid[x - 1][y - 1], pid[x - 1][y], pid[x][y - 1]);
+				surface.triangles.emplace_back(pid[x][y - 1], pid[x - 1][y], pid[x][y]);
 			}
 		}
 
@@ -53,6 +52,12 @@ public:
 		sphere.properties = pbd::body_properties::kinematic();
 		sphere.body_shape.value = pbd::shapes::sphere::from_radius(0.25);
 		sphere.state.position = pbd::zero;
+
+		auto &plane = _engine.bodies.emplace_back(pbd::uninitialized);
+		plane.properties = pbd::body_properties::kinematic();
+		plane.body_shape.value.emplace<pbd::shapes::plane>();
+		plane.state.position = pbd::zero;
+		plane.state.rotation = pbd::quatd::identity();
 	}
 
 	void timestep(double dt, std::size_t iterations) override {
@@ -62,57 +67,7 @@ public:
 	}
 
 	void render() override {
-		// compute normals
-		std::vector<pbd::cvec3d> normals(_engine.particles.size(), pbd::zero);
-		for (std::size_t i = 0; i + 2 < _triangles.size(); i += 3) {
-			auto p1 = _engine.particles[_triangles[i]].state.position;
-			auto p2 = _engine.particles[_triangles[i + 1]].state.position;
-			auto p3 = _engine.particles[_triangles[i + 2]].state.position;
-			auto diff = pbd::vec::cross(p2 - p1, p3 - p1);
-			normals[_triangles[i]] += diff;
-			normals[_triangles[i + 1]] += diff;
-			normals[_triangles[i + 2]] += diff;
-		}
-
-		glColor3d(1.0, 0.4, 0.2);
-		glLoadIdentity();
-		glBegin(GL_TRIANGLES);
-		for (std::size_t i = 0; i + 2 < _triangles.size(); i += 3) {
-			auto n1 = normals[_triangles[i]];
-			auto n2 = normals[_triangles[i + 1]];
-			auto n3 = normals[_triangles[i + 2]];
-			auto p1 = _engine.particles[_triangles[i]].state.position;
-			auto p2 = _engine.particles[_triangles[i + 1]].state.position;
-			auto p3 = _engine.particles[_triangles[i + 2]].state.position;
-			glNormal3d(n1[0], n1[1], n1[2]);
-			glVertex3d(p1[0], p1[1], p1[2]);
-			glNormal3d(n2[0], n2[1], n2[2]);
-			glVertex3d(p2[0], p2[1], p2[2]);
-			glNormal3d(n3[0], n3[1], n3[2]);
-			glVertex3d(p3[0], p3[1], p3[2]);
-		}
-		glEnd();
-
-		glColor3d(0.8, 0.8, 0.8);
-		auto p = _engine.bodies[0].state.position;
-		set_matrix({
-			{ 0.5, 0.0, 0.0, p[0] },
-			{ 0.0, 0.5, 0.0, p[1] },
-			{ 0.0, 0.0, 0.5, p[2] },
-			{ 0.0, 0.0, 0.0, 1.0 }
-		});
-		draw_sphere();
-
-		/*glLoadIdentity();
-		glDisable(GL_LIGHTING);
-		glBegin(GL_LINES);
-		for (const pbd::particle &p : _engine.particles) {
-			glColor3d(1.0, 0.0, 0.0);
-			glVertex3d(p.state.position[0], p.state.position[1], p.state.position[2]);
-			glVertex3d(p.state.position[0] + p.force[0], p.state.position[1] + p.force[1], p.state.position[2] + p.force[2]);
-		}
-		glEnd();
-		glEnable(GL_LIGHTING);*/
+		_render.draw();
 	}
 
 	inline static std::string_view get_name() {
@@ -120,7 +75,7 @@ public:
 	}
 protected:
 	pbd::engine _engine;
-	std::vector<std::size_t> _triangles;
+	debug_render _render;
 	double _time = 0.0;
 	double _world_time = 0.0;
 

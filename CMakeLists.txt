@@ -20,7 +20,7 @@ target_sources(pbd
 		"include/pbd/math/vector.h"
 
 		"include/pbd/shapes/shape.h"
-		"include/pbd/shapes/sphere.h"
+		"include/pbd/shapes/simple.h"
 
 		"include/pbd/body.h"
 		"include/pbd/camera.h"
@@ -38,10 +38,10 @@ target_include_directories(pbd
 # set warning level
 if(MSVC)
 	target_compile_options(pbd
-		PRIVATE /W4 /permissive-)
+		PUBLIC /W4 /permissive-)
 elseif(CMAKE_COMPILER_IS_GNUCXX)
 	target_compile_options(pbd
-		PRIVATE -Wall -Wextra -Wconversion)
+		PUBLIC -Wall -Wextra -Wconversion)
 endif()
 
 add_subdirectory("test/")

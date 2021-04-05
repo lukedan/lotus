@@ -27,43 +27,45 @@ constexpr pbd::mat34d mat3{
 };
 constexpr pbd::cvec3d vec1 = { 1.0, 2.0, 3.0 };
 
-constexpr auto trans = mat1.transposed();
-constexpr auto elem = mat2(2, 1);
-constexpr auto row = trans.row(2);
-constexpr auto comp = row[2];
-constexpr auto col = trans.column(2);
-constexpr auto block = trans.block<4, 3>(0, 0);
-constexpr auto block2 = trans.block<3, 2>(1, 1);
+namespace constexpr_test {
+	constexpr auto trans = mat1.transposed();
+	constexpr auto elem = mat2(2, 1);
+	constexpr auto row = trans.row(2);
+	constexpr auto comp = row[2];
+	constexpr auto col = trans.column(2);
+	constexpr auto block = trans.block<4, 3>(0, 0);
+	constexpr auto block2 = trans.block<3, 2>(1, 1);
 
-constexpr auto rows = pbd::matd::concat_rows(vec1.transposed(), block.row(1), row);
-constexpr auto cols = pbd::matd::concat_columns(vec1, mat3.column(1), row.transposed());
+	constexpr auto rows = pbd::matd::concat_rows(vec1.transposed(), block.row(1), row);
+	constexpr auto cols = pbd::matd::concat_columns(vec1, mat3.column(1), row.transposed());
 
-constexpr auto mul = mat3 * trans;
-constexpr auto add = mat3 + mat1;
-constexpr auto sub = mat3 - mat1;
-constexpr auto scale1 = mat3 * 3.0;
-constexpr auto scale2 = 3.0 * mat3;
-constexpr auto scale3 = mat3 / 3.0;
-constexpr auto neg = -mat3;
+	constexpr auto mul = mat3 * trans;
+	constexpr auto add = mat3 + mat1;
+	constexpr auto sub = mat3 - mat1;
+	constexpr auto scale1 = mat3 * 3.0;
+	constexpr auto scale2 = 3.0 * mat3;
+	constexpr auto scale3 = mat3 / 3.0;
+	constexpr auto neg = -mat3;
 
-constexpr auto sqr_norm = vec1.squared_norm();
-constexpr auto dot_prod = pbd::vec::dot(vec1, trans.row(1).transposed());
+	constexpr auto sqr_norm = vec1.squared_norm();
+	constexpr auto dot_prod = pbd::vec::dot(vec1, trans.row(1).transposed());
 
-// doesn't work on MSVC
-/*constexpr auto lu_decomp = pbd::matd::lup_decompose(pbd::mat33d({
-	{2.0, -1.0, -2.0},
-	{-4.0, 6.0, 3.0},
-	{-4.0, -2.0, 8.0}
-}));
+	// doesn't work on MSVC
+	/*constexpr auto lu_decomp = pbd::matd::lup_decompose(pbd::mat33d({
+		{2.0, -1.0, -2.0},
+		{-4.0, 6.0, 3.0},
+		{-4.0, -2.0, 8.0}
+	}));
 
-constexpr auto quat = pbd::quatd::zero();
-constexpr auto quat2 = pbd::quatd::from_wxyz(1.0, 2.0, 3.0, 4.0);
-constexpr auto inv_quat2 = quat2.inverse();
-constexpr auto quat3 = quat2 + inv_quat2;
-constexpr auto quat4 = quat2 - inv_quat2;
+	constexpr auto quat = pbd::quatd::zero();
+	constexpr auto quat2 = pbd::quatd::from_wxyz(1.0, 2.0, 3.0, 4.0);
+	constexpr auto inv_quat2 = quat2.inverse();
+	constexpr auto quat3 = quat2 + inv_quat2;
+	constexpr auto quat4 = quat2 - inv_quat2;
 
-constexpr auto quat_w = quat.w();
-constexpr auto quat_mag = quat.squared_magnitude();*/
+	constexpr auto quat_w = quat.w();
+	constexpr auto quat_mag = quat.squared_magnitude();*/
+}
 
 
 /// Used for selecting and creating tests.
@@ -97,12 +99,12 @@ public:
 
 		glfwSetWindowSizeCallback(_wnd, [](GLFWwindow *wnd, int width, int height) {
 			auto &io = ImGui::GetIO();
-			io.DisplaySize = ImVec2(width, height);
+			io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
 			static_cast<testbed*>(glfwGetWindowUserPointer(wnd))->_on_size(width, height);
 		});
 		glfwSetCursorPosCallback(_wnd, [](GLFWwindow *wnd, double x, double y) {
 			auto &io = ImGui::GetIO();
-			io.MousePos = ImVec2(x, y);
+			io.MousePos = ImVec2(static_cast<float>(x), static_cast<float>(y));
 			if (!io.WantCaptureMouse) {
 				static_cast<testbed*>(glfwGetWindowUserPointer(wnd))->_on_mouse_move(x, y);
 			}
@@ -116,8 +118,8 @@ public:
 		});
 		glfwSetScrollCallback(_wnd, [](GLFWwindow *wnd, double xoff, double yoff) {
 			auto &io = ImGui::GetIO();
-			io.MouseWheel += yoff;
-			io.MouseWheelH += xoff;
+			io.MouseWheel += static_cast<float>(yoff);
+			io.MouseWheelH += static_cast<float>(xoff);
 			if (!io.WantCaptureMouse) {
 				static_cast<testbed*>(glfwGetWindowUserPointer(wnd))->_on_mouse_scroll(xoff, yoff);
 			}
@@ -219,27 +221,16 @@ public:
 		glEnable(GL_LIGHT0);
 		glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
 		glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-		float lightdir[4]{ 0.3, 0.4, 0.5, 0.0 };
+		float lightdir[4]{ 0.3f, 0.4f, 0.5f, 0.0f };
 		glLightfv(GL_LIGHT0, GL_POSITION, lightdir);
 
 		glMatrixMode(GL_PROJECTION);
-		set_matrix(_camera.projection_view_matrix);
-		glMatrixMode(GL_MODELVIEW);
+		debug_render::set_matrix(_camera.projection_view_matrix);
 
+		glMatrixMode(GL_MODELVIEW);
 		if (_test) {
 			_test->render();
 		}
-
-		// draw ground
-		glLoadIdentity();
-		glColor4d(1.0, 1.0, 0.8, 0.5);
-		glBegin(GL_TRIANGLE_STRIP);
-		glNormal3d(0.0, 0.0, 1.0);
-		glVertex3d(-10.0, -10.0, 0.0);
-		glVertex3d(10.0, -10.0, 0.0);
-		glVertex3d(-10.0, 10.0, 0.0);
-		glVertex3d(10.0, 10.0, 0.0);
-		glEnd();
 	}
 
 	/// Updates the simulation.
@@ -361,11 +352,11 @@ protected:
 		}
 	}
 	/// Mouse button callback.
-	void _on_mouse_button(int button, int action, int mods) {
+	void _on_mouse_button(int button, int action, [[maybe_unused]] int mods) {
 		_mouse_buttons[button] = action == GLFW_PRESS;
 	}
 	/// Mouse scroll callback.
-	void _on_mouse_scroll(double xoff, double yoff) {
+	void _on_mouse_scroll([[maybe_unused]] double xoff, double yoff) {
 		_camera_params.position += _camera.unit_forward * yoff;
 		_camera = pbd::camera::from_parameters(_camera_params);
 	}

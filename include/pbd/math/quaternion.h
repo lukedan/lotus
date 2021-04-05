@@ -222,19 +222,29 @@ namespace pbd {
 		}
 
 
+		// properties
 		/// Returns the squared magnitude of this quaternion.
 		[[nodiscard]] constexpr T squared_magnitude() const {
-			return _x * _x + _y * _y + _z * _z + _w * _w;
+			if constexpr (Kind == quaternion_kind::unit) {
+				return static_cast<T>(1);
+			} else {
+				return _x * _x + _y * _y + _z * _z + _w * _w;
+			}
 		}
 		/// Returns the square root of \ref squared_magnitude().
 		[[nodiscard]] constexpr T magnitude() const {
-			return std::sqrt(squared_magnitude());
+			if constexpr (Kind == quaternion_kind::unit) {
+				return static_cast<T>(1);
+			} else {
+				return std::sqrt(squared_magnitude());
+			}
 		}
 
 		/// Returns the rotation axis. This is unnormalized even for unit quaternions.
 		[[nodiscard]] constexpr cvec3<T> axis() const {
 			return { x(), y(), z() };
 		}
+
 
 		/// Returns the conjugate of this quaternion.
 		[[nodiscard]] constexpr quaternion conjugate() const {
@@ -249,10 +259,35 @@ namespace pbd {
 			return result;
 		}
 
+		/// Returns the corresponding rotation matrix.
+		[[nodiscard]] constexpr matrix<3, 3, T> into_matrix() const {
+			auto xx = x() * x();
+			auto yy = y() * y();
+			auto zz = z() * z();
+			
+			auto xy = x() * y();
+			auto xz = x() * z();
+			auto yz = y() * z();
+
+			auto xw = x() * w();
+			auto yw = y() * w();
+			auto zw = z() * w();
+
+			T s = static_cast<T>(2);
+			if constexpr (Kind == quaternion_kind::arbitrary) {
+				s /= squared_magnitude();
+			}
+			return {
+				{ 1 - s * (yy + zz), s * (xy - zw),     s * (xz + yw)     },
+				{ s * (xy + zw),     1 - s * (xx + zz), s * (yz - xw)     },
+				{ s * (xz - yw),     s * (yz + xw),     1 - s * (xx + yy) }
+			};
+		}
+
 		/// Rotates a vector.
 		template <typename Vec> [[nodiscard]] constexpr std::enable_if_t<Vec::dimensionality == 3, Vec> rotate(
 			const Vec &v
-		) {
+		) const {
 			auto result = *this * quaternion<T, quaternion_kind::arbitrary>::from_vector(v) * inverse();
 			return result.axis();
 		}
@@ -275,6 +310,11 @@ namespace pbd {
 	template <typename T> struct quat {
 		using quaternion_t = quaternion<T>; ///< Arbitrary quaternions.
 		using unit_quaternion_t = unit_quaternion<T>; ///< Unit quaternions.
+
+		/// Returns the identity unit quaternion.
+		[[nodiscard]] inline static constexpr unit_quaternion_t identity() {
+			return unit_quaternion_t(static_cast<T>(1), static_cast<T>(0), static_cast<T>(0), static_cast<T>(0));
+		}
 
 		/// Creates a quaternion from the given normalized axis and rotation angle.
 		template <typename Vec> [[nodiscard]] inline static constexpr std::enable_if_t<

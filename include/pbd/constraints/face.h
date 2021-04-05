@@ -7,6 +7,11 @@
 
 namespace pbd::constraints {
 	/// An elastic triangular face.
+	///
+	/// \sa Bender et al., Position-Based Simulation of Continuous Materials
+	/// \sa Servin et al., Interactive Simulation of Elastic Deformable Materials
+	/// \sa Pfaff et al., Adaptive Tearing and Cracking of Thin Sheets
+	/// \sa Sifakis, FEM Simulation of 3D Deformable Solids: A practitioner's guide to theory, discretization and model reduction
 	struct face {
 		/// Properties of this face.
 		struct constraint_properties {
@@ -55,7 +60,9 @@ namespace pbd::constraints {
 				cvec3d p1, cvec3d p2, cvec3d p3, double thickness
 			) {
 				constraint_state result = uninitialized;
-				result.thickness = thickness;
+
+				result.prev_delta_lambda = zero;
+
 				cvec3d d1 = p2 - p1;
 				cvec3d d2 = p3 - p1;
 				cvec3d normal = vec::cross(d1, d2);
@@ -63,14 +70,22 @@ namespace pbd::constraints {
 				normal /= area2;
 				mat33d configuration = matd::concat_columns(d1, d2, normal);
 				result.inverse_configuration = configuration.inverse();
+				result.thickness = thickness;
 				result.area = 0.5 * area2;
+				
 				return result;
 			}
 
 			/// Inverse configuration matrix of this face, used for deformation gradient computation.
 			mat33d inverse_configuration = uninitialized;
+			matrix<6, 1, double> prev_delta_lambda = uninitialized; ///< Lambda deltas of the previous projection step.
 			double thickness; ///< Sheet thickness.
 			double area; ///< Undeformed surface area.
+		};
+		/// Determines how this constraint is projected.
+		enum class projection_type {
+			exact, ///< It's projected exactly by inverting the matrix.
+			gauss_seidel ///< It's projected approximately using one iteration of Gauss-Seidel.
 		};
 
 		/// No initialization.
@@ -81,7 +96,8 @@ namespace pbd::constraints {
 		void project(
 			cvec3d &p1, cvec3d &p2, cvec3d &p3,
 			double inv_m1, double inv_m2, double inv_m3,
-			double inv_dt2, column_vector<6, double> &lambda
+			double inv_dt2, column_vector<6, double> &lambda,
+			projection_type proj_type = projection_type::gauss_seidel
 		) {
 			cvec3d d1 = p2 - p1;
 			cvec3d d2 = p3 - p1;
@@ -104,40 +120,55 @@ namespace pbd::constraints {
 			column_vector<6, double> c(g(0, 0), g(1, 1), g(2, 2), g(0, 1), g(0, 2), g(1, 2));
 			c *= sqrt_vol;
 
-			mat33d f2 = f * sqrt_vol;
-			mat33d dc_df[6] = {
-				matd::concat_columns(f2.column(0), cvec3d(zero), cvec3d(zero)),
-				matd::concat_columns(cvec3d(zero), f2.column(1), cvec3d(zero)),
-				matd::concat_columns(cvec3d(zero), cvec3d(zero), f2.column(2)),
-				matd::concat_columns(0.5 * f2.column(1), 0.5 * f2.column(0), cvec3d(zero)),
-				matd::concat_columns(0.5 * f2.column(2), cvec3d(zero), 0.5 * f2.column(0)),
-				matd::concat_columns(cvec3d(zero), 0.5 * f2.column(2), 0.5 * f2.column(1))
-			};
 			mat33d df_dx = matd::concat_rows(
 				-(state.inverse_configuration.row(0) + state.inverse_configuration.row(1)),
 				state.inverse_configuration.row(0),
 				state.inverse_configuration.row(1)
 			).transposed();
+			mat33d f2_t = (f * sqrt_vol).transposed();
+			mat33d f2_t_half = 0.5 * f2_t;
 			matrix<6, 9, double> dep_dx = uninitialized;
-			for (std::size_t y = 0; y < 6; ++y) {
-				mat33d m = dc_df[y] * df_dx;
-				dep_dx.set_block(y, 0, m.column(0).transposed());
-				dep_dx.set_block(y, 3, m.column(1).transposed());
-				dep_dx.set_block(y, 6, m.column(2).transposed());
+			dep_dx.set_block(0, 0, matd::kronecker_product(df_dx.row(0), f2_t.row(0)));
+			dep_dx.set_block(1, 0, matd::kronecker_product(df_dx.row(1), f2_t.row(1)));
+			dep_dx.set_block(2, 0, matd::kronecker_product(df_dx.row(2), f2_t.row(2)));
+			dep_dx.set_block(
+				3, 0,
+				matd::kronecker_product(df_dx.row(0), f2_t_half.row(1)) +
+				matd::kronecker_product(df_dx.row(1), f2_t_half.row(0))
+			);
+			dep_dx.set_block(
+				4, 0,
+				matd::kronecker_product(df_dx.row(0), f2_t_half.row(2)) +
+				matd::kronecker_product(df_dx.row(2), f2_t_half.row(0))
+			);
+			dep_dx.set_block(
+				5, 0,
+				matd::kronecker_product(df_dx.row(1), f2_t_half.row(2)) +
+				matd::kronecker_product(df_dx.row(2), f2_t_half.row(1))
+			);
+			matrix<9, 6, double> dep_dx_t_over_m = dep_dx.transposed();
+			for (std::size_t y = 0; y < 3; ++y) {
+				for (std::size_t x = 0; x < 6; ++x) {
+					dep_dx_t_over_m(y, x) *= inv_m1;
+					dep_dx_t_over_m(y + 3, x) *= inv_m2;
+					dep_dx_t_over_m(y + 6, x) *= inv_m3;
+				}
 			}
 
-			matrix<6, 6, double> alpha_hat = properties.inverse_stiffness * inv_dt2;
-			matrix<9, 9, double> inv_m = zero;
-			for (std::size_t i = 0; i < 3; ++i) {
-				inv_m(i, i) = inv_m1;
-				inv_m(i + 3, i + 3) = inv_m2;
-				inv_m(i + 6, i + 6) = inv_m3;
+			auto lhs =
+				matd::multiply_into_symmetric(dep_dx, dep_dx_t_over_m) +
+				properties.inverse_stiffness * inv_dt2;
+			auto rhs = -(c + properties.inverse_stiffness * (lambda * inv_dt2));
+			matrix<6, 1, double> delta_lambda = uninitialized;
+			if (proj_type == projection_type::exact) {
+				delta_lambda = matd::lup_decompose(lhs).solve(rhs);
+			} else {
+				delta_lambda = state.prev_delta_lambda;
+				gauss_seidel::iterate(lhs, rhs, delta_lambda);
+				state.prev_delta_lambda = delta_lambda;
 			}
 
-			auto lhs = dep_dx * inv_m * dep_dx.transposed() + alpha_hat;
-			auto rhs = -(c + alpha_hat * lambda);
-			auto delta_lambda = matd::lup_decompose(lhs).solve(rhs);
-			auto delta_x = inv_m * dep_dx.transposed() * delta_lambda;
+			auto delta_x = dep_dx_t_over_m * delta_lambda;
 			lambda += delta_lambda;
 			p1 += r_t * delta_x.block<3, 1>(0, 0);
 			p2 += r_t * delta_x.block<3, 1>(3, 0);

@@ -6,7 +6,7 @@
 
 #include <pbd/math/constants.h>
 
-void set_matrix(pbd::mat44d mat) {
+void debug_render::set_matrix(pbd::mat44d mat) {
 	GLdouble values[16]{
 		mat(0, 0), mat(1, 0), mat(2, 0), mat(3, 0),
 		mat(0, 1), mat(1, 1), mat(2, 1), mat(3, 1),
@@ -16,7 +16,11 @@ void set_matrix(pbd::mat44d mat) {
 	glLoadMatrixd(values);
 }
 
-void draw_sphere() {
+void debug_render::set_color(colorf color) {
+	glColor4f(color[0], color[1], color[2], color[3]);
+}
+
+void debug_render::draw_sphere() {
 	constexpr std::size_t _z_slices = 10;
 	constexpr std::size_t _xy_slices = 30;
 	constexpr double _z_slice_angle = pbd::pi / _z_slices;
@@ -73,4 +77,77 @@ void draw_sphere() {
 		glVertex3d(p3[0], p3[1], p3[2]);
 	}
 	glEnd();
+}
+
+void debug_render::draw() const {
+	for (std::size_t i = 0; i < engine->bodies.size(); ++i) {
+		const auto &body = engine->bodies[i];
+
+		set_color(i < object_colors.size() ? object_colors[i] : colorf(1.0f, 1.0f, 1.0f, 1.0f));
+
+		auto mat = pbd::mat44d::identity();
+		mat.set_block(0, 0, body.state.rotation.into_matrix());
+		mat.set_block(0, 3, body.state.position);
+		set_matrix(mat);
+
+		std::visit(
+			[&](const auto &shape) {
+				draw_body(shape);
+			},
+			body.body_shape.value
+		);
+	}
+
+	glLoadIdentity();
+	std::vector<pbd::cvec3d> normals(engine->particles.size(), pbd::uninitialized);
+	for (const auto &surface : surfaces) {
+		// compute normals
+		std::fill(normals.begin(), normals.end(), pbd::zero);
+		for (const auto &tri : surface.triangles) {
+			auto p1 = engine->particles[tri[0]].state.position;
+			auto p2 = engine->particles[tri[1]].state.position;
+			auto p3 = engine->particles[tri[2]].state.position;
+			auto diff = pbd::vec::cross(p2 - p1, p3 - p1);
+			normals[tri[0]] += diff;
+			normals[tri[1]] += diff;
+			normals[tri[2]] += diff;
+		}
+
+		set_color(surface.color);
+		glBegin(GL_TRIANGLES);
+		for (const auto &tri : surface.triangles) {
+			auto n1 = normals[tri[0]];
+			auto n2 = normals[tri[1]];
+			auto n3 = normals[tri[2]];
+			auto p1 = engine->particles[tri[0]].state.position;
+			auto p2 = engine->particles[tri[1]].state.position;
+			auto p3 = engine->particles[tri[2]].state.position;
+			glNormal3d(n1[0], n1[1], n1[2]);
+			glVertex3d(p1[0], p1[1], p1[2]);
+			glNormal3d(n2[0], n2[1], n2[2]);
+			glVertex3d(p2[0], p2[1], p2[2]);
+			glNormal3d(n3[0], n3[1], n3[2]);
+			glVertex3d(p3[0], p3[1], p3[2]);
+		}
+		glEnd();
+	}
+}
+
+void debug_render::draw_body(const pbd::shapes::plane&) {
+	glBegin(GL_TRIANGLE_STRIP);
+	glNormal3f(0.0f, 0.0f, 1.0f);
+	
+	glVertex3f(-100.0f, -100.0f, 0.0f);
+	glVertex3f(100.0f, -100.0f, 0.0f);
+	glVertex3f(-100.0f, 100.0f, 0.0f);
+	glVertex3f(100.0f, 100.0f, 0.0f);
+
+	glEnd();
+}
+
+void debug_render::draw_body(const pbd::shapes::sphere &sphere) {
+	glPushMatrix();
+	glScaled(2.0 * sphere.radius, 2.0 * sphere.radius, 2.0 * sphere.radius);
+	draw_sphere();
+	glPopMatrix();
 }

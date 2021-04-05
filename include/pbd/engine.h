@@ -62,14 +62,14 @@ namespace pbd {
 			for (std::size_t i = 0; i < iters; ++i) {
 				// handle collisions
 				for (const body &b : bodies) {
-					if (b.properties.inverse_mass == 0.0 && b.body_shape.get_type() == shape::type::sphere) {
-						const auto &sphere = std::get<shapes::sphere>(b.body_shape.value);
+					if (b.properties.inverse_mass == 0.0) {
 						for (particle &p : particles) {
-							auto diff = p.state.position - b.state.position;
-							double sqr_dist = diff.squared_norm();
-							if (sqr_dist < sphere.radius * sphere.radius) {
-								p.state.position = b.state.position + diff * (sphere.radius / std::sqrt(sqr_dist));
-							}
+							std::visit(
+								[&](const auto &shape) {
+									_handle_shape_particle_collision(shape, b.state, p.state.position);
+								},
+								b.body_shape.value
+							);
 						}
 					}
 				}
@@ -115,5 +115,26 @@ namespace pbd {
 		std::vector<column_vector<6, double>> face_lambdas; ///< Lambda values for all face constraints.
 
 		cvec3d gravity = zero; ///< Gravity.
+	protected:
+		/// Handles the collision between a plane and a particle.
+		bool _handle_shape_particle_collision(const shapes::plane&, const body_state &state, cvec3d &pos) {
+			cvec3d plane_pos = state.rotation.inverse().rotate(pos - state.position);
+			if (plane_pos[2] < 0.0) {
+				plane_pos[2] = 0.0;
+				pos = state.rotation.rotate(plane_pos) + state.position;
+				return true;
+			}
+			return false;
+		}
+		/// Handles the collision between a kinematic sphere and a particle.
+		bool _handle_shape_particle_collision(const shapes::sphere &shape, const body_state &state, cvec3d &pos) {
+			auto diff = pos - state.position;
+			double sqr_dist = diff.squared_norm();
+			if (sqr_dist < shape.radius * shape.radius) {
+				pos = state.position + diff * (shape.radius / std::sqrt(sqr_dist));
+				return true;
+			}
+			return false;
+		}
 	};
 }

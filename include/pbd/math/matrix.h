@@ -44,8 +44,8 @@ namespace pbd {
 		template <
 			typename ...Args, typename Dummy = int,
 			std::enable_if_t<sizeof...(Args) == dimensionality && (Rows == 1 || Cols == 1), Dummy> = 0
-		> constexpr matrix(Args &&...data) :
-			matrix(std::make_index_sequence<dimensionality>(), std::forward<Args>(data)...) {
+		> constexpr matrix(Args &&...data) : matrix(zero) {
+			_fill_vector(*this, std::make_index_sequence<dimensionality>(), std::forward<Args>(data)...);
 		}
 		/// Default move constructor.
 		constexpr matrix(matrix&&) = default;
@@ -65,13 +65,9 @@ namespace pbd {
 			return result;
 		}
 		/// Returns a diagonal matrix with the given values on its diagonal.
-		[[nodiscard]] inline static constexpr matrix diagonal(std::initializer_list<T> diag) {
-			assert(diag.size() == std::min(Rows, Cols));
+		template <typename ...Args> [[nodiscard]] inline static constexpr matrix diagonal(Args &&...args) {
 			matrix result = zero;
-			std::size_t i = 0;
-			for (auto it = diag.begin(); it != diag.end(); ++i, ++it) {
-				result(i, i) = std::move(*it);
-			}
+			_fill_diagonal(result, std::make_index_sequence<std::min(Rows, Cols)>(), std::forward<Args>(args)...);
 			return result;
 		}
 
@@ -147,6 +143,8 @@ namespace pbd {
 		> [[nodiscard]] constexpr matrix<RowCount, ColCount, T> block(
 			std::size_t row_start, std::size_t col_start
 		) const {
+			assert(row_start + RowCount <= Rows);
+			assert(col_start + ColCount <= Cols);
 			matrix<RowCount, ColCount, T> result = zero;
 			for (std::size_t srcy = row_start, dsty = 0; dsty < RowCount; ++srcy, ++dsty) {
 				for (std::size_t srcx = col_start, dstx = 0; dstx < ColCount; ++srcx, ++dstx) {
@@ -158,7 +156,7 @@ namespace pbd {
 
 		/// Sets a submatrix to the given value.
 		template <std::size_t RowCount, std::size_t ColCount> constexpr void set_block(
-			std::size_t row_start, std::size_t col_start, const matrix<RowCount, ColCount, T> &mat
+			std::size_t row_start, std::size_t col_start, matrix<RowCount, ColCount, T> mat
 		) {
 			assert(row_start + RowCount <= Rows);
 			assert(col_start + ColCount <= Cols);
@@ -189,12 +187,19 @@ namespace pbd {
 
 		std::array<std::array<T, Cols>, Rows> elements; ///< The elements of this matrix.
 	protected:
-		/// Initializes this matrix as a vector.
-		template <typename ...Args, std::size_t ...Is> constexpr matrix(
-			std::index_sequence<Is...>, Args &&...args
-		) : elements{} {
+		/// Fills this matrix as a vector.
+		template <typename ...Args, std::size_t ...Is> constexpr static void _fill_vector(
+			matrix &m, std::index_sequence<Is...>, Args &&...args
+		) {
 			static_assert(sizeof...(Args) == dimensionality, "incorrect number of dimensions");
-			(((*this)[Is] = std::forward<Args>(args)), ...);
+			((m[Is] = std::forward<Args>(args)), ...);
+		}
+		/// Fills this matrix's diagonal.
+		template <typename ...Args, std::size_t ...Is> constexpr static void _fill_diagonal(
+			matrix &m, std::index_sequence<Is...>, Args &&...args
+		) {
+			static_assert(sizeof...(Args) == std::min(Rows, Cols), "incorrect number of diagonal entries");
+			((m(Is, Is) = std::forward<Args>(args)), ...);
 		}
 	};
 
@@ -394,6 +399,28 @@ namespace pbd {
 			return result;
 		}
 
+		// products
+		/// Kronecker product.
+		template <
+			std::size_t M1, std::size_t N1, std::size_t M2, std::size_t N2
+		> constexpr static matrix<M1 * M2, N1 * N2, T> kronecker_product(
+			const matrix<M1, N1, T> &lhs, const matrix<M2, N2, T> &rhs
+		) {
+			matrix<M1 * M2, N1 * N2, T> result = zero;
+			std::size_t y = 0;
+			for (std::size_t y1 = 0; y1 < M1; ++y1) {
+				for (std::size_t y2 = 0; y2 < M2; ++y2, ++y) {
+					std::size_t x = 0;
+					for (std::size_t x1 = 0; x1 < N1; ++x1) {
+						for (std::size_t x2 = 0; x2 < N2; ++x2, ++x) {
+							result(y, x) = lhs(y1, x1) * rhs(y2, x2);
+						}
+					}
+				}
+			}
+			return result;
+		}
+
 		/// Returns the inner product of the two matrices.
 		template <typename Mat> [[nodiscard]] constexpr static typename Mat::value_type inner_product(
 			const Mat &lhs, const Mat &rhs
@@ -407,10 +434,34 @@ namespace pbd {
 			return result;
 		}
 
+		// decomposition
 		/// Shorthand for \ref lup_decomposition::compute().
 		template <std::size_t N> [[nodiscard]] constexpr static lup_decomposition<N, T> lup_decompose(
 			const matrix<N, N, T>&
 		);
+
+		// hax
+		/// Computes the product of the two matrices, but only the upper-right triangle; then mirrors the upper-right
+		/// triangle to the bottom-left triangle. This is used for accelerating matrix products that will produce
+		/// symmetric matrices.
+		template <
+			std::size_t M, std::size_t N
+		> [[nodiscard]] constexpr static matrix<M, M, T> multiply_into_symmetric(
+			const matrix<M, N, T> &lhs, const matrix<N, M, T> &rhs
+		) {
+			matrix<M, M, T> result = zero;
+			for (std::size_t y = 0; y < M; ++y) {
+				for (std::size_t x = 0; x < y; ++x) {
+					result(y, x) = result(x, y);
+				}
+				for (std::size_t x = y; x < M; ++x) {
+					for (std::size_t k = 0; k < N; ++k) {
+						result(y, x) += lhs(y, k) * rhs(k, x);
+					}
+				}
+			}
+			return result;
+		}
 	};
 
 
@@ -511,6 +562,27 @@ namespace pbd {
 
 			for (std::size_t i = 1; i < N; ++i) {
 				permutation[i] = i;
+			}
+		}
+	};
+
+
+	/// A Gauss-Seidel solver.
+	class gauss_seidel {
+	public:
+		/// Performs one Gauss-Seidel iteration. This function modifies the result vector in-place.
+		template <std::size_t N, typename T> constexpr static void iterate(
+			const matrix<N, N, T> &lhs, const matrix<N, 1, T> &rhs, matrix<N, 1, T> &result
+		) {
+			for (std::size_t i = 0; i < N; ++i) {
+				result[i] = rhs[i];
+				for (std::size_t j = 0; j < i; ++j) {
+					result[i] -= lhs(i, j) * result[j];
+				}
+				for (std::size_t j = i + 1; j < N; ++j) {
+					result[i] -= lhs(i, j) * result[j];
+				}
+				result[i] /= lhs(i, i);
 			}
 		}
 	};

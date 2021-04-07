@@ -3,7 +3,9 @@
 /// \file
 /// A finite-element face.
 
-#include "../common.h"
+#include "pbd/common.h"
+#include "pbd/math/matrix.h"
+#include "pbd/math/vector.h"
 
 namespace pbd::constraints {
 	/// An elastic triangular face.

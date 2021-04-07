@@ -11,6 +11,7 @@ target_sources(pbd
 	PUBLIC
 		"include/pbd/collision/gjk.h"
 
+		"include/pbd/constraints/bend.h"
 		"include/pbd/constraints/face.h"
 		"include/pbd/constraints/spring.h"
 

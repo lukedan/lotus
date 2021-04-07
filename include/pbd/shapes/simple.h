@@ -3,9 +3,9 @@
 /// \file
 /// Simple shapes.
 
-#include "../math/constants.h"
-#include "../math/vector.h"
-#include "../body.h"
+#include "pbd/math/constants.h"
+#include "pbd/math/vector.h"
+#include "pbd/body.h"
 
 namespace pbd::shapes {
 	/// A sphere centered at the origin.

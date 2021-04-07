@@ -6,7 +6,7 @@
 #include <cassert>
 #include <type_traits>
 
-#include "vector.h"
+#include "pbd/math/vector.h"
 
 namespace pbd {
 	/// Whether this quaternion is a unit quaternion.
@@ -15,11 +15,12 @@ namespace pbd {
 		unit ///< Unit quaternion with a magnitude of 1.
 	};
 
-	template <typename T> struct quat;
+	struct quat;
 
 	/// A quaternion.
 	template <typename T, quaternion_kind Kind = quaternion_kind::arbitrary> struct quaternion {
-		friend quat<T>;
+		friend quat;
+		friend quaternion<T, quaternion_kind::arbitrary>;
 	public:
 		using value_type = T; ///< Value type.
 		constexpr static quaternion_kind kind = Kind; ///< Whether this quaternion is a unit quaternion.
@@ -47,11 +48,17 @@ namespace pbd {
 		constexpr quaternion &operator=(const quaternion&) = default;
 
 		/// Creates a quaternion using the given elements.
-		[[nodiscard]] inline static constexpr quaternion from_wxyz(T w, T x, T y, T z) {
+		template <
+			typename Dummy = std::enable_if_t<Kind == quaternion_kind::arbitrary, int>, Dummy = 0
+		> [[nodiscard]] constexpr static quaternion from_wxyz(T w, T x, T y, T z) {
 			return quaternion(std::move(w), std::move(x), std::move(y), std::move(z));
 		}
+		/// Returns the identity quaternion.
+		[[nodiscard]] constexpr static quaternion<T, quaternion_kind::unit> identity() {
+			return quaternion<T, quaternion_kind::unit>(1, 0, 0, 0);
+		}
 		/// Creates a quaternion using the given 3D vector for X, Y, and Z, leaving W empty.
-		template <typename Vec> [[nodiscard]] inline static constexpr std::enable_if_t<
+		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
 			Vec::dimensionality == 3 && Kind == quaternion_kind::arbitrary, quaternion
 		> from_vector(const Vec &v) {
 			return from_wxyz(static_cast<T>(0), v[0], v[1], v[2]);
@@ -305,44 +312,32 @@ namespace pbd {
 	};
 	template <typename T> using unit_quaternion = quaternion<T, quaternion_kind::unit>; ///< Unit quaternions.
 
+	using quatf = quaternion<float>; ///< Shorthand for quaternions of \p float.
+	using quatd = quaternion<double>; ///< Shorthand for quaternions of \p double.
+
+	using uquatf = unit_quaternion<float>; ///< Shorthand for unit quaternions of \p float.
+	using uquatd = unit_quaternion<double>; ///< Shorthand for unit quaternions of \p double.
+
 
 	/// Quaternion utilities.
-	template <typename T> struct quat {
-		using quaternion_t = quaternion<T>; ///< Arbitrary quaternions.
-		using unit_quaternion_t = unit_quaternion<T>; ///< Unit quaternions.
-
-		/// Returns the identity unit quaternion.
-		[[nodiscard]] inline static constexpr unit_quaternion_t identity() {
-			return unit_quaternion_t(static_cast<T>(1), static_cast<T>(0), static_cast<T>(0), static_cast<T>(0));
-		}
-
+	struct quat {
 		/// Creates a quaternion from the given normalized axis and rotation angle.
 		template <typename Vec> [[nodiscard]] inline static constexpr std::enable_if_t<
-			Vec::dimensionality == 3, unit_quaternion_t
-		> from_normalized_axis_angle(const Vec &axis, T angle) {
-			angle /= static_cast<T>(2);
-			T w = std::cos(angle);
-			T sin_half = std::sin(angle);
-			return unit_quaternion_t(w, sin_half * axis[0], sin_half * axis[1], sin_half * axis[2]);
+			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
+		> from_normalized_axis_angle(const Vec &axis, typename Vec::value_type angle) {
+			using _type = typename Vec::value_type;
+
+			angle /= static_cast<_type>(2);
+			_type w = std::cos(angle);
+			_type sin_half = std::sin(angle);
+			return unit_quaternion<_type>(w, sin_half * axis[0], sin_half * axis[1], sin_half * axis[2]);
 		}
 		/// Creates a quaternion from the given axis and rotation angle. This function calls
 		/// \ref vec::unsafe_normalize() to normalize the rotation axis; use \ref 
 		template <typename Vec> [[nodiscard]] inline static constexpr std::enable_if_t<
-			Vec::dimensionality == 3, unit_quaternion_t
-		> from_axis_angle(const Vec &axis, T angle) {
+			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
+		> from_axis_angle(const Vec &axis, typename Vec::value_type angle) {
 			return from_normalized_axis_angle(vec::unsafe_normalize(axis), std::move(angle));
 		}
 	};
-
-	using quatf = quat<float>; ///< Utilities for quaternions of \p float.
-	using quatd = quat<double>; ///< Utilities for quaternions of \p double.
-
-
-	template <typename T> using quat_t = quaternion<T>; ///< Shorthand for \ref quaternion.
-	using quatf_t = quat_t<float>; ///< Shorthand for quaternions of \p float.
-	using quatd_t = quat_t<double>; ///< Shorthand for quaternions of \p double.
-
-	template <typename T> using uquat_t = unit_quaternion<T>; ///< Shorthand for \ref unit_quaternion.
-	using uquatf_t = uquat_t<float>; ///< Shorthand for unit quaternions of \p float.
-	using uquatd_t = uquat_t<double>; ///< Shorthand for unit quaternions of \p double.
 }

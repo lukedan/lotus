@@ -3,7 +3,9 @@
 /// \file
 /// Spring constraints.
 
-#include "../common.h"
+#include "pbd/common.h"
+#include "pbd/math/matrix.h"
+#include "pbd/math/vector.h"
 
 namespace pbd::constraints {
 	/// A constraint that follows the Hooke's law.

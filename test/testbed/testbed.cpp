@@ -144,6 +144,10 @@ public:
 		ImGui::Begin("Testbed");
 
 		if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::SliderFloat("Rotation Sensitivity", &_rotation_sensitivity, 0.0f, 0.01f);
+			ImGui::SliderFloat("Move Sensitivity", &_move_sensitivity, 0.0f, 0.1f);
+			ImGui::SliderFloat("Zoom Sensitivity", &_zoom_sensitivity, 0.0f, 0.01f);
+			ImGui::SliderFloat("Scroll Sensitivity", &_scroll_sensitivity, 0.0f, 2.0f);
 			if (ImGui::Button("Reset Camera")) {
 				_reset_camera();
 			}
@@ -298,6 +302,11 @@ protected:
 	double _simulation_speed = 0.0f; ///< Simulation speed.
 	bool _update_truncated = false; ///< Whether the update was terminated early to prevent locking up.
 
+	float _rotation_sensitivity = 0.005f; ///< Rotation sensitivity.
+	float _move_sensitivity = 0.05f; ///< Move sensitivity.
+	float _zoom_sensitivity = 0.001f; ///< Zoom sensitivity.
+	/// Sensitivity for scrolling to move the camera closer and further from the focus point.
+	float _scroll_sensitivity = 1.0f;
 	pbd::camera_parameters _camera_params = pbd::uninitialized; ///< Camera parameters.
 	pbd::camera _camera = pbd::uninitialized; ///< Camera.
 
@@ -318,7 +327,7 @@ protected:
 	}
 	/// Resets \ref _camera_parameters and \ref _camera.
 	void _reset_camera() {
-		_camera_params = pbd::camera_parameters::create_look_at(pbd::zero, { 6.0, 8.0, 10.0 });
+		_camera_params = pbd::camera_parameters::create_look_at(pbd::zero, { 3.0, 4.0, 5.0 });
 		_on_size(_width, _height);
 	}
 
@@ -329,20 +338,24 @@ protected:
 		pbd::cvec2d new_position = { x, y };
 		auto offset = new_position - _prev_mouse_position;
 		if (_mouse_buttons[GLFW_MOUSE_BUTTON_MIDDLE]) {
-			auto offset3 = 0.1 * (_camera.unit_up * offset[1] - _camera.unit_right * offset[0]);
+			auto offset3 = _move_sensitivity * (_camera.unit_up * offset[1] - _camera.unit_right * offset[0]);
 			_camera_params.look_at += offset3;
 			_camera_params.position += offset3;
 			camera_changed = true;
 		}
 		if (_mouse_buttons[GLFW_MOUSE_BUTTON_LEFT]) {
 			auto offset3 = _camera_params.position - _camera_params.look_at;
-			offset3 = pbd::quatd::from_normalized_axis_angle(_camera.unit_right, -0.005 * offset[1]).rotate(offset3);
-			offset3 = pbd::quatd::from_normalized_axis_angle(_camera_params.world_up, -0.005 * offset[0]).rotate(offset3);
+			offset3 = pbd::quat::from_normalized_axis_angle(
+				_camera.unit_right, -_rotation_sensitivity * offset[1]
+			).rotate(offset3);
+			offset3 = pbd::quat::from_normalized_axis_angle(
+				_camera_params.world_up, -_rotation_sensitivity * offset[0]
+			).rotate(offset3);
 			_camera_params.position = _camera_params.look_at + offset3;
 			camera_changed = true;
 		}
 		if (_mouse_buttons[GLFW_MOUSE_BUTTON_RIGHT]) {
-			_camera_params.fov_y_radians += 0.001 * offset[1];
+			_camera_params.fov_y_radians += _zoom_sensitivity * offset[1];
 			camera_changed = true;
 		}
 		_prev_mouse_position = new_position;
@@ -357,7 +370,7 @@ protected:
 	}
 	/// Mouse scroll callback.
 	void _on_mouse_scroll([[maybe_unused]] double xoff, double yoff) {
-		_camera_params.position += _camera.unit_forward * yoff;
+		_camera_params.position += _camera.unit_forward * (yoff * _scroll_sensitivity);
 		_camera = pbd::camera::from_parameters(_camera_params);
 	}
 };

@@ -5,7 +5,7 @@
 
 #include <variant>
 
-#include "simple.h"
+#include "pbd/shapes/simple.h"
 
 namespace pbd {
 	/// A generic shape.

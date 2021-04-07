@@ -3,9 +3,9 @@
 /// \file
 /// Properties of rigid bodies.
 
-#include "math/matrix.h"
-#include "math/vector.h"
-#include "math/quaternion.h"
+#include "pbd/math/matrix.h"
+#include "pbd/math/vector.h"
+#include "pbd/math/quaternion.h"
 
 namespace pbd {
 	/// Properties that are inherent to a rigid body.
@@ -39,12 +39,12 @@ namespace pbd {
 		body_state(uninitialized_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr body_state(cvec3d x, uquatd_t q, cvec3d v, cvec3d omega) :
+		constexpr body_state(cvec3d x, uquatd q, cvec3d v, cvec3d omega) :
 			position(x), rotation(q), linear_velocity(v), angular_velocity(omega) {
 		}
 
 		cvec3d position = uninitialized; ///< The position of the center of mass in world space.
-		uquatd_t rotation = uninitialized; ///< The rotation/orientation of this body.
+		uquatd rotation = uninitialized; ///< The rotation/orientation of this body.
 		cvec3d linear_velocity = uninitialized; ///< Linear velocity of the center of mass.
 		cvec3d angular_velocity = uninitialized; ///< Angular velocity around the center of mass.
 	};

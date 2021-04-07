@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <array>
 
-#include "../common.h"
+#include "pbd/common.h"
 
 namespace pbd {
 	/// A <tt>Rows x Cols</tt> matrix.
@@ -277,9 +277,9 @@ namespace pbd {
 	}
 
 	/// In-place scalar multiplication.
-	template <std::size_t Rows, std::size_t Cols, typename T> inline constexpr matrix<Rows, Cols, T> &operator*=(
-		matrix<Rows, Cols, T> &lhs, const T &rhs
-	) {
+	template <
+		std::size_t Rows, std::size_t Cols, typename T, typename U
+	> inline constexpr matrix<Rows, Cols, T> &operator*=(matrix<Rows, Cols, T> &lhs, const U &rhs) {
 		for (std::size_t y = 0; y < Rows; ++y) {
 			for (std::size_t x = 0; x < Cols; ++x) {
 				lhs(y, x) *= rhs;
@@ -289,23 +289,23 @@ namespace pbd {
 	}
 	/// Scalar multiplication.
 	template <
-		std::size_t Rows, std::size_t Cols, typename T
-	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator*(matrix<Rows, Cols, T> lhs, const T &rhs) {
+		std::size_t Rows, std::size_t Cols, typename T, typename U
+	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator*(matrix<Rows, Cols, T> lhs, const U &rhs) {
 		lhs *= rhs;
 		return std::move(lhs);
 	}
 	/// Scalar multiplication.
 	template <
-		std::size_t Rows, std::size_t Cols, typename T
-	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator*(const T &lhs, matrix<Rows, Cols, T> rhs) {
+		std::size_t Rows, std::size_t Cols, typename T, typename U
+	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator*(const U &lhs, matrix<Rows, Cols, T> rhs) {
 		rhs *= lhs;
 		return std::move(rhs);
 	}
 
 	/// In-place scalar division.
 	template <
-		std::size_t Rows, std::size_t Cols, typename T
-	> inline constexpr matrix<Rows, Cols, T> &operator/=(matrix<Rows, Cols, T> &lhs, const T &rhs) {
+		std::size_t Rows, std::size_t Cols, typename T, typename U
+	> inline constexpr matrix<Rows, Cols, T> &operator/=(matrix<Rows, Cols, T> &lhs, const U &rhs) {
 		for (std::size_t y = 0; y < Rows; ++y) {
 			for (std::size_t x = 0; x < Cols; ++x) {
 				lhs(y, x) /= rhs;
@@ -315,8 +315,8 @@ namespace pbd {
 	}
 	/// Scalar division.
 	template <
-		std::size_t Rows, std::size_t Cols, typename T
-	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator/(matrix<Rows, Cols, T> lhs, const T &rhs) {
+		std::size_t Rows, std::size_t Cols, typename T, typename U
+	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator/(matrix<Rows, Cols, T> lhs, const U &rhs) {
 		lhs /= rhs;
 		return std::move(lhs);
 	}

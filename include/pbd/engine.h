@@ -5,10 +5,11 @@
 
 #include <vector>
 
-#include "shapes/shape.h"
-#include "constraints/spring.h"
-#include "constraints/face.h"
-#include "body.h"
+#include "pbd/shapes/shape.h"
+#include "pbd/constraints/spring.h"
+#include "pbd/constraints/face.h"
+#include "pbd/constraints/bend.h"
+#include "pbd/body.h"
 
 namespace pbd {
 	/// Data associated with a single body.
@@ -59,6 +60,9 @@ namespace pbd {
 			face_lambdas.resize(face_constraints.size(), uninitialized);
 			std::fill(face_lambdas.begin(), face_lambdas.end(), zero);
 
+			bend_lambdas.resize(bend_constraints.size());
+			std::fill(bend_lambdas.begin(), bend_lambdas.end(), 0.0);
+
 			for (std::size_t i = 0; i < iters; ++i) {
 				// handle collisions
 				for (const body &b : bodies) {
@@ -95,7 +99,22 @@ namespace pbd {
 					f.project(
 						p1.state.position, p2.state.position, p3.state.position,
 						p1.properties.inverse_mass, p2.properties.inverse_mass, p3.properties.inverse_mass,
-						inv_dt2, face_lambdas[j]
+						inv_dt2, face_lambdas[j], constraints::face::projection_type::exact
+					);
+				}
+
+				// project bend constraints
+				for (std::size_t j = 0; j < bend_constraints.size(); ++j) {
+					constraints::bend &b = bend_constraints[j];
+					particle &p1 = particles[b.particle_edge1];
+					particle &p2 = particles[b.particle_edge2];
+					particle &p3 = particles[b.particle3];
+					particle &p4 = particles[b.particle4];
+					b.project(
+						p1.state.position, p2.state.position, p3.state.position, p4.state.position,
+						p1.properties.inverse_mass, p2.properties.inverse_mass,
+						p3.properties.inverse_mass, p4.properties.inverse_mass,
+						inv_dt2, bend_lambdas[j]
 					);
 				}
 			}
@@ -113,6 +132,9 @@ namespace pbd {
 
 		std::vector<constraints::face> face_constraints; ///< The list of face constraints.
 		std::vector<column_vector<6, double>> face_lambdas; ///< Lambda values for all face constraints.
+
+		std::vector<constraints::bend> bend_constraints; ///< The list of bend constraints.
+		std::vector<double> bend_lambdas; ///< Lambda values for bend constraints.
 
 		cvec3d gravity = zero; ///< Gravity.
 	protected:

@@ -3,7 +3,8 @@
 /// \file
 /// Cameras.
 
-#include "math/vector.h"
+#include "pbd/math/matrix.h"
+#include "pbd/math/vector.h"
 
 namespace pbd {
 	/// Parameters of a camera, used to compute view and projection matrices.

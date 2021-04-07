@@ -3,7 +3,7 @@
 /// \file
 /// Vector operations.
 
-#include "matrix.h"
+#include "pbd/math/matrix.h"
 
 namespace pbd {
 	/// Column vector.
@@ -25,15 +25,25 @@ namespace pbd {
 			}
 			return result;
 		}
-		template <
-			typename Vec
-		> [[nodiscard]] inline static constexpr std::enable_if_t<Vec::dimensionality == 3, Vec> cross(
-			const Vec &lhs, const Vec &rhs
-		) {
+		/// Cross product.
+		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
+			Vec::dimensionality == 3, Vec
+		> cross(const Vec &lhs, const Vec &rhs) {
 			return {
 				lhs[1] * rhs[2] - lhs[2] * rhs[1],
 				lhs[2] * rhs[0] - lhs[0] * rhs[2],
 				lhs[0] * rhs[1] - lhs[1] * rhs[0]
+			};
+		}
+		/// Returns the matrix that can be used to compute the cross product between two vectors. This matrix
+		/// corresponds to the left operand.
+		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
+			Vec::dimensionality == 3, matrix<3, 3, typename Vec::value_type>
+		> cross_product_matrix(const Vec &v) {
+			return {
+				{ 0, -v[2], v[1] },
+				{ v[2], 0, -v[0] },
+				{ -v[1], v[0], 0 }
 			};
 		}
 

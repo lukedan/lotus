@@ -47,12 +47,14 @@ public:
 				_add_face(pid[x - 1][y - 1], pid[x - 1][y], pid[x][y - 1]);
 				_add_face(pid[x - 1][y], pid[x][y], pid[x][y - 1]);
 
-				_add_bend(pid[x][y - 1], pid[x - 1][y], pid[x - 1][y - 1], pid[x][y]);
-				if (x > 1) {
-					_add_bend(pid[x - 1][y - 1], pid[x - 1][y], pid[x - 2][y], pid[x][y - 1]);
-				}
-				if (y > 1) {
-					_add_bend(pid[x - 1][y - 1], pid[x][y - 1], pid[x][y - 2], pid[x - 1][y]);
+				if (_bend_constraints) {
+					_add_bend(pid[x][y - 1], pid[x - 1][y], pid[x - 1][y - 1], pid[x][y]);
+					if (x > 1) {
+						_add_bend(pid[x - 1][y - 1], pid[x - 1][y], pid[x - 2][y], pid[x][y - 1]);
+					}
+					if (y > 1) {
+						_add_bend(pid[x - 1][y - 1], pid[x][y - 1], pid[x][y - 2], pid[x - 1][y]);
+					}
 				}
 
 				surface.triangles.emplace_back(pid[x - 1][y - 1], pid[x - 1][y], pid[x][y - 1]);
@@ -96,10 +98,11 @@ public:
 		ImGui::SliderFloat("Cloth Size", &_cloth_size, 0.0f, 3.0f);
 		ImGui::SliderFloat("Cloth Density", &_cloth_density, 0.0f, 20000.0f);
 		ImGui::SliderFloat(
-			"Young's Modulus", &_youngs_modulus, 0.0f, 1000000000.0f, "%f", ImGuiSliderFlags_Logarithmic
+			"Young's Modulus", &_youngs_modulus, 0.0f, 1000000000.0f, "%.0f", ImGuiSliderFlags_Logarithmic
 		);
 		ImGui::SliderFloat("Poisson's Ratio", &_poisson_ratio, 0.0f, 0.5f);
 		ImGui::SliderFloat("Thickness", &_thickness, 0.0f, 0.1f);
+		ImGui::Checkbox("Bending Constraints", &_bend_constraints);
 		ImGui::Separator();
 
 		ImGui::SliderFloat("Sphere Travel Distance", &_sphere_travel, 0.0f, 3.0f);
@@ -126,6 +129,7 @@ protected:
 	float _youngs_modulus = 10000000.0f;
 	float _poisson_ratio = 0.3f;
 	float _thickness = 0.02f;
+	bool _bend_constraints = true;
 
 	float _sphere_travel = 1.5f;
 	float _sphere_period = 3.0f;
@@ -158,11 +162,10 @@ protected:
 			_engine.particles[e1].state.position,
 			_engine.particles[e2].state.position,
 			_engine.particles[x3].state.position,
-			_engine.particles[x4].state.position,
-			_thickness
+			_engine.particles[x4].state.position
 		);
 		bend.properties = pbd::constraints::bend::constraint_properties::from_material_properties(
-			_youngs_modulus, _poisson_ratio
+			_youngs_modulus, _poisson_ratio, _thickness
 		);
 	}
 };

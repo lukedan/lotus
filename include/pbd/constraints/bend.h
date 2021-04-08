@@ -18,9 +18,9 @@ namespace pbd::constraints {
 
 			/// Computes the inverse stiffness from the material properties.
 			[[nodiscard]] inline static constraint_properties from_material_properties(
-				double young_modulus, double poisson_ratio
+				double young_modulus, double poisson_ratio, double thickness
 			) {
-				return constraint_properties(12.0 * (1 - poisson_ratio * poisson_ratio) / young_modulus);
+				return constraint_properties(12.0 * (1 - poisson_ratio * poisson_ratio) / (young_modulus * thickness * thickness));
 			}
 
 			double inverse_stiffness; ///< The inverse stiffness of this constraint.
@@ -38,7 +38,7 @@ namespace pbd::constraints {
 
 			/// Initializes the state from the rest pose and surface thickness.
 			[[nodiscard]] inline static constraint_state from_rest_pose(
-				const cvec3d &e1, const cvec3d &e2, const cvec3d &x3, const cvec3d &x4, double thickness
+				const cvec3d &e1, const cvec3d &e2, const cvec3d &x3, const cvec3d &x4
 			) {
 				cvec3d d1 = e2 - e1;
 				cvec3d d2 = x3 - e1;
@@ -58,19 +58,18 @@ namespace pbd::constraints {
 				double sinv = vec::dot(sin_vec, d1n);
 				double theta = std::atan2(sinv, cosv);
 
-				return constraint_state(inv_n1_norm, inv_n2_norm, thickness, theta, d1_norm);
+				return constraint_state(inv_n1_norm, inv_n2_norm, theta, d1_norm);
 			}
 
 			/// The square root of the sum of inverse areas of the two triangle faces.
 			double sqrt_sum_inverse_areas;
-			double thickness_1_5; ///< Surface thickness raised to the power of 1.5.
 			double rest_angle; ///< The angle between the two faces 
 			double edge_length; ///< The length of this edge.
 		protected:
 			/// Initializes all fields of this struct.
-			constraint_state(double inv_a1, double inv_a2, double thickness, double angle, double edge_len) :
+			constraint_state(double inv_a1, double inv_a2, double angle, double edge_len) :
 				sqrt_sum_inverse_areas(std::sqrt(inv_a1 + inv_a2)),
-				thickness_1_5(std::pow(thickness, 1.5)), rest_angle(angle), edge_length(edge_len) {
+				rest_angle(angle), edge_length(edge_len) {
 			}
 		};
 
@@ -109,9 +108,6 @@ namespace pbd::constraints {
 			double sinv = vec::dot(sin_vec, d1n);
 			double theta = std::atan2(sinv, cosv);
 
-			double theta_diff = clamp_angle(theta - state.rest_angle);
-			double c = state.thickness_1_5 * state.sqrt_sum_inverse_areas * state.edge_length * theta_diff;
-
 			mat33d i_minus_d1nd1nt_over_d1norm = inv_d1_norm * (mat33d::identity() - d1n * d1n.transposed());
 			mat33d i_minus_n1n1t_over_n1norm = inv_n1_norm * (mat33d::identity() - n1 * n1.transposed());
 			mat33d i_minus_n2n2t_over_n2norm = inv_n2_norm * (mat33d::identity() - n2 * n2.transposed());
@@ -137,20 +133,24 @@ namespace pbd::constraints {
 				sinv * (n1.transposed() * i_minus_n2n2t_over_n2norm * vec::cross_product_matrix(d1));
 			auto dtheta_dx1 = -dtheta_dx2 - dtheta_dx3 - dtheta_dx4;
 
-			double dc_coefficient = state.sqrt_sum_inverse_areas * state.edge_length * state.thickness_1_5;
+			double c_coefficient = state.sqrt_sum_inverse_areas * state.edge_length / std::sqrt(8.0);
+
+			double theta_diff = clamp_angle(theta - state.rest_angle);
+			double c = c_coefficient * theta_diff;
+
 			double alpha_hat = properties.inverse_stiffness * inv_dt2;
 			double delta_lambda = -(c + alpha_hat * lambda) / (
-				(dc_coefficient * inv_m1) * dtheta_dx1.squared_norm() +
-				(dc_coefficient * inv_m2) * dtheta_dx2.squared_norm() +
-				(dc_coefficient * inv_m3) * dtheta_dx3.squared_norm() +
-				(dc_coefficient * inv_m4) * dtheta_dx4.squared_norm() +
+				(c_coefficient * inv_m1) * dtheta_dx1.squared_norm() +
+				(c_coefficient * inv_m2) * dtheta_dx2.squared_norm() +
+				(c_coefficient * inv_m3) * dtheta_dx3.squared_norm() +
+				(c_coefficient * inv_m4) * dtheta_dx4.squared_norm() +
 				alpha_hat
 			);
 			lambda += delta_lambda;
-			x1 += (dc_coefficient * delta_lambda * inv_m1) * dtheta_dx1.transposed();
-			x2 += (dc_coefficient * delta_lambda * inv_m2) * dtheta_dx2.transposed();
-			x3 += (dc_coefficient * delta_lambda * inv_m3) * dtheta_dx3.transposed();
-			x4 += (dc_coefficient * delta_lambda * inv_m4) * dtheta_dx4.transposed();
+			x1 += (c_coefficient * delta_lambda * inv_m1) * dtheta_dx1.transposed();
+			x2 += (c_coefficient * delta_lambda * inv_m2) * dtheta_dx2.transposed();
+			x3 += (c_coefficient * delta_lambda * inv_m3) * dtheta_dx3.transposed();
+			x4 += (c_coefficient * delta_lambda * inv_m4) * dtheta_dx4.transposed();
 		}
 
 		constraint_properties properties = uninitialized; ///< The properties of this constraint.

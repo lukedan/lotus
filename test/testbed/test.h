@@ -16,7 +16,7 @@ public:
 	virtual void soft_reset() = 0;
 
 	/// Renders the scene.
-	virtual void render() = 0;
+	virtual void render(bool wireframe_surfaces) = 0;
 	/// Displays the test-specific GUI.
 	virtual void gui() {
 		if (ImGui::Button("Soft Reset")) {

@@ -84,8 +84,8 @@ public:
 		_engine.timestep(dt, iterations);
 	}
 
-	void render() override {
-		_render.draw();
+	void render(bool wireframe_surf) override {
+		_render.draw(wireframe_surf);
 	}
 
 	void gui() override {

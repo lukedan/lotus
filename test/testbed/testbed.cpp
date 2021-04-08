@@ -144,6 +144,7 @@ public:
 		ImGui::Begin("Testbed");
 
 		if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Checkbox("Wireframe Surfaces", &_wireframe_surfaces);
 			ImGui::SliderFloat("Rotation Sensitivity", &_rotation_sensitivity, 0.0f, 0.01f);
 			ImGui::SliderFloat("Move Sensitivity", &_move_sensitivity, 0.0f, 0.1f);
 			ImGui::SliderFloat("Zoom Sensitivity", &_zoom_sensitivity, 0.0f, 0.01f);
@@ -190,7 +191,7 @@ public:
 			}
 		}
 
-		if (ImGui::CollapsingHeader("Simulation Specific", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::CollapsingHeader("Test Specific", ImGuiTreeNodeFlags_DefaultOpen)) {
 			if (_test) {
 				_test->gui();
 			} else {
@@ -199,6 +200,7 @@ public:
 		}
 
 		if (ImGui::CollapsingHeader("Simulation Statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::SliderFloat("Maximum Frame Time", &_max_frametime, 0.0, 1.0);
 			if (_update_truncated) {
 				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
 			}
@@ -213,6 +215,11 @@ public:
 			if (_update_truncated) {
 				ImGui::PopStyleColor();
 			}
+
+			ImGui::SliderFloat(
+				"RA Timestep Factor", &_timestep_cost_factor, 0.0f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic
+			);
+			ImGui::LabelText("RA Timestep Cost", "%.3fms", _timestep_cost);
 		}
 
 		ImGui::End();
@@ -222,26 +229,12 @@ public:
 
 	/// Renders all objects.
 	void render() {
-		glDisable(GL_CULL_FACE);
-		glEnable(GL_NORMALIZE);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable(GL_DEPTH_TEST);
-
-		glEnable(GL_COLOR_MATERIAL);
-		glEnable(GL_LIGHTING);
-		glEnable(GL_LIGHT0);
-		glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-		glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-		float lightdir[4]{ 0.3f, 0.4f, 0.5f, 0.0f };
-		glLightfv(GL_LIGHT0, GL_POSITION, lightdir);
-
 		glMatrixMode(GL_PROJECTION);
 		debug_render::set_matrix(_camera.projection_view_matrix);
 
 		glMatrixMode(GL_MODELVIEW);
 		if (_test) {
-			_test->render();
+			_test->render(_wireframe_surfaces);
 		}
 	}
 
@@ -254,12 +247,19 @@ public:
 				_update_truncated = false;
 				double target = dt * (_time_scale / 100.0), consumed = 0.0;
 				_time_accum += target;
-				for (; _time_accum >= _time_step; _time_accum -= _time_step, consumed += _time_step) {
+				auto timestep_beg = std::chrono::high_resolution_clock::now();
+				for (; _time_accum >= _time_step; _time_accum -= _time_step) {
 					_test->timestep(_time_step, _iters);
-					auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-						std::chrono::high_resolution_clock::now() - now
-						).count();
-					if (ms > 100) {
+					consumed += _time_step;
+					
+					auto timestep_end = std::chrono::high_resolution_clock::now();
+					
+					double this_cost = std::chrono::duration<double, std::milli>(timestep_end - timestep_beg).count();
+					_timestep_cost = (1.0f - _timestep_cost_factor) * _timestep_cost + _timestep_cost_factor * this_cost;
+					timestep_beg = timestep_end;
+
+					auto frame = std::chrono::duration<double>(timestep_end - now).count();
+					if (frame > _max_frametime) {
 						_update_truncated = true;
 						_time_accum = 0.0;
 						break;
@@ -307,9 +307,13 @@ protected:
 	float _time_step = 0.001f; ///< Time step.
 	int _iters = 1; ///< Solver iterations.
 
+	float _max_frametime = 0.1f; ///< Maximum frame time.
 	double _simulation_speed = 0.0f; ///< Simulation speed.
 	bool _update_truncated = false; ///< Whether the update was terminated early to prevent locking up.
+	double _timestep_cost = 0.0f; ///< Running average of timestep costs.
+	float _timestep_cost_factor = 0.01f; ///< Running average factor of timestep costs.
 
+	bool _wireframe_surfaces = false; ///< Whether the surfaces are displayed as wireframes.
 	float _rotation_sensitivity = 0.005f; ///< Rotation sensitivity.
 	float _move_sensitivity = 0.05f; ///< Move sensitivity.
 	float _zoom_sensitivity = 0.001f; ///< Zoom sensitivity.

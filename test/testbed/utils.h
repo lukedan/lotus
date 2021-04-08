@@ -19,7 +19,7 @@ public:
 	static void draw_sphere();
 
 
-	void draw() const;
+	void draw(bool wireframe_surfaces) const;
 
 
 	static void draw_body(const pbd::shapes::plane&);

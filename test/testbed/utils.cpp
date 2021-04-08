@@ -79,7 +79,21 @@ void debug_render::draw_sphere() {
 	glEnd();
 }
 
-void debug_render::draw() const {
+void debug_render::draw(bool wf_surf) const {
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_NORMALIZE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_DEPTH_TEST);
+
+	glEnable(GL_COLOR_MATERIAL);
+	glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHT0);
+	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+	glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+	float lightdir[4]{ 0.3f, 0.4f, 0.5f, 0.0f };
+	glLightfv(GL_LIGHT0, GL_POSITION, lightdir);
+
 	for (std::size_t i = 0; i < engine->bodies.size(); ++i) {
 		const auto &body = engine->bodies[i];
 
@@ -99,6 +113,9 @@ void debug_render::draw() const {
 	}
 
 	glLoadIdentity();
+	if (wf_surf) {
+		glDisable(GL_LIGHTING);
+	}
 	std::vector<pbd::cvec3d> normals(engine->particles.size(), pbd::uninitialized);
 	for (const auto &surface : surfaces) {
 		// compute normals
@@ -114,22 +131,35 @@ void debug_render::draw() const {
 		}
 
 		set_color(surface.color);
-		glBegin(GL_TRIANGLES);
-		for (const auto &tri : surface.triangles) {
-			auto n1 = normals[tri[0]];
-			auto n2 = normals[tri[1]];
-			auto n3 = normals[tri[2]];
-			auto p1 = engine->particles[tri[0]].state.position;
-			auto p2 = engine->particles[tri[1]].state.position;
-			auto p3 = engine->particles[tri[2]].state.position;
-			glNormal3d(n1[0], n1[1], n1[2]);
-			glVertex3d(p1[0], p1[1], p1[2]);
-			glNormal3d(n2[0], n2[1], n2[2]);
-			glVertex3d(p2[0], p2[1], p2[2]);
-			glNormal3d(n3[0], n3[1], n3[2]);
-			glVertex3d(p3[0], p3[1], p3[2]);
+		if (wf_surf) {
+			for (const auto &tri : surface.triangles) {
+				auto p1 = engine->particles[tri[0]].state.position;
+				auto p2 = engine->particles[tri[1]].state.position;
+				auto p3 = engine->particles[tri[2]].state.position;
+				glBegin(GL_LINE_LOOP);
+				glVertex3d(p1[0], p1[1], p1[2]);
+				glVertex3d(p2[0], p2[1], p2[2]);
+				glVertex3d(p3[0], p3[1], p3[2]);
+				glEnd();
+			}
+		} else {
+			glBegin(GL_TRIANGLES);
+			for (const auto &tri : surface.triangles) {
+				auto n1 = normals[tri[0]];
+				auto n2 = normals[tri[1]];
+				auto n3 = normals[tri[2]];
+				auto p1 = engine->particles[tri[0]].state.position;
+				auto p2 = engine->particles[tri[1]].state.position;
+				auto p3 = engine->particles[tri[2]].state.position;
+				glNormal3d(n1[0], n1[1], n1[2]);
+				glVertex3d(p1[0], p1[1], p1[2]);
+				glNormal3d(n2[0], n2[1], n2[2]);
+				glVertex3d(p2[0], p2[1], p2[2]);
+				glNormal3d(n3[0], n3[1], n3[2]);
+				glVertex3d(p3[0], p3[1], p3[2]);
+			}
+			glEnd();
 		}
-		glEnd();
 	}
 }
 

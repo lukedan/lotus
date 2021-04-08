@@ -75,12 +75,16 @@ public:
 
 	void timestep(double dt, std::size_t iterations) override {
 		_world_time += dt;
-		_engine.bodies[0].state.position = { std::cos(1.3 * _world_time), 0.0, 0.5 };
+		_engine.bodies[0].state.position = {
+			_sphere_travel * std::cos((2.0 * pbd::pi / _sphere_period) * _world_time),
+			_sphere_yz[0],
+			_sphere_yz[1]
+		};
 		_engine.timestep(dt, iterations);
 	}
 
-	void render() override {
-		_render.draw();
+	void render(bool wireframe_surf) override {
+		_render.draw(wireframe_surf);
 	}
 
 	void gui() override {
@@ -99,6 +103,12 @@ public:
 			"Young's Modulus - Long", &_youngs_modulus_long, 0.0f, 1000000000.0f,
 			"%f", ImGuiSliderFlags_Logarithmic
 		);
+		ImGui::Separator();
+
+		ImGui::SliderFloat("Sphere Travel Distance", &_sphere_travel, 0.0f, 3.0f);
+		ImGui::SliderFloat("Sphere Period", &_sphere_period, 0.1f, 10.0f);
+		ImGui::SliderFloat2("Sphere Position", _sphere_yz, -10.0, 10.0);
+		ImGui::Separator();
 
 		test::gui();
 	}
@@ -118,6 +128,10 @@ protected:
 	float _youngs_modulus_short = 50000.0f;
 	float _youngs_modulus_diag = 50000.0f;
 	float _youngs_modulus_long = 50000.0f;
+
+	float _sphere_travel = 1.5f;
+	float _sphere_period = 3.0f;
+	float _sphere_yz[2]{ 0.0f, 0.5f };
 
 
 	void _add_spring(std::size_t i1, std::size_t i2, double y) {

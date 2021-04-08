@@ -7,40 +7,43 @@
 
 class fem_cloth_test : public test {
 public:
-	constexpr static std::size_t side_segments = 10;
-	constexpr static double cloth_size = 1.0;
-	constexpr static double cloth_mass = 10.0;
-	constexpr static double node_mass = cloth_mass / (side_segments * side_segments);
-	constexpr static double segment_length = cloth_size / (side_segments - 1);
-
-	constexpr static double youngs_modulus = 10000000;
-	constexpr static double poisson_ratio = 0.3;
-	constexpr static double thickness = 0.2;
-
-
 	fem_cloth_test() {
+		soft_reset();
+	}
+
+	void soft_reset() override {
+		_engine = pbd::engine();
+		_render = debug_render();
+		_world_time = 0.0;
+
 		_render.engine = &_engine;
 
 		_engine.gravity = { 0.0, 0.0, -10.0 };
+		_engine.face_constraint_projection_type =
+			static_cast<pbd::constraints::face::projection_type>(_face_projection);
+
+		double cloth_mass = _cloth_density * _cloth_size * _cloth_size * _thickness;
+		double node_mass = cloth_mass / (_side_segments * _side_segments);
+		double segment_length = _cloth_size / (_side_segments - 1);
 
 		auto &surface = _render.surfaces.emplace_back();
 		surface.color = debug_render::colorf(1.0f, 0.4f, 0.2f, 0.5f);
-		std::size_t pid[side_segments][side_segments];
-		for (std::size_t y = 0; y < side_segments; ++y) {
-			for (std::size_t x = 0; x < side_segments; ++x) {
+		std::vector<std::vector<std::size_t>> pid(_side_segments, std::vector<std::size_t>(_side_segments));
+		for (std::size_t y = 0; y < _side_segments; ++y) {
+			for (std::size_t x = 0; x < _side_segments; ++x) {
 				auto prop = pbd::particle_properties::from_mass(node_mass);
-				if (x == 0 && (y == 0 || y == side_segments - 1)) {
+				if (x == 0 && (y == 0 || y == _side_segments - 1)) {
 					prop = pbd::particle_properties::kinematic();
 				}
 				pbd::particle_state state(
-					{ x * segment_length, y * segment_length - 0.5 * cloth_size, cloth_size }, pbd::zero
+					{ x * segment_length, y * segment_length - 0.5 * _cloth_size, _cloth_size }, pbd::zero
 				);
 				pid[x][y] = _engine.particles.size();
 				_engine.particles.emplace_back(prop, state);
 			}
 		}
-		for (std::size_t y = 1; y < side_segments; ++y) {
-			for (std::size_t x = 1; x < side_segments; ++x) {
+		for (std::size_t y = 1; y < _side_segments; ++y) {
+			for (std::size_t x = 1; x < _side_segments; ++x) {
 				_add_face(pid[x - 1][y - 1], pid[x - 1][y], pid[x][y - 1]);
 				_add_face(pid[x - 1][y], pid[x][y], pid[x][y - 1]);
 
@@ -71,12 +74,40 @@ public:
 
 	void timestep(double dt, std::size_t iterations) override {
 		_world_time += dt;
-		_engine.bodies[0].state.position = { 1.5 * std::cos(1.3 * _world_time), 0.0, 0.5 };
+		_engine.bodies[0].state.position = {
+			_sphere_travel * std::cos((2.0 * pbd::pi / _sphere_period) * _world_time),
+			_sphere_yz[0],
+			_sphere_yz[1]
+		};
 		_engine.timestep(dt, iterations);
 	}
 
 	void render() override {
 		_render.draw();
+	}
+
+	void gui() override {
+		if (ImGui::Combo("Face Constraint Projection", &_face_projection, "Exact\0Gauss-Seidel\0\0")) {
+			_engine.face_constraint_projection_type =
+				static_cast<pbd::constraints::face::projection_type>(_face_projection);
+		}
+
+		ImGui::SliderInt("Cloth Partitions", &_side_segments, 2, 100);
+		ImGui::SliderFloat("Cloth Size", &_cloth_size, 0.0f, 3.0f);
+		ImGui::SliderFloat("Cloth Density", &_cloth_density, 0.0f, 20000.0f);
+		ImGui::SliderFloat(
+			"Young's Modulus", &_youngs_modulus, 0.0f, 1000000000.0f, "%f", ImGuiSliderFlags_Logarithmic
+		);
+		ImGui::SliderFloat("Poisson's Ratio", &_poisson_ratio, 0.0f, 0.5f);
+		ImGui::SliderFloat("Thickness", &_thickness, 0.0f, 0.1f);
+		ImGui::Separator();
+
+		ImGui::SliderFloat("Sphere Travel Distance", &_sphere_travel, 0.0f, 3.0f);
+		ImGui::SliderFloat("Sphere Period", &_sphere_period, 0.1f, 10.0f);
+		ImGui::SliderFloat2("Sphere Position", _sphere_yz, -10.0, 10.0);
+		ImGui::Separator();
+
+		test::gui();
 	}
 
 	inline static std::string_view get_name() {
@@ -85,8 +116,21 @@ public:
 protected:
 	pbd::engine _engine;
 	debug_render _render;
-	double _time = 0.0;
 	double _world_time = 0.0;
+
+	int _face_projection = static_cast<int>(pbd::constraints::face::projection_type::gauss_seidel);
+
+	int _side_segments = 10;
+	float _cloth_size = 1.0f;
+	float _cloth_density = 1200.0f;
+	float _youngs_modulus = 10000000.0f;
+	float _poisson_ratio = 0.3f;
+	float _thickness = 0.02f;
+
+	float _sphere_travel = 1.5f;
+	float _sphere_period = 3.0f;
+	float _sphere_yz[2]{ 0.0f, 0.5f };
+
 
 	void _add_face(std::size_t i1, std::size_t i2, std::size_t i3) {
 		auto &face = _engine.face_constraints.emplace_back(pbd::uninitialized);
@@ -97,10 +141,10 @@ protected:
 			_engine.particles[i1].state.position,
 			_engine.particles[i2].state.position,
 			_engine.particles[i3].state.position,
-			thickness
+			_thickness
 		);
 		face.properties = pbd::constraints::face::constraint_properties::from_material_properties(
-			youngs_modulus, poisson_ratio
+			_youngs_modulus, _poisson_ratio
 		);
 	}
 
@@ -115,10 +159,10 @@ protected:
 			_engine.particles[e2].state.position,
 			_engine.particles[x3].state.position,
 			_engine.particles[x4].state.position,
-			thickness
+			_thickness
 		);
 		bend.properties = pbd::constraints::bend::constraint_properties::from_material_properties(
-			youngs_modulus, poisson_ratio
+			_youngs_modulus, _poisson_ratio
 		);
 	}
 };

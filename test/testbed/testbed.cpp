@@ -190,6 +190,14 @@ public:
 			}
 		}
 
+		if (ImGui::CollapsingHeader("Simulation Specific", ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (_test) {
+				_test->gui();
+			} else {
+				ImGui::Text("[No test selected]");
+			}
+		}
+
 		if (ImGui::CollapsingHeader("Simulation Statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
 			if (_update_truncated) {
 				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));

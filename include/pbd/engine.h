@@ -99,7 +99,7 @@ namespace pbd {
 					f.project(
 						p1.state.position, p2.state.position, p3.state.position,
 						p1.properties.inverse_mass, p2.properties.inverse_mass, p3.properties.inverse_mass,
-						inv_dt2, face_lambdas[j], constraints::face::projection_type::exact
+						inv_dt2, face_lambdas[j], face_constraint_projection_type
 					);
 				}
 
@@ -130,6 +130,9 @@ namespace pbd {
 		std::vector<constraints::spring> spring_constraints; ///< The list of spring constraints.
 		std::vector<double> spring_lambdas; ///< Lambda values for all spring constraints.
 
+		/// Determins how face constraints are projected.
+		constraints::face::projection_type face_constraint_projection_type =
+			constraints::face::projection_type::gauss_seidel;
 		std::vector<constraints::face> face_constraints; ///< The list of face constraints.
 		std::vector<column_vector<6, double>> face_lambdas; ///< Lambda values for all face constraints.
 

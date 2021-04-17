@@ -6,6 +6,7 @@ find_package(imgui CONFIG REQUIRED)
 
 target_sources(testbed
 	PRIVATE
+		"tests/convex_hull_test.h"
 		"tests/fem_cloth_test.h"
 		"tests/spring_cloth_test.h"
 

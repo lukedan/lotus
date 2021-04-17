@@ -9,7 +9,8 @@ target_compile_features(pbd PUBLIC cxx_std_20)
 
 target_sources(pbd
 	PUBLIC
-		"include/pbd/collision/gjk.h"
+		"include/pbd/algorithms/convex_hull.h"
+		"include/pbd/algorithms/gjk_epa.h"
 
 		"include/pbd/constraints/bend.h"
 		"include/pbd/constraints/face.h"
@@ -20,6 +21,7 @@ target_sources(pbd
 		"include/pbd/math/quaternion.h"
 		"include/pbd/math/vector.h"
 
+		"include/pbd/shapes/polyhedron.h"
 		"include/pbd/shapes/shape.h"
 		"include/pbd/shapes/simple.h"
 
@@ -28,7 +30,7 @@ target_sources(pbd
 		"include/pbd/common.h"
 		"include/pbd/engine.h"
 	PRIVATE
-		"src/collision/gjk.cpp"
+		"src/algorithms/gjk_epa.cpp"
 		
 		"src/body.cpp")
 

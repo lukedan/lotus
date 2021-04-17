@@ -14,6 +14,8 @@ public:
 
 	static void set_matrix(pbd::mat44d);
 	static void set_color(colorf);
+	/// Sets up basic OpenGL state for drawing.
+	static void setup_draw();
 	/// Draws a sphere of radius 0.5 centered at the origin. The caller should set its color via \p glColor() and its
 	/// transformation using a matrix.
 	static void draw_sphere();

@@ -20,6 +20,22 @@ void debug_render::set_color(colorf color) {
 	glColor4f(color[0], color[1], color[2], color[3]);
 }
 
+void debug_render::setup_draw() {
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_NORMALIZE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_DEPTH_TEST);
+
+	glEnable(GL_COLOR_MATERIAL);
+	glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHT0);
+	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+	glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+	float lightdir[4]{ 0.3f, 0.4f, 0.5f, 0.0f };
+	glLightfv(GL_LIGHT0, GL_POSITION, lightdir);
+}
+
 void debug_render::draw_sphere() {
 	constexpr std::size_t _z_slices = 10;
 	constexpr std::size_t _xy_slices = 30;
@@ -80,19 +96,9 @@ void debug_render::draw_sphere() {
 }
 
 void debug_render::draw(bool wf_surf) const {
-	glDisable(GL_CULL_FACE);
-	glEnable(GL_NORMALIZE);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_DEPTH_TEST);
+	setup_draw();
 
-	glEnable(GL_COLOR_MATERIAL);
-	glEnable(GL_LIGHTING);
-	glEnable(GL_LIGHT0);
-	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-	glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-	float lightdir[4]{ 0.3f, 0.4f, 0.5f, 0.0f };
-	glLightfv(GL_LIGHT0, GL_POSITION, lightdir);
+	glMatrixMode(GL_MODELVIEW);
 
 	for (std::size_t i = 0; i < engine->bodies.size(); ++i) {
 		const auto &body = engine->bodies[i];

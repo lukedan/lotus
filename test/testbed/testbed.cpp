@@ -15,8 +15,9 @@
 #include <pbd/camera.h>
 
 #include "utils.h"
-#include "tests/spring_cloth_test.h"
+#include "tests/convex_hull_test.h"
 #include "tests/fem_cloth_test.h"
+#include "tests/spring_cloth_test.h"
 
 constexpr auto mat1 = pbd::mat34d::identity();
 constexpr pbd::mat34d mat2 = pbd::zero;
@@ -141,7 +142,7 @@ public:
 		ImGui_ImplOpenGL2_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
-		ImGui::Begin("Testbed");
+		ImGui::Begin("Testbed", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
 
 		if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Checkbox("Wireframe Surfaces", &_wireframe_surfaces);
@@ -394,8 +395,9 @@ int main() {
 
 	{
 		testbed tb;
-		tb.tests.emplace_back(test_creator::get_creator_for<spring_cloth_test>());
+		tb.tests.emplace_back(test_creator::get_creator_for<convex_hull_test>());
 		tb.tests.emplace_back(test_creator::get_creator_for<fem_cloth_test>());
+		tb.tests.emplace_back(test_creator::get_creator_for<spring_cloth_test>());
 		while (tb.loop()) {
 			glfwPollEvents();
 		}

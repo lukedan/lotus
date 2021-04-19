@@ -130,7 +130,7 @@ namespace pbd {
 			std::array<vertex, 4> verts, const ComputeFaceData &face_data
 		) {
 			incremental_convex_hull result;
-			result.vertices = std::vector<vertex>(
+			result.vertices = std::vector<vertex, Allocator<vertex>>(
 				std::make_move_iterator(verts.begin()), std::make_move_iterator(verts.end())
 			);
 

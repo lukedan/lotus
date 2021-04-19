@@ -27,9 +27,6 @@ public:
 
 		auto &plane = _engine.shapes.emplace_back(pbd::shapes::plane());
 
-		auto &clip_visuals = _render.body_visuals.emplace_back();
-		clip_visuals.color = { 1.0f, 0.6f, 0.2f, 0.4f };
-
 		auto &box_shape = _engine.shapes.emplace_back();
 		auto &box = box_shape.value.emplace<pbd::shapes::polyhedron>();
 		pbd::cvec3d half_size(_box_size[0], _box_size[1], _box_size[2]);
@@ -44,6 +41,20 @@ public:
 		box.vertices.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
 		auto box_props = box.bake(1.0);
 
+		auto &bullet_shape = _engine.shapes.emplace_front();
+		_bullet_shape = _engine.shapes.begin();
+		auto &bullet = bullet_shape.value.emplace<pbd::shapes::polyhedron>();
+		pbd::cvec3d half_bullet_size(0.05, 0.05, 0.05);
+		bullet.vertices.emplace_back(half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
+		bullet.vertices.emplace_back(half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
+		bullet.vertices.emplace_back(half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
+		bullet.vertices.emplace_back(half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
+		bullet.vertices.emplace_back(-half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
+		bullet.vertices.emplace_back(-half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
+		bullet.vertices.emplace_back(-half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
+		bullet.vertices.emplace_back(-half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
+		_bullet_properties = bullet.bake(10.0);
+
 		_engine.bodies.emplace_back(pbd::body::create(
 			plane,
 			pbd::body_properties::kinematic(),
@@ -56,7 +67,7 @@ public:
 				pbd::cvec3d(10.0, 0.0, 0.0),
 				pbd::quat::from_normalized_axis_angle(pbd::cvec3d(0.0, 1.0, 0.0), -0.5 * pbd::pi)
 			)
-		)).user_data = &clip_visuals;
+		));
 		_engine.bodies.emplace_back(pbd::body::create(
 			plane,
 			pbd::body_properties::kinematic(),
@@ -64,7 +75,7 @@ public:
 				pbd::cvec3d(-10.0, 0.0, 0.0),
 				pbd::quat::from_normalized_axis_angle(pbd::cvec3d(0.0, 1.0, 0.0), 0.5 * pbd::pi)
 			)
-		)).user_data = &clip_visuals;
+		));
 		_engine.bodies.emplace_back(pbd::body::create(
 			plane,
 			pbd::body_properties::kinematic(),
@@ -72,7 +83,7 @@ public:
 				pbd::cvec3d(0.0, 10.0, 0.0),
 				pbd::quat::from_normalized_axis_angle(pbd::cvec3d(1.0, 0.0, 0.0), 0.5 * pbd::pi)
 			)
-		)).user_data = &clip_visuals;
+		));
 		_engine.bodies.emplace_back(pbd::body::create(
 			plane,
 			pbd::body_properties::kinematic(),
@@ -80,7 +91,7 @@ public:
 				pbd::cvec3d(0.0, -10.0, 0.0),
 				pbd::quat::from_normalized_axis_angle(pbd::cvec3d(1.0, 0.0, 0.0), -0.5 * pbd::pi)
 			)
-		)).user_data = &clip_visuals;
+		));
 
 		double x = -(_box_size[0] + _gap[0]) * (_box_count[0] - 1) / 2.0;
 		double z = 0.5 * _box_size[2] + _gap[1];
@@ -116,6 +127,15 @@ public:
 		ImGui::SliderFloat("Box Density", &_density, 0.0f, 100.0f);
 		ImGui::Checkbox("Rotate 90 Degrees", &_rotate_90);
 		ImGui::Checkbox("Inverse Body List", &_inverse_list);
+		if (ImGui::Button("Shoot Box")) {
+			_engine.bodies.emplace_back(pbd::body::create(
+				*_bullet_shape,
+				_bullet_properties,
+				pbd::body_state::at(
+					camera_params.position, pbd::uquatd::identity(), camera.unit_forward * 50.0, pbd::zero
+				)
+			));
+		}
 		test::gui();
 	}
 
@@ -133,4 +153,7 @@ protected:
 	float _box_size[3]{ 1.0f, 0.6f, 0.2f };
 	float _gap[2]{ 0.02f, 0.02f };
 	int _box_count[2]{ 5, 3 };
+
+	std::deque<pbd::shape>::iterator _bullet_shape;
+	pbd::body_properties _bullet_properties = pbd::uninitialized;
 };

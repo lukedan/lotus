@@ -31,6 +31,24 @@ namespace pbd {
 			);
 		}
 
+		// detect collisions
+		contact_constraints.clear();
+		// handle body collisions
+		for (auto bi = bodies.begin(); bi != bodies.end(); ++bi) {
+			auto bj = bi;
+			for (++bj; bj != bodies.end(); ++bj) {
+				if (auto res = detect_collision(*bi->body_shape, bi->state, *bj->body_shape, bj->state)) {
+					contact_constraints.emplace_back(constraints::body_contact::create_for(
+						*bi, *bj, res->contact1, res->contact2, res->normal
+					));
+				}
+			}
+		}
+
+		// solve constraints
+		contact_lambdas.resize(contact_constraints.size());
+		std::fill(contact_lambdas.begin(), contact_lambdas.end(), 0.0);
+
 		spring_lambdas.resize(particle_spring_constraints.size());
 		std::fill(spring_lambdas.begin(), spring_lambdas.end(), 0.0);
 
@@ -41,21 +59,9 @@ namespace pbd {
 		std::fill(bend_lambdas.begin(), bend_lambdas.end(), 0.0);
 
 		for (std::size_t i = 0; i < iters; ++i) {
-			contact_constraints.clear();
-
-			// handle body collisions
-			// TODO cache potential contacts
-			for (auto bi = bodies.begin(); bi != bodies.end(); ++bi) {
-				auto bj = bi;
-				for (++bj; bj != bodies.end(); ++bj) {
-					if (auto res = detect_collision(*bi->body_shape, bi->state, *bj->body_shape, bj->state)) {
-						double lambda = 0.0;
-						auto &constraint = contact_constraints.emplace_back(constraints::body_contact::create_for(
-							*bi, *bj, res->contact1, res->contact2, res->normal
-						));
-						constraint.project(inv_dt2, lambda);
-					}
-				}
+			// project body contact constraints
+			for (std::size_t j = 0; j < contact_constraints.size(); ++j) {
+				contact_constraints[j].project(inv_dt2, contact_lambdas[j]);
 			}
 
 			// handle body-particle collisions
@@ -200,6 +206,7 @@ namespace pbd {
 	std::optional<engine::collision_detection_result> engine::detect_collision(
 		const shapes::polyhedron &p1, const body_state &s1, const shapes::polyhedron &p2, const body_state &s2
 	) {
+		auto bookmark = stack_allocator::scoped_bookmark::create();
 		gjk_epa alg = gjk_epa::for_bodies(s1, p1, s2, p2);
 		alg.center1 = s1.position;
 		alg.orient1 = s1.rotation;

@@ -311,6 +311,11 @@ public:
 			return false;
 		}
 
+		if (_test) {
+			_test->camera_params = _camera_params;
+			_test->camera = _camera;
+		}
+
 		update();
 
 		glfwMakeContextCurrent(_wnd);

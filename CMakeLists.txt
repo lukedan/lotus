@@ -25,6 +25,8 @@ target_sources(pbd
 		"include/pbd/shapes/shape.h"
 		"include/pbd/shapes/simple.h"
 
+		"include/pbd/utils/stack_allocator.h"
+
 		"include/pbd/body.h"
 		"include/pbd/body_properties.h"
 		"include/pbd/camera.h"
@@ -34,6 +36,8 @@ target_sources(pbd
 		"src/algorithms/gjk_epa.cpp"
 		
 		"src/shapes/polyhedron.cpp"
+
+		"src/utils/stack_allocator.cpp"
 
 		"src/body.cpp"
 		"src/engine.cpp")

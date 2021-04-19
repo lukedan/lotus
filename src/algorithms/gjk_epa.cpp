@@ -3,6 +3,7 @@
 /// \file
 /// Implementation of the GJK and EPA algorithm.
 
+#include "pbd/utils/stack_allocator.h"
 #include "pbd/algorithms/convex_hull.h"
 
 namespace pbd {
@@ -125,7 +126,7 @@ namespace pbd {
 	}
 
 	gjk_epa::epa_result gjk_epa::epa(gjk_result_state gjk_state) const {
-		using _convex_hull_t = incremental_convex_hull<simplex_vertex, double>;
+		using _convex_hull_t = incremental_convex_hull<simplex_vertex, double, stack_std_allocator>;
 
 		auto compute_face_data = [](const _convex_hull_t &hull, _convex_hull_t::face &f) {
 			f.data = vec::dot(f.normal, hull.vertices[f.vertex_indices[0]].position);
@@ -177,10 +178,9 @@ namespace pbd {
 		gjk_epa::simplex_vertex result = uninitialized;
 
 		// polyhedron 1
-		cvec3d dir1 = orient1.inverse().rotate(dir);
 		double dot1max = -std::numeric_limits<double>::max();
-		for (std::size_t i = 0; i < polyhedron1->vertices.size(); ++i) {
-			double dv = vec::dot(polyhedron1->vertices[i], dir1);
+		for (std::size_t i = 0; i < vertices1.size(); ++i) {
+			double dv = vec::dot(vertices1[i], dir);
 			if (dv > dot1max) {
 				dot1max = dv;
 				result.index1 = i;
@@ -188,10 +188,9 @@ namespace pbd {
 		}
 
 		// polyhedron 2
-		cvec3d dir2 = orient2.inverse().rotate(dir);
 		double dot2min = std::numeric_limits<double>::max();
-		for (std::size_t i = 0; i < polyhedron2->vertices.size(); ++i) {
-			double dv = vec::dot(polyhedron2->vertices[i], dir2);
+		for (std::size_t i = 0; i < vertices2.size(); ++i) {
+			double dv = vec::dot(vertices2[i], dir);
 			if (dv < dot2min) {
 				dot2min = dv;
 				result.index2 = i;
@@ -202,8 +201,6 @@ namespace pbd {
 	}
 
 	cvec3d gjk_epa::simplex_vertex_position(simplex_vertex v) const {
-		return
-			(center1 + orient1.rotate(polyhedron1->vertices[v.index1])) -
-			(center2 + orient2.rotate(polyhedron2->vertices[v.index2]));
+		return vertices1[v.index1] - vertices2[v.index2];
 	}
 }

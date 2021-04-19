@@ -247,21 +247,14 @@ void debug_render::draw(draw_options opt) const {
 
 	if (opt.contacts) {
 		glColor3f(0.0f, 0.0f, 1.0f);
+		glBegin(GL_POINTS);
 		for (const auto &c : engine->contact_constraints) {
 			auto p1 = c.body1->state.position + c.body1->state.rotation.rotate(c.offset1);
 			auto p2 = c.body2->state.position + c.body2->state.rotation.rotate(c.offset2);
-			glBegin(GL_POINTS);
 			glVertex3d(p1[0], p1[1], p1[2]);
 			glVertex3d(p2[0], p2[1], p2[2]);
-			glEnd();
-
-			auto p3 = p1 + c.normal * 0.1;
-			auto p4 = p1 + c.force;
-			glBegin(GL_LINES);
-			glVertex3d(p1[0], p1[1], p1[2]);
-			glVertex3d(p4[0], p4[1], p4[2]);
-			glEnd();
 		}
+		glEnd();
 	}
 
 	glEnable(GL_DEPTH_TEST);
@@ -272,10 +265,10 @@ void debug_render::draw_body(const pbd::shapes::plane&, const body_visual*, bool
 	if (wireframe) {
 		glBegin(GL_LINES);
 		for (int x = -100; x <= 100; ++x) {
-			glVertex3f(x, -100.0f, 0.0f);
-			glVertex3f(x, 100.0f, 0.0f);
-			glVertex3f(-100.0f, x, 0.0f);
-			glVertex3f(100.0f, x, 0.0f);
+			glVertex3f(static_cast<float>(x), -100.0f, 0.0f);
+			glVertex3f(static_cast<float>(x), 100.0f, 0.0f);
+			glVertex3f(-100.0f, static_cast<float>(x), 0.0f);
+			glVertex3f(100.0f, static_cast<float>(x), 0.0f);
 		}
 		glEnd();
 	} else {

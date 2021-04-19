@@ -25,4 +25,8 @@ public:
 			soft_reset();
 		}
 	}
+
+
+	pbd::camera_parameters camera_params = pbd::uninitialized; /// Camera parameters.
+	pbd::camera camera = pbd::uninitialized; ///< Camera.
 };

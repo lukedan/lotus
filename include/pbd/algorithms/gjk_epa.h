@@ -5,6 +5,7 @@
 
 #include <array>
 
+#include "pbd/utils/stack_allocator.h"
 #include "pbd/math/quaternion.h"
 #include "pbd/shapes/polyhedron.h"
 #include "pbd/body.h"
@@ -90,6 +91,10 @@ namespace pbd {
 			result.center2 = st2.position;
 			result.polyhedron1 = &s1;
 			result.polyhedron2 = &s2;
+			result.vertices1 =
+				compute_vertices<stack_std_allocator>(result.orient1, result.center1, *result.polyhedron1);
+			result.vertices2 =
+				compute_vertices<stack_std_allocator>(result.orient2, result.center2, *result.polyhedron2);
 			return result;
 		}
 
@@ -103,12 +108,27 @@ namespace pbd {
 		/// Returns the position, in global coordinates, of the given \ref simplex_vertex.
 		[[nodiscard]] cvec3d simplex_vertex_position(simplex_vertex) const;
 
+		/// Computes the transformed vertex positions of the given polyhedron.
+		template <
+			template <typename> typename Allocator = std::allocator
+		> [[nodiscard]] inline static std::vector<cvec3d, Allocator<cvec3d>> compute_vertices(
+			uquatd orient, cvec3d center, const shapes::polyhedron &poly
+		) {
+			std::vector<cvec3d, Allocator<cvec3d>> result(poly.vertices.size(), uninitialized);
+			for (std::size_t i = 0; i < poly.vertices.size(); ++i) {
+				result[i] = center + orient.rotate(poly.vertices[i]);
+			}
+			return result;
+		}
+
 		/// Vertices of the simplex.
 		std::array<simplex_vertex, 4> simplex{
 			uninitialized, uninitialized, uninitialized, uninitialized
 		};
 		std::size_t simplex_vertices; ///< The number of valid vertices in \ref simplex.
 
+		std::vector<cvec3d, stack_std_allocator<cvec3d>> vertices1; ///< Transformed vertices of \ref polyhedron1.
+		std::vector<cvec3d, stack_std_allocator<cvec3d>> vertices2; ///< Transformed vertices of \ref polyhedron2.
 		uquatd orient1 = uninitialized; ///< Orientation of \ref polyhedron1.
 		uquatd orient2 = uninitialized; ///< Orientation of \ref polyhedron2.
 		cvec3d center1 = uninitialized; ///< Offset of \ref polyhedron1.

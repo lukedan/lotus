@@ -50,7 +50,7 @@ namespace pbd {
 		/// Normalizes the given vector without any safety checks.
 		template <typename Vec> [[nodiscard]] inline static constexpr Vec unsafe_normalize(Vec v) {
 			v /= v.norm();
-			return std::move(v);
+			return v;
 		}
 	};
 

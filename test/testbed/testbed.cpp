@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <chrono>
+#include <memory>
 #include <functional>
 
 #include <GLFW/glfw3.h>
@@ -15,8 +16,9 @@
 #include <pbd/camera.h>
 
 #include "utils.h"
-#include "tests/convex_hull_test.h"
+#include "tests/box_stack_test.h"
 #include "tests/fem_cloth_test.h"
+#include "tests/polyhedron_test.h"
 #include "tests/spring_cloth_test.h"
 
 constexpr auto mat1 = pbd::mat34d::identity();
@@ -145,13 +147,25 @@ public:
 		ImGui::Begin("Testbed", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
 
 		if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Checkbox("Wireframe Surfaces", &_wireframe_surfaces);
+			ImGui::Checkbox("Wireframe Surfaces", &_draw_options.wireframe_surfaces);
+			ImGui::Checkbox("Wireframe Bodies", &_draw_options.wireframe_bodies);
+			ImGui::Checkbox("Body Velocity", &_draw_options.body_velocity);
+			ImGui::Checkbox("Contacts", &_draw_options.contacts);
+
+			ImGui::Separator();
 			ImGui::SliderFloat("Rotation Sensitivity", &_rotation_sensitivity, 0.0f, 0.01f);
 			ImGui::SliderFloat("Move Sensitivity", &_move_sensitivity, 0.0f, 0.1f);
 			ImGui::SliderFloat("Zoom Sensitivity", &_zoom_sensitivity, 0.0f, 0.01f);
-			ImGui::SliderFloat("Scroll Sensitivity", &_scroll_sensitivity, 0.0f, 2.0f);
+			ImGui::SliderFloat("Scroll Sensitivity", &_scroll_sensitivity, 0.0f, 1.0f);
 			if (ImGui::Button("Reset Camera")) {
 				_reset_camera();
+			}
+
+			if (_gl_error != GL_NO_ERROR) {
+				ImGui::Separator();
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+				ImGui::Text("OpenGL Error: %d", static_cast<int>(_gl_error));
+				ImGui::PopStyleColor();
 			}
 		}
 
@@ -235,8 +249,27 @@ public:
 
 		glMatrixMode(GL_MODELVIEW);
 		if (_test) {
-			_test->render(_wireframe_surfaces);
+			_test->render(_draw_options);
 		}
+
+		if (_mouse_buttons[GLFW_MOUSE_BUTTON_LEFT] || _mouse_buttons[GLFW_MOUSE_BUTTON_MIDDLE]) {
+			pbd::cvec3d center = _camera_params.look_at;
+			glDisable(GL_LIGHTING);
+			glBegin(GL_LINES);
+			glColor3f(1.0f, 0.0f, 0.0f);
+			glVertex3d(center[0] - 0.1, center[1], center[2]);
+			glVertex3d(center[0] + 0.1, center[1], center[2]);
+			glColor3f(0.0f, 1.0f, 0.0f);
+			glVertex3d(center[0], center[1] - 0.1, center[2]);
+			glVertex3d(center[0], center[1] + 0.1, center[2]);
+			glColor3f(0.0f, 0.0f, 1.0f);
+			glVertex3d(center[0], center[1], center[2] - 0.1);
+			glVertex3d(center[0], center[1], center[2] + 0.1);
+			glEnd();
+			glEnable(GL_LIGHTING);
+		}
+
+		_gl_error = glGetError();
 	}
 
 	/// Updates the simulation.
@@ -314,14 +347,15 @@ protected:
 	double _timestep_cost = 0.0f; ///< Running average of timestep costs.
 	float _timestep_cost_factor = 0.01f; ///< Running average factor of timestep costs.
 
-	bool _wireframe_surfaces = false; ///< Whether the surfaces are displayed as wireframes.
+	draw_options _draw_options; ///< Whether the surfaces are displayed as wireframes.
 	float _rotation_sensitivity = 0.005f; ///< Rotation sensitivity.
 	float _move_sensitivity = 0.05f; ///< Move sensitivity.
 	float _zoom_sensitivity = 0.001f; ///< Zoom sensitivity.
 	/// Sensitivity for scrolling to move the camera closer and further from the focus point.
-	float _scroll_sensitivity = 1.0f;
+	float _scroll_sensitivity = 0.5f;
 	pbd::camera_parameters _camera_params = pbd::uninitialized; ///< Camera parameters.
 	pbd::camera _camera = pbd::uninitialized; ///< Camera.
+	GLenum _gl_error = GL_NO_ERROR; ///< OpenGL error.
 
 	pbd::cvec2d _prev_mouse_position = pbd::uninitialized; ///< Last mouse position.
 	bool _mouse_buttons[8]{}; ///< State of all mouse buttons.
@@ -379,11 +413,19 @@ protected:
 	}
 	/// Mouse button callback.
 	void _on_mouse_button(int button, int action, [[maybe_unused]] int mods) {
-		_mouse_buttons[button] = action == GLFW_PRESS;
+		if (action == GLFW_PRESS) {
+			if (mods & GLFW_MOD_ALT) {
+				_mouse_buttons[button] = true;
+			}
+		} else {
+			_mouse_buttons[button] = false;
+		}
 	}
 	/// Mouse scroll callback.
 	void _on_mouse_scroll([[maybe_unused]] double xoff, double yoff) {
-		_camera_params.position += _camera.unit_forward * (yoff * _scroll_sensitivity);
+		pbd::cvec3d diff = _camera_params.position - _camera_params.look_at;
+		diff *= std::pow(_scroll_sensitivity, yoff);
+		_camera_params.position = _camera_params.look_at + diff;
 		_camera = pbd::camera::from_parameters(_camera_params);
 	}
 };
@@ -398,6 +440,7 @@ int main() {
 		tb.tests.emplace_back(test_creator::get_creator_for<convex_hull_test>());
 		tb.tests.emplace_back(test_creator::get_creator_for<fem_cloth_test>());
 		tb.tests.emplace_back(test_creator::get_creator_for<spring_cloth_test>());
+		tb.tests.emplace_back(test_creator::get_creator_for<box_stack_test>());
 		while (tb.loop()) {
 			glfwPollEvents();
 		}

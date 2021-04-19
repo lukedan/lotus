@@ -145,7 +145,7 @@ namespace pbd {
 		while (true) {
 			// find the closest plane
 			double nearest_face_dist = convex_hull.faces.front().data;
-			_convex_hull_t::face_collection::iterator nearest_face = convex_hull.faces.begin();
+			auto nearest_face = convex_hull.faces.begin();
 			for (auto it = nearest_face; it != convex_hull.faces.end(); ++it) {
 				if (it->data < nearest_face_dist) {
 					nearest_face_dist = it->data;
@@ -158,12 +158,12 @@ namespace pbd {
 			auto new_vert = _convex_hull_t::vertex::create(simplex_vertex_position(new_vert_id), new_vert_id);
 			double new_dist = vec::dot(nearest_face->normal, new_vert.position);
 			if (new_dist - nearest_face->data < 1e-6) { // TODO threshold
+				auto &vert1 = convex_hull.vertices[nearest_face->vertex_indices[0]];
+				auto &vert2 = convex_hull.vertices[nearest_face->vertex_indices[1]];
+				auto &vert3 = convex_hull.vertices[nearest_face->vertex_indices[2]];
 				return epa_result::create(
-					{
-						convex_hull.vertices[nearest_face->vertex_indices[0]].data,
-						convex_hull.vertices[nearest_face->vertex_indices[1]].data,
-						convex_hull.vertices[nearest_face->vertex_indices[2]].data
-					},
+					{ vert1.position, vert2.position, vert3.position },
+					{ vert1.data, vert2.data, vert3.data },
 					nearest_face->normal, nearest_face->data
 				);
 			}

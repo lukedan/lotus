@@ -6,6 +6,7 @@
 #include <variant>
 
 #include "pbd/shapes/simple.h"
+#include "pbd/shapes/polyhedron.h"
 
 namespace pbd {
 	/// A generic shape.
@@ -14,10 +15,13 @@ namespace pbd {
 		enum class type : unsigned char {
 			plane, ///< \ref shapes::plane.
 			sphere, ///< \ref shapes::sphere.
+			polyhedron, ///< \ref shapes::polyhedron.
+
+			num_types ///< The total number of shape types.
 		};
 
 		/// A union for the storage of shapes. The order of types must match the \ref type enum.
-		using storage = std::variant<shapes::plane, shapes::sphere>;
+		using storage = std::variant<shapes::plane, shapes::sphere, shapes::polyhedron>;
 
 		/// Returns the type of the stored shape.
 		[[nodiscard]] type get_type() const {

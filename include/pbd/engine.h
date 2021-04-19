@@ -4,6 +4,9 @@
 /// The PBD simulation engine.
 
 #include <vector>
+#include <list>
+#include <deque>
+#include <optional>
 
 #include "pbd/shapes/shape.h"
 #include "pbd/constraints/spring.h"
@@ -12,125 +15,84 @@
 #include "pbd/body.h"
 
 namespace pbd {
-	/// Data associated with a single body.
-	struct body {
-		/// No initialization.
-		body(uninitialized_t) {
-		}
-
-		shape body_shape; ///< The shape of this body.
-		body_properties properties = uninitialized; ///< The properties of this body.
-		body_state state = uninitialized; ///< The state of this body.
-	};
-	/// Data associated with a single particle.
-	struct particle {
-		/// No initialization.
-		particle(uninitialized_t) {
-		}
-		/// Initializes all fields of this struct.
-		particle(particle_properties props, particle_state st) :
-			properties(props), state(st), prev_position(st.position) {
-		}
-
-		particle_properties properties = uninitialized; ///< The mass of this particle.
-		particle_state state = uninitialized; ///< The state of this particle.
-		cvec3d prev_position = uninitialized; ///< Position in the previous timestep.
-	};
-
-
 	/// The PBD simulation engine.
 	class engine {
 	public:
-		/// Executes one timestep with the given delta time in seconds and the given number of iterations.
-		void timestep(double dt, std::size_t iters) {
-			double dt2 = dt * dt;
-			double inv_dt2 = 1.0 / dt2;
-
-			for (particle &p : particles) {
-				p.prev_position = p.state.position;
-				p.state.position = p.prev_position + dt * p.state.velocity;
-				if (p.properties.inverse_mass > 0.0) {
-					p.state.position += dt2 * gravity;
-				}
+		/// Result of collision detection.
+		struct collision_detection_result {
+			/// No initialization.
+			collision_detection_result(uninitialized_t) {
+			}
+			/// Creates a new object.
+			[[nodiscard]] inline static collision_detection_result create(cvec3d c1, cvec3d c2, cvec3d n) {
+				collision_detection_result result = uninitialized;
+				result.contact1 = c1;
+				result.contact2 = c2;
+				result.normal = n;
+				return result;
 			}
 
-			spring_lambdas.resize(spring_constraints.size());
-			std::fill(spring_lambdas.begin(), spring_lambdas.end(), 0.0);
+			cvec3d contact1 = uninitialized; ///< Contact point on the first object in world space.
+			cvec3d contact2 = uninitialized; ///< Contact point on the second object in world space.
+			/// Normalized contact normal. There's no guarantee of its direction.
+			cvec3d normal = uninitialized;
+		};
 
-			face_lambdas.resize(face_constraints.size(), uninitialized);
-			std::fill(face_lambdas.begin(), face_lambdas.end(), zero);
+		/// Executes one time step with the given delta time in seconds and the given number of iterations.
+		void timestep(double dt, std::size_t iters);
 
-			bend_lambdas.resize(bend_constraints.size());
-			std::fill(bend_lambdas.begin(), bend_lambdas.end(), 0.0);
 
-			for (std::size_t i = 0; i < iters; ++i) {
-				// handle collisions
-				for (const body &b : bodies) {
-					if (b.properties.inverse_mass == 0.0) {
-						for (particle &p : particles) {
-							std::visit(
-								[&](const auto &shape) {
-									_handle_shape_particle_collision(shape, b.state, p.state.position);
-								},
-								b.body_shape.value
-							);
-						}
-					}
-				}
+		/// Detects collision between two generic shapes.
+		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
+			const shape&, const body_state&, const shape&, const body_state&
+		);
+		/// Fallback case for collision detection between generic shapes - this always returns \p std::nullopt and
+		/// should only be used internally.
+		template <
+			typename Shape1, typename Shape2
+		> [[nodiscard]] static std::optional<engine::collision_detection_result> detect_collision(
+			const Shape1&, const body_state&, const Shape2&, const body_state&
+		);
+		/// Detects collision between a sphere and a plane.
+		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
+			const shapes::sphere&, const body_state&, const shapes::plane&, const body_state&
+		);
+		/// Detects collision between two spheres.
+		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
+			const shapes::sphere&, const body_state&, const shapes::sphere&, const body_state&
+		);
+		/// Detects collision between a plane and a polyhedron.
+		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
+			const shapes::plane&, const body_state&, const shapes::polyhedron&, const body_state&
+		);
+		/// Detects collision between a sphere and a polyhedron.
+		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
+			const shapes::sphere&, const body_state&, const shapes::polyhedron&, const body_state&
+		);
+		/// Detects collision between two polyhedra.
+		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
+			const shapes::polyhedron&, const body_state&, const shapes::polyhedron&, const body_state&
+		);
 
-				// project spring constraints
-				for (std::size_t j = 0; j < spring_constraints.size(); ++j) {
-					const constraints::spring &s = spring_constraints[j];
-					particle &p1 = particles[s.object1];
-					particle &p2 = particles[s.object2];
-					s.project(
-						p1.state.position, p2.state.position,
-						p1.properties.inverse_mass, p2.properties.inverse_mass,
-						inv_dt2, spring_lambdas[j]
-					);
-				}
+		/// Handles the collision between a plane and a particle.
+		static bool handle_shape_particle_collision(const shapes::plane&, const body_state&, cvec3d&);
+		/// Handles the collision between a kinematic sphere and a particle.
+		static bool handle_shape_particle_collision(const shapes::sphere&, const body_state&, cvec3d&);
+		/// Handles the collision between a kinematic polyhedron and a particle.
+		static bool handle_shape_particle_collision(const shapes::polyhedron&, const body_state&, cvec3d&);
 
-				// project face constraints
-				for (std::size_t j = 0; j < face_constraints.size(); ++j) {
-					constraints::face &f = face_constraints[j];
-					particle &p1 = particles[f.particle1];
-					particle &p2 = particles[f.particle2];
-					particle &p3 = particles[f.particle3];
-					f.project(
-						p1.state.position, p2.state.position, p3.state.position,
-						p1.properties.inverse_mass, p2.properties.inverse_mass, p3.properties.inverse_mass,
-						inv_dt2, face_lambdas[j], face_constraint_projection_type
-					);
-				}
 
-				// project bend constraints
-				for (std::size_t j = 0; j < bend_constraints.size(); ++j) {
-					constraints::bend &b = bend_constraints[j];
-					particle &p1 = particles[b.particle_edge1];
-					particle &p2 = particles[b.particle_edge2];
-					particle &p3 = particles[b.particle3];
-					particle &p4 = particles[b.particle4];
-					b.project(
-						p1.state.position, p2.state.position, p3.state.position, p4.state.position,
-						p1.properties.inverse_mass, p2.properties.inverse_mass,
-						p3.properties.inverse_mass, p4.properties.inverse_mass,
-						inv_dt2, bend_lambdas[j]
-					);
-				}
-			}
+		/// The list of shapes. This provides a convenient place to store shapes, but the user can store shapes
+		/// anywhere.
+		std::deque<shape> shapes;
+		std::list<body> bodies; ///< The list of bodies.
 
-			for (particle &p : particles) {
-				p.state.velocity = (p.state.position - p.prev_position) / dt;
-			}
-		}
-
-		std::vector<body> bodies; ///< The list of bodies.
 		std::vector<particle> particles; ///< The list of particles.
 
-		std::vector<constraints::spring> spring_constraints; ///< The list of spring constraints.
+		std::vector<constraints::particle_spring> particle_spring_constraints; ///< The list of spring constraints.
 		std::vector<double> spring_lambdas; ///< Lambda values for all spring constraints.
 
-		/// Determins how face constraints are projected.
+		/// Determines how face constraints are projected.
 		constraints::face::projection_type face_constraint_projection_type =
 			constraints::face::projection_type::gauss_seidel;
 		std::vector<constraints::face> face_constraints; ///< The list of face constraints.
@@ -139,27 +101,9 @@ namespace pbd {
 		std::vector<constraints::bend> bend_constraints; ///< The list of bend constraints.
 		std::vector<double> bend_lambdas; ///< Lambda values for bend constraints.
 
+		std::deque<constraints::body_contact> contact_constraints; ///< Contact constraints.
+		std::vector<double> contact_lambdas; ///< Lambda values for contact constraints.
+
 		cvec3d gravity = zero; ///< Gravity.
-	protected:
-		/// Handles the collision between a plane and a particle.
-		bool _handle_shape_particle_collision(const shapes::plane&, const body_state &state, cvec3d &pos) {
-			cvec3d plane_pos = state.rotation.inverse().rotate(pos - state.position);
-			if (plane_pos[2] < 0.0) {
-				plane_pos[2] = 0.0;
-				pos = state.rotation.rotate(plane_pos) + state.position;
-				return true;
-			}
-			return false;
-		}
-		/// Handles the collision between a kinematic sphere and a particle.
-		bool _handle_shape_particle_collision(const shapes::sphere &shape, const body_state &state, cvec3d &pos) {
-			auto diff = pos - state.position;
-			double sqr_dist = diff.squared_norm();
-			if (sqr_dist < shape.radius * shape.radius) {
-				pos = state.position + diff * (shape.radius / std::sqrt(sqr_dist));
-				return true;
-			}
-			return false;
-		}
 	};
 }

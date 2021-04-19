@@ -5,32 +5,34 @@
 
 #include "pbd/math/constants.h"
 #include "pbd/math/vector.h"
-#include "pbd/body.h"
+#include "pbd/body_properties.h"
 
 namespace pbd::shapes {
 	/// A sphere centered at the origin.
 	struct sphere {
-	public:
 		/// No initialization.
 		sphere(uninitialized_t) {
 		}
 
-		/// Creates a new sphere shape with the given radius.
-		[[nodiscard]] constexpr static sphere from_radius(double r) {
-			return sphere(r);
+		/// Creates a new uniform sphere shape with the given radius.
+		[[nodiscard]] inline static sphere from_radius(double r) {
+			sphere result = uninitialized;
+			result.offset = zero;
+			result.radius = r;
+			return result;
 		}
 
+		/// The offset of the center of this sphere in local coordinates. This ensures that the center of mass is
+		/// always at the origin of the local coordinate system.
+		cvec3d offset = uninitialized;
 		double radius; ///< The radius of this sphere.
 
-		/// Returns the body properties this shape with the given density.
+		/// Returns the body properties of this shape with the given density.
 		[[nodiscard]] constexpr body_properties get_body_properties(double density) const {
+			// TODO offset this sphere
 			double mass = (4.0 / 3.0) * pi * radius * radius * radius * density;
 			double diag = 0.4 * mass * radius * radius;
-			return body_properties::create(mat33d::diagonal(diag, diag, diag), zero, mass);
-		}
-	protected:
-		/// Initializes all fields of this struct.
-		explicit constexpr sphere(double r) : radius(r) {
+			return body_properties::create(mat33d::diagonal(diag, diag, diag), mass);
 		}
 	};
 

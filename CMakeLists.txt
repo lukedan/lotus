@@ -26,17 +26,19 @@ target_sources(pbd
 		"include/pbd/shapes/simple.h"
 
 		"include/pbd/body.h"
+		"include/pbd/body_properties.h"
 		"include/pbd/camera.h"
 		"include/pbd/common.h"
 		"include/pbd/engine.h"
 	PRIVATE
 		"src/algorithms/gjk_epa.cpp"
 		
-		"src/body.cpp")
+		"src/shapes/polyhedron.cpp"
 
-target_include_directories(pbd
-	PUBLIC
-		"include/")
+		"src/body.cpp"
+		"src/engine.cpp")
+
+target_include_directories(pbd PUBLIC "include/")
 
 # set warning level
 if(MSVC)

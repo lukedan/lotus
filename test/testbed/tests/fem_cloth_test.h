@@ -2,8 +2,8 @@
 
 #include <pbd/engine.h>
 
-#include "../utils.h"
 #include "test.h"
+#include "../utils.h"
 
 class fem_cloth_test : public test {
 public:
@@ -24,26 +24,29 @@ public:
 
 		double cloth_mass = _cloth_density * _cloth_size * _cloth_size * _thickness;
 		double node_mass = cloth_mass / (_side_segments * _side_segments);
-		double segment_length = _cloth_size / (_side_segments - 1);
+		double segment_length = _cloth_size / static_cast<double>(_side_segments - 1);
 
 		auto &surface = _render.surfaces.emplace_back();
 		surface.color = debug_render::colorf(1.0f, 0.4f, 0.2f, 0.5f);
-		std::vector<std::vector<std::size_t>> pid(_side_segments, std::vector<std::size_t>(_side_segments));
-		for (std::size_t y = 0; y < _side_segments; ++y) {
-			for (std::size_t x = 0; x < _side_segments; ++x) {
+		std::vector<std::vector<std::size_t>> pid(
+			static_cast<std::size_t>(_side_segments),
+			std::vector<std::size_t>(static_cast<std::size_t>(_side_segments))
+		);
+		for (int y = 0; y < _side_segments; ++y) {
+			for (int x = 0; x < _side_segments; ++x) {
 				auto prop = pbd::particle_properties::from_mass(node_mass);
 				if (x == 0 && (y == 0 || y == _side_segments - 1)) {
 					prop = pbd::particle_properties::kinematic();
 				}
-				pbd::particle_state state(
-					{ x * segment_length, y * segment_length - 0.5 * _cloth_size, _cloth_size }, pbd::zero
+				auto state = pbd::particle_state::stationary_at(
+					{ x * segment_length, y * segment_length - 0.5 * _cloth_size, _cloth_size }
 				);
 				pid[x][y] = _engine.particles.size();
-				_engine.particles.emplace_back(prop, state);
+				_engine.particles.emplace_back(pbd::particle::create(prop, state));
 			}
 		}
-		for (std::size_t y = 1; y < _side_segments; ++y) {
-			for (std::size_t x = 1; x < _side_segments; ++x) {
+		for (int y = 1; y < _side_segments; ++y) {
+			for (int x = 1; x < _side_segments; ++x) {
 				_add_face(pid[x - 1][y - 1], pid[x - 1][y], pid[x][y - 1]);
 				_add_face(pid[x - 1][y], pid[x][y], pid[x][y - 1]);
 
@@ -62,21 +65,26 @@ public:
 			}
 		}
 
-		auto &sphere = _engine.bodies.emplace_back(pbd::uninitialized);
-		sphere.properties = pbd::body_properties::kinematic();
-		sphere.body_shape.value = pbd::shapes::sphere::from_radius(0.25);
-		sphere.state.position = pbd::zero;
+		auto &sphere_shape = _engine.shapes.emplace_back(pbd::shapes::sphere::from_radius(0.25));
+		auto &plane_shape = _engine.shapes.emplace_back(pbd::shapes::plane());
 
-		auto &plane = _engine.bodies.emplace_back(pbd::uninitialized);
-		plane.properties = pbd::body_properties::kinematic();
-		plane.body_shape.value.emplace<pbd::shapes::plane>();
-		plane.state.position = pbd::zero;
-		plane.state.rotation = pbd::quatd::identity();
+		_engine.bodies.emplace_front(pbd::body::create(
+			sphere_shape,
+			pbd::body_properties::kinematic(),
+			pbd::body_state::stationary_at(pbd::zero, pbd::uquatd::identity())
+		));
+		_sphere = _engine.bodies.begin();
+
+		_engine.bodies.emplace_front(pbd::body::create(
+			plane_shape,
+			pbd::body_properties::kinematic(),
+			pbd::body_state::stationary_at(pbd::zero, pbd::uquatd::identity())
+		));
 	}
 
 	void timestep(double dt, std::size_t iterations) override {
 		_world_time += dt;
-		_engine.bodies[0].state.position = {
+		_sphere->state.position = {
 			_sphere_travel * std::cos((2.0 * pbd::pi / _sphere_period) * _world_time),
 			_sphere_yz[0],
 			_sphere_yz[1]
@@ -84,8 +92,8 @@ public:
 		_engine.timestep(dt, iterations);
 	}
 
-	void render(bool wireframe_surf) override {
-		_render.draw(wireframe_surf);
+	void render(const draw_options &options) override {
+		_render.draw(options);
 	}
 
 	void gui() override {
@@ -131,6 +139,7 @@ protected:
 	float _thickness = 0.02f;
 	bool _bend_constraints = true;
 
+	std::list<pbd::body>::iterator _sphere;
 	float _sphere_travel = 1.5f;
 	float _sphere_period = 3.0f;
 	float _sphere_yz[2]{ 0.0f, 0.5f };

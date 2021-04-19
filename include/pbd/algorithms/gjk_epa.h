@@ -7,6 +7,7 @@
 
 #include "pbd/math/quaternion.h"
 #include "pbd/shapes/polyhedron.h"
+#include "pbd/body.h"
 
 namespace pbd {
 	/// Implementation of the Gilbert-Johnson-Keerthi algorithm and the expanding polytope algorithm.
@@ -52,14 +53,20 @@ namespace pbd {
 			epa_result(uninitialized_t) {
 			}
 			/// Creates a \ref epa_result object.
-			[[nodiscard]] inline static epa_result create(std::array<simplex_vertex, 3> verts, cvec3d n, double d) {
+			[[nodiscard]] inline static epa_result create(
+				std::array<cvec3d, 3> positions, std::array<simplex_vertex, 3> verts, cvec3d n, double d
+			) {
 				epa_result result = uninitialized;
+				result.simplex_positions = positions;
 				result.vertices = verts;
 				result.normal = n;
 				result.depth = d;
 				return result;
 			}
 
+			std::array<cvec3d, 3> simplex_positions{
+				uninitialized, uninitialized, uninitialized
+			}; ///< Positions of \ref vertices.
 			std::array<simplex_vertex, 3> vertices{
 				uninitialized, uninitialized, uninitialized
 			}; ///< Vertices of the contact plane.
@@ -69,6 +76,21 @@ namespace pbd {
 
 		/// No initialization.
 		gjk_epa(uninitialized_t) {
+		}
+		/// Creates a new object for the given pair of bodies.
+		[[nodiscard]] inline static gjk_epa for_bodies(
+			const body_state &st1, const shapes::polyhedron &s1,
+			const body_state &st2, const shapes::polyhedron &s2
+		) {
+			gjk_epa result = uninitialized;
+			result.simplex_vertices = 0;
+			result.orient1 = st1.rotation;
+			result.orient2 = st2.rotation;
+			result.center1 = st1.position;
+			result.center2 = st2.position;
+			result.polyhedron1 = &s1;
+			result.polyhedron2 = &s2;
+			return result;
 		}
 
 		/// Updates and returns the result of the GJK algorithm.

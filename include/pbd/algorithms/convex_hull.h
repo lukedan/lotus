@@ -48,17 +48,17 @@ namespace pbd {
 			half_edge_ref(std::nullptr_t) : index(null_index) {
 			}
 			/// Creates a new \ref half_edge_ref to the given edge int he given face.
-			[[nodiscard]] inline static half_edge_ref to(face_collection::iterator f, unsigned char i) {
+			[[nodiscard]] inline static half_edge_ref to(typename face_collection::iterator f, unsigned char i) {
 				return half_edge_ref(f, i);
 			}
 
 			/// Returns the next edge in \ref face.
 			[[nodiscard]] half_edge_ref next() const {
-				return to(face, (index + 1) % 3);
+				return to(face, static_cast<unsigned char>((index + 1) % 3));
 			}
 			/// Returns the previous edge in \ref face.
 			[[nodiscard]] half_edge_ref prev() const {
-				return to(face, (index + 2) % 3);
+				return to(face, static_cast<unsigned char>((index + 2) % 3));
 			}
 
 			/// Dereferencing.
@@ -82,11 +82,11 @@ namespace pbd {
 			/// Equality.
 			[[nodiscard]] friend bool operator==(half_edge_ref, half_edge_ref) = default;
 
-			face_collection::iterator face; ///< The face that contains the half edge.
+			typename face_collection::iterator face; ///< The face that contains the half edge.
 			unsigned char index; ///< The index of this edge in \ref face::edges.
 		protected:
 			/// Initializes all fields of this reference.
-			half_edge_ref(face_collection::iterator f, unsigned char i) : face(f), index(i) {
+			half_edge_ref(typename face_collection::iterator f, unsigned char i) : face(f), index(i) {
 			}
 		};
 		/// A triangular face.
@@ -143,7 +143,7 @@ namespace pbd {
 			) > 0.0;
 
 			// create faces
-			std::array<face_collection::iterator, 4> faces;
+			std::array<typename face_collection::iterator, 4> faces;
 			{
 				std::array<std::array<std::size_t, 3>, 4> vertex_indices;
 				if (invert_even_normals) {
@@ -184,11 +184,6 @@ namespace pbd {
 					}
 				}
 			}
-			for (std::size_t i = 0; i < 4; ++i) {
-				for (std::size_t j = 0; j < 3; ++j) {
-					assert(**faces[i]->edges[j] == faces[i]->edges[j]);
-				}
-			}
 
 			return result;
 		}
@@ -197,9 +192,9 @@ namespace pbd {
 		template <
 			typename ComputeFaceData, template <typename> typename StackAllocator = Allocator
 		> void add_vertex_external(
-			vertex v, face_collection::iterator hint, const ComputeFaceData &compute_data
+			vertex v, typename face_collection::iterator hint, const ComputeFaceData &compute_data
 		) {
-			using _ptr = face_collection::iterator;
+			using _ptr = typename face_collection::iterator;
 
 			std::size_t vert_id = vertices.size();
 			auto &vert = vertices.emplace_back(std::move(v));

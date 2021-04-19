@@ -49,7 +49,7 @@ namespace pbd {
 
 		/// Creates a quaternion using the given elements.
 		template <
-			typename Dummy = std::enable_if_t<Kind == quaternion_kind::arbitrary, int>, Dummy = 0
+			typename Dummy = int, std::enable_if_t<Kind == quaternion_kind::arbitrary, Dummy> = 0
 		> [[nodiscard]] constexpr static quaternion from_wxyz(T w, T x, T y, T z) {
 			return quaternion(std::move(w), std::move(x), std::move(y), std::move(z));
 		}
@@ -130,7 +130,7 @@ namespace pbd {
 			quaternion<T, Kind> lhs, const quaternion<T, OtherKind> &rhs
 		) {
 			lhs += rhs;
-			return std::move(lhs);
+			return lhs;
 		}
 
 		/// In-place memberwise subtraction.
@@ -179,7 +179,7 @@ namespace pbd {
 		) {
 			quaternion<T, quaternion_kind::arbitrary> res = rhs;
 			res *= lhs;
-			return std::move(res);
+			return res;
 		}
 
 		/// In-place quaternion multiplication.
@@ -293,10 +293,15 @@ namespace pbd {
 
 		/// Rotates a vector.
 		template <typename Vec> [[nodiscard]] constexpr std::enable_if_t<Vec::dimensionality == 3, Vec> rotate(
-			const Vec &v
+			const Vec &v1
 		) const {
-			auto result = *this * quaternion<T, quaternion_kind::arbitrary>::from_vector(v) * inverse();
-			return result.axis();
+			T s = w();
+			auto v = axis();
+			auto result = (2 * vec::dot(v, v1)) * v + (s * s - v.squared_norm()) * v1 + (2 * s) * vec::cross(v, v1);
+			if constexpr (Kind == quaternion_kind::arbitrary) {
+				result /= squared_magnitude();
+			}
+			return result;
 		}
 	protected:
 		T
@@ -338,6 +343,16 @@ namespace pbd {
 			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
 		> from_axis_angle(const Vec &axis, typename Vec::value_type angle) {
 			return from_normalized_axis_angle(vec::unsafe_normalize(axis), std::move(angle));
+		}
+
+		/// No normalization needed for unit quaternions.
+		template <typename T> constexpr static unit_quaternion<T> unsafe_normalize(unit_quaternion<T> q) {
+			return q;
+		}
+		/// Normalizes the given quaternion without checking if its magnitude is close to zero.
+		template <typename T> inline constexpr static unit_quaternion<T> unsafe_normalize(quaternion<T> q) {
+			T norm = q.magnitude();
+			return unit_quaternion<T>(q.w() / norm, q.x() / norm, q.y() / norm, q.z() / norm);
 		}
 	};
 }

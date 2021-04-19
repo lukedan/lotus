@@ -241,7 +241,7 @@ namespace pbd {
 		matrix<Rows, Cols, T> lhs, const matrix<Rows, Cols, T> &rhs
 	) {
 		lhs += rhs;
-		return std::move(lhs);
+		return lhs;
 	}
 
 	/// In-place memberwise subtraction.
@@ -262,7 +262,7 @@ namespace pbd {
 		matrix<Rows, Cols, T> lhs, const matrix<Rows, Cols, T> &rhs
 	) {
 		lhs -= rhs;
-		return std::move(lhs);
+		return lhs;
 	}
 	/// Negation.
 	template <
@@ -273,7 +273,7 @@ namespace pbd {
 				m(y, x) = -m(y, x);
 			}
 		}
-		return std::move(m);
+		return m;
 	}
 
 	/// In-place scalar multiplication.
@@ -292,14 +292,14 @@ namespace pbd {
 		std::size_t Rows, std::size_t Cols, typename T, typename U
 	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator*(matrix<Rows, Cols, T> lhs, const U &rhs) {
 		lhs *= rhs;
-		return std::move(lhs);
+		return lhs;
 	}
 	/// Scalar multiplication.
 	template <
 		std::size_t Rows, std::size_t Cols, typename T, typename U
 	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator*(const U &lhs, matrix<Rows, Cols, T> rhs) {
 		rhs *= lhs;
-		return std::move(rhs);
+		return rhs;
 	}
 
 	/// In-place scalar division.
@@ -318,7 +318,7 @@ namespace pbd {
 		std::size_t Rows, std::size_t Cols, typename T, typename U
 	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator/(matrix<Rows, Cols, T> lhs, const U &rhs) {
 		lhs /= rhs;
-		return std::move(lhs);
+		return lhs;
 	}
 
 
@@ -547,6 +547,15 @@ namespace pbd {
 			return result;
 		}
 
+		/// Computes the determinant of the original matrix.
+		[[nodiscard]] constexpr double determinant() const {
+			double det = result_rows(permutation[0], 0);
+			for (std::size_t i = 1; i < N; ++i) {
+				det *= result_rows(permutation[i], i);
+			}
+			return (num_permutations % 2 == 0) ? det : -det;
+		}
+
 		/// Rows of the decomposed matrices. The order of these rows are determined by \ref permutation. Its
 		/// upper-right triangle as well as the diagonal stores the U matrix, and its lower-left triangle stores the
 		/// L matrix without its diagonal. All elements on the diagonal of L are 1.
@@ -558,7 +567,7 @@ namespace pbd {
 		/// Initializes this struct as the starting state of decomposition computation for the given matrix.
 		/// Essentially initializes the result to the given matrix without permutation.
 		constexpr explicit lup_decomposition(const matrix<N, N, T> &mat) :
-			result_rows(mat), permutation(zero), num_permutations(N) {
+			result_rows(mat), permutation(zero), num_permutations(0) {
 
 			for (std::size_t i = 1; i < N; ++i) {
 				permutation[i] = i;

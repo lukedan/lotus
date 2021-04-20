@@ -32,8 +32,8 @@ namespace pbd {
 				return result;
 			}
 
-			cvec3d contact1 = uninitialized; ///< Contact point on the first object in world space.
-			cvec3d contact2 = uninitialized; ///< Contact point on the second object in world space.
+			cvec3d contact1 = uninitialized; ///< Contact point on the first object in local space.
+			cvec3d contact2 = uninitialized; ///< Contact point on the second object in local space.
 			/// Normalized contact normal. There's no guarantee of its direction.
 			cvec3d normal = uninitialized;
 		};

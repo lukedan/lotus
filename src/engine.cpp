@@ -178,20 +178,23 @@ namespace pbd {
 	std::optional<engine::collision_detection_result> engine::detect_collision(
 		const shapes::plane&, const body_state &s1, const shapes::polyhedron &p2, const body_state &s2
 	) {
-		auto norm = s1.rotation.rotate(cvec3d(0.0, 0.0, 1.0));
+		cvec3d norm_world = s1.rotation.rotate(cvec3d(0.0, 0.0, 1.0));
+		cvec3d norm_local2 = s2.rotation.inverse().rotate(norm_world);
+		cvec3d plane_pos = s2.rotation.inverse().rotate(s1.position - s2.position);
 		double min_depth = 0.0;
 		std::optional<cvec3d> contact;
 		for (const auto &vert : p2.vertices) {
-			auto pos = s2.rotation.rotate(vert) + s2.position;
-			double depth = vec::dot(pos - s1.position, norm);
+			double depth = vec::dot(vert - plane_pos, norm_local2);
 			if (depth < min_depth) {
 				min_depth = depth;
-				contact = pos;
+				contact = vert;
 			}
 		}
 		if (contact) {
+			cvec3d vert_world = s2.rotation.rotate(contact.value()) + s2.position;
+			vert_world -= norm_world * min_depth;
 			return engine::collision_detection_result::create(
-				contact.value() - norm * min_depth, contact.value(), norm
+				s1.rotation.inverse().rotate(vert_world - s1.position), contact.value(), norm_world
 			);
 		}
 		return std::nullopt;
@@ -227,14 +230,16 @@ namespace pbd {
 			epa_res.vertices[0].index1 == epa_res.vertices[1].index1 &&
 			epa_res.vertices[0].index1 == epa_res.vertices[2].index1
 		) { // a vertex from p1 and a face from p2
-			result.contact1 = s1.rotation.rotate(p1.vertices[epa_res.vertices[0].index1]) + s1.position;
-			result.contact2 = result.contact1 - epa_res.depth * epa_res.normal;
+			result.contact1 = p1.vertices[epa_res.vertices[0].index1];
+			cvec3d contact2 = s1.rotation.rotate(result.contact1) + s1.position - epa_res.depth * epa_res.normal;
+			result.contact2 = s2.rotation.inverse().rotate(contact2 - s2.position);
 		} else if (
 			epa_res.vertices[0].index2 == epa_res.vertices[1].index2 &&
 			epa_res.vertices[0].index2 == epa_res.vertices[2].index2
 		) { // a vertex from p2 and a face from p1
-			result.contact2 = s2.rotation.rotate(p2.vertices[epa_res.vertices[0].index2]) + s2.position;
-			result.contact1 = result.contact2 + epa_res.depth * epa_res.normal;
+			result.contact2 = p2.vertices[epa_res.vertices[0].index2];
+			auto contact1 = s2.rotation.rotate(result.contact2) + s2.position + epa_res.depth * epa_res.normal;
+			result.contact1 = s1.rotation.inverse().rotate(contact1 - s1.position);
 		} else { // two edges
 			std::array<cvec3d, 3> spx_pos = epa_res.simplex_positions;
 			std::array<gjk_epa::simplex_vertex, 3> spx_id = epa_res.vertices;
@@ -269,11 +274,14 @@ namespace pbd {
 			double y_ratio = contact[1] / pos1[1];
 			cvec2d barycentric(contact[0] - pos1[0] * y_ratio, y_ratio);
 
-			cvec3d local_contact =
+			cvec3d local_contact2 =
 				p2.vertices[spx_id[0].index2] * (1.0 - barycentric[1]) +
 				p2.vertices[spx_id[2].index2] * barycentric[1];
-			result.contact2 = s2.rotation.rotate(local_contact) + s2.position;
-			result.contact1 = result.contact2 + epa_res.depth * epa_res.normal;
+			cvec3d local_contact1 =
+				p1.vertices[spx_id[0].index1] * (1.0 - barycentric[0]) +
+				p1.vertices[spx_id[1].index1] * barycentric[0];
+			result.contact1 = local_contact1;
+			result.contact2 = local_contact2;
 		}
 		return result;
 	}

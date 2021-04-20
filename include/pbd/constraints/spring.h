@@ -49,11 +49,11 @@ namespace pbd::constraints {
 		/// No initialization.
 		body_contact(uninitialized_t) {
 		}
-		/// Creates a contact for the given bodies at the given contact position in world space.
+		/// Creates a contact for the given bodies at the given contact position in local space.
 		[[nodiscard]] inline static body_contact create_for(body &b1, body &b2, cvec3d p1, cvec3d p2, cvec3d n) {
 			body_contact result = uninitialized;
-			result.offset1 = b1.state.rotation.inverse().rotate(p1 - b1.state.position);
-			result.offset2 = b2.state.rotation.inverse().rotate(p2 - b2.state.position);
+			result.offset1 = p1;
+			result.offset2 = p2;
 			result.normal = n;
 			result.body1 = &b1;
 			result.body2 = &b2;

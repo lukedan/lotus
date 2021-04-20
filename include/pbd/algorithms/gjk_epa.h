@@ -91,10 +91,6 @@ namespace pbd {
 			result.center2 = st2.position;
 			result.polyhedron1 = &s1;
 			result.polyhedron2 = &s2;
-			result.vertices1 =
-				compute_vertices<stack_std_allocator>(result.orient1, result.center1, *result.polyhedron1);
-			result.vertices2 =
-				compute_vertices<stack_std_allocator>(result.orient2, result.center2, *result.polyhedron2);
 			return result;
 		}
 
@@ -127,8 +123,6 @@ namespace pbd {
 		};
 		std::size_t simplex_vertices; ///< The number of valid vertices in \ref simplex.
 
-		std::vector<cvec3d, stack_std_allocator<cvec3d>> vertices1; ///< Transformed vertices of \ref polyhedron1.
-		std::vector<cvec3d, stack_std_allocator<cvec3d>> vertices2; ///< Transformed vertices of \ref polyhedron2.
 		uquatd orient1 = uninitialized; ///< Orientation of \ref polyhedron1.
 		uquatd orient2 = uninitialized; ///< Orientation of \ref polyhedron2.
 		cvec3d center1 = uninitialized; ///< Offset of \ref polyhedron1.

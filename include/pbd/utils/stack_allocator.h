@@ -52,6 +52,34 @@ namespace pbd {
 		protected:
 			stack_allocator *_alloc = nullptr; ///< The allocator;
 		};
+		/// A STL container compatible allocator for \ref stack_allocator.
+		template <typename T> class allocator {
+			template <typename U> friend class allocator;
+		public:
+			using value_type = T; ///< Value type.
+
+			/// Initializes \ref _thread_id.
+			allocator() : _thread_id(std::this_thread::get_id()) {
+			}
+			/// Conversion from an allocator of another type.
+			template <typename U> explicit allocator(const allocator<U> &src) :
+				_thread_id(src._thread_id) {
+			}
+
+			/// Allocates an array.
+			[[nodiscard]] T *allocate(std::size_t n) const {
+				assert(std::this_thread::get_id() == _thread_id);
+				return static_cast<T*>(stack_allocator::for_this_thread().allocate(sizeof(T) * n, alignof(T)));
+			}
+			/// Does nothing. De-allocation only happens when popping bookmarks.
+			void deallocate(T*, std::size_t) const {
+			}
+
+			/// If two objects are on the same thread, they use the same underlying allocator.
+			friend bool operator==(const allocator&, const allocator&) = default;
+		protected:
+			std::thread::id _thread_id; ///< The thread ID of this allocator.
+		};
 
 		/// Default constructor.
 		stack_allocator() = default;
@@ -62,10 +90,10 @@ namespace pbd {
 		/// Frees all pages.
 		~stack_allocator() {
 			assert(_top_bookmark == nullptr);
-			gc();
+			free_unused_pages();
 			while (_top_page) {
 				_page_ref next = _top_page.header->previous;
-				auto free_func = _top_page.header->free;
+				auto free_func = _top_page.header->free_page;
 				free_func(_top_page.memory);
 				_top_page = next;
 			}
@@ -108,10 +136,10 @@ namespace pbd {
 		}
 
 		/// Frees all pages in \ref _free_pages.
-		void gc() {
+		void free_unused_pages() {
 			while (_free_pages) {
 				_page_ref next = _free_pages.header->previous;
-				auto free_func = _free_pages.header->free;
+				auto free_func = _free_pages.header->free_page;
 				free_func(_free_pages.memory);
 				_free_pages = next;
 			}
@@ -121,8 +149,8 @@ namespace pbd {
 		static stack_allocator &for_this_thread();
 
 		std::size_t page_size = 8 * 1024 * 1024; /// Size of a page.
-		void *(*allocator)(std::size_t) = std::malloc; ///< Used to allocate the pages.
-		void (*free)(void*) = std::free; ///< Used to free a page.
+		void *(*allocate_page)(std::size_t) = std::malloc; ///< Used to allocate the pages.
+		void (*free_page)(void*) = std::free; ///< Used to free a page.
 	protected:
 		struct _page_header;
 		/// Reference to a page.
@@ -183,12 +211,12 @@ namespace pbd {
 			[[nodiscard]] inline static _page_header create(_page_ref prev, void (*free)(void*)) {
 				_page_header result = uninitialized;
 				result.previous = prev;
-				result.free = free;
+				result.free_page = free;
 				return result;
 			}
 
 			_page_ref previous = uninitialized; ///< The previous page.
-			void (*free)(void*); ///< The function that should be used to free this page.
+			void (*free_page)(void*); ///< The function that should be used to free this page.
 		};
 		/// Bookmark data.
 		struct _bookmark {
@@ -211,8 +239,8 @@ namespace pbd {
 
 		/// Creates a new page and allocates a \ref _page_ref at the front to the current top page.
 		[[nodiscard]] _page_ref _allocate_new_page(_page_ref prev, std::size_t size) const {
-			auto result = _page_ref::to_new_page(allocator(size), size);
-			result.header = new (result.allocate<_page_header>()) _page_header(_page_header::create(prev, free));
+			auto result = _page_ref::to_new_page(allocate_page(size), size);
+			result.header = new (result.allocate<_page_header>()) _page_header(_page_header::create(prev, free_page));
 			return result;
 		}
 		/// \overload
@@ -235,7 +263,7 @@ namespace pbd {
 		/// Assumes that \ref _top_page is empty and returns it to \ref _free_pages.
 		void _return_page() {
 			_page_ref new_top = _top_page.header->previous;
-			_top_page.reset(_page_header::create(_free_pages, _top_page.header->free));
+			_top_page.reset(_page_header::create(_free_pages, _top_page.header->free_page));
 			_free_pages = _top_page;
 			_top_page = new_top;
 		}
@@ -245,34 +273,5 @@ namespace pbd {
 		/// accounting for the header).
 		_page_ref _free_pages = nullptr;
 		_bookmark *_top_bookmark = nullptr; ///< The most recent bookmark.
-	};
-
-	/// A STL container compatible allocator for \ref stack_allocator.
-	template <typename T> class stack_std_allocator {
-		template <typename U> friend class stack_std_allocator;
-	public:
-		using value_type = T; ///< Value type.
-
-		/// Initializes \ref _thread_id.
-		stack_std_allocator() : _thread_id(std::this_thread::get_id()) {
-		}
-		/// Conversion from an allocator of another type.
-		template <typename U> explicit stack_std_allocator(const stack_std_allocator<U> &src) :
-			_thread_id(src._thread_id) {
-		}
-
-		/// Allocates an array.
-		[[nodiscard]] T *allocate(std::size_t n) const {
-			assert(std::this_thread::get_id() == _thread_id);
-			return static_cast<T*>(stack_allocator::for_this_thread().allocate(sizeof(T) * n, alignof(T)));
-		}
-		/// Does nothing. De-allocation only happens when popping bookmarks.
-		void deallocate(T*, std::size_t) const {
-		}
-
-		/// If two objects are on the same thread, they use the same underlying allocator.
-		friend bool operator==(const stack_std_allocator&, const stack_std_allocator&) = default;
-	protected:
-		std::thread::id _thread_id; ///< The thread ID of this allocator.
 	};
 }

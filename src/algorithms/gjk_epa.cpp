@@ -126,7 +126,7 @@ namespace pbd {
 	}
 
 	gjk_epa::epa_result gjk_epa::epa(gjk_result_state gjk_state) const {
-		using _convex_hull_t = incremental_convex_hull<simplex_vertex, double, stack_std_allocator>;
+		using _convex_hull_t = incremental_convex_hull<simplex_vertex, double, stack_allocator::allocator>;
 
 		auto compute_face_data = [](const _convex_hull_t &hull, _convex_hull_t::face &f) {
 			f.data = vec::dot(f.normal, hull.vertices[f.vertex_indices[0]].position);

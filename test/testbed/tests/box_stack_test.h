@@ -25,7 +25,7 @@ public:
 		_render = debug_render();
 		_render.engine = &_engine;
 
-		auto &plane = _engine.shapes.emplace_back(pbd::shapes::plane());
+		auto &plane = _engine.shapes.emplace_back(pbd::shape::create(pbd::shapes::plane()));
 
 		auto &box_shape = _engine.shapes.emplace_back();
 		auto &box = box_shape.value.emplace<pbd::shapes::polyhedron>();
@@ -120,7 +120,7 @@ public:
 		}
 	}
 
-	void gui() {
+	void gui() override {
 		ImGui::SliderInt2("Box Count", _box_count, 1, 10);
 		ImGui::SliderFloat3("Box Size", _box_size, 0.0f, 2.0f);
 		ImGui::SliderFloat2("Gap", _gap, 0.0f, 0.1f);

@@ -65,8 +65,8 @@ public:
 			}
 		}
 
-		auto &sphere_shape = _engine.shapes.emplace_back(pbd::shapes::sphere::from_radius(0.25));
-		auto &plane_shape = _engine.shapes.emplace_back(pbd::shapes::plane());
+		auto &sphere_shape = _engine.shapes.emplace_back(pbd::shape::create(pbd::shapes::sphere::from_radius(0.25)));
+		auto &plane_shape = _engine.shapes.emplace_back(pbd::shape::create(pbd::shapes::plane()));
 
 		_engine.bodies.emplace_front(pbd::body::create(
 			sphere_shape,

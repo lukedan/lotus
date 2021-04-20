@@ -152,7 +152,7 @@ namespace pbd {
 			quaternion<T, Kind> lhs, const quaternion<T, OtherKind> &rhs
 		) {
 			lhs -= rhs;
-			return std::move(lhs);
+			return lhs;
 		}
 
 		/// In-place scalar multiplication.
@@ -171,7 +171,7 @@ namespace pbd {
 		) {
 			quaternion<T, quaternion_kind::arbitrary> res = lhs;
 			res *= rhs;
-			return std::move(res);
+			return res;
 		}
 		/// Scalar multiplication.
 		[[nodiscard]] friend constexpr quaternion<T, quaternion_kind::arbitrary> operator*(

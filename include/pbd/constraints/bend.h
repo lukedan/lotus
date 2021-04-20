@@ -73,6 +73,10 @@ namespace pbd::constraints {
 			}
 		};
 
+		/// No initialization.
+		bend(uninitialized_t) {
+		}
+
 		/// Clamps the angle to between -pi and pi.
 		[[nodiscard]] constexpr static double clamp_angle(double theta) {
 			if (theta < -pi) {

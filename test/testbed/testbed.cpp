@@ -21,56 +21,6 @@
 #include "tests/polyhedron_test.h"
 #include "tests/spring_cloth_test.h"
 
-constexpr auto mat1 = pbd::mat34d::identity();
-constexpr pbd::mat34d mat2 = pbd::zero;
-constexpr pbd::mat34d mat3{
-	{1.0, 2.0, 3.0, 4.0},
-	{2.0, 3.0, 4.0, 5.0},
-	{0.0, 1.0, 2.0, 3.0}
-};
-constexpr pbd::cvec3d vec1 = { 1.0, 2.0, 3.0 };
-
-namespace constexpr_test {
-	constexpr auto trans = mat1.transposed();
-	constexpr auto elem = mat2(2, 1);
-	constexpr auto row = trans.row(2);
-	constexpr auto comp = row[2];
-	constexpr auto col = trans.column(2);
-	constexpr auto block = trans.block<4, 3>(0, 0);
-	constexpr auto block2 = trans.block<3, 2>(1, 1);
-
-	constexpr auto rows = pbd::matd::concat_rows(vec1.transposed(), block.row(1), row);
-	constexpr auto cols = pbd::matd::concat_columns(vec1, mat3.column(1), row.transposed());
-
-	constexpr auto mul = mat3 * trans;
-	constexpr auto add = mat3 + mat1;
-	constexpr auto sub = mat3 - mat1;
-	constexpr auto scale1 = mat3 * 3.0;
-	constexpr auto scale2 = 3.0 * mat3;
-	constexpr auto scale3 = mat3 / 3.0;
-	constexpr auto neg = -mat3;
-
-	constexpr auto sqr_norm = vec1.squared_norm();
-	constexpr auto dot_prod = pbd::vec::dot(vec1, trans.row(1).transposed());
-
-	// doesn't work on MSVC
-	/*constexpr auto lu_decomp = pbd::matd::lup_decompose(pbd::mat33d({
-		{2.0, -1.0, -2.0},
-		{-4.0, 6.0, 3.0},
-		{-4.0, -2.0, 8.0}
-	}));
-
-	constexpr auto quat = pbd::quatd::zero();
-	constexpr auto quat2 = pbd::quatd::from_wxyz(1.0, 2.0, 3.0, 4.0);
-	constexpr auto inv_quat2 = quat2.inverse();
-	constexpr auto quat3 = quat2 + inv_quat2;
-	constexpr auto quat4 = quat2 - inv_quat2;
-
-	constexpr auto quat_w = quat.w();
-	constexpr auto quat_mag = quat.squared_magnitude();*/
-}
-
-
 /// Used for selecting and creating tests.
 struct test_creator {
 	/// Returns a \ref test_creator for the given test type.
@@ -357,7 +307,7 @@ protected:
 	float _move_sensitivity = 0.05f; ///< Move sensitivity.
 	float _zoom_sensitivity = 0.001f; ///< Zoom sensitivity.
 	/// Sensitivity for scrolling to move the camera closer and further from the focus point.
-	float _scroll_sensitivity = 0.5f;
+	float _scroll_sensitivity = 0.95f;
 	pbd::camera_parameters _camera_params = pbd::uninitialized; ///< Camera parameters.
 	pbd::camera _camera = pbd::uninitialized; ///< Camera.
 	GLenum _gl_error = GL_NO_ERROR; ///< OpenGL error.

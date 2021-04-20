@@ -226,20 +226,20 @@ namespace pbd {
 
 		engine::collision_detection_result result = uninitialized;
 		result.normal = epa_res.normal;
-		if (
+		bool face_p1 =
+			epa_res.vertices[0].index2 == epa_res.vertices[1].index2 &&
+			epa_res.vertices[0].index2 == epa_res.vertices[2].index2;
+		bool face_p2 =
 			epa_res.vertices[0].index1 == epa_res.vertices[1].index1 &&
-			epa_res.vertices[0].index1 == epa_res.vertices[2].index1
-		) { // a vertex from p1 and a face from p2
+			epa_res.vertices[0].index1 == epa_res.vertices[2].index1;
+		if (face_p1) { // a vertex from p2 and a face from p1
+			result.contact2 = p2.vertices[epa_res.vertices[0].index2];
+			cvec3d contact1 = s2.rotation.rotate(result.contact2) + s2.position + epa_res.depth * epa_res.normal;
+			result.contact1 = s1.rotation.inverse().rotate(contact1 - s1.position);
+		} else if (face_p2) { // a vertex from p1 and a face from p2
 			result.contact1 = p1.vertices[epa_res.vertices[0].index1];
 			cvec3d contact2 = s1.rotation.rotate(result.contact1) + s1.position - epa_res.depth * epa_res.normal;
 			result.contact2 = s2.rotation.inverse().rotate(contact2 - s2.position);
-		} else if (
-			epa_res.vertices[0].index2 == epa_res.vertices[1].index2 &&
-			epa_res.vertices[0].index2 == epa_res.vertices[2].index2
-		) { // a vertex from p2 and a face from p1
-			result.contact2 = p2.vertices[epa_res.vertices[0].index2];
-			auto contact1 = s2.rotation.rotate(result.contact2) + s2.position + epa_res.depth * epa_res.normal;
-			result.contact1 = s1.rotation.inverse().rotate(contact1 - s1.position);
 		} else { // two edges
 			std::array<cvec3d, 3> spx_pos = epa_res.simplex_positions;
 			std::array<gjk_epa::simplex_vertex, 3> spx_id = epa_res.vertices;
@@ -250,7 +250,7 @@ namespace pbd {
 				std::swap(spx_pos[0], spx_pos[2]);
 				std::swap(spx_id[0], spx_id[2]);
 			} else if (spx_id[0].index1 != spx_id[2].index1 && spx_id[0].index2 != spx_id[2].index2) {
-				// simplex_id[1] is the common vertex
+				// spx_id[1] is the common vertex
 				std::swap(spx_pos[0], spx_pos[1]);
 				std::swap(spx_id[0], spx_id[1]);
 			}
@@ -263,9 +263,10 @@ namespace pbd {
 			cvec3d diff12 = spx_pos[1] - spx_pos[0]; // also the x axis
 			cvec3d diff13 = spx_pos[2] - spx_pos[0];
 			cvec3d y = vec::cross(epa_res.normal, diff12);
-			auto xform = matd::concat_columns(diff12, y).transposed();
+			auto xform = matd::concat_columns(diff12 / diff12.squared_norm(), y / y.squared_norm()).transposed();
 			cvec2d pos1 = xform * diff13;
-			cvec2d contact = xform * (epa_res.depth * epa_res.normal - spx_pos[0]);
+			cvec3d contact_offset = epa_res.depth * epa_res.normal - spx_pos[0];
+			cvec2d contact = xform * contact_offset;
 			// [cx] = [1 px][bx]
 			// [cy]   [0 py][by]
 			//

@@ -3,6 +3,8 @@
 /// \file
 /// Implementation of the GJK and EPA algorithm.
 
+#include <cassert>
+
 #include "pbd/utils/stack_allocator.h"
 #include "pbd/algorithms/convex_hull.h"
 
@@ -13,6 +15,19 @@ namespace pbd {
 		// compute simplex positions, which may have changed due to the bodies moving
 		for (std::size_t i = 0; i < simplex_vertices; ++i) {
 			state.simplex_positions[i] = simplex_vertex_position(simplex[i]);
+		}
+
+		std::vector<unsigned char, stack_allocator::allocator<unsigned char>> vertex_looked_at(
+			polyhedron1->vertices.size() * polyhedron2->vertices.size(), 0
+		);
+		auto mark_vert = [&](simplex_vertex v) {
+			vertex_looked_at[v.index1 * polyhedron2->vertices.size() + v.index2] = 1;
+		};
+		auto check_vert = [&](simplex_vertex v) {
+			return vertex_looked_at[v.index1 * polyhedron2->vertices.size() + v.index2] != 0;
+		};
+		for (std::size_t i = 0; i < simplex_vertices; ++i) {
+			mark_vert(simplex[i]);
 		}
 
 		// find new vertices until we have a tetrahedron
@@ -29,9 +44,10 @@ namespace pbd {
 		case 1:
 			{
 				simplex[1] = support_vertex(-state.simplex_positions[0]);
-				if (simplex[1] == simplex[0]) {
+				if (check_vert(simplex[1])) {
 					return { false, state }; // this vertex is the closest to the origin - no collision
 				}
+				mark_vert(simplex[1]);
 				state.simplex_positions[1] = simplex_vertex_position(simplex[1]);
 				++simplex_vertices;
 
@@ -47,9 +63,10 @@ namespace pbd {
 				cvec3d line_diff = state.simplex_positions[1] - state.simplex_positions[0];
 				cvec3d support = vec::cross(line_diff, vec::cross(line_diff, state.simplex_positions[0]));
 				simplex[2] = support_vertex(support);
-				if (simplex[2] == simplex[0] || simplex[2] == simplex[1]) {
+				if (check_vert(simplex[2])) {
 					return { false, state }; // no collision
 				}
+				mark_vert(simplex[2]);
 				++simplex_vertices;
 				state.simplex_positions[2] = simplex_vertex_position(simplex[2]);
 
@@ -69,9 +86,10 @@ namespace pbd {
 					support = -support;
 				}
 				simplex[3] = support_vertex(support);
-				if (simplex[3] == simplex[0] || simplex[3] == simplex[1] || simplex[3] == simplex[2]) {
+				if (check_vert(simplex[3])) {
 					return { false, state }; // no collision
 				}
+				mark_vert(simplex[3]);
 				state.simplex_positions[3] = simplex_vertex_position(simplex[3]);
 				++simplex_vertices;
 				break;
@@ -87,6 +105,7 @@ namespace pbd {
 		) > 0.0;
 
 		while (true) {
+			bool facing_origin = false;
 			for (std::size_t i = 0; i < 4; ++i) {
 				cvec3d normal = vec::cross(
 					state.simplex_positions[(i + 1) % 4] - state.simplex_positions[i],
@@ -97,31 +116,33 @@ namespace pbd {
 					normal = -normal;
 				}
 				double dotv = vec::dot(normal, state.simplex_positions[i]);
-				if (dotv < 0.0) {
+				if (dotv <= 0.0) {
 					// this face is facing the origin; use its normal as the support vector to find the next vertex
 					auto new_vertex = support_vertex(normal);
-					if (
-						new_vertex == simplex[0] || new_vertex == simplex[1] ||
-						new_vertex == simplex[2] || new_vertex == simplex[3]
-					) {
+					if (check_vert(new_vertex)) {
 						return { false, state }; // no more vertices to find; no collision
 					}
+					mark_vert(new_vertex);
 					// replace the vertex
 					std::size_t replace_index = (i + 3) % 4;
 					simplex[replace_index] = new_vertex;
 					state.simplex_positions[replace_index] = simplex_vertex_position(new_vertex);
 
 					// fast exit
-					if (vec::dot(normal, state.simplex_positions[replace_index]) < 0.0) {
+					if (vec::dot(normal, state.simplex_positions[replace_index]) <= 0.0) {
 						return { false, state };
 					}
 
-					state.invert_even_normals = !state.invert_even_normals;
-					continue; // directly to the next iteration
+					facing_origin = true;
+					break;
 				}
 			}
-			// none of the faces are facing the origin; it must be contained inside the tetrahedron
-			return { true, state };
+			if (facing_origin) { // directly to the next iteration
+				state.invert_even_normals = !state.invert_even_normals;
+			} else {
+				// none of the faces are facing the origin; it must be contained inside the tetrahedron
+				return { true, state };
+			}
 		}
 	}
 
@@ -153,6 +174,7 @@ namespace pbd {
 					nearest_face = it;
 				}
 			}
+			assert(nearest_face_dist >= 0.0);
 
 			// find new vertex
 			simplex_vertex new_vert_id = support_vertex(nearest_face->normal);

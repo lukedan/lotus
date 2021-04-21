@@ -10,6 +10,7 @@
 
 #include "pbd/shapes/shape.h"
 #include "pbd/constraints/spring.h"
+#include "pbd/constraints/contact.h"
 #include "pbd/constraints/face.h"
 #include "pbd/constraints/bend.h"
 #include "pbd/body.h"

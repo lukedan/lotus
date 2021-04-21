@@ -11,6 +11,7 @@ target_sources(pbd
 		"include/pbd/algorithms/gjk_epa.h"
 
 		"include/pbd/constraints/bend.h"
+		"include/pbd/constraints/contact.h"
 		"include/pbd/constraints/face.h"
 		"include/pbd/constraints/spring.h"
 

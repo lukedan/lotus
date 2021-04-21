@@ -15,6 +15,8 @@ target_sources(testbed
 		"utils.cpp"
 		"utils.h")
 target_link_libraries(testbed PRIVATE pbd glfw OpenGL::GL)
+set_target_properties(testbed PROPERTIES
+	INTERPROCEDURAL_OPTIMIZATION ON)
 
 # imgui library
 add_library(imgui STATIC)

@@ -5,8 +5,6 @@ cmake_policy(SET CMP0092 NEW) # don't add /W3 for MSVC
 
 add_library(pbd STATIC)
 
-target_compile_features(pbd PUBLIC cxx_std_20)
-
 target_sources(pbd
 	PUBLIC
 		"include/pbd/algorithms/convex_hull.h"
@@ -44,6 +42,9 @@ target_sources(pbd
 
 target_include_directories(pbd PUBLIC "include/")
 
+target_compile_features(pbd PUBLIC cxx_std_20)
+set_target_properties(pbd PROPERTIES
+	INTERPROCEDURAL_OPTIMIZATION ON)
 # set warning level
 if(MSVC)
 	target_compile_options(pbd

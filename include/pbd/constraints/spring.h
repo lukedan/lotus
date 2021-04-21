@@ -62,34 +62,31 @@ namespace pbd::constraints {
 
 		/// Projects this constraint.
 		void project(double inv_dt2, double &lambda) {
-			cvec3d global1 = body1->state.position + body1->state.rotation.rotate(offset1);
-			cvec3d global2 = body2->state.position + body2->state.rotation.rotate(offset2);
-			double depth = vec::dot(global1 - global2, normal);
+			cvec3d global_contact1 = body1->state.position + body1->state.rotation.rotate(offset1);
+			cvec3d global_contact2 = body2->state.position + body2->state.rotation.rotate(offset2);
+			double depth = vec::dot(global_contact1 - global_contact2, normal);
 			if (depth < 0.0) {
 				return;
 			}
 
 			cvec3d n1 = body1->state.rotation.inverse().rotate(normal);
 			cvec3d n2 = body2->state.rotation.inverse().rotate(normal);
-
-			cvec3d rot1 = vec::cross(offset1, n1);
-			cvec3d rot2 = vec::cross(offset2, n2);
-			double w1 = body1->properties.inverse_mass + vec::dot(rot1, body1->properties.inverse_inertia * rot1);
-			double w2 = body2->properties.inverse_mass + vec::dot(rot2, body2->properties.inverse_inertia * rot2);
+			cvec3d rot1 = body1->properties.inverse_inertia * vec::cross(offset1, n1);
+			cvec3d rot2 = body2->properties.inverse_inertia * vec::cross(offset2, n2);
+			double w1 = body1->properties.inverse_mass + rot1.squared_norm();
+			double w2 = body2->properties.inverse_mass + rot2.squared_norm();
 
 			double delta_lambda = -depth / (w1 + w2);
 			lambda += delta_lambda;
 			cvec3d p = normal * delta_lambda;
 			body1->state.position += p * body1->properties.inverse_mass;
 			body2->state.position -= p * body2->properties.inverse_mass;
-			cvec3d p1 = n1 * delta_lambda;
-			cvec3d p2 = n2 * delta_lambda;
-			cvec3d rot_vec1 = body1->state.rotation.rotate(body1->properties.inverse_inertia * vec::cross(offset1, p1));
-			cvec3d rot_vec2 = body2->state.rotation.rotate(body2->properties.inverse_inertia * vec::cross(offset2, p2));
-			quatd new_rot1 = body1->state.rotation + 0.5 * quatd::from_vector(rot_vec1) * body1->state.rotation;
-			quatd new_rot2 = body2->state.rotation - 0.5 * quatd::from_vector(rot_vec2) * body2->state.rotation;
-			body1->state.rotation = quat::unsafe_normalize(new_rot1);
-			body2->state.rotation = quat::unsafe_normalize(new_rot2);
+			body1->state.rotation = quat::unsafe_normalize(
+				body1->state.rotation + (0.5 * delta_lambda) * body1->state.rotation * quatd::from_vector(rot1)
+			);
+			body2->state.rotation = quat::unsafe_normalize(
+				body2->state.rotation - (0.5 * delta_lambda) * body2->state.rotation * quatd::from_vector(rot2)
+			);
 
 			force = lambda * normal * inv_dt2;
 		}

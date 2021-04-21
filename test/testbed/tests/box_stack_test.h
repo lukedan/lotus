@@ -122,7 +122,7 @@ public:
 
 	void gui() override {
 		ImGui::SliderInt2("Box Count", _box_count, 1, 10);
-		ImGui::SliderFloat3("Box Size", _box_size, 0.0f, 2.0f);
+		ImGui::SliderFloat3("Box Size", _box_size, 0.0f, 2.0f, "%.1f");
 		ImGui::SliderFloat2("Gap", _gap, 0.0f, 0.1f);
 		ImGui::SliderFloat("Box Density", &_density, 0.0f, 100.0f);
 		ImGui::Checkbox("Rotate 90 Degrees", &_rotate_90);

@@ -72,12 +72,12 @@ public:
 		glEnd();
 		glEnable(GL_LIGHTING);
 
-		if (options.wireframe_surfaces) {
+		if (options.wireframe_bodies) {
 			glDisable(GL_LIGHTING);
 		}
 		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 		for (const auto &tri : _convex_hull.faces) {
-			if (options.wireframe_surfaces) {
+			if (options.wireframe_bodies) {
 				glBegin(GL_LINE_LOOP);
 			} else {
 				glBegin(GL_TRIANGLES);
@@ -91,7 +91,7 @@ public:
 			glVertex3d(p3[0], p3[1], p3[2]);
 			glEnd();
 		}
-		if (options.wireframe_surfaces) {
+		if (options.wireframe_bodies) {
 			glEnable(GL_LIGHTING);
 		}
 

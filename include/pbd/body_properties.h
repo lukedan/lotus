@@ -8,6 +8,25 @@
 #include "math/quaternion.h"
 
 namespace pbd {
+	/// Properties of a rigid body material.
+	struct material_properties {
+		/// No initialization.
+		material_properties(uninitialized_t) {
+		}
+		/// Creates a new material properties from the given parameters.
+		[[nodiscard]] inline static material_properties create(double static_fric, double dyn_fric, double rest) {
+			material_properties result = uninitialized;
+			result.static_friction = static_fric;
+			result.dynamic_friction = dyn_fric;
+			result.restitution = rest;
+			return result;
+		}
+
+		double static_friction; ///< Static friction coefficient.
+		double dynamic_friction; ///< Dynamic friction coefficient.
+		double restitution; ///< Restitution coefficient.
+	};
+
 	/// Properties that are inherent to a rigid body.
 	struct body_properties {
 	public:

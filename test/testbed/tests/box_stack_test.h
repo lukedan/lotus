@@ -55,13 +55,15 @@ public:
 		bullet.vertices.emplace_back(-half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
 		_bullet_properties = bullet.bake(10.0);
 
+		auto material = pbd::material_properties::create(_static_friction, _dynamic_friction, _restitution);
+
 		_engine.bodies.emplace_back(pbd::body::create(
-			plane,
+			plane, material,
 			pbd::body_properties::kinematic(),
 			pbd::body_state::stationary_at(pbd::zero, pbd::uquatd::identity())
 		));
 		_engine.bodies.emplace_back(pbd::body::create(
-			plane,
+			plane, material,
 			pbd::body_properties::kinematic(),
 			pbd::body_state::stationary_at(
 				pbd::cvec3d(10.0, 0.0, 0.0),
@@ -69,7 +71,7 @@ public:
 			)
 		));
 		_engine.bodies.emplace_back(pbd::body::create(
-			plane,
+			plane, material,
 			pbd::body_properties::kinematic(),
 			pbd::body_state::stationary_at(
 				pbd::cvec3d(-10.0, 0.0, 0.0),
@@ -77,7 +79,7 @@ public:
 			)
 		));
 		_engine.bodies.emplace_back(pbd::body::create(
-			plane,
+			plane, material,
 			pbd::body_properties::kinematic(),
 			pbd::body_state::stationary_at(
 				pbd::cvec3d(0.0, 10.0, 0.0),
@@ -85,7 +87,7 @@ public:
 			)
 		));
 		_engine.bodies.emplace_back(pbd::body::create(
-			plane,
+			plane, material,
 			pbd::body_properties::kinematic(),
 			pbd::body_state::stationary_at(
 				pbd::cvec3d(0.0, -10.0, 0.0),
@@ -111,7 +113,11 @@ public:
 				} else {
 					state = pbd::body_state::stationary_at(pbd::cvec3d(cx, 0.0, z), pbd::uquatd::identity());
 				}
-				_engine.bodies.emplace_back(pbd::body::create(box_shape, box_props, state));
+				_engine.bodies.emplace_back(pbd::body::create(
+					box_shape, material,
+					_fix_first_row && yi == 0 ? pbd::body_properties::kinematic() : box_props,
+					state
+				));
 			}
 		}
 
@@ -127,9 +133,12 @@ public:
 		ImGui::SliderFloat("Box Density", &_density, 0.0f, 100.0f);
 		ImGui::Checkbox("Rotate 90 Degrees", &_rotate_90);
 		ImGui::Checkbox("Inverse Body List", &_inverse_list);
+		ImGui::Checkbox("Fix First Row", &_fix_first_row);
 		if (ImGui::Button("Shoot Box")) {
+			auto material = pbd::material_properties::create(_static_friction, _dynamic_friction, _restitution);
 			_engine.bodies.emplace_back(pbd::body::create(
 				*_bullet_shape,
+				material,
 				_bullet_properties,
 				pbd::body_state::at(
 					camera_params.position, pbd::uquatd::identity(), camera.unit_forward * 50.0, pbd::zero
@@ -148,6 +157,11 @@ protected:
 
 	bool _rotate_90 = false;
 	bool _inverse_list = false;
+	bool _fix_first_row = false;
+
+	float _static_friction = 0.4;
+	float _dynamic_friction = 0.35;
+	float _restitution = 0.0;
 
 	float _density = 1.0f;
 	float _box_size[3]{ 1.0f, 0.6f, 0.2f };

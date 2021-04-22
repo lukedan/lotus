@@ -17,11 +17,11 @@ class debug_render {
 public:
 	using colorf = pbd::cvec4f;
 	struct surface_visual {
-		std::vector<pbd::column_vector<3, std::size_t>> triangles;
+		std::vector<std::array<std::size_t, 3>> triangles;
 		colorf color{ 1.0f, 1.0f, 1.0f, 1.0f };
 	};
 	struct body_visual {
-		std::vector<pbd::column_vector<3, std::size_t>> triangles;
+		std::vector<std::array<std::size_t, 3>> triangles;
 		colorf color{ 1.0f, 1.0f, 1.0f, 1.0f };
 	};
 

@@ -103,7 +103,7 @@ namespace pbd {
 		std::vector<double> bend_lambdas; ///< Lambda values for bend constraints.
 
 		std::deque<constraints::body_contact> contact_constraints; ///< Contact constraints.
-		std::vector<double> contact_lambdas; ///< Lambda values for contact constraints.
+		std::vector<std::pair<double, double>> contact_lambdas; ///< Lambda values for contact constraints.
 
 		cvec3d gravity = zero; ///< Gravity.
 	};

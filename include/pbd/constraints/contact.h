@@ -21,36 +21,37 @@ namespace pbd::constraints {
 		}
 
 		/// Projects this constraint.
-		void project(double inv_dt2, double &lambda) {
-			cvec3d global_contact1 = body1->state.position + body1->state.rotation.rotate(offset1);
-			cvec3d global_contact2 = body2->state.position + body2->state.rotation.rotate(offset2);
-			double depth = vec::dot(global_contact1 - global_contact2, normal);
-			if (depth < 0.0) {
-				return;
+		void project(double &lambda_n, double &lambda_t) {
+			{ // handle penetration
+				cvec3d global_contact1 = body1->state.position + body1->state.rotation.rotate(offset1);
+				cvec3d global_contact2 = body2->state.position + body2->state.rotation.rotate(offset2);
+				double depth = vec::dot(global_contact1 - global_contact2, normal);
+				if (depth < 0.0) {
+					return;
+				}
+				body::positional_correction::compute(
+					*body1, *body2, offset1, offset2, normal, depth
+				).apply(lambda_n);
 			}
 
-			cvec3d n1 = body1->state.rotation.inverse().rotate(normal);
-			cvec3d n2 = body2->state.rotation.inverse().rotate(normal);
-			cvec3d rot1 = vec::cross(offset1, n1);
-			cvec3d rot2 = vec::cross(offset2, n2);
-			cvec3d inertia_rot1 = body1->properties.inverse_inertia * rot1;
-			cvec3d inertia_rot2 = body2->properties.inverse_inertia * rot2;
-			double w1 = body1->properties.inverse_mass + vec::dot(rot1, inertia_rot1);
-			double w2 = body2->properties.inverse_mass + vec::dot(rot2, inertia_rot2);
+			{ // handle static friction
+				cvec3d global_contact1 = body1->state.position + body1->state.rotation.rotate(offset1);
+				cvec3d old_global_contact1 = body1->prev_position + body1->prev_rotation.rotate(offset1);
+				cvec3d global_contact2 = body2->state.position + body2->state.rotation.rotate(offset2);
+				cvec3d old_global_contact2 = body2->prev_position + body2->prev_rotation.rotate(offset2);
 
-			double delta_lambda = -depth / (w1 + w2);
-			lambda += delta_lambda;
-			cvec3d p = normal * delta_lambda;
-			body1->state.position += p * body1->properties.inverse_mass;
-			body2->state.position -= p * body2->properties.inverse_mass;
-			body1->state.rotation = quat::unsafe_normalize(
-				body1->state.rotation +
-				(0.5 * delta_lambda) * body1->state.rotation * quatd::from_vector(inertia_rot1)
-			);
-			body2->state.rotation = quat::unsafe_normalize(
-				body2->state.rotation -
-				(0.5 * delta_lambda) * body2->state.rotation * quatd::from_vector(inertia_rot2)
-			);
+				cvec3d delta_p = (global_contact1 - old_global_contact1) - (global_contact2 - old_global_contact2);
+				cvec3d delta_pt = delta_p - normal * vec::dot(normal, delta_p);
+
+				auto correction = body::positional_correction::compute(
+					*body1, *body2, offset1, offset2, delta_pt
+				);
+				double static_friction = 0.5 * (body1->material.static_friction + body2->material.static_friction);
+				double max_multiplier = static_friction * lambda_n;
+				if (correction.delta_lambda > max_multiplier) {
+					correction.apply(lambda_t);
+				}
+			}
 		}
 
 		/// Offset of the spring's connection to \ref body1 in its local coordinates.

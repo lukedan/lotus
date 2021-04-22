@@ -63,16 +63,18 @@ public:
 					_add_spring(pid[x - 1][y - 1], pid[x][y], _youngs_modulus_diag);
 					_add_spring(pid[x - 1][y], pid[x][y - 1], _youngs_modulus_diag);
 
-					surface.triangles.emplace_back(pid[x - 1][y - 1], pid[x - 1][y], pid[x][y - 1]);
-					surface.triangles.emplace_back(pid[x][y - 1], pid[x - 1][y], pid[x][y]);
+					surface.triangles.push_back({ pid[x - 1][y - 1], pid[x - 1][y], pid[x][y - 1] });
+					surface.triangles.push_back({ pid[x][y - 1], pid[x - 1][y], pid[x][y] });
 				}
 			}
 		}
 
 		auto &sphere_shape = _engine.shapes.emplace_back(pbd::shape::create(pbd::shapes::sphere::from_radius(0.25)));
 
+		auto material = pbd::material_properties::create(0.5, 0.45, 0.2);
+
 		_engine.bodies.emplace_front(pbd::body::create(
-			sphere_shape,
+			sphere_shape, material,
 			pbd::body_properties::kinematic(),
 			pbd::body_state::stationary_at(pbd::zero, pbd::uquatd::identity())
 		));

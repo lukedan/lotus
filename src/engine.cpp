@@ -47,7 +47,7 @@ namespace pbd {
 
 		// solve constraints
 		contact_lambdas.resize(contact_constraints.size());
-		std::fill(contact_lambdas.begin(), contact_lambdas.end(), 0.0);
+		std::fill(contact_lambdas.begin(), contact_lambdas.end(), std::make_pair(0.0, 0.0));
 
 		spring_lambdas.resize(particle_spring_constraints.size());
 		std::fill(spring_lambdas.begin(), spring_lambdas.end(), 0.0);
@@ -61,7 +61,7 @@ namespace pbd {
 		for (std::size_t i = 0; i < iters; ++i) {
 			// project body contact constraints
 			for (std::size_t j = 0; j < contact_constraints.size(); ++j) {
-				contact_constraints[j].project(inv_dt2, contact_lambdas[j]);
+				contact_constraints[j].project(contact_lambdas[j].first, contact_lambdas[j].second);
 			}
 
 			// handle body-particle collisions

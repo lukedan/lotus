@@ -116,7 +116,7 @@ namespace pbd {
 					normal = -normal;
 				}
 				double dotv = vec::dot(normal, state.simplex_positions[i]);
-				if (dotv <= 0.0) {
+				if (dotv < 0.0) {
 					// this face is facing the origin; use its normal as the support vector to find the next vertex
 					auto new_vertex = support_vertex(normal);
 					if (check_vert(new_vertex)) {

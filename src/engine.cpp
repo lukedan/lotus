@@ -123,12 +123,60 @@ namespace pbd {
 			p.state.velocity = (p.state.position - p.prev_position) / dt;
 		}
 		for (body &b : bodies) {
+			b.prev_linear_velocity = b.state.linear_velocity;
+			b.prev_angular_velocity = b.state.angular_velocity;
+
 			b.state.linear_velocity = (b.state.position - b.prev_position) / dt;
 			auto dq = b.state.rotation * b.prev_rotation.inverse();
 			b.state.angular_velocity = dq.axis() * (2.0 / dt);
 			if (dq.w() < 0.0) {
 				b.state.angular_velocity = -b.state.angular_velocity;
 			}
+		}
+
+		// velocity solve
+		for (std::size_t i = 0; i < contact_constraints.size(); ++i) {
+			const auto &contact = contact_constraints[i];
+			auto &b1 = *contact.body1;
+			auto &b2 = *contact.body2;
+			cvec3d world_off1 = b1.state.rotation.rotate(contact.offset1);
+			cvec3d world_off2 = b2.state.rotation.rotate(contact.offset2);
+			cvec3d vel1 = b1.state.linear_velocity + vec::cross(b1.state.angular_velocity, world_off1);
+			cvec3d vel2 = b2.state.linear_velocity + vec::cross(b2.state.angular_velocity, world_off2);
+			cvec3d vel = vel1 - vel2;
+			double vn = vec::dot(contact.normal, vel);
+			cvec3d vt = vel - contact.normal * vn;
+
+			cvec3d old_vel1 = b1.prev_linear_velocity + vec::cross(b1.prev_angular_velocity, world_off1);
+			cvec3d old_vel2 = b2.prev_linear_velocity + vec::cross(b2.prev_angular_velocity, world_off2);
+			double old_vn = vec::dot(contact.normal, old_vel1 - old_vel2);
+
+			double friction_coeff = std::min(b1.material.dynamic_friction, b2.material.dynamic_friction);
+			double restitution_coeff = std::max(b1.material.restitution, b2.material.restitution);
+
+			double vt_norm = vt.norm();
+			double lambda_n = contact_lambdas[i].first;
+
+			/*cvec3d delta_vt_dir = -vt / vt_norm;
+			double delta_vt_norm = std::min(friction_coeff * -lambda_n / dt, vt_norm);
+			body::correction::compute(
+				b1, b2, contact.offset1, contact.offset2, delta_vt_dir, 1.0
+			).apply_velocity(delta_vt_norm);
+
+			double delta_vn_norm = std::min(-old_vn * restitution_coeff, 0.0) - vn;
+			body::correction::compute(
+				b1, b2, contact.offset1, contact.offset2, contact.normal, 1.0
+			).apply_velocity(delta_vn_norm);*/
+
+			cvec3d delta_vt = -vt * (std::min(friction_coeff * -lambda_n / dt, vt_norm) / vt_norm);
+			cvec3d delta_vn = contact.normal * (std::min(-old_vn * restitution_coeff, 0.0) - vn);
+			cvec3d delta_v = delta_vt + delta_vn;
+			double delta_v_norm = delta_v.norm();
+			cvec3d delta_v_unit = delta_v / delta_v_norm;
+			auto correction = body::correction::compute(
+				b1, b2, contact.offset1, contact.offset2, delta_v_unit, 1.0
+			);
+			correction.apply_velocity(delta_v_norm);
 		}
 	}
 

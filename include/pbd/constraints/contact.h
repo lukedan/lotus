@@ -29,9 +29,9 @@ namespace pbd::constraints {
 				if (depth < 0.0) {
 					return;
 				}
-				body::positional_correction::compute(
+				body::correction::compute(
 					*body1, *body2, offset1, offset2, normal, depth
-				).apply(lambda_n);
+				).apply_position(lambda_n);
 			}
 
 			{ // handle static friction
@@ -43,13 +43,14 @@ namespace pbd::constraints {
 				cvec3d delta_p = (global_contact1 - old_global_contact1) - (global_contact2 - old_global_contact2);
 				cvec3d delta_pt = delta_p - normal * vec::dot(normal, delta_p);
 
-				auto correction = body::positional_correction::compute(
+				double static_friction = std::min(body1->material.static_friction, body2->material.static_friction);
+
+				auto correction = body::correction::compute(
 					*body1, *body2, offset1, offset2, delta_pt
 				);
-				double static_friction = 0.5 * (body1->material.static_friction + body2->material.static_friction);
 				double max_multiplier = static_friction * lambda_n;
 				if (correction.delta_lambda > max_multiplier) {
-					correction.apply(lambda_t);
+					correction.apply_position(lambda_t);
 				}
 			}
 		}

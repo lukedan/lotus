@@ -71,6 +71,18 @@ namespace pbd {
 			return result;
 		}
 
+		/// Returns if any element of this matrix is \p NaN.
+		[[nodiscard]] constexpr bool has_nan() const {
+			for (std::size_t y = 0; y < num_rows; ++y) {
+				for (std::size_t x = 0; x < num_columns; ++x) {
+					if (std::isnan(elements[y][x])) {
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+
 		/// Indexing.
 		[[nodiscard]] constexpr T &operator()(std::size_t row, std::size_t col) {
 			return elements[row][col];

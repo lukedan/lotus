@@ -7,10 +7,10 @@
 #include "pbd/math/quaternion.h"
 
 namespace pbd {
-	body::positional_correction body::positional_correction::compute(
+	body::correction body::correction::compute(
 		body &b1, body &b2, cvec3d r1, cvec3d r2, cvec3d dir, double c
 	) {
-		positional_correction result = uninitialized;
+		correction result = uninitialized;
 		result.body1 = &b1;
 		result.body2 = &b2;
 		result.direction = dir;
@@ -26,7 +26,7 @@ namespace pbd {
 		return result;
 	}
 
-	void body::positional_correction::apply(double &lambda) const {
+	void body::correction::apply_position(double &lambda) const {
 		lambda += delta_lambda;
 		cvec3d p = direction * delta_lambda;
 		body1->state.position += p * body1->properties.inverse_mass;
@@ -37,5 +37,16 @@ namespace pbd {
 		body2->state.rotation = quat::unsafe_normalize(
 			body2->state.rotation - body2->state.rotation * quatd::from_vector((0.5 * delta_lambda) * rotation2)
 		);
+	}
+
+	void body::correction::apply_velocity(double mag) const {
+		double p_norm = -mag * delta_lambda;
+		cvec3d p = direction * p_norm;
+		body1->state.linear_velocity += p * body1->properties.inverse_mass;
+		body2->state.linear_velocity -= p * body2->properties.inverse_mass;
+		body1->state.angular_velocity +=
+			p_norm * body1->state.rotation.rotate(rotation1);
+		body2->state.angular_velocity -=
+			p_norm * body2->state.rotation.rotate(rotation2);
 	}
 }

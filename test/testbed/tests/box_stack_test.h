@@ -130,10 +130,17 @@ public:
 		ImGui::SliderInt2("Box Count", _box_count, 1, 10);
 		ImGui::SliderFloat3("Box Size", _box_size, 0.0f, 2.0f, "%.1f");
 		ImGui::SliderFloat2("Gap", _gap, 0.0f, 0.1f);
-		ImGui::SliderFloat("Box Density", &_density, 0.0f, 100.0f);
 		ImGui::Checkbox("Rotate 90 Degrees", &_rotate_90);
 		ImGui::Checkbox("Inverse Body List", &_inverse_list);
 		ImGui::Checkbox("Fix First Row", &_fix_first_row);
+
+		ImGui::Separator();
+		ImGui::SliderFloat("Static Friction", &_static_friction, 0.0f, 1.0f);
+		ImGui::SliderFloat("Dynamic Friction", &_dynamic_friction, 0.0f, 1.0f);
+		ImGui::SliderFloat("Restitution", &_restitution, 0.0f, 1.0f);
+		ImGui::SliderFloat("Box Density", &_density, 0.0f, 100.0f);
+
+		ImGui::Separator();
 		if (ImGui::Button("Shoot Box")) {
 			auto material = pbd::material_properties::create(_static_friction, _dynamic_friction, _restitution);
 			_engine.bodies.emplace_back(pbd::body::create(

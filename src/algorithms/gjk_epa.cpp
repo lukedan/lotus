@@ -201,8 +201,9 @@ namespace pbd {
 
 		// polyhedron 1
 		cvec3d dir1 = orient1.inverse().rotate(dir);
-		double dot1max = -std::numeric_limits<double>::max();
-		for (std::size_t i = 0; i < polyhedron1->vertices.size(); ++i) {
+		result.index1 = 0;
+		double dot1max = vec::dot(polyhedron1->vertices[0], dir1);
+		for (std::size_t i = 1; i < polyhedron1->vertices.size(); ++i) {
 			double dv = vec::dot(polyhedron1->vertices[i], dir1);
 			if (dv > dot1max) {
 				dot1max = dv;
@@ -212,8 +213,9 @@ namespace pbd {
 
 		// polyhedron 2
 		cvec3d dir2 = orient2.inverse().rotate(dir);
-		double dot2min = std::numeric_limits<double>::max();
-		for (std::size_t i = 0; i < polyhedron2->vertices.size(); ++i) {
+		result.index2 = 0;
+		double dot2min = vec::dot(polyhedron2->vertices[0], dir2);
+		for (std::size_t i = 1; i < polyhedron2->vertices.size(); ++i) {
 			double dv = vec::dot(polyhedron2->vertices[i], dir2);
 			if (dv < dot2min) {
 				dot2min = dv;

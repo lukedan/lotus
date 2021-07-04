@@ -4,9 +4,9 @@
 
 #include <GLFW/glfw3.h>
 
-#include <pbd/math/constants.h>
+#include <lotus/math/constants.h>
 
-void debug_render::set_matrix(pbd::mat44d mat) {
+void debug_render::set_matrix(lotus::mat44d mat) {
 	GLdouble values[16]{
 		mat(0, 0), mat(1, 0), mat(2, 0), mat(3, 0),
 		mat(0, 1), mat(1, 1), mat(2, 1), mat(3, 1),
@@ -44,16 +44,16 @@ void debug_render::setup_draw() {
 void debug_render::draw_sphere() {
 	constexpr std::size_t _z_slices = 10;
 	constexpr std::size_t _xy_slices = 30;
-	constexpr double _z_slice_angle = pbd::pi / _z_slices;
-	constexpr double _xy_slice_angle = 2.0 * pbd::pi / _xy_slices;
+	constexpr double _z_slice_angle = lotus::pi / _z_slices;
+	constexpr double _xy_slice_angle = 2.0 * lotus::pi / _xy_slices;
 
-	static std::vector<pbd::cvec3d> _vertices;
+	static std::vector<lotus::cvec3d> _vertices;
 	static std::vector<std::size_t> _indices;
 
 	if (_vertices.empty()) {
 		// http://www.songho.ca/opengl/gl_sphere.html
 		for (std::size_t i = 0; i <= _z_slices; ++i) {
-			double z_angle = pbd::pi / 2 - static_cast<double>(i) * _z_slice_angle;
+			double z_angle = lotus::pi / 2 - static_cast<double>(i) * _z_slice_angle;
 			double xy = 0.5 * std::cos(z_angle);
 			double z = 0.5 * std::sin(z_angle);
 
@@ -102,9 +102,9 @@ void debug_render::draw_sphere() {
 
 void debug_render::draw_sphere_wireframe() {
 	constexpr std::size_t _slices = 30;
-	constexpr double _slice_angle = 2.0 * pbd::pi / _slices;
+	constexpr double _slice_angle = 2.0 * lotus::pi / _slices;
 
-	static std::vector<pbd::cvec2d> _loop;
+	static std::vector<lotus::cvec2d> _loop;
 
 	if (_loop.empty()) {
 		for (std::size_t i = 0; i < _slices; ++i) {
@@ -140,7 +140,7 @@ void debug_render::draw(draw_options opt) const {
 	if (opt.wireframe_bodies) {
 		glDisable(GL_LIGHTING);
 	}
-	for (const pbd::body &b : engine->bodies) {
+	for (const lotus::physics::body &b : engine->bodies) {
 		const body_visual *visual = nullptr;
 		if (b.user_data) {
 			visual = static_cast<const body_visual*>(b.user_data);
@@ -151,7 +151,7 @@ void debug_render::draw(draw_options opt) const {
 		} else {
 			set_color({ 1.0f, 1.0f, 1.0f, 1.0f });
 		}
-		auto mat = pbd::mat44d::identity();
+		auto mat = lotus::mat44d::identity();
 		mat.set_block(0, 0, b.state.rotation.into_matrix());
 		mat.set_block(0, 3, b.state.position);
 		set_matrix(mat);
@@ -172,15 +172,15 @@ void debug_render::draw(draw_options opt) const {
 	if (opt.wireframe_surfaces) {
 		glDisable(GL_LIGHTING);
 	}
-	std::vector<pbd::cvec3d> normals(engine->particles.size(), pbd::uninitialized);
+	std::vector<lotus::cvec3d> normals(engine->particles.size(), lotus::uninitialized);
 	for (const auto &surface : surfaces) {
 		// compute normals
-		std::fill(normals.begin(), normals.end(), pbd::zero);
+		std::fill(normals.begin(), normals.end(), lotus::zero);
 		for (const auto &tri : surface.triangles) {
 			auto p1 = engine->particles[tri[0]].state.position;
 			auto p2 = engine->particles[tri[1]].state.position;
 			auto p3 = engine->particles[tri[2]].state.position;
-			auto diff = pbd::vec::cross(p2 - p1, p3 - p1);
+			auto diff = lotus::vec::cross(p2 - p1, p3 - p1);
 			normals[tri[0]] += diff;
 			normals[tri[1]] += diff;
 			normals[tri[2]] += diff;
@@ -230,7 +230,7 @@ void debug_render::draw(draw_options opt) const {
 		glPushMatrix();
 		glLoadIdentity();
 		glBegin(GL_LINES);
-		for (const pbd::body &b : engine->bodies) {
+		for (const lotus::physics::body &b : engine->bodies) {
 			glColor3f(1.0f, 0.0f, 0.0f);
 			auto p1 = b.state.position + b.state.linear_velocity;
 			glVertex3d(b.state.position[0], b.state.position[1], b.state.position[2]);
@@ -261,7 +261,7 @@ void debug_render::draw(draw_options opt) const {
 	glEnable(GL_LIGHTING);
 }
 
-void debug_render::draw_body(const pbd::shapes::plane&, const body_visual*, bool wireframe) {
+void debug_render::draw_body(const lotus::collision::shapes::plane&, const body_visual*, bool wireframe) {
 	if (wireframe) {
 		glBegin(GL_LINES);
 		for (int x = -100; x <= 100; ++x) {
@@ -284,7 +284,7 @@ void debug_render::draw_body(const pbd::shapes::plane&, const body_visual*, bool
 	}
 }
 
-void debug_render::draw_body(const pbd::shapes::sphere &sphere, const body_visual*, bool wireframe) {
+void debug_render::draw_body(const lotus::collision::shapes::sphere &sphere, const body_visual*, bool wireframe) {
 	glPushMatrix();
 	glScaled(2.0 * sphere.radius, 2.0 * sphere.radius, 2.0 * sphere.radius);
 	glTranslated(sphere.offset[0], sphere.offset[1], sphere.offset[2]);
@@ -296,13 +296,13 @@ void debug_render::draw_body(const pbd::shapes::sphere &sphere, const body_visua
 	glPopMatrix();
 }
 
-void debug_render::draw_body(const pbd::shapes::polyhedron &poly, const body_visual *visual, bool wireframe) {
+void debug_render::draw_body(const lotus::collision::shapes::polyhedron &poly, const body_visual *visual, bool wireframe) {
 	if (visual) {
 		for (auto tri : visual->triangles) {
 			auto p1 = poly.vertices[tri[0]];
 			auto p2 = poly.vertices[tri[1]];
 			auto p3 = poly.vertices[tri[2]];
-			auto n = pbd::vec::cross(p2 - p1, p3 - p1);
+			auto n = lotus::vec::cross(p2 - p1, p3 - p1);
 			glNormal3d(n[0], n[1], n[2]);
 			glBegin(wireframe ? GL_LINE_LOOP : GL_TRIANGLES);
 			glVertex3d(p1[0], p1[1], p1[2]);
@@ -317,7 +317,7 @@ void debug_render::draw_body(const pbd::shapes::polyhedron &poly, const body_vis
 				auto p2 = poly.vertices[j];
 				for (std::size_t k = j + 1; k < poly.vertices.size(); ++k) {
 					auto p3 = poly.vertices[k];
-					auto n = pbd::vec::cross(p2 - p1, p3 - p1);
+					auto n = lotus::vec::cross(p2 - p1, p3 - p1);
 					glNormal3d(n[0], n[1], n[2]);
 					glBegin(wireframe ? GL_LINE_LOOP : GL_TRIANGLES);
 					glVertex3d(p1[0], p1[1], p1[2]);

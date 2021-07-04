@@ -2,7 +2,7 @@
 
 #include <random>
 
-#include <pbd/algorithms/convex_hull.h>
+#include <lotus/algorithms/convex_hull.h>
 
 #include "test.h"
 #include "../utils.h"
@@ -10,11 +10,11 @@
 class convex_hull_test : public test {
 public:
 	struct empty {
-		empty(pbd::uninitialized_t) {
+		empty(lotus::uninitialized_t) {
 		}
 	};
 	using random_engine = std::default_random_engine;
-	using convex_hull_t = pbd::incremental_convex_hull<empty, empty>;
+	using convex_hull_t = lotus::incremental_convex_hull<empty, empty>;
 
 	convex_hull_test() {
 		soft_reset();
@@ -23,7 +23,7 @@ public:
 	void timestep(double, std::size_t) override {
 		if (_cur_vertex < _vertices.size()) {
 			_convex_hull.add_vertex(
-				convex_hull_t::vertex::create(_vertices[_cur_vertex], pbd::uninitialized), _dummy_face_data
+				convex_hull_t::vertex::create(_vertices[_cur_vertex], lotus::uninitialized), _dummy_face_data
 			);
 			++_cur_vertex;
 			_update_properties();
@@ -36,7 +36,7 @@ public:
 		std::uniform_real_distribution dist(-1.0, 1.0);
 		std::default_random_engine eng(_seed);
 		for (int i = 0; i < _num_vertices; ++i) {
-			pbd::cvec3d v = pbd::uninitialized;
+			lotus::cvec3d v = lotus::uninitialized;
 			v[0] = dist(eng);
 			v[1] = dist(eng);
 			v[2] = dist(eng);
@@ -44,10 +44,10 @@ public:
 		}
 
 		_convex_hull = convex_hull_t::for_tetrahedron({
-			convex_hull_t::vertex::create(_vertices[0], pbd::uninitialized),
-			convex_hull_t::vertex::create(_vertices[1], pbd::uninitialized),
-			convex_hull_t::vertex::create(_vertices[2], pbd::uninitialized),
-			convex_hull_t::vertex::create(_vertices[3], pbd::uninitialized)
+			convex_hull_t::vertex::create(_vertices[0], lotus::uninitialized),
+			convex_hull_t::vertex::create(_vertices[1], lotus::uninitialized),
+			convex_hull_t::vertex::create(_vertices[2], lotus::uninitialized),
+			convex_hull_t::vertex::create(_vertices[3], lotus::uninitialized)
 		}, _dummy_face_data);
 		_cur_vertex = 4;
 		_update_properties();
@@ -131,16 +131,16 @@ protected:
 	inline static void _dummy_face_data(const convex_hull_t&, const convex_hull_t::face&) {
 	}
 
-	pbd::shapes::polyhedron::properties _props = pbd::uninitialized;
-	std::vector<pbd::cvec3d> _vertices;
+	lotus::collision::shapes::polyhedron::properties _props = lotus::uninitialized;
+	std::vector<lotus::cvec3d> _vertices;
 	std::vector<bool> _vertex_states;
-	convex_hull_t _convex_hull;
+	convex_hull_t _convex_hull = convex_hull_t::create_empty();
 	int _seed = 0;
 	int _num_vertices = 100;
 	std::size_t _cur_vertex = 0;
 
 	void _update_properties() {
-		std::vector<pbd::cvec3d> verts;
+		std::vector<lotus::cvec3d> verts;
 		std::vector<std::array<std::size_t, 3>> tris;
 		for (const auto &v : _convex_hull.vertices) {
 			verts.emplace_back(v.position);
@@ -148,6 +148,6 @@ protected:
 		for (const auto &tri : _convex_hull.faces) {
 			tris.emplace_back(tri.vertex_indices);
 		}
-		_props = pbd::shapes::polyhedron::properties::compute_for(verts, tris);
+		_props = lotus::collision::shapes::polyhedron::properties::compute_for(verts, tris);
 	}
 };

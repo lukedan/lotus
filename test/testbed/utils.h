@@ -3,8 +3,8 @@
 #include <vector>
 #include <list>
 
-#include <pbd/math/vector.h>
-#include <pbd/engine.h>
+#include <lotus/math/vector.h>
+#include <lotus/physics/engine.h>
 
 struct draw_options {
 	bool wireframe_surfaces = false;
@@ -15,7 +15,7 @@ struct draw_options {
 
 class debug_render {
 public:
-	using colorf = pbd::cvec4f;
+	using colorf = lotus::cvec4f;
 	struct surface_visual {
 		std::vector<std::array<std::size_t, 3>> triangles;
 		colorf color{ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -25,7 +25,7 @@ public:
 		colorf color{ 1.0f, 1.0f, 1.0f, 1.0f };
 	};
 
-	static void set_matrix(pbd::mat44d);
+	static void set_matrix(lotus::mat44d);
 	static void set_color(colorf);
 	/// Sets up basic OpenGL state for drawing.
 	static void setup_draw();
@@ -38,11 +38,11 @@ public:
 	void draw(draw_options opt) const;
 
 
-	static void draw_body(const pbd::shapes::plane&, const body_visual*, bool wireframe);
-	static void draw_body(const pbd::shapes::sphere&, const body_visual*, bool wireframe);
-	static void draw_body(const pbd::shapes::polyhedron&, const body_visual*, bool wireframe);
+	static void draw_body(const lotus::collision::shapes::plane&, const body_visual*, bool wireframe);
+	static void draw_body(const lotus::collision::shapes::sphere&, const body_visual*, bool wireframe);
+	static void draw_body(const lotus::collision::shapes::polyhedron&, const body_visual*, bool wireframe);
 
 	std::vector<surface_visual> surfaces;
 	std::list<body_visual> body_visuals;
-	const pbd::engine *engine = nullptr;
+	const lotus::physics::engine *engine = nullptr;
 };

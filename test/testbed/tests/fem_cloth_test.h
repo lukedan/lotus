@@ -1,6 +1,6 @@
 #pragma once
 
-#include <pbd/engine.h>
+#include <lotus/physics/engine.h>
 
 #include "test.h"
 #include "../utils.h"
@@ -12,7 +12,7 @@ public:
 	}
 
 	void soft_reset() override {
-		_engine = pbd::engine();
+		_engine = lotus::physics::engine();
 		_render = debug_render();
 		_world_time = 0.0;
 
@@ -20,7 +20,7 @@ public:
 
 		_engine.gravity = { 0.0, 0.0, -10.0 };
 		_engine.face_constraint_projection_type =
-			static_cast<pbd::constraints::face::projection_type>(_face_projection);
+			static_cast<lotus::physics::constraints::face::projection_type>(_face_projection);
 
 		double cloth_mass = _cloth_density * _cloth_size * _cloth_size * _thickness;
 		double node_mass = cloth_mass / (_side_segments * _side_segments);
@@ -34,15 +34,15 @@ public:
 		);
 		for (int y = 0; y < _side_segments; ++y) {
 			for (int x = 0; x < _side_segments; ++x) {
-				auto prop = pbd::particle_properties::from_mass(node_mass);
+				auto prop = lotus::physics::particle_properties::from_mass(node_mass);
 				if (x == 0 && (y == 0 || y == _side_segments - 1)) {
-					prop = pbd::particle_properties::kinematic();
+					prop = lotus::physics::particle_properties::kinematic();
 				}
-				auto state = pbd::particle_state::stationary_at(
+				auto state = lotus::physics::particle_state::stationary_at(
 					{ x * segment_length, y * segment_length - 0.5 * _cloth_size, _cloth_size }
 				);
 				pid[x][y] = _engine.particles.size();
-				_engine.particles.emplace_back(pbd::particle::create(prop, state));
+				_engine.particles.emplace_back(lotus::physics::particle::create(prop, state));
 			}
 		}
 		for (int y = 1; y < _side_segments; ++y) {
@@ -65,29 +65,29 @@ public:
 			}
 		}
 
-		auto &sphere_shape = _engine.shapes.emplace_back(pbd::shape::create(pbd::shapes::sphere::from_radius(0.25)));
-		auto &plane_shape = _engine.shapes.emplace_back(pbd::shape::create(pbd::shapes::plane()));
+		auto &sphere_shape = _engine.shapes.emplace_back(lotus::collision::shape::create(lotus::collision::shapes::sphere::from_radius(0.25)));
+		auto &plane_shape = _engine.shapes.emplace_back(lotus::collision::shape::create(lotus::collision::shapes::plane()));
 
-		auto material = pbd::material_properties::create(0.5, 0.45, 0.2);
+		auto material = lotus::physics::material_properties::create(0.5, 0.45, 0.2);
 
-		_engine.bodies.emplace_front(pbd::body::create(
+		_engine.bodies.emplace_front(lotus::physics::body::create(
 			sphere_shape, material,
-			pbd::body_properties::kinematic(),
-			pbd::body_state::stationary_at(pbd::zero, pbd::uquatd::identity())
+			lotus::physics::body_properties::kinematic(),
+			lotus::physics::body_state::stationary_at(lotus::zero, lotus::uquatd::identity())
 		));
 		_sphere = _engine.bodies.begin();
 
-		_engine.bodies.emplace_front(pbd::body::create(
+		_engine.bodies.emplace_front(lotus::physics::body::create(
 			plane_shape, material,
-			pbd::body_properties::kinematic(),
-			pbd::body_state::stationary_at(pbd::zero, pbd::uquatd::identity())
+			lotus::physics::body_properties::kinematic(),
+			lotus::physics::body_state::stationary_at(lotus::zero, lotus::uquatd::identity())
 		));
 	}
 
 	void timestep(double dt, std::size_t iterations) override {
 		_world_time += dt;
 		_sphere->state.position = {
-			_sphere_travel * std::cos((2.0 * pbd::pi / _sphere_period) * _world_time),
+			_sphere_travel * std::cos((2.0 * lotus::pi / _sphere_period) * _world_time),
 			_sphere_yz[0],
 			_sphere_yz[1]
 		};
@@ -101,7 +101,7 @@ public:
 	void gui() override {
 		if (ImGui::Combo("Face Constraint Projection", &_face_projection, "Exact\0Gauss-Seidel\0\0")) {
 			_engine.face_constraint_projection_type =
-				static_cast<pbd::constraints::face::projection_type>(_face_projection);
+				static_cast<lotus::physics::constraints::face::projection_type>(_face_projection);
 		}
 
 		ImGui::SliderInt("Cloth Partitions", &_side_segments, 2, 100);
@@ -127,11 +127,11 @@ public:
 		return "FEM Cloth";
 	}
 protected:
-	pbd::engine _engine;
+	lotus::physics::engine _engine;
 	debug_render _render;
 	double _world_time = 0.0;
 
-	int _face_projection = static_cast<int>(pbd::constraints::face::projection_type::gauss_seidel);
+	int _face_projection = static_cast<int>(lotus::physics::constraints::face::projection_type::gauss_seidel);
 
 	int _side_segments = 10;
 	float _cloth_size = 1.0f;
@@ -141,41 +141,41 @@ protected:
 	float _thickness = 0.02f;
 	bool _bend_constraints = true;
 
-	std::list<pbd::body>::iterator _sphere;
+	std::list<lotus::physics::body>::iterator _sphere;
 	float _sphere_travel = 1.5f;
 	float _sphere_period = 3.0f;
 	float _sphere_yz[2]{ 0.0f, 0.5f };
 
 
 	void _add_face(std::size_t i1, std::size_t i2, std::size_t i3) {
-		auto &face = _engine.face_constraints.emplace_back(pbd::uninitialized);
+		auto &face = _engine.face_constraints.emplace_back(lotus::uninitialized);
 		face.particle1 = i1;
 		face.particle2 = i2;
 		face.particle3 = i3;
-		face.state = pbd::constraints::face::constraint_state::from_rest_pose(
+		face.state = lotus::physics::constraints::face::constraint_state::from_rest_pose(
 			_engine.particles[i1].state.position,
 			_engine.particles[i2].state.position,
 			_engine.particles[i3].state.position,
 			_thickness
 		);
-		face.properties = pbd::constraints::face::constraint_properties::from_material_properties(
+		face.properties = lotus::physics::constraints::face::constraint_properties::from_material_properties(
 			_youngs_modulus, _poisson_ratio
 		);
 	}
 
 	void _add_bend(std::size_t e1, std::size_t e2, std::size_t x3, std::size_t x4) {
-		auto &bend = _engine.bend_constraints.emplace_back(pbd::uninitialized);
+		auto &bend = _engine.bend_constraints.emplace_back(lotus::uninitialized);
 		bend.particle_edge1 = e1;
 		bend.particle_edge2 = e2;
 		bend.particle3 = x3;
 		bend.particle4 = x4;
-		bend.state = pbd::constraints::bend::constraint_state::from_rest_pose(
+		bend.state = lotus::physics::constraints::bend::constraint_state::from_rest_pose(
 			_engine.particles[e1].state.position,
 			_engine.particles[e2].state.position,
 			_engine.particles[x3].state.position,
 			_engine.particles[x4].state.position
 		);
-		bend.properties = pbd::constraints::bend::constraint_properties::from_material_properties(
+		bend.properties = lotus::physics::constraints::bend::constraint_properties::from_material_properties(
 			_youngs_modulus, _poisson_ratio, _thickness
 		);
 	}

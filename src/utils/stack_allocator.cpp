@@ -1,9 +1,9 @@
-#include "pbd/utils/stack_allocator.h"
+#include "lotus/utils/stack_allocator.h"
 
 /// \file
 /// Implementation of the stack allocator.
 
-namespace pbd {
+namespace lotus {
 	stack_allocator::scoped_bookmark stack_allocator::scoped_bookmark::create(stack_allocator &alloc) {
 		scoped_bookmark result;
 		result._alloc = &alloc;

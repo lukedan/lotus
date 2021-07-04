@@ -1,6 +1,6 @@
 #pragma once
 
-#include <pbd/engine.h>
+#include <lotus/physics/engine.h>
 
 #include "test.h"
 
@@ -19,17 +19,17 @@ public:
 	}
 
 	void soft_reset() override {
-		_engine = pbd::engine();
-		_engine.gravity = pbd::cvec3d(0.0, 0.0, -9.8);
+		_engine = lotus::physics::engine();
+		_engine.gravity = lotus::cvec3d(0.0, 0.0, -9.8);
 
 		_render = debug_render();
 		_render.engine = &_engine;
 
-		auto &plane = _engine.shapes.emplace_back(pbd::shape::create(pbd::shapes::plane()));
+		auto &plane = _engine.shapes.emplace_back(lotus::collision::shape::create(lotus::collision::shapes::plane()));
 
 		auto &box_shape = _engine.shapes.emplace_back();
-		auto &box = box_shape.value.emplace<pbd::shapes::polyhedron>();
-		pbd::cvec3d half_size(_box_size[0], _box_size[1], _box_size[2]);
+		auto &box = box_shape.value.emplace<lotus::collision::shapes::polyhedron>();
+		lotus::cvec3d half_size(_box_size[0], _box_size[1], _box_size[2]);
 		half_size *= 0.5;
 		box.vertices.emplace_back( half_size[0],  half_size[1],  half_size[2]);
 		box.vertices.emplace_back( half_size[0],  half_size[1], -half_size[2]);
@@ -43,8 +43,8 @@ public:
 
 		auto &bullet_shape = _engine.shapes.emplace_front();
 		_bullet_shape = _engine.shapes.begin();
-		auto &bullet = bullet_shape.value.emplace<pbd::shapes::polyhedron>();
-		pbd::cvec3d half_bullet_size(0.05, 0.05, 0.05);
+		auto &bullet = bullet_shape.value.emplace<lotus::collision::shapes::polyhedron>();
+		lotus::cvec3d half_bullet_size(0.05, 0.05, 0.05);
 		bullet.vertices.emplace_back(half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
 		bullet.vertices.emplace_back(half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
 		bullet.vertices.emplace_back(half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
@@ -55,43 +55,45 @@ public:
 		bullet.vertices.emplace_back(-half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
 		_bullet_properties = bullet.bake(10.0);
 
-		auto material = pbd::material_properties::create(_static_friction, _dynamic_friction, _restitution);
+		auto material = lotus::physics::material_properties::create(
+			_static_friction, _dynamic_friction, _restitution
+		);
 
-		_engine.bodies.emplace_back(pbd::body::create(
+		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
-			pbd::body_properties::kinematic(),
-			pbd::body_state::stationary_at(pbd::zero, pbd::uquatd::identity())
+			lotus::physics::body_properties::kinematic(),
+			lotus::physics::body_state::stationary_at(lotus::zero, lotus::uquatd::identity())
 		));
-		_engine.bodies.emplace_back(pbd::body::create(
+		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
-			pbd::body_properties::kinematic(),
-			pbd::body_state::stationary_at(
-				pbd::cvec3d(10.0, 0.0, 0.0),
-				pbd::quat::from_normalized_axis_angle(pbd::cvec3d(0.0, 1.0, 0.0), -0.5 * pbd::pi)
+			lotus::physics::body_properties::kinematic(),
+			lotus::physics::body_state::stationary_at(
+				lotus::cvec3d(10.0, 0.0, 0.0),
+				lotus::quat::from_normalized_axis_angle(lotus::cvec3d(0.0, 1.0, 0.0), -0.5 * lotus::pi)
 			)
 		));
-		_engine.bodies.emplace_back(pbd::body::create(
+		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
-			pbd::body_properties::kinematic(),
-			pbd::body_state::stationary_at(
-				pbd::cvec3d(-10.0, 0.0, 0.0),
-				pbd::quat::from_normalized_axis_angle(pbd::cvec3d(0.0, 1.0, 0.0), 0.5 * pbd::pi)
+			lotus::physics::body_properties::kinematic(),
+			lotus::physics::body_state::stationary_at(
+				lotus::cvec3d(-10.0, 0.0, 0.0),
+				lotus::quat::from_normalized_axis_angle(lotus::cvec3d(0.0, 1.0, 0.0), 0.5 * lotus::pi)
 			)
 		));
-		_engine.bodies.emplace_back(pbd::body::create(
+		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
-			pbd::body_properties::kinematic(),
-			pbd::body_state::stationary_at(
-				pbd::cvec3d(0.0, 10.0, 0.0),
-				pbd::quat::from_normalized_axis_angle(pbd::cvec3d(1.0, 0.0, 0.0), 0.5 * pbd::pi)
+			lotus::physics::body_properties::kinematic(),
+			lotus::physics::body_state::stationary_at(
+				lotus::cvec3d(0.0, 10.0, 0.0),
+				lotus::quat::from_normalized_axis_angle(lotus::cvec3d(1.0, 0.0, 0.0), 0.5 * lotus::pi)
 			)
 		));
-		_engine.bodies.emplace_back(pbd::body::create(
+		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
-			pbd::body_properties::kinematic(),
-			pbd::body_state::stationary_at(
-				pbd::cvec3d(0.0, -10.0, 0.0),
-				pbd::quat::from_normalized_axis_angle(pbd::cvec3d(1.0, 0.0, 0.0), -0.5 * pbd::pi)
+			lotus::physics::body_properties::kinematic(),
+			lotus::physics::body_state::stationary_at(
+				lotus::cvec3d(0.0, -10.0, 0.0),
+				lotus::quat::from_normalized_axis_angle(lotus::cvec3d(1.0, 0.0, 0.0), -0.5 * lotus::pi)
 			)
 		));
 
@@ -104,18 +106,20 @@ public:
 		) {
 			double cx = x;
 			for (int xi = 0; xi + yi < _box_count[0]; ++xi, cx += _box_size[0] + _gap[0]) {
-				pbd::body_state state = pbd::uninitialized;
+				lotus::physics::body_state state = lotus::uninitialized;
 				if (_rotate_90) {
-					state = pbd::body_state::stationary_at(
-						pbd::cvec3d(0.0, cx, z),
-						pbd::quat::from_normalized_axis_angle(pbd::cvec3d(0.0, 0.0, 1.0), 0.5 * pbd::pi)
+					state = lotus::physics::body_state::stationary_at(
+						lotus::cvec3d(0.0, cx, z),
+						lotus::quat::from_normalized_axis_angle(lotus::cvec3d(0.0, 0.0, 1.0), 0.5 * lotus::pi)
 					);
 				} else {
-					state = pbd::body_state::stationary_at(pbd::cvec3d(cx, 0.0, z), pbd::uquatd::identity());
+					state = lotus::physics::body_state::stationary_at(
+						lotus::cvec3d(cx, 0.0, z), lotus::uquatd::identity()
+					);
 				}
-				_engine.bodies.emplace_back(pbd::body::create(
+				_engine.bodies.emplace_back(lotus::physics::body::create(
 					box_shape, material,
-					_fix_first_row && yi == 0 ? pbd::body_properties::kinematic() : box_props,
+					_fix_first_row && yi == 0 ? lotus::physics::body_properties::kinematic() : box_props,
 					state
 				));
 			}
@@ -142,13 +146,13 @@ public:
 
 		ImGui::Separator();
 		if (ImGui::Button("Shoot Box")) {
-			auto material = pbd::material_properties::create(_static_friction, _dynamic_friction, _restitution);
-			_engine.bodies.emplace_back(pbd::body::create(
+			auto material = lotus::physics::material_properties::create(_static_friction, _dynamic_friction, _restitution);
+			_engine.bodies.emplace_back(lotus::physics::body::create(
 				*_bullet_shape,
 				material,
 				_bullet_properties,
-				pbd::body_state::at(
-					camera_params.position, pbd::uquatd::identity(), camera.unit_forward * 50.0, pbd::zero
+				lotus::physics::body_state::at(
+					camera_params.position, lotus::uquatd::identity(), camera.unit_forward * 50.0, lotus::zero
 				)
 			));
 		}
@@ -159,7 +163,7 @@ public:
 		return "Box Stack Test";
 	}
 protected:
-	pbd::engine _engine;
+	lotus::physics::engine _engine;
 	debug_render _render;
 
 	bool _rotate_90 = false;
@@ -175,6 +179,6 @@ protected:
 	float _gap[2]{ 0.02f, 0.02f };
 	int _box_count[2]{ 5, 3 };
 
-	std::deque<pbd::shape>::iterator _bullet_shape;
-	pbd::body_properties _bullet_properties = pbd::uninitialized;
+	std::deque<lotus::collision::shape>::iterator _bullet_shape;
+	lotus::physics::body_properties _bullet_properties = lotus::uninitialized;
 };

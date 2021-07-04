@@ -10,10 +10,10 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl2.h>
 
-#include <pbd/math/matrix.h>
-#include <pbd/math/vector.h>
-#include <pbd/math/quaternion.h>
-#include <pbd/camera.h>
+#include <lotus/math/matrix.h>
+#include <lotus/math/vector.h>
+#include <lotus/math/quaternion.h>
+#include <lotus/utils/camera.h>
 
 #include "utils.h"
 #include "tests/box_stack_test.h"
@@ -42,7 +42,7 @@ class testbed {
 public:
 	/// Initializes the GLFW window.
 	testbed() {
-		_wnd = glfwCreateWindow(_width, _height, "PBD Test", nullptr, nullptr);
+		_wnd = glfwCreateWindow(_width, _height, "lotus Test", nullptr, nullptr);
 		glfwSetWindowUserPointer(_wnd, this);
 
 		IMGUI_CHECKVERSION();
@@ -203,7 +203,7 @@ public:
 		}
 
 		if (_mouse_buttons[GLFW_MOUSE_BUTTON_LEFT] || _mouse_buttons[GLFW_MOUSE_BUTTON_MIDDLE]) {
-			pbd::cvec3d center = _camera_params.look_at;
+			lotus::cvec3d center = _camera_params.look_at;
 			glDisable(GL_LIGHTING);
 			glBegin(GL_LINES);
 			glColor3f(1.0f, 0.0f, 0.0f);
@@ -308,11 +308,11 @@ protected:
 	float _zoom_sensitivity = 0.001f; ///< Zoom sensitivity.
 	/// Sensitivity for scrolling to move the camera closer and further from the focus point.
 	float _scroll_sensitivity = 0.95f;
-	pbd::camera_parameters _camera_params = pbd::uninitialized; ///< Camera parameters.
-	pbd::camera _camera = pbd::uninitialized; ///< Camera.
+	lotus::camera_parameters _camera_params = lotus::uninitialized; ///< Camera parameters.
+	lotus::camera _camera = lotus::uninitialized; ///< Camera.
 	GLenum _gl_error = GL_NO_ERROR; ///< OpenGL error.
 
-	pbd::cvec2d _prev_mouse_position = pbd::uninitialized; ///< Last mouse position.
+	lotus::cvec2d _prev_mouse_position = lotus::uninitialized; ///< Last mouse position.
 	bool _mouse_buttons[8]{}; ///< State of all mouse buttons.
 
 	/// Size changed callback.
@@ -325,11 +325,11 @@ protected:
 		glViewport(0, 0, _width, _height);
 
 		_camera_params.aspect_ratio = _width / static_cast<double>(_height);
-		_camera = pbd::camera::from_parameters(_camera_params);
+		_camera = lotus::camera::from_parameters(_camera_params);
 	}
 	/// Resets \ref _camera_parameters and \ref _camera.
 	void _reset_camera() {
-		_camera_params = pbd::camera_parameters::create_look_at(pbd::zero, { 3.0, 4.0, 5.0 });
+		_camera_params = lotus::camera_parameters::create_look_at(lotus::zero, { 3.0, 4.0, 5.0 });
 		_on_size(_width, _height);
 	}
 
@@ -337,7 +337,7 @@ protected:
 	void _on_mouse_move(double x, double y) {
 		bool camera_changed = false;
 
-		pbd::cvec2d new_position = { x, y };
+		lotus::cvec2d new_position = { x, y };
 		auto offset = new_position - _prev_mouse_position;
 		if (_mouse_buttons[GLFW_MOUSE_BUTTON_MIDDLE]) {
 			auto offset3 = _move_sensitivity * (_camera.unit_up * offset[1] - _camera.unit_right * offset[0]);
@@ -347,10 +347,10 @@ protected:
 		}
 		if (_mouse_buttons[GLFW_MOUSE_BUTTON_LEFT]) {
 			auto offset3 = _camera_params.position - _camera_params.look_at;
-			offset3 = pbd::quat::from_normalized_axis_angle(
+			offset3 = lotus::quat::from_normalized_axis_angle(
 				_camera.unit_right, -_rotation_sensitivity * offset[1]
 			).rotate(offset3);
-			offset3 = pbd::quat::from_normalized_axis_angle(
+			offset3 = lotus::quat::from_normalized_axis_angle(
 				_camera_params.world_up, -_rotation_sensitivity * offset[0]
 			).rotate(offset3);
 			_camera_params.position = _camera_params.look_at + offset3;
@@ -363,7 +363,7 @@ protected:
 		_prev_mouse_position = new_position;
 
 		if (camera_changed) {
-			_camera = pbd::camera::from_parameters(_camera_params);
+			_camera = lotus::camera::from_parameters(_camera_params);
 		}
 	}
 	/// Mouse button callback.
@@ -378,10 +378,10 @@ protected:
 	}
 	/// Mouse scroll callback.
 	void _on_mouse_scroll([[maybe_unused]] double xoff, double yoff) {
-		pbd::cvec3d diff = _camera_params.position - _camera_params.look_at;
+		lotus::cvec3d diff = _camera_params.position - _camera_params.look_at;
 		diff *= std::pow(_scroll_sensitivity, yoff);
 		_camera_params.position = _camera_params.look_at + diff;
-		_camera = pbd::camera::from_parameters(_camera_params);
+		_camera = lotus::camera::from_parameters(_camera_params);
 	}
 };
 

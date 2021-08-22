@@ -44,11 +44,19 @@ namespace lotus::system::platforms::windows {
 		return window(wnd);
 	}
 
-	bool application::process_message_blocking() {
+	message_type application::process_message_blocking() {
 		MSG msg;
-		int result = GetMessage(&msg, nullptr, 0, 0);
-		_details::assert_win32(result != -1);
+		_details::assert_win32(GetMessage(&msg, nullptr, 0, 0) != -1);
 		CallWindowProc(_window_proc, msg.hwnd, msg.message, msg.wParam, msg.lParam);
-		return result != 0;
+		return msg.message == WM_QUIT ? message_type::quit : message_type::normal;
+	}
+
+	message_type application::process_message_nonblocking() {
+		MSG msg;
+		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+			CallWindowProc(_window_proc, msg.hwnd, msg.message, msg.wParam, msg.lParam);
+			return msg.message == WM_QUIT ? message_type::quit : message_type::normal;
+		}
+		return message_type::none;
 	}
 }

@@ -26,8 +26,13 @@ target_sources(lotus
 		"include/lotus/graphics/context.h"
 		"include/lotus/graphics/descriptors.h"
 		"include/lotus/graphics/device.h"
-		"include/lotus/graphics/swap_chain.h"
+		"include/lotus/graphics/frame_buffer.h"
+		"include/lotus/graphics/pass.h"
+		"include/lotus/graphics/pipeline.h"
+		"include/lotus/graphics/resources.h"
+		"include/lotus/graphics/synchronization.h"
 
+		"include/lotus/math/aab.h"
 		"include/lotus/math/constants.h"
 		"include/lotus/math/matrix.h"
 		"include/lotus/math/quaternion.h"
@@ -43,11 +48,13 @@ target_sources(lotus
 		"include/lotus/physics/engine.h"
 
 		"include/lotus/system/application.h"
+		"include/lotus/system/common.h"
 		"include/lotus/system/window.h"
 
 		"include/lotus/utils/camera.h"
 		"include/lotus/utils/stack_allocator.h"
 
+		"include/lotus/color.h"
 		"include/lotus/common.h"
 		"include/lotus/memory.h"
 	PRIVATE
@@ -105,15 +112,22 @@ if(WIN32)
 				"include/lotus/graphics/backends/directx12/descriptors.h"
 				"include/lotus/graphics/backends/directx12/details.h"
 				"include/lotus/graphics/backends/directx12/device.h"
-				"include/lotus/graphics/backends/directx12/swap_chain.h"
+				"include/lotus/graphics/backends/directx12/frame_buffer.h"
+				"include/lotus/graphics/backends/directx12/pass.h"
+				"include/lotus/graphics/backends/directx12/pipeline.h"
+				"include/lotus/graphics/backends/directx12/resources.h"
+				"include/lotus/graphics/backends/directx12/synchronization.h"
 
 				"include/lotus/graphics/backends/directx12.h"
 			PRIVATE
+				"src/graphics/backends/directx12/commands.cpp"
 				"src/graphics/backends/directx12/context.cpp"
-				"src/graphics/backends/directx12/device.cpp")
+				"src/graphics/backends/directx12/details.cpp"
+				"src/graphics/backends/directx12/device.cpp"
+				"src/graphics/backends/directx12/frame_buffer.cpp")
 		target_link_libraries(lotus
 			PUBLIC
-				d3d12 dxgi)
+				d3d12 dxgi dxguid)
 		target_compile_definitions(lotus
 			PUBLIC
 				"${LOTUS_GRAPHICS_BACKEND_INCLUDE_NAME}=<lotus/graphics/backends/directx12.h>")

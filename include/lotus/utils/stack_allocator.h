@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "lotus/common.h"
 #include "lotus/memory.h"
@@ -114,12 +115,21 @@ namespace lotus {
 		/// Frees all pages in \ref _free_pages.
 		void free_unused_pages();
 
+		/// Creates a \ref allocator for the given type.
+		template <typename T> [[nodiscard]] allocator<T> create_std_allocator() {
+			return allocator<T>::create_for(*this);
+		}
+		/// Convenience function for creating a \p std::vector using the given parameters and this allocator.
+		template <typename T, typename ...Args> std::vector<T, allocator<T>> create_vector_array(Args &&...args) {
+			return std::vector<T, allocator<T>>(std::forward<Args>(args)..., create_std_allocator<T>());
+		}
+
 		/// Returns the \ref stack_allocator for this thread.
 		static stack_allocator &for_this_thread();
 
 		std::size_t page_size = 8 * 1024 * 1024; /// Size of a page.
-		void *(*allocate_page)(std::size_t) = memory::allocate; ///< Used to allocate the pages.
-		void (*free_page)(void*) = memory::free; ///< Used to free a page.
+		void *(*allocate_page)(std::size_t, std::size_t) = memory::raw::allocate; ///< Used to allocate the pages.
+		void (*free_page)(void*) = memory::raw::free; ///< Used to free a page.
 	protected:
 		struct _page_header;
 		/// Reference to a page.
@@ -184,7 +194,7 @@ namespace lotus {
 
 		/// Creates a new page and allocates a \ref _page_ref at the front to the current top page.
 		[[nodiscard]] _page_ref _allocate_new_page(_page_ref prev, std::size_t size) const {
-			auto result = _page_ref::to_new_page(allocate_page(size), size);
+			auto result = _page_ref::to_new_page(allocate_page(size, alignof(_page_header)), size);
 			result.header = new (result.allocate<_page_header>()) _page_header(_page_header::create(prev, free_page));
 			return result;
 		}

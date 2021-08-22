@@ -17,9 +17,8 @@ namespace lotus::collision {
 			state.simplex_positions[i] = simplex_vertex_position(simplex[i]);
 		}
 
-		std::vector<std::uint8_t, stack_allocator::allocator<std::uint8_t>> vertex_looked_at(
-			polyhedron1->vertices.size() * polyhedron2->vertices.size(), 0,
-			stack_allocator::allocator<std::uint8_t>::for_this_thread()
+		auto vertex_looked_at = stack_allocator::for_this_thread().create_vector_array<std::uint8_t>(
+			polyhedron1->vertices.size() * polyhedron2->vertices.size(), static_cast<uint8_t>(0)
 		);
 		auto mark_vert = [&](simplex_vertex v) {
 			vertex_looked_at[v.index1 * polyhedron2->vertices.size() + v.index2] = 1;

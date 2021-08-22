@@ -5,6 +5,7 @@
 
 #include <string_view>
 
+#include "lotus/system/common.h"
 #include "window.h"
 
 namespace lotus::system::platforms::windows {
@@ -20,7 +21,9 @@ namespace lotus::system::platforms::windows {
 		[[nodiscard]] window create_window() const;
 
 		/// Processes a message using \p GetMessage().
-		bool process_message_blocking();
+		message_type process_message_blocking();
+		/// Processes a message if one exists, using \p PeekMessage().
+		message_type process_message_nonblocking();
 	private:
 		ATOM _window_class = 0; ///< The window class.
 	};

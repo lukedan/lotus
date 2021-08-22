@@ -21,9 +21,15 @@ namespace lotus::system {
 		}
 		/// Waits for and processes one message.
 		///
-		/// \return Whether the application should quit.
-		bool process_message_blocking() {
+		/// \return Type of processed message. This will never be \ref message_type::none.
+		message_type process_message_blocking() {
 			return platform::application::process_message_blocking();
+		}
+		/// Processes a message if one exists. Immediately returns either way.
+		///
+		/// \return Type of processed message.
+		message_type process_message_nonblocking() {
+			return platform::application::process_message_nonblocking();
 		}
 	};
 }

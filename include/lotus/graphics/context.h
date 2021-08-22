@@ -8,7 +8,7 @@
 #include "lotus/system/window.h"
 #include LOTUS_GRAPHICS_BACKEND_INCLUDE
 #include "device.h"
-#include "swap_chain.h"
+#include "frame_buffer.h"
 
 namespace lotus::graphics {
 	/// Represents a generic interface to the underlying graphics library.

@@ -14,7 +14,7 @@ target_sources(testbed
 		"testbed.cpp"
 		"utils.cpp"
 		"utils.h")
-target_link_libraries(testbed PRIVATE lotus glfw OpenGL::GL)
+target_link_libraries(testbed PRIVATE lotus_physics glfw OpenGL::GL)
 set_target_properties(testbed PROPERTIES
 	INTERPROCEDURAL_OPTIMIZATION ON)
 

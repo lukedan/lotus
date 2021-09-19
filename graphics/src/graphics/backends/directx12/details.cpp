@@ -26,235 +26,258 @@ namespace lotus::graphics::backends::directx12::_details {
 
 
 	namespace conversions {
-		D3D12_BLEND for_blend_factor(blend_factor factor) {
-			static const D3D12_BLEND table[] {
-				D3D12_BLEND_ZERO,
-				D3D12_BLEND_ONE,
-				D3D12_BLEND_SRC_COLOR,
-				D3D12_BLEND_INV_SRC_COLOR,
-				D3D12_BLEND_DEST_COLOR,
-				D3D12_BLEND_INV_DEST_COLOR,
-				D3D12_BLEND_SRC_ALPHA,
-				D3D12_BLEND_INV_SRC_ALPHA,
-				D3D12_BLEND_DEST_ALPHA,
-				D3D12_BLEND_INV_DEST_ALPHA,
+		DXGI_FORMAT for_format(format fmt) {
+			constexpr static enum_mapping<format, DXGI_FORMAT> table{
+				std::pair(format::none,                 DXGI_FORMAT_UNKNOWN              ),
+				std::pair(format::d32_float_s8,         DXGI_FORMAT_D32_FLOAT_S8X24_UINT ),
+				std::pair(format::d32_float,            DXGI_FORMAT_D32_FLOAT            ),
+				std::pair(format::d24_unorm_s8,         DXGI_FORMAT_D24_UNORM_S8_UINT    ),
+				std::pair(format::d16_unorm,            DXGI_FORMAT_D16_UNORM            ),
+				std::pair(format::r8_unorm,             DXGI_FORMAT_R8_UNORM             ),
+				std::pair(format::r8_snorm,             DXGI_FORMAT_R8_SNORM             ),
+				std::pair(format::r8_uint,              DXGI_FORMAT_R8_UINT              ),
+				std::pair(format::r8_sint,              DXGI_FORMAT_R8_SINT              ),
+				std::pair(format::r8_unknown,           DXGI_FORMAT_R8_TYPELESS          ),
+				std::pair(format::r8g8_unorm,           DXGI_FORMAT_R8G8_UNORM           ),
+				std::pair(format::r8g8_snorm,           DXGI_FORMAT_R8G8_SNORM           ),
+				std::pair(format::r8g8_uint,            DXGI_FORMAT_R8G8_UINT            ),
+				std::pair(format::r8g8_sint,            DXGI_FORMAT_R8G8_SINT            ),
+				std::pair(format::r8g8_unknown,         DXGI_FORMAT_R8G8_TYPELESS        ),
+				std::pair(format::r8g8b8a8_unorm,       DXGI_FORMAT_R8G8B8A8_UNORM       ),
+				std::pair(format::r8g8b8a8_snorm,       DXGI_FORMAT_R8G8B8A8_SNORM       ),
+				std::pair(format::r8g8b8a8_srgb,        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB  ),
+				std::pair(format::r8g8b8a8_uint,        DXGI_FORMAT_R8G8B8A8_UINT        ),
+				std::pair(format::r8g8b8a8_sint,        DXGI_FORMAT_R8G8B8A8_SINT        ),
+				std::pair(format::r8g8b8a8_unknown,     DXGI_FORMAT_R8G8B8A8_TYPELESS    ),
+				std::pair(format::r16_unorm,            DXGI_FORMAT_R16_UNORM            ),
+				std::pair(format::r16_snorm,            DXGI_FORMAT_R16_SNORM            ),
+				std::pair(format::r16_uint,             DXGI_FORMAT_R16_UINT             ),
+				std::pair(format::r16_sint,             DXGI_FORMAT_R16_SINT             ),
+				std::pair(format::r16_float,            DXGI_FORMAT_R16_FLOAT            ),
+				std::pair(format::r16_unknown,          DXGI_FORMAT_R16_TYPELESS         ),
+				std::pair(format::r16g16_unorm,         DXGI_FORMAT_R16G16_UNORM         ),
+				std::pair(format::r16g16_snorm,         DXGI_FORMAT_R16G16_SNORM         ),
+				std::pair(format::r16g16_uint,          DXGI_FORMAT_R16G16_UINT          ),
+				std::pair(format::r16g16_sint,          DXGI_FORMAT_R16G16_SINT          ),
+				std::pair(format::r16g16_float,         DXGI_FORMAT_R16G16_FLOAT         ),
+				std::pair(format::r16g16_unknown,       DXGI_FORMAT_R16G16_TYPELESS      ),
+				std::pair(format::r16g16b16a16_unorm,   DXGI_FORMAT_R16G16B16A16_UNORM   ),
+				std::pair(format::r16g16b16a16_snorm,   DXGI_FORMAT_R16G16B16A16_SNORM   ),
+				std::pair(format::r16g16b16a16_uint,    DXGI_FORMAT_R16G16B16A16_UINT    ),
+				std::pair(format::r16g16b16a16_sint,    DXGI_FORMAT_R16G16B16A16_SINT    ),
+				std::pair(format::r16g16b16a16_float,   DXGI_FORMAT_R16G16B16A16_FLOAT   ),
+				std::pair(format::r16g16b16a16_unknown, DXGI_FORMAT_R16G16B16A16_TYPELESS),
+				std::pair(format::r32_uint,             DXGI_FORMAT_R32_UINT             ),
+				std::pair(format::r32_sint,             DXGI_FORMAT_R32_SINT             ),
+				std::pair(format::r32_float,            DXGI_FORMAT_R32_FLOAT            ),
+				std::pair(format::r32_unknown,          DXGI_FORMAT_R32_TYPELESS         ),
+				std::pair(format::r32g32_uint,          DXGI_FORMAT_R32G32_UINT          ),
+				std::pair(format::r32g32_sint,          DXGI_FORMAT_R32G32_SINT          ),
+				std::pair(format::r32g32_float,         DXGI_FORMAT_R32G32_FLOAT         ),
+				std::pair(format::r32g32_unknown,       DXGI_FORMAT_R32G32_TYPELESS      ),
+				std::pair(format::r32g32b32_uint,       DXGI_FORMAT_R32G32B32_UINT       ),
+				std::pair(format::r32g32b32_sint,       DXGI_FORMAT_R32G32B32_SINT       ),
+				std::pair(format::r32g32b32_float,      DXGI_FORMAT_R32G32B32_FLOAT      ),
+				std::pair(format::r32g32b32_unknown,    DXGI_FORMAT_R32G32B32_TYPELESS   ),
+				std::pair(format::r32g32b32a32_uint,    DXGI_FORMAT_R32G32B32A32_UINT    ),
+				std::pair(format::r32g32b32a32_sint,    DXGI_FORMAT_R32G32B32A32_SINT    ),
+				std::pair(format::r32g32b32a32_float,   DXGI_FORMAT_R32G32B32A32_FLOAT   ),
+				std::pair(format::r32g32b32a32_unknown, DXGI_FORMAT_R32G32B32A32_TYPELESS),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(blend_factor::num_enumerators),
-				"Incorrect size for lookup table for D3D12_BLEND"
-			);
-			return table[static_cast<std::size_t>(factor)];
+			return table[fmt];
+		}
+
+		D3D12_TEXTURE_LAYOUT for_image_tiling(image_tiling tiling) {
+			constexpr static enum_mapping<image_tiling, D3D12_TEXTURE_LAYOUT> table{
+				std::pair(image_tiling::row_major, D3D12_TEXTURE_LAYOUT_ROW_MAJOR),
+				std::pair(image_tiling::optimal,   D3D12_TEXTURE_LAYOUT_UNKNOWN  ),
+			};
+			return table[tiling];
+		}
+
+		D3D12_BLEND for_blend_factor(blend_factor factor) {
+			constexpr static enum_mapping<blend_factor, D3D12_BLEND> table{
+				std::pair(blend_factor::zero,                        D3D12_BLEND_ZERO          ),
+				std::pair(blend_factor::one,                         D3D12_BLEND_ONE           ),
+				std::pair(blend_factor::source_color,                D3D12_BLEND_SRC_COLOR     ),
+				std::pair(blend_factor::one_minus_source_color,      D3D12_BLEND_INV_SRC_COLOR ),
+				std::pair(blend_factor::destination_color,           D3D12_BLEND_DEST_COLOR    ),
+				std::pair(blend_factor::one_minus_destination_color, D3D12_BLEND_INV_DEST_COLOR),
+				std::pair(blend_factor::source_alpha,                D3D12_BLEND_SRC_ALPHA     ),
+				std::pair(blend_factor::one_minus_source_alpha,      D3D12_BLEND_INV_SRC_ALPHA ),
+				std::pair(blend_factor::destination_alpha,           D3D12_BLEND_DEST_ALPHA    ),
+				std::pair(blend_factor::one_minus_destination_alpha, D3D12_BLEND_INV_DEST_ALPHA),
+			};
+			return table[factor];
 		}
 
 		D3D12_BLEND_OP for_blend_operation(blend_operation op) {
-			static const D3D12_BLEND_OP table[] {
-				D3D12_BLEND_OP_ADD,
-				D3D12_BLEND_OP_SUBTRACT,
-				D3D12_BLEND_OP_REV_SUBTRACT,
-				D3D12_BLEND_OP_MIN,
-				D3D12_BLEND_OP_MAX,
+			constexpr static enum_mapping<blend_operation, D3D12_BLEND_OP> table{
+				std::pair(blend_operation::add,              D3D12_BLEND_OP_ADD         ),
+				std::pair(blend_operation::subtract,         D3D12_BLEND_OP_SUBTRACT    ),
+				std::pair(blend_operation::reverse_subtract, D3D12_BLEND_OP_REV_SUBTRACT),
+				std::pair(blend_operation::min,              D3D12_BLEND_OP_MIN         ),
+				std::pair(blend_operation::max,              D3D12_BLEND_OP_MAX         ),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(blend_operation::num_enumerators),
-				"Incorrect size for lookup table for D3D12_BLEND_OP"
-			);
-			return table[static_cast<std::size_t>(op)];
+			return table[op];
 		}
 
 		D3D12_CULL_MODE for_cull_mode(cull_mode mode) {
-			static const D3D12_CULL_MODE table[] {
-				D3D12_CULL_MODE_NONE,
-				D3D12_CULL_MODE_FRONT,
-				D3D12_CULL_MODE_BACK,
+			constexpr static enum_mapping<cull_mode, D3D12_CULL_MODE> table{
+				std::pair(cull_mode::none,       D3D12_CULL_MODE_NONE ),
+				std::pair(cull_mode::cull_front, D3D12_CULL_MODE_FRONT),
+				std::pair(cull_mode::cull_back,  D3D12_CULL_MODE_BACK ),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(cull_mode::num_enumerators),
-				"Incorrect size for lookup table for D3D12_CULL_MODE"
-			);
-			return table[static_cast<std::size_t>(mode)];
+			return table[mode];
 		}
 
 		D3D12_STENCIL_OP for_stencil_operation(stencil_operation op) {
-			static const D3D12_STENCIL_OP table[]{
-				D3D12_STENCIL_OP_KEEP,
-				D3D12_STENCIL_OP_ZERO,
-				D3D12_STENCIL_OP_REPLACE,
-				D3D12_STENCIL_OP_INCR_SAT,
-				D3D12_STENCIL_OP_DECR_SAT,
-				D3D12_STENCIL_OP_INVERT,
-				D3D12_STENCIL_OP_INCR,
-				D3D12_STENCIL_OP_DECR,
+			constexpr static enum_mapping<stencil_operation, D3D12_STENCIL_OP> table{
+				std::pair(stencil_operation::keep,                D3D12_STENCIL_OP_KEEP    ),
+				std::pair(stencil_operation::zero,                D3D12_STENCIL_OP_ZERO    ),
+				std::pair(stencil_operation::replace,             D3D12_STENCIL_OP_REPLACE ),
+				std::pair(stencil_operation::increment_and_clamp, D3D12_STENCIL_OP_INCR_SAT),
+				std::pair(stencil_operation::decrement_and_clamp, D3D12_STENCIL_OP_DECR_SAT),
+				std::pair(stencil_operation::bitwise_invert,      D3D12_STENCIL_OP_INVERT  ),
+				std::pair(stencil_operation::increment_and_wrap,  D3D12_STENCIL_OP_INCR    ),
+				std::pair(stencil_operation::decrement_and_wrap,  D3D12_STENCIL_OP_DECR    ),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(stencil_operation::num_enumerators),
-				"Incorrect size for lookup table for D3D12_STENCIL_OP"
-			);
-			return table[static_cast<std::size_t>(op)];
+			return table[op];
 		}
 
 		D3D12_INPUT_CLASSIFICATION for_input_buffer_rate(input_buffer_rate rate) {
-			static const D3D12_INPUT_CLASSIFICATION table[]{
-				D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-				D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA,
+			constexpr static enum_mapping<input_buffer_rate, D3D12_INPUT_CLASSIFICATION> table{
+				std::pair(input_buffer_rate::per_vertex,   D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA  ),
+				std::pair(input_buffer_rate::per_instance, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(input_buffer_rate::num_enumerators),
-				"Incorrect size for lookup table for D3D12_INPUT_CLASSIFICATION"
-			);
-			return table[static_cast<std::size_t>(rate)];
+			return table[rate];
 		}
 
 		D3D12_PRIMITIVE_TOPOLOGY_TYPE for_primitive_topology_type(primitive_topology topology) {
-			static const D3D12_PRIMITIVE_TOPOLOGY_TYPE table[]{
-				D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT,
-				D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
-				D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
-				D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-				D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-				D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
-				D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
-				D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-				D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+			constexpr static enum_mapping<primitive_topology, D3D12_PRIMITIVE_TOPOLOGY_TYPE> table{
+				std::pair(primitive_topology::point_list,                    D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT   ),
+				std::pair(primitive_topology::line_list,                     D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE    ),
+				std::pair(primitive_topology::line_strip,                    D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE    ),
+				std::pair(primitive_topology::triangle_list,                 D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE),
+				std::pair(primitive_topology::triangle_strip,                D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE),
+				std::pair(primitive_topology::line_list_with_adjacency,      D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE    ),
+				std::pair(primitive_topology::line_strip_with_adjacency,     D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE    ),
+				std::pair(primitive_topology::triangle_list_with_adjacency,  D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE),
+				std::pair(primitive_topology::triangle_strip_with_adjacency, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(primitive_topology::num_enumerators),
-				"Incorrect size for lookup table for D3D12_INPUT_CLASSIFICATION"
-			);
-			return table[static_cast<std::size_t>(topology)];
+			return table[topology];
 		}
 
 		D3D_PRIMITIVE_TOPOLOGY for_primitive_topology(primitive_topology topology) {
-			static const D3D_PRIMITIVE_TOPOLOGY table[]{
-				D3D_PRIMITIVE_TOPOLOGY_POINTLIST,
-				D3D_PRIMITIVE_TOPOLOGY_LINELIST,
-				D3D_PRIMITIVE_TOPOLOGY_LINESTRIP,
-				D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
-				D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
-				D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ,
-				D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ,
-				D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ,
-				D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ,
+			constexpr static enum_mapping<primitive_topology, D3D_PRIMITIVE_TOPOLOGY> table{
+				std::pair(primitive_topology::point_list,                    D3D_PRIMITIVE_TOPOLOGY_POINTLIST        ),
+				std::pair(primitive_topology::line_list,                     D3D_PRIMITIVE_TOPOLOGY_LINELIST         ),
+				std::pair(primitive_topology::line_strip,                    D3D_PRIMITIVE_TOPOLOGY_LINESTRIP        ),
+				std::pair(primitive_topology::triangle_list,                 D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST     ),
+				std::pair(primitive_topology::triangle_strip,                D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP    ),
+				std::pair(primitive_topology::line_list_with_adjacency,      D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ     ),
+				std::pair(primitive_topology::line_strip_with_adjacency,     D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ    ),
+				std::pair(primitive_topology::triangle_list_with_adjacency,  D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ ),
+				std::pair(primitive_topology::triangle_strip_with_adjacency, D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(primitive_topology::num_enumerators),
-				"Incorrect size for lookup table for D3D12_INPUT_CLASSIFICATION"
-			);
-			return table[static_cast<std::size_t>(topology)];
+			return table[topology];
 		}
 
 		D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE for_pass_load_operation(pass_load_operation op) {
-			static const D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE table[]{
-				D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD,
-				D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE,
-				D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR,
+			constexpr static enum_mapping<pass_load_operation, D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE> table{
+				std::pair(pass_load_operation::discard,  D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD ),
+				std::pair(pass_load_operation::preserve, D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE),
+				std::pair(pass_load_operation::clear,    D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR   ),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(pass_load_operation::num_enumerators),
-				"Incorrect size for lookup table for D3D12_RENDER_PASS_BEGINNING_ACCESS"
-			);
-			return table[static_cast<std::size_t>(op)];
+			return table[op];
 		}
 
 		D3D12_RENDER_PASS_ENDING_ACCESS_TYPE for_pass_store_operation(pass_store_operation op) {
-			static const D3D12_RENDER_PASS_ENDING_ACCESS_TYPE table[]{
-				D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD,
-				D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE,
+			constexpr static enum_mapping<pass_store_operation, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE> table{
+				std::pair(pass_store_operation::discard,  D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD ),
+				std::pair(pass_store_operation::preserve, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(pass_store_operation::num_enumerators),
-				"Incorrect size for lookup table for D3D12_RENDER_PASS_ENDING_ACCESS"
-			);
-			return table[static_cast<std::size_t>(op)];
+			return table[op];
 		}
 
 		D3D12_DESCRIPTOR_RANGE_TYPE for_descriptor_type(descriptor_type ty) {
-			static const D3D12_DESCRIPTOR_RANGE_TYPE table[]{
-				D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,
-				D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-				D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
-				D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-				D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+			constexpr static enum_mapping<descriptor_type, D3D12_DESCRIPTOR_RANGE_TYPE> table{
+				std::pair(descriptor_type::sampler,           D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER),
+				std::pair(descriptor_type::read_only_image,   D3D12_DESCRIPTOR_RANGE_TYPE_SRV    ),
+				std::pair(descriptor_type::read_write_image,  D3D12_DESCRIPTOR_RANGE_TYPE_UAV    ),
+				std::pair(descriptor_type::read_only_buffer,  D3D12_DESCRIPTOR_RANGE_TYPE_SRV    ),
+				std::pair(descriptor_type::read_write_buffer, D3D12_DESCRIPTOR_RANGE_TYPE_UAV    ),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(descriptor_type::num_enumerators),
-				"Incorrect size for lookup table for D3D12_DESCRIPTOR_RANGE_TYPE"
-			);
-			return table[static_cast<std::size_t>(ty)];
+			return table[ty];
 		}
 
 		D3D12_RESOURCE_STATES for_image_usage(image_usage st) {
-			static const D3D12_RESOURCE_STATES table[]{
-				D3D12_RESOURCE_STATE_RENDER_TARGET,
-				D3D12_RESOURCE_STATE_DEPTH_WRITE,
-				D3D12_RESOURCE_STATE_PRESENT,
+			constexpr static enum_mapping<image_usage, D3D12_RESOURCE_STATES> table{
+				std::pair(image_usage::color_render_target,         D3D12_RESOURCE_STATE_RENDER_TARGET),
+				std::pair(image_usage::depth_stencil_render_target, D3D12_RESOURCE_STATE_DEPTH_WRITE  ),
+				std::pair(image_usage::read_only_texture,
+					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE                                        |
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE                                    ),
+				std::pair(image_usage::read_write_color_texture,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS                                             |
+					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE                                        |
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE                                    ),
+				std::pair(image_usage::present,                     D3D12_RESOURCE_STATE_PRESENT      ),
+				std::pair(image_usage::copy_source,                 D3D12_RESOURCE_STATE_COPY_SOURCE  ),
+				std::pair(image_usage::copy_destination,            D3D12_RESOURCE_STATE_COPY_DEST    ),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(image_usage::num_enumerators),
-				"Incorrect size for lookup table for D3D12_RESOURCE_STATES"
-			);
-			return table[static_cast<std::size_t>(st)];
+			return table[st];
 		}
 
 		D3D12_RESOURCE_STATES for_buffer_usage(buffer_usage st) {
-			static const D3D12_RESOURCE_STATES table[]{
-				D3D12_RESOURCE_STATE_INDEX_BUFFER,
-				D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
-				D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER |
-					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-				D3D12_RESOURCE_STATE_COPY_SOURCE,
-				D3D12_RESOURCE_STATE_COPY_DEST,
+			constexpr static enum_mapping<buffer_usage, D3D12_RESOURCE_STATES> table{
+				std::pair(buffer_usage::index_buffer,     D3D12_RESOURCE_STATE_INDEX_BUFFER              ),
+				std::pair(buffer_usage::vertex_buffer,    D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER),
+				std::pair(buffer_usage::read_only_buffer,
+					D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER                                      |
+					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE                                           |
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE                                       ),
+				std::pair(buffer_usage::read_write_buffer,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS                                                |
+					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE                                           |
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE                                       ),
+				std::pair(buffer_usage::copy_source,      D3D12_RESOURCE_STATE_COPY_SOURCE               ),
+				std::pair(buffer_usage::copy_destination, D3D12_RESOURCE_STATE_COPY_DEST                 ),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(buffer_usage::num_enumerators),
-				"Incorrect size for lookup table for D3D12_RESOURCE_STATES"
-			);
-			return table[static_cast<std::size_t>(st)];
+			return table[st];
 		}
 
 		D3D12_HEAP_TYPE for_heap_type(heap_type ty) {
-			static const D3D12_HEAP_TYPE table[]{
-				D3D12_HEAP_TYPE_DEFAULT,
-				D3D12_HEAP_TYPE_UPLOAD,
-				D3D12_HEAP_TYPE_READBACK,
+			constexpr static enum_mapping<heap_type, D3D12_HEAP_TYPE> table{
+				std::pair(heap_type::device_only, D3D12_HEAP_TYPE_DEFAULT ),
+				std::pair(heap_type::upload,      D3D12_HEAP_TYPE_UPLOAD  ),
+				std::pair(heap_type::readback,    D3D12_HEAP_TYPE_READBACK),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(heap_type::num_enumerators),
-				"Incorrect size for lookup table for D3D12_HEAP_TYPE"
-			);
-			return table[static_cast<std::size_t>(ty)];
+			return table[ty];
 		}
 
 		D3D12_TEXTURE_ADDRESS_MODE for_sampler_address_mode(sampler_address_mode mode) {
-			static const D3D12_TEXTURE_ADDRESS_MODE table[]{
-				D3D12_TEXTURE_ADDRESS_MODE_WRAP,
-				D3D12_TEXTURE_ADDRESS_MODE_MIRROR,
-				D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
-				D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+			constexpr static enum_mapping<sampler_address_mode, D3D12_TEXTURE_ADDRESS_MODE> table{
+				std::pair(sampler_address_mode::repeat, D3D12_TEXTURE_ADDRESS_MODE_WRAP  ),
+				std::pair(sampler_address_mode::mirror, D3D12_TEXTURE_ADDRESS_MODE_MIRROR),
+				std::pair(sampler_address_mode::clamp,  D3D12_TEXTURE_ADDRESS_MODE_CLAMP ),
+				std::pair(sampler_address_mode::border, D3D12_TEXTURE_ADDRESS_MODE_BORDER),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(sampler_address_mode::num_enumerators),
-				"Incorrect size for lookup table for D3D12_TEXTURE_ADDRESS_MODE"
-			);
-			return table[static_cast<std::size_t>(mode)];
+			return table[mode];
 		}
 
 		D3D12_COMPARISON_FUNC for_comparison_function(comparison_function mode) {
-			static const D3D12_COMPARISON_FUNC table[]{
-				D3D12_COMPARISON_FUNC_NEVER,
-				D3D12_COMPARISON_FUNC_LESS,
-				D3D12_COMPARISON_FUNC_EQUAL,
-				D3D12_COMPARISON_FUNC_LESS_EQUAL,
-				D3D12_COMPARISON_FUNC_GREATER,
-				D3D12_COMPARISON_FUNC_NOT_EQUAL,
-				D3D12_COMPARISON_FUNC_GREATER_EQUAL,
-				D3D12_COMPARISON_FUNC_ALWAYS,
+			constexpr static enum_mapping<comparison_function, D3D12_COMPARISON_FUNC> table{
+				std::pair(comparison_function::never,            D3D12_COMPARISON_FUNC_NEVER        ),
+				std::pair(comparison_function::less,             D3D12_COMPARISON_FUNC_LESS         ),
+				std::pair(comparison_function::equal,            D3D12_COMPARISON_FUNC_EQUAL        ),
+				std::pair(comparison_function::less_or_equal,    D3D12_COMPARISON_FUNC_LESS_EQUAL   ),
+				std::pair(comparison_function::greater,          D3D12_COMPARISON_FUNC_GREATER      ),
+				std::pair(comparison_function::not_equal,        D3D12_COMPARISON_FUNC_NOT_EQUAL    ),
+				std::pair(comparison_function::greater_or_equal, D3D12_COMPARISON_FUNC_GREATER_EQUAL),
+				std::pair(comparison_function::always,           D3D12_COMPARISON_FUNC_ALWAYS       ),
 			};
-			static_assert(
-				std::size(table) == static_cast<std::size_t>(comparison_function::num_enumerators),
-				"Incorrect size for lookup table for D3D12_COMPARISON_FUNC"
-			);
-			return table[static_cast<std::size_t>(mode)];
+			return table[mode];
 		}
 
 
@@ -290,23 +313,6 @@ namespace lotus::graphics::backends::directx12::_details {
 			return static_cast<D3D12_SHADER_VISIBILITY>(result);
 		}
 
-
-		DXGI_FORMAT for_format(format fmt) {
-			if (fmt == format::none) {
-				return DXGI_FORMAT_UNKNOWN;
-			}
-			if (fmt == format::r8g8b8a8_unorm) {
-				return DXGI_FORMAT_R8G8B8A8_UNORM;
-			}
-			if (fmt == format::r32g32_float) {
-				return DXGI_FORMAT_R32G32_FLOAT;
-			}
-			if (fmt == format::r32g32b32a32_float) {
-				return DXGI_FORMAT_R32G32B32A32_FLOAT;
-			}
-			// TODO
-			assert(false);
-		}
 
 		D3D12_FILTER for_filtering(
 			filtering minification, filtering magnification, filtering mipmapping, bool anisotropic, bool comparison
@@ -449,58 +455,107 @@ namespace lotus::graphics::backends::directx12::_details {
 		) {
 			D3D12_RENDER_PASS_DEPTH_STENCIL_DESC result = {};
 			DXGI_FORMAT format = for_format(opt.pixel_format);
-			if (is_empty(opt.pixel_format.get_data_type() & data_type::depth_bit)) {
-				result.DepthBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
-				result.DepthEndingAccess.Type    = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
-			} else {
+			if (format_properties::get(opt.pixel_format).depth_bits > 0) {
 				result.DepthBeginningAccess.Clear.ClearValue.Format = format;
 				result.DepthBeginningAccess.Type = for_pass_load_operation(opt.depth_load_operation);
 				result.DepthEndingAccess.Type    = for_pass_store_operation(opt.depth_store_operation);
-			}
-			if (is_empty(opt.pixel_format.get_data_type() & data_type::stencil_bit)) {
-				result.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
-				result.StencilEndingAccess.Type    = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
 			} else {
+				result.DepthBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
+				result.DepthEndingAccess.Type    = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
+			}
+			if (format_properties::get(opt.pixel_format).stencil_bits > 0) {
 				result.StencilBeginningAccess.Clear.ClearValue.Format = format;
 				result.StencilBeginningAccess.Type = for_pass_load_operation(opt.stencil_load_operation);
 				result.StencilEndingAccess.Type    = for_pass_store_operation(opt.stencil_store_operation);
+			} else {
+				result.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
+				result.StencilEndingAccess.Type    = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
 			}
 			return result;
 		}
 	}
 
 
-	descriptor_heap::descriptor_heap(
-		device *device, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT capacity
-	) : _device(device->_device), _next(0) {
-		D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-		desc.Type           = type;
-		desc.NumDescriptors = capacity;
-		desc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		desc.NodeMask       = 0;
-		_details::assert_dx(_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&_heap)));
+	D3D12_HEAP_PROPERTIES heap_type_to_properties(heap_type type) {
+		D3D12_HEAP_PROPERTIES result = {};
+		result.Type                 = conversions::for_heap_type(type);
+		result.CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+		result.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+		result.CreationNodeMask     = 0;
+		result.VisibleNodeMask      = 0;
+		return result;
 	}
 
-	descriptor descriptor_heap::allocate() {
-		auto result = _heap->GetCPUDescriptorHandleForHeapStart();
-		UINT descriptor_size = _device->GetDescriptorHandleIncrementSize(_heap->GetDesc().Type);
-		std::size_t index = 0;
-		if (!_free.empty()) {
-			index = _free.back();
-			_free.pop_back();
-		} else {
-			index = _next;
-			++_next;
+
+	namespace resource_desc {
+		D3D12_RESOURCE_DESC for_buffer(std::size_t size) {
+			D3D12_RESOURCE_DESC desc = {};
+			desc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
+			desc.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+			desc.Width              = size;
+			desc.Height             = 1;
+			desc.DepthOrArraySize   = 1;
+			desc.MipLevels          = 1;
+			desc.Format             = DXGI_FORMAT_UNKNOWN;
+			desc.SampleDesc.Count   = 1;
+			desc.SampleDesc.Quality = 0;
+			desc.Layout             = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+			desc.Flags              = D3D12_RESOURCE_FLAG_NONE;
+			return desc;
 		}
-		result.ptr += descriptor_size * index;
-		return descriptor(result);
-	}
 
-	void descriptor_heap::destroy(descriptor desc) {
-		UINT descriptor_size = _device->GetDescriptorHandleIncrementSize(_heap->GetDesc().Type);
-		_free.emplace_back(static_cast<std::uint16_t>(
-			(desc._descriptor.ptr - _heap->GetCPUDescriptorHandleForHeapStart().ptr) / descriptor_size
-		));
-		desc._descriptor = descriptor::_destroyed;
+		void adjust_resource_flags_for_buffer(
+			heap_type type, buffer_usage::mask all_usages, buffer_usage initial_usage,
+			D3D12_RESOURCE_DESC &desc, D3D12_RESOURCE_STATES &states, D3D12_HEAP_FLAGS *heap_flags
+		) {
+			if (type == heap_type::device_only) {
+				if (!is_empty(all_usages & buffer_usage::mask::read_write_buffer)) {
+					desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+					if (heap_flags) {
+						*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;	
+					}
+				}
+			} else if (type == heap_type::upload) {
+				assert(initial_usage == buffer_usage::copy_source);
+				assert(all_usages == buffer_usage::mask::copy_source);
+				states = D3D12_RESOURCE_STATE_GENERIC_READ;
+			}
+		}
+
+		D3D12_RESOURCE_DESC for_image2d(
+			std::size_t width, std::size_t height, std::size_t array_slices,
+			std::size_t mip_levels, format fmt, image_tiling tiling
+		) {
+			D3D12_RESOURCE_DESC desc = {};
+			desc.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+			desc.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+			desc.Width              = static_cast<UINT64>(width);
+			desc.Height             = static_cast<UINT>(height);
+			desc.DepthOrArraySize   = static_cast<UINT16>(array_slices);
+			desc.MipLevels          = static_cast<UINT16>(mip_levels);
+			desc.Format             = conversions::for_format(fmt);
+			desc.SampleDesc.Count   = 1;
+			desc.SampleDesc.Quality = 0;
+			desc.Layout             = conversions::for_image_tiling(tiling);
+			desc.Flags              = D3D12_RESOURCE_FLAG_NONE;
+			return desc;
+		}
+
+		void adjust_resource_flags_for_image2d(
+			format, image_usage::mask all_usages, D3D12_RESOURCE_DESC &desc, D3D12_HEAP_FLAGS *heap_flags
+		) {
+			if (!is_empty(all_usages & image_usage::mask::read_write_color_texture)) {
+				desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+				if (heap_flags) {
+					*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;
+				}
+			}
+			if (!is_empty(all_usages & image_usage::mask::color_render_target)) {
+				desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+			}
+			if (!is_empty(all_usages & image_usage::mask::depth_stencil_render_target)) {
+				desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+			}
+		}
 	}
 }

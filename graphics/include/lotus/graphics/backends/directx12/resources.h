@@ -53,9 +53,10 @@ namespace lotus::graphics::backends::directx12 {
 	namespace _details {
 		/// Base class of all image views.
 		class image_view : public graphics::image_view {
+			friend device;
 		protected:
 			_details::com_ptr<ID3D12Resource> _image; ///< The image.
-			DXGI_FORMAT _format; ///< Format of this view.
+			D3D12_SHADER_RESOURCE_VIEW_DESC _desc; ///< Resource view description of this view.
 		};
 	}
 
@@ -70,23 +71,21 @@ namespace lotus::graphics::backends::directx12 {
 		constexpr static D3D12_SRV_DIMENSION _srv_dimension = D3D12_SRV_DIMENSION_TEXTURE2D; ///< SRV dimension.
 		constexpr static D3D12_RTV_DIMENSION _rtv_dimension = D3D12_RTV_DIMENSION_TEXTURE2D; ///< RTV dimension.
 
-		D3D12_TEX2D_SRV _desc; ///< The shader resource view description.
-
 		/// Fills a \p D3D12_RENDER_TARGET_VIEW_DESC.
 		void _fill_rtv_desc(D3D12_RENDER_TARGET_VIEW_DESC &desc) const {
-			assert(_desc.MipLevels == 1);
-			desc.Format               = _format;
+			assert(_desc.Texture2D.MipLevels == 1);
+			desc.Format               = _desc.Format;
 			desc.ViewDimension        = D3D12_RTV_DIMENSION_TEXTURE2D;
-			desc.Texture2D.MipSlice   = _desc.MostDetailedMip;
-			desc.Texture2D.PlaneSlice = _desc.PlaneSlice;
+			desc.Texture2D.MipSlice   = _desc.Texture2D.MostDetailedMip;
+			desc.Texture2D.PlaneSlice = _desc.Texture2D.PlaneSlice;
 		}
 		/// Fills a \p D3D12_DEPTH_STENCIL_VIEW_DESC.
 		void _fill_dsv_desc(D3D12_DEPTH_STENCIL_VIEW_DESC &desc) const {
-			assert(_desc.MipLevels == 1);
-			desc.Format             = _format;
+			assert(_desc.Texture2D.MipLevels == 1);
+			desc.Format             = _desc.Format;
 			desc.ViewDimension      = D3D12_DSV_DIMENSION_TEXTURE2D;
 			desc.Flags              = D3D12_DSV_FLAG_NONE;
-			desc.Texture2D.MipSlice = _desc.MostDetailedMip;
+			desc.Texture2D.MipSlice = _desc.Texture2D.MostDetailedMip;
 		}
 	};
 

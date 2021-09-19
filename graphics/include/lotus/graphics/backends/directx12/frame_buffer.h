@@ -42,10 +42,7 @@ namespace lotus::graphics::backends::directx12 {
 		~frame_buffer();
 	protected:
 		/// Initializes \ref _device.
-		explicit frame_buffer(device *dev) :
-			_device(dev),
-			_color({ nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr }),
-			_depth_stencil(nullptr) {
+		explicit frame_buffer(device *dev) : _device(dev), _color(nullptr), _depth_stencil(nullptr) {
 		}
 		/// Move construction.
 		frame_buffer(frame_buffer&&) noexcept = default;
@@ -53,7 +50,7 @@ namespace lotus::graphics::backends::directx12 {
 		frame_buffer &operator=(frame_buffer&&) noexcept = default;
 	private:
 		device *_device; ///< The device that created this object.
-		std::array<_details::descriptor, num_color_render_targets> _color; ///< Color descriptors.
-		_details::descriptor _depth_stencil; ///< Depth stencil descriptor.
+		_details::descriptor_range _color; ///< Color descriptors.
+		_details::descriptor_range _depth_stencil; ///< Depth stencil descriptor.
 	};
 }

@@ -29,8 +29,16 @@ namespace lotus::graphics {
 	class buffer : public backend::buffer {
 		friend device;
 	public:
+		/// Move constructor.
+		buffer(buffer &&src) noexcept : backend::buffer(std::move(src)) {
+		}
 		/// No copy construction.
 		buffer(const buffer&) = delete;
+		/// Move assignment.
+		buffer &operator=(buffer &&src) noexcept {
+			backend::buffer::operator=(std::move(src));
+			return *this;
+		}
 		/// No copy assignment.
 		buffer &operator=(const buffer&) = delete;
 	protected:
@@ -50,8 +58,16 @@ namespace lotus::graphics {
 			"Image types must be derived from the base image type"
 		);
 
+		/// Move constructor.
+		image2d(image2d &&src) noexcept : backend::image2d(std::move(src)) {
+		}
 		/// No copy construction.
 		image2d(const image2d&) = delete;
+		/// Move assignment.
+		image2d &operator=(image2d &&src) noexcept {
+			backend::image2d::operator=(std::move(src));
+			return *this;
+		}
 		/// No copy assignment.
 		image2d &operator=(const image2d&) = delete;
 	protected:
@@ -73,12 +89,12 @@ namespace lotus::graphics {
 		/// Initializes this view to an empty object.
 		image2d_view(std::nullptr_t) : backend::image2d_view(nullptr) {
 		}
-		/// Default move constructor.
+		/// Move constructor.
 		image2d_view(image2d_view &&src) noexcept : backend::image2d_view(std::move(src)) {
 		}
 		/// No copy construction.
 		image2d_view(const image2d_view&) = delete;
-		/// Default move assignment.
+		/// Move assignment.
 		image2d_view &operator=(image2d_view &&src) noexcept {
 			backend::image2d_view::operator=(std::move(src));
 			return *this;

@@ -4,12 +4,14 @@
 /// Implementation of command related functions.
 
 #include "lotus/utils/stack_allocator.h"
+#include "lotus/graphics/descriptors.h"
 #include "lotus/graphics/resources.h"
 #include "lotus/graphics/commands.h"
+#include "lotus/graphics/backends/directx12/descriptors.h"
 #include "lotus/graphics/backends/directx12/pass.h"
 
 namespace lotus::graphics::backends::directx12 {
-	void command_queue::submit_command_lists(std::span<const graphics::command_list*> lists, fence *f) {
+	void command_queue::submit_command_lists(std::span<const graphics::command_list *const> lists, fence *f) {
 		auto bookmark = stack_allocator::scoped_bookmark::create();
 		auto dx_lists = stack_allocator::for_this_thread().create_vector_array<ID3D12CommandList*>(
 			lists.size(), nullptr
@@ -37,27 +39,27 @@ namespace lotus::graphics::backends::directx12 {
 		_details::assert_dx(_list->Reset(allocator._allocator.Get(), nullptr));
 	}
 
+	void command_list::start() {
+		_list->SetDescriptorHeaps(_descriptor_heaps.size(), _descriptor_heaps.data());
+	}
+
 	void command_list::begin_pass(
 		const pass_resources &p, const frame_buffer &fb,
 		std::span<const linear_rgba_f> clear_colors, float clear_depth, std::uint8_t clear_stencil
 	) {
 		assert(clear_colors.size() == p._num_render_targets);
 		pass_resources pass = p;
+		assert(fb._color.get_count() == pass._num_render_targets);
 		for (std::uint8_t i = 0; i < pass._num_render_targets; ++i) {
-			assert(!fb._color[i].is_empty());
-			pass._render_targets[i].cpuDescriptor = fb._color[i].get();
+			pass._render_targets[i].cpuDescriptor = fb._color.get_cpu(i);
 			pass._render_targets[i].BeginningAccess.Clear.ClearValue.Color[0] = clear_colors[i].r;
 			pass._render_targets[i].BeginningAccess.Clear.ClearValue.Color[1] = clear_colors[i].g;
 			pass._render_targets[i].BeginningAccess.Clear.ClearValue.Color[2] = clear_colors[i].b;
 			pass._render_targets[i].BeginningAccess.Clear.ClearValue.Color[3] = clear_colors[i].a;
 		}
-		assert(
-			pass._num_render_targets == num_color_render_targets ||
-			fb._color[pass._num_render_targets].is_empty()
-		);
 		const D3D12_RENDER_PASS_DEPTH_STENCIL_DESC *ds_desc = nullptr;
 		if (!fb._depth_stencil.is_empty()) {
-			pass._depth_stencil.cpuDescriptor = fb._depth_stencil.get();
+			pass._depth_stencil.cpuDescriptor = fb._depth_stencil.get_cpu(0);
 			D3D12_DEPTH_STENCIL_VALUE clear_value = {};
 			clear_value.Depth = clear_depth;
 			clear_value.Stencil = clear_stencil;
@@ -72,34 +74,28 @@ namespace lotus::graphics::backends::directx12 {
 		std::span<const image_barrier> images, std::span<const buffer_barrier> buffers
 	) {
 		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto resources = stack_allocator::for_this_thread().create_vector_array<D3D12_RESOURCE_BARRIER>(
+		auto resources = stack_allocator::for_this_thread().create_reserved_vector_array<D3D12_RESOURCE_BARRIER>(
 			images.size() + buffers.size()
 		);
-		std::size_t count = 0;
 		for (const auto &img : images) {
-			resources[count] = {};
-			resources[count].Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			resources[count].Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			resources[count].Transition.pResource   = static_cast<_details::image*>(img.target)->_image.Get();
-			resources[count].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; // TODO
-			resources[count].Transition.StateBefore = _details::conversions::for_image_usage(img.from_state);
-			resources[count].Transition.StateAfter  = _details::conversions::for_image_usage(img.to_state);
-
-			++count;
+			auto &barrier = resources.emplace_back();
+			barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			barrier.Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.Transition.pResource   = static_cast<_details::image*>(img.target)->_image.Get();
+			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; // TODO
+			barrier.Transition.StateBefore = _details::conversions::for_image_usage(img.from_state);
+			barrier.Transition.StateAfter  = _details::conversions::for_image_usage(img.to_state);
 		}
 		for (const auto &buf : buffers) {
-			resources[count] = {};
-			resources[count].Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			resources[count].Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			resources[count].Transition.pResource   = static_cast<buffer*>(buf.target)->_buffer.Get();
-			resources[count].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			resources[count].Transition.StateBefore = _details::conversions::for_buffer_usage(buf.from_state);
-			resources[count].Transition.StateAfter  = _details::conversions::for_buffer_usage(buf.to_state);
-
-			++count;
+			auto &barrier = resources.emplace_back();
+			barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			barrier.Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.Transition.pResource   = static_cast<buffer*>(buf.target)->_buffer.Get();
+			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			barrier.Transition.StateBefore = _details::conversions::for_buffer_usage(buf.from_state);
+			barrier.Transition.StateAfter  = _details::conversions::for_buffer_usage(buf.to_state);
 		}
-		assert(count == resources.size());
-		_list->ResourceBarrier(static_cast<UINT>(count), resources.data());
+		_list->ResourceBarrier(static_cast<UINT>(resources.size()), resources.data());
 	}
 
 	void command_list::bind_pipeline_state(const pipeline_state &state) {
@@ -125,6 +121,26 @@ namespace lotus::graphics::backends::directx12 {
 		);
 	}
 
+	void command_list::bind_descriptor_sets(
+		std::size_t first, std::span<const graphics::descriptor_set *const> sets
+	) {
+		for (std::size_t i = 0; i < sets.size(); ++i) {
+			auto *set = static_cast<const descriptor_set*>(sets[i]);
+			if (!set->_shader_resource_descriptors.is_empty()) {
+				_list->SetGraphicsRootDescriptorTable(
+					static_cast<UINT>(_details::get_shader_resource_descriptor_table_index(first + i)),
+					set->_shader_resource_descriptors.get_gpu(0)
+				);
+			}
+			if (!set->_sampler_descriptors.is_empty()) {
+				_list->SetGraphicsRootDescriptorTable(
+					static_cast<UINT>(_details::get_sampler_descriptor_table_index(first + i)),
+					set->_sampler_descriptors.get_gpu(0)
+				);
+			}
+		}
+	}
+
 	void command_list::set_viewports(std::span<const viewport> vps) {
 		auto bookmark = stack_allocator::scoped_bookmark::create();
 		auto vec = stack_allocator::for_this_thread().create_vector_array<D3D12_VIEWPORT>(vps.size());
@@ -148,6 +164,56 @@ namespace lotus::graphics::backends::directx12 {
 			to._buffer.Get(), static_cast<UINT64>(off2),
 			from._buffer.Get(), static_cast<UINT64>(off1),
 			static_cast<UINT64>(size)
+		);
+	}
+
+	void command_list::copy_image2d(
+		image2d &from, std::uint32_t sub1, aab2s region, image2d &to, std::uint32_t sub2, cvec2s off
+	) {
+		D3D12_TEXTURE_COPY_LOCATION dest = {};
+		dest.pResource        = to._image.Get();
+		dest.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		dest.SubresourceIndex = static_cast<UINT>(sub2);
+		D3D12_TEXTURE_COPY_LOCATION source = {};
+		source.pResource        = from._image.Get();
+		source.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		source.SubresourceIndex = static_cast<UINT>(sub1);
+		D3D12_BOX src_box = {};
+		src_box.left   = static_cast<UINT>(region.min[0]);
+		src_box.top    = static_cast<UINT>(region.min[1]);
+		src_box.front  = 0;
+		src_box.right  = static_cast<UINT>(region.max[0]);
+		src_box.bottom = static_cast<UINT>(region.max[1]);
+		src_box.back   = 1;
+		_list->CopyTextureRegion(
+			&dest, static_cast<UINT>(off[0]), static_cast<UINT>(off[1]), 0, &source, &src_box
+		);
+	}
+
+	void command_list::copy_buffer_to_image(
+		buffer &from, std::size_t byte_offset, std::size_t row_pitch, aab2s region,
+		image2d &to, std::uint32_t subresource, cvec2s off
+	) {
+		D3D12_TEXTURE_COPY_LOCATION dest = {};
+		dest.pResource        = to._image.Get();
+		dest.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		dest.SubresourceIndex = static_cast<UINT>(subresource);
+		D3D12_TEXTURE_COPY_LOCATION source = {};
+		source.pResource = from._buffer.Get();
+		source.Type      = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+		source.PlacedFootprint.Offset = static_cast<UINT64>(byte_offset);
+		cvec2s size = region.signed_size();
+		source.PlacedFootprint.Footprint.Format   = to._image->GetDesc().Format;
+		source.PlacedFootprint.Footprint.Width    = static_cast<UINT>(size[0]);
+		source.PlacedFootprint.Footprint.Height   = static_cast<UINT>(size[1]);
+		source.PlacedFootprint.Footprint.Depth    = 1;
+		source.PlacedFootprint.Footprint.RowPitch = static_cast<UINT>(row_pitch);
+		D3D12_BOX src_box = {};
+		src_box.right  = static_cast<UINT>(size[0]);
+		src_box.bottom = static_cast<UINT>(size[1]);
+		src_box.back   = 1;
+		_list->CopyTextureRegion(
+			&dest, static_cast<UINT>(off[0]), static_cast<UINT>(off[1]), 0, &source, &src_box
 		);
 	}
 

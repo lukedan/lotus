@@ -3,6 +3,6 @@ add_executable(renderer)
 target_sources(renderer
 	PRIVATE
 		"main.cpp")
-target_link_libraries(renderer PRIVATE lotus_graphics_directx12)
+target_link_libraries(renderer PRIVATE lotus_graphics_directx12 tinygltf)
 set_target_properties(renderer PROPERTIES
 	INTERPROCEDURAL_OPTIMIZATION ON)

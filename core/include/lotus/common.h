@@ -97,6 +97,29 @@ namespace lotus {
 		std::is_enum_v<Enum> && enable_enum_is_empty_v<Enum>, bool
 	> is_empty(Enum v) {
 		using _base = std::underlying_type_t<Enum>;
-		return static_cast<_base>(v) != _base(0);
+		return static_cast<_base>(v) == _base(0);
 	}
+
+
+	/// Stores a mapping from consecutive zero-based enum values to mapped values, with additional checks.
+	template <
+		typename Enum, typename Value, std::size_t NumEnumerators = static_cast<std::size_t>(Enum::num_enumerators)
+	> class enum_mapping {
+	public:
+		/// Initializes the mapping.
+		template <typename ...Args> constexpr enum_mapping(Args &&...args) :
+			_mapping{ { std::forward<Args>(args)... } } {
+			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for enum mapping.");
+			for (std::size_t i = 0; i < NumEnumerators; ++i) {
+				assert(static_cast<std::size_t>(_mapping[i].first) == i);
+			}
+		}
+
+		/// Retrieves the mapping for the given value.
+		[[nodiscard]] constexpr const Value &operator[](Enum v) const {
+			return _mapping[static_cast<std::size_t>(v)].second;
+		}
+	protected:
+		const std::array<std::pair<Enum, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
+	};
 }

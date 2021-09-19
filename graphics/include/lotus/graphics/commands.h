@@ -4,6 +4,7 @@
 /// Command related classes.
 
 #include <span>
+#include <initializer_list>
 
 #include LOTUS_GRAPHICS_BACKEND_INCLUDE
 #include "lotus/math/aab.h"
@@ -51,6 +52,13 @@ namespace lotus::graphics {
 		) {
 			backend::command_list::begin_pass(p, fb, clear_colors, clear_depth, clear_stencil);
 		}
+		/// \overload
+		void begin_pass(
+			const pass_resources &p, const frame_buffer &fb,
+			std::initializer_list<linear_rgba_f> clear_colors, float clear_depth, std::uint8_t clear_stencil
+		) {
+			begin_pass(p, fb, { clear_colors.begin(), clear_colors.end() }, clear_depth, clear_stencil);
+		}
 
 		/// Sets all state of the fixed-function graphics pipeline.
 		void bind_pipeline_state(const pipeline_state &state) {
@@ -60,20 +68,54 @@ namespace lotus::graphics {
 		void bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
 			backend::command_list::bind_vertex_buffers(start, buffers);
 		}
+		/// \overload
+		void bind_vertex_buffers(std::size_t start, std::initializer_list<vertex_buffer> buffers) {
+			bind_vertex_buffers(start, { buffers.begin(), buffers.end() });
+		}
+		/// Binds descriptor sets for rendering.
+		void bind_descriptor_sets(std::size_t first, std::span<const descriptor_set *const> sets) {
+			backend::command_list::bind_descriptor_sets(first, sets);
+		}
+		/// \overload
+		void bind_descriptor_sets(std::size_t first, std::initializer_list<const descriptor_set*> sets) {
+			bind_descriptor_sets(first, { sets.begin(), sets.end() });
+		}
 
 		/// Sets the viewports used for rendering.
 		void set_viewports(std::span<const viewport> vps) {
 			backend::command_list::set_viewports(vps);
 		}
+		/// \overload
+		void set_viewports(std::initializer_list<viewport> vps) {
+			set_viewports({ vps.begin(), vps.end() });
+		}
 		/// Sets the list of scissor rectangles.
 		void set_scissor_rectangles(std::span<const aab2i> scissor) {
 			backend::command_list::set_scissor_rectangles(scissor);
+		}
+		/// \overload
+		void set_scissor_rectangles(std::initializer_list<aab2i> scissor) {
+			set_scissor_rectangles({ scissor.begin(), scissor.end() });
 		}
 
 		/// Inserts a copy operation between the two buffers.
 		void copy_buffer(buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size) {
 			backend::command_list::copy_buffer(from, off1, to, off2, size);
 		}
+		/// Inserts a copy operation between the two subresources.
+		void copy_image2d(
+			image2d &from, std::uint32_t sub1, aab2s region, image2d &to, std::uint32_t sub2, cvec2s off
+		) {
+			backend::command_list::copy_image2d(from, sub1, region, to, sub2, off);
+		}
+		/// Inserts a copy operation from a buffer to an image.
+		void copy_buffer_to_image(
+			buffer &from, std::size_t byte_offset, std::size_t row_pitch, aab2s region,
+			image2d &to, std::uint32_t subresource, cvec2s off
+		) {
+			backend::command_list::copy_buffer_to_image(from, byte_offset, row_pitch, region, to, subresource, off);
+		}
+
 		/// Instanced draw operation.
 		void draw_instanced(
 			std::size_t first_vertex, std::size_t vertex_count,
@@ -85,6 +127,12 @@ namespace lotus::graphics {
 		/// Inserts an resource barrier. This should only be called out of render passes.
 		void resource_barrier(std::span<const image_barrier> images, std::span<const buffer_barrier> buffers) {
 			backend::command_list::resource_barrier(images, buffers);
+		}
+		/// \overload
+		void resource_barrier(
+			std::initializer_list<image_barrier> images, std::initializer_list<buffer_barrier> buffers
+		) {
+			resource_barrier({ images.begin(), images.end() }, { buffers.begin(), buffers.end() });
 		}
 
 		/// Ends a rendering pass.
@@ -130,8 +178,12 @@ namespace lotus::graphics {
 		/// Submits all given command lists for execution. These command lists are guaranteed to execute after all
 		/// command lists in the last call to this function has finished, but multiple command lists in a single call
 		/// may start simultaneously or overlap.
-		void submit_command_lists(std::span<const command_list*> lists, fence *on_completion) {
+		void submit_command_lists(std::span<const command_list *const> lists, fence *on_completion) {
 			backend::command_queue::submit_command_lists(lists, on_completion);
+		}
+		/// \overload
+		void submit_command_lists(std::initializer_list<command_list*> lists, fence *on_completion) {
+			submit_command_lists({ lists.begin(), lists.end() }, on_completion);
 		}
 		/// Presents the current back buffer in the swap chain. The fence is used to determine when the back buffer
 		/// has finished presenting and the next frame using the same back buffer can start.

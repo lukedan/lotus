@@ -40,7 +40,9 @@ if(WIN32 AND ${LOTUS_GRAPHICS_USE_DIRECTX12})
 			"src/graphics/backends/directx12/context.cpp"
 			"src/graphics/backends/directx12/details.cpp"
 			"src/graphics/backends/directx12/device.cpp"
-			"src/graphics/backends/directx12/frame_buffer.cpp")
+			"src/graphics/backends/directx12/frame_buffer.cpp"
+			
+			"src/graphics/common.cpp")
 	target_link_libraries(lotus_graphics_directx12
 		PUBLIC
 			lotus_core lotus_system d3d12 dxgi dxguid)

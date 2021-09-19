@@ -8,18 +8,17 @@
 #include <d3d12.h>
 
 namespace lotus::graphics::backends::directx12 {
+	class command_list;
 	class device;
 
 
-	/// Contains a \p ID3D12DescriptorHeap.
+	/// Since DirectX 12 disallows binding multiple descriptor heaps at the same time, this struct is simply for
+	/// bookkeeping and the descriptor heaps are stored in the \ref device.
 	class descriptor_pool {
 		friend device;
 	protected:
 	private:
-		/// The descriptor heap for shader resources (\p D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).
-		_details::com_ptr<ID3D12DescriptorHeap> _shader_resource_heap;
-		/// The descriptor heap for samplers (\p D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER).
-		_details::com_ptr<ID3D12DescriptorHeap> _sampler_heap;
+		// TODO actually do bookkeeping
 	};
 
 	/// An array of \p D3D12_DESCRIPTOR_RANGE1 objects.
@@ -30,5 +29,19 @@ namespace lotus::graphics::backends::directx12 {
 		// TODO allocator
 		std::vector<D3D12_DESCRIPTOR_RANGE1> _ranges; ///< Descriptor ranges.
 		D3D12_SHADER_VISIBILITY _visibility; ///< Visibility to various shader stages.
+		UINT _num_shader_resource_descriptors; ///< The number of shader resource descriptors.
+		UINT _num_sampler_descriptors; ///< The number of sampler descriptors.
+		/// The number of ranges in \ref _ranges that contain shader resources.
+		std::size_t _num_shader_resource_ranges;
+	};
+
+	/// An array of descriptors.
+	class descriptor_set {
+		friend command_list;
+		friend device;
+	protected:
+	private:
+		_details::descriptor_range _shader_resource_descriptors = nullptr; ///< Shader resource descriptors.
+		_details::descriptor_range _sampler_descriptors = nullptr; ///< Sampler descriptors.
 	};
 }

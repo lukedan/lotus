@@ -8,6 +8,8 @@
 #include <compare>
 #include <span>
 
+#include <Windows.h> // TODO remove this
+
 #include "lotus/common.h"
 #include "lotus/math/aab.h"
 
@@ -18,6 +20,7 @@ namespace lotus::graphics {
 	class buffer;
 	class command_list;
 	class descriptor_set_layout;
+	class descriptor_set;
 	class fence;
 	class image2d_view;
 	class sampler;
@@ -39,259 +42,141 @@ namespace lotus::graphics {
 
 	constexpr static std::size_t num_color_render_targets = 8; ///< The maximum number of color render targets.
 
-	/// Data type.
-	enum class data_type : std::uint8_t {
-		float_bit      = 0, ///< Bit pattern that indicates that the type is floating point.
-		int_bit        = 1, ///< Bit pattern that indicates that the type is integer.
-		normalized_bit = 2, ///< Bit pattern that indicates this type is normalized.
-		srgb_bit       = 3, ///< Bit pattern that indicates this type is unsigned normalized sRGB.
-		data_type_mask = 0x3, ///< Mask for the data type.
 
-		signed_bit = 1 << 2, ///< The bit that indicates that the type is signed.
-
-		/// The bit that indicates that there's a depth channel, in which case the type bits indicate the type of
-		/// that channel.
-		depth_bit   = 1 << 3,
-		stencil_bit = 1 << 4, ///< The bit that indicates that there's a stencil channel.
-
-
-		none = 0, ///< No specific type.
-
-		floating_point      = float_bit      | signed_bit, ///< Floating point number.
-		unsigned_integer    = int_bit,                     ///< Unsigned integer.
-		signed_integer      = int_bit        | signed_bit, ///< Signed integer.
-		unsigned_normalized = normalized_bit,              ///< Unsigned value normalized to [0, 1].
-		signed_normalized   = normalized_bit | signed_bit, ///< Signed value normalized to [0, 1].
-		srgb                = srgb_bit,                    ///< Unsigned sRGB value normalized to [0, 1].
-
-		depth_float         = float_bit      | signed_bit | depth_bit, ///< Floating-point depth.
-		depth_unorm         = normalized_bit              | depth_bit, ///< Unsigned normalized depth.
-		/// Floating-point depth with stencil.
-		depth_float_stencil = float_bit      | signed_bit | depth_bit | stencil_bit,
-		/// Unsigned normalized depth with stencil.
-		depth_unorm_stencil = float_bit      | signed_bit | depth_bit | stencil_bit,
-	};
-}
-namespace lotus {
-	/// Enable bitwise operations for \ref graphics::data_type.
-	template <> struct enable_enum_bitwise_operators<graphics::data_type> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref graphics::data_type.
-	template <> struct enable_enum_is_empty<graphics::data_type> : public std::true_type {
-	};
-}
-
-namespace lotus::graphics {
-	namespace _details {
-		/// Defines various constants and functions used by the regular \ref graphics::format class, in order
-		/// to work around a few \p constexpr issues.
-		class format {
-		public:
-			/// Pixel format related constants.
-			class constants {
-			public:
-				/// The number of bits used to store the number of bits for a channel.
-				constexpr static std::size_t channel_bit_count = 6;
-
-				/// Bit offset of the red channel.
-				constexpr static std::uint32_t red_offset   = 0;
-				/// Bit offset of the green channel.
-				constexpr static std::uint32_t green_offset = red_offset   + channel_bit_count;
-				/// Bit offset of the blue channel.
-				constexpr static std::uint32_t blue_offset  = green_offset + channel_bit_count;
-				/// Bit offset of the alpha channel.
-				constexpr static std::uint32_t alpha_offset = blue_offset  + channel_bit_count;
-				/// Bit offset of the depth channel.
-				constexpr static std::uint32_t depth_offset   = 0;
-				/// Bit offset of the stencil channel.
-				constexpr static std::uint32_t stencil_offset = depth_offset + channel_bit_count;
-				/// Bit offset of the \ref data_type.
-				constexpr static std::uint32_t data_type_offset = alpha_offset + channel_bit_count;
-
-				constexpr static std::uint32_t channel_mask = (1u << channel_bit_count) - 1; ///< Mask for a single channel.
-				constexpr static std::uint32_t red_mask   = channel_mask << red_offset;    ///< Mask for the red channel.
-				constexpr static std::uint32_t green_mask = channel_mask << green_offset;  ///< Mask for the green channel.
-				constexpr static std::uint32_t blue_mask  = channel_mask << blue_offset;   ///< Mask for the blue channel.
-				constexpr static std::uint32_t alpha_mask = channel_mask << alpha_offset;  ///< Mask for the alpha channel.
-				/// Mask for the depth channel.
-				constexpr static std::uint32_t depth_mask   = channel_mask << depth_offset;
-				/// Mask for the stencil channel.
-				constexpr static std::uint32_t stencil_mask = channel_mask << stencil_offset;
-				/// Mask for the \ref data_type.
-				constexpr static std::uint32_t data_type_mask = 0xFFu << data_type_offset;
-			};
-		protected:
-			/// Checks that the bit count fits inside a \ref format enum.
-			constexpr inline static void _check_format_bit_count(std::uint8_t bits) {
-				assert((bits & constants::channel_mask) == bits);
-			}
-			/// Creates an RGBA pixel format enum from the given parameters;
-			[[nodiscard]] constexpr inline static std::uint32_t _create_rgba_format(
-				std::uint8_t red, std::uint8_t green, std::uint8_t blue, std::uint8_t alpha, data_type type
-			) {
-				_check_format_bit_count(red);
-				_check_format_bit_count(green);
-				_check_format_bit_count(blue);
-				_check_format_bit_count(alpha);
-				return
-					(static_cast<std::uint32_t>(red)   << constants::red_offset)   |
-					(static_cast<std::uint32_t>(green) << constants::green_offset) |
-					(static_cast<std::uint32_t>(blue)  << constants::blue_offset)  |
-					(static_cast<std::uint32_t>(alpha) << constants::alpha_offset) |
-					(static_cast<std::uint32_t>(type)  << constants::data_type_offset);
-			}
-			/// Creates a depth-stencil pixel format enum from the given parameters.
-			[[nodiscard]] constexpr inline static std::uint32_t _create_depth_stencil_format(
-				std::uint8_t depth, std::uint8_t stencil, data_type type
-			) {
-				_check_format_bit_count(depth);
-				_check_format_bit_count(stencil);
-				return
-					(static_cast<std::uint32_t>(depth)   << constants::depth_offset)   |
-					(static_cast<std::uint32_t>(stencil) << constants::stencil_offset) |
-					(static_cast<std::uint32_t>(type)    << constants::data_type_offset);
-			}
-		};
-	}
 	/// The format of a pixel.
-	class format : public _details::format {
+	enum class format {
+		none, ///< No specific type.
+
+		d32_float_s8,
+		d32_float,
+		d24_unorm_s8,
+		d16_unorm,
+
+
+		r8_unorm,
+		r8_snorm,
+		r8_uint,
+		r8_sint,
+		r8_unknown,
+
+		r8g8_unorm,
+		r8g8_snorm,
+		r8g8_uint,
+		r8g8_sint,
+		r8g8_unknown,
+
+		r8g8b8a8_unorm,
+		r8g8b8a8_snorm,
+		r8g8b8a8_srgb,
+		r8g8b8a8_uint,
+		r8g8b8a8_sint,
+		r8g8b8a8_unknown,
+
+
+		r16_unorm,
+		r16_snorm,
+		r16_uint,
+		r16_sint,
+		r16_float,
+		r16_unknown,
+
+		r16g16_unorm,
+		r16g16_snorm,
+		r16g16_uint,
+		r16g16_sint,
+		r16g16_float,
+		r16g16_unknown,
+
+		r16g16b16a16_unorm,
+		r16g16b16a16_snorm,
+		r16g16b16a16_uint,
+		r16g16b16a16_sint,
+		r16g16b16a16_float,
+		r16g16b16a16_unknown,
+
+
+		r32_uint,
+		r32_sint,
+		r32_float,
+		r32_unknown,
+	
+		r32g32_uint,
+		r32g32_sint,
+		r32g32_float,
+		r32g32_unknown,
+	
+		r32g32b32_uint,
+		r32g32b32_sint,
+		r32g32b32_float,
+		r32g32b32_unknown,
+	
+		r32g32b32a32_uint,
+		r32g32b32a32_sint,
+		r32g32b32a32_float,
+		r32g32b32a32_unknown,
+
+		num_enumerators ///< The total number of enumerators.
+	};
+	/// Properties of a format.
+	struct format_properties {
 	public:
-		/// Value type.
-		enum value_type : std::uint32_t {
-			none = 0, ///< No specific type.
-
-			d32_float_s8 = _create_depth_stencil_format(32, 8, data_type::depth_float_stencil),
-			d32_float    = _create_depth_stencil_format(32, 0, data_type::depth_float),
-			d24_unorm_s8 = _create_depth_stencil_format(24, 8, data_type::depth_unorm_stencil),
-			d16_unorm    = _create_depth_stencil_format(16, 0, data_type::depth_unorm),
-
-
-			r8_unorm   = _create_rgba_format(8, 0, 0, 0, data_type::unsigned_normalized),
-			r8_snorm   = _create_rgba_format(8, 0, 0, 0, data_type::signed_normalized),
-			r8_srgb    = _create_rgba_format(8, 0, 0, 0, data_type::srgb),
-			r8_uint    = _create_rgba_format(8, 0, 0, 0, data_type::unsigned_integer),
-			r8_sint    = _create_rgba_format(8, 0, 0, 0, data_type::signed_integer),
-			r8_unknown = _create_rgba_format(8, 0, 0, 0, data_type::none),
-
-			r8g8_unorm   = _create_rgba_format(8, 8, 0, 0, data_type::unsigned_normalized),
-			r8g8_snorm   = _create_rgba_format(8, 8, 0, 0, data_type::signed_normalized),
-			r8g8_srgb    = _create_rgba_format(8, 8, 0, 0, data_type::srgb),
-			r8g8_uint    = _create_rgba_format(8, 8, 0, 0, data_type::unsigned_integer),
-			r8g8_sint    = _create_rgba_format(8, 8, 0, 0, data_type::signed_integer),
-			r8g8_unknown = _create_rgba_format(8, 8, 0, 0, data_type::none),
-
-			r8g8b8_unorm   = _create_rgba_format(8, 8, 8, 0, data_type::unsigned_normalized),
-			r8g8b8_snorm   = _create_rgba_format(8, 8, 8, 0, data_type::signed_normalized),
-			r8g8b8_srgb    = _create_rgba_format(8, 8, 8, 0, data_type::srgb),
-			r8g8b8_uint    = _create_rgba_format(8, 8, 8, 0, data_type::unsigned_integer),
-			r8g8b8_sint    = _create_rgba_format(8, 8, 8, 0, data_type::signed_integer),
-			r8g8b8_unknown = _create_rgba_format(8, 8, 8, 0, data_type::none),
-
-			r8g8b8a8_unorm   = _create_rgba_format(8, 8, 8, 8, data_type::unsigned_normalized),
-			r8g8b8a8_snorm   = _create_rgba_format(8, 8, 8, 8, data_type::signed_normalized),
-			r8g8b8a8_srgb    = _create_rgba_format(8, 8, 8, 8, data_type::srgb),
-			r8g8b8a8_uint    = _create_rgba_format(8, 8, 8, 8, data_type::unsigned_integer),
-			r8g8b8a8_sint    = _create_rgba_format(8, 8, 8, 8, data_type::signed_integer),
-			r8g8b8a8_unknown = _create_rgba_format(8, 8, 8, 8, data_type::none),
-
-
-			r16_unorm   = _create_rgba_format(16, 0, 0, 0, data_type::unsigned_normalized),
-			r16_snorm   = _create_rgba_format(16, 0, 0, 0, data_type::signed_normalized),
-			r16_srgb    = _create_rgba_format(16, 0, 0, 0, data_type::srgb),
-			r16_uint    = _create_rgba_format(16, 0, 0, 0, data_type::unsigned_integer),
-			r16_sint    = _create_rgba_format(16, 0, 0, 0, data_type::signed_integer),
-			r16_float   = _create_rgba_format(16, 0, 0, 0, data_type::floating_point),
-			r16_unknown = _create_rgba_format(16, 0, 0, 0, data_type::none),
-
-			r16g16_unorm   = _create_rgba_format(16, 16, 0, 0, data_type::unsigned_normalized),
-			r16g16_snorm   = _create_rgba_format(16, 16, 0, 0, data_type::signed_normalized),
-			r16g16_srgb    = _create_rgba_format(16, 16, 0, 0, data_type::srgb),
-			r16g16_uint    = _create_rgba_format(16, 16, 0, 0, data_type::unsigned_integer),
-			r16g16_sint    = _create_rgba_format(16, 16, 0, 0, data_type::signed_integer),
-			r16g16_float   = _create_rgba_format(16, 16, 0, 0, data_type::floating_point),
-			r16g16_unknown = _create_rgba_format(16, 16, 0, 0, data_type::none),
-
-			r16g16b16_unorm   = _create_rgba_format(16, 16, 16, 0, data_type::unsigned_normalized),
-			r16g16b16_snorm   = _create_rgba_format(16, 16, 16, 0, data_type::signed_normalized),
-			r16g16b16_srgb    = _create_rgba_format(16, 16, 16, 0, data_type::srgb),
-			r16g16b16_uint    = _create_rgba_format(16, 16, 16, 0, data_type::unsigned_integer),
-			r16g16b16_sint    = _create_rgba_format(16, 16, 16, 0, data_type::signed_integer),
-			r16g16b16_float   = _create_rgba_format(16, 16, 16, 0, data_type::floating_point),
-			r16g16b16_unknown = _create_rgba_format(16, 16, 16, 0, data_type::none),
-
-			r16g16b16a16_unorm   = _create_rgba_format(16, 16, 16, 16, data_type::unsigned_normalized),
-			r16g16b16a16_snorm   = _create_rgba_format(16, 16, 16, 16, data_type::signed_normalized),
-			r16g16b16a16_srgb    = _create_rgba_format(16, 16, 16, 16, data_type::srgb),
-			r16g16b16a16_uint    = _create_rgba_format(16, 16, 16, 16, data_type::unsigned_integer),
-			r16g16b16a16_sint    = _create_rgba_format(16, 16, 16, 16, data_type::signed_integer),
-			r16g16b16a16_float   = _create_rgba_format(16, 16, 16, 16, data_type::floating_point),
-			r16g16b16a16_unknown = _create_rgba_format(16, 16, 16, 16, data_type::none),
-
-
-			r32_unorm   = _create_rgba_format(32, 0, 0, 0, data_type::unsigned_normalized),
-			r32_snorm   = _create_rgba_format(32, 0, 0, 0, data_type::signed_normalized),
-			r32_srgb    = _create_rgba_format(32, 0, 0, 0, data_type::srgb),
-			r32_uint    = _create_rgba_format(32, 0, 0, 0, data_type::unsigned_integer),
-			r32_sint    = _create_rgba_format(32, 0, 0, 0, data_type::signed_integer),
-			r32_float   = _create_rgba_format(32, 0, 0, 0, data_type::floating_point),
-			r32_unknown = _create_rgba_format(32, 0, 0, 0, data_type::none),
-	
-			r32g32_unorm   = _create_rgba_format(32, 32, 0, 0, data_type::unsigned_normalized),
-			r32g32_snorm   = _create_rgba_format(32, 32, 0, 0, data_type::signed_normalized),
-			r32g32_srgb    = _create_rgba_format(32, 32, 0, 0, data_type::srgb),
-			r32g32_uint    = _create_rgba_format(32, 32, 0, 0, data_type::unsigned_integer),
-			r32g32_sint    = _create_rgba_format(32, 32, 0, 0, data_type::signed_integer),
-			r32g32_float   = _create_rgba_format(32, 32, 0, 0, data_type::floating_point),
-			r32g32_unknown = _create_rgba_format(32, 32, 0, 0, data_type::none),
-	
-			r32g32b32_unorm   = _create_rgba_format(32, 32, 32, 0, data_type::unsigned_normalized),
-			r32g32b32_snorm   = _create_rgba_format(32, 32, 32, 0, data_type::signed_normalized),
-			r32g32b32_srgb    = _create_rgba_format(32, 32, 32, 0, data_type::srgb),
-			r32g32b32_uint    = _create_rgba_format(32, 32, 32, 0, data_type::unsigned_integer),
-			r32g32b32_sint    = _create_rgba_format(32, 32, 32, 0, data_type::signed_integer),
-			r32g32b32_float   = _create_rgba_format(32, 32, 32, 0, data_type::floating_point),
-			r32g32b32_unknown = _create_rgba_format(32, 32, 32, 0, data_type::none),
-	
-			r32g32b32a32_unorm   = _create_rgba_format(32, 32, 32, 32, data_type::unsigned_normalized),
-			r32g32b32a32_snorm   = _create_rgba_format(32, 32, 32, 32, data_type::signed_normalized),
-			r32g32b32a32_srgb    = _create_rgba_format(32, 32, 32, 32, data_type::srgb),
-			r32g32b32a32_uint    = _create_rgba_format(32, 32, 32, 32, data_type::unsigned_integer),
-			r32g32b32a32_sint    = _create_rgba_format(32, 32, 32, 32, data_type::signed_integer),
-			r32g32b32a32_float   = _create_rgba_format(32, 32, 32, 32, data_type::floating_point),
-			r32g32b32a32_unknown = _create_rgba_format(32, 32, 32, 32, data_type::none),
+		/// Data type used by the format.
+		enum class data_type {
+			unknown,        ///< Unknown.
+			unsigned_norm,  ///< Unsigned value normalized in [0, 1].
+			signed_norm,    ///< Signed value normalized in [-1, 1].
+			srgb,           ///< sRGB values in [0, 1].
+			unsigned_int,   ///< Unsigned integer.
+			signed_int,     ///< Signed integer.
+			floatint_point, ///< Floating-point number.
 		};
 
 		/// No initialization.
-		format(uninitialized_t) {
+		format_properties(uninitialized_t) {
 		}
-		/// Initializes the enum to \ref none.
-		constexpr format(zero_t) : _value(value_type::none) {
+		/// Initializes all bit values to zero and \ref type to \ref data_type::unknown.
+		constexpr format_properties(zero_t) : format_properties(0, 0, 0, 0, 0, 0, data_type::unknown) {
 		}
-		/// Initializes \ref _value with the given \ref value_type object.
-		constexpr format(value_type v) : _value(v) {
-		}
-		/// Creates a \ref format object from the given parameters.
-		[[nodiscard]] constexpr static inline format create_rgba(
-			std::uint8_t red, std::uint8_t green, std::uint8_t blue, std::uint8_t alpha, data_type type
+		/// Creates an object for a color format.
+		[[nodiscard]] constexpr inline static format_properties create_color(
+			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type ty
 		) {
-			return format(_create_rgba_format(red, green, blue, alpha, type));
+			return format_properties(r, g, b, a, 0, 0, ty);
+		}
+		/// Creates an object for a depth-stencil format.
+		[[nodiscard]] constexpr inline static format_properties create_depth_stencil(
+			std::uint8_t d, std::uint8_t s, data_type ty
+		) {
+			return format_properties(0, 0, 0, 0, d, s, ty);
 		}
 
-		/// Returns the \ref data_type of this pixel format.
-		[[nodiscard]] constexpr data_type get_data_type() const {
-			return static_cast<data_type>((_value & constants::data_type_mask) >> constants::data_type_offset);
-		}
+		/// Retrieves the \ref format_properties for the given \ref format.
+		[[nodiscard]] static const format_properties &get(format);
 
-		/// Comparison.
-		[[nodiscard]] friend constexpr bool operator==(format lhs, format rhs) {
-			return lhs._value == rhs._value;
-		}
+		std::uint8_t red_bits;     ///< Number of bits for the red channel.
+		std::uint8_t green_bits;   ///< Number of bits for the green channel.
+		std::uint8_t blue_bits;    ///< Number of bits for the blue channel.
+		std::uint8_t alpha_bits;   ///< Number of bits for the alpha channel.
+		std::uint8_t depth_bits;   ///< Number of bits for the depth channel.
+		std::uint8_t stencil_bits; ///< Number of bits for the stencil channel.
+		data_type type; ///< Data type for all the channels except for stencil.
 	protected:
-		value_type _value; ///< The enum value.
-
-		/// Initializes \ref _value.
-		constexpr explicit format(std::uint32_t val) : _value(static_cast<value_type>(val)) {
+		/// Initializes all fields.
+		constexpr format_properties(
+			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a,
+			std::uint8_t d, std::uint8_t s, data_type ty
+		) : red_bits(r), green_bits(g), blue_bits(b), alpha_bits(a), depth_bits(d), stencil_bits(s), type(ty) {
 		}
+	};
+
+	/// Specifies the tiling of an image.
+	enum class image_tiling {
+		/// The image is stored as a row-major matrix of pixels, with potential padding between rows and array/depth
+		/// slices.
+		row_major,
+		optimal, ///< The image is stored in an undefined tiling that's optimal for rendering.
+
+		num_enumerators ///< The number of enumerators.
 	};
 
 
@@ -331,10 +216,10 @@ namespace lotus::graphics {
 	};
 }
 namespace lotus {
-	/// Enable bitwise operations for \ref graphics::channels.
+	/// Enable bitwise operations for \ref graphics::shader_stage_mask.
 	template <> struct enable_enum_bitwise_operators<graphics::shader_stage_mask> : public std::true_type {
 	};
-	/// Enable \ref is_empty for \ref graphics::channels.
+	/// Enable \ref is_empty for \ref graphics::shader_stage_mask.
 	template <> struct enable_enum_is_empty<graphics::shader_stage_mask> : public std::true_type {
 	};
 }
@@ -417,7 +302,7 @@ namespace lotus::graphics {
 		line_list,      ///< A list of lines - every two vertices define a line.
 		line_strip,     ///< A line strip - there's a line between each vertex and the previous vertex.
 		triangle_list,  ///< A list of triangles - every other three vertices define a triangle.
-		traignle_strip, ///< A strip of triangles - every three consecutive vertices define a triangle.
+		triangle_strip, ///< A strip of triangles - every three consecutive vertices define a triangle.
 		/// Like \ref line_list, but with additional vertices only accessible by the geometry shader.
 		line_list_with_adjacency,
 		/// Like \ref line_strip, but with additional vertices only accessible by the geometry shader.
@@ -506,27 +391,138 @@ namespace lotus::graphics {
 		num_enumerators ///< The total number of enumerators.
 	};
 
-	/// The state of an image resource.
-	enum class image_usage : std::uint8_t {
-		color_render_target, ///< The image can be used as a color render target.
-		depth_stencil_render_target, ///< The image can be used as a depth-stencil render target.
-		/// State indicating that the image has been used for presenting. Normally this state is not manually
-		/// transitioned to.
-		present,
+	/// The usage/state of a buffer resource.
+	struct buffer_usage {
+		/// Values indicating a single usage.
+		enum values {
+			index_buffer,      ///< Used as an index buffer.
+			vertex_buffer,     ///< Used as a vertex buffer.
+			read_only_buffer,  ///< Used as a read-only uniform buffer.
+			read_write_buffer, ///< Used as a read-write buffer.
+			copy_source,       ///< Source for copy operations.
+			copy_destination,  ///< Target for copy operations.
 
-		num_enumerators ///< The total number of enumerators.
+			num_enumerators ///< The total number of enumerators.
+		};
+		/// Used for specifying multiple usages. These values correspond directly to those in \ref values.
+		enum class mask : std::uint8_t {
+			none = 0, ///< No usage.
+
+			index_buffer      = 1 << values::index_buffer,
+			vertex_buffer     = 1 << values::vertex_buffer,
+			read_only_buffer  = 1 << values::read_only_buffer,
+			read_write_buffer = 1 << values::read_write_buffer,
+			copy_source       = 1 << values::copy_source,
+			copy_destination  = 1 << values::copy_destination,
+		};
+
+		/// No initialization.
+		buffer_usage(uninitialized_t) {
+		}
+		/// Initializes \ref _value.
+		constexpr buffer_usage(values val) : _value(val) {
+		}
+
+		/// Allow explicit conversion to integers.
+		template <
+			typename Number, std::enable_if_t<std::is_integral_v<Number>, int> = 0
+		> constexpr explicit operator Number() const {
+			static_assert(
+				std::numeric_limits<Number>::max() >= values::num_enumerators,
+				"Potential invalid conversion to raw number"
+			);
+			return static_cast<Number>(_value);
+		}
+
+		/// Equality.
+		[[nodiscard]] friend constexpr bool operator==(buffer_usage, buffer_usage) = default;
+
+		/// Converts the value into a bit in the mask.
+		[[nodiscard]] constexpr mask as_mask() const {
+			return static_cast<mask>(1 << _value);
+		}
+	protected:
+		values _value; ///< The value.
 	};
-	/// The usage of a buffer resource.
-	enum class buffer_usage : std::uint8_t {
-		index_buffer, ///< Used as an index buffer.
-		vertex_buffer, ///< Used as a vertex buffer.
-		uniform_buffer, ///< Used as a uniform buffer.
-		copy_source, ///< Source for copy operations.
-		copy_destination, ///< Target for copy operations.
-
-		num_enumerators ///< The total number of enumerators.
+}
+namespace lotus {
+	/// Enable bitwise operations for \ref graphics::buffer_usage::mask.
+	template <> struct enable_enum_bitwise_operators<graphics::buffer_usage::mask> : public std::true_type {
 	};
+	/// Enable \ref is_empty for \ref graphics::buffer_usage::mask.
+	template <> struct enable_enum_is_empty<graphics::buffer_usage::mask> : public std::true_type {
+	};
+}
 
+namespace lotus::graphics {
+	/// The usage/state of an image resource.
+	struct image_usage {
+	public:
+		/// Values indicating a single usage.
+		enum values {
+			color_render_target,         ///< The image can be used as a color render target.
+			depth_stencil_render_target, ///< The image can be used as a depth-stencil render target.
+			read_only_texture,           ///< A color/depth-stencil texture that can be read in shaders.
+			read_write_color_texture,    ///< A color texture that can be written to.
+			present,                     ///< State indicating that the image has been used for presenting.
+			copy_source,                 ///< Source for copy operations.
+			copy_destination,            ///< Destination for copy operations.
+
+			num_enumerators ///< The total number of enumerators.
+		};
+		/// Used for specifying multiple usages. These values correspond directly to those in \ref values.
+		enum class mask : std::uint8_t {
+			none = 0, ///< No usage.
+
+			color_render_target         = 1 << values::color_render_target,
+			depth_stencil_render_target = 1 << values::depth_stencil_render_target,
+			read_only_texture           = 1 << values::read_only_texture,
+			read_write_color_texture    = 1 << values::read_write_color_texture,
+			present                     = 1 << values::present,
+			copy_source                 = 1 << values::copy_source,
+			copy_destination            = 1 << values::copy_destination,
+		};
+
+		/// No initialization.
+		image_usage(uninitialized_t) {
+		}
+		/// Initializes \ref _value.
+		constexpr image_usage(values val) : _value(val) {
+		}
+
+		/// Allow explicit conversion to integers.
+		template <
+			typename Number, std::enable_if_t<std::is_integral_v<Number>, int> = 0
+		> constexpr explicit operator Number() const {
+			static_assert(
+				std::numeric_limits<Number>::max() >= values::num_enumerators,
+				"Potential invalid conversion to raw number"
+			);
+			return static_cast<Number>(_value);
+		}
+
+		/// Equality.
+		[[nodiscard]] friend constexpr bool operator==(image_usage, image_usage) = default;
+
+		/// Converts the value into a bit in the mask.
+		[[nodiscard]] constexpr mask as_mask() const {
+			return static_cast<mask>(1 << _value);
+		}
+	protected:
+		values _value; ///< The value.
+	};
+}
+namespace lotus {
+	/// Enable bitwise operations for \ref graphics::image_usage::mask.
+	template <> struct enable_enum_bitwise_operators<graphics::image_usage::mask> : public std::true_type {
+	};
+	/// Enable \ref is_empty for \ref graphics::image_usage::mask.
+	template <> struct enable_enum_is_empty<graphics::image_usage::mask> : public std::true_type {
+	};
+}
+
+
+namespace lotus::graphics {
 	/// The type of a heap.
 	enum class heap_type : std::uint8_t {
 		device_only, ///< A heap that can only be accessed from the device.
@@ -540,7 +536,11 @@ namespace lotus::graphics {
 
 	/// Properties of an adapter.
 	struct adapter_properties {
-		// TODO
+		/// No initialization.
+		adapter_properties(uninitialized_t) {
+		}
+
+		bool is_software; ///< Whether this is a software adapter.
 	};
 
 	/// Describes how color blending is carried out for a single render target.
@@ -802,7 +802,7 @@ namespace lotus::graphics {
 		LPCSTR semantic_name;
 		UINT semantic_index;
 
-		format element_format = uninitialized; ///< The format of this element.
+		format element_format; ///< The format of this element.
 		std::size_t byte_offset; ///< Byte offset of this element in a vertex.
 	protected:
 		/// Initializes all fields of this struct.
@@ -875,7 +875,7 @@ namespace lotus::graphics {
 			return render_target_pass_options(fmt, load_op, store_op);
 		}
 
-		format pixel_format = uninitialized; ///< Expected pixel format for this attachment.
+		format pixel_format; ///< Expected pixel format for this attachment.
 		pass_load_operation load_operation; ///< Determines the behavior when the pass loads from this attachment.
 		pass_store_operation store_operation; ///< Determines the behavior when the pass stores to the attachment.
 	protected:
@@ -900,7 +900,7 @@ namespace lotus::graphics {
 			return depth_stencil_pass_options(fmt, depth_load_op, depth_store_op, stencil_load_op, stencil_store_op);
 		}
 
-		format pixel_format = uninitialized; ///< Expected pixel format for this attachment.
+		format pixel_format; ///< Expected pixel format for this attachment.
 		pass_load_operation depth_load_operation; ///< \ref pass_load_operation for depth.
 		pass_store_operation depth_store_operation; ///< \ref pass_store_operation for depth.
 		pass_load_operation stencil_load_operation; ///< \ref pass_load_operation for stencil.
@@ -975,20 +975,33 @@ namespace lotus::graphics {
 		descriptor_range(uninitialized_t) {
 		}
 		/// Creates a new \ref descriptor_range object.
-		[[nodiscard]] constexpr inline static descriptor_range create(
-			descriptor_type ty, std::size_t c, std::size_t r
-		) {
-			return descriptor_range(ty, c, r);
+		[[nodiscard]] constexpr inline static descriptor_range create(descriptor_type ty, std::size_t c) {
+			return descriptor_range(ty, c);
 		}
 
-		descriptor_type type; ///< The type of all descriptors in this range.
+		descriptor_type type; ///< The type of the descriptors.
 		std::size_t count; ///< The number of descriptors.
+	protected:
+		/// Initializes all fields.
+		constexpr descriptor_range(descriptor_type ty, std::size_t c) : type(ty), count(c) {
+		}
+	};
+	/// A range of descriptors and its register binding.
+	struct descriptor_range_binding {
+	public:
+		/// No initialization.
+		descriptor_range_binding(uninitialized_t) {
+		}
+		/// Creates a new \ref descriptor_range_binding object.
+		[[nodiscard]] constexpr inline static descriptor_range_binding create(descriptor_range r, std::size_t reg) {
+			return descriptor_range_binding(r, reg);
+		}
+
+		descriptor_range range = uninitialized; ///< The type and number of descriptors.
 		std::size_t register_index; ///< Register index corresponding to this descriptor.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr descriptor_range(
-			descriptor_type ty, std::size_t c, std::size_t r
-		) : type(ty), count(c), register_index(r) {
+		constexpr descriptor_range_binding(descriptor_range rng, std::size_t reg) : range(rng), register_index(reg) {
 		}
 	};
 
@@ -1005,8 +1018,8 @@ namespace lotus::graphics {
 
 		image *target; ///< Target image.
 		// TODO subresource
-		image_usage from_state; ///< State to transition from.
-		image_usage to_state; ///< State to transition to.
+		image_usage from_state = uninitialized; ///< State to transition from.
+		image_usage to_state   = uninitialized; ///< State to transition to.
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr image_barrier(image &i, image_usage from, image_usage to) :
@@ -1026,8 +1039,8 @@ namespace lotus::graphics {
 
 		buffer *target; ///< Target buffer.
 		// TODO subresource
-		buffer_usage from_state; ///< State to transition from.
-		buffer_usage to_state; ///< State to transition to.
+		buffer_usage from_state = uninitialized; ///< State to transition from.
+		buffer_usage to_state   = uninitialized; ///< State to transition to.
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr buffer_barrier(buffer &b, buffer_usage from, buffer_usage to) :
@@ -1073,5 +1086,18 @@ namespace lotus::graphics {
 		constexpr viewport(aab2f plane, float mind, float maxd) :
 			xy(plane), minimum_depth(mind), maximum_depth(maxd) {
 		}
+	};
+
+	/// The memory layout of an image.
+	struct image_memory_layout {
+		/// No initialization.
+		image_memory_layout(uninitialized_t) {
+		}
+
+		std::size_t offset; ///< Offset, in bytes, from the start of the resource to a subresource.
+		/// The byte offset from the start of one row to the next. This is only meaningful if the image is tiled
+		/// linearly.
+		std::size_t row_pitch;
+		std::size_t total_size; ///< The total size of this subresource.
 	};
 }

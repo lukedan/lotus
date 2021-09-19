@@ -28,7 +28,6 @@ namespace lotus::graphics::backends::directx12 {
 	class device {
 		friend adapter;
 		friend context;
-		friend _details::descriptor_heap;
 		friend frame_buffer::~frame_buffer();
 	protected:
 		/// The capacity of \ref _rtv_descriptors and \ref _dsv_descriptors.
@@ -47,7 +46,7 @@ namespace lotus::graphics::backends::directx12 {
 
 		/// Fills out a \ref descriptor_set_layout object.
 		[[nodiscard]] descriptor_set_layout create_descriptor_set_layout(
-			std::span<const descriptor_range>, shader_stage_mask visible_stages
+			std::span<const descriptor_range_binding>, shader_stage_mask visible_stages
 		);
 
 		/// Calls \p D3D12SerializeVersionedRootSignature() to serialize the root signature, then calls
@@ -78,7 +77,20 @@ namespace lotus::graphics::backends::directx12 {
 		);
 
 		/// Calls \p ID3D12Device::CreateDescriptorHeap().
-		[[nodiscard]] descriptor_pool create_descriptor_pool();
+		[[nodiscard]] descriptor_pool create_descriptor_pool(
+			std::span<const descriptor_range>, std::size_t max_num_sets
+		);
+		/// Allocates descriptors from the given descriptor pool.
+		[[nodiscard]] descriptor_set create_descriptor_set(descriptor_pool&, const descriptor_set_layout&);
+
+		/// Calls \p ID3D12Device::CreateShaderResourceView().
+		void write_descriptor_set_images(
+			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view *const>
+		);
+		/// Calls \p ID3D12Device::CreateSampler().
+		void write_descriptor_set_samplers(
+			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const graphics::sampler *const>
+		);
 
 		/// Fills out a \ref shader object.
 		[[nodiscard]] shader load_shader(std::span<const std::byte>);
@@ -87,11 +99,30 @@ namespace lotus::graphics::backends::directx12 {
 		[[nodiscard]] device_heap create_device_heap(std::size_t size, heap_type);
 
 		/// Calls \p ID3D12Device::CreateCommittedResource().
-		[[nodiscard]] buffer create_committed_buffer(std::size_t size, heap_type, buffer_usage);
+		[[nodiscard]] buffer create_committed_buffer(std::size_t size, heap_type, buffer_usage::mask, buffer_usage);
+		/// Calls \p ID3D12Device::CreateCommittedResource().
+		[[nodiscard]] image2d create_committed_image2d(
+			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			format, image_tiling, image_usage::mask, image_usage
+		);
+		/// Computes the layout of the image using \p ID3D12Device::GetCopyableFootprints(), then creates a buffer
+		/// that can hold it.
+		[[nodiscard]] std::pair<buffer, image_memory_layout> create_committed_buffer_as_image2d(
+			std::size_t width, std::size_t height, format, heap_type,
+			buffer_usage::mask allowed_usage, buffer_usage initial_usage
+		);
+
+		/// Calls \p ID3D12Device::GetCopyableFootprints().
+		[[nodiscard]] image_memory_layout get_image2d_memory_layout(const image2d&, std::uint32_t subresource);
+
 		/// Calls \p ID3D12Resource::Map().
 		[[nodiscard]] void *map_buffer(buffer&, std::size_t begin, std::size_t length);
 		/// Calls \p ID3D12Resource::Unmap().
-		[[nodiscard]] void unmap_buffer(buffer&, std::size_t begin, std::size_t length);
+		void unmap_buffer(buffer&, std::size_t begin, std::size_t length);
+		/// Calls \p ID3D12Resource::Map().
+		[[nodiscard]] void *map_image2d(image2d&, std::uint32_t subresource, std::size_t begin, std::size_t length);
+		/// Calls \p ID3D12Resource::Unmap().
+		void unmap_image2d(image2d&, std::uint32_t subresource, std::size_t begin, std::size_t length);
 
 		/// Fills out all fields in an \ref image2d_view.
 		[[nodiscard]] image2d_view create_image2d_view_from(const image2d&, format, mip_levels);
@@ -106,7 +137,7 @@ namespace lotus::graphics::backends::directx12 {
 
 		/// Fills out all fields in a \ref frame_buffer.
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::span<const graphics::image2d_view*>, const image2d_view*, const pass_resources&
+			std::span<const graphics::image2d_view *const>, const image2d_view*, const pass_resources&
 		);
 
 		/// Calls \p ID3D12Device::CreateFence().
@@ -125,9 +156,13 @@ namespace lotus::graphics::backends::directx12 {
 	private:
 		_details::com_ptr<ID3D12Device8> _device; ///< Pointer to the device.
 		/// Heap used for allocating color descriptors.
-		_details::descriptor_heap _rtv_descriptors = uninitialized;
+		_details::descriptor_heap<1, 8> _rtv_descriptors = nullptr;
 		/// Heap used for allocating depth-stencil descriptors.
-		_details::descriptor_heap _dsv_descriptors = uninitialized;
+		_details::descriptor_heap<1, 1> _dsv_descriptors = nullptr;
+		/// Heap used for allocating shader resource descriptors.
+		_details::descriptor_heap<4, 5> _srv_descriptors = nullptr;
+		/// Heap used for allocating sampler descriptors.
+		_details::descriptor_heap<1, 4> _sampler_descriptors = nullptr;
 
 		/// Initializes this device.
 		explicit device(_details::com_ptr<ID3D12Device8>);

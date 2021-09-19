@@ -21,14 +21,9 @@ namespace lotus::graphics::backends::directx12 {
 
 
 	frame_buffer::~frame_buffer() {
-		for (auto &d : _color) {
-			if (d.is_empty()) {
-				break;
-			}
-			_device->_rtv_descriptors.destroy(std::move(d));
-		}
+		_device->_rtv_descriptors.free(std::move(_color));
 		if (!_depth_stencil.is_empty()) {
-			_device->_dsv_descriptors.destroy(std::move(_depth_stencil));
+			_device->_dsv_descriptors.free(std::move(_depth_stencil));
 		}
 	}
 }

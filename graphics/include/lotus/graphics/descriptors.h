@@ -37,4 +37,26 @@ namespace lotus::graphics {
 			backend::descriptor_set_layout(std::move(base)) {
 		}
 	};
+
+	/// A set of descriptors.
+	class descriptor_set : public backend::descriptor_set {
+		friend device;
+	public:
+		/// Move constructor.
+		descriptor_set(descriptor_set &&src) noexcept : backend::descriptor_set(std::move(src)) {
+		}
+		/// No copy construction.
+		descriptor_set(const descriptor_set&) = delete;
+		/// Move assignment.
+		descriptor_set &operator=(descriptor_set &&src) noexcept {
+			backend::descriptor_set::operator=(std::move(src));
+			return *this;
+		}
+		/// No copy assignment.
+		descriptor_set &operator=(const descriptor_set&) = delete;
+	protected:
+		/// Initializes the base type.
+		descriptor_set(backend::descriptor_set base) : backend::descriptor_set(std::move(base)) {
+		}
+	};
 }

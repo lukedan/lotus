@@ -15,6 +15,9 @@ ps_input main_vs(vs_input input) {
 	return output;
 }
 
+uniform Texture2D<float4> albedo : register(t0);
+uniform SamplerState point_sampler : register(s1);
+
 float4 main_ps(ps_input input) : SV_Target0 {
-	return float4(input.uv, 1.0f - input.uv.x - input.uv.y, 1.0f);
+	return albedo.SampleLevel(point_sampler, input.uv, 0);
 }

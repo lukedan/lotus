@@ -84,6 +84,20 @@ namespace lotus::graphics {
 		) {
 			write_descriptor_set_images(set, layout, first_register, { images.begin(), images.end() });
 		}
+		/// Updates the descriptors in the set with the given buffers.
+		void write_descriptor_set_buffers(
+			descriptor_set &set, const descriptor_set_layout &layout,
+			std::size_t first_register, std::span<const buffer_view> buffers
+		) {
+			backend::device::write_descriptor_set_buffers(set, layout, first_register, buffers);
+		}
+		/// \overload
+		void write_descriptor_set_buffers(
+			descriptor_set &set, const descriptor_set_layout &layout,
+			std::size_t first_register, std::initializer_list<buffer_view> buffers
+		) {
+			write_descriptor_set_buffers(set, layout, first_register, { buffers.begin(), buffers.end() });
+		}
 		/// Updates the descriptors in the set with the given samplers.
 		void write_descriptor_set_samplers(
 			descriptor_set &set, const descriptor_set_layout &layout,
@@ -247,14 +261,14 @@ namespace lotus::graphics {
 			return backend::device::get_image2d_memory_layout(img, subresource);
 		}
 
-		/// Maps the given buffer and ensures that the specified range has up-to-date data. \ref map_buffer() and
-		/// \ref unmap_buffer() calls can be nested. Note that the returned address is to the start of the buffer,
-		/// instead of the requested memory range.
+		/// Maps the given buffer and ensures that the specified range has up-to-date data from the device.
+		/// \ref map_buffer() and \ref unmap_buffer() calls can be nested. Note that the returned address is to the
+		/// start of the buffer, instead of the requested memory range.
 		[[nodiscard]] void *map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
 			return backend::device::map_buffer(buf, begin, length);
 		}
-		/// Unmaps the given buffer and ensures that flushes the specified memory range. \ref map_buffer() and
-		/// \ref unmap_buffer() calls can be nested.
+		/// Unmaps the given buffer and ensures that the specified memory range is flushed to the device.
+		/// \ref map_buffer() and \ref unmap_buffer() calls can be nested.
 		[[nodiscard]] void unmap_buffer(buffer &buf, std::size_t begin, std::size_t length) {
 			return backend::device::unmap_buffer(buf, begin, length);
 		}
@@ -310,6 +324,10 @@ namespace lotus::graphics {
 		}
 
 
+		/// Sets the debug name of the given object.
+		void set_debug_name(buffer &buf, const char8_t *name) {
+			backend::device::set_debug_name(buf, name);
+		}
 		/// Sets the debug name of the given object.
 		void set_debug_name(image &img, const char8_t *name) {
 			backend::device::set_debug_name(img, name);

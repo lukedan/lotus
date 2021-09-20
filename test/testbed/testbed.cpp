@@ -308,8 +308,8 @@ protected:
 	float _zoom_sensitivity = 0.001f; ///< Zoom sensitivity.
 	/// Sensitivity for scrolling to move the camera closer and further from the focus point.
 	float _scroll_sensitivity = 0.95f;
-	lotus::camera_parameters _camera_params = lotus::uninitialized; ///< Camera parameters.
-	lotus::camera _camera = lotus::uninitialized; ///< Camera.
+	lotus::camera_parameters<double> _camera_params = lotus::uninitialized; ///< Camera parameters.
+	lotus::camera<double> _camera = lotus::uninitialized; ///< Camera.
 	GLenum _gl_error = GL_NO_ERROR; ///< OpenGL error.
 
 	lotus::cvec2d _prev_mouse_position = lotus::uninitialized; ///< Last mouse position.
@@ -325,11 +325,11 @@ protected:
 		glViewport(0, 0, _width, _height);
 
 		_camera_params.aspect_ratio = _width / static_cast<double>(_height);
-		_camera = lotus::camera::from_parameters(_camera_params);
+		_camera = lotus::camera<double>::from_parameters(_camera_params);
 	}
 	/// Resets \ref _camera_parameters and \ref _camera.
 	void _reset_camera() {
-		_camera_params = lotus::camera_parameters::create_look_at(lotus::zero, { 3.0, 4.0, 5.0 });
+		_camera_params = lotus::camera_parameters<double>::create_look_at(lotus::zero, { 3.0, 4.0, 5.0 });
 		_on_size(_width, _height);
 	}
 
@@ -363,7 +363,7 @@ protected:
 		_prev_mouse_position = new_position;
 
 		if (camera_changed) {
-			_camera = lotus::camera::from_parameters(_camera_params);
+			_camera = lotus::camera<double>::from_parameters(_camera_params);
 		}
 	}
 	/// Mouse button callback.
@@ -381,7 +381,7 @@ protected:
 		lotus::cvec3d diff = _camera_params.position - _camera_params.look_at;
 		diff *= std::pow(_scroll_sensitivity, yoff);
 		_camera_params.position = _camera_params.look_at + diff;
-		_camera = lotus::camera::from_parameters(_camera_params);
+		_camera = lotus::camera<double>::from_parameters(_camera_params);
 	}
 };
 

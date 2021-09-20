@@ -72,6 +72,10 @@ namespace lotus::graphics {
 		void bind_vertex_buffers(std::size_t start, std::initializer_list<vertex_buffer> buffers) {
 			bind_vertex_buffers(start, { buffers.begin(), buffers.end() });
 		}
+		/// Binds an index buffer for rendering.
+		void bind_index_buffer(const buffer &buf, std::size_t offset, index_format fmt) {
+			backend::command_list::bind_index_buffer(buf, offset, fmt);
+		}
 		/// Binds descriptor sets for rendering.
 		void bind_descriptor_sets(std::size_t first, std::span<const descriptor_set *const> sets) {
 			backend::command_list::bind_descriptor_sets(first, sets);
@@ -122,6 +126,16 @@ namespace lotus::graphics {
 			std::size_t first_instance, std::size_t instance_count
 		) {
 			backend::command_list::draw_instanced(first_vertex, vertex_count, first_instance, instance_count);
+		}
+		/// Indexed instanced draw operation.
+		void draw_indexed_instanced(
+			std::size_t first_index, std::size_t index_count,
+			std::size_t first_vertex,
+			std::size_t first_instance, std::size_t instance_count
+		) {
+			backend::command_list::draw_indexed_instanced(
+				first_index, index_count, first_vertex, first_instance, instance_count
+			);
 		}
 
 		/// Inserts an resource barrier. This should only be called out of render passes.

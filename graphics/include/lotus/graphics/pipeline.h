@@ -69,8 +69,16 @@ namespace lotus::graphics {
 	class pipeline_state : public backend::pipeline_state {
 		friend device;
 	public:
+		/// Move constructor.
+		pipeline_state(pipeline_state &&src) : backend::pipeline_state(std::move(src)) {
+		}
 		/// No copy construction.
 		pipeline_state(const pipeline_state&) = delete;
+		/// Move assignment.
+		pipeline_state &operator=(pipeline_state &&src) {
+			backend::pipeline_state::operator=(std::move(src));
+			return *this;
+		}
 		/// No copy assignment.
 		pipeline_state &operator=(const pipeline_state&) = delete;
 	protected:

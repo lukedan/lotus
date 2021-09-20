@@ -87,6 +87,14 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[fmt];
 		}
 
+		DXGI_FORMAT for_index_format(index_format fmt) {
+			constexpr static enum_mapping<index_format, DXGI_FORMAT> table{
+				std::pair(index_format::uint16, DXGI_FORMAT_R16_UINT),
+				std::pair(index_format::uint32, DXGI_FORMAT_R32_UINT),
+			};
+			return table[fmt];
+		}
+
 		D3D12_TEXTURE_LAYOUT for_image_tiling(image_tiling tiling) {
 			constexpr static enum_mapping<image_tiling, D3D12_TEXTURE_LAYOUT> table{
 				std::pair(image_tiling::row_major, D3D12_TEXTURE_LAYOUT_ROW_MAJOR),
@@ -516,8 +524,6 @@ namespace lotus::graphics::backends::directx12::_details {
 					}
 				}
 			} else if (type == heap_type::upload) {
-				assert(initial_usage == buffer_usage::copy_source);
-				assert(all_usages == buffer_usage::mask::copy_source);
 				states = D3D12_RESOURCE_STATE_GENERIC_READ;
 			}
 		}

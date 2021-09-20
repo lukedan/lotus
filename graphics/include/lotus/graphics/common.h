@@ -169,6 +169,14 @@ namespace lotus::graphics {
 		}
 	};
 
+	/// Format used by the index buffer.
+	enum class index_format {
+		uint16, ///< 16-bit unsigned integers.
+		uint32, ///< 32-bit unsigned integers.
+
+		num_enumerators ///< The number of enumerators.
+	};
+
 	/// Specifies the tiling of an image.
 	enum class image_tiling {
 		/// The image is stored as a row-major matrix of pixels, with potential padding between rows and array/depth
@@ -1055,15 +1063,41 @@ namespace lotus::graphics {
 		vertex_buffer(uninitialized_t) {
 		}
 		/// Creates a new object with the given values.
-		[[nodiscard]] constexpr inline static vertex_buffer from_buffer_stride(buffer &b, std::size_t s) {
-			return vertex_buffer(b, s);
+		[[nodiscard]] constexpr inline static vertex_buffer from_buffer_offset_stride(
+			buffer &b, std::size_t off, std::size_t s
+		) {
+			return vertex_buffer(b, off, s);
 		}
 
 		buffer *data; ///< Data for the vertex buffer.
+		std::size_t offset; ///< Offset from the start of the buffer.
 		std::size_t stride; ///< The stride of a single vertex.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr vertex_buffer(buffer &b, std::size_t s) : data(&b), stride(s) {
+		constexpr vertex_buffer(buffer &b, std::size_t off, std::size_t s) : data(&b), offset(off), stride(s) {
+		}
+	};
+	/// A view into a structured buffer.
+	struct buffer_view {
+	public:
+		/// No initialization.
+		buffer_view(uninitialized_t) {
+		}
+		/// Creates a new object with the given values.
+		[[nodiscard]] constexpr inline static buffer_view create(
+			buffer &b, std::size_t f, std::size_t sz, std::size_t str
+		) {
+			return buffer_view(b, f, sz, str);
+		}
+
+		buffer *data; ///< Data for the buffer.
+		std::size_t first; ///< Index of the first buffer element.
+		std::size_t size; ///< Size of the buffer in elements.
+		std::size_t stride; ///< Stride between two consecutive buffer elements.
+	protected:
+		/// Initializes all fields of this struct.
+		constexpr buffer_view(buffer &b, std::size_t f, std::size_t sz, std::size_t str) :
+			data(&b), first(f), size(sz), stride(str) {
 		}
 	};
 

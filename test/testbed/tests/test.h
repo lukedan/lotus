@@ -27,6 +27,6 @@ public:
 	}
 
 
-	lotus::camera_parameters camera_params = lotus::uninitialized; /// Camera parameters.
-	lotus::camera camera = lotus::uninitialized; ///< Camera.
+	lotus::camera_parameters<double> camera_params = lotus::uninitialized; /// Camera parameters.
+	lotus::camera<double> camera = lotus::uninitialized; ///< Camera.
 };

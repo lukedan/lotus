@@ -112,6 +112,17 @@ namespace lotus {
 			}
 		}
 
+		/// Converts all elements into the specified type.
+		template <typename U> [[nodiscard]] constexpr matrix<Cols, Rows, U> into() const {
+			matrix<Cols, Rows, U> result = zero;
+			for (std::size_t y = 0; y < Rows; ++y) {
+				for (std::size_t x = 0; x < Cols; ++x) {
+					result(y, x) = static_cast<U>(elements[y][x]);
+				}
+			}
+			return result;
+		}
+
 		/// Returns the transposed matrix.
 		[[nodiscard]] constexpr matrix<Cols, Rows, T> transposed() const {
 			matrix<Cols, Rows, T> result = zero;

@@ -304,18 +304,7 @@ namespace lotus::graphics::backends::directx12 {
 		descriptor_set &set, const descriptor_set_layout &layout,
 		std::size_t first_register, std::span<const image_view *const> images
 	) {
-		auto range_it = std::lower_bound(
-			layout._ranges.begin(), layout._ranges.end(), first_register,
-			[](const D3D12_DESCRIPTOR_RANGE1 &range, std::size_t reg) {
-				if (range.RangeType != D3D12_DESCRIPTOR_RANGE_TYPE_SRV) {
-					return range.BaseShaderRegister + range.NumDescriptors < reg + 1;
-				}
-				return range.RangeType < D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-			}
-		);
-		assert(range_it != layout._ranges.end());
-		assert(range_it->BaseShaderRegister <= first_register);
-		assert(range_it->BaseShaderRegister + range_it->NumDescriptors >= first_register + images.size());
+		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, images.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = set._shader_resource_descriptors.get_cpu(
 			range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
@@ -327,22 +316,37 @@ namespace lotus::graphics::backends::directx12 {
 		}
 	}
 
+	void device::write_descriptor_set_buffers(
+		descriptor_set &set, const descriptor_set_layout &layout,
+		std::size_t first_register, std::span<const buffer_view> buffers
+	) {
+		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, buffers.size());
+		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = set._shader_resource_descriptors.get_cpu(
+			range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
+		);
+		for (const auto &buf : buffers) {
+			auto *buf_data = static_cast<const buffer*>(buf.data);
+			D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+			desc.Format                     = DXGI_FORMAT_UNKNOWN;
+			desc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
+			desc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			desc.Buffer.FirstElement        = buf.first;
+			desc.Buffer.NumElements         = buf.size;
+			desc.Buffer.StructureByteStride = buf.stride;
+			desc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
+			_device->CreateShaderResourceView(buf_data->_buffer.Get(), &desc, current_descriptor);
+			current_descriptor.ptr += increment;
+		}
+	}
+
 	void device::write_descriptor_set_samplers(
 		descriptor_set &set, const descriptor_set_layout &layout,
 		std::size_t first_register, std::span<const graphics::sampler *const> samplers
 	) {
-		auto range_it = std::lower_bound(
-			layout._ranges.begin(), layout._ranges.end(), first_register,
-			[](const D3D12_DESCRIPTOR_RANGE1 &range, std::size_t reg) {
-				if (range.RangeType != D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER) {
-					return range.BaseShaderRegister + range.NumDescriptors < reg + 1;
-				}
-				return range.RangeType < D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-			}
+		auto range_it = layout._find_register_range(
+			D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, first_register, samplers.size()
 		);
-		assert(range_it != layout._ranges.end());
-		assert(range_it->BaseShaderRegister <= first_register);
-		assert(range_it->BaseShaderRegister + range_it->NumDescriptors >= first_register + samplers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = set._sampler_descriptors.get_cpu(
 			range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
@@ -396,7 +400,7 @@ namespace lotus::graphics::backends::directx12 {
 		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
 		format fmt, image_tiling tiling, image_usage::mask all_usages, image_usage initial_usage
 	) {
-		image2d result;
+		image2d result = nullptr;
 		D3D12_HEAP_PROPERTIES heap_properties = _details::heap_type_to_properties(heap_type::device_only);
 		D3D12_RESOURCE_DESC desc = _details::resource_desc::for_image2d(
 			width, height, array_slices, mip_levels, fmt, tiling

@@ -58,6 +58,9 @@ namespace lotus::graphics {
 			"Image types must be derived from the base image type"
 		);
 
+		/// Creates an empty object.
+		image2d(std::nullptr_t) : backend::image2d(nullptr) {
+		}
 		/// Move constructor.
 		image2d(image2d &&src) noexcept : backend::image2d(std::move(src)) {
 		}

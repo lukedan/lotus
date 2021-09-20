@@ -110,15 +110,24 @@ namespace lotus::graphics::backends::directx12 {
 			buffers.size(), D3D12_VERTEX_BUFFER_VIEW()
 		);
 		for (std::size_t i = 0; i < buffers.size(); ++i) {
-			auto *buf = static_cast<buffer*>(buffers[i].data);
+			auto &vert_buf = buffers[i];
+			auto *buf = static_cast<buffer*>(vert_buf.data);
 			bindings[i] = {};
-			bindings[i].BufferLocation = buf->_buffer->GetGPUVirtualAddress();
-			bindings[i].SizeInBytes    = static_cast<UINT>(buf->_buffer->GetDesc().Width);
-			bindings[i].StrideInBytes  = static_cast<UINT>(buffers[i].stride);
+			bindings[i].BufferLocation = buf->_buffer->GetGPUVirtualAddress() + vert_buf.offset;
+			bindings[i].SizeInBytes    = static_cast<UINT>(buf->_buffer->GetDesc().Width - vert_buf.offset);
+			bindings[i].StrideInBytes  = static_cast<UINT>(vert_buf.stride);
 		}
 		_list->IASetVertexBuffers(
 			static_cast<UINT>(start), static_cast<UINT>(buffers.size()), bindings.data()
 		);
+	}
+
+	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset, index_format fmt) {
+		D3D12_INDEX_BUFFER_VIEW buf_view = {};
+		buf_view.BufferLocation = buf._buffer->GetGPUVirtualAddress() + offset;
+		buf_view.SizeInBytes    = buf._buffer->GetDesc().Width - offset;
+		buf_view.Format         = _details::conversions::for_index_format(fmt);
+		_list->IASetIndexBuffer(&buf_view);
 	}
 
 	void command_list::bind_descriptor_sets(
@@ -224,6 +233,17 @@ namespace lotus::graphics::backends::directx12 {
 		_list->DrawInstanced(
 			static_cast<UINT>(vertex_count), static_cast<UINT>(instance_count),
 			static_cast<UINT>(first_vertex), static_cast<UINT>(first_instance)
+		);
+	}
+
+	void command_list::draw_indexed_instanced(
+		std::size_t first_index, std::size_t index_count,
+		std::size_t first_vertex,
+		std::size_t first_instance, std::size_t instance_count
+	) {
+		_list->DrawIndexedInstanced(
+			static_cast<UINT>(index_count), static_cast<UINT>(instance_count),
+			static_cast<UINT>(first_index), static_cast<UINT>(first_vertex), static_cast<UINT>(first_instance)
 		);
 	}
 

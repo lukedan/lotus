@@ -87,6 +87,10 @@ namespace lotus::graphics::backends::directx12 {
 		void write_descriptor_set_images(
 			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view *const>
 		);
+		/// Calls \p ID3D12Device::CreateShaderResourceView().
+		void write_descriptor_set_buffers(
+			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const buffer_view>
+		);
 		/// Calls \p ID3D12Device::CreateSampler().
 		void write_descriptor_set_samplers(
 			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const graphics::sampler *const>
@@ -152,6 +156,10 @@ namespace lotus::graphics::backends::directx12 {
 		/// Calls \ref _set_debug_name().
 		void set_debug_name(image &img, const char8_t *name) {
 			_set_debug_name(*static_cast<_details::image*>(&img)->_image.Get(), name);
+		}
+		/// Calls \ref _set_debug_name().
+		void set_debug_name(buffer &buf, const char8_t *name) {
+			_set_debug_name(*buf._buffer.Get(), name);
 		}
 	private:
 		_details::com_ptr<ID3D12Device8> _device; ///< Pointer to the device.

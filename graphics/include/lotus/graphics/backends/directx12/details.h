@@ -29,6 +29,8 @@ namespace lotus::graphics::backends::directx12::_details {
 		// simple enum conversions
 		/// Converts a \ref format to a \p DXGI_FORMAT.
 		[[nodiscard]] DXGI_FORMAT for_format(format);
+		/// Converts a \ref index_format to a \p DXGI_FORMAT.
+		[[nodiscard]] DXGI_FORMAT for_index_format(index_format);
 		/// Converts a \ref image_tiling to a \p D3D12_TEXTURE_LAYOUT.
 		[[nodiscard]] D3D12_TEXTURE_LAYOUT for_image_tiling(image_tiling);
 		/// Converts a \ref blend_factor to a \p D3D12_BLEND.

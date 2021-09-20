@@ -46,7 +46,12 @@ namespace lotus::graphics::backends::directx12 {
 
 	/// A \p ID3D12Resource that represents a 2D image.
 	class image2d : public _details::image {
+		friend device;
 		friend swap_chain;
+	protected:
+		/// Creates an empty object.
+		image2d(std::nullptr_t) {
+		}
 	};
 
 

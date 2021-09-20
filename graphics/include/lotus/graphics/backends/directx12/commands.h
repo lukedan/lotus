@@ -44,6 +44,8 @@ namespace lotus::graphics::backends::directx12 {
 		void bind_pipeline_state(const pipeline_state&);
 		/// Calls \p ID3D12GraphicsCommandList::IASetVertexBuffers().
 		void bind_vertex_buffers(std::size_t, std::span<const vertex_buffer>);
+		/// Calls \p ID3D12GraphicsCommandList::IASetIndexBuffer().
+		void bind_index_buffer(const buffer&, std::size_t offset, index_format);
 		/// Calls \p ID3D12GraphicsCommandList::SetGraphicsRootDescriptorTable() for all given descriptor sets.
 		void bind_descriptor_sets(std::size_t first, std::span<const graphics::descriptor_set *const>);
 
@@ -67,6 +69,12 @@ namespace lotus::graphics::backends::directx12 {
 		/// Calls \p ID3D12GraphicsCommandList::DrawInstanced().
 		void draw_instanced(
 			std::size_t first_vertex, std::size_t vertex_count,
+			std::size_t first_instance, std::size_t instance_count
+		);
+		/// Calls \p ID3D12GraphicsCommandList::DrawIndexedInstanced().
+		void draw_indexed_instanced(
+			std::size_t first_index, std::size_t index_count,
+			std::size_t first_vertex,
 			std::size_t first_instance, std::size_t instance_count
 		);
 

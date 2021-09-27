@@ -88,6 +88,8 @@ namespace lotus::graphics::backends::directx12 {
 	private:
 		_details::com_ptr<ID3D12GraphicsCommandList4> _list; ///< The command list.
 		std::array<ID3D12DescriptorHeap*, 2> _descriptor_heaps; ///< Descriptor heaps.
+		/// Root parameter indices of all descriptor tables.
+		std::span<pipeline_resources::_root_param_indices> _descriptor_table_binding;
 	};
 
 	/// A \p ID3D12CommandAllocator.

@@ -373,15 +373,6 @@ namespace lotus::graphics::backends::directx12::_details {
 		}
 	};
 
-	/// Computes shader resource descriptor table index from descriptor set index.
-	[[nodiscard]] constexpr std::size_t get_shader_resource_descriptor_table_index(std::size_t set_index) {
-		return set_index * 2;
-	}
-	/// Computes sampler descriptor table index from descriptor set index.
-	[[nodiscard]] constexpr std::size_t get_sampler_descriptor_table_index(std::size_t set_index) {
-		return set_index * 2 + 1;
-	}
-
 
 	/// Convenience function used for obtaining a \p D3D12_HEAP_PROPERTIES from a \ref heap_type.
 	[[nodiscard]] D3D12_HEAP_PROPERTIES heap_type_to_properties(heap_type);

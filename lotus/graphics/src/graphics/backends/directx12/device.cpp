@@ -94,12 +94,13 @@ namespace lotus::graphics::backends::directx12 {
 		std::span<const graphics::descriptor_set_layout *const> sets
 	) {
 		_details::com_ptr<ID3DBlob> signature;
+		std::vector<pipeline_resources::_root_param_indices> indices(sets.size(), nullptr);
 		{ // serialize root signature
 			auto bookmark = stack_allocator::scoped_bookmark::create();
 
-			auto root_params = stack_allocator::for_this_thread().create_vector_array<D3D12_ROOT_PARAMETER1>(
-				sets.size() * 2
-			);
+			auto root_params = stack_allocator::for_this_thread().create_reserved_vector_array<
+				D3D12_ROOT_PARAMETER1
+			>(sets.size() * 2);
 			auto descriptor_tables = stack_allocator::for_this_thread().create_reserved_vector_array<
 				std::vector<D3D12_DESCRIPTOR_RANGE1, stack_allocator::allocator<D3D12_DESCRIPTOR_RANGE1>>
 			>(sets.size() * 2);
@@ -109,36 +110,39 @@ namespace lotus::graphics::backends::directx12 {
 				// resources and one for samplers
 				auto &set = *static_cast<const descriptor_set_layout*>(sets[i]);
 
-				// shader resources
-				auto &shader_resource_table = descriptor_tables.emplace_back(
-					stack_allocator::for_this_thread().create_vector_array<D3D12_DESCRIPTOR_RANGE1>(
-						set._ranges.begin(), set._ranges.begin() + set._num_shader_resource_ranges
-					)
-				);
-				for (auto &range : shader_resource_table) {
-					range.RegisterSpace = static_cast<UINT>(i);
+				if (set._num_shader_resource_ranges > 0) { // shader resources
+					auto &shader_resource_table = descriptor_tables.emplace_back(
+						stack_allocator::for_this_thread().create_vector_array<D3D12_DESCRIPTOR_RANGE1>(
+							set._ranges.begin(), set._ranges.begin() + set._num_shader_resource_ranges
+						)
+					);
+					for (auto &range : shader_resource_table) {
+						range.RegisterSpace = static_cast<UINT>(i);
+					}
+					indices[i].resource_index = root_params.size();
+					auto &root_param = root_params.emplace_back();
+					root_param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+					root_param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(shader_resource_table.size());
+					root_param.DescriptorTable.pDescriptorRanges   = shader_resource_table.data();
+					root_param.ShaderVisibility                    = set._visibility;
 				}
-				std::size_t i1 = _details::get_shader_resource_descriptor_table_index(i);
-				root_params[i1].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-				root_params[i1].DescriptorTable.NumDescriptorRanges =
-					static_cast<UINT>(shader_resource_table.size());
-				root_params[i1].DescriptorTable.pDescriptorRanges   = shader_resource_table.data();
-				root_params[i1].ShaderVisibility                    = set._visibility;
 
-				// samplers
-				auto &sampler_table = descriptor_tables.emplace_back(
-					stack_allocator::for_this_thread().create_vector_array<D3D12_DESCRIPTOR_RANGE1>(
-						set._ranges.begin() + set._num_shader_resource_ranges, set._ranges.end()
-					)
-				);
-				for (auto &range : sampler_table) {
-					range.RegisterSpace = static_cast<UINT>(i);
+				if (set._num_shader_resource_ranges < set._ranges.size()) { // samplers
+					auto &sampler_table = descriptor_tables.emplace_back(
+						stack_allocator::for_this_thread().create_vector_array<D3D12_DESCRIPTOR_RANGE1>(
+							set._ranges.begin() + set._num_shader_resource_ranges, set._ranges.end()
+						)
+					);
+					for (auto &range : sampler_table) {
+						range.RegisterSpace = static_cast<UINT>(i);
+					}
+					indices[i].sampler_index = root_params.size();
+					auto &root_param = root_params.emplace_back();
+					root_param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+					root_param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(sampler_table.size());
+					root_param.DescriptorTable.pDescriptorRanges   = sampler_table.data();
+					root_param.ShaderVisibility                    = set._visibility;
 				}
-				std::size_t i2 = _details::get_sampler_descriptor_table_index(i);
-				root_params[i2].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-				root_params[i2].DescriptorTable.NumDescriptorRanges = static_cast<UINT>(sampler_table.size());
-				root_params[i2].DescriptorTable.pDescriptorRanges   = sampler_table.data();
-				root_params[i2].ShaderVisibility                    = set._visibility;
 			}
 
 			D3D12_ROOT_PARAMETER1 param = {};
@@ -164,6 +168,7 @@ namespace lotus::graphics::backends::directx12 {
 		_details::assert_dx(_device->CreateRootSignature(
 			0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&result._signature)
 		));
+		result._descriptor_table_binding = std::move(indices);
 		return result;
 	}
 
@@ -185,6 +190,8 @@ namespace lotus::graphics::backends::directx12 {
 		auto bookmark = stack_allocator::scoped_bookmark::create();
 
 		pipeline_state result;
+
+		result._descriptor_table_binding = resources._descriptor_table_binding;
 
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
 		desc.pRootSignature = resources._signature.Get();

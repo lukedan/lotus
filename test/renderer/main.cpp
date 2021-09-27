@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <chrono>
 
 #include <tiny_gltf.h>
 
@@ -65,6 +66,7 @@ int main() {
 	);
 
 	auto recreate_swapchain = [&](cvec2s size) {
+		auto beg = std::chrono::high_resolution_clock::now();
 		swapchain = nullptr;
 		for (std::size_t i = 0; i < num_swapchain_images; ++i) {
 			views[i] = nullptr;
@@ -91,9 +93,9 @@ int main() {
 			);
 			frame_buffers[i] = dev.create_frame_buffer({ &views[i] }, &depth_buffer_views[i], pass_resources);
 		}
+		auto time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count();
+		std::cout << "Recreate swap chain: " << time << " secs\n";
 	};
-
-	recreate_swapchain(wnd.get_size());
 
 	gltf::Model model;
 	{
@@ -213,7 +215,6 @@ int main() {
 	auto constant_set_layout = dev.create_descriptor_set_layout(
 		{
 			gfx::descriptor_range_binding::create(gfx::descriptor_range::create(gfx::descriptor_type::read_only_buffer, 2), 0),
-			gfx::descriptor_range_binding::create(gfx::descriptor_range::create(gfx::descriptor_type::sampler, 1), 2),
 		},
 		gfx::shader_stage_mask::vertex_shader
 	);
@@ -385,6 +386,7 @@ int main() {
 
 	std::array<gfx::command_list, num_swapchain_images> lists{ nullptr, nullptr };
 	auto record_command_lists = [&](cvec2s viewport) {
+		auto beg = std::chrono::high_resolution_clock::now();
 		for (std::size_t i = 0; i < num_swapchain_images; ++i) {
 			char8_t buffer[20];
 			std::snprintf(reinterpret_cast<char*>(buffer), std::size(buffer), "Back buffer %d", static_cast<int>(i));
@@ -459,9 +461,9 @@ int main() {
 
 			lists[i].finish();
 		}
+		auto time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count();
+		std::cout << "Record command lists: " << time << " secs\n";
 	};
-
-	record_command_lists(wnd.get_size());
 
 	auto cam_params = camera_parameters<float>::create_look_at(cvec3f(0, 100, 0), cvec3f(500, 100, 0));
 	{
@@ -476,20 +478,20 @@ int main() {
 		dev.create_fence(gfx::synchronization_state::set),
 	};
 
+	bool resized = true;
+
 	struct {
 		gfx::device &dev;
 		std::array<gfx::fence, num_swapchain_images> &frame_fences;
 		camera_parameters<float> &cam_params;
-		decltype(recreate_swapchain) &recreate_swapchain;
-		decltype(record_command_lists) &record_command_lists;
-	} closure = { dev, frame_fences, cam_params, recreate_swapchain, record_command_lists };
+		bool &resized;
+	} closure = { dev, frame_fences, cam_params, resized };
 	auto size_node = wnd.on_resize.create_linked_node(
 		[&closure](sys::window&, sys::window_events::resize &info) {
 			for (auto &fence : closure.frame_fences) {
 				closure.dev.wait_for_fence(fence);
 			}
-			closure.recreate_swapchain(info.new_size);
-			closure.record_command_lists(info.new_size);
+			closure.resized = true;
 			closure.cam_params.aspect_ratio = info.new_size[0] / static_cast<float>(info.new_size[1]);
 		}
 	);
@@ -578,6 +580,12 @@ int main() {
 
 	wnd.show_and_activate();
 	while (app.process_message_nonblocking() != sys::message_type::quit) {
+		if (resized) {
+			recreate_swapchain(wnd.get_size());
+			record_command_lists(wnd.get_size());
+			resized = false;
+		}
+
 		auto back_buffer = swapchain.acquire_back_buffer();
 
 		if (back_buffer.on_presented) {

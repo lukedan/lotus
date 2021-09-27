@@ -99,6 +99,7 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	void command_list::bind_pipeline_state(const pipeline_state &state) {
+		_descriptor_table_binding = state._descriptor_table_binding;
 		_list->SetGraphicsRootSignature(state._root_signature.Get());
 		_list->SetPipelineState(state._pipeline.Get());
 		_list->IASetPrimitiveTopology(state._topology);
@@ -134,17 +135,25 @@ namespace lotus::graphics::backends::directx12 {
 		std::size_t first, std::span<const graphics::descriptor_set *const> sets
 	) {
 		for (std::size_t i = 0; i < sets.size(); ++i) {
+			std::size_t set_index = first + i;
 			auto *set = static_cast<const descriptor_set*>(sets[i]);
+			const auto &indices = _descriptor_table_binding[set_index];
+			assert(
+				set->_shader_resource_descriptors.is_empty() ==
+				(indices.resource_index == pipeline_resources::_invalid_root_param)
+			);
+			assert(
+				set->_sampler_descriptors.is_empty() ==
+				(indices.sampler_index == pipeline_resources::_invalid_root_param)
+			);
 			if (!set->_shader_resource_descriptors.is_empty()) {
 				_list->SetGraphicsRootDescriptorTable(
-					static_cast<UINT>(_details::get_shader_resource_descriptor_table_index(first + i)),
-					set->_shader_resource_descriptors.get_gpu(0)
+					indices.resource_index, set->_shader_resource_descriptors.get_gpu(0)
 				);
 			}
 			if (!set->_sampler_descriptors.is_empty()) {
 				_list->SetGraphicsRootDescriptorTable(
-					static_cast<UINT>(_details::get_sampler_descriptor_table_index(first + i)),
-					set->_sampler_descriptors.get_gpu(0)
+					indices.sampler_index, set->_sampler_descriptors.get_gpu(0)
 				);
 			}
 		}

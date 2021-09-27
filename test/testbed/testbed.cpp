@@ -325,7 +325,7 @@ protected:
 		glViewport(0, 0, _width, _height);
 
 		_camera_params.aspect_ratio = _width / static_cast<double>(_height);
-		_camera = lotus::camera<double>::from_parameters(_camera_params);
+		_camera = _camera_params.into_camera();
 	}
 	/// Resets \ref _camera_parameters and \ref _camera.
 	void _reset_camera() {
@@ -363,7 +363,7 @@ protected:
 		_prev_mouse_position = new_position;
 
 		if (camera_changed) {
-			_camera = lotus::camera<double>::from_parameters(_camera_params);
+			_camera = _camera_params.into_camera();
 		}
 	}
 	/// Mouse button callback.
@@ -381,7 +381,7 @@ protected:
 		lotus::cvec3d diff = _camera_params.position - _camera_params.look_at;
 		diff *= std::pow(_scroll_sensitivity, yoff);
 		_camera_params.position = _camera_params.look_at + diff;
-		_camera = lotus::camera<double>::from_parameters(_camera_params);
+		_camera = _camera_params.into_camera();
 	}
 };
 

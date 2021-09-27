@@ -11,9 +11,10 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/thirdparty/tinygltf")
 
 include("cmake/include.cmake")
 
-add_subdirectory("core/")
-add_subdirectory("physics/")
+add_subdirectory("lotus/core/")
+add_subdirectory("lotus/physics/")
 add_subdirectory("system/")
-add_subdirectory("graphics/")
+add_subdirectory("lotus/system/")
+add_subdirectory("lotus/graphics/")
 
 add_subdirectory("test/")

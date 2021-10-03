@@ -56,8 +56,8 @@ namespace lotus::graphics::backends::directx12 {
 			std::span<const graphics::descriptor_set_layout *const>
 		);
 		/// Calls \p ID3D12Device::CreateGraphicsPipelineState().
-		[[nodiscard]] pipeline_state create_pipeline_state(
-			pipeline_resources&,
+		[[nodiscard]] graphics_pipeline_state create_graphics_pipeline_state(
+			const pipeline_resources&,
 			const shader *vertex_shader,
 			const shader *pixel_shader,
 			const shader *domain_shader,
@@ -71,6 +71,8 @@ namespace lotus::graphics::backends::directx12 {
 			const pass_resources&,
 			std::size_t num_viewports
 		);
+		/// Calls \p ID3D12Device::CreateComputePipelineState().
+		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(const pipeline_resources&, const shader&);
 
 		/// Fills in all fields in a \ref pass except for descriptors.
 		[[nodiscard]] pass_resources create_pass_resources(
@@ -91,6 +93,10 @@ namespace lotus::graphics::backends::directx12 {
 		/// Calls \p ID3D12Device::CreateShaderResourceView().
 		void write_descriptor_set_buffers(
 			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const buffer_view>
+		);
+		/// Calls \p ID3D12Device::CreateConstantBufferView().
+		void write_descriptor_set_constant_buffers(
+			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const constant_buffer_view>
 		);
 		/// Calls \p ID3D12Device::CreateSampler().
 		void write_descriptor_set_samplers(

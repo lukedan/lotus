@@ -153,6 +153,11 @@ namespace lotus::graphics {
 		/// Retrieves the \ref format_properties for the given \ref format.
 		[[nodiscard]] static const format_properties &get(format);
 
+		/// Finds the pixel format that has the exact parameters.
+		[[nodiscard]] static format find_exact_rgba(
+			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type type
+		);
+
 		std::uint8_t red_bits;     ///< Number of bits for the red channel.
 		std::uint8_t green_bits;   ///< Number of bits for the green channel.
 		std::uint8_t blue_bits;    ///< Number of bits for the blue channel.
@@ -395,6 +400,7 @@ namespace lotus::graphics {
 		read_write_image,  ///< An image that can be read from or written to.
 		read_only_buffer,  ///< A buffer that can only be read.
 		read_write_buffer, ///< A buffer that can be read from or written to.
+		constant_buffer,   ///< A small buffer containing constants.
 
 		num_enumerators ///< The total number of enumerators.
 	};
@@ -548,6 +554,8 @@ namespace lotus::graphics {
 		adapter_properties(uninitialized_t) {
 		}
 
+		/// Alignment required for multiple regions in a buffer to be used as constant buffers.
+		std::size_t constant_buffer_alignment;
 		bool is_software; ///< Whether this is a software adapter.
 	};
 
@@ -1004,6 +1012,12 @@ namespace lotus::graphics {
 		[[nodiscard]] constexpr inline static descriptor_range_binding create(descriptor_range r, std::size_t reg) {
 			return descriptor_range_binding(r, reg);
 		}
+		/// \overload
+		[[nodiscard]] constexpr inline static descriptor_range_binding create(
+			descriptor_type ty, std::size_t count, std::size_t reg
+		) {
+			return descriptor_range_binding(descriptor_range::create(ty, count), reg);
+		}
 
 		descriptor_range range = uninitialized; ///< The type and number of descriptors.
 		std::size_t register_index; ///< Register index corresponding to this descriptor.
@@ -1083,7 +1097,7 @@ namespace lotus::graphics {
 		/// No initialization.
 		buffer_view(uninitialized_t) {
 		}
-		/// Creates a new object with the given values.
+		/// Creates a new view with the given values.
 		[[nodiscard]] constexpr inline static buffer_view create(
 			buffer &b, std::size_t f, std::size_t sz, std::size_t str
 		) {
@@ -1098,6 +1112,28 @@ namespace lotus::graphics {
 		/// Initializes all fields of this struct.
 		constexpr buffer_view(buffer &b, std::size_t f, std::size_t sz, std::size_t str) :
 			data(&b), first(f), size(sz), stride(str) {
+		}
+	};
+	/// A view into a constant buffer.
+	struct constant_buffer_view {
+	public:
+		/// No initialization.
+		constant_buffer_view(uninitialized_t) {
+		}
+		/// Creates a new view with the given values.
+		[[nodiscard]] constexpr inline static constant_buffer_view create(
+			buffer &b, std::size_t off, std::size_t sz
+		) {
+			return constant_buffer_view(b, off, sz);
+		}
+
+		buffer *data; ///< Data for the buffer.
+		std::size_t offset; ///< Offset to the range to be used as constants.
+		std::size_t size; ///< Size of the range in bytes.
+	protected:
+		/// Initializes all fields of this struct.
+		constexpr constant_buffer_view(buffer &b, std::size_t off, std::size_t sz) :
+			data(&b), offset(off), size(sz) {
 		}
 	};
 

@@ -27,6 +27,11 @@ namespace lotus::graphics::backends::directx12 {
 	class descriptor_set_layout {
 		friend device;
 	protected:
+		/// Creates an invalid layout.
+		descriptor_set_layout(std::nullptr_t) :
+			_visibility(D3D12_SHADER_VISIBILITY_ALL),
+			_num_shader_resource_descriptors(0), _num_sampler_descriptors(0), _num_shader_resource_ranges(0) {
+		}
 	private:
 		// TODO allocator
 		std::vector<D3D12_DESCRIPTOR_RANGE1> _ranges; ///< Descriptor ranges.
@@ -47,6 +52,10 @@ namespace lotus::graphics::backends::directx12 {
 		friend command_list;
 		friend device;
 	public:
+		/// Creates an empty object.
+		descriptor_set(std::nullptr_t) :
+			_shader_resource_descriptors(nullptr), _sampler_descriptors(nullptr), _device(nullptr) {
+		}
 		/// Frees the descriptors if necessary.
 		~descriptor_set();
 	protected:
@@ -55,8 +64,8 @@ namespace lotus::graphics::backends::directx12 {
 		/// Move assignment.
 		descriptor_set &operator=(descriptor_set&&) noexcept;
 	private:
-		_details::descriptor_range _shader_resource_descriptors = nullptr; ///< Shader resource descriptors.
-		_details::descriptor_range _sampler_descriptors = nullptr; ///< Sampler descriptors.
+		_details::descriptor_range _shader_resource_descriptors; ///< Shader resource descriptors.
+		_details::descriptor_range _sampler_descriptors; ///< Sampler descriptors.
 		device *_device; ///< The device that created this descriptor set.
 
 		/// Initializes \ref _device.

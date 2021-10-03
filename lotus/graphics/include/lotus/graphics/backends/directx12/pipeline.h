@@ -10,12 +10,16 @@
 namespace lotus::graphics::backends::directx12 {
 	class device;
 	class command_list;
-	class pipeline_state;
+	class graphics_pipeline_state;
+	class compute_pipeline_state;
 
 	/// Contains a \p D3D12_SHADER_BYTECODE.
 	class shader {
 		friend device;
 	protected:
+		/// Creates an empty shader object.
+		shader(std::nullptr_t) : _shader{} {
+		}
 	private:
 		D3D12_SHADER_BYTECODE _shader; ///< The shader code.
 	};
@@ -24,7 +28,8 @@ namespace lotus::graphics::backends::directx12 {
 	class pipeline_resources {
 		friend command_list;
 		friend device;
-		friend pipeline_state;
+		friend graphics_pipeline_state;
+		friend compute_pipeline_state;
 	protected:
 	private:
 		using _root_param_index = std::uint8_t; ///< Root parameter index.
@@ -50,16 +55,34 @@ namespace lotus::graphics::backends::directx12 {
 		std::vector<_root_param_indices> _descriptor_table_binding;
 	};
 
-	/// A \p ID3D12PipelineState.
-	class pipeline_state {
+	/// A \p ID3D12PipelineState, a \p ID3D12RootSignature, and additional data.
+	class graphics_pipeline_state {
 		friend device;
 		friend command_list;
 	protected:
+		/// Creates an empty state object.
+		graphics_pipeline_state(std::nullptr_t) {
+		}
 	private:
 		/// Root parameter indices of all descriptor tables.
-		std::span<pipeline_resources::_root_param_indices> _descriptor_table_binding;
+		std::span<const pipeline_resources::_root_param_indices> _descriptor_table_binding;
 		_details::com_ptr<ID3D12PipelineState> _pipeline; ///< The \p ID3D12PipelineState object.
 		_details::com_ptr<ID3D12RootSignature> _root_signature; ///< The root signature.
 		D3D_PRIMITIVE_TOPOLOGY _topology; ///< Primitive topology used by this pipeline.
+	};
+
+	/// A \p ID3D12PipelineState and a \p ID3D12RootSignature.
+	class compute_pipeline_state {
+		friend device;
+		friend command_list;
+	protected:
+		/// Creates an empty state object.
+		compute_pipeline_state(std::nullptr_t) {
+		}
+	private:
+		/// Root parameter indices of all descriptor tables.
+		std::span<const pipeline_resources::_root_param_indices> _descriptor_table_binding;
+		_details::com_ptr<ID3D12PipelineState> _pipeline; ///< The \p ID3D12PipelineState object.
+		_details::com_ptr<ID3D12RootSignature> _root_signature; ///< The root signature.
 	};
 }

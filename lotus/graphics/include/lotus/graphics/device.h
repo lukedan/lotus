@@ -70,7 +70,7 @@ namespace lotus::graphics {
 			return backend::device::create_descriptor_set(pool, layout);
 		}
 
-		/// Updates the descriptors in the set with the given images.
+		/// Updates the descriptors in the set with the given read-only images.
 		void write_descriptor_set_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
 			std::size_t first_register, std::span<const image_view *const> images
@@ -84,7 +84,7 @@ namespace lotus::graphics {
 		) {
 			write_descriptor_set_images(set, layout, first_register, { images.begin(), images.end() });
 		}
-		/// Updates the descriptors in the set with the given buffers.
+		/// Updates the descriptors in the set with the given read-only buffers.
 		void write_descriptor_set_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
 			std::size_t first_register, std::span<const buffer_view> buffers
@@ -97,6 +97,20 @@ namespace lotus::graphics {
 			std::size_t first_register, std::initializer_list<buffer_view> buffers
 		) {
 			write_descriptor_set_buffers(set, layout, first_register, { buffers.begin(), buffers.end() });
+		}
+		/// Updates the descriptors in the set with the given constant buffers.
+		void write_descriptor_set_constant_buffers(
+			descriptor_set &set, const descriptor_set_layout &layout,
+			std::size_t first_register, std::span<const constant_buffer_view> buffers
+		) {
+			backend::device::write_descriptor_set_constant_buffers(set, layout, first_register, buffers);
+		}
+		/// \overload
+		void write_descriptor_set_constant_buffers(
+			descriptor_set &set, const descriptor_set_layout &layout,
+			std::size_t first_register, std::initializer_list<constant_buffer_view> buffers
+		) {
+			write_descriptor_set_constant_buffers(set, layout, first_register, { buffers.begin(), buffers.end() });
 		}
 		/// Updates the descriptors in the set with the given samplers.
 		void write_descriptor_set_samplers(
@@ -157,9 +171,9 @@ namespace lotus::graphics {
 		) {
 			return create_pipeline_resources({ sets.begin(), sets.end() });
 		}
-		/// Creates a \ref pipeline_state object.
-		[[nodiscard]] pipeline_state create_pipeline_state(
-			pipeline_resources &resources,
+		/// Creates a \ref graphics_pipeline_state object.
+		[[nodiscard]] graphics_pipeline_state create_graphics_pipeline_state(
+			const pipeline_resources &resources,
 			const shader_set &shaders,
 			const blend_options &blend,
 			const rasterizer_options &rasterizer,
@@ -169,7 +183,7 @@ namespace lotus::graphics {
 			const pass_resources &environment,
 			std::size_t num_viewports = 1
 		) {
-			return backend::device::create_pipeline_state(
+			return backend::device::create_graphics_pipeline_state(
 				resources,
 				shaders.vertex_shader,
 				shaders.pixel_shader,
@@ -186,8 +200,8 @@ namespace lotus::graphics {
 			);
 		}
 		/// \overload
-		[[nodiscard]] pipeline_state create_pipeline_state(
-			pipeline_resources &resources,
+		[[nodiscard]] graphics_pipeline_state create_graphics_pipeline_state(
+			const pipeline_resources &resources,
 			const shader_set &shaders,
 			const blend_options &blend,
 			const rasterizer_options &rasterizer,
@@ -197,11 +211,17 @@ namespace lotus::graphics {
 			const pass_resources &environment,
 			std::size_t num_viewports = 1
 		) {
-			return create_pipeline_state(
+			return create_graphics_pipeline_state(
 				resources, shaders, blend, rasterizer, depth_stencil,
 				{ input_buffers.begin(), input_buffers.end() },
 				topology, environment, num_viewports
 			);
+		}
+		/// Creates a \ref compute_pipeline_state object.
+		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(
+			const pipeline_resources &resources, const shader &compute_shader
+		) {
+			return backend::device::create_compute_pipeline_state(resources, compute_shader);
 		}
 
 		/// Creates a \ref pass object.

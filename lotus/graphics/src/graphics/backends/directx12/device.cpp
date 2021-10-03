@@ -45,7 +45,7 @@ namespace lotus::graphics::backends::directx12 {
 	descriptor_set_layout device::create_descriptor_set_layout(
 		std::span<const descriptor_range_binding> ranges, shader_stage_mask visible_stages
 	) {
-		descriptor_set_layout result;
+		descriptor_set_layout result = nullptr;
 		result._ranges.resize(ranges.size());
 		for (std::size_t i = 0; i < ranges.size(); ++i) {
 			auto &dst = result._ranges[i];
@@ -60,7 +60,7 @@ namespace lotus::graphics::backends::directx12 {
 		std::sort(
 			result._ranges.begin(), result._ranges.end(),
 			[](const D3D12_DESCRIPTOR_RANGE1 &lhs, const D3D12_DESCRIPTOR_RANGE1 &rhs) {
-				if (lhs.RangeType != rhs.RangeType) {
+				if (lhs.RangeType == rhs.RangeType) {
 					return lhs.BaseShaderRegister < rhs.BaseShaderRegister;
 				}
 				return lhs.RangeType < rhs.RangeType;
@@ -119,7 +119,7 @@ namespace lotus::graphics::backends::directx12 {
 					for (auto &range : shader_resource_table) {
 						range.RegisterSpace = static_cast<UINT>(i);
 					}
-					indices[i].resource_index = root_params.size();
+					indices[i].resource_index = static_cast<std::uint8_t>(root_params.size());
 					auto &root_param = root_params.emplace_back();
 					root_param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 					root_param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(shader_resource_table.size());
@@ -136,7 +136,7 @@ namespace lotus::graphics::backends::directx12 {
 					for (auto &range : sampler_table) {
 						range.RegisterSpace = static_cast<UINT>(i);
 					}
-					indices[i].sampler_index = root_params.size();
+					indices[i].sampler_index = static_cast<std::uint8_t>(root_params.size());
 					auto &root_param = root_params.emplace_back();
 					root_param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 					root_param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(sampler_table.size());
@@ -172,8 +172,8 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
-	pipeline_state device::create_pipeline_state(
-		pipeline_resources &resources,
+	graphics_pipeline_state device::create_graphics_pipeline_state(
+		const pipeline_resources &resources,
 		const shader *vertex_shader,
 		const shader *pixel_shader,
 		const shader *domain_shader,
@@ -189,9 +189,7 @@ namespace lotus::graphics::backends::directx12 {
 	) {
 		auto bookmark = stack_allocator::scoped_bookmark::create();
 
-		pipeline_state result;
-
-		result._descriptor_table_binding = resources._descriptor_table_binding;
+		graphics_pipeline_state result = nullptr;
 
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
 		desc.pRootSignature = resources._signature.Get();
@@ -258,8 +256,27 @@ namespace lotus::graphics::backends::directx12 {
 		desc.Flags                           = D3D12_PIPELINE_STATE_FLAG_NONE;
 
 		_details::assert_dx(_device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(&result._pipeline)));
+		result._descriptor_table_binding = resources._descriptor_table_binding;
 		result._root_signature = resources._signature;
 		result._topology = _details::conversions::for_primitive_topology(topology);
+
+		return result;
+	}
+
+	compute_pipeline_state device::create_compute_pipeline_state(const pipeline_resources &rsrc, const shader &shader) {
+		compute_pipeline_state result = nullptr;
+
+		D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
+		desc.pRootSignature                  = rsrc._signature.Get();
+		desc.CS                              = shader._shader;
+		desc.NodeMask                        = 0;
+		desc.CachedPSO.pCachedBlob           = nullptr;
+		desc.CachedPSO.CachedBlobSizeInBytes = 0;
+		desc.Flags                           = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+		_details::assert_dx(_device->CreateComputePipelineState(&desc, IID_PPV_ARGS(&result._pipeline)));
+		result._descriptor_table_binding = rsrc._descriptor_table_binding;
+		result._root_signature = rsrc._signature;
 
 		return result;
 	}
@@ -313,12 +330,20 @@ namespace lotus::graphics::backends::directx12 {
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, images.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = set._shader_resource_descriptors.get_cpu(
-			range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
-		);
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor =
+			set._shader_resource_descriptors.get_cpu(static_cast<_details::descriptor_range::index_t>(
+				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
+			));
 		for (auto *base_view : images) {
 			auto *view = static_cast<const _details::image_view*>(base_view);
-			_device->CreateShaderResourceView(view->_image.Get(), &view->_desc, current_descriptor);
+			// make sure we're viewing depth textures with the correct format
+			D3D12_SHADER_RESOURCE_VIEW_DESC desc = view->_desc;
+			switch (desc.Format) {
+			case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+				desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+				break;
+			}
+			_device->CreateShaderResourceView(view->_image.Get(), &desc, current_descriptor);
 			current_descriptor.ptr += increment;
 		}
 	}
@@ -329,20 +354,42 @@ namespace lotus::graphics::backends::directx12 {
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, buffers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = set._shader_resource_descriptors.get_cpu(
-			range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
-		);
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor =
+			set._shader_resource_descriptors.get_cpu(static_cast<_details::descriptor_range::index_t>(
+				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
+			));
 		for (const auto &buf : buffers) {
 			auto *buf_data = static_cast<const buffer*>(buf.data);
 			D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 			desc.Format                     = DXGI_FORMAT_UNKNOWN;
 			desc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
 			desc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			desc.Buffer.FirstElement        = buf.first;
-			desc.Buffer.NumElements         = buf.size;
-			desc.Buffer.StructureByteStride = buf.stride;
+			desc.Buffer.FirstElement        = static_cast<UINT64>(buf.first);
+			desc.Buffer.NumElements         = static_cast<UINT>(buf.size);
+			desc.Buffer.StructureByteStride = static_cast<UINT>(buf.stride);
 			desc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
 			_device->CreateShaderResourceView(buf_data->_buffer.Get(), &desc, current_descriptor);
+			current_descriptor.ptr += increment;
+		}
+	}
+
+	void device::write_descriptor_set_constant_buffers(
+		descriptor_set &set, const descriptor_set_layout &layout,
+		std::size_t first_register, std::span<const constant_buffer_view> buffers
+	) {
+		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, first_register, buffers.size());
+		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = 
+			set._shader_resource_descriptors.get_cpu(static_cast<_details::descriptor_range::index_t>(
+				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
+			));
+		for (const auto &buf : buffers) {
+			auto *buf_data = static_cast<const buffer*>(buf.data);
+			D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+			desc.BufferLocation = buf_data->_buffer->GetGPUVirtualAddress() + buf.offset;
+			desc.SizeInBytes    =
+				static_cast<UINT>(align_size(buf.size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT));
+			_device->CreateConstantBufferView(&desc, current_descriptor);
 			current_descriptor.ptr += increment;
 		}
 	}
@@ -355,9 +402,10 @@ namespace lotus::graphics::backends::directx12 {
 			D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, first_register, samplers.size()
 		);
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = set._sampler_descriptors.get_cpu(
-			range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
-		);
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor =
+			set._sampler_descriptors.get_cpu(static_cast<_details::descriptor_range::index_t>(
+				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
+			));
 		for (auto *base_sampler : samplers) {
 			auto *samp = static_cast<const sampler*>(base_sampler);
 			_device->CreateSampler(&samp->_desc, current_descriptor);
@@ -366,7 +414,7 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	shader device::load_shader(std::span<const std::byte> data) {
-		shader result;
+		shader result = nullptr;
 		result._shader.pShaderBytecode = data.data();
 		result._shader.BytecodeLength  = static_cast<SIZE_T>(data.size());
 		return result;
@@ -389,7 +437,7 @@ namespace lotus::graphics::backends::directx12 {
 	buffer device::create_committed_buffer(
 		std::size_t size, heap_type type, buffer_usage::mask all_usages, buffer_usage initial_usage
 	) {
-		buffer result;
+		buffer result = nullptr;
 		D3D12_HEAP_PROPERTIES heap_properties = _details::heap_type_to_properties(type);
 		D3D12_RESOURCE_DESC desc = _details::resource_desc::for_buffer(size);
 		D3D12_RESOURCE_STATES states = _details::conversions::for_buffer_usage(initial_usage);
@@ -601,6 +649,7 @@ namespace lotus::graphics::backends::directx12 {
 		DXGI_ADAPTER_DESC1 desc;
 		_details::assert_dx(_adapter->GetDesc1(&desc));
 		result.is_software = desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE;
+		result.constant_buffer_alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
 		// TODO
 		return result;
 	}

@@ -29,6 +29,9 @@ namespace lotus::graphics {
 	class buffer : public backend::buffer {
 		friend device;
 	public:
+		/// Does not create a buffer object.
+		buffer(std::nullptr_t) : backend::buffer(nullptr) {
+		}
 		/// Move constructor.
 		buffer(buffer &&src) noexcept : backend::buffer(std::move(src)) {
 		}

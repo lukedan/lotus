@@ -27,8 +27,19 @@ namespace lotus::graphics {
 	class descriptor_set_layout : public backend::descriptor_set_layout {
 		friend device;
 	public:
+		/// Creates an invalid object.
+		descriptor_set_layout(std::nullptr_t) : backend::descriptor_set_layout(nullptr) {
+		}
+		/// Move construction.
+		descriptor_set_layout(descriptor_set_layout &&src) : backend::descriptor_set_layout(std::move(src)) {
+		}
 		/// No copy construction.
 		descriptor_set_layout(const descriptor_set_layout&) = delete;
+		/// Move assignment.
+		descriptor_set_layout &operator=(descriptor_set_layout &&src) {
+			backend::descriptor_set_layout::operator=(std::move(src));
+			return *this;
+		}
 		/// No copy assignment.
 		descriptor_set_layout &operator=(const descriptor_set_layout&) = delete;
 	protected:
@@ -42,6 +53,9 @@ namespace lotus::graphics {
 	class descriptor_set : public backend::descriptor_set {
 		friend device;
 	public:
+		/// Creates an empty object.
+		descriptor_set(std::nullptr_t) : backend::descriptor_set(nullptr) {
+		}
 		/// Move constructor.
 		descriptor_set(descriptor_set &&src) noexcept : backend::descriptor_set(std::move(src)) {
 		}

@@ -28,6 +28,9 @@ namespace lotus::graphics::backends::directx12 {
 		friend command_list;
 		friend device;
 	protected:
+		/// Creates an invalid buffer object.
+		buffer(std::nullptr_t) {
+		}
 	private:
 		_details::com_ptr<ID3D12Resource> _buffer; ///< The buffer.
 	};

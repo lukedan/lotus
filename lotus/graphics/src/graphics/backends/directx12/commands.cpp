@@ -36,11 +36,14 @@ namespace lotus::graphics::backends::directx12 {
 
 
 	void command_list::reset(command_allocator &allocator) {
-		_details::assert_dx(_list->Reset(allocator._allocator.Get(), nullptr));
+		if (_can_reset) {
+			_details::assert_dx(_list->Reset(allocator._allocator.Get(), nullptr));
+			_can_reset = false;
+		}
 	}
 
 	void command_list::start() {
-		_list->SetDescriptorHeaps(_descriptor_heaps.size(), _descriptor_heaps.data());
+		_list->SetDescriptorHeaps(static_cast<UINT>(_descriptor_heaps.size()), _descriptor_heaps.data());
 	}
 
 	void command_list::begin_pass(
@@ -98,11 +101,17 @@ namespace lotus::graphics::backends::directx12 {
 		_list->ResourceBarrier(static_cast<UINT>(resources.size()), resources.data());
 	}
 
-	void command_list::bind_pipeline_state(const pipeline_state &state) {
+	void command_list::bind_pipeline_state(const graphics_pipeline_state &state) {
 		_descriptor_table_binding = state._descriptor_table_binding;
 		_list->SetGraphicsRootSignature(state._root_signature.Get());
 		_list->SetPipelineState(state._pipeline.Get());
 		_list->IASetPrimitiveTopology(state._topology);
+	}
+
+	void command_list::bind_pipeline_state(const compute_pipeline_state &state) {
+		_descriptor_table_binding = state._descriptor_table_binding;
+		_list->SetComputeRootSignature(state._root_signature.Get());
+		_list->SetPipelineState(state._pipeline.Get());
 	}
 
 	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
@@ -126,12 +135,12 @@ namespace lotus::graphics::backends::directx12 {
 	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset, index_format fmt) {
 		D3D12_INDEX_BUFFER_VIEW buf_view = {};
 		buf_view.BufferLocation = buf._buffer->GetGPUVirtualAddress() + offset;
-		buf_view.SizeInBytes    = buf._buffer->GetDesc().Width - offset;
+		buf_view.SizeInBytes    = static_cast<UINT>(buf._buffer->GetDesc().Width - offset);
 		buf_view.Format         = _details::conversions::for_index_format(fmt);
 		_list->IASetIndexBuffer(&buf_view);
 	}
 
-	void command_list::bind_descriptor_sets(
+	void command_list::bind_graphics_descriptor_sets(
 		std::size_t first, std::span<const graphics::descriptor_set *const> sets
 	) {
 		for (std::size_t i = 0; i < sets.size(); ++i) {
@@ -153,6 +162,34 @@ namespace lotus::graphics::backends::directx12 {
 			}
 			if (!set->_sampler_descriptors.is_empty()) {
 				_list->SetGraphicsRootDescriptorTable(
+					indices.sampler_index, set->_sampler_descriptors.get_gpu(0)
+				);
+			}
+		}
+	}
+
+	void command_list::bind_compute_descriptor_sets(
+		std::size_t first, std::span<const graphics::descriptor_set *const> sets
+	) {
+		for (std::size_t i = 0; i < sets.size(); ++i) {
+			std::size_t set_index = first + i;
+			auto *set = static_cast<const descriptor_set*>(sets[i]);
+			const auto &indices = _descriptor_table_binding[set_index];
+			assert(
+				set->_shader_resource_descriptors.is_empty() ==
+				(indices.resource_index == pipeline_resources::_invalid_root_param)
+			);
+			assert(
+				set->_sampler_descriptors.is_empty() ==
+				(indices.sampler_index == pipeline_resources::_invalid_root_param)
+			);
+			if (!set->_shader_resource_descriptors.is_empty()) {
+				_list->SetComputeRootDescriptorTable(
+					indices.resource_index, set->_shader_resource_descriptors.get_gpu(0)
+				);
+			}
+			if (!set->_sampler_descriptors.is_empty()) {
+				_list->SetComputeRootDescriptorTable(
 					indices.sampler_index, set->_sampler_descriptors.get_gpu(0)
 				);
 			}
@@ -256,12 +293,17 @@ namespace lotus::graphics::backends::directx12 {
 		);
 	}
 
+	void command_list::run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z) {
+		_list->Dispatch(x, y, z);
+	}
+
 	void command_list::end_pass() {
 		_list->EndRenderPass();
 	}
 
 	void command_list::finish() {
 		_details::assert_dx(_list->Close());
+		_can_reset = true;
 	}
 
 

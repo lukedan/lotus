@@ -58,7 +58,7 @@ namespace lotus {
 			return camera_parameters(from_pos, at, up, near_clip, far_clip, fovy_rads, asp_ratio);
 		}
 
-		/// Creates a camera that correspond to this set of parameters.
+		/// Creates a camera that correspond to this set of parameters, using reversed depth.
 		[[nodiscard]] /*constexpr*/ camera<T> into_camera() const {
 			cvec3<T> unit_forward = vec::unsafe_normalize(look_at - position);
 			cvec3<T> unit_right = vec::unsafe_normalize(vec::cross(unit_forward, world_up));
@@ -76,8 +76,8 @@ namespace lotus {
 			mat44<T> projection = zero;
 			projection(0, 0) = f / aspect_ratio;
 			projection(1, 1) = f;
-			projection(2, 2) = -far_plane / (near_plane - far_plane);
-			projection(2, 3) = near_plane * far_plane / (near_plane - far_plane);
+			projection(2, 2) = -near_plane / (far_plane - near_plane);
+			projection(2, 3) = near_plane * far_plane / (far_plane - near_plane);
 			projection(3, 2) = 1.0f;
 
 			return camera(unit_forward, unit_right, unit_up, view, projection);

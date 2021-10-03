@@ -41,14 +41,17 @@ namespace lotus::graphics::backends::directx12 {
 		);
 
 		/// Calls \p ID3D12GraphicsCommandList::SetPipelineState().
-		void bind_pipeline_state(const pipeline_state&);
+		void bind_pipeline_state(const graphics_pipeline_state&);
+		/// Calls \p ID3D12GraphicsCommandList::SetPipelineState().
+		void bind_pipeline_state(const compute_pipeline_state&);
 		/// Calls \p ID3D12GraphicsCommandList::IASetVertexBuffers().
 		void bind_vertex_buffers(std::size_t, std::span<const vertex_buffer>);
 		/// Calls \p ID3D12GraphicsCommandList::IASetIndexBuffer().
 		void bind_index_buffer(const buffer&, std::size_t offset, index_format);
 		/// Calls \p ID3D12GraphicsCommandList::SetGraphicsRootDescriptorTable() for all given descriptor sets.
-		void bind_descriptor_sets(std::size_t first, std::span<const graphics::descriptor_set *const>);
-
+		void bind_graphics_descriptor_sets(std::size_t first, std::span<const graphics::descriptor_set *const>);
+		/// Calls \p ID3D12GraphicsCommandList::SetComputeRootDescriptorTable() for all given descriptor sets.
+		void bind_compute_descriptor_sets(std::size_t first, std::span<const graphics::descriptor_set *const>);
 		/// Calls \p ID3D12GraphicsCommandList::RSSetViewports().
 		void set_viewports(std::span<const viewport>);
 		/// Calls \p ID3D12GraphicsCommandList::RSSetScissorRects().
@@ -77,6 +80,8 @@ namespace lotus::graphics::backends::directx12 {
 			std::size_t first_vertex,
 			std::size_t first_instance, std::size_t instance_count
 		);
+		/// Calls \p ID3D12GraphicsCommandList::Dispatch().
+		void run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z);
 
 		/// Calls \p ID3D12GraphicsCommandList::ResourceBarrier() to insert a resource barrier.
 		void resource_barrier(std::span<const image_barrier>, std::span<const buffer_barrier>);
@@ -89,7 +94,10 @@ namespace lotus::graphics::backends::directx12 {
 		_details::com_ptr<ID3D12GraphicsCommandList4> _list; ///< The command list.
 		std::array<ID3D12DescriptorHeap*, 2> _descriptor_heaps; ///< Descriptor heaps.
 		/// Root parameter indices of all descriptor tables.
-		std::span<pipeline_resources::_root_param_indices> _descriptor_table_binding;
+		std::span<const pipeline_resources::_root_param_indices> _descriptor_table_binding;
+		/// Indicates whether this command list can be reset. In particular, a command list cannot be reset when it's
+		/// first created; it must be closed before it can be reset.
+		bool _can_reset = false;
 	};
 
 	/// A \p ID3D12CommandAllocator.

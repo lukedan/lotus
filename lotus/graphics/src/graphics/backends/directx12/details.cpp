@@ -215,6 +215,7 @@ namespace lotus::graphics::backends::directx12::_details {
 				std::pair(descriptor_type::read_write_image,  D3D12_DESCRIPTOR_RANGE_TYPE_UAV    ),
 				std::pair(descriptor_type::read_only_buffer,  D3D12_DESCRIPTOR_RANGE_TYPE_SRV    ),
 				std::pair(descriptor_type::read_write_buffer, D3D12_DESCRIPTOR_RANGE_TYPE_UAV    ),
+				std::pair(descriptor_type::constant_buffer,   D3D12_DESCRIPTOR_RANGE_TYPE_CBV    ),
 			};
 			return table[ty];
 		}
@@ -500,7 +501,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			D3D12_RESOURCE_DESC desc = {};
 			desc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
 			desc.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-			desc.Width              = size;
+			desc.Width              = align_size(size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 			desc.Height             = 1;
 			desc.DepthOrArraySize   = 1;
 			desc.MipLevels          = 1;

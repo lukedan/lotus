@@ -61,7 +61,11 @@ namespace lotus::graphics {
 		}
 
 		/// Sets all state of the fixed-function graphics pipeline.
-		void bind_pipeline_state(const pipeline_state &state) {
+		void bind_pipeline_state(const graphics_pipeline_state &state) {
+			backend::command_list::bind_pipeline_state(state);
+		}
+		/// Sets all state of the compute pipeline.
+		void bind_pipeline_state(const compute_pipeline_state &state) {
 			backend::command_list::bind_pipeline_state(state);
 		}
 		/// Binds vertex buffers for rendering.
@@ -77,12 +81,20 @@ namespace lotus::graphics {
 			backend::command_list::bind_index_buffer(buf, offset, fmt);
 		}
 		/// Binds descriptor sets for rendering.
-		void bind_descriptor_sets(std::size_t first, std::span<const descriptor_set *const> sets) {
-			backend::command_list::bind_descriptor_sets(first, sets);
+		void bind_graphics_descriptor_sets(std::size_t first, std::span<const descriptor_set *const> sets) {
+			backend::command_list::bind_graphics_descriptor_sets(first, sets);
 		}
 		/// \overload
-		void bind_descriptor_sets(std::size_t first, std::initializer_list<const descriptor_set*> sets) {
-			bind_descriptor_sets(first, { sets.begin(), sets.end() });
+		void bind_graphics_descriptor_sets(std::size_t first, std::initializer_list<const descriptor_set*> sets) {
+			bind_graphics_descriptor_sets(first, { sets.begin(), sets.end() });
+		}
+		/// Binds descriptor sets for compute.
+		void bind_compute_descriptor_sets(std::size_t first, std::span<const descriptor_set *const> sets) {
+			backend::command_list::bind_compute_descriptor_sets(first, sets);
+		}
+		/// \overload
+		void bind_compute_descriptor_sets(std::size_t first, std::initializer_list<const descriptor_set*> sets) {
+			bind_compute_descriptor_sets(first, { sets.begin(), sets.end() });
 		}
 
 		/// Sets the viewports used for rendering.
@@ -136,6 +148,10 @@ namespace lotus::graphics {
 			backend::command_list::draw_indexed_instanced(
 				first_index, index_count, first_vertex, first_instance, instance_count
 			);
+		}
+		/// Runs the currently bound compute shader.
+		void run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z) {
+			backend::command_list::run_compute_shader(x, y, z);
 		}
 
 		/// Inserts an resource barrier. This should only be called out of render passes.

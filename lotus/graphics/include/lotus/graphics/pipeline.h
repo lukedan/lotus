@@ -12,8 +12,19 @@ namespace lotus::graphics {
 	class shader : public backend::shader {
 		friend device;
 	public:
+		/// Creates an empty shader object.
+		shader(std::nullptr_t) : backend::shader(nullptr) {
+		}
+		/// Move constructor.
+		shader(shader &&src) : backend::shader(std::move(src)) {
+		}
 		/// No copy construction.
 		shader(const shader&) = delete;
+		/// Move assignment.
+		shader &operator=(shader &&src) {
+			backend::shader::operator=(std::move(src));
+			return *this;
+		}
 		/// No copy assignment.
 		shader &operator=(const shader&) = delete;
 	protected:
@@ -65,25 +76,55 @@ namespace lotus::graphics {
 		}
 	};
 
-	/// Describes the full state of the pipeline.
-	class pipeline_state : public backend::pipeline_state {
+	/// Describes the full state of the graphics pipeline.
+	class graphics_pipeline_state : public backend::graphics_pipeline_state {
 		friend device;
 	public:
+		/// Creates an empty pipeline state object.
+		graphics_pipeline_state(std::nullptr_t) : backend::graphics_pipeline_state(nullptr) {
+		}
 		/// Move constructor.
-		pipeline_state(pipeline_state &&src) : backend::pipeline_state(std::move(src)) {
+		graphics_pipeline_state(graphics_pipeline_state &&src) : backend::graphics_pipeline_state(std::move(src)) {
 		}
 		/// No copy construction.
-		pipeline_state(const pipeline_state&) = delete;
+		graphics_pipeline_state(const graphics_pipeline_state&) = delete;
 		/// Move assignment.
-		pipeline_state &operator=(pipeline_state &&src) {
-			backend::pipeline_state::operator=(std::move(src));
+		graphics_pipeline_state &operator=(graphics_pipeline_state &&src) {
+			backend::graphics_pipeline_state::operator=(std::move(src));
 			return *this;
 		}
 		/// No copy assignment.
-		pipeline_state &operator=(const pipeline_state&) = delete;
+		graphics_pipeline_state &operator=(const graphics_pipeline_state&) = delete;
 	protected:
-		/// Initializes the base \ref pipeline_state.
-		pipeline_state(backend::pipeline_state base) : backend::pipeline_state(std::move(base)) {
+		/// Initializes the base \ref graphics_pipeline_state.
+		graphics_pipeline_state(backend::graphics_pipeline_state base) :
+			backend::graphics_pipeline_state(std::move(base)) {
+		}
+	};
+
+	/// Describes the full state of the compute pipeline.
+	class compute_pipeline_state : public backend::compute_pipeline_state {
+		friend device;
+	public:
+		/// Creates an empty pipeline state object.
+		compute_pipeline_state(std::nullptr_t) : backend::compute_pipeline_state(nullptr) {
+		}
+		/// Move constructor.
+		compute_pipeline_state(compute_pipeline_state &&src) : backend::compute_pipeline_state(std::move(src)) {
+		}
+		/// No copy construction.
+		compute_pipeline_state(const compute_pipeline_state&) = delete;
+		/// Move assignment.
+		compute_pipeline_state &operator=(compute_pipeline_state &&src) {
+			backend::compute_pipeline_state::operator=(std::move(src));
+			return *this;
+		}
+		/// No copy assignment.
+		compute_pipeline_state &operator=(const compute_pipeline_state&) = delete;
+	protected:
+		/// Initializes the base \ref compute_pipeline_state.
+		compute_pipeline_state(backend::compute_pipeline_state base) :
+			backend::compute_pipeline_state(std::move(base)) {
 		}
 	};
 }

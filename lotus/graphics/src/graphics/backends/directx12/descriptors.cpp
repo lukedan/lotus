@@ -12,7 +12,7 @@ namespace lotus::graphics::backends::directx12 {
 		auto range_it = std::lower_bound(
 			_ranges.begin(), _ranges.end(), first_reg,
 			[type](const D3D12_DESCRIPTOR_RANGE1 &range, std::size_t reg) {
-				if (range.RangeType != type) {
+				if (range.RangeType == type) {
 					return range.BaseShaderRegister + range.NumDescriptors < reg + 1;
 				}
 				return range.RangeType < type;

@@ -119,7 +119,17 @@ namespace lotus {
 		[[nodiscard]] constexpr const Value &operator[](Enum v) const {
 			return _mapping[static_cast<std::size_t>(v)].second;
 		}
+		/// Returns the entire table.
+		[[nodiscard]] constexpr const std::array<std::pair<Enum, Value>, NumEnumerators> &get_raw_table() const {
+			return _mapping;
+		}
 	protected:
 		const std::array<std::pair<Enum, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
 	};
+
+
+	/// Aligns the given size.
+	[[nodiscard]] inline constexpr std::size_t align_size(std::size_t size, std::size_t align) {
+		return align * ((size + align - 1) / align);
+	}
 }

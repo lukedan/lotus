@@ -7,3 +7,6 @@
 [submodule "thirdparty/glTF-Sample-Models"]
 	path = thirdparty/glTF-Sample-Models
 	url = https://github.com/KhronosGroup/glTF-Sample-Models.git
+[submodule "tools/shader_parser/thirdparty/DirectXShaderCompiler"]
+	path = thirdparty/DirectXShaderCompiler
+	url = https://github.com/microsoft/DirectXShaderCompiler.git

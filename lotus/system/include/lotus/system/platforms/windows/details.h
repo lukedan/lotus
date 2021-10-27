@@ -47,13 +47,10 @@ namespace lotus::system::platforms::windows::_details {
 		return _string_t(reinterpret_cast<const TCHAR*>(view.data()), view.size(), allocator);
 #endif
 	}
-	/// Converts the given Windows string to a UTF-8 string.
+	/// Converts the given wide Windows string to a UTF-8 string.
 	template <typename Allocator> [[nodiscard]] inline std::basic_string<
 		char8_t, std::char_traits<char8_t>, Allocator
-	> tstring_to_u8string(std::basic_string_view<TCHAR> view, const Allocator &allocator = Allocator()) {
-		using _string_t = std::basic_string<char8_t, std::char_traits<char8_t>, Allocator>;
-
-#ifdef UNICODE
+	> wstring_to_u8string(std::basic_string_view<WCHAR> view, const Allocator &allocator = Allocator()) {
 		// TODO test surrogate chars
 		int len = WideCharToMultiByte(
 			CP_UTF8, 0, view.data(), static_cast<int>(view.size()), nullptr, 0, nullptr, nullptr
@@ -67,17 +64,11 @@ namespace lotus::system::platforms::windows::_details {
 		// remove duplicate null terminator that WideCharToMultiByte() introduces when cchWideChar is -1
 		res.pop_back();
 		return res;
-#else
-		return _string_t(reinterpret_cast<const char8_t*>(view.data()), view.size(), allocator);
-#endif
 	}
 	/// \overload
 	template <typename Allocator> [[nodiscard]] inline std::basic_string<
 		char8_t, std::char_traits<char8_t>, Allocator
-	> tstring_to_u8string(const TCHAR *str, const Allocator &allocator = Allocator()) {
-		using _string_t = std::basic_string<char8_t, std::char_traits<char8_t>, Allocator>;
-
-#ifdef UNICODE
+	> wstring_to_u8string(const WCHAR *str, const Allocator &allocator = Allocator()) {
 		int len = WideCharToMultiByte(CP_UTF8, 0, str, -1, nullptr, 0, nullptr, nullptr);
 		assert_win32(len != 0);
 		std::u8string res(static_cast<std::size_t>(len), static_cast<char8_t>(0), allocator);
@@ -87,8 +78,29 @@ namespace lotus::system::platforms::windows::_details {
 		// remove duplicate null terminator that WideCharToMultiByte() introduces when cchWideChar is -1
 		res.pop_back();
 		return res;
+	}
+	/// Converts the given Windows string to a UTF-8 string.
+	template <typename Allocator> [[nodiscard]] inline std::basic_string<
+		char8_t, std::char_traits<char8_t>, Allocator
+	> tstring_to_u8string(std::basic_string_view<TCHAR> view, const Allocator &allocator = Allocator()) {
+#ifdef UNICODE
+		return wstring_to_u8string(view, allocator);
 #else
-		return _string_t(reinterpret_cast<const char8_t*>(view.data()), view.size(), allocator);
+		return std::basic_string<char8_t, std::char_traits<char8_t>, Allocator>(
+			reinterpret_cast<const char8_t*>(view.data()), view.size(), allocator
+		);
+#endif
+	}
+	/// \overload
+	template <typename Allocator> [[nodiscard]] inline std::basic_string<
+		char8_t, std::char_traits<char8_t>, Allocator
+	> tstring_to_u8string(const TCHAR *str, const Allocator &allocator = Allocator()) {
+#ifdef UNICODE
+		return wstring_to_u8string(str, allocator);
+#else
+		return std::basic_string<char8_t, std::char_traits<char8_t>, Allocator>(
+			reinterpret_cast<const char8_t*>(view.data()), view.size(), allocator
+		);
 #endif
 	}
 }

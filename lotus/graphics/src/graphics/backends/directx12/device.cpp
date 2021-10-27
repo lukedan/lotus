@@ -5,6 +5,8 @@
 
 #include <algorithm>
 
+#include <d3dcompiler.h>
+
 #include "lotus/utils/stack_allocator.h"
 #include "lotus/system/platforms/windows/details.h"
 #include "lotus/graphics/commands.h"
@@ -13,6 +15,13 @@
 #include "lotus/graphics/descriptors.h"
 
 namespace lotus::graphics::backends::directx12 {
+	back_buffer_info device::acquire_back_buffer(swap_chain &s) {
+		back_buffer_info result = uninitialized;
+		result.index = static_cast<std::size_t>(s._swap_chain->GetCurrentBackBufferIndex());
+		result.on_presented = s._synchronization[result.index].notify_fence;
+		return result;
+	}
+
 	command_queue device::create_command_queue() {
 		command_queue result;
 		D3D12_COMMAND_QUEUE_DESC desc = {};
@@ -32,18 +41,21 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
-	command_list device::create_command_list(command_allocator &alloc) {
+	command_list device::create_and_start_command_list(command_allocator &alloc) {
 		command_list result = nullptr;
 		_details::assert_dx(_device->CreateCommandList(
 			0, D3D12_COMMAND_LIST_TYPE_DIRECT, alloc._allocator.Get(), nullptr, IID_PPV_ARGS(&result._list)
 		));
 		result._descriptor_heaps[0] = _srv_descriptors.get_heap();
 		result._descriptor_heaps[1] = _sampler_descriptors.get_heap();
+		result._list->SetDescriptorHeaps(
+			static_cast<UINT>(result._descriptor_heaps.size()), result._descriptor_heaps.data()
+		);
 		return result;
 	}
 
 	descriptor_set_layout device::create_descriptor_set_layout(
-		std::span<const descriptor_range_binding> ranges, shader_stage_mask visible_stages
+		std::span<const descriptor_range_binding> ranges, shader_stage visible_stages
 	) {
 		descriptor_set_layout result = nullptr;
 		result._ranges.resize(ranges.size());
@@ -86,7 +98,7 @@ namespace lotus::graphics::backends::directx12 {
 			}
 			result._num_sampler_descriptors = total_count;
 		}
-		result._visibility = _details::conversions::for_shader_stage_mask(visible_stages);
+		result._visibility = _details::conversions::to_shader_visibility(visible_stages);
 		return result;
 	}
 
@@ -179,7 +191,7 @@ namespace lotus::graphics::backends::directx12 {
 		const shader *domain_shader,
 		const shader *hull_shader,
 		const shader *geometry_shader,
-		const blend_options &blend,
+		std::span<const render_target_blend_options> blend,
 		const rasterizer_options &rasterizer,
 		const depth_stencil_options &depth_stencil,
 		std::span<const input_buffer_layout> input_buffers,
@@ -226,7 +238,7 @@ namespace lotus::graphics::backends::directx12 {
 			auto input_rate = _details::conversions::for_input_buffer_rate(buf.input_rate);
 			for (auto &elem : buf.elements) {
 				auto &elem_desc = element_desc.emplace_back();
-				elem_desc.SemanticName         = elem.semantic_name;
+				elem_desc.SemanticName         = reinterpret_cast<LPCSTR>(elem.semantic_name);
 				elem_desc.SemanticIndex        = elem.semantic_index;
 				elem_desc.Format               = _details::conversions::for_format(elem.element_format);
 				elem_desc.InputSlot            = static_cast<UINT>(buf.buffer_index);
@@ -256,7 +268,6 @@ namespace lotus::graphics::backends::directx12 {
 		desc.Flags                           = D3D12_PIPELINE_STATE_FLAG_NONE;
 
 		_details::assert_dx(_device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(&result._pipeline)));
-		result._descriptor_table_binding = resources._descriptor_table_binding;
 		result._root_signature = resources._signature;
 		result._topology = _details::conversions::for_primitive_topology(topology);
 
@@ -420,6 +431,37 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
+	shader_reflection device::load_shader_reflection(std::span<const std::byte> data) {
+		if (!_dxc_utils) {
+			_details::assert_dx(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&_dxc_utils)));
+		}
+
+		// create container reflection
+		_details::com_ptr<IDxcBlob> blob;
+		{
+			_details::com_ptr<ID3DBlob> d3d_blob;
+			_details::assert_dx(D3DCreateBlob(data.size(), &d3d_blob));
+			_details::assert_dx(d3d_blob->QueryInterface(IID_PPV_ARGS(&blob)));
+			std::memcpy(blob->GetBufferPointer(), data.data(), data.size());
+		}
+		_details::com_ptr<IDxcContainerReflection> container_reflection;
+		_details::assert_dx(DxcCreateInstance(CLSID_DxcContainerReflection, IID_PPV_ARGS(&container_reflection)));
+		_details::assert_dx(container_reflection->Load(blob.Get()));
+
+		UINT32 part_index;
+		_details::com_ptr<IDxcBlob> reflection_blob;
+		_details::assert_dx(container_reflection->FindFirstPartKind(DXC_PART_REFLECTION_DATA, &part_index));
+		_details::assert_dx(container_reflection->GetPartContent(part_index, &reflection_blob));
+
+		shader_reflection result = nullptr;
+		DxcBuffer buf;
+		buf.Encoding = DXC_CP_ACP;
+		buf.Ptr      = reflection_blob->GetBufferPointer();
+		buf.Size     = reflection_blob->GetBufferSize();
+		_details::assert_dx(_dxc_utils->CreateReflection(&buf, IID_PPV_ARGS(&result._reflection)));
+		return result;
+	}
+
 	device_heap device::create_device_heap(std::size_t size, heap_type type) {
 		device_heap result;
 		D3D12_HEAP_DESC desc = {};
@@ -435,15 +477,15 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	buffer device::create_committed_buffer(
-		std::size_t size, heap_type type, buffer_usage::mask all_usages, buffer_usage initial_usage
+		std::size_t size, heap_type type, buffer_usage::mask all_usages
 	) {
 		buffer result = nullptr;
 		D3D12_HEAP_PROPERTIES heap_properties = _details::heap_type_to_properties(type);
 		D3D12_RESOURCE_DESC desc = _details::resource_desc::for_buffer(size);
-		D3D12_RESOURCE_STATES states = _details::conversions::for_buffer_usage(initial_usage);
+		D3D12_RESOURCE_STATES states = D3D12_RESOURCE_STATE_COMMON;
 		D3D12_HEAP_FLAGS heap_flags = D3D12_HEAP_FLAG_NONE;
 		_details::resource_desc::adjust_resource_flags_for_buffer(
-			type, all_usages, initial_usage, desc, states, &heap_flags
+			type, all_usages, desc, states, &heap_flags
 		);
 		_details::assert_dx(_device->CreateCommittedResource(
 			&heap_properties, heap_flags, &desc, states, nullptr, IID_PPV_ARGS(&result._buffer)
@@ -453,14 +495,14 @@ namespace lotus::graphics::backends::directx12 {
 
 	image2d device::create_committed_image2d(
 		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-		format fmt, image_tiling tiling, image_usage::mask all_usages, image_usage initial_usage
+		format fmt, image_tiling tiling, image_usage::mask all_usages
 	) {
 		image2d result = nullptr;
 		D3D12_HEAP_PROPERTIES heap_properties = _details::heap_type_to_properties(heap_type::device_only);
 		D3D12_RESOURCE_DESC desc = _details::resource_desc::for_image2d(
 			width, height, array_slices, mip_levels, fmt, tiling
 		);
-		D3D12_RESOURCE_STATES states = _details::conversions::for_image_usage(initial_usage);
+		D3D12_RESOURCE_STATES states = D3D12_RESOURCE_STATE_COMMON;
 		D3D12_HEAP_FLAGS heap_flags = D3D12_HEAP_FLAG_NONE;
 		_details::resource_desc::adjust_resource_flags_for_image2d(fmt, all_usages, desc, &heap_flags);
 		_details::assert_dx(_device->CreateCommittedResource(
@@ -471,7 +513,7 @@ namespace lotus::graphics::backends::directx12 {
 
 	std::pair<buffer, image_memory_layout> device::create_committed_buffer_as_image2d(
 		std::size_t width, std::size_t height, format fmt, heap_type type,
-		buffer_usage::mask allowed_usage, buffer_usage initial_usage
+		buffer_usage::mask allowed_usage
 	) {
 		D3D12_RESOURCE_DESC image_desc = _details::resource_desc::for_image2d(
 			width, height, 1, 1, fmt, image_tiling::row_major
@@ -484,17 +526,18 @@ namespace lotus::graphics::backends::directx12 {
 		result_layout.offset     = static_cast<std::size_t>(footprint.Offset);
 		result_layout.row_pitch  = static_cast<std::size_t>(footprint.Footprint.RowPitch);
 		result_layout.total_size = static_cast<std::size_t>(total_bytes);
-		buffer result = create_committed_buffer(
-			static_cast<std::size_t>(total_bytes), type, allowed_usage, initial_usage
-		);
+		buffer result = create_committed_buffer(static_cast<std::size_t>(total_bytes), type, allowed_usage);
 		return { result, result_layout };
 	}
 
-	image_memory_layout device::get_image2d_memory_layout(const image2d &img, std::uint32_t subresource) {
+	image_memory_layout device::get_image2d_memory_layout(const image2d &img, subresource_index subresource) {
 		D3D12_RESOURCE_DESC desc = img._image->GetDesc();
 		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 		UINT64 total_bytes = 0;
-		_device->GetCopyableFootprints(&desc, subresource, 1, 0, &footprint, nullptr, nullptr, &total_bytes);
+		_device->GetCopyableFootprints(
+			&desc, _details::compute_subresource_index(subresource, img._image.Get()), 1,
+			0, &footprint, nullptr, nullptr, &total_bytes
+		);
 
 		image_memory_layout result = uninitialized;
 		result.offset     = static_cast<std::size_t>(footprint.Offset);
@@ -519,20 +562,22 @@ namespace lotus::graphics::backends::directx12 {
 		buf._buffer->Unmap(0, &range);
 	}
 
-	void *device::map_image2d(image2d &img, std::uint32_t subresource, std::size_t begin, std::size_t length) {
+	void *device::map_image2d(image2d &img, subresource_index subresource, std::size_t begin, std::size_t length) {
 		void *result = nullptr;
 		D3D12_RANGE range = {};
 		range.Begin = static_cast<SIZE_T>(begin);
 		range.End   = static_cast<SIZE_T>(begin + length);
-		_details::assert_dx(img._image->Map(static_cast<UINT>(subresource), &range, &result));
+		_details::assert_dx(img._image->Map(
+			_details::compute_subresource_index(subresource, img._image.Get()), &range, &result
+		));
 		return result;
 	}
 
-	void device::unmap_image2d(image2d &img, std::uint32_t subresource, std::size_t begin, std::size_t length) {
+	void device::unmap_image2d(image2d &img, subresource_index subresource, std::size_t begin, std::size_t length) {
 		D3D12_RANGE range = {};
 		range.Begin = static_cast<SIZE_T>(begin);
 		range.End   = static_cast<SIZE_T>(begin + length);
-		img._image->Unmap(static_cast<UINT>(subresource), &range);
+		img._image->Unmap(_details::compute_subresource_index(subresource, img._image.Get()), &range);
 	}
 
 	image2d_view device::create_image2d_view_from(const image2d &img, format fmt, mip_levels mip) {
@@ -585,7 +630,7 @@ namespace lotus::graphics::backends::directx12 {
 
 	frame_buffer device::create_frame_buffer(
 		std::span<const graphics::image2d_view *const> color, const image2d_view *depth_stencil,
-		const pass_resources&
+		cvec2s, const pass_resources&
 	) {
 		frame_buffer result(*this);
 		result._color = _rtv_descriptors.allocate(static_cast<_details::descriptor_range::index_t>(color.size()));
@@ -650,6 +695,10 @@ namespace lotus::graphics::backends::directx12 {
 		_details::assert_dx(_adapter->GetDesc1(&desc));
 		result.is_software = desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE;
 		result.constant_buffer_alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+		result.name = system::platforms::windows::_details::wstring_to_u8string(
+			desc.Description, std::allocator<char8_t>()
+		);
+		result.is_discrete = true; // TODO
 		// TODO
 		return result;
 	}

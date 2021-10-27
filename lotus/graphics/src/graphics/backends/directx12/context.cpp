@@ -4,13 +4,15 @@
 /// Implementation of the DirectX 12 backend.
 
 namespace lotus::graphics::backends::directx12 {
-	context::context() {
-		_details::assert_dx(CreateDXGIFactory1(IID_PPV_ARGS(&_dxgi_factory)));
+	context context::create() {
+		context result;
+		_details::assert_dx(CreateDXGIFactory1(IID_PPV_ARGS(&result._dxgi_factory)));
 		{ // enable debug layer
 			_details::com_ptr<ID3D12Debug1> debug;
 			_details::assert_dx(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)));
 			debug->EnableDebugLayer();
 		}
+		return result;
 	}
 
 	swap_chain context::create_swap_chain_for_window(
@@ -46,7 +48,7 @@ namespace lotus::graphics::backends::directx12 {
 		));
 		_details::assert_dx(swap_chain->QueryInterface(IID_PPV_ARGS(&result._swap_chain)));
 
-		result._on_presented.resize(num_frames, nullptr);
+		result._synchronization.resize(num_frames, nullptr);
 
 		return result;
 	}

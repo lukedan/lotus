@@ -11,38 +11,13 @@
 #include "lotus/graphics/backends/directx12/pass.h"
 
 namespace lotus::graphics::backends::directx12 {
-	void command_queue::submit_command_lists(std::span<const graphics::command_list *const> lists, fence *f) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto dx_lists = stack_allocator::for_this_thread().create_vector_array<ID3D12CommandList*>(
-			lists.size(), nullptr
-		);
-		for (std::size_t i = 0; i < lists.size(); ++i) {
-			dx_lists[i] = lists[i]->_list.Get();
-		}
-		_queue->ExecuteCommandLists(static_cast<UINT>(lists.size()), dx_lists.data());
-
-		if (f) {
-			_details::assert_dx(_queue->Signal(f->_fence.Get(), static_cast<UINT64>(synchronization_state::set)));
-		}
-	}
-
-	void command_queue::present(swap_chain &chain, graphics::fence *f) {
-		_details::assert_dx(chain._swap_chain->Present(0, 0));
-		if (f) {
-			_queue->Signal(f->_fence.Get(), static_cast<UINT64>(synchronization_state::set));
-		}
-		chain._on_presented[chain._swap_chain->GetCurrentBackBufferIndex()] = f;
+	void command_allocator::reset(device&) {
+		_details::assert_dx(_allocator->Reset());
 	}
 
 
-	void command_list::reset(command_allocator &allocator) {
-		if (_can_reset) {
-			_details::assert_dx(_list->Reset(allocator._allocator.Get(), nullptr));
-			_can_reset = false;
-		}
-	}
-
-	void command_list::start() {
+	void command_list::reset_and_start(command_allocator &allocator) {
+		_details::assert_dx(_list->Reset(allocator._allocator.Get(), nullptr));
 		_list->SetDescriptorHeaps(static_cast<UINT>(_descriptor_heaps.size()), _descriptor_heaps.data());
 	}
 
@@ -81,6 +56,9 @@ namespace lotus::graphics::backends::directx12 {
 			images.size() + buffers.size()
 		);
 		for (const auto &img : images) {
+			if (img.from_state == image_usage::initial) {
+				continue;
+			}
 			auto &barrier = resources.emplace_back();
 			barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 			barrier.Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
@@ -98,18 +76,19 @@ namespace lotus::graphics::backends::directx12 {
 			barrier.Transition.StateBefore = _details::conversions::for_buffer_usage(buf.from_state);
 			barrier.Transition.StateAfter  = _details::conversions::for_buffer_usage(buf.to_state);
 		}
+		if (resources.empty()) {
+			return;
+		}
 		_list->ResourceBarrier(static_cast<UINT>(resources.size()), resources.data());
 	}
 
 	void command_list::bind_pipeline_state(const graphics_pipeline_state &state) {
-		_descriptor_table_binding = state._descriptor_table_binding;
 		_list->SetGraphicsRootSignature(state._root_signature.Get());
 		_list->SetPipelineState(state._pipeline.Get());
 		_list->IASetPrimitiveTopology(state._topology);
 	}
 
 	void command_list::bind_pipeline_state(const compute_pipeline_state &state) {
-		_descriptor_table_binding = state._descriptor_table_binding;
 		_list->SetComputeRootSignature(state._root_signature.Get());
 		_list->SetPipelineState(state._pipeline.Get());
 	}
@@ -141,12 +120,12 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	void command_list::bind_graphics_descriptor_sets(
-		std::size_t first, std::span<const graphics::descriptor_set *const> sets
+		const pipeline_resources &rsrc, std::size_t first, std::span<const graphics::descriptor_set *const> sets
 	) {
 		for (std::size_t i = 0; i < sets.size(); ++i) {
 			std::size_t set_index = first + i;
 			auto *set = static_cast<const descriptor_set*>(sets[i]);
-			const auto &indices = _descriptor_table_binding[set_index];
+			const auto &indices = rsrc._descriptor_table_binding[set_index];
 			assert(
 				set->_shader_resource_descriptors.is_empty() ==
 				(indices.resource_index == pipeline_resources::_invalid_root_param)
@@ -169,12 +148,12 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	void command_list::bind_compute_descriptor_sets(
-		std::size_t first, std::span<const graphics::descriptor_set *const> sets
+		const pipeline_resources &rsrc, std::size_t first, std::span<const graphics::descriptor_set *const> sets
 	) {
 		for (std::size_t i = 0; i < sets.size(); ++i) {
 			std::size_t set_index = first + i;
 			auto *set = static_cast<const descriptor_set*>(sets[i]);
-			const auto &indices = _descriptor_table_binding[set_index];
+			const auto &indices = rsrc._descriptor_table_binding[set_index];
 			assert(
 				set->_shader_resource_descriptors.is_empty() ==
 				(indices.resource_index == pipeline_resources::_invalid_root_param)
@@ -223,16 +202,16 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	void command_list::copy_image2d(
-		image2d &from, std::uint32_t sub1, aab2s region, image2d &to, std::uint32_t sub2, cvec2s off
+		image2d &from, subresource_index sub1, aab2s region, image2d &to, subresource_index sub2, cvec2s off
 	) {
 		D3D12_TEXTURE_COPY_LOCATION dest = {};
 		dest.pResource        = to._image.Get();
 		dest.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-		dest.SubresourceIndex = static_cast<UINT>(sub2);
+		dest.SubresourceIndex = _details::compute_subresource_index(sub2, to._image.Get());
 		D3D12_TEXTURE_COPY_LOCATION source = {};
 		source.pResource        = from._image.Get();
 		source.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-		source.SubresourceIndex = static_cast<UINT>(sub1);
+		source.SubresourceIndex = _details::compute_subresource_index(sub1, from._image.Get());
 		D3D12_BOX src_box = {};
 		src_box.left   = static_cast<UINT>(region.min[0]);
 		src_box.top    = static_cast<UINT>(region.min[1]);
@@ -247,12 +226,12 @@ namespace lotus::graphics::backends::directx12 {
 
 	void command_list::copy_buffer_to_image(
 		buffer &from, std::size_t byte_offset, std::size_t row_pitch, aab2s region,
-		image2d &to, std::uint32_t subresource, cvec2s off
+		image2d &to, subresource_index subresource, cvec2s off
 	) {
 		D3D12_TEXTURE_COPY_LOCATION dest = {};
 		dest.pResource        = to._image.Get();
 		dest.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-		dest.SubresourceIndex = static_cast<UINT>(subresource);
+		dest.SubresourceIndex = _details::compute_subresource_index(subresource, to._image.Get());
 		D3D12_TEXTURE_COPY_LOCATION source = {};
 		source.pResource = from._buffer.Get();
 		source.Type      = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
@@ -264,11 +243,13 @@ namespace lotus::graphics::backends::directx12 {
 		source.PlacedFootprint.Footprint.Depth    = 1;
 		source.PlacedFootprint.Footprint.RowPitch = static_cast<UINT>(row_pitch);
 		D3D12_BOX src_box = {};
+		src_box.left   = static_cast<UINT>(off[0]);
+		src_box.top    = static_cast<UINT>(off[1]);
 		src_box.right  = static_cast<UINT>(size[0]);
 		src_box.bottom = static_cast<UINT>(size[1]);
 		src_box.back   = 1;
 		_list->CopyTextureRegion(
-			&dest, static_cast<UINT>(off[0]), static_cast<UINT>(off[1]), 0, &source, &src_box
+			&dest, static_cast<UINT>(region.min[0]), static_cast<UINT>(region.min[1]), 0, &source, &src_box
 		);
 	}
 
@@ -303,16 +284,35 @@ namespace lotus::graphics::backends::directx12 {
 
 	void command_list::finish() {
 		_details::assert_dx(_list->Close());
-		_can_reset = true;
-	}
-
-
-	void command_allocator::reset(device&) {
-		_details::assert_dx(_allocator->Reset());
 	}
 
 
 	void command_queue::signal(fence &f) {
 		_details::assert_dx(_queue->Signal(f._fence.Get(), static_cast<UINT64>(synchronization_state::set)));
+	}
+
+	void command_queue::submit_command_lists(std::span<const graphics::command_list *const> lists, fence *f) {
+		auto bookmark = stack_allocator::scoped_bookmark::create();
+		auto dx_lists = stack_allocator::for_this_thread().create_vector_array<ID3D12CommandList*>(
+			lists.size(), nullptr
+		);
+		for (std::size_t i = 0; i < lists.size(); ++i) {
+			dx_lists[i] = lists[i]->_list.Get();
+		}
+		_queue->ExecuteCommandLists(static_cast<UINT>(lists.size()), dx_lists.data());
+
+		if (f) {
+			_details::assert_dx(_queue->Signal(f->_fence.Get(), static_cast<UINT64>(synchronization_state::set)));
+		}
+	}
+
+	void command_queue::present(swap_chain &chain) {
+		UINT index = chain._swap_chain->GetCurrentBackBufferIndex();
+		_details::assert_dx(chain._swap_chain->Present(0, 0));
+		auto &sync = chain._synchronization[index];
+		sync.notify_fence = sync.next_fence;
+		if (sync.notify_fence) {
+			_queue->Signal(sync.notify_fence->_fence.Get(), static_cast<UINT64>(synchronization_state::set));
+		}
 	}
 }

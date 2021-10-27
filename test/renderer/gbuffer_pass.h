@@ -24,31 +24,42 @@ struct gbuffer {
 	gfx::image2d gloss = nullptr;
 	gfx::image2d depth_stencil = nullptr;
 
-	[[nodiscard]] inline static gbuffer create(gfx::device &dev, cvec2s size) {
+	[[nodiscard]] inline static gbuffer create(gfx::device &dev, gfx::command_allocator &alloc, gfx::command_queue &q, cvec2s size) {
 		gbuffer result;
 		result.base_color_metalness = dev.create_committed_image2d(
 			size[0], size[1], 1, 1, base_color_metalness_format, gfx::image_tiling::optimal,
-			gfx::image_usage::mask::color_render_target | gfx::image_usage::mask::read_only_texture,
-			gfx::image_usage::read_only_texture
+			gfx::image_usage::mask::color_render_target | gfx::image_usage::mask::read_only_texture
 		);
 		dev.set_debug_name(result.base_color_metalness, u8"Base color + Metalness");
 		result.normal = dev.create_committed_image2d(
 			size[0], size[1], 1, 1, normal_format, gfx::image_tiling::optimal,
-			gfx::image_usage::mask::color_render_target | gfx::image_usage::mask::read_only_texture,
-			gfx::image_usage::read_only_texture
+			gfx::image_usage::mask::color_render_target | gfx::image_usage::mask::read_only_texture
 		);
 		dev.set_debug_name(result.normal, u8"Normal");
 		result.gloss = dev.create_committed_image2d(
 			size[0], size[1], 1, 1, gloss_format, gfx::image_tiling::optimal,
-			gfx::image_usage::mask::color_render_target | gfx::image_usage::mask::read_only_texture,
-			gfx::image_usage::read_only_texture
+			gfx::image_usage::mask::color_render_target | gfx::image_usage::mask::read_only_texture
 		);
 		dev.set_debug_name(result.gloss, u8"Gloss");
 		result.depth_stencil = dev.create_committed_image2d(
 			size[0], size[1], 1, 1, depth_stencil_format, gfx::image_tiling::optimal,
-			gfx::image_usage::mask::depth_stencil_render_target | gfx::image_usage::mask::read_only_texture,
-			gfx::image_usage::read_only_texture
+			gfx::image_usage::mask::depth_stencil_render_target | gfx::image_usage::mask::read_only_texture
 		);
+
+		auto list = dev.create_and_start_command_list(alloc);
+		list.resource_barrier(
+			{
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), result.base_color_metalness, gfx::image_usage::initial, gfx::image_usage::read_only_texture),
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), result.normal, gfx::image_usage::initial, gfx::image_usage::read_only_texture),
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), result.gloss, gfx::image_usage::initial, gfx::image_usage::read_only_texture),
+				gfx::image_barrier::create(gfx::subresource_index::first_depth_stencil(), result.depth_stencil, gfx::image_usage::initial, gfx::image_usage::read_only_texture),
+			},
+			{}
+		);
+		list.finish();
+		auto fence = dev.create_fence(gfx::synchronization_state::unset);
+		q.submit_command_lists({ &list }, &fence);
+		dev.wait_for_fence(fence);
 
 		return result;
 	}
@@ -87,7 +98,7 @@ public:
 			{
 				gfx::descriptor_range_binding::create(gfx::descriptor_range::create(gfx::descriptor_type::constant_buffer, 1), 0),
 			},
-			gfx::shader_stage_mask::vertex_shader
+			gfx::shader_stage::all
 		)),
 		_pipeline_resources(dev.create_pipeline_resources(
 			{ &mat_set_layout, &node_set_layout, &_constant_descriptors_layout }
@@ -105,8 +116,8 @@ public:
 			)
 		)) {
 
-		_vs_binary = load_binary_file("gbuffer.vs.o");
-		_ps_binary = load_binary_file("gbuffer.ps.o");
+		_vs_binary = load_binary_file("shaders/gbuffer.vs.o");
+		_ps_binary = load_binary_file("shaders/gbuffer.ps.o");
 		_vertex_shader = dev.load_shader(_vs_binary);
 		_pixel_shader = dev.load_shader(_ps_binary);
 	}
@@ -117,10 +128,10 @@ public:
 	) {
 		list.resource_barrier(
 			{
-				gfx::image_barrier::create(gbuf.base_color_metalness, gfx::image_usage::read_only_texture, gfx::image_usage::color_render_target),
-				gfx::image_barrier::create(gbuf.normal, gfx::image_usage::read_only_texture, gfx::image_usage::color_render_target),
-				gfx::image_barrier::create(gbuf.gloss, gfx::image_usage::read_only_texture, gfx::image_usage::color_render_target),
-				gfx::image_barrier::create(gbuf.depth_stencil, gfx::image_usage::read_only_texture, gfx::image_usage::depth_stencil_render_target),
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), gbuf.base_color_metalness, gfx::image_usage::read_only_texture, gfx::image_usage::color_render_target),
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), gbuf.normal, gfx::image_usage::read_only_texture, gfx::image_usage::color_render_target),
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), gbuf.gloss, gfx::image_usage::read_only_texture, gfx::image_usage::color_render_target),
+				gfx::image_barrier::create(gfx::subresource_index::first_depth_stencil(), gbuf.depth_stencil, gfx::image_usage::read_only_texture, gfx::image_usage::depth_stencil_render_target),
 			},
 			{}
 		);
@@ -137,8 +148,8 @@ public:
 
 		auto viewport = gfx::viewport::create(aab2f::create_from_min_max(zero, output_rsrc.viewport_size.into<float>()), 0.0f, 1.0f);
 		auto scissor = aab2i::create_from_min_max(zero, output_rsrc.viewport_size.into<int>());
-		list.set_viewports({ viewport, viewport, viewport });
-		list.set_scissor_rectangles({ scissor, scissor, scissor });
+		list.set_viewports({ viewport });
+		list.set_scissor_rectangles({ scissor });
 
 		for (std::size_t node_i = 0; node_i < model.nodes.size(); ++node_i) {
 			const auto &node = model.nodes[node_i];
@@ -159,7 +170,7 @@ public:
 				list.bind_pipeline_state(input_rsrc.pipeline_states[node.mesh][prim_i]);
 				list.bind_vertex_buffers(0, vert_buffers);
 				list.bind_graphics_descriptor_sets(
-					0,
+					_pipeline_resources, 0,
 					{
 						&model_rsrc.material_descriptor_sets[prim.material],
 						&model_rsrc.node_descriptor_sets[node_i],
@@ -194,10 +205,10 @@ public:
 
 		list.resource_barrier(
 			{
-				gfx::image_barrier::create(gbuf.base_color_metalness, gfx::image_usage::color_render_target, gfx::image_usage::read_only_texture),
-				gfx::image_barrier::create(gbuf.normal, gfx::image_usage::color_render_target, gfx::image_usage::read_only_texture),
-				gfx::image_barrier::create(gbuf.gloss, gfx::image_usage::color_render_target, gfx::image_usage::read_only_texture),
-				gfx::image_barrier::create(gbuf.depth_stencil, gfx::image_usage::depth_stencil_render_target, gfx::image_usage::read_only_texture),
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), gbuf.base_color_metalness, gfx::image_usage::color_render_target, gfx::image_usage::read_only_texture),
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), gbuf.normal, gfx::image_usage::color_render_target, gfx::image_usage::read_only_texture),
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), gbuf.gloss, gfx::image_usage::color_render_target, gfx::image_usage::read_only_texture),
+				gfx::image_barrier::create(gfx::subresource_index::first_depth_stencil(), gbuf.depth_stencil, gfx::image_usage::depth_stencil_render_target, gfx::image_usage::read_only_texture),
 			},
 			{}
 		);
@@ -210,7 +221,7 @@ public:
 
 		std::size_t aligned_global_data_size = align_size(sizeof(constants), props.constant_buffer_alignment);
 		result.constant_buffer = dev.create_committed_buffer(
-			aligned_global_data_size, gfx::heap_type::upload, gfx::buffer_usage::mask::read_only_buffer, gfx::buffer_usage::read_only_buffer
+			aligned_global_data_size, gfx::heap_type::upload, gfx::buffer_usage::mask::read_only_buffer
 		);
 
 		result.constant_descriptor_set = dev.create_descriptor_set(pool, _constant_descriptors_layout);
@@ -222,21 +233,21 @@ public:
 		);
 
 		auto shaders = gfx::shader_set::create(_vertex_shader, _pixel_shader);
-		auto blend = gfx::blend_options::create_for_render_targets(
-			gfx::render_target_blend_options::disabled(),
-			gfx::render_target_blend_options::disabled(),
-			gfx::render_target_blend_options::disabled()
-		);
 		auto rasterizer = gfx::rasterizer_options::create(zero, gfx::front_facing_mode::clockwise, gfx::cull_mode::none);
 		auto depth_stencil = gfx::depth_stencil_options::create(
 			true, true, gfx::comparison_function::greater,
 			false, 0, 0, gfx::stencil_options::always_pass_no_op(), gfx::stencil_options::always_pass_no_op()
 		);
+		std::array blend_states{
+			gfx::render_target_blend_options::disabled(),
+			gfx::render_target_blend_options::disabled(),
+			gfx::render_target_blend_options::disabled()
+		};
 		result.pipeline_states = rsrc.create_pipeline_states(
 			model,
 			[&](const std::vector<gfx::input_buffer_layout> &vert_buffer_layouts) {
 				return dev.create_graphics_pipeline_state(
-					_pipeline_resources, shaders, blend, rasterizer, depth_stencil,
+					_pipeline_resources, shaders, blend_states, rasterizer, depth_stencil,
 					vert_buffer_layouts, gfx::primitive_topology::triangle_list, _pass_resources
 				);
 			}
@@ -249,7 +260,7 @@ public:
 		gfx::device &dev, const gbuffer::view &gbuf, cvec2s viewport_size
 	) const {
 		output_resources result;
-		result.frame_buffer = dev.create_frame_buffer({ &gbuf.base_color_metalness, &gbuf.normal, &gbuf.gloss }, &gbuf.depth_stencil, _pass_resources);
+		result.frame_buffer = dev.create_frame_buffer({ &gbuf.base_color_metalness, &gbuf.normal, &gbuf.gloss }, &gbuf.depth_stencil, viewport_size, _pass_resources);
 		result.viewport_size = viewport_size;
 		return result;
 	}

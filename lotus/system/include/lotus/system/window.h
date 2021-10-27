@@ -13,6 +13,8 @@ namespace lotus::system {
 	class window : public platform::window {
 		friend application;
 	public:
+		using platform::window::native_handle_t;
+
 		/// No copy construction.
 		window(const window&) = delete;
 		/// No copy assignment.
@@ -43,6 +45,11 @@ namespace lotus::system {
 		/// Returns the size of this window's client area.
 		[[nodiscard]] cvec2s get_size() const {
 			return platform::window::get_size();
+		}
+
+		/// Returns the native handle of this window.
+		[[nodiscard]] native_handle_t get_native_handle() const {
+			return platform::window::get_native_handle();
 		}
 
 		/// Event that will be triggered when the user attempts to close the window.

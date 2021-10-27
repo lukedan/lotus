@@ -35,6 +35,8 @@ struct scene_resources {
 		auto upload_fence = dev.create_fence(gfx::synchronization_state::unset);
 
 		// images
+		std::vector<gfx::format> image_formats;
+		image_formats.reserve(model.images.size());
 		result.images.reserve(model.images.size());
 		for (const auto &img : model.images) {
 			auto type = gfx::format_properties::data_type::unknown;
@@ -66,7 +68,7 @@ struct scene_resources {
 			// TODO find correct pixel format
 			auto [upload_buf, upload_buf_layout] = dev.create_committed_buffer_as_image2d(
 				img.width, img.height, format, gfx::heap_type::upload,
-				gfx::buffer_usage::mask::copy_source, gfx::buffer_usage::copy_source
+				gfx::buffer_usage::mask::copy_source
 			);
 			// copy data
 			auto *dest = static_cast<std::byte*>(dev.map_buffer(upload_buf, 0, 0));
@@ -83,21 +85,26 @@ struct scene_resources {
 			// create gpu image
 			auto gpu_img = dev.create_committed_image2d(
 				img.width, img.height, 1, 1, format, gfx::image_tiling::optimal,
-				gfx::image_usage::mask::copy_destination | gfx::image_usage::mask::read_only_texture,
-				gfx::image_usage::copy_destination
+				gfx::image_usage::mask::copy_destination | gfx::image_usage::mask::read_only_texture
 			);
 			dev.set_debug_name(gpu_img, reinterpret_cast<const char8_t*>(img.name.c_str()));
 
 			// copy to gpu
-			auto copy_cmd = dev.create_command_list(cmd_alloc);
-			copy_cmd.start();
+			auto copy_cmd = dev.create_and_start_command_list(cmd_alloc);
+			copy_cmd.resource_barrier(
+				{
+					gfx::image_barrier::create(gfx::subresource_index::first_color(), gpu_img, gfx::image_usage::initial, gfx::image_usage::copy_destination),
+				},
+				{}
+			);
 			copy_cmd.copy_buffer_to_image(
 				upload_buf, 0, upload_buf_layout.row_pitch,
-				aab2s::create_from_min_max(zero, cvec2s(img.width, img.height)), gpu_img, 0, zero
+				aab2s::create_from_min_max(zero, cvec2s(img.width, img.height)),
+				gpu_img, gfx::subresource_index::first_color(), zero
 			);
 			copy_cmd.resource_barrier(
 				{
-					gfx::image_barrier::create(gpu_img, gfx::image_usage::copy_destination, gfx::image_usage::read_only_texture),
+					gfx::image_barrier::create(gfx::subresource_index::first_color(), gpu_img, gfx::image_usage::copy_destination, gfx::image_usage::read_only_texture),
 				},
 				{}
 			);
@@ -107,7 +114,57 @@ struct scene_resources {
 			dev.reset_fence(upload_fence);
 
 			result.images.emplace_back(std::move(gpu_img));
-			result.image_views.emplace_back(dev.create_image2d_view_from(result.images.back(), format, gfx::mip_levels::all()));
+			image_formats.emplace_back(format);
+		}
+
+		result.image_views.reserve(model.textures.size());
+		for (const auto &tex : model.textures) {
+			result.image_views.emplace_back(dev.create_image2d_view_from(
+				result.images[tex.source], image_formats[tex.source], gfx::mip_levels::all()
+			));
+		}
+
+		{ // empty color texture
+			auto format = gfx::format::r8g8b8a8_snorm;
+
+			auto [upload_buf, upload_buf_layout] = dev.create_committed_buffer_as_image2d(
+				1, 1, format,
+				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
+			);
+			auto *source = static_cast<char*>(dev.map_buffer(upload_buf, 0, 0));
+			source[0] = std::numeric_limits<char>::max();
+			source[1] = std::numeric_limits<char>::max();
+			source[2] = std::numeric_limits<char>::max();
+			dev.unmap_buffer(upload_buf, 0, upload_buf_layout.total_size);
+
+			result.empty_color = dev.create_committed_image2d(
+				1, 1, 1, 1, format, gfx::image_tiling::optimal,
+				gfx::image_usage::mask::copy_destination | gfx::image_usage::mask::read_only_texture
+			);
+			result.empty_color_view = dev.create_image2d_view_from(result.empty_color, format, gfx::mip_levels::all());
+			dev.set_debug_name(result.empty_color, u8"Empty color");
+
+			auto copy_cmd = dev.create_and_start_command_list(cmd_alloc);
+			copy_cmd.resource_barrier(
+				{
+					gfx::image_barrier::create(gfx::subresource_index::first_color(), result.empty_color, gfx::image_usage::initial, gfx::image_usage::copy_destination),
+				},
+				{}
+			);
+			copy_cmd.copy_buffer_to_image(
+				upload_buf, 0, upload_buf_layout.row_pitch, aab2s::create_from_min_max(zero, cvec2s(1, 1)),
+				result.empty_color, gfx::subresource_index::first_color(), zero
+			);
+			copy_cmd.resource_barrier(
+				{
+					gfx::image_barrier::create(gfx::subresource_index::first_color(), result.empty_color, gfx::image_usage::copy_destination, gfx::image_usage::read_only_texture),
+				},
+				{}
+			);
+			copy_cmd.finish();
+			cmd_queue.submit_command_lists({ &copy_cmd }, &upload_fence);
+			dev.wait_for_fence(upload_fence);
+			dev.reset_fence(upload_fence);
 		}
 
 		{ // empty normal texture
@@ -115,7 +172,7 @@ struct scene_resources {
 
 			auto [upload_buf, upload_buf_layout] = dev.create_committed_buffer_as_image2d(
 				1, 1, format,
-				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source, gfx::buffer_usage::copy_source
+				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
 			);
 			auto *source = static_cast<char*>(dev.map_buffer(upload_buf, 0, 0));
 			source[0] = 0;
@@ -125,21 +182,25 @@ struct scene_resources {
 
 			result.empty_normal = dev.create_committed_image2d(
 				1, 1, 1, 1, format, gfx::image_tiling::optimal,
-				gfx::image_usage::mask::copy_destination | gfx::image_usage::mask::read_only_texture,
-				gfx::image_usage::copy_destination
+				gfx::image_usage::mask::copy_destination | gfx::image_usage::mask::read_only_texture
 			);
 			result.empty_normal_view = dev.create_image2d_view_from(result.empty_normal, format, gfx::mip_levels::all());
 			dev.set_debug_name(result.empty_normal, u8"Empty normal");
 
-			auto copy_cmd = dev.create_command_list(cmd_alloc);
-			copy_cmd.start();
+			auto copy_cmd = dev.create_and_start_command_list(cmd_alloc);
+			copy_cmd.resource_barrier(
+				{
+					gfx::image_barrier::create(gfx::subresource_index::first_color(), result.empty_normal, gfx::image_usage::initial, gfx::image_usage::copy_destination),
+				},
+				{}
+			);
 			copy_cmd.copy_buffer_to_image(
 				upload_buf, 0, upload_buf_layout.row_pitch, aab2s::create_from_min_max(zero, cvec2s(1, 1)),
-				result.empty_normal, 0, zero
+				result.empty_normal, gfx::subresource_index::first_color(), zero
 			);
 			copy_cmd.resource_barrier(
 				{
-					gfx::image_barrier::create(result.empty_normal, gfx::image_usage::copy_destination, gfx::image_usage::read_only_texture),
+					gfx::image_barrier::create(gfx::subresource_index::first_color(), result.empty_normal, gfx::image_usage::copy_destination, gfx::image_usage::read_only_texture),
 				},
 				{}
 			);
@@ -154,7 +215,7 @@ struct scene_resources {
 
 			auto [upload_buf, upload_buf_layout] = dev.create_committed_buffer_as_image2d(
 				1, 1, format,
-				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source, gfx::buffer_usage::copy_source
+				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
 			);
 			auto *source = static_cast<unsigned char*>(dev.map_buffer(upload_buf, 0, 0));
 			source[0] = 0;
@@ -164,21 +225,25 @@ struct scene_resources {
 
 			result.empty_metalness_glossiness = dev.create_committed_image2d(
 				1, 1, 1, 1, format, gfx::image_tiling::optimal,
-				gfx::image_usage::mask::copy_destination | gfx::image_usage::mask::read_only_texture,
-				gfx::image_usage::copy_destination
+				gfx::image_usage::mask::copy_destination | gfx::image_usage::mask::read_only_texture
 			);
 			result.empty_metalness_glossiness_view = dev.create_image2d_view_from(result.empty_metalness_glossiness, format, gfx::mip_levels::all());
 			dev.set_debug_name(result.empty_metalness_glossiness, u8"Empty material properties");
 
-			auto copy_cmd = dev.create_command_list(cmd_alloc);
-			copy_cmd.start();
+			auto copy_cmd = dev.create_and_start_command_list(cmd_alloc);
+			copy_cmd.resource_barrier(
+				{
+					gfx::image_barrier::create(gfx::subresource_index::first_color(), result.empty_metalness_glossiness, gfx::image_usage::initial, gfx::image_usage::copy_destination),
+				},
+				{}
+			);
 			copy_cmd.copy_buffer_to_image(
 				upload_buf, 0, upload_buf_layout.row_pitch, aab2s::create_from_min_max(zero, cvec2s(1, 1)),
-				result.empty_metalness_glossiness, 0, zero
+				result.empty_metalness_glossiness, gfx::subresource_index::first_color(), zero
 			);
 			copy_cmd.resource_barrier(
 				{
-					gfx::image_barrier::create(result.empty_metalness_glossiness, gfx::image_usage::copy_destination, gfx::image_usage::read_only_texture),
+					gfx::image_barrier::create(gfx::subresource_index::first_color(), result.empty_metalness_glossiness, gfx::image_usage::copy_destination, gfx::image_usage::read_only_texture),
 				},
 				{}
 			);
@@ -193,7 +258,7 @@ struct scene_resources {
 		for (const auto &buf : model.buffers) {
 			auto cpu_buf = dev.create_committed_buffer(
 				buf.data.size(), gfx::heap_type::upload,
-				gfx::buffer_usage::mask::copy_source, gfx::buffer_usage::copy_source
+				gfx::buffer_usage::mask::copy_source
 			);
 			void *data = dev.map_buffer(cpu_buf, 0, 0);
 			std::memcpy(data, buf.data.data(), buf.data.size());
@@ -202,18 +267,16 @@ struct scene_resources {
 			// create gpu bufffer
 			auto gpu_buf = dev.create_committed_buffer(
 				buf.data.size(), gfx::heap_type::device_only,
-				gfx::buffer_usage::mask::copy_destination | gfx::buffer_usage::mask::read_only_buffer,
-				gfx::buffer_usage::copy_destination
+				gfx::buffer_usage::mask::copy_destination | gfx::buffer_usage::mask::vertex_buffer | gfx::buffer_usage::mask::index_buffer
 			);
 
 			// copy to gpu
-			auto copy_cmd = dev.create_command_list(cmd_alloc);
-			copy_cmd.start();
+			auto copy_cmd = dev.create_and_start_command_list(cmd_alloc);
 			copy_cmd.copy_buffer(cpu_buf, 0, gpu_buf, 0, buf.data.size());
 			copy_cmd.resource_barrier(
 				{},
 				{
-					gfx::buffer_barrier::create(gpu_buf, gfx::buffer_usage::copy_destination, gfx::buffer_usage::read_only_buffer),
+					gfx::buffer_barrier::create(gpu_buf, gfx::buffer_usage::copy_destination, gfx::buffer_usage::vertex_buffer),
 				}
 			);
 			copy_cmd.finish();
@@ -229,12 +292,12 @@ struct scene_resources {
 		std::size_t node_buffer_size = result.aligned_node_data_size * model.nodes.size();
 		result.node_buffer = dev.create_committed_buffer(
 			node_buffer_size, gfx::heap_type::device_only,
-			gfx::buffer_usage::mask::copy_destination | gfx::buffer_usage::mask::read_only_buffer, gfx::buffer_usage::copy_destination
+			gfx::buffer_usage::mask::copy_destination | gfx::buffer_usage::mask::read_only_buffer
 		);
 		{ // upload data
 			auto upload_buf = dev.create_committed_buffer(
 				node_buffer_size, gfx::heap_type::upload,
-				gfx::buffer_usage::mask::copy_source, gfx::buffer_usage::copy_source
+				gfx::buffer_usage::mask::copy_source
 			);
 			void *ptr = dev.map_buffer(upload_buf, 0, 0);
 			for (const auto &node : model.nodes) {
@@ -252,8 +315,7 @@ struct scene_resources {
 			}
 			dev.unmap_buffer(upload_buf, 0, node_buffer_size);
 
-			auto list = dev.create_command_list(cmd_alloc);
-			list.start();
+			auto list = dev.create_and_start_command_list(cmd_alloc);
 			list.copy_buffer(upload_buf, 0, result.node_buffer, 0, node_buffer_size);
 			list.resource_barrier(
 				{},
@@ -274,27 +336,32 @@ struct scene_resources {
 				gfx::descriptor_range_binding::create(gfx::descriptor_type::constant_buffer, 1, 1),
 				gfx::descriptor_range_binding::create(gfx::descriptor_type::read_only_image, 3, 2),
 			},
-			gfx::shader_stage_mask::pixel_shader
+			gfx::shader_stage::all
 		);
 		result.material_descriptor_sets.reserve(model.materials.size());
 		result.aligned_material_data_size = align_size(sizeof(material_data), dev_props.constant_buffer_alignment);
 		result.material_buffer = dev.create_committed_buffer(
 			result.aligned_material_data_size * model.materials.size(),
 			gfx::heap_type::device_only,
-			gfx::buffer_usage::mask::read_only_buffer | gfx::buffer_usage::mask::copy_destination,
-			gfx::buffer_usage::copy_destination
+			gfx::buffer_usage::mask::read_only_buffer | gfx::buffer_usage::mask::copy_destination
 		);
 		{
 			auto material_upload_buffer = dev.create_committed_buffer(
 				result.aligned_material_data_size * model.materials.size(),
-				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source, gfx::buffer_usage::copy_source
+				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
 			);
 			void *buffer_ptr = dev.map_buffer(material_upload_buffer, 0, 0);
 			for (std::size_t i = 0; i < model.materials.size(); ++i) {
 				const auto &mat = model.materials[i];
 
-				auto &base_color_view = result.image_views[mat.pbrMetallicRoughness.baseColorTexture.index];
-				auto &normal_view = mat.normalTexture.index >= 0 ? result.image_views[mat.normalTexture.index] : result.empty_normal_view;
+				auto &base_color_view =
+					mat.pbrMetallicRoughness.baseColorTexture.index >= 0 ?
+					result.image_views[mat.pbrMetallicRoughness.baseColorTexture.index] :
+					result.empty_color_view;
+				auto &normal_view =
+					mat.normalTexture.index >= 0 ?
+					result.image_views[mat.normalTexture.index] :
+					result.empty_normal_view;
 				auto &metalness_roughness_view =
 					mat.pbrMetallicRoughness.metallicRoughnessTexture.index >= 0 ?
 					result.image_views[mat.pbrMetallicRoughness.metallicRoughnessTexture.index] :
@@ -332,8 +399,7 @@ struct scene_resources {
 			dev.unmap_buffer(material_upload_buffer, 0, model.materials.size() * result.aligned_material_data_size);
 
 			// upload constants
-			auto cmd_list = dev.create_command_list(cmd_alloc);
-			cmd_list.start();
+			auto cmd_list = dev.create_and_start_command_list(cmd_alloc);
 			cmd_list.copy_buffer(material_upload_buffer, 0, result.material_buffer, 0, model.materials.size() * result.aligned_material_data_size);
 			cmd_list.resource_barrier(
 				{},
@@ -351,7 +417,7 @@ struct scene_resources {
 			{
 				gfx::descriptor_range_binding::create(gfx::descriptor_range::create(gfx::descriptor_type::constant_buffer, 1), 0),
 			},
-			gfx::shader_stage_mask::vertex_shader
+			gfx::shader_stage::all
 		);
 		result.node_descriptor_sets.reserve(model.nodes.size());
 		for (std::size_t i = 0; i < model.nodes.size(); ++i) {
@@ -392,15 +458,15 @@ struct scene_resources {
 						gfx::input_buffer_element elem = uninitialized;
 						if (attr.first == "POSITION") {
 							elem = gfx::input_buffer_element::create(
-								"POSITION", 0, gfx::format::r32g32b32_float, 0
+								u8"POSITION", 0, gfx::format::r32g32b32_float, 0
 							);
 						} else if (attr.first == "NORMAL") {
 							elem = gfx::input_buffer_element::create(
-								"NORMAL", 0, gfx::format::r32g32b32_float, 0
+								u8"NORMAL", 0, gfx::format::r32g32b32_float, 0
 							);
 						} else if (attr.first == "TANGENT") {
 							elem = gfx::input_buffer_element::create(
-								"TANGENT", 0, gfx::format::r32g32b32a32_float, 0
+								u8"TANGENT", 0, gfx::format::r32g32b32a32_float, 0
 							);
 						} else if (attr.first == "TEXCOORD_0") {
 							gfx::format fmt;
@@ -418,7 +484,7 @@ struct scene_resources {
 								std::cerr << "Unhandled texcoord format: " << accessor.componentType << std::endl;
 								continue;
 							}
-							elem = gfx::input_buffer_element::create("TEXCOORD", 0, fmt, 0);
+							elem = gfx::input_buffer_element::create(u8"TEXCOORD", 0, fmt, 0);
 						} else {
 							std::cerr << "Unhandled vertex buffer element: " << attr.first << std::endl;
 							continue;
@@ -439,9 +505,11 @@ struct scene_resources {
 
 	std::vector<gfx::image2d> images;
 	std::vector<gfx::image2d_view> image_views;
+	gfx::image2d empty_color = nullptr;
 	gfx::image2d empty_normal = nullptr;
-	gfx::image2d_view empty_normal_view = nullptr;
 	gfx::image2d empty_metalness_glossiness = nullptr;
+	gfx::image2d_view empty_color_view = nullptr;
+	gfx::image2d_view empty_normal_view = nullptr;
 	gfx::image2d_view empty_metalness_glossiness_view = nullptr;
 
 	std::vector<gfx::buffer> buffers;

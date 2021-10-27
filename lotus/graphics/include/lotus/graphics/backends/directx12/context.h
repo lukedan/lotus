@@ -5,7 +5,6 @@
 
 #include <utility>
 
-#include <d3d12.h>
 #include <dxgi1_5.h>
 
 #include "lotus/system/platforms/windows/window.h"
@@ -18,10 +17,10 @@ namespace lotus::graphics::backends::directx12 {
 	class context {
 	protected:
 		/// Initializes the DXGI factory.
-		context();
+		[[nodiscard]] static context create();
 
 		/// Enumerates the list of adapters using .
-		template <typename Callback> void _enumerate_adapters(Callback &&cb) {
+		template <typename Callback> void enumerate_adapters(Callback &&cb) {
 			for (UINT i = 0; ; ++i) {
 				adapter adap = nullptr;
 				if (_dxgi_factory->EnumAdapters1(i, &adap._adapter) == DXGI_ERROR_NOT_FOUND) {

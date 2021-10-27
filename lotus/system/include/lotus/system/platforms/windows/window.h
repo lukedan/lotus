@@ -22,6 +22,8 @@ namespace lotus::system::platforms::windows {
 		/// Destroys the window.
 		~window();
 	protected:
+		using native_handle_t = HWND; ///< Native handle type.
+
 		/// Initializes \ref _hwnd to \p nullptr.
 		window(std::nullptr_t) : _hwnd(nullptr) {
 		}
@@ -46,11 +48,16 @@ namespace lotus::system::platforms::windows {
 
 		/// Returns the result of \p GetClientRect().
 		[[nodiscard]] cvec2s get_size() const;
+
+		/// Returns \ref _hwnd.
+		[[nodiscard]] native_handle_t get_native_handle() const {
+			return _hwnd;
+		}
 	private:
-		HWND _hwnd; ///< The window handle.
+		native_handle_t _hwnd; ///< The window handle.
 
 		/// Initializes \ref _hwnd and calls \ref _update_address().
-		explicit window(HWND);
+		explicit window(native_handle_t);
 
 		/// Updates the address stored with \p SetWindowLongPtr().
 		void _update_address();

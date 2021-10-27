@@ -22,19 +22,34 @@ namespace lotus::graphics::backends::directx12 {
 	class swap_chain {
 		friend context;
 		friend command_queue;
+		friend device;
 	protected:
 		/// Creates an empty object.
 		swap_chain(std::nullptr_t) {
 		}
 
+		/// Returns the number of images in this swapchain.
+		[[nodiscard]] std::size_t get_image_count() const {
+			return _synchronization.size();
+		}
 		/// Calls \p IDXGISwapChain1::GetBuffer().
 		[[nodiscard]] image2d get_image(std::size_t);
-		/// Calls \p IDXGISwapChain3::GetCurrentBackBufferIndex().
-		[[nodiscard]] back_buffer_info acquire_back_buffer();
+		/// Updates all elements in \ref _synchronization.
+		void update_synchronization_primitives(std::span<const back_buffer_synchronization>);
 	private:
+		/// Cached synchronization primitives for a back buffer.
+		struct _cached_back_buffer_synchronization {
+			/// Initializes all fields to \p nullptr.
+			_cached_back_buffer_synchronization(std::nullptr_t) : notify_fence(nullptr), next_fence(nullptr) {
+			}
+
+			graphics::fence *notify_fence; ///< Fence to be notified when this back buffer has finished presenting.
+			graphics::fence *next_fence; ///< Fence for the next frame.
+		};
+
 		_details::com_ptr<IDXGISwapChain3> _swap_chain; ///< The swap chain.
 		// TODO allocator
-		std::vector<graphics::fence*> _on_presented; ///< Fences that will be signaled when a frame has finished presenting.
+		std::vector<_cached_back_buffer_synchronization> _synchronization; ///< Synchronization for back buffers.
 	};
 
 	/// A number of \p D3D12_CPU_DESCRIPTOR_HANDLE objects that are used for color and depth-stencil descriptors.

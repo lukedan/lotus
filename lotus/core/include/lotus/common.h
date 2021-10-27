@@ -4,6 +4,7 @@
 /// Common types and functions.
 
 #include <type_traits>
+#include <array>
 
 namespace lotus {
 	/// A type indicating a specific object should not be initialized.

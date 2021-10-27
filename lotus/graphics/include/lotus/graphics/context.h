@@ -7,15 +7,22 @@
 
 #include "lotus/system/window.h"
 #include LOTUS_GRAPHICS_BACKEND_INCLUDE
+#include "common.h"
 #include "device.h"
 #include "frame_buffer.h"
 
 namespace lotus::graphics {
+	/// The name of this backend.
+	constexpr static std::u8string_view backend_name = backend::backend_name;
+
 	/// Represents a generic interface to the underlying graphics library.
 	class context : public backend::context {
 	public:
-		/// Initializes the underlying context.
-		context() : backend::context() {
+		/// No default construction.
+		context() = delete;
+		/// Creates a new context object.
+		[[nodiscard]] inline static context create() {
+			return backend::context::create();
 		}
 		/// No copy construction.
 		context(const context&) = delete;
@@ -26,7 +33,7 @@ namespace lotus::graphics {
 		/// boolean indicating whether or not to continue enumeration.
 		template <typename Callback> void enumerate_adapters(Callback &&cb) {
 			using _result_t = std::invoke_result_t<Callback&&, adapter>;
-			backend::context::_enumerate_adapters([&cb](backend::adapter adap) {
+			backend::context::enumerate_adapters([&cb](backend::adapter adap) {
 				if constexpr (std::is_same_v<_result_t, bool>) {
 					return cb(adapter(std::move(adap)));
 				} else {
@@ -42,6 +49,10 @@ namespace lotus::graphics {
 			system::window &wnd, device &dev, command_queue &q, std::size_t frame_count, format format
 		) {
 			return backend::context::create_swap_chain_for_window(wnd, dev, q, frame_count, format);
+		}
+	protected:
+		/// Initializes the base class.
+		context(backend::context base) : backend::context(std::move(base)) {
 		}
 	};
 }

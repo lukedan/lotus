@@ -3,7 +3,7 @@
 /// \file
 /// Pipeline-related DirectX 12 classes.
 
-#include <d3d12.h>
+#include <directx/d3d12shader.h>
 
 #include "details.h"
 
@@ -12,6 +12,17 @@ namespace lotus::graphics::backends::directx12 {
 	class command_list;
 	class graphics_pipeline_state;
 	class compute_pipeline_state;
+
+	/// Contains a \p ID3D12ShaderReflection
+	class shader_reflection {
+		friend device;
+	protected:
+		/// Initializes an empty reflection object.
+		shader_reflection(std::nullptr_t) {
+		}
+	private:
+		_details::com_ptr<ID3D12ShaderReflection> _reflection; ///< Shader reflection object.
+	};
 
 	/// Contains a \p D3D12_SHADER_BYTECODE.
 	class shader {
@@ -64,8 +75,6 @@ namespace lotus::graphics::backends::directx12 {
 		graphics_pipeline_state(std::nullptr_t) {
 		}
 	private:
-		/// Root parameter indices of all descriptor tables.
-		std::span<const pipeline_resources::_root_param_indices> _descriptor_table_binding;
 		_details::com_ptr<ID3D12PipelineState> _pipeline; ///< The \p ID3D12PipelineState object.
 		_details::com_ptr<ID3D12RootSignature> _root_signature; ///< The root signature.
 		D3D_PRIMITIVE_TOPOLOGY _topology; ///< Primitive topology used by this pipeline.

@@ -3,6 +3,7 @@
 /// \file
 /// Interface to swap chains.
 
+#include "lotus/utils/stack_allocator.h"
 #include LOTUS_GRAPHICS_BACKEND_INCLUDE
 #include "resources.h"
 
@@ -30,14 +31,35 @@ namespace lotus::graphics {
 		/// No copy assignment.
 		swap_chain &operator=(const swap_chain&) = delete;
 
+		/// Returns the actual number of images in this swapchain.
+		[[nodiscard]] std::size_t get_image_count() const {
+			return backend::swap_chain::get_image_count();
+		}
 		/// Returns the backing image at the given index.
 		[[nodiscard]] image2d get_image(std::size_t index) {
 			return backend::swap_chain::get_image(index);
 		}
-		/// Acquires the next back buffer and returns its index in this swap chain. This should only be called once
-		/// per frame.
-		[[nodiscard]] back_buffer_info acquire_back_buffer() {
-			return backend::swap_chain::acquire_back_buffer();
+		/// Updates the synchronization primitives used internally. This will affect the next frame for which
+		/// \ref command_queue::present() has not been called. There should be exactly \ref get_image_count()
+		/// elements in the array, although they may not correspond one-to-one to each swapchain image.
+		void update_synchronization_primitives(std::span<const back_buffer_synchronization> prim) {
+			backend::swap_chain::update_synchronization_primitives(prim);
+		}
+		/// \overload
+		void update_synchronization_primitives(std::initializer_list<back_buffer_synchronization> prim) {
+			update_synchronization_primitives({ prim.begin(), prim.end() });
+		}
+		/// \overload
+		void update_synchronization_primitives(std::span<fence> fences) {
+			auto bookmark = stack_allocator::scoped_bookmark::create();
+			auto prims = stack_allocator::for_this_thread().create_vector_array<back_buffer_synchronization>(
+				get_image_count(), nullptr
+			);
+			assert(fences.empty() || fences.size() == prims.size());
+			for (std::size_t i = 0; i < fences.size(); ++i) {
+				prims[i].notify_fence = &fences[i];
+			}
+			update_synchronization_primitives(prims);
 		}
 	protected:
 		/// Initializes the backend swap chain.

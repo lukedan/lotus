@@ -8,6 +8,31 @@
 namespace lotus::graphics {
 	class device;
 
+	/// Shader reflection.
+	class shader_reflection : public backend::shader_reflection {
+		friend device;
+	public:
+		/// Creates an empty object.
+		shader_reflection(std::nullptr_t) : backend::shader_reflection(nullptr) {
+		}
+		/// Move constructor.
+		shader_reflection(shader_reflection &&src) : backend::shader_reflection(std::move(src)) {
+		}
+		/// No copy construction.
+		shader_reflection(const shader_reflection&) = delete;
+		/// Move assignment.
+		shader_reflection &operator=(shader_reflection &&src) {
+			backend::shader_reflection::operator=(std::move(src));
+			return *this;
+		}
+		/// No copy assignment.
+		shader_reflection &operator=(const shader_reflection&) = delete;
+	protected:
+		/// Initializes the base object.
+		shader_reflection(backend::shader_reflection &&base) : backend::shader_reflection(std::move(base)) {
+		}
+	};
+
 	/// A shader.
 	class shader : public backend::shader {
 		friend device;

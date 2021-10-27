@@ -6,9 +6,8 @@
 #include <cassert>
 #include <array>
 #include <compare>
+#include <string_view>
 #include <span>
-
-#include <Windows.h> // TODO remove this
 
 #include "lotus/common.h"
 #include "lotus/math/aab.h"
@@ -40,9 +39,6 @@ namespace lotus::graphics {
 	};
 
 
-	constexpr static std::size_t num_color_render_targets = 8; ///< The maximum number of color render targets.
-
-
 	/// The format of a pixel.
 	enum class format {
 		none, ///< No specific type.
@@ -57,20 +53,20 @@ namespace lotus::graphics {
 		r8_snorm,
 		r8_uint,
 		r8_sint,
-		r8_unknown,
 
 		r8g8_unorm,
 		r8g8_snorm,
 		r8g8_uint,
 		r8g8_sint,
-		r8g8_unknown,
 
 		r8g8b8a8_unorm,
 		r8g8b8a8_snorm,
 		r8g8b8a8_srgb,
 		r8g8b8a8_uint,
 		r8g8b8a8_sint,
-		r8g8b8a8_unknown,
+
+		b8g8r8a8_unorm,
+		b8g8r8a8_srgb,
 
 
 		r16_unorm,
@@ -78,42 +74,35 @@ namespace lotus::graphics {
 		r16_uint,
 		r16_sint,
 		r16_float,
-		r16_unknown,
 
 		r16g16_unorm,
 		r16g16_snorm,
 		r16g16_uint,
 		r16g16_sint,
 		r16g16_float,
-		r16g16_unknown,
 
 		r16g16b16a16_unorm,
 		r16g16b16a16_snorm,
 		r16g16b16a16_uint,
 		r16g16b16a16_sint,
 		r16g16b16a16_float,
-		r16g16b16a16_unknown,
 
 
 		r32_uint,
 		r32_sint,
 		r32_float,
-		r32_unknown,
 	
 		r32g32_uint,
 		r32g32_sint,
 		r32g32_float,
-		r32g32_unknown,
 	
 		r32g32b32_uint,
 		r32g32b32_sint,
 		r32g32b32_float,
-		r32g32b32_unknown,
 	
 		r32g32b32a32_uint,
 		r32g32b32a32_sint,
 		r32g32b32a32_float,
-		r32g32b32a32_unknown,
 
 		num_enumerators ///< The total number of enumerators.
 	};
@@ -130,24 +119,32 @@ namespace lotus::graphics {
 			signed_int,     ///< Signed integer.
 			floatint_point, ///< Floating-point number.
 		};
+		/// The order of channels. One or more channels may not present in the format.
+		enum class channel_order {
+			unknown,       ///< Unknown.
+			rgba,          ///< RGBA.
+			bgra,          ///< BGRA.
+			depth_stencil, ///< Depth-stencil.
+		};
 
 		/// No initialization.
 		format_properties(uninitialized_t) {
 		}
 		/// Initializes all bit values to zero and \ref type to \ref data_type::unknown.
-		constexpr format_properties(zero_t) : format_properties(0, 0, 0, 0, 0, 0, data_type::unknown) {
+		constexpr format_properties(zero_t) :
+			format_properties(0, 0, 0, 0, 0, 0, data_type::unknown, channel_order::unknown) {
 		}
 		/// Creates an object for a color format.
 		[[nodiscard]] constexpr inline static format_properties create_color(
-			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type ty
+			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type ty, channel_order o
 		) {
-			return format_properties(r, g, b, a, 0, 0, ty);
+			return format_properties(r, g, b, a, 0, 0, ty, o);
 		}
 		/// Creates an object for a depth-stencil format.
 		[[nodiscard]] constexpr inline static format_properties create_depth_stencil(
 			std::uint8_t d, std::uint8_t s, data_type ty
 		) {
-			return format_properties(0, 0, 0, 0, d, s, ty);
+			return format_properties(0, 0, 0, 0, d, s, ty, channel_order::depth_stencil);
 		}
 
 		/// Retrieves the \ref format_properties for the given \ref format.
@@ -165,12 +162,15 @@ namespace lotus::graphics {
 		std::uint8_t depth_bits;   ///< Number of bits for the depth channel.
 		std::uint8_t stencil_bits; ///< Number of bits for the stencil channel.
 		data_type type; ///< Data type for all the channels except for stencil.
+		channel_order order; ///< Order of the channels.
 	protected:
 		/// Initializes all fields.
 		constexpr format_properties(
 			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a,
-			std::uint8_t d, std::uint8_t s, data_type ty
-		) : red_bits(r), green_bits(g), blue_bits(b), alpha_bits(a), depth_bits(d), stencil_bits(s), type(ty) {
+			std::uint8_t d, std::uint8_t s, data_type ty, channel_order o
+		) :
+			red_bits(r), green_bits(g), blue_bits(b), alpha_bits(a),
+			depth_bits(d), stencil_bits(s), type(ty), order(o) {
 		}
 	};
 
@@ -215,29 +215,38 @@ namespace lotus {
 }
 
 namespace lotus::graphics {
-	/// A bitmask for shader stages.
-	enum class shader_stage_mask : std::uint8_t {
-		none            = 0,       ///< None.
-		vertex_shader   = 1u << 0, ///< Vertex shader.
-		// TODO tessellation shaders
-		geometry_shader = 1u << 1, ///< Geometry shader.
-		pixel_shader    = 1u << 2, ///< Pixel shader.
-		compute_shader  = 1u << 3, ///< Compute shader.
+	/// Aspects of an image such as color, depth, or stencil.
+	enum class image_aspect_mask : std::uint8_t {
+		none    = 0,       ///< None.
+		color   = 1u << 0, ///< Color aspect.
+		depth   = 1u << 1, ///< Depth aspect.
+		stencil = 1u << 2, ///< Stencil aspect.
 
-		all = vertex_shader | geometry_shader | pixel_shader | compute_shader, ///< A mask for all stages.
-		num_enumerators = 4, ///< The number of available stages.
+		num_enumerators = 3 ///< The total number of aspects.
 	};
 }
 namespace lotus {
-	/// Enable bitwise operations for \ref graphics::shader_stage_mask.
-	template <> struct enable_enum_bitwise_operators<graphics::shader_stage_mask> : public std::true_type {
+	/// Enable bitwise operations for \ref graphics::image_aspect_mask.
+	template <> struct enable_enum_bitwise_operators<graphics::image_aspect_mask> : public std::true_type {
 	};
-	/// Enable \ref is_empty for \ref graphics::shader_stage_mask.
-	template <> struct enable_enum_is_empty<graphics::shader_stage_mask> : public std::true_type {
+	/// Enable \ref is_empty for \ref graphics::image_aspect_mask.
+	template <> struct enable_enum_is_empty<graphics::image_aspect_mask> : public std::true_type {
 	};
 }
 
 namespace lotus::graphics {
+	/// A specific shader stage or all shader stages.
+	enum class shader_stage {
+		all,             ///< All used stages.
+		vertex_shader,   ///< Vertex shader.
+		// TODO tessellation shaders
+		geometry_shader, ///< Geometry shader.
+		pixel_shader,    ///< Pixel shader.
+		compute_shader,  ///< Compute shader.
+
+		num_enumerators ///< The number of available stages.
+	};
+
 	/// A factor used for blending.
 	enum class blend_factor {
 		zero,                        ///< Zero.
@@ -482,6 +491,8 @@ namespace lotus::graphics {
 			copy_source,                 ///< Source for copy operations.
 			copy_destination,            ///< Destination for copy operations.
 
+			initial, ///< Special value indicating that this image is just created.
+
 			num_enumerators ///< The total number of enumerators.
 		};
 		/// Used for specifying multiple usages. These values correspond directly to those in \ref values.
@@ -554,9 +565,12 @@ namespace lotus::graphics {
 		adapter_properties(uninitialized_t) {
 		}
 
+		// TODO allocator
+		std::u8string name; ///< The name of this device.
 		/// Alignment required for multiple regions in a buffer to be used as constant buffers.
 		std::size_t constant_buffer_alignment;
 		bool is_software; ///< Whether this is a software adapter.
+		bool is_discrete; ///< Whether this is a discrete adapter.
 	};
 
 	/// Describes how color blending is carried out for a single render target.
@@ -613,51 +627,6 @@ namespace lotus::graphics {
 			destination_alpha(blend_factor::zero),
 			alpha_operation(blend_operation::add),
 			write_mask(channel_mask::all) {
-		}
-	};
-
-	/// \ref render_target_blend_options for 8 render targets.
-	struct blend_options {
-	public:
-		/// No initialization.
-		blend_options(uninitialized_t) : render_target_options({
-			uninitialized, uninitialized, uninitialized, uninitialized,
-			uninitialized, uninitialized, uninitialized, uninitialized
-		}) {
-		}
-		/// Creates a \ref blend_options object that has the given blend options for all render targets.
-		[[nodiscard]] constexpr inline static blend_options create_for_render_targets(
-			const render_target_blend_options &opt1,
-			const render_target_blend_options &opt2 = render_target_blend_options::disabled(),
-			const render_target_blend_options &opt3 = render_target_blend_options::disabled(),
-			const render_target_blend_options &opt4 = render_target_blend_options::disabled(),
-			const render_target_blend_options &opt5 = render_target_blend_options::disabled(),
-			const render_target_blend_options &opt6 = render_target_blend_options::disabled(),
-			const render_target_blend_options &opt7 = render_target_blend_options::disabled(),
-			const render_target_blend_options &opt8 = render_target_blend_options::disabled()
-		) {
-			return blend_options({ opt1, opt2, opt3, opt4, opt5, opt6, opt7, opt8 });
-		}
-		/// \overload
-		[[nodiscard]] constexpr inline static blend_options create_blend(
-			std::initializer_list<render_target_blend_options> options
-		) {
-			return blend_options(options);
-		}
-
-		/// \ref render_target_blend_options for all render targets.
-		std::array<render_target_blend_options, num_color_render_targets> render_target_options;
-		// TODO logic operations
-	protected:
-		/// Initializes \ref render_target_options with the given list of options.
-		constexpr blend_options(std::initializer_list<render_target_blend_options> options) : render_target_options({
-			render_target_blend_options::disabled(), render_target_blend_options::disabled(),
-			render_target_blend_options::disabled(), render_target_blend_options::disabled(),
-			render_target_blend_options::disabled(), render_target_blend_options::disabled(),
-			render_target_blend_options::disabled(), render_target_blend_options::disabled()
-		}) {
-			assert(options.size() <= num_color_render_targets);
-			std::copy(options.begin(), options.end(), render_target_options.begin());
 		}
 	};
 
@@ -809,20 +778,19 @@ namespace lotus::graphics {
 		}
 		/// Creates a new object with the given arguments.
 		[[nodiscard]] constexpr inline static input_buffer_element create(
-			LPCSTR sname, UINT sindex, format fmt, std::size_t off
+			const char8_t *sname, std::uint32_t sindex, format fmt, std::size_t off
 		) {
 			return input_buffer_element(sname, sindex, fmt, off);
 		}
 
-		// TODO replace these with reflection data. for Vulkan, these two would be replaced by a single location number
-		LPCSTR semantic_name;
-		UINT semantic_index;
+		const char8_t *semantic_name;
+		std::uint32_t semantic_index;
 
 		format element_format; ///< The format of this element.
 		std::size_t byte_offset; ///< Byte offset of this element in a vertex.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr input_buffer_element(LPCSTR sname, UINT sindex, format fmt, std::size_t off) :
+		constexpr input_buffer_element(const char8_t *sname, std::uint32_t sindex, format fmt, std::size_t off) :
 			semantic_name(sname), semantic_index(sindex), element_format(fmt), byte_offset(off) {
 		}
 	};
@@ -934,6 +902,54 @@ namespace lotus::graphics {
 		}
 	};
 
+	/// Describes a subresource index.
+	struct subresource_index {
+	public:
+		/// No initialization.
+		subresource_index(uninitialized_t) {
+		}
+		/// Creates an index pointing to the color aspect of the first subresource.
+		[[nodiscard]] constexpr inline static subresource_index first_color() {
+			return subresource_index(0, 0, image_aspect_mask::color);
+		}
+		/// Creates an index pointing to the depth aspect of the first subresource.
+		[[nodiscard]] constexpr inline static subresource_index first_depth() {
+			return subresource_index(0, 0, image_aspect_mask::depth);
+		}
+		/// Creates an index pointing to the depth and stencil aspect of the first subresource.
+		[[nodiscard]] constexpr inline static subresource_index first_depth_stencil() {
+			return subresource_index(0, 0, image_aspect_mask::depth | image_aspect_mask::stencil);
+		}
+		/// Creates an index pointing to the color aspect of the specified subresource.
+		[[nodiscard]] constexpr inline static subresource_index create_color(std::uint16_t mip, std::uint16_t arr) {
+			return subresource_index(mip, arr, image_aspect_mask::color);
+		}
+		/// Creates an index pointing to the color aspect of the specified subresource.
+		[[nodiscard]] constexpr inline static subresource_index create_depth(std::uint16_t mip, std::uint16_t arr) {
+			return subresource_index(mip, arr, image_aspect_mask::depth);
+		}
+		/// Creates an index pointing to the color aspect of the specified subresource.
+		[[nodiscard]] constexpr inline static subresource_index create_stencil(
+			std::uint16_t mip, std::uint16_t arr
+		) {
+			return subresource_index(mip, arr, image_aspect_mask::stencil);
+		}
+		/// Creates an index with the specified arguments.
+		[[nodiscard]] constexpr inline static subresource_index create(
+			std::uint16_t mip, std::uint16_t arr, image_aspect_mask asp
+		) {
+			return subresource_index(mip, arr, asp);
+		}
+
+		std::uint16_t mip_level; ///< Mip level.
+		std::uint16_t array_slice; ///< Array slice.
+		image_aspect_mask aspects; ///< The aspects of the subresource.
+	protected:
+		/// Initializes all members of this struct.
+		constexpr subresource_index(std::uint16_t mip, std::uint16_t arr, image_aspect_mask asp) :
+			mip_level(mip), array_slice(arr), aspects(asp) {
+		}
+	};
 	/// Describes a range of mip levels.
 	struct mip_levels {
 	public:
@@ -972,6 +988,27 @@ namespace lotus::graphics {
 		}
 	};
 
+	/// Synchronization primitives that will be notified when a frame has finished presenting.
+	struct back_buffer_synchronization {
+	public:
+		/// Initializes all fields to \p nullptr.
+		back_buffer_synchronization(std::nullptr_t) : notify_fence(nullptr) {
+		}
+		/// Creates a new object with the specified parameters.
+		[[nodiscard]] inline static back_buffer_synchronization create(fence *f) {
+			return back_buffer_synchronization(f);
+		}
+		/// Creates an object indicating that only the given fence should be used for synchronization.
+		[[nodiscard]] inline static back_buffer_synchronization with_fence(fence &f) {
+			return back_buffer_synchronization(&f);
+		}
+
+		fence *notify_fence; ///< Fence to notify.
+	protected:
+		/// Initializes all fields of this struct.
+		back_buffer_synchronization(fence *f) : notify_fence(f) {
+		}
+	};
 	/// Information used when presenting a back buffer.
 	struct back_buffer_info {
 		/// No initialization.
@@ -1034,18 +1071,20 @@ namespace lotus::graphics {
 		image_barrier(uninitialized_t) {
 		}
 		/// Creates a new \ref image_barrier object.
-		[[nodiscard]] constexpr static inline image_barrier create(image &img, image_usage from, image_usage to) {
-			return image_barrier(img, from, to);
+		[[nodiscard]] constexpr static inline image_barrier create(
+			subresource_index sub, image &img, image_usage from, image_usage to
+		) {
+			return image_barrier(sub, img, from, to);
 		}
 
+		subresource_index subresource = uninitialized; ///< Subresource.
 		image *target; ///< Target image.
-		// TODO subresource
 		image_usage from_state = uninitialized; ///< State to transition from.
 		image_usage to_state   = uninitialized; ///< State to transition to.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr image_barrier(image &i, image_usage from, image_usage to) :
-			target(&i), from_state(from), to_state(to) {
+		constexpr image_barrier(subresource_index sub, image &i, image_usage from, image_usage to) :
+			subresource(sub), target(&i), from_state(from), to_state(to) {
 		}
 	};
 	/// A buffer resource barrier.

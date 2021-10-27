@@ -4,6 +4,7 @@
 /// Implementation of miscellaneous DirectX 12 related functions.
 
 #include <comdef.h>
+#include <directx/d3dx12.h>
 
 #include "lotus/system/platforms/windows/details.h"
 #include "lotus/graphics/backends/directx12/device.h"
@@ -28,61 +29,53 @@ namespace lotus::graphics::backends::directx12::_details {
 	namespace conversions {
 		DXGI_FORMAT for_format(format fmt) {
 			constexpr static enum_mapping<format, DXGI_FORMAT> table{
-				std::pair(format::none,                 DXGI_FORMAT_UNKNOWN              ),
-				std::pair(format::d32_float_s8,         DXGI_FORMAT_D32_FLOAT_S8X24_UINT ),
-				std::pair(format::d32_float,            DXGI_FORMAT_D32_FLOAT            ),
-				std::pair(format::d24_unorm_s8,         DXGI_FORMAT_D24_UNORM_S8_UINT    ),
-				std::pair(format::d16_unorm,            DXGI_FORMAT_D16_UNORM            ),
-				std::pair(format::r8_unorm,             DXGI_FORMAT_R8_UNORM             ),
-				std::pair(format::r8_snorm,             DXGI_FORMAT_R8_SNORM             ),
-				std::pair(format::r8_uint,              DXGI_FORMAT_R8_UINT              ),
-				std::pair(format::r8_sint,              DXGI_FORMAT_R8_SINT              ),
-				std::pair(format::r8_unknown,           DXGI_FORMAT_R8_TYPELESS          ),
-				std::pair(format::r8g8_unorm,           DXGI_FORMAT_R8G8_UNORM           ),
-				std::pair(format::r8g8_snorm,           DXGI_FORMAT_R8G8_SNORM           ),
-				std::pair(format::r8g8_uint,            DXGI_FORMAT_R8G8_UINT            ),
-				std::pair(format::r8g8_sint,            DXGI_FORMAT_R8G8_SINT            ),
-				std::pair(format::r8g8_unknown,         DXGI_FORMAT_R8G8_TYPELESS        ),
-				std::pair(format::r8g8b8a8_unorm,       DXGI_FORMAT_R8G8B8A8_UNORM       ),
-				std::pair(format::r8g8b8a8_snorm,       DXGI_FORMAT_R8G8B8A8_SNORM       ),
-				std::pair(format::r8g8b8a8_srgb,        DXGI_FORMAT_R8G8B8A8_UNORM_SRGB  ),
-				std::pair(format::r8g8b8a8_uint,        DXGI_FORMAT_R8G8B8A8_UINT        ),
-				std::pair(format::r8g8b8a8_sint,        DXGI_FORMAT_R8G8B8A8_SINT        ),
-				std::pair(format::r8g8b8a8_unknown,     DXGI_FORMAT_R8G8B8A8_TYPELESS    ),
-				std::pair(format::r16_unorm,            DXGI_FORMAT_R16_UNORM            ),
-				std::pair(format::r16_snorm,            DXGI_FORMAT_R16_SNORM            ),
-				std::pair(format::r16_uint,             DXGI_FORMAT_R16_UINT             ),
-				std::pair(format::r16_sint,             DXGI_FORMAT_R16_SINT             ),
-				std::pair(format::r16_float,            DXGI_FORMAT_R16_FLOAT            ),
-				std::pair(format::r16_unknown,          DXGI_FORMAT_R16_TYPELESS         ),
-				std::pair(format::r16g16_unorm,         DXGI_FORMAT_R16G16_UNORM         ),
-				std::pair(format::r16g16_snorm,         DXGI_FORMAT_R16G16_SNORM         ),
-				std::pair(format::r16g16_uint,          DXGI_FORMAT_R16G16_UINT          ),
-				std::pair(format::r16g16_sint,          DXGI_FORMAT_R16G16_SINT          ),
-				std::pair(format::r16g16_float,         DXGI_FORMAT_R16G16_FLOAT         ),
-				std::pair(format::r16g16_unknown,       DXGI_FORMAT_R16G16_TYPELESS      ),
-				std::pair(format::r16g16b16a16_unorm,   DXGI_FORMAT_R16G16B16A16_UNORM   ),
-				std::pair(format::r16g16b16a16_snorm,   DXGI_FORMAT_R16G16B16A16_SNORM   ),
-				std::pair(format::r16g16b16a16_uint,    DXGI_FORMAT_R16G16B16A16_UINT    ),
-				std::pair(format::r16g16b16a16_sint,    DXGI_FORMAT_R16G16B16A16_SINT    ),
-				std::pair(format::r16g16b16a16_float,   DXGI_FORMAT_R16G16B16A16_FLOAT   ),
-				std::pair(format::r16g16b16a16_unknown, DXGI_FORMAT_R16G16B16A16_TYPELESS),
-				std::pair(format::r32_uint,             DXGI_FORMAT_R32_UINT             ),
-				std::pair(format::r32_sint,             DXGI_FORMAT_R32_SINT             ),
-				std::pair(format::r32_float,            DXGI_FORMAT_R32_FLOAT            ),
-				std::pair(format::r32_unknown,          DXGI_FORMAT_R32_TYPELESS         ),
-				std::pair(format::r32g32_uint,          DXGI_FORMAT_R32G32_UINT          ),
-				std::pair(format::r32g32_sint,          DXGI_FORMAT_R32G32_SINT          ),
-				std::pair(format::r32g32_float,         DXGI_FORMAT_R32G32_FLOAT         ),
-				std::pair(format::r32g32_unknown,       DXGI_FORMAT_R32G32_TYPELESS      ),
-				std::pair(format::r32g32b32_uint,       DXGI_FORMAT_R32G32B32_UINT       ),
-				std::pair(format::r32g32b32_sint,       DXGI_FORMAT_R32G32B32_SINT       ),
-				std::pair(format::r32g32b32_float,      DXGI_FORMAT_R32G32B32_FLOAT      ),
-				std::pair(format::r32g32b32_unknown,    DXGI_FORMAT_R32G32B32_TYPELESS   ),
-				std::pair(format::r32g32b32a32_uint,    DXGI_FORMAT_R32G32B32A32_UINT    ),
-				std::pair(format::r32g32b32a32_sint,    DXGI_FORMAT_R32G32B32A32_SINT    ),
-				std::pair(format::r32g32b32a32_float,   DXGI_FORMAT_R32G32B32A32_FLOAT   ),
-				std::pair(format::r32g32b32a32_unknown, DXGI_FORMAT_R32G32B32A32_TYPELESS),
+				std::pair(format::none,               DXGI_FORMAT_UNKNOWN             ),
+				std::pair(format::d32_float_s8,       DXGI_FORMAT_D32_FLOAT_S8X24_UINT),
+				std::pair(format::d32_float,          DXGI_FORMAT_D32_FLOAT           ),
+				std::pair(format::d24_unorm_s8,       DXGI_FORMAT_D24_UNORM_S8_UINT   ),
+				std::pair(format::d16_unorm,          DXGI_FORMAT_D16_UNORM           ),
+				std::pair(format::r8_unorm,           DXGI_FORMAT_R8_UNORM            ),
+				std::pair(format::r8_snorm,           DXGI_FORMAT_R8_SNORM            ),
+				std::pair(format::r8_uint,            DXGI_FORMAT_R8_UINT             ),
+				std::pair(format::r8_sint,            DXGI_FORMAT_R8_SINT             ),
+				std::pair(format::r8g8_unorm,         DXGI_FORMAT_R8G8_UNORM          ),
+				std::pair(format::r8g8_snorm,         DXGI_FORMAT_R8G8_SNORM          ),
+				std::pair(format::r8g8_uint,          DXGI_FORMAT_R8G8_UINT           ),
+				std::pair(format::r8g8_sint,          DXGI_FORMAT_R8G8_SINT           ),
+				std::pair(format::r8g8b8a8_unorm,     DXGI_FORMAT_R8G8B8A8_UNORM      ),
+				std::pair(format::r8g8b8a8_snorm,     DXGI_FORMAT_R8G8B8A8_SNORM      ),
+				std::pair(format::r8g8b8a8_srgb,      DXGI_FORMAT_R8G8B8A8_UNORM_SRGB ),
+				std::pair(format::r8g8b8a8_uint,      DXGI_FORMAT_R8G8B8A8_UINT       ),
+				std::pair(format::r8g8b8a8_sint,      DXGI_FORMAT_R8G8B8A8_SINT       ),
+				std::pair(format::b8g8r8a8_unorm,     DXGI_FORMAT_B8G8R8A8_UNORM      ),
+				std::pair(format::b8g8r8a8_srgb,      DXGI_FORMAT_B8G8R8A8_UNORM_SRGB ),
+				std::pair(format::r16_unorm,          DXGI_FORMAT_R16_UNORM           ),
+				std::pair(format::r16_snorm,          DXGI_FORMAT_R16_SNORM           ),
+				std::pair(format::r16_uint,           DXGI_FORMAT_R16_UINT            ),
+				std::pair(format::r16_sint,           DXGI_FORMAT_R16_SINT            ),
+				std::pair(format::r16_float,          DXGI_FORMAT_R16_FLOAT           ),
+				std::pair(format::r16g16_unorm,       DXGI_FORMAT_R16G16_UNORM        ),
+				std::pair(format::r16g16_snorm,       DXGI_FORMAT_R16G16_SNORM        ),
+				std::pair(format::r16g16_uint,        DXGI_FORMAT_R16G16_UINT         ),
+				std::pair(format::r16g16_sint,        DXGI_FORMAT_R16G16_SINT         ),
+				std::pair(format::r16g16_float,       DXGI_FORMAT_R16G16_FLOAT        ),
+				std::pair(format::r16g16b16a16_unorm, DXGI_FORMAT_R16G16B16A16_UNORM  ),
+				std::pair(format::r16g16b16a16_snorm, DXGI_FORMAT_R16G16B16A16_SNORM  ),
+				std::pair(format::r16g16b16a16_uint,  DXGI_FORMAT_R16G16B16A16_UINT   ),
+				std::pair(format::r16g16b16a16_sint,  DXGI_FORMAT_R16G16B16A16_SINT   ),
+				std::pair(format::r16g16b16a16_float, DXGI_FORMAT_R16G16B16A16_FLOAT  ),
+				std::pair(format::r32_uint,           DXGI_FORMAT_R32_UINT            ),
+				std::pair(format::r32_sint,           DXGI_FORMAT_R32_SINT            ),
+				std::pair(format::r32_float,          DXGI_FORMAT_R32_FLOAT           ),
+				std::pair(format::r32g32_uint,        DXGI_FORMAT_R32G32_UINT         ),
+				std::pair(format::r32g32_sint,        DXGI_FORMAT_R32G32_SINT         ),
+				std::pair(format::r32g32_float,       DXGI_FORMAT_R32G32_FLOAT        ),
+				std::pair(format::r32g32b32_uint,     DXGI_FORMAT_R32G32B32_UINT      ),
+				std::pair(format::r32g32b32_sint,     DXGI_FORMAT_R32G32B32_SINT      ),
+				std::pair(format::r32g32b32_float,    DXGI_FORMAT_R32G32B32_FLOAT     ),
+				std::pair(format::r32g32b32a32_uint,  DXGI_FORMAT_R32G32B32A32_UINT   ),
+				std::pair(format::r32g32b32a32_sint,  DXGI_FORMAT_R32G32B32A32_SINT   ),
+				std::pair(format::r32g32b32a32_float, DXGI_FORMAT_R32G32B32A32_FLOAT  ),
 			};
 			return table[fmt];
 		}
@@ -234,6 +227,7 @@ namespace lotus::graphics::backends::directx12::_details {
 				std::pair(image_usage::present,                     D3D12_RESOURCE_STATE_PRESENT      ),
 				std::pair(image_usage::copy_source,                 D3D12_RESOURCE_STATE_COPY_SOURCE  ),
 				std::pair(image_usage::copy_destination,            D3D12_RESOURCE_STATE_COPY_DEST    ),
+				std::pair(image_usage::initial,                     D3D12_RESOURCE_STATE_COMMON       )
 			};
 			return table[st];
 		}
@@ -291,7 +285,7 @@ namespace lotus::graphics::backends::directx12::_details {
 
 
 		D3D12_COLOR_WRITE_ENABLE for_channel_mask(channel_mask mask) {
-			static const std::pair<channel_mask, D3D12_COLOR_WRITE_ENABLE> table[]{
+			constexpr static std::pair<channel_mask, D3D12_COLOR_WRITE_ENABLE> table[]{
 				{ channel_mask::red,   D3D12_COLOR_WRITE_ENABLE_RED   },
 				{ channel_mask::green, D3D12_COLOR_WRITE_ENABLE_GREEN },
 				{ channel_mask::blue,  D3D12_COLOR_WRITE_ENABLE_BLUE  },
@@ -306,20 +300,15 @@ namespace lotus::graphics::backends::directx12::_details {
 			return static_cast<D3D12_COLOR_WRITE_ENABLE>(result);
 		}
 
-		D3D12_SHADER_VISIBILITY for_shader_stage_mask(shader_stage_mask mask) {
-			static const std::pair<shader_stage_mask, D3D12_SHADER_VISIBILITY> table[]{
-				{ shader_stage_mask::vertex_shader,   D3D12_SHADER_VISIBILITY_VERTEX   },
-				{ shader_stage_mask::geometry_shader, D3D12_SHADER_VISIBILITY_GEOMETRY },
-				{ shader_stage_mask::pixel_shader,    D3D12_SHADER_VISIBILITY_PIXEL    },
-				{ shader_stage_mask::compute_shader,  D3D12_SHADER_VISIBILITY_ALL      },
+		D3D12_SHADER_VISIBILITY to_shader_visibility(shader_stage stage) {
+			constexpr static enum_mapping<shader_stage, D3D12_SHADER_VISIBILITY> table{
+				std::pair(shader_stage::all,             D3D12_SHADER_VISIBILITY_ALL     ),
+				std::pair(shader_stage::vertex_shader,   D3D12_SHADER_VISIBILITY_VERTEX  ),
+				std::pair(shader_stage::geometry_shader, D3D12_SHADER_VISIBILITY_GEOMETRY),
+				std::pair(shader_stage::pixel_shader,    D3D12_SHADER_VISIBILITY_PIXEL   ),
+				std::pair(shader_stage::compute_shader,  D3D12_SHADER_VISIBILITY_ALL     ),
 			};
-			std::uint8_t result = 0;
-			for (auto [myval, dxval] : table) {
-				if ((mask & myval) == myval) {
-					result |= dxval;
-				}
-			}
-			return static_cast<D3D12_SHADER_VISIBILITY>(result);
+			return table[stage];
 		}
 
 
@@ -399,14 +388,13 @@ namespace lotus::graphics::backends::directx12::_details {
 			return result;
 		}
 
-		D3D12_BLEND_DESC for_blend_options(const blend_options &opt) {
+		D3D12_BLEND_DESC for_blend_options(std::span<const render_target_blend_options> targets) {
+			assert(targets.size() < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT);
 			D3D12_BLEND_DESC result = {};
 			// TODO handle logic operations
-			constexpr std::size_t _num_render_targets =
-				std::min(std::size(result.RenderTarget), num_color_render_targets);
 			result.IndependentBlendEnable = true;
-			for (std::size_t i = 0; i < _num_render_targets; ++i) {
-				result.RenderTarget[i] = for_render_target_blend_options(opt.render_target_options[i]);
+			for (std::size_t i = 0; i < targets.size(); ++i) {
+				result.RenderTarget[i] = for_render_target_blend_options(targets[i]);
 			}
 			return result;
 		}
@@ -495,6 +483,11 @@ namespace lotus::graphics::backends::directx12::_details {
 		return result;
 	}
 
+	UINT compute_subresource_index(const subresource_index &index, ID3D12Resource *rsrc) {
+		D3D12_RESOURCE_DESC desc = rsrc->GetDesc();
+		return D3D12CalcSubresource(index.mip_level, index.array_slice, 0, desc.MipLevels, desc.DepthOrArraySize);
+	}
+
 
 	namespace resource_desc {
 		D3D12_RESOURCE_DESC for_buffer(std::size_t size) {
@@ -514,7 +507,7 @@ namespace lotus::graphics::backends::directx12::_details {
 		}
 
 		void adjust_resource_flags_for_buffer(
-			heap_type type, buffer_usage::mask all_usages, buffer_usage initial_usage,
+			heap_type type, buffer_usage::mask all_usages,
 			D3D12_RESOURCE_DESC &desc, D3D12_RESOURCE_STATES &states, D3D12_HEAP_FLAGS *heap_flags
 		) {
 			if (type == heap_type::device_only) {

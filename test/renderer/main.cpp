@@ -13,21 +13,35 @@
 #include <lotus/system/application.h>
 #include <lotus/utils/camera.h>
 
+#include "common.h"
 #include "scene.h"
 #include "gbuffer_pass.h"
 #include "composite_pass.h"
 
-int main() {
+int main(int argc, char **argv) {
+	if (argc < 2) {
+		std::cout << "No model file specified\n";
+		return 1;
+	}
+
+	std::cout << "Backend: " << std::string_view(reinterpret_cast<const char*>(gfx::backend_name.data()), gfx::backend_name.size()) << "\n";
+	std::cout << "Working dir: " << std::filesystem::current_path() << "\n";
+
 	sys::application app(u8"test");
 	auto wnd = app.create_window();
 
-	gfx::context ctx;
+	auto ctx = gfx::context::create();
 	gfx::device dev = nullptr;
 	gfx::adapter_properties dev_prop = uninitialized;
 	ctx.enumerate_adapters([&](gfx::adapter adap) {
 		dev_prop = adap.get_properties();
-		dev = adap.create_device();
-		return false;
+		std::cerr << "Device name: " << reinterpret_cast<const char*>(dev_prop.name.c_str()) << "\n";
+		if (dev_prop.is_discrete) {
+			std::cerr << "  Selected\n";
+			dev = adap.create_device();
+			return false;
+		}
+		return true;
 	});
 	auto cmd_queue = dev.create_command_queue();
 	auto cmd_alloc = dev.create_command_allocator();
@@ -39,8 +53,8 @@ int main() {
 		gltf::TinyGLTF loader;
 		std::string err;
 		std::string warn;
-		std::string path = "../../thirdparty/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf";
-		if (!loader.LoadASCIIFromFile(&model, &err, &warn, path)) {
+		std::cout << "Loading " << argv[1] << "\n";
+		if (!loader.LoadASCIIFromFile(&model, &err, &warn, argv[1])) {
 			std::cout << "Failed to load scene: " << err << "\n";
 		}
 		std::cout << warn << "\n";
@@ -64,21 +78,17 @@ int main() {
 	composite_pass comp_pass(dev);
 
 	// buffers
-	constexpr std::size_t num_swapchain_images = 2;
-
 	gbuffer gbuf;
 	gbuffer::view gbuf_view;
 	gbuffer_pass::input_resources gbuf_input = gbuf_pass.create_input_resources(dev, dev_prop, descriptor_pool, model, model_resources);
 	gbuffer_pass::output_resources gbuf_output;
 
 	composite_pass::input_resources comp_input;
-	std::array<composite_pass::output_resources, num_swapchain_images> comp_output;
+	std::vector<composite_pass::output_resources> comp_output;
 
 	gfx::swap_chain swapchain = nullptr;
-	std::array<gfx::fence, num_swapchain_images> present_fences{
-		dev.create_fence(gfx::synchronization_state::set),
-		dev.create_fence(gfx::synchronization_state::set),
-	};
+	std::vector<gfx::fence> present_fences;
+	std::vector<gfx::command_list> cmd_lists;
 
 	auto recreate_buffers = [&](cvec2s size) {
 		auto beg = std::chrono::high_resolution_clock::now();
@@ -87,29 +97,47 @@ int main() {
 		gbuf = gbuffer();
 		gbuf_view = gbuffer::view();
 		swapchain = nullptr;
-		for (std::size_t i = 0; i < num_swapchain_images; ++i) {
-			comp_output[i] = composite_pass::output_resources();
-		}
+		comp_output.clear();
+		present_fences.clear();
 
 		// create all textures
-		gbuf = gbuffer::create(dev, size);
+		gbuf = gbuffer::create(dev, cmd_alloc, cmd_queue, size);
 		gbuf_view = gbuf.create_view(dev);
 		swapchain = ctx.create_swap_chain_for_window(
-			wnd, dev, cmd_queue, num_swapchain_images, gfx::format::r8g8b8a8_unorm
+			wnd, dev, cmd_queue, 2, gfx::format::b8g8r8a8_unorm
 		);
 		auto time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count();
 
 		// create input/output resources
 		gbuf_output = gbuf_pass.create_output_resources(dev, gbuf_view, size);
 
+		auto list = dev.create_and_start_command_list(cmd_alloc);
+
 		comp_input = comp_pass.create_input_resources(dev, descriptor_pool, gbuf_view);
-		for (std::size_t i = 0; i < num_swapchain_images; ++i) {
+		std::size_t num_images = swapchain.get_image_count();
+		cmd_lists.clear();
+		for (std::size_t i = 0; i < num_images; ++i) {
 			auto image = swapchain.get_image(i);
 			char8_t buffer[20];
 			std::snprintf(reinterpret_cast<char*>(buffer), std::size(buffer), "Back buffer %d", static_cast<int>(i));
 			dev.set_debug_name(image, buffer);
-			comp_output[i] = comp_pass.create_output_resources(dev, image, size);
+			comp_output.emplace_back(comp_pass.create_output_resources(dev, image, size));
+			present_fences.emplace_back(dev.create_fence(gfx::synchronization_state::unset));
+			cmd_lists.emplace_back(nullptr);
+			list.resource_barrier(
+				{
+					gfx::image_barrier::create(gfx::subresource_index::first_color(), image, gfx::image_usage::initial, gfx::image_usage::present),
+				},
+				{}
+			);
 		}
+
+		list.finish();
+		auto fence = dev.create_fence(gfx::synchronization_state::unset);
+		cmd_queue.submit_command_lists({ &list }, &fence);
+		dev.wait_for_fence(fence);
+
+		swapchain.update_synchronization_primitives(present_fences);
 
 		std::cout << "Recreate buffers: " << time << " secs\n";
 	};
@@ -214,7 +242,6 @@ int main() {
 
 
 	gfx::fence frame_fence = dev.create_fence(gfx::synchronization_state::set);
-	gfx::command_list cmd_list = dev.create_command_list(cmd_alloc);
 
 	wnd.show_and_activate();
 	while (app.process_message_nonblocking() != sys::message_type::quit) {
@@ -230,7 +257,7 @@ int main() {
 			resized = false;
 		}
 
-		auto back_buffer = swapchain.acquire_back_buffer();
+		auto back_buffer = dev.acquire_back_buffer(swapchain);
 
 		if (back_buffer.on_presented) {
 			dev.wait_for_fence(*back_buffer.on_presented);
@@ -244,22 +271,19 @@ int main() {
 		data->projection_view = cam.projection_view_matrix.into<float>();
 		dev.unmap_buffer(gbuf_input.constant_buffer, 0, sizeof(gbuffer_pass::constants));
 
+		auto &cmd_list = cmd_lists[back_buffer.index];
+		cmd_list = dev.create_and_start_command_list(cmd_alloc);
 		{
 			auto image = swapchain.get_image(back_buffer.index);
 			
-			cmd_list.reset(cmd_alloc);
-			cmd_list.start();
-
 			gbuf_pass.record_commands(cmd_list, gbuf, model, model_resources, gbuf_input, gbuf_output);
 			comp_pass.record_commands(cmd_list, image, comp_input, comp_output[back_buffer.index]);
 
 			cmd_list.finish();
 		}
-
-
 		cmd_queue.submit_command_lists({ &cmd_list }, &frame_fence);
 
-		cmd_queue.present(swapchain, &present_fences[back_buffer.index]);
+		cmd_queue.present(swapchain);
 	}
 
 	{

@@ -5,8 +5,6 @@
 
 #include <span>
 
-#include <d3d12.h>
-
 #include "lotus/color.h"
 #include "lotus/math/aab.h"
 #include "details.h"
@@ -21,6 +19,18 @@ namespace lotus::graphics::backends::directx12 {
 	class command_queue;
 	class command_allocator;
 
+
+	/// A \p ID3D12CommandAllocator.
+	class command_allocator {
+		friend device;
+		friend command_list;
+	protected:
+		/// Calls \p ID3D12CommandAllocator::Reset().
+		void reset(device&);
+	private:
+		_details::com_ptr<ID3D12CommandAllocator> _allocator; ///< The allocator.
+	};
+
 	/// A \p ID3D12CommandList.
 	class command_list {
 		friend device;
@@ -31,10 +41,8 @@ namespace lotus::graphics::backends::directx12 {
 		}
 
 		/// Calls \p ID3D12GraphicsCommandList::Reset().
-		void reset(command_allocator&);
+		void reset_and_start(command_allocator&);
 
-		/// Calls \p ID3D12GraphicsCommandList::SetDescriptorHeaps().
-		void start();
 		/// Calls \p ID3D12GraphicsCommandList4::BeginRenderPass().
 		void begin_pass(
 			const pass_resources&, const frame_buffer&, std::span<const linear_rgba_f>, float, std::uint8_t
@@ -49,9 +57,13 @@ namespace lotus::graphics::backends::directx12 {
 		/// Calls \p ID3D12GraphicsCommandList::IASetIndexBuffer().
 		void bind_index_buffer(const buffer&, std::size_t offset, index_format);
 		/// Calls \p ID3D12GraphicsCommandList::SetGraphicsRootDescriptorTable() for all given descriptor sets.
-		void bind_graphics_descriptor_sets(std::size_t first, std::span<const graphics::descriptor_set *const>);
+		void bind_graphics_descriptor_sets(
+			const pipeline_resources&, std::size_t first, std::span<const graphics::descriptor_set *const>
+		);
 		/// Calls \p ID3D12GraphicsCommandList::SetComputeRootDescriptorTable() for all given descriptor sets.
-		void bind_compute_descriptor_sets(std::size_t first, std::span<const graphics::descriptor_set *const>);
+		void bind_compute_descriptor_sets(
+			const pipeline_resources&, std::size_t first, std::span<const graphics::descriptor_set *const>
+		);
 		/// Calls \p ID3D12GraphicsCommandList::RSSetViewports().
 		void set_viewports(std::span<const viewport>);
 		/// Calls \p ID3D12GraphicsCommandList::RSSetScissorRects().
@@ -61,12 +73,12 @@ namespace lotus::graphics::backends::directx12 {
 		void copy_buffer(buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size);
 		/// Calls \p ID3D12GraphicsCommandList::CopyTextureRegion().
 		void copy_image2d(
-			image2d &from, std::uint32_t sub1, aab2s region, image2d &to, std::uint32_t sub2, cvec2s off
+			image2d &from, subresource_index sub1, aab2s region, image2d &to, subresource_index sub2, cvec2s off
 		);
 		/// Calls \p ID3D12GraphicsCommandList::CopyTextureRegion().
 		void copy_buffer_to_image(
 			buffer &from, std::size_t byte_offset, std::size_t row_pitch, aab2s region,
-			image2d &to, std::uint32_t subresource, cvec2s off
+			image2d &to, subresource_index subresource, cvec2s off
 		);
 
 		/// Calls \p ID3D12GraphicsCommandList::DrawInstanced().
@@ -93,22 +105,6 @@ namespace lotus::graphics::backends::directx12 {
 	private:
 		_details::com_ptr<ID3D12GraphicsCommandList4> _list; ///< The command list.
 		std::array<ID3D12DescriptorHeap*, 2> _descriptor_heaps; ///< Descriptor heaps.
-		/// Root parameter indices of all descriptor tables.
-		std::span<const pipeline_resources::_root_param_indices> _descriptor_table_binding;
-		/// Indicates whether this command list can be reset. In particular, a command list cannot be reset when it's
-		/// first created; it must be closed before it can be reset.
-		bool _can_reset = false;
-	};
-
-	/// A \p ID3D12CommandAllocator.
-	class command_allocator {
-		friend device;
-		friend command_list;
-	protected:
-		/// Calls \p ID3D12CommandAllocator::Reset().
-		void reset(device&);
-	private:
-		_details::com_ptr<ID3D12CommandAllocator> _allocator; ///< The allocator.
 	};
 
 	/// A DirectX 12 command queue.
@@ -119,9 +115,9 @@ namespace lotus::graphics::backends::directx12 {
 		/// Calls \p ID3D12CommandQueue::ExecuteCommandLists(), then optionally signals the fence using
 		/// \p ID3D12CommandQueue::Signal().
 		void submit_command_lists(std::span<const graphics::command_list *const>, fence*);
-		/// Calls \p IDXGISwapChain::Present(), then signals the given \ref fence. Also stores the fence to be later
-		/// returned by \ref swap_chain::acquire_back_buffer().
-		void present(swap_chain&, graphics::fence*);
+		/// Calls \p IDXGISwapChain::Present(), then signals any synchronization primitives associated with the
+		/// current back buffer.
+		void present(swap_chain&);
 		/// Calls \p ID3D12CommandQueue::Signal().
 		void signal(fence&);
 	private:

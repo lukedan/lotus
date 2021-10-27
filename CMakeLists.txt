@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(lotus)
+project(lotus CXX)
 
 cmake_policy(SET CMP0092 NEW) # don't add /W3 for MSVC
 
@@ -9,34 +9,58 @@ set(TINYGLTF_HEADER_ONLY OFF CACHE INTERNAL "" FORCE)
 add_subdirectory("${CMAKE_SOURCE_DIR}/thirdparty/tinygltf")
 
 
-# DirectXShaderCompiler
-set(LOTUS_DXC_TARGET_ARCH "x64" CACHE STRING "Architecture used to build DXC.")
-
-# DirectXShaderCompiler requires additional arguments in the file
-file(READ "thirdparty/DirectXShaderCompiler/utils/cmake-predefined-config-params" LOTUS_SHADER_PARSER_LLVM_OPTIONS)
-separate_arguments(LOTUS_SHADER_PARSER_LLVM_OPTIONS UNIX_COMMAND ${LOTUS_SHADER_PARSER_LLVM_OPTIONS})
-foreach(LOTUS_ARG ${LOTUS_SHADER_PARSER_LLVM_OPTIONS})
-	if("${LOTUS_ARG}" MATCHES "-D([^:]+):([^=]+)=(.+)")
-		message("LLVM argument: ${CMAKE_MATCH_1}, type: ${CMAKE_MATCH_2}, value: ${CMAKE_MATCH_3}")
-		set(${CMAKE_MATCH_1} "${CMAKE_MATCH_3}" CACHE "${CMAKE_MATCH_2}" "Additional argument for LLVM used by DXC")
-	elseif("${LOTUS_ARG}" MATCHES "-D([^:]+)=(.+)")
-		message("LLVM argument: ${CMAKE_MATCH_1}, value: ${CMAKE_MATCH_2}")
-		set(${CMAKE_MATCH_1} "${CMAKE_MATCH_2}" CACHE)
-	else()
-		message(FATAL_ERROR "Failed to parse argument: ${LOTUS_ARG}")
+if(LOTUS_BUILD_DXC)
+	# build DirectXShaderCompiler now since we'll need its binaries
+	set(LOTUS_DXC_BUILD_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/dxc")
+	set(LOTUS_DXC_SOURCE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/DirectXShaderCompiler")
+	set(LOTUS_DXC_DEFAULT_GENERATOR "Ninja")
+	if(WIN32)
+		set(LOTUS_DXC_DEFAULT_GENERATOR "Visual Studio 16 2019")
 	endif()
-endforeach()
-set(DXC_BUILD_ARCH "${LOTUS_DXC_TARGET_ARCH}")
+	set(LOTUS_DXC_GENERATOR "${LOTUS_DXC_DEFAULT_GENERATOR}" CACHE STRING "Generator used for DXC")
+	message("Configuring DXC, generator: ${LOTUS_DXC_GENERATOR}, platform: ${CMAKE_GENERATOR_PLATFORM}")
+	file(MAKE_DIRECTORY "${LOTUS_DXC_BUILD_DIRECTORY}")
+	execute_process(
+		COMMAND
+			cmake
+				"${LOTUS_DXC_SOURCE_DIRECTORY}"
+				-G "${LOTUS_DXC_GENERATOR}"
+				-A "${CMAKE_GENERATOR_PLATFORM}"
+				"-DCMAKE_BUILD_TYPE=Release"
+				"-DDXC_BUILD_ARCH=${CMAKE_GENERATOR_PLATFORM}"
+				-C "${LOTUS_DXC_SOURCE_DIRECTORY}/cmake/caches/PredefinedParams.cmake"
+		WORKING_DIRECTORY "${LOTUS_DXC_BUILD_DIRECTORY}"
+		COMMAND_ERROR_IS_FATAL ANY)
+	message("Building DXC")
+	execute_process(
+		COMMAND cmake --build "${LOTUS_DXC_BUILD_DIRECTORY}" --config Release
+		COMMAND_ERROR_IS_FATAL ANY)
 
-# We must use the Visual Studio generator instead of the Ninja one so that DIA SDK can be successfully found
-add_subdirectory("thirdparty/DirectXShaderCompiler/")
+	# find dxc executable
+	find_file(LOTUS_DXC_EXECUTABLE
+		NAMES dxc.exe dxc
+		PATHS "${LOTUS_DXC_BUILD_DIRECTORY}/bin/" "${LOTUS_DXC_BUILD_DIRECTORY}/Release/bin/"
+		NO_DEFAULT_PATH
+		REQUIRED)
+	message("Built DXC executable: ${LOTUS_DXC_EXECUTABLE}")
+	find_file(LOTUS_DXC_LIBRARY
+		NAMES dxclib.lib libdxclib.a libdxclib.so
+		PATHS "${LOTUS_DXC_BUILD_DIRECTORY}/lib/" "${LOTUS_DXC_BUILD_DIRECTORY}/Release/lib/"
+		NO_DEFAULT_PATH
+		REQUIRED)
+	message("Built DXC library: ${LOTUS_DXC_LIBRARY}")
+
+	# create interface target
+	add_library(dxclib INTERFACE)
+	target_link_libraries(dxclib INTERFACE "${LOTUS_DXC_LIBRARY}")
+	target_include_directories(dxclib INTERFACE "${LOTUS_DXC_SOURCE_DIRECTORY}/include")
+endif()
 
 
 include("cmake/include.cmake")
 
 add_subdirectory("lotus/core/")
 add_subdirectory("lotus/physics/")
-add_subdirectory("system/")
 add_subdirectory("lotus/system/")
 add_subdirectory("lotus/graphics/")
 

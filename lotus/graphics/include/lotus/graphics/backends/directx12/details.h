@@ -10,7 +10,7 @@
 #include <map>
 
 #include <wrl/client.h>
-#include <d3d12.h>
+#include <directx/d3d12.h>
 
 #include "lotus/graphics/common.h"
 
@@ -67,8 +67,8 @@ namespace lotus::graphics::backends::directx12::_details {
 		// bitmask conversions
 		/// Converts a \ref channel_mask to a \p D3D12_COLOR_WRITE_ENABLE.
 		[[nodiscard]] D3D12_COLOR_WRITE_ENABLE for_channel_mask(channel_mask);
-		/// Converts a \ref shader_stage_mask to a \p D3D12_SHADER_VISIBILITY.
-		[[nodiscard]] D3D12_SHADER_VISIBILITY for_shader_stage_mask(shader_stage_mask);
+		/// Converts a \ref shader_stage to a \p D3D12_SHADER_VISIBILITY.
+		[[nodiscard]] D3D12_SHADER_VISIBILITY to_shader_visibility(shader_stage);
 
 		// complex enum conversions
 		/// Converts filter parameters to a \p D3D12_FILTER.
@@ -87,7 +87,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			const render_target_blend_options&
 		);
 		/// Converts a \ref blend_options to a \p D3D12_BLEND_DESC.
-		[[nodiscard]] D3D12_BLEND_DESC for_blend_options(const blend_options&);
+		[[nodiscard]] D3D12_BLEND_DESC for_blend_options(std::span<const render_target_blend_options>);
 		/// Converts a \ref rasterizer_options to a \p D3D12_RASTERIZER_DESC.
 		[[nodiscard]] D3D12_RASTERIZER_DESC for_rasterizer_options(const rasterizer_options&);
 		/// Converts a \ref stencil_options to a \p D3D12_DEPTH_STENCILOP_DESC.
@@ -377,13 +377,16 @@ namespace lotus::graphics::backends::directx12::_details {
 	/// Convenience function used for obtaining a \p D3D12_HEAP_PROPERTIES from a \ref heap_type.
 	[[nodiscard]] D3D12_HEAP_PROPERTIES heap_type_to_properties(heap_type);
 
+	/// Computes the index of the given subresource.
+	[[nodiscard]] UINT compute_subresource_index(const subresource_index&, ID3D12Resource*);
+
 	/// Used to create \p D3D12_RESOURCE_DESC objects for various types of resources.
 	namespace resource_desc {
 		/// Description for a buffer with the specified size.
 		[[nodiscard]] D3D12_RESOURCE_DESC for_buffer(std::size_t size);
 		/// Adjusts various flags of buffer properties.
 		void adjust_resource_flags_for_buffer(
-			heap_type, buffer_usage::mask, buffer_usage,
+			heap_type, buffer_usage::mask,
 			D3D12_RESOURCE_DESC&, D3D12_RESOURCE_STATES&, D3D12_HEAP_FLAGS* = nullptr
 		);
 

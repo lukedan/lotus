@@ -12,11 +12,11 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
-	back_buffer_info swap_chain::acquire_back_buffer() {
-		back_buffer_info result = uninitialized;
-		result.index = static_cast<std::size_t>(_swap_chain->GetCurrentBackBufferIndex());
-		result.on_presented = _on_presented[result.index];
-		return result;
+	void swap_chain::update_synchronization_primitives(std::span<const back_buffer_synchronization> prim) {
+		assert(prim.size() == _synchronization.size());
+		for (std::size_t i = 0; i < prim.size(); ++i) {
+			_synchronization[i].next_fence = prim[i].notify_fence;
+		}
 	}
 
 

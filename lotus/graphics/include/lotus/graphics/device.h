@@ -3,6 +3,8 @@
 /// \file
 /// Device-related classes.
 
+#include <optional>
+
 #include "lotus/common.h"
 #include LOTUS_GRAPHICS_BACKEND_INCLUDE
 #include "commands.h"
@@ -38,6 +40,12 @@ namespace lotus::graphics {
 			return *this;
 		}
 
+		/// Acquires the next back buffer and returns its index in this swap chain. This should only be called once
+		/// per frame.
+		[[nodiscard]] back_buffer_info acquire_back_buffer(swap_chain &swapchain) {
+			return backend::device::acquire_back_buffer(swapchain);
+		}
+
 		/// Creates a \ref command_queue.
 		[[nodiscard]] command_queue create_command_queue() {
 			return backend::device::create_command_queue();
@@ -46,9 +54,9 @@ namespace lotus::graphics {
 		[[nodiscard]] command_allocator create_command_allocator() {
 			return backend::device::create_command_allocator();
 		}
-		/// Creates a new empty \ref command_list.
-		[[nodiscard]] command_list create_command_list(command_allocator &allocator) {
-			return backend::device::create_command_list(allocator);
+		/// Creates a new empty \ref command_list and immediately starts recording commands.
+		[[nodiscard]] command_list create_and_start_command_list(command_allocator &allocator) {
+			return backend::device::create_and_start_command_list(allocator);
 		}
 
 		/// Creates a new empty \ref descriptor_pool.
@@ -132,6 +140,10 @@ namespace lotus::graphics {
 		[[nodiscard]] shader load_shader(std::span<const std::byte> data) {
 			return backend::device::load_shader(data);
 		}
+		/// Loads shader reflection from the given data.
+		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte> data) {
+			return backend::device::load_shader_reflection(data);
+		}
 
 		/// Creates a new \ref sampler object.
 		[[nodiscard]] sampler create_sampler(
@@ -148,13 +160,13 @@ namespace lotus::graphics {
 
 		/// Creates a new \ref descriptor_set_layout object.
 		[[nodiscard]] descriptor_set_layout create_descriptor_set_layout(
-			std::span<const descriptor_range_binding> ranges, shader_stage_mask visible_stages
+			std::span<const descriptor_range_binding> ranges, shader_stage visible_stages
 		) {
 			return backend::device::create_descriptor_set_layout(ranges, visible_stages);
 		}
 		/// \overload
 		[[nodiscard]] descriptor_set_layout create_descriptor_set_layout(
-			std::initializer_list<descriptor_range_binding> ranges, shader_stage_mask visible_stages
+			std::initializer_list<descriptor_range_binding> ranges, shader_stage visible_stages
 		) {
 			return create_descriptor_set_layout({ ranges.begin(), ranges.end() }, visible_stages);
 		}
@@ -175,7 +187,7 @@ namespace lotus::graphics {
 		[[nodiscard]] graphics_pipeline_state create_graphics_pipeline_state(
 			const pipeline_resources &resources,
 			const shader_set &shaders,
-			const blend_options &blend,
+			std::span<const render_target_blend_options> blend,
 			const rasterizer_options &rasterizer,
 			const depth_stencil_options &depth_stencil,
 			std::span<const input_buffer_layout> input_buffers,
@@ -203,7 +215,7 @@ namespace lotus::graphics {
 		[[nodiscard]] graphics_pipeline_state create_graphics_pipeline_state(
 			const pipeline_resources &resources,
 			const shader_set &shaders,
-			const blend_options &blend,
+			std::initializer_list<render_target_blend_options> blend,
 			const rasterizer_options &rasterizer,
 			const depth_stencil_options &depth_stencil,
 			std::initializer_list<input_buffer_layout> input_buffers,
@@ -212,7 +224,9 @@ namespace lotus::graphics {
 			std::size_t num_viewports = 1
 		) {
 			return create_graphics_pipeline_state(
-				resources, shaders, blend, rasterizer, depth_stencil,
+				resources, shaders,
+				{ blend.begin(), blend.end() },
+				rasterizer, depth_stencil,
 				{ input_buffers.begin(), input_buffers.end() },
 				topology, environment, num_viewports
 			);
@@ -246,20 +260,20 @@ namespace lotus::graphics {
 
 		/// Creates a \ref buffer with a dedicated memory allocation.
 		[[nodiscard]] buffer create_committed_buffer(
-			std::size_t size, heap_type committed_heap_type,
-			buffer_usage::mask allowed_usage, buffer_usage initial_usage
+			std::size_t size, heap_type committed_heap_type, buffer_usage::mask allowed_usage
 		) {
 			return backend::device::create_committed_buffer(
-				size, committed_heap_type, allowed_usage, initial_usage
+				size, committed_heap_type, allowed_usage
 			);
 		}
 		/// Creates a \ref image2d with a dedicated memory allocation. This image can only be created on the GPU.
 		[[nodiscard]] image2d create_committed_image2d(
 			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format fmt, image_tiling tiling, image_usage::mask allowed_usage, image_usage initial_usage
+			format fmt, image_tiling tiling, image_usage::mask allowed_usage
 		) {
 			return backend::device::create_committed_image2d(
-				width, height, array_slices, mip_levels, fmt, tiling, allowed_usage, initial_usage
+				width, height, array_slices, mip_levels,
+				fmt, tiling, allowed_usage
 			);
 		}
 		/// Creates a buffer that can be used to upload/download image data to/from the GPU. The image data is
@@ -268,16 +282,18 @@ namespace lotus::graphics {
 		/// \return The buffer and its layout properties.
 		[[nodiscard]] std::pair<buffer, image_memory_layout> create_committed_buffer_as_image2d(
 			std::size_t width, std::size_t height, format fmt, heap_type committed_heap_type,
-			buffer_usage::mask allowed_usage, buffer_usage initial_usage
+			buffer_usage::mask allowed_usage
 		) {
 			auto [buf, layout] = backend::device::create_committed_buffer_as_image2d(
-				width, height, fmt, committed_heap_type, allowed_usage, initial_usage
+				width, height, fmt, committed_heap_type, allowed_usage
 			);
 			return { buffer(std::move(buf)), layout };
 		}
 
 		/// Returns the memory layout of the given \ref image2d.
-		[[nodiscard]] image_memory_layout get_image2d_memory_layout(const image2d &img, std::uint32_t subresource) {
+		[[nodiscard]] image_memory_layout get_image2d_memory_layout(
+			const image2d &img, subresource_index subresource
+		) {
 			return backend::device::get_image2d_memory_layout(img, subresource);
 		}
 
@@ -289,21 +305,21 @@ namespace lotus::graphics {
 		}
 		/// Unmaps the given buffer and ensures that the specified memory range is flushed to the device.
 		/// \ref map_buffer() and \ref unmap_buffer() calls can be nested.
-		[[nodiscard]] void unmap_buffer(buffer &buf, std::size_t begin, std::size_t length) {
+		void unmap_buffer(buffer &buf, std::size_t begin, std::size_t length) {
 			return backend::device::unmap_buffer(buf, begin, length);
 		}
 		/// Maps the given image and ensures that the specified range has up-to-date data. \ref map_image2d() and
 		/// \ref unmap_image2d() calls can be nested. Note that the returned address is to the start of the
 		/// subresource, instead of the requested memory range.
 		[[nodiscard]] void *map_image2d(
-			image2d &img, std::uint32_t subresource, std::size_t begin, std::size_t length
+			image2d &img, subresource_index subresource, std::size_t begin, std::size_t length
 		) {
 			return backend::device::map_image2d(img, subresource, begin, length);
 		}
 		/// Unmaps the given image and ensures that flushes the specified memory range. \ref map_image2d() and
 		/// \ref unmap_image2d() calls can be nested.
-		[[nodiscard]] void unmap_image2d(
-			image2d &img, std::uint32_t subresource, std::size_t begin, std::size_t length
+		void unmap_image2d(
+			image2d &img, subresource_index subresource, std::size_t begin, std::size_t length
 		) {
 			return backend::device::unmap_image2d(img, subresource, begin, length);
 		}
@@ -317,15 +333,17 @@ namespace lotus::graphics {
 
 		/// Creates a \ref frame_buffer.
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::span<const image2d_view *const> color, const image2d_view *depth_stencil, const pass_resources &pass
+			std::span<const image2d_view *const> color, const image2d_view *depth_stencil,
+			cvec2s size, const pass_resources &pass
 		) {
-			return backend::device::create_frame_buffer(color, depth_stencil, pass);
+			return backend::device::create_frame_buffer(color, depth_stencil, size, pass);
 		}
 		/// \overload
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::initializer_list<const image2d_view*> color, const image2d_view *depth_stencil, const pass_resources &pass
+			std::initializer_list<const image2d_view*> color, const image2d_view *depth_stencil,
+			const cvec2s &size, const pass_resources &pass
 		) {
-			return create_frame_buffer({ color.begin(), color.end() }, depth_stencil, pass);
+			return create_frame_buffer({ color.begin(), color.end() }, depth_stencil, size, pass);
 		}
 
 		/// Creates a \ref fence.

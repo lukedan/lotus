@@ -13,6 +13,8 @@
 #include "directx12/resources.h"
 #include "directx12/synchronization.h"
 
-namespace lotus::graphics {
-	namespace backend = backends::directx12;
+namespace lotus::graphics::backend {
+	using namespace backends::directx12;
+
+	constexpr static std::u8string_view backend_name = u8"DirectX 12"; ///< Name of this backend.
 }

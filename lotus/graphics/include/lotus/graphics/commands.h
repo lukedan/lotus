@@ -8,6 +8,7 @@
 
 #include LOTUS_GRAPHICS_BACKEND_INCLUDE
 #include "lotus/math/aab.h"
+#include "lotus/color.h"
 #include "pass.h"
 #include "resources.h"
 #include "frame_buffer.h"
@@ -17,6 +18,25 @@
 namespace lotus::graphics {
 	class device;
 	class command_allocator;
+
+
+	/// Used for allocating commands.
+	class command_allocator : public backend::command_allocator {
+		friend device;
+	public:
+		/// No copy construction.
+		command_allocator(const command_allocator&) = delete;
+		/// No copy assignment.
+		command_allocator &operator=(const command_allocator&) = delete;
+
+		/// Resets this command allocator and all \ref command_list allocated from it. This should not be called if
+		/// any command list allocated from this object is still being executed.
+		void reset(device&);
+	protected:
+		/// Implicit conversion from base type.
+		command_allocator(backend::command_allocator base) : backend::command_allocator(std::move(base)) {
+		}
+	};
 
 	/// A list of commands submitted through a queue.
 	class command_list : public backend::command_list {
@@ -38,13 +58,13 @@ namespace lotus::graphics {
 		/// No copy assignment.
 		command_list &operator=(const command_list&) = delete;
 
-		/// Resets this command list. This is only valid when the command allocator allows resetting individual
-		/// command lists.
-		void reset(command_allocator&);
+		/// Resets this command list and starts recording commands to it. This is only valid when the command
+		/// allocator allows resetting individual command lists, and should only be called if this command list has
+		/// finished executing.
+		void reset_and_start(command_allocator &alloc) {
+			backend::command_list::reset_and_start(alloc);
+		}
 
-		/// Starts recording to the command buffer. \ref reset() must be called if this command buffer has been used
-		/// previously.
-		void start();
 		/// Starts a rendering pass.
 		void begin_pass(
 			const pass_resources &p, const frame_buffer &fb,
@@ -81,20 +101,28 @@ namespace lotus::graphics {
 			backend::command_list::bind_index_buffer(buf, offset, fmt);
 		}
 		/// Binds descriptor sets for rendering.
-		void bind_graphics_descriptor_sets(std::size_t first, std::span<const descriptor_set *const> sets) {
-			backend::command_list::bind_graphics_descriptor_sets(first, sets);
+		void bind_graphics_descriptor_sets(
+			const pipeline_resources &rsrc, std::size_t first, std::span<const descriptor_set *const> sets
+		) {
+			backend::command_list::bind_graphics_descriptor_sets(rsrc, first, sets);
 		}
 		/// \overload
-		void bind_graphics_descriptor_sets(std::size_t first, std::initializer_list<const descriptor_set*> sets) {
-			bind_graphics_descriptor_sets(first, { sets.begin(), sets.end() });
+		void bind_graphics_descriptor_sets(
+			const pipeline_resources &rsrc, std::size_t first, std::initializer_list<const descriptor_set*> sets
+		) {
+			bind_graphics_descriptor_sets(rsrc, first, { sets.begin(), sets.end() });
 		}
 		/// Binds descriptor sets for compute.
-		void bind_compute_descriptor_sets(std::size_t first, std::span<const descriptor_set *const> sets) {
-			backend::command_list::bind_compute_descriptor_sets(first, sets);
+		void bind_compute_descriptor_sets(
+			const pipeline_resources &rsrc, std::size_t first, std::span<const descriptor_set *const> sets
+		) {
+			backend::command_list::bind_compute_descriptor_sets(rsrc, first, sets);
 		}
 		/// \overload
-		void bind_compute_descriptor_sets(std::size_t first, std::initializer_list<const descriptor_set*> sets) {
-			bind_compute_descriptor_sets(first, { sets.begin(), sets.end() });
+		void bind_compute_descriptor_sets(
+			const pipeline_resources &rsrc, std::size_t first, std::initializer_list<const descriptor_set*> sets
+		) {
+			bind_compute_descriptor_sets(rsrc, first, { sets.begin(), sets.end() });
 		}
 
 		/// Sets the viewports used for rendering.
@@ -120,14 +148,14 @@ namespace lotus::graphics {
 		}
 		/// Inserts a copy operation between the two subresources.
 		void copy_image2d(
-			image2d &from, std::uint32_t sub1, aab2s region, image2d &to, std::uint32_t sub2, cvec2s off
+			image2d &from, subresource_index sub1, aab2s region, image2d &to, subresource_index sub2, cvec2s off
 		) {
 			backend::command_list::copy_image2d(from, sub1, region, to, sub2, off);
 		}
 		/// Inserts a copy operation from a buffer to an image.
 		void copy_buffer_to_image(
 			buffer &from, std::size_t byte_offset, std::size_t row_pitch, aab2s region,
-			image2d &to, std::uint32_t subresource, cvec2s off
+			image2d &to, subresource_index subresource, cvec2s off
 		) {
 			backend::command_list::copy_buffer_to_image(from, byte_offset, row_pitch, region, to, subresource, off);
 		}
@@ -179,23 +207,6 @@ namespace lotus::graphics {
 		}
 	};
 
-	/// Used for allocating commands.
-	class command_allocator : public backend::command_allocator {
-		friend device;
-	public:
-		/// No copy construction.
-		command_allocator(const command_allocator&) = delete;
-		/// No copy assignment.
-		command_allocator &operator=(const command_allocator&) = delete;
-
-		/// Resets this command allocator and all \ref command_list allocated from it.
-		void reset(device&);
-	protected:
-		/// Implicit conversion from base type.
-		command_allocator(backend::command_allocator base) : backend::command_allocator(std::move(base)) {
-		}
-	};
-
 	/// A command queue.
 	class command_queue : public backend::command_queue {
 		friend device;
@@ -215,10 +226,9 @@ namespace lotus::graphics {
 		void submit_command_lists(std::initializer_list<command_list*> lists, fence *on_completion) {
 			submit_command_lists({ lists.begin(), lists.end() }, on_completion);
 		}
-		/// Presents the current back buffer in the swap chain. The fence is used to determine when the back buffer
-		/// has finished presenting and the next frame using the same back buffer can start.
-		void present(swap_chain &target, fence *on_completion) {
-			backend::command_queue::present(target, on_completion);
+		/// Presents the current back buffer in the swap chain.
+		void present(swap_chain &target) {
+			backend::command_queue::present(target);
 		}
 		/// Signals the given fence once the GPU has finished all previous command lists.
 		void signal(fence &f) {
@@ -229,13 +239,4 @@ namespace lotus::graphics {
 		command_queue(backend::command_queue q) : backend::command_queue(std::move(q)) {
 		}
 	};
-
-
-	inline void command_list::reset(command_allocator &alloc) {
-		backend::command_list::reset(alloc);
-	}
-
-	inline void command_list::start() {
-		backend::command_list::start();
-	}
 }

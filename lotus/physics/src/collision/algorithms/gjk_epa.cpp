@@ -10,6 +10,8 @@
 
 namespace lotus::collision {
 	std::pair<bool, gjk_epa::gjk_result_state> gjk_epa::gjk() {
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+
 		gjk_result_state state = uninitialized;
 
 		// compute simplex positions, which may have changed due to the bodies moving
@@ -17,7 +19,7 @@ namespace lotus::collision {
 			state.simplex_positions[i] = simplex_vertex_position(simplex[i]);
 		}
 
-		auto vertex_looked_at = stack_allocator::for_this_thread().create_vector_array<std::uint8_t>(
+		auto vertex_looked_at = bookmark.create_vector_array<std::uint8_t>(
 			polyhedron1->vertices.size() * polyhedron2->vertices.size(), static_cast<uint8_t>(0)
 		);
 		auto mark_vert = [&](simplex_vertex v) {
@@ -149,6 +151,8 @@ namespace lotus::collision {
 	gjk_epa::epa_result gjk_epa::epa(gjk_result_state gjk_state) const {
 		using _convex_hull_t = incremental_convex_hull<simplex_vertex, double, stack_allocator::allocator>;
 
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+
 		auto compute_face_data = [](const _convex_hull_t &hull, _convex_hull_t::face &f) {
 			f.data = vec::dot(f.normal, hull.vertices[f.vertex_indices[0]].position);
 		};
@@ -161,8 +165,8 @@ namespace lotus::collision {
 		}
 		_convex_hull_t convex_hull = _convex_hull_t::for_tetrahedron(
 			std::move(initial_vertices), compute_face_data,
-			stack_allocator::allocator<_convex_hull_t::vertex>::for_this_thread(),
-			stack_allocator::allocator<_convex_hull_t::face>::for_this_thread()
+			bookmark.create_std_allocator<_convex_hull_t::vertex>(),
+			bookmark.create_std_allocator<_convex_hull_t::face>()
 		);
 
 		while (true) {

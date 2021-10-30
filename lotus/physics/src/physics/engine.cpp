@@ -259,7 +259,6 @@ namespace lotus::physics {
 		const collision::shapes::polyhedron &p1, const body_state &s1,
 		const collision::shapes::polyhedron &p2, const body_state &s2
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
 		auto alg = collision::gjk_epa::for_bodies(s1, p1, s2, p2);
 		alg.center1 = s1.position;
 		alg.orient1 = s1.rotation;

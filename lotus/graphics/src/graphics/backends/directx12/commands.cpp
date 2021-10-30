@@ -51,8 +51,8 @@ namespace lotus::graphics::backends::directx12 {
 	void command_list::resource_barrier(
 		std::span<const image_barrier> images, std::span<const buffer_barrier> buffers
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto resources = stack_allocator::for_this_thread().create_reserved_vector_array<D3D12_RESOURCE_BARRIER>(
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto resources = bookmark.create_reserved_vector_array<D3D12_RESOURCE_BARRIER>(
 			images.size() + buffers.size()
 		);
 		for (const auto &img : images) {
@@ -96,10 +96,8 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto bindings = stack_allocator::for_this_thread().create_vector_array<D3D12_VERTEX_BUFFER_VIEW>(
-			buffers.size(), D3D12_VERTEX_BUFFER_VIEW()
-		);
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bindings = bookmark.create_vector_array<D3D12_VERTEX_BUFFER_VIEW>(buffers.size());
 		for (std::size_t i = 0; i < buffers.size(); ++i) {
 			auto &vert_buf = buffers[i];
 			auto *buf = static_cast<buffer*>(vert_buf.data);
@@ -178,8 +176,8 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	void command_list::set_viewports(std::span<const viewport> vps) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto vec = stack_allocator::for_this_thread().create_vector_array<D3D12_VIEWPORT>(vps.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto vec = bookmark.create_vector_array<D3D12_VIEWPORT>(vps.size());
 		for (std::size_t i = 0; i < vps.size(); ++i) {
 			vec[i] = _details::conversions::for_viewport(vps[i]);
 		}
@@ -187,8 +185,8 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	void command_list::set_scissor_rectangles(std::span<const aab2i> rects) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto vec = stack_allocator::for_this_thread().create_vector_array<D3D12_RECT>(rects.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto vec = bookmark.create_vector_array<D3D12_RECT>(rects.size());
 		for (std::size_t i = 0; i < rects.size(); ++i) {
 			vec[i] = _details::conversions::for_rect(rects[i]);
 		}
@@ -294,10 +292,8 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	void command_queue::submit_command_lists(std::span<const graphics::command_list *const> lists, fence *f) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto dx_lists = stack_allocator::for_this_thread().create_vector_array<ID3D12CommandList*>(
-			lists.size(), nullptr
-		);
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto dx_lists = bookmark.create_vector_array<ID3D12CommandList*>(lists.size(), nullptr);
 		for (std::size_t i = 0; i < lists.size(); ++i) {
 			dx_lists[i] = lists[i]->_list.Get();
 		}

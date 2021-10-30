@@ -212,8 +212,8 @@ namespace lotus {
 
 			half_edge_ref boundary_edge = uninitialized;
 			{ // find all faces that should be removed & create new faces
-				auto bookmark = stack_allocator::scoped_bookmark::create();
-				std::stack<_ptr, _ptr_deque> stk{ _ptr_deque(stack_allocator::allocator<_ptr>::for_this_thread()) };
+				auto bookmark = stack_allocator::for_this_thread().bookmark();
+				std::stack<_ptr, _ptr_deque> stk{ _ptr_deque(bookmark.create_std_allocator<_ptr>()) };
 				stk.emplace(hint);
 				hint->marked = true;
 				while (!stk.empty()) {

@@ -7,6 +7,12 @@
 #include <array>
 
 namespace lotus {
+#ifndef NDEBUG
+	constexpr bool is_debugging = true;
+#else
+	constexpr bool is_debugging = false;
+#endif
+
 	/// A type indicating a specific object should not be initialized.
 	struct uninitialized_t {
 		/// Implicit conversion to arithmetic types and pointers.

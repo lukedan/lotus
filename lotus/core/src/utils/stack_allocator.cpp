@@ -4,14 +4,6 @@
 /// Implementation of the stack allocator.
 
 namespace lotus {
-	stack_allocator::scoped_bookmark stack_allocator::scoped_bookmark::create(stack_allocator &alloc) {
-		scoped_bookmark result;
-		result._alloc = &alloc;
-		alloc.set_bookmark();
-		return result;
-	}
-
-
 	stack_allocator::_page_ref stack_allocator::_page_ref::to_new_page(void *ptr, std::size_t sz) {
 		_page_ref result = uninitialized;
 		result.memory = ptr;
@@ -58,7 +50,7 @@ namespace lotus {
 		}
 	}
 
-	void *stack_allocator::allocate(std::size_t size, std::size_t align) {
+	void *stack_allocator::_allocate(std::size_t size, std::size_t align) {
 		if (void *result = _top_page.allocate(size, align)) {
 			return result;
 		}
@@ -71,7 +63,7 @@ namespace lotus {
 		return _top_page.allocate(size, align);
 	}
 
-	void stack_allocator::pop_bookmark() {
+	void stack_allocator::_pop_bookmark() {
 		assert(_top_bookmark);
 		_bookmark mark = *_top_bookmark;
 		_top_bookmark->~_bookmark();
@@ -80,6 +72,9 @@ namespace lotus {
 			_return_page();
 		}
 		_top_page.current = mark.current;
+		if constexpr (poison_freed_memory) {
+			_top_page.poison_after(_top_page.current);
+		}
 	}
 
 	void stack_allocator::free_unused_pages() {
@@ -105,6 +100,9 @@ namespace lotus {
 	void stack_allocator::_return_page() {
 		_page_ref new_top = _top_page.header->previous;
 		_top_page.reset(_page_header::create(_free_pages, _top_page.header->free_page));
+		if constexpr (poison_freed_memory) {
+			_top_page.poison_after(_top_page.current);
+		}
 		_free_pages = _top_page;
 		_top_page = new_top;
 	}

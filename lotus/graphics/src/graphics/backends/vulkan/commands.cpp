@@ -26,9 +26,8 @@ namespace lotus::graphics::backends::vulkan {
 		const pass_resources &rsrc, const frame_buffer &buf,
 		std::span<const linear_rgba_f> clear, float clear_depth, std::uint8_t clear_stencil
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto clear_values =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::ClearValue>(clear.size() + 1);
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto clear_values = bookmark.create_reserved_vector_array<vk::ClearValue>(clear.size() + 1);
 		for (const auto &v : clear) {
 			// TODO integer types
 			clear_values.emplace_back(vk::ClearColorValue(std::array<float, 4>({ v.r, v.g, v.b, v.a })));
@@ -53,11 +52,9 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto buffer_ptrs =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::Buffer>(buffers.size());
-		auto offsets =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::DeviceSize>(buffers.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto buffer_ptrs = bookmark.create_reserved_vector_array<vk::Buffer>(buffers.size());
+		auto offsets = bookmark.create_reserved_vector_array<vk::DeviceSize>(buffers.size());
 		for (auto &buf : buffers) {
 			buffer_ptrs.emplace_back(static_cast<buffer*>(buf.data)->_buffer);
 			offsets.emplace_back(static_cast<vk::DeviceSize>(buf.offset));
@@ -74,8 +71,8 @@ namespace lotus::graphics::backends::vulkan {
 	void command_list::bind_graphics_descriptor_sets(
 		const pipeline_resources &rsrc, std::size_t first, std::span<const graphics::descriptor_set *const> sets
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto vk_sets = stack_allocator::for_this_thread().create_reserved_vector_array<vk::DescriptorSet>(sets.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto vk_sets = bookmark.create_reserved_vector_array<vk::DescriptorSet>(sets.size());
 		for (auto *set : sets) {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
 		}
@@ -87,8 +84,8 @@ namespace lotus::graphics::backends::vulkan {
 	void command_list::bind_compute_descriptor_sets(
 		const pipeline_resources &rsrc, std::size_t first, std::span<const graphics::descriptor_set *const> sets
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto vk_sets = stack_allocator::for_this_thread().create_reserved_vector_array<vk::DescriptorSet>(sets.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto vk_sets = bookmark.create_reserved_vector_array<vk::DescriptorSet>(sets.size());
 		for (auto *set : sets) {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
 		}
@@ -98,8 +95,8 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	void command_list::set_viewports(std::span<const viewport> vps) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto viewports = stack_allocator::for_this_thread().create_reserved_vector_array<vk::Viewport>(vps.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto viewports = bookmark.create_reserved_vector_array<vk::Viewport>(vps.size());
 		for (const auto &vp : vps) {
 			cvec2f size = vp.xy.signed_size();
 			viewports.emplace_back(vp.xy.min[0], vp.xy.min[1], size[0], size[1], vp.minimum_depth, vp.maximum_depth);
@@ -108,8 +105,8 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	void command_list::set_scissor_rectangles(std::span<const aab2i> rects) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto scissors = stack_allocator::for_this_thread().create_reserved_vector_array<vk::Rect2D>(rects.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto scissors = bookmark.create_reserved_vector_array<vk::Rect2D>(rects.size());
 		for (const auto &r : rects) {
 			cvec2i size = r.signed_size();
 			scissors.emplace_back(vk::Offset2D(r.min[0], r.min[1]), vk::Extent2D(size[0], size[1]));
@@ -189,11 +186,9 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	void command_list::resource_barrier(std::span<const image_barrier> imgs, std::span<const buffer_barrier> bufs) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto img_barriers =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::ImageMemoryBarrier>(imgs.size());
-		auto buf_barriers =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::BufferMemoryBarrier>(bufs.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto img_barriers = bookmark.create_reserved_vector_array<vk::ImageMemoryBarrier>(imgs.size());
+		auto buf_barriers = bookmark.create_reserved_vector_array<vk::BufferMemoryBarrier>(bufs.size());
 		for (const auto &i : imgs) {
 			auto [from_access, from_layout] = _details::conversions::to_image_access_layout(i.from_state);
 			auto [to_access, to_layout] = _details::conversions::to_image_access_layout(i.to_state);
@@ -239,8 +234,8 @@ namespace lotus::graphics::backends::vulkan {
 	void command_queue::submit_command_lists(
 		std::span<const graphics::command_list *const> lists, fence *on_completion
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto arr = stack_allocator::for_this_thread().create_reserved_vector_array<vk::CommandBuffer>(lists.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto arr = bookmark.create_reserved_vector_array<vk::CommandBuffer>(lists.size());
 		for (const auto *list : lists) {
 			arr.emplace_back(list->_buffer.get());
 		}

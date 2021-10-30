@@ -28,8 +28,8 @@ namespace lotus::graphics::backends::vulkan {
 
 		/// Calls \p vk::Instance::enumeratePhysicalDevices().
 		template <typename Callback> void enumerate_adapters(Callback &&cb) {
-			auto bookmark = stack_allocator::scoped_bookmark::create();
-			auto allocator = stack_allocator::for_this_thread().create_std_allocator<vk::PhysicalDevice>();
+			auto bookmark = stack_allocator::for_this_thread().bookmark();
+			auto allocator = bookmark.create_std_allocator<vk::PhysicalDevice>();
 			auto physical_devices = _details::unwrap(_instance->enumeratePhysicalDevices(allocator));
 			for (const auto &dev : physical_devices) {
 				adapter adap(dev, _dispatch_loader);

@@ -80,9 +80,8 @@ namespace lotus::graphics::backends::vulkan {
 	) {
 		descriptor_pool result;
 
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto ranges =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::DescriptorPoolSize>(capacity.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto ranges = bookmark.create_reserved_vector_array<vk::DescriptorPoolSize>(capacity.size());
 		for (const auto &range : capacity) {
 			ranges.emplace_back()
 				.setType(_details::conversions::to_descriptor_type(range.type))
@@ -120,9 +119,8 @@ namespace lotus::graphics::backends::vulkan {
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const graphics::image_view *const> images
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto imgs =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto imgs = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
 		for (const auto *img : images) {
 			imgs.emplace_back()
 				.setImageView(static_cast<const _details::image_view*>(img)->_view.get())
@@ -142,10 +140,8 @@ namespace lotus::graphics::backends::vulkan {
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const buffer_view> buffers
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto bufs = stack_allocator::for_this_thread().create_reserved_vector_array<vk::DescriptorBufferInfo>(
-			buffers.size()
-		);
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
 				.setBuffer(static_cast<buffer*>(buf.data)->_buffer)
@@ -166,10 +162,8 @@ namespace lotus::graphics::backends::vulkan {
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const constant_buffer_view> buffers
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto bufs = stack_allocator::for_this_thread().create_reserved_vector_array<vk::DescriptorBufferInfo>(
-			buffers.size()
-		);
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
 				.setBuffer(static_cast<buffer*>(buf.data)->_buffer)
@@ -190,10 +184,8 @@ namespace lotus::graphics::backends::vulkan {
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const graphics::sampler *const> samplers
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto smps = stack_allocator::for_this_thread().create_reserved_vector_array<vk::DescriptorImageInfo>(
-			samplers.size()
-		);
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto smps = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(samplers.size());
 		for (const auto *smp : samplers) {
 			smps.emplace_back()
 				.setSampler(static_cast<const sampler*>(smp)->_sampler.get());
@@ -273,8 +265,8 @@ namespace lotus::graphics::backends::vulkan {
 	) {
 		descriptor_set_layout result = nullptr;
 
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto arr = stack_allocator::for_this_thread().create_vector_array<vk::DescriptorSetLayoutBinding>();
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto arr = bookmark.create_vector_array<vk::DescriptorSetLayoutBinding>();
 		auto stages = _details::conversions::to_shader_stage_flags(visible_stages);
 		for (const auto &rng : ranges) {
 			vk::DescriptorSetLayoutBinding binding;
@@ -302,10 +294,8 @@ namespace lotus::graphics::backends::vulkan {
 	) {
 		pipeline_resources result;
 
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto arr = stack_allocator::for_this_thread().create_reserved_vector_array<vk::DescriptorSetLayout>(
-			layouts.size()
-		);
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto arr = bookmark.create_reserved_vector_array<vk::DescriptorSetLayout>(layouts.size());
 		for (const auto *layout : layouts) {
 			arr.emplace_back(static_cast<const descriptor_set_layout*>(layout)->_layout.get());
 		}
@@ -335,7 +325,7 @@ namespace lotus::graphics::backends::vulkan {
 	) {
 		graphics_pipeline_state result = nullptr;
 
-		auto bookmark = stack_allocator::scoped_bookmark::create();
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
 
 		std::size_t count = 0;
 		std::array<vk::PipelineShaderStageCreateInfo, 5> stages;
@@ -367,11 +357,8 @@ namespace lotus::graphics::backends::vulkan {
 		add_shader(gs, vk::ShaderStageFlagBits::eGeometry);
 
 		auto input_bindings =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::VertexInputBindingDescription>(
-				input_buffers.size()
-			);
-		auto attribute_descriptions =
-			stack_allocator::for_this_thread().create_vector_array<vk::VertexInputAttributeDescription>();
+			bookmark.create_reserved_vector_array<vk::VertexInputBindingDescription>(input_buffers.size());
+		auto attribute_descriptions = bookmark.create_vector_array<vk::VertexInputAttributeDescription>();
 		{
 			const auto &refl = vs->_reflection._reflection.value();
 			for (const auto &buf : input_buffers) {
@@ -455,9 +442,7 @@ namespace lotus::graphics::backends::vulkan {
 			));
 
 		auto rt_blends =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::PipelineColorBlendAttachmentState>(
-				blend.size()
-			);
+			bookmark.create_reserved_vector_array<vk::PipelineColorBlendAttachmentState>(blend.size());
 		for (const auto &op : blend) {
 			rt_blends.emplace_back()
 				.setBlendEnable(op.enabled)
@@ -523,7 +508,7 @@ namespace lotus::graphics::backends::vulkan {
 	) {
 		pass_resources result;
 
-		auto bookmark = stack_allocator::scoped_bookmark::create();
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
 
 		bool has_depth_stencil = ds.pixel_format != format::none;
 		bool has_stencil = format_properties::get(ds.pixel_format).stencil_bits > 0;
@@ -531,10 +516,9 @@ namespace lotus::graphics::backends::vulkan {
 			has_stencil ?
 			vk::ImageLayout::eDepthStencilAttachmentOptimal :
 			vk::ImageLayout::eDepthAttachmentOptimal;
-		auto attachments =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::AttachmentDescription>(
-				color.size() + has_depth_stencil ? 1 : 0
-			);
+		auto attachments = bookmark.create_reserved_vector_array<vk::AttachmentDescription>(
+			color.size() + has_depth_stencil ? 1 : 0
+		);
 		for (const auto &opt : color) {
 			attachments.emplace_back()
 				.setFormat(_details::conversions::for_format(opt.pixel_format))
@@ -554,8 +538,7 @@ namespace lotus::graphics::backends::vulkan {
 				.setFinalLayout(ds_layout);
 		}
 
-		auto attachment_ref =
-			stack_allocator::for_this_thread().create_reserved_vector_array<vk::AttachmentReference>(color.size());
+		auto attachment_ref = bookmark.create_reserved_vector_array<vk::AttachmentReference>(color.size());
 		for (std::size_t i = 0; i < color.size(); ++i) {
 			attachment_ref.emplace_back()
 				.setAttachment(static_cast<std::uint32_t>(i))
@@ -762,10 +745,8 @@ namespace lotus::graphics::backends::vulkan {
 	) {
 		frame_buffer result = nullptr;
 
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto attachments = stack_allocator::for_this_thread().create_reserved_vector_array<vk::ImageView>(
-			color.size() + ds ? 1 : 0
-		);
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto attachments = bookmark.create_reserved_vector_array<vk::ImageView>(color.size() + ds ? 1 : 0);
 		for (const auto *view : color) {
 			attachments.emplace_back(view->_view.get());
 		}
@@ -918,8 +899,8 @@ namespace lotus::graphics::backends::vulkan {
 		result._physical_device = _device;
 		result._dispatch_loader = _dispatch_loader;
 
-		auto bookmark = stack_allocator::scoped_bookmark::create();
-		auto allocator = stack_allocator::for_this_thread().create_std_allocator<vk::QueueFamilyProperties>();
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto allocator = bookmark.create_std_allocator<vk::QueueFamilyProperties>();
 		auto families = _device.getQueueFamilyProperties(allocator);
 		result._graphics_compute_queue_family_index = result._compute_queue_family_index =
 			static_cast<std::uint32_t>(families.size());

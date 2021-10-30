@@ -82,7 +82,7 @@ namespace lotus::graphics::backends::vulkan {
 	) {
 		swap_chain result = nullptr;
 
-		auto bookmark = stack_allocator::scoped_bookmark::create();
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
 
 #ifdef WIN32
 		vk::Win32SurfaceCreateInfoKHR surface_info;
@@ -99,7 +99,7 @@ namespace lotus::graphics::backends::vulkan {
 			dev._graphics_compute_queue_family_index, result._surface.get()
 		)));
 		auto capabilities = _details::unwrap(dev._physical_device.getSurfaceCapabilitiesKHR(result._surface.get()));
-		auto formats_alloc = stack_allocator::for_this_thread().create_std_allocator<vk::SurfaceFormatKHR>();
+		auto formats_alloc = bookmark.create_std_allocator<vk::SurfaceFormatKHR>();
 		auto formats = _details::unwrap(dev._physical_device.getSurfaceFormatsKHR(
 			result._surface.get(), formats_alloc
 		));

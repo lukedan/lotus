@@ -101,9 +101,9 @@ namespace lotus::system::platforms::windows {
 
 
 	application::application(std::u8string_view name) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
 
-		auto class_name = _details::u8string_to_tstring(name, stack_allocator::allocator<TCHAR>::for_this_thread());
+		auto class_name = _details::u8string_to_tstring(name, bookmark.create_std_allocator<TCHAR>());
 
 		WNDCLASSEX wcex;
 		std::memset(&wcex, 0, sizeof(wcex));

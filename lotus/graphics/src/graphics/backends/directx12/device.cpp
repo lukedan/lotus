@@ -108,12 +108,10 @@ namespace lotus::graphics::backends::directx12 {
 		_details::com_ptr<ID3DBlob> signature;
 		std::vector<pipeline_resources::_root_param_indices> indices(sets.size(), nullptr);
 		{ // serialize root signature
-			auto bookmark = stack_allocator::scoped_bookmark::create();
+			auto bookmark = stack_allocator::for_this_thread().bookmark();
 
-			auto root_params = stack_allocator::for_this_thread().create_reserved_vector_array<
-				D3D12_ROOT_PARAMETER1
-			>(sets.size() * 2);
-			auto descriptor_tables = stack_allocator::for_this_thread().create_reserved_vector_array<
+			auto root_params = bookmark.create_reserved_vector_array<D3D12_ROOT_PARAMETER1>(sets.size() * 2);
+			auto descriptor_tables = bookmark.create_reserved_vector_array<
 				std::vector<D3D12_DESCRIPTOR_RANGE1, stack_allocator::allocator<D3D12_DESCRIPTOR_RANGE1>>
 			>(sets.size() * 2);
 
@@ -124,7 +122,7 @@ namespace lotus::graphics::backends::directx12 {
 
 				if (set._num_shader_resource_ranges > 0) { // shader resources
 					auto &shader_resource_table = descriptor_tables.emplace_back(
-						stack_allocator::for_this_thread().create_vector_array<D3D12_DESCRIPTOR_RANGE1>(
+						bookmark.create_vector_array<D3D12_DESCRIPTOR_RANGE1>(
 							set._ranges.begin(), set._ranges.begin() + set._num_shader_resource_ranges
 						)
 					);
@@ -141,7 +139,7 @@ namespace lotus::graphics::backends::directx12 {
 
 				if (set._num_shader_resource_ranges < set._ranges.size()) { // samplers
 					auto &sampler_table = descriptor_tables.emplace_back(
-						stack_allocator::for_this_thread().create_vector_array<D3D12_DESCRIPTOR_RANGE1>(
+						bookmark.create_vector_array<D3D12_DESCRIPTOR_RANGE1>(
 							set._ranges.begin() + set._num_shader_resource_ranges, set._ranges.end()
 						)
 					);
@@ -199,7 +197,7 @@ namespace lotus::graphics::backends::directx12 {
 		const pass_resources &environment,
 		[[maybe_unused]] std::size_t num_viewports
 	) {
-		auto bookmark = stack_allocator::scoped_bookmark::create();
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
 
 		graphics_pipeline_state result = nullptr;
 
@@ -231,9 +229,7 @@ namespace lotus::graphics::backends::directx12 {
 		for (auto &buf : input_buffers) {
 			total_elements += buf.elements.size();
 		}
-		auto element_desc = stack_allocator::for_this_thread().create_reserved_vector_array<
-			D3D12_INPUT_ELEMENT_DESC
-		>(total_elements);
+		auto element_desc = bookmark.create_reserved_vector_array<D3D12_INPUT_ELEMENT_DESC>(total_elements);
 		for (auto &buf : input_buffers) {
 			auto input_rate = _details::conversions::for_input_buffer_rate(buf.input_rate);
 			for (auto &elem : buf.elements) {

@@ -34,6 +34,24 @@ namespace lotus::graphics::backends::directx12 {
 	};
 
 
+	/// Contains the byte pitch of a buffer.
+	struct staging_buffer_pitch {
+		friend command_list;
+		friend device;
+	public:
+		/// No initialization.
+		staging_buffer_pitch(uninitialized_t) {
+		}
+	protected:
+		/// Returns \ref _pitch.
+		[[nodiscard]] std::size_t get_pitch_in_bytes() const {
+			return _pitch;
+		}
+	private:
+		UINT _pitch; ///< Pitch in bytes.
+	};
+
+
 	namespace _details {
 		/// Base class containing a \p ID3D12Resource.
 		class image : public graphics::image {

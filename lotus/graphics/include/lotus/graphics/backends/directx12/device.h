@@ -124,12 +124,9 @@ namespace lotus::graphics::backends::directx12 {
 		);
 		/// Computes the layout of the image using \p ID3D12Device::GetCopyableFootprints(), then creates a buffer
 		/// that can hold it.
-		[[nodiscard]] std::pair<buffer, image_memory_layout> create_committed_buffer_as_image2d(
+		[[nodiscard]] std::tuple<buffer, staging_buffer_pitch, std::size_t> create_committed_buffer_as_image2d(
 			std::size_t width, std::size_t height, format, heap_type, buffer_usage::mask allowed_usage
 		);
-
-		/// Calls \p ID3D12Device::GetCopyableFootprints().
-		[[nodiscard]] image_memory_layout get_image2d_memory_layout(const image2d&, subresource_index);
 
 		/// Calls \p ID3D12Resource::Map().
 		[[nodiscard]] void *map_buffer(buffer&, std::size_t begin, std::size_t length);

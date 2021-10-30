@@ -280,21 +280,18 @@ namespace lotus::graphics {
 		/// assumed to be row-major and have the returned layout.
 		/// 
 		/// \return The buffer and its layout properties.
-		[[nodiscard]] std::pair<buffer, image_memory_layout> create_committed_buffer_as_image2d(
+		[[nodiscard]] staging_buffer create_committed_buffer_as_image2d(
 			std::size_t width, std::size_t height, format fmt, heap_type committed_heap_type,
 			buffer_usage::mask allowed_usage
 		) {
-			auto [buf, layout] = backend::device::create_committed_buffer_as_image2d(
+			staging_buffer result = nullptr;
+			auto [buf, pitch, size] = backend::device::create_committed_buffer_as_image2d(
 				width, height, fmt, committed_heap_type, allowed_usage
 			);
-			return { buffer(std::move(buf)), layout };
-		}
-
-		/// Returns the memory layout of the given \ref image2d.
-		[[nodiscard]] image_memory_layout get_image2d_memory_layout(
-			const image2d &img, subresource_index subresource
-		) {
-			return backend::device::get_image2d_memory_layout(img, subresource);
+			result.data = std::move(buf);
+			result.row_pitch = pitch;
+			result.total_size = size;
+			return result;
 		}
 
 		/// Maps the given buffer and ensures that the specified range has up-to-date data from the device.

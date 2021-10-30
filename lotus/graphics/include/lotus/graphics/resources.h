@@ -50,6 +50,36 @@ namespace lotus::graphics {
 		}
 	};
 
+	/// A \ref buffer used for uploading image data to the device.
+	class staging_buffer {
+	public:
+		/// Initializes the buffer to empty without initializing \ref row_pitch or \ref total_size.
+		staging_buffer(std::nullptr_t) : data(nullptr), row_pitch(uninitialized) {
+		}
+
+		/// An opaque token used by backends to specify the row pitch value of the image data.
+		struct pitch : public backend::staging_buffer_pitch {
+			friend device;
+		public:
+			/// No initialization.
+			pitch(uninitialized_t) : backend::staging_buffer_pitch(uninitialized) {
+			}
+
+			/// Returns the pitch in bytes.
+			std::size_t get_pitch_in_bytes() const {
+				return backend::staging_buffer_pitch::get_pitch_in_bytes();
+			}
+		private:
+			/// Initializes the base class object.
+			pitch(backend::staging_buffer_pitch p) : backend::staging_buffer_pitch(std::move(p)) {
+			}
+		};
+
+		buffer data; ///< The actual buffer.
+		pitch row_pitch; ///< Row pitch.
+		std::size_t total_size; ///< Total size of \ref data.
+	};
+
 
 	/// 2D images.
 	class image2d : public backend::image2d {

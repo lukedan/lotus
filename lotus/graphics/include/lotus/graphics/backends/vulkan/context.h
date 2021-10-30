@@ -14,7 +14,7 @@ namespace lotus::graphics::backends::vulkan {
 	/// Contains a \p vk::UniqueInstance.
 	class context {
 	public:
-		/// Default move construction.
+		/// Default move constructin.
 		context(context&&) = default;
 		/// No copy construction.
 		context(const context&) = delete;
@@ -32,8 +32,7 @@ namespace lotus::graphics::backends::vulkan {
 			auto allocator = stack_allocator::for_this_thread().create_std_allocator<vk::PhysicalDevice>();
 			auto physical_devices = _details::unwrap(_instance->enumeratePhysicalDevices(allocator));
 			for (const auto &dev : physical_devices) {
-				adapter adap = nullptr;
-				adap._device = dev;
+				adapter adap(dev, _dispatch_loader);
 				if (!cb(adap)) {
 					break;
 				}

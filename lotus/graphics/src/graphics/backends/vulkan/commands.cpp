@@ -79,7 +79,9 @@ namespace lotus::graphics::backends::vulkan {
 		for (auto *set : sets) {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
 		}
-		_buffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, rsrc._layout.get(), first, vk_sets, {});
+		_buffer->bindDescriptorSets(
+			vk::PipelineBindPoint::eGraphics, rsrc._layout.get(), static_cast<std::uint32_t>(first), vk_sets, {}
+		);
 	}
 
 	void command_list::bind_compute_descriptor_sets(
@@ -90,7 +92,9 @@ namespace lotus::graphics::backends::vulkan {
 		for (auto *set : sets) {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
 		}
-		_buffer->bindDescriptorSets(vk::PipelineBindPoint::eCompute, rsrc._layout.get(), first, vk_sets, {});
+		_buffer->bindDescriptorSets(
+			vk::PipelineBindPoint::eCompute, rsrc._layout.get(), static_cast<std::uint32_t>(first), vk_sets, {}
+		);
 	}
 
 	void command_list::set_viewports(std::span<const viewport> vps) {
@@ -129,28 +133,32 @@ namespace lotus::graphics::backends::vulkan {
 		vk::ImageCopy copy;
 		copy
 			.setSrcSubresource(_details::conversions::to_image_subresource_layers(sub1))
-			.setSrcOffset(vk::Offset3D(region.min[0], region.min[1], 0))
+			.setSrcOffset(vk::Offset3D(_details::conversions::to_offset_2d(region.min), 0))
 			.setDstSubresource(_details::conversions::to_image_subresource_layers(sub2))
-			.setDstOffset(vk::Offset3D(off[0], off[1], 0))
-			.setExtent(vk::Extent3D(size[0], size[1], 1));
+			.setDstOffset(vk::Offset3D(_details::conversions::to_offset_2d(off), 0))
+			.setExtent(vk::Extent3D(_details::conversions::to_extent_2d(size), 1));
 		_buffer->copyImage(
 			from._image, vk::ImageLayout::eTransferSrcOptimal, to._image, vk::ImageLayout::eTransferDstOptimal, copy
 		);
 	}
 
 	void command_list::copy_buffer_to_image(
-		buffer &from, std::size_t byte_offset, std::size_t row_pitch, aab2s region,
+		buffer &from, std::size_t byte_offset, staging_buffer_pitch row_pitch, aab2s region,
 		image2d &to, subresource_index subresource, cvec2s offset
 	) {
 		cvec2s size = region.signed_size();
 		vk::BufferImageCopy copy;
 		copy
-			.setBufferOffset(byte_offset)
-			.setBufferRowLength(size[0]) // HACK we need a proper way to determine its width
-			.setBufferImageHeight(size[1])
+			.setBufferOffset(
+				byte_offset +
+				offset[1] * row_pitch._bytes + // y
+				offset[0] * (row_pitch._bytes / row_pitch._pixels) // x
+			)
+			.setBufferRowLength(row_pitch._pixels)
+			.setBufferImageHeight(static_cast<std::uint32_t>(size[1]))
 			.setImageSubresource(_details::conversions::to_image_subresource_layers(subresource))
-			.setImageOffset(vk::Offset3D(region.min[0], region.min[1], 0))
-			.setImageExtent(vk::Extent3D(size[0], size[1], 1));
+			.setImageOffset(vk::Offset3D(_details::conversions::to_offset_2d(region.min), 0))
+			.setImageExtent(vk::Extent3D(_details::conversions::to_extent_2d(size), 1));
 		_buffer->copyBufferToImage(from._buffer, to._image, vk::ImageLayout::eTransferDstOptimal, copy);
 	}
 
@@ -158,7 +166,10 @@ namespace lotus::graphics::backends::vulkan {
 		std::size_t first_vertex, std::size_t vertex_count,
 		std::size_t first_instance, std::size_t instance_count
 	) {
-		_buffer->draw(vertex_count, instance_count, first_vertex, first_instance);
+		_buffer->draw(
+			static_cast<std::uint32_t>(vertex_count), static_cast<std::uint32_t>(instance_count),
+			static_cast<std::uint32_t>(first_vertex), static_cast<std::uint32_t>(first_instance)
+		);
 	}
 
 	void command_list::draw_indexed_instanced(
@@ -166,7 +177,11 @@ namespace lotus::graphics::backends::vulkan {
 		std::size_t first_vertex,
 		std::size_t first_instance, std::size_t instance_count
 	) {
-		_buffer->drawIndexed(index_count, instance_count, first_index, first_vertex, first_instance);
+		_buffer->drawIndexed(
+			static_cast<std::uint32_t>(index_count), static_cast<std::uint32_t>(instance_count),
+			static_cast<std::uint32_t>(first_index), static_cast<std::uint32_t>(first_vertex),
+			static_cast<std::uint32_t>(first_instance)
+		);
 	}
 
 	void command_list::run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z) {

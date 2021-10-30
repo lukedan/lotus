@@ -36,6 +36,7 @@ function(add_shader FILENAME STAGE ENTRY PROFILE DEPENDENT BACKEND)
 				-Ges
 				-Zpr
 				-Zi
+				-Qembed_debug
 				${DXC_EXTRA_ARGS}
 		COMMENT "Compiling shader ${FILENAME}"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")

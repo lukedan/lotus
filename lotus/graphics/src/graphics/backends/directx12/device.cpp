@@ -511,7 +511,7 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
-	std::pair<buffer, image_memory_layout> device::create_committed_buffer_as_image2d(
+	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_buffer_as_image2d(
 		std::size_t width, std::size_t height, format fmt, heap_type type,
 		buffer_usage::mask allowed_usage
 	) {
@@ -521,29 +521,12 @@ namespace lotus::graphics::backends::directx12 {
 		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 		UINT64 total_bytes = 0;
 		_device->GetCopyableFootprints(&image_desc, 0, 1, 0, &footprint, nullptr, nullptr, &total_bytes);
+		assert(footprint.Offset == 0); // assume we always start immediatly - no reason not to
 
-		image_memory_layout result_layout = uninitialized;
-		result_layout.offset     = static_cast<std::size_t>(footprint.Offset);
-		result_layout.row_pitch  = static_cast<std::size_t>(footprint.Footprint.RowPitch);
-		result_layout.total_size = static_cast<std::size_t>(total_bytes);
 		buffer result = create_committed_buffer(static_cast<std::size_t>(total_bytes), type, allowed_usage);
-		return { result, result_layout };
-	}
-
-	image_memory_layout device::get_image2d_memory_layout(const image2d &img, subresource_index subresource) {
-		D3D12_RESOURCE_DESC desc = img._image->GetDesc();
-		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
-		UINT64 total_bytes = 0;
-		_device->GetCopyableFootprints(
-			&desc, _details::compute_subresource_index(subresource, img._image.Get()), 1,
-			0, &footprint, nullptr, nullptr, &total_bytes
-		);
-
-		image_memory_layout result = uninitialized;
-		result.offset     = static_cast<std::size_t>(footprint.Offset);
-		result.row_pitch  = static_cast<std::size_t>(footprint.Footprint.RowPitch);
-		result.total_size = static_cast<std::size_t>(total_bytes);
-		return result;
+		staging_buffer_pitch result_pitch = uninitialized;
+		result_pitch._pitch = footprint.Footprint.RowPitch;
+		return std::make_tuple(std::move(result), result_pitch, total_bytes);
 	}
 
 	void *device::map_buffer(buffer &buf, std::size_t begin, std::size_t length) {

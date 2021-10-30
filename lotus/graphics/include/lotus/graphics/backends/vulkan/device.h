@@ -12,7 +12,9 @@
 
 namespace lotus::graphics::backends::vulkan {
 	class adapter;
+	class command_list;
 	class context;
+	class device;
 
 
 	/// Contains a \p vk::UniqueDevice.
@@ -130,13 +132,10 @@ namespace lotus::graphics::backends::vulkan {
 		);
 		/// Obtains the layout of the buffer by creating a dummy image object, then calls
 		/// \ref create_committed_buffer() to create the buffer.
-		[[nodiscard]] std::pair<buffer, image_memory_layout> create_committed_buffer_as_image2d(
+		[[nodiscard]] std::tuple<buffer, staging_buffer_pitch, std::size_t> create_committed_buffer_as_image2d(
 			std::size_t width, std::size_t height, format, heap_type,
 			buffer_usage::mask allowed_usage
 		);
-
-		/// Returns the result of \p vk::UniqueDevice::getImageSubresourceLayout().
-		[[nodiscard]] image_memory_layout get_image2d_memory_layout(const image2d&, subresource_index);
 
 		/// Calls \ref _map_memory().
 		[[nodiscard]] void *map_buffer(buffer&, std::size_t begin, std::size_t length);
@@ -167,12 +166,10 @@ namespace lotus::graphics::backends::vulkan {
 		/// Calls \p vk::UniqueDevice::waitForFences().
 		void wait_for_fence(fence&);
 
-		void set_debug_name(buffer &buf, const char8_t *name) {
-			// TODO
-		}
-		void set_debug_name(image &img, const char8_t *name) {
-			// TODO
-		}
+		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT().
+		void set_debug_name(buffer&, const char8_t*);
+		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT().
+		void set_debug_name(image&, const char8_t*);
 	private:
 		vk::UniqueDevice _device; ///< The device.
 		vk::PhysicalDevice _physical_device; ///< The physical device.
@@ -181,6 +178,7 @@ namespace lotus::graphics::backends::vulkan {
 		std::uint32_t _compute_queue_family_index; ///< Compute-only command queue family index.
 		vk::PhysicalDeviceLimits _device_limits; ///< Device limits.
 		vk::PhysicalDeviceMemoryProperties _memory_properties; ///< Memory properties.
+		const vk::DispatchLoaderDynamic *_dispatch_loader; ///< The dispatch loader.
 
 		/// Finds the best memory type fit for the given requirements and \ref heap_type.
 		[[nodiscard]] std::uint32_t _find_memory_type_index(std::uint32_t requirements, heap_type) const;
@@ -212,5 +210,11 @@ namespace lotus::graphics::backends::vulkan {
 		[[nodiscard]] adapter_properties get_properties() const;
 	private:
 		vk::PhysicalDevice _device; ///< The physical device.
+		const vk::DispatchLoaderDynamic *_dispatch_loader; ///< Dispatch loader.
+
+		/// Initializes all fields of the struct.
+		adapter(vk::PhysicalDevice dev, const vk::DispatchLoaderDynamic &dispatch) :
+			_device(dev), _dispatch_loader(&dispatch) {
+		}
 	};
 }

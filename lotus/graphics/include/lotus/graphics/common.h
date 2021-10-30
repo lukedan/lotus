@@ -23,6 +23,7 @@ namespace lotus::graphics {
 	class fence;
 	class image2d_view;
 	class sampler;
+	class staging_buffer;
 
 
 	/// Base class of all image types.
@@ -155,6 +156,15 @@ namespace lotus::graphics {
 			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type type
 		);
 
+		/// Bits per pixel.
+		[[nodiscard]] std::uint8_t bits_per_pixel() const {
+			return _bits_per_pixel;
+		}
+		/// Bytes per pixel.
+		[[nodiscard]] std::uint8_t bytes_per_pixel() const {
+			return _bytes_per_pixel;
+		}
+
 		std::uint8_t red_bits;     ///< Number of bits for the red channel.
 		std::uint8_t green_bits;   ///< Number of bits for the green channel.
 		std::uint8_t blue_bits;    ///< Number of bits for the blue channel.
@@ -170,8 +180,12 @@ namespace lotus::graphics {
 			std::uint8_t d, std::uint8_t s, data_type ty, channel_order o
 		) :
 			red_bits(r), green_bits(g), blue_bits(b), alpha_bits(a),
-			depth_bits(d), stencil_bits(s), type(ty), order(o) {
+			depth_bits(d), stencil_bits(s), type(ty), order(o),
+			_bits_per_pixel(r + g + b + a + d + s), _bytes_per_pixel((_bits_per_pixel + 7) / 8) {
 		}
+
+		std::uint8_t _bits_per_pixel;
+		std::uint8_t _bytes_per_pixel;
 	};
 
 	/// Format used by the index buffer.
@@ -1195,18 +1209,5 @@ namespace lotus::graphics {
 		constexpr viewport(aab2f plane, float mind, float maxd) :
 			xy(plane), minimum_depth(mind), maximum_depth(maxd) {
 		}
-	};
-
-	/// The memory layout of an image.
-	struct image_memory_layout {
-		/// No initialization.
-		image_memory_layout(uninitialized_t) {
-		}
-
-		std::size_t offset; ///< Offset, in bytes, from the start of the resource to a subresource.
-		/// The byte offset from the start of one row to the next. This is only meaningful if the image is tiled
-		/// linearly.
-		std::size_t row_pitch;
-		std::size_t total_size; ///< The total size of this subresource.
 	};
 }

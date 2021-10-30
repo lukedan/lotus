@@ -71,6 +71,24 @@ namespace lotus::graphics::backends::vulkan {
 		}
 	};
 
+	/// Stores number of pixels in a row and the number of bytes for each pixel.
+	struct staging_buffer_pitch {
+		friend command_list;
+		friend device;
+	public:
+		/// No initialization.
+		staging_buffer_pitch(uninitialized_t) {
+		}
+	protected:
+		/// Returns \ref _bytes.
+		std::size_t get_pitch_in_bytes() const {
+			return _bytes;
+		}
+	private:
+		std::uint32_t _pixels; ///< The number of pixels;
+		std::uint32_t _bytes; ///< The number of bytes that correspond to \ref _pixels.
+	};
+
 	namespace _details {
 		/// Base class of all image types, contains a \p vk::Image and the \p vk::Device that created it.
 		class image : public graphics::image {

@@ -66,21 +66,22 @@ struct scene_resources {
 			std::size_t bytes_per_pixel = (img.component * img.bits + 7) / 8;
 			std::size_t bytes_per_row   = bytes_per_pixel * img.width;
 			// TODO find correct pixel format
-			auto [upload_buf, upload_buf_layout] = dev.create_committed_buffer_as_image2d(
+			auto upload_buf = dev.create_committed_buffer_as_image2d(
 				img.width, img.height, format, gfx::heap_type::upload,
 				gfx::buffer_usage::mask::copy_source
 			);
 			// copy data
-			auto *dest = static_cast<std::byte*>(dev.map_buffer(upload_buf, 0, 0));
+			auto *dest = static_cast<std::byte*>(dev.map_buffer(upload_buf.data, 0, 0));
 			auto *source = img.image.data();
+			std::size_t pitch_bytes = upload_buf.row_pitch.get_pitch_in_bytes();
 			for (
 				std::size_t y = 0;
 				y < img.height;
-				++y, dest += upload_buf_layout.row_pitch, source += bytes_per_row
+				++y, dest += pitch_bytes, source += bytes_per_row
 			) {
 				std::memcpy(dest, source, bytes_per_row);
 			}
-			dev.unmap_buffer(upload_buf, 0, upload_buf_layout.total_size);
+			dev.unmap_buffer(upload_buf.data, 0, upload_buf.total_size);
 
 			// create gpu image
 			auto gpu_img = dev.create_committed_image2d(
@@ -98,7 +99,7 @@ struct scene_resources {
 				{}
 			);
 			copy_cmd.copy_buffer_to_image(
-				upload_buf, 0, upload_buf_layout.row_pitch,
+				upload_buf.data, 0, upload_buf.row_pitch,
 				aab2s::create_from_min_max(zero, cvec2s(img.width, img.height)),
 				gpu_img, gfx::subresource_index::first_color(), zero
 			);
@@ -127,15 +128,15 @@ struct scene_resources {
 		{ // empty color texture
 			auto format = gfx::format::r8g8b8a8_snorm;
 
-			auto [upload_buf, upload_buf_layout] = dev.create_committed_buffer_as_image2d(
+			auto upload_buf = dev.create_committed_buffer_as_image2d(
 				1, 1, format,
 				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
 			);
-			auto *source = static_cast<char*>(dev.map_buffer(upload_buf, 0, 0));
+			auto *source = static_cast<char*>(dev.map_buffer(upload_buf.data, 0, 0));
 			source[0] = std::numeric_limits<char>::max();
 			source[1] = std::numeric_limits<char>::max();
 			source[2] = std::numeric_limits<char>::max();
-			dev.unmap_buffer(upload_buf, 0, upload_buf_layout.total_size);
+			dev.unmap_buffer(upload_buf.data, 0, upload_buf.total_size);
 
 			result.empty_color = dev.create_committed_image2d(
 				1, 1, 1, 1, format, gfx::image_tiling::optimal,
@@ -152,7 +153,7 @@ struct scene_resources {
 				{}
 			);
 			copy_cmd.copy_buffer_to_image(
-				upload_buf, 0, upload_buf_layout.row_pitch, aab2s::create_from_min_max(zero, cvec2s(1, 1)),
+				upload_buf.data, 0, upload_buf.row_pitch, aab2s::create_from_min_max(zero, cvec2s(1, 1)),
 				result.empty_color, gfx::subresource_index::first_color(), zero
 			);
 			copy_cmd.resource_barrier(
@@ -170,15 +171,15 @@ struct scene_resources {
 		{ // empty normal texture
 			auto format = gfx::format::r8g8b8a8_snorm;
 
-			auto [upload_buf, upload_buf_layout] = dev.create_committed_buffer_as_image2d(
+			auto upload_buf = dev.create_committed_buffer_as_image2d(
 				1, 1, format,
 				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
 			);
-			auto *source = static_cast<char*>(dev.map_buffer(upload_buf, 0, 0));
+			auto *source = static_cast<char*>(dev.map_buffer(upload_buf.data, 0, 0));
 			source[0] = 0;
 			source[1] = 0;
 			source[2] = std::numeric_limits<char>::max();
-			dev.unmap_buffer(upload_buf, 0, upload_buf_layout.total_size);
+			dev.unmap_buffer(upload_buf.data, 0, upload_buf.total_size);
 
 			result.empty_normal = dev.create_committed_image2d(
 				1, 1, 1, 1, format, gfx::image_tiling::optimal,
@@ -195,7 +196,7 @@ struct scene_resources {
 				{}
 			);
 			copy_cmd.copy_buffer_to_image(
-				upload_buf, 0, upload_buf_layout.row_pitch, aab2s::create_from_min_max(zero, cvec2s(1, 1)),
+				upload_buf.data, 0, upload_buf.row_pitch, aab2s::create_from_min_max(zero, cvec2s(1, 1)),
 				result.empty_normal, gfx::subresource_index::first_color(), zero
 			);
 			copy_cmd.resource_barrier(
@@ -213,15 +214,15 @@ struct scene_resources {
 		{ // empty material properties texture
 			auto format = gfx::format::r8g8b8a8_unorm;
 
-			auto [upload_buf, upload_buf_layout] = dev.create_committed_buffer_as_image2d(
+			auto upload_buf = dev.create_committed_buffer_as_image2d(
 				1, 1, format,
 				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
 			);
-			auto *source = static_cast<unsigned char*>(dev.map_buffer(upload_buf, 0, 0));
+			auto *source = static_cast<unsigned char*>(dev.map_buffer(upload_buf.data, 0, 0));
 			source[0] = 0;
 			source[1] = std::numeric_limits<unsigned char>::max();
 			source[2] = std::numeric_limits<unsigned char>::max();
-			dev.unmap_buffer(upload_buf, 0, upload_buf_layout.total_size);
+			dev.unmap_buffer(upload_buf.data, 0, upload_buf.total_size);
 
 			result.empty_metalness_glossiness = dev.create_committed_image2d(
 				1, 1, 1, 1, format, gfx::image_tiling::optimal,
@@ -238,7 +239,7 @@ struct scene_resources {
 				{}
 			);
 			copy_cmd.copy_buffer_to_image(
-				upload_buf, 0, upload_buf_layout.row_pitch, aab2s::create_from_min_max(zero, cvec2s(1, 1)),
+				upload_buf.data, 0, upload_buf.row_pitch, aab2s::create_from_min_max(zero, cvec2s(1, 1)),
 				result.empty_metalness_glossiness, gfx::subresource_index::first_color(), zero
 			);
 			copy_cmd.resource_barrier(

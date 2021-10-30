@@ -63,7 +63,9 @@ namespace lotus::graphics::backends::directx12 {
 			barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 			barrier.Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 			barrier.Transition.pResource   = static_cast<_details::image*>(img.target)->_image.Get();
-			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; // TODO
+			barrier.Transition.Subresource = _details::compute_subresource_index(
+				img.subresource, static_cast<_details::image*>(img.target)->_image.Get()
+			);
 			barrier.Transition.StateBefore = _details::conversions::for_image_usage(img.from_state);
 			barrier.Transition.StateAfter  = _details::conversions::for_image_usage(img.to_state);
 		}
@@ -225,7 +227,7 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	void command_list::copy_buffer_to_image(
-		buffer &from, std::size_t byte_offset, std::size_t row_pitch, aab2s region,
+		buffer &from, std::size_t byte_offset, staging_buffer_pitch row_pitch, aab2s region,
 		image2d &to, subresource_index subresource, cvec2s off
 	) {
 		D3D12_TEXTURE_COPY_LOCATION dest = {};
@@ -241,7 +243,7 @@ namespace lotus::graphics::backends::directx12 {
 		source.PlacedFootprint.Footprint.Width    = static_cast<UINT>(size[0]);
 		source.PlacedFootprint.Footprint.Height   = static_cast<UINT>(size[1]);
 		source.PlacedFootprint.Footprint.Depth    = 1;
-		source.PlacedFootprint.Footprint.RowPitch = static_cast<UINT>(row_pitch);
+		source.PlacedFootprint.Footprint.RowPitch = row_pitch._pitch;
 		D3D12_BOX src_box = {};
 		src_box.left   = static_cast<UINT>(off[0]);
 		src_box.top    = static_cast<UINT>(off[1]);

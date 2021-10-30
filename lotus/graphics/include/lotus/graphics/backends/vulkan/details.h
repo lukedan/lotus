@@ -85,6 +85,15 @@ namespace lotus::graphics::backends::vulkan::_details {
 		/// Converts a \ref image_tiling to a \p vk::ImageTiling.
 		[[nodiscard]] vk::ImageTiling to_image_tiling(image_tiling);
 
+		/// Converts a vector to a \p vk::Offset2D.
+		template <typename Int> [[nodiscard]] inline vk::Offset2D to_offset_2d(cvec2<Int> off) {
+			return vk::Offset2D(static_cast<std::int32_t>(off[0]), static_cast<std::int32_t>(off[1]));
+		}
+		/// Converts a vector to a \p vk::Extent2D.
+		template <typename Int> [[nodiscard]] inline vk::Extent2D to_extent_2d(cvec2<Int> ext) {
+			return vk::Extent2D(static_cast<std::uint32_t>(ext[0]), static_cast<std::uint32_t>(ext[1]));
+		}
+
 		/// Converts a \ref subresource_index to a \p vk::ImageSubresourceLayers.
 		[[nodiscard]] vk::ImageSubresourceLayers to_image_subresource_layers(const subresource_index&);
 		/// Converts a \ref subresource_index to a \p vk::ImageSubresourceRange.

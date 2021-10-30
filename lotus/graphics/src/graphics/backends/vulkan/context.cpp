@@ -52,14 +52,14 @@ namespace lotus::graphics::backends::vulkan {
 			)
 			.setPfnCallback(
 				[](
-					VkDebugReportFlagsEXT flags,
-					VkDebugReportObjectTypeEXT object_type,
-					uint64_t object,
-					size_t location,
-					int32_t message_code,
-					const char *layer_prefix,
+					VkDebugReportFlagsEXT /*flags*/,
+					VkDebugReportObjectTypeEXT /*object_type*/,
+					uint64_t /*object*/,
+					size_t /*location*/,
+					int32_t /*message_code*/,
+					const char */*layer_prefix*/,
 					const char *message,
-					void *user_data
+					void */*user_data*/
 				) -> VkBool32 {
 					if (
 						std::strstr(message, "VUID-VkShaderModuleCreateInfo-pCode-04147")/* || // ignore "unsupported SPIRV extension"

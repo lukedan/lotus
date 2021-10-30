@@ -24,12 +24,12 @@ namespace lotus::graphics::backends::vulkan {
 		}
 		assert(sync.notify_fence);
 
-		swapchain._frame_index = _details::unwrap(_device->acquireNextImageKHR(
+		swapchain._frame_index = static_cast<std::uint16_t>(_details::unwrap(_device->acquireNextImageKHR(
 			swapchain._swapchain.get(),
 			std::numeric_limits<std::uint64_t>::max(),
 			nullptr,
 			sync.notify_fence ? static_cast<fence*>(sync.notify_fence)->_fence.get() : nullptr
-		));
+		)));
 
 		back_buffer_info result = uninitialized;
 		result.index        = swapchain._frame_index;
@@ -70,7 +70,7 @@ namespace lotus::graphics::backends::vulkan {
 		result._buffer = std::move(buffers[0]);
 
 		vk::CommandBufferBeginInfo begin_info;
-		result._buffer->begin(begin_info);
+		_details::assert_vk(result._buffer->begin(begin_info));
 
 		return result;
 	}
@@ -86,14 +86,14 @@ namespace lotus::graphics::backends::vulkan {
 		for (const auto &range : capacity) {
 			ranges.emplace_back()
 				.setType(_details::conversions::to_descriptor_type(range.type))
-				.setDescriptorCount(range.count);
+				.setDescriptorCount(static_cast<std::uint32_t>(range.count));
 		}
 
 		vk::DescriptorPoolCreateInfo info;
 		info
 			.setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet)
-			.setMaxSets(max_num_sets)
-			.setPoolSizeCount(capacity.size())
+			.setMaxSets(static_cast<std::uint32_t>(max_num_sets))
+			.setPoolSizeCount(static_cast<std::uint32_t>(capacity.size()))
 			.setPoolSizes(ranges);
 		// TODO allocator
 		result._pool = _details::unwrap(_device->createDescriptorPoolUnique(info));
@@ -117,7 +117,7 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	void device::write_descriptor_set_images(
-		descriptor_set &set, const descriptor_set_layout &layout,
+		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const graphics::image_view *const> images
 	) {
 		auto bookmark = stack_allocator::scoped_bookmark::create();
@@ -132,14 +132,14 @@ namespace lotus::graphics::backends::vulkan {
 		vk::WriteDescriptorSet info;
 		info
 			.setDstSet(set._set.get())
-			.setDstBinding(first_register)
+			.setDstBinding(static_cast<std::uint32_t>(first_register))
 			.setDescriptorType(vk::DescriptorType::eSampledImage)
 			.setImageInfo(imgs);
 		_device->updateDescriptorSets(info, {});
 	}
 
 	void device::write_descriptor_set_buffers(
-		descriptor_set &set, const descriptor_set_layout &layout,
+		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const buffer_view> buffers
 	) {
 		auto bookmark = stack_allocator::scoped_bookmark::create();
@@ -156,14 +156,14 @@ namespace lotus::graphics::backends::vulkan {
 		vk::WriteDescriptorSet info;
 		info
 			.setDstSet(set._set.get())
-			.setDstBinding(first_register)
+			.setDstBinding(static_cast<std::uint32_t>(first_register))
 			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 			.setBufferInfo(bufs);
 		_device->updateDescriptorSets(info, {});
 	}
 
 	void device::write_descriptor_set_constant_buffers(
-		descriptor_set &set, const descriptor_set_layout &layout,
+		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const constant_buffer_view> buffers
 	) {
 		auto bookmark = stack_allocator::scoped_bookmark::create();
@@ -180,14 +180,14 @@ namespace lotus::graphics::backends::vulkan {
 		vk::WriteDescriptorSet info;
 		info
 			.setDstSet(set._set.get())
-			.setDstBinding(first_register)
+			.setDstBinding(static_cast<std::uint32_t>(first_register))
 			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 			.setBufferInfo(bufs);
 		_device->updateDescriptorSets(info, {});
 	}
 
 	void device::write_descriptor_set_samplers(
-		descriptor_set &set, const descriptor_set_layout &layout,
+		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const graphics::sampler *const> samplers
 	) {
 		auto bookmark = stack_allocator::scoped_bookmark::create();
@@ -202,7 +202,7 @@ namespace lotus::graphics::backends::vulkan {
 		vk::WriteDescriptorSet info;
 		info
 			.setDstSet(set._set.get())
-			.setDstBinding(first_register)
+			.setDstBinding(static_cast<std::uint32_t>(first_register))
 			.setDescriptorType(vk::DescriptorType::eSampler)
 			.setImageInfo(smps);
 		_device->updateDescriptorSets(info, {});
@@ -240,8 +240,14 @@ namespace lotus::graphics::backends::vulkan {
 	) {
 		sampler result;
 
+		vk::SamplerCustomBorderColorCreateInfoEXT border_color_info;
+		std::array<float, 4> border_color_arr{ { border_color.r, border_color.g, border_color.b, border_color.a } };
+		border_color_info
+			.setCustomBorderColor(vk::ClearColorValue(border_color_arr))
+			.setFormat(vk::Format::eUndefined);
 		vk::SamplerCreateInfo info;
 		info
+			.setPNext(&border_color_info)
 			.setMagFilter(_details::conversions::to_filter(magnification))
 			.setMinFilter(_details::conversions::to_filter(minification))
 			.setMipmapMode(_details::conversions::to_sampler_mipmap_mode(mipmapping))
@@ -255,7 +261,7 @@ namespace lotus::graphics::backends::vulkan {
 			.setCompareOp(_details::conversions::to_compare_op(comparison.value_or(comparison_function::always)))
 			.setMinLod(min_lod)
 			.setMaxLod(max_lod)
-			.setBorderColor(vk::BorderColor::eFloatTransparentBlack); // TODO
+			.setBorderColor(vk::BorderColor::eFloatCustomEXT);
 		// TODO allocator
 		result._sampler = _details::unwrap(_device->createSamplerUnique(info));
 
@@ -277,7 +283,7 @@ namespace lotus::graphics::backends::vulkan {
 				.setDescriptorCount(1)
 				.setStageFlags(stages);
 			for (std::size_t i = 0; i < rng.range.count; ++i) {
-				binding.setBinding(rng.register_index + i);
+				binding.setBinding(static_cast<std::uint32_t>(rng.register_index + i));
 				arr.emplace_back(binding);
 			}
 		}
@@ -370,8 +376,8 @@ namespace lotus::graphics::backends::vulkan {
 			const auto &refl = vs->_reflection._reflection.value();
 			for (const auto &buf : input_buffers) {
 				input_bindings.emplace_back()
-					.setBinding(buf.buffer_index)
-					.setStride(buf.stride)
+					.setBinding(static_cast<std::uint32_t>(buf.buffer_index))
+					.setStride(static_cast<std::uint32_t>(buf.stride))
 					.setInputRate(_details::conversions::to_vertex_input_rate(buf.input_rate));
 				for (const auto &attr : buf.elements) {
 					auto location = std::numeric_limits<std::uint32_t>::max();
@@ -382,12 +388,12 @@ namespace lotus::graphics::backends::vulkan {
 						if (semantic.starts_with(reinterpret_cast<const char*>(attr.semantic_name))) {
 							std::uint32_t index = 0;
 							if (semantic.size() > expected_semantic.size()) {
-								auto result = std::from_chars(
+								auto res = std::from_chars(
 									semantic.data() + expected_semantic.size(),
 									semantic.data() + semantic.size(),
 									index
 								);
-								assert(result.ec == std::errc() && result.ptr == semantic.data() + semantic.size());
+								assert(res.ec == std::errc() && res.ptr == semantic.data() + semantic.size());
 							}
 							if (index == attr.semantic_index) {
 								location = input->location;
@@ -398,9 +404,9 @@ namespace lotus::graphics::backends::vulkan {
 					assert(location < std::numeric_limits<std::uint32_t>::max());
 					attribute_descriptions.emplace_back()
 						.setLocation(location)
-						.setBinding(buf.buffer_index)
+						.setBinding(static_cast<std::uint32_t>(buf.buffer_index))
 						.setFormat(_details::conversions::for_format(attr.element_format))
-						.setOffset(attr.byte_offset);
+						.setOffset(static_cast<std::uint32_t>(attr.byte_offset));
 				}
 			}
 		}
@@ -416,8 +422,8 @@ namespace lotus::graphics::backends::vulkan {
 
 		vk::PipelineViewportStateCreateInfo viewport;
 		viewport
-			.setViewportCount(num_viewports)
-			.setScissorCount(num_viewports);
+			.setViewportCount(static_cast<std::uint32_t>(num_viewports))
+			.setScissorCount(static_cast<std::uint32_t>(num_viewports));
 
 		vk::PipelineRasterizationStateCreateInfo rasterization;
 		rasterization
@@ -552,12 +558,12 @@ namespace lotus::graphics::backends::vulkan {
 			stack_allocator::for_this_thread().create_reserved_vector_array<vk::AttachmentReference>(color.size());
 		for (std::size_t i = 0; i < color.size(); ++i) {
 			attachment_ref.emplace_back()
-				.setAttachment(i)
+				.setAttachment(static_cast<std::uint32_t>(i))
 				.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 		}
 		vk::AttachmentReference ds_ref;
 		ds_ref
-			.setAttachment(color.size())
+			.setAttachment(static_cast<std::uint32_t>(color.size()))
 			.setLayout(ds_layout);
 
 		vk::SubpassDescription subpass;
@@ -631,9 +637,9 @@ namespace lotus::graphics::backends::vulkan {
 		img_info
 			.setImageType(vk::ImageType::e2D)
 			.setFormat(_details::conversions::for_format(fmt))
-			.setExtent(vk::Extent3D(width, height, 1))
-			.setMipLevels(mip_levels)
-			.setArrayLayers(array_slices)
+			.setExtent(vk::Extent3D(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1))
+			.setMipLevels(static_cast<std::uint32_t>(mip_levels))
+			.setArrayLayers(static_cast<std::uint32_t>(array_slices))
 			.setSamples(vk::SampleCountFlagBits::e1)
 			.setTiling(_details::conversions::to_image_tiling(tiling))
 			.setUsage(_details::conversions::to_image_usage_flags(allowed_usage))
@@ -659,7 +665,7 @@ namespace lotus::graphics::backends::vulkan {
 		return result;
 	}
 
-	std::pair<buffer, image_memory_layout> device::create_committed_buffer_as_image2d(
+	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_buffer_as_image2d(
 		std::size_t width, std::size_t height, format fmt, heap_type committed_heap_type,
 		buffer_usage::mask allowed_usage
 	) {
@@ -669,7 +675,7 @@ namespace lotus::graphics::backends::vulkan {
 			img_info
 				.setImageType(vk::ImageType::e2D)
 				.setFormat(_details::conversions::for_format(fmt))
-				.setExtent(vk::Extent3D(width, height, 1))
+				.setExtent(vk::Extent3D(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1))
 				.setMipLevels(1)
 				.setArrayLayers(1)
 				.setSamples(vk::SampleCountFlagBits::e1)
@@ -691,24 +697,12 @@ namespace lotus::graphics::backends::vulkan {
 			layout = _device->getImageSubresourceLayout(img.get(), subresource);
 		}
 
-		buffer result = create_committed_buffer(layout.size, committed_heap_type, allowed_usage);
-		image_memory_layout res_layout = uninitialized;
-		res_layout.offset = layout.offset;
-		res_layout.row_pitch = layout.rowPitch;
-		res_layout.total_size = layout.size;
+		buffer result_buf = create_committed_buffer(layout.size, committed_heap_type, allowed_usage);
+		staging_buffer_pitch result_pitch = uninitialized;
+		result_pitch._pixels = static_cast<std::uint32_t>(width);
+		result_pitch._bytes = static_cast<std::uint32_t>(width * format_properties::get(fmt).bytes_per_pixel());
 
-		return std::make_pair(std::move(result), res_layout);
-	}
-
-	image_memory_layout device::get_image2d_memory_layout(const image2d &img, subresource_index subresource) {
-		auto layout = _device->getImageSubresourceLayout(
-			img._image, _details::conversions::to_image_subresource(subresource)
-		);
-		image_memory_layout result = uninitialized;
-		result.offset = layout.offset;
-		result.row_pitch = layout.rowPitch;
-		result.total_size = layout.size;
-		return result;
+		return std::make_tuple(std::move(result_buf), result_pitch, result_pitch._bytes * height);
 	}
 
 	void *device::map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
@@ -783,12 +777,12 @@ namespace lotus::graphics::backends::vulkan {
 		info
 			.setRenderPass(pass._pass.get())
 			.setAttachments(attachments)
-			.setWidth(size[0])
-			.setHeight(size[1])
+			.setWidth(static_cast<std::uint32_t>(size[0]))
+			.setHeight(static_cast<std::uint32_t>(size[1]))
 			.setLayers(1);
 		// TODO allocator
 		result._framebuffer = _details::unwrap(_device->createFramebufferUnique(info));
-		result._size = vk::Extent2D(size[0], size[1]);
+		result._size = vk::Extent2D(static_cast<std::uint32_t>(size[0]), static_cast<std::uint32_t>(size[1]));
 
 		return result;
 	}
@@ -815,6 +809,26 @@ namespace lotus::graphics::backends::vulkan {
 
 	void device::wait_for_fence(fence &f) {
 		_details::assert_vk(_device->waitForFences(f._fence.get(), true, std::numeric_limits<std::uint64_t>::max()));
+	}
+
+	void device::set_debug_name(buffer &buf, const char8_t *name) {
+		vk::DebugMarkerObjectNameInfoEXT info;
+		info
+			.setObjectType(vk::DebugReportObjectTypeEXT::eBuffer)
+			.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkBuffer>(buf._buffer)))
+			.setPObjectName(reinterpret_cast<const char*>(name));
+		_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
+	}
+
+	void device::set_debug_name(image &img, const char8_t *name) {
+		vk::DebugMarkerObjectNameInfoEXT info;
+		info
+			.setObjectType(vk::DebugReportObjectTypeEXT::eBuffer)
+			.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkImage>(
+				static_cast<_details::image&>(img)._image
+			)))
+			.setPObjectName(reinterpret_cast<const char*>(name));
+		_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
 	}
 
 	std::uint32_t device::_find_memory_type_index(std::uint32_t requirements, heap_type ty) const {
@@ -902,11 +916,13 @@ namespace lotus::graphics::backends::vulkan {
 		device result = nullptr;
 
 		result._physical_device = _device;
+		result._dispatch_loader = _dispatch_loader;
 
 		auto bookmark = stack_allocator::scoped_bookmark::create();
 		auto allocator = stack_allocator::for_this_thread().create_std_allocator<vk::QueueFamilyProperties>();
 		auto families = _device.getQueueFamilyProperties(allocator);
-		result._graphics_compute_queue_family_index = result._compute_queue_family_index = families.size();
+		result._graphics_compute_queue_family_index = result._compute_queue_family_index =
+			static_cast<std::uint32_t>(families.size());
 		constexpr vk::QueueFlags graphics_compute_flags = vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute;
 		for (std::uint32_t i = 0; i < families.size(); ++i) {
 			vk::QueueFlags flags = families[i].queueFlags;
@@ -933,18 +949,27 @@ namespace lotus::graphics::backends::vulkan {
 
 		std::array extensions{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
+			VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
 			/*VK_GOOGLE_HLSL_FUNCTIONALITY1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
 
-		vk::PhysicalDeviceFeatures features;
-		features.samplerAnisotropy = true;
+		vk::PhysicalDeviceCustomBorderColorFeaturesEXT border_color_features;
+		border_color_features
+			.setCustomBorderColors(true)
+			.setCustomBorderColorWithoutFormat(true);
+
+		vk::PhysicalDeviceFeatures2 features;
+		features.setPNext(&border_color_features);
+		features.features
+			.setSamplerAnisotropy(true);
 
 		vk::DeviceCreateInfo info;
 		info
+			.setPNext(&features)
 			.setQueueCreateInfos(queue_info)
-			.setPEnabledExtensionNames(extensions)
-			.setPEnabledFeatures(&features);
+			.setPEnabledExtensionNames(extensions);
 
 		// TODO allocator
 		result._device = _details::unwrap(_device.createDeviceUnique(info));

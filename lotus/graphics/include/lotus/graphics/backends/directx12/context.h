@@ -32,8 +32,8 @@ namespace lotus::graphics::backends::directx12 {
 			}
 		}
 		/// Calls \p CreateSwapChainForHwnd to create a swap chain.
-		[[nodiscard]] swap_chain create_swap_chain_for_window(
-			system::platforms::windows::window&, device&, command_queue&, std::size_t, format
+		[[nodiscard]] std::pair<swap_chain, format> create_swap_chain_for_window(
+			system::platforms::windows::window&, device&, command_queue&, std::size_t, std::span<const format>
 		);
 	private:
 		_details::com_ptr<IDXGIFactory5> _dxgi_factory; ///< The DXGI factory.

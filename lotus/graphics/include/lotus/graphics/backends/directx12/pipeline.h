@@ -32,6 +32,8 @@ namespace lotus::graphics::backends::directx12 {
 		shader(std::nullptr_t) : _shader{} {
 		}
 	private:
+		// TODO allocator
+		std::vector<std::byte> _code; ///< Shader code.
 		D3D12_SHADER_BYTECODE _shader; ///< The shader code.
 	};
 
@@ -42,6 +44,9 @@ namespace lotus::graphics::backends::directx12 {
 		friend graphics_pipeline_state;
 		friend compute_pipeline_state;
 	protected:
+		/// Creates an empty object.
+		pipeline_resources(std::nullptr_t) {
+		}
 	private:
 		using _root_param_index = std::uint8_t; ///< Root parameter index.
 		/// Indicates that there's no root parameter corresponding to this descriptor table.

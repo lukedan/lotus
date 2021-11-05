@@ -651,7 +651,8 @@ namespace lotus::graphics {
 		depth_bias_options(uninitialized_t) {
 		}
 		/// Initializes all fields to zero, effectively having no bias.
-		constexpr depth_bias_options(zero_t) : bias(0.0f), slope_scaled_bias(0.0f), clamp(0.0f) {
+		[[nodiscard]] constexpr inline static depth_bias_options disabled() {
+			return depth_bias_options(0.0f, 0.0f, 0.0f);
 		}
 		/// Creates a depth bias state that does not contain clamping for the bias.
 		[[nodiscard]] constexpr inline static depth_bias_options create_unclamped(float bias, float slope_bias) {

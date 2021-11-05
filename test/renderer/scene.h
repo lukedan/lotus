@@ -66,7 +66,7 @@ struct scene_resources {
 			std::size_t bytes_per_pixel = (img.component * img.bits + 7) / 8;
 			std::size_t bytes_per_row   = bytes_per_pixel * img.width;
 			// TODO find correct pixel format
-			auto upload_buf = dev.create_committed_buffer_as_image2d(
+			auto upload_buf = dev.create_committed_staging_buffer(
 				img.width, img.height, format, gfx::heap_type::upload,
 				gfx::buffer_usage::mask::copy_source
 			);
@@ -128,7 +128,7 @@ struct scene_resources {
 		{ // empty color texture
 			auto format = gfx::format::r8g8b8a8_snorm;
 
-			auto upload_buf = dev.create_committed_buffer_as_image2d(
+			auto upload_buf = dev.create_committed_staging_buffer(
 				1, 1, format,
 				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
 			);
@@ -171,7 +171,7 @@ struct scene_resources {
 		{ // empty normal texture
 			auto format = gfx::format::r8g8b8a8_snorm;
 
-			auto upload_buf = dev.create_committed_buffer_as_image2d(
+			auto upload_buf = dev.create_committed_staging_buffer(
 				1, 1, format,
 				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
 			);
@@ -214,7 +214,7 @@ struct scene_resources {
 		{ // empty material properties texture
 			auto format = gfx::format::r8g8b8a8_unorm;
 
-			auto upload_buf = dev.create_committed_buffer_as_image2d(
+			auto upload_buf = dev.create_committed_staging_buffer(
 				1, 1, format,
 				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
 			);

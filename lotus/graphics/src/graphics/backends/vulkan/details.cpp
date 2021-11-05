@@ -7,57 +7,57 @@
 
 namespace lotus::graphics::backends::vulkan::_details {
 	namespace conversions {
+		constexpr static enum_mapping<format, vk::Format> _format_table{
+			std::pair(format::none,               vk::Format::eUndefined         ),
+			std::pair(format::d32_float_s8,       vk::Format::eD32SfloatS8Uint   ),
+			std::pair(format::d32_float,          vk::Format::eD32Sfloat         ),
+			std::pair(format::d24_unorm_s8,       vk::Format::eD24UnormS8Uint    ),
+			std::pair(format::d16_unorm,          vk::Format::eD16Unorm          ),
+			std::pair(format::r8_unorm,           vk::Format::eR8Unorm           ),
+			std::pair(format::r8_snorm,           vk::Format::eR8Snorm           ),
+			std::pair(format::r8_uint,            vk::Format::eR8Uint            ),
+			std::pair(format::r8_sint,            vk::Format::eR8Sint            ),
+			std::pair(format::r8g8_unorm,         vk::Format::eR8G8Unorm         ),
+			std::pair(format::r8g8_snorm,         vk::Format::eR8G8Snorm         ),
+			std::pair(format::r8g8_uint,          vk::Format::eR8G8Uint          ),
+			std::pair(format::r8g8_sint,          vk::Format::eR8G8Sint          ),
+			std::pair(format::r8g8b8a8_unorm,     vk::Format::eR8G8B8A8Unorm     ),
+			std::pair(format::r8g8b8a8_snorm,     vk::Format::eR8G8B8A8Snorm     ),
+			std::pair(format::r8g8b8a8_srgb,      vk::Format::eR8G8B8A8Srgb      ),
+			std::pair(format::r8g8b8a8_uint,      vk::Format::eR8G8B8A8Uint      ),
+			std::pair(format::r8g8b8a8_sint,      vk::Format::eR8G8B8A8Sint      ),
+			std::pair(format::b8g8r8a8_unorm,     vk::Format::eB8G8R8A8Unorm     ),
+			std::pair(format::b8g8r8a8_srgb,      vk::Format::eB8G8R8A8Srgb      ),
+			std::pair(format::r16_unorm,          vk::Format::eR16Unorm          ),
+			std::pair(format::r16_snorm,          vk::Format::eR16Snorm          ),
+			std::pair(format::r16_uint,           vk::Format::eR16Uint           ),
+			std::pair(format::r16_sint,           vk::Format::eR16Sint           ),
+			std::pair(format::r16_float,          vk::Format::eR16Sfloat         ),
+			std::pair(format::r16g16_unorm,       vk::Format::eR16G16Unorm       ),
+			std::pair(format::r16g16_snorm,       vk::Format::eR16G16Snorm       ),
+			std::pair(format::r16g16_uint,        vk::Format::eR16G16Uint        ),
+			std::pair(format::r16g16_sint,        vk::Format::eR16G16Sint        ),
+			std::pair(format::r16g16_float,       vk::Format::eR16G16Sfloat      ),
+			std::pair(format::r16g16b16a16_unorm, vk::Format::eR16G16B16A16Unorm ),
+			std::pair(format::r16g16b16a16_snorm, vk::Format::eR16G16B16A16Snorm ),
+			std::pair(format::r16g16b16a16_uint,  vk::Format::eR16G16B16A16Uint  ),
+			std::pair(format::r16g16b16a16_sint,  vk::Format::eR16G16B16A16Sint  ),
+			std::pair(format::r16g16b16a16_float, vk::Format::eR16G16B16A16Sfloat),
+			std::pair(format::r32_uint,           vk::Format::eR32Uint           ),
+			std::pair(format::r32_sint,           vk::Format::eR32Sint           ),
+			std::pair(format::r32_float,          vk::Format::eR32Sfloat         ),
+			std::pair(format::r32g32_uint,        vk::Format::eR32G32Uint        ),
+			std::pair(format::r32g32_sint,        vk::Format::eR32G32Sint        ),
+			std::pair(format::r32g32_float,       vk::Format::eR32G32Sfloat      ),
+			std::pair(format::r32g32b32_uint,     vk::Format::eR32G32B32Uint     ),
+			std::pair(format::r32g32b32_sint,     vk::Format::eR32G32B32Sint     ),
+			std::pair(format::r32g32b32_float,    vk::Format::eR32G32B32Sfloat   ),
+			std::pair(format::r32g32b32a32_uint,  vk::Format::eR32G32B32A32Uint  ),
+			std::pair(format::r32g32b32a32_sint,  vk::Format::eR32G32B32A32Sint  ),
+			std::pair(format::r32g32b32a32_float, vk::Format::eR32G32B32A32Sfloat),
+		};
 		vk::Format for_format(format fmt) {
-			constexpr static enum_mapping<format, vk::Format> table{
-				std::pair(format::none,               vk::Format::eUndefined         ),
-				std::pair(format::d32_float_s8,       vk::Format::eD32SfloatS8Uint   ),
-				std::pair(format::d32_float,          vk::Format::eD32Sfloat         ),
-				std::pair(format::d24_unorm_s8,       vk::Format::eD24UnormS8Uint    ),
-				std::pair(format::d16_unorm,          vk::Format::eD16Unorm          ),
-				std::pair(format::r8_unorm,           vk::Format::eR8Unorm           ),
-				std::pair(format::r8_snorm,           vk::Format::eR8Snorm           ),
-				std::pair(format::r8_uint,            vk::Format::eR8Uint            ),
-				std::pair(format::r8_sint,            vk::Format::eR8Sint            ),
-				std::pair(format::r8g8_unorm,         vk::Format::eR8G8Unorm         ),
-				std::pair(format::r8g8_snorm,         vk::Format::eR8G8Snorm         ),
-				std::pair(format::r8g8_uint,          vk::Format::eR8G8Uint          ),
-				std::pair(format::r8g8_sint,          vk::Format::eR8G8Sint          ),
-				std::pair(format::r8g8b8a8_unorm,     vk::Format::eR8G8B8A8Unorm     ),
-				std::pair(format::r8g8b8a8_snorm,     vk::Format::eR8G8B8A8Snorm     ),
-				std::pair(format::r8g8b8a8_srgb,      vk::Format::eR8G8B8A8Srgb      ),
-				std::pair(format::r8g8b8a8_uint,      vk::Format::eR8G8B8A8Uint      ),
-				std::pair(format::r8g8b8a8_sint,      vk::Format::eR8G8B8A8Sint      ),
-				std::pair(format::b8g8r8a8_unorm,     vk::Format::eB8G8R8A8Unorm     ),
-				std::pair(format::b8g8r8a8_srgb,      vk::Format::eB8G8R8A8Srgb      ),
-				std::pair(format::r16_unorm,          vk::Format::eR16Unorm          ),
-				std::pair(format::r16_snorm,          vk::Format::eR16Snorm          ),
-				std::pair(format::r16_uint,           vk::Format::eR16Uint           ),
-				std::pair(format::r16_sint,           vk::Format::eR16Sint           ),
-				std::pair(format::r16_float,          vk::Format::eR16Sfloat         ),
-				std::pair(format::r16g16_unorm,       vk::Format::eR16G16Unorm       ),
-				std::pair(format::r16g16_snorm,       vk::Format::eR16G16Snorm       ),
-				std::pair(format::r16g16_uint,        vk::Format::eR16G16Uint        ),
-				std::pair(format::r16g16_sint,        vk::Format::eR16G16Sint        ),
-				std::pair(format::r16g16_float,       vk::Format::eR16G16Sfloat      ),
-				std::pair(format::r16g16b16a16_unorm, vk::Format::eR16G16B16A16Unorm ),
-				std::pair(format::r16g16b16a16_snorm, vk::Format::eR16G16B16A16Snorm ),
-				std::pair(format::r16g16b16a16_uint,  vk::Format::eR16G16B16A16Uint  ),
-				std::pair(format::r16g16b16a16_sint,  vk::Format::eR16G16B16A16Sint  ),
-				std::pair(format::r16g16b16a16_float, vk::Format::eR16G16B16A16Sfloat),
-				std::pair(format::r32_uint,           vk::Format::eR32Uint           ),
-				std::pair(format::r32_sint,           vk::Format::eR32Sint           ),
-				std::pair(format::r32_float,          vk::Format::eR32Sfloat         ),
-				std::pair(format::r32g32_uint,        vk::Format::eR32G32Uint        ),
-				std::pair(format::r32g32_sint,        vk::Format::eR32G32Sint        ),
-				std::pair(format::r32g32_float,       vk::Format::eR32G32Sfloat      ),
-				std::pair(format::r32g32b32_uint,     vk::Format::eR32G32B32Uint     ),
-				std::pair(format::r32g32b32_sint,     vk::Format::eR32G32B32Sint     ),
-				std::pair(format::r32g32b32_float,    vk::Format::eR32G32B32Sfloat   ),
-				std::pair(format::r32g32b32a32_uint,  vk::Format::eR32G32B32A32Uint  ),
-				std::pair(format::r32g32b32a32_sint,  vk::Format::eR32G32B32A32Sint  ),
-				std::pair(format::r32g32b32a32_float, vk::Format::eR32G32B32A32Sfloat),
-			};
-			return table[fmt];
+			return _format_table[fmt];
 		}
 
 		vk::IndexType for_index_format(index_format fmt) {
@@ -387,6 +387,27 @@ namespace lotus::graphics::backends::vulkan::_details {
 				.setCompareMask(cmp_mask)
 				.setWriteMask(write_mask);
 			return result;
+		}
+
+		[[nodiscard]] constexpr static std::array<
+			std::pair<format, vk::Format>, static_cast<std::size_t>(format::num_enumerators)
+		> _get_sorted_format_table() {
+			std::array result = _format_table.get_raw_table();
+			std::sort(result.begin(), result.end(), [](const auto &lhs, const auto &rhs) constexpr {
+				return lhs.second < rhs.second;
+			});
+			return result;
+		}
+		format back_to_format(vk::Format fmt) {
+			constexpr static std::array table = _get_sorted_format_table();
+
+			auto it = std::lower_bound(table.begin(), table.end(), fmt, [](const auto &pair, auto fmt) {
+				return pair.second < fmt;
+			});
+			if (it != table.end() && it->second == fmt) {
+				return it->first;
+			}
+			assert(false); // no format found
 		}
 	}
 }

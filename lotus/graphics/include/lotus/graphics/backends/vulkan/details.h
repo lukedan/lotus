@@ -106,5 +106,9 @@ namespace lotus::graphics::backends::vulkan::_details {
 		[[nodiscard]] vk::StencilOpState to_stencil_op_state(
 			const stencil_options&, std::uint32_t cmp_mask, std::uint32_t write_mask
 		);
+
+
+		/// Converts a \p vk::Format back to a \ref format.
+		[[nodiscard]] format back_to_format(vk::Format);
 	}
 }

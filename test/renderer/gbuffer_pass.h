@@ -233,7 +233,7 @@ public:
 		);
 
 		auto shaders = gfx::shader_set::create(_vertex_shader, _pixel_shader);
-		auto rasterizer = gfx::rasterizer_options::create(zero, gfx::front_facing_mode::clockwise, gfx::cull_mode::none);
+		auto rasterizer = gfx::rasterizer_options::create(gfx::depth_bias_options::disabled(), gfx::front_facing_mode::clockwise, gfx::cull_mode::none);
 		auto depth_stencil = gfx::depth_stencil_options::create(
 			true, true, gfx::comparison_function::greater,
 			false, 0, 0, gfx::stencil_options::always_pass_no_op(), gfx::stencil_options::always_pass_no_op()

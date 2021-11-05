@@ -16,6 +16,9 @@ namespace lotus::graphics::backends::directx12 {
 		friend command_list;
 		friend device;
 	protected:
+		/// No initialization.
+		pass_resources(std::nullptr_t) {
+		}
 	private:
 		/// Render target information of the pass.
 		std::array<D3D12_RENDER_PASS_RENDER_TARGET_DESC, D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT> _render_targets;

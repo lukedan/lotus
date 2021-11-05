@@ -280,12 +280,12 @@ namespace lotus::graphics {
 		/// assumed to be row-major and have the returned layout.
 		/// 
 		/// \return The buffer and its layout properties.
-		[[nodiscard]] staging_buffer create_committed_buffer_as_image2d(
+		[[nodiscard]] staging_buffer create_committed_staging_buffer(
 			std::size_t width, std::size_t height, format fmt, heap_type committed_heap_type,
 			buffer_usage::mask allowed_usage
 		) {
 			staging_buffer result = nullptr;
-			auto [buf, pitch, size] = backend::device::create_committed_buffer_as_image2d(
+			auto [buf, pitch, size] = backend::device::create_committed_staging_buffer(
 				width, height, fmt, committed_heap_type, allowed_usage
 			);
 			result.data = std::move(buf);

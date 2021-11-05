@@ -103,9 +103,10 @@ int main(int argc, char **argv) {
 		// create all textures
 		gbuf = gbuffer::create(dev, cmd_alloc, cmd_queue, size);
 		gbuf_view = gbuf.create_view(dev);
-		swapchain = ctx.create_swap_chain_for_window(
-			wnd, dev, cmd_queue, 2, gfx::format::b8g8r8a8_unorm
+		auto [sc, fmt] = ctx.create_swap_chain_for_window(
+			wnd, dev, cmd_queue, 2, { gfx::format::r8g8b8a8_srgb, gfx::format::b8g8r8a8_srgb }
 		);
+		swapchain = std::move(sc);
 		auto time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count();
 
 		// create input/output resources
@@ -121,7 +122,7 @@ int main(int argc, char **argv) {
 			char8_t buffer[20];
 			std::snprintf(reinterpret_cast<char*>(buffer), std::size(buffer), "Back buffer %d", static_cast<int>(i));
 			dev.set_debug_name(image, buffer);
-			comp_output.emplace_back(comp_pass.create_output_resources(dev, image, size));
+			comp_output.emplace_back(comp_pass.create_output_resources(dev, image, fmt, size));
 			present_fences.emplace_back(dev.create_fence(gfx::synchronization_state::unset));
 			cmd_lists.emplace_back(nullptr);
 			list.resource_barrier(
@@ -241,18 +242,10 @@ int main(int argc, char **argv) {
 	);
 
 
-	gfx::fence frame_fence = dev.create_fence(gfx::synchronization_state::set);
 
 	wnd.show_and_activate();
 	while (app.process_message_nonblocking() != sys::message_type::quit) {
-		dev.wait_for_fence(frame_fence);
-		dev.reset_fence(frame_fence);
-
 		if (resized) {
-			auto fence = dev.create_fence(gfx::synchronization_state::unset);
-			cmd_queue.signal(fence);
-			dev.wait_for_fence(fence);
-
 			recreate_buffers(wnd.get_size());
 			resized = false;
 		}
@@ -281,9 +274,15 @@ int main(int argc, char **argv) {
 
 			cmd_list.finish();
 		}
-		cmd_queue.submit_command_lists({ &cmd_list }, &frame_fence);
+		cmd_queue.submit_command_lists({ &cmd_list }, nullptr);
 
 		cmd_queue.present(swapchain);
+
+		{ // wait until the previous frame has finished
+			gfx::fence frame_fence = dev.create_fence(gfx::synchronization_state::unset);
+			cmd_queue.signal(frame_fence);
+			dev.wait_for_fence(frame_fence);
+		}
 	}
 
 	{

@@ -6,6 +6,7 @@
 #include "lotus/utils/stack_allocator.h"
 #include LOTUS_GRAPHICS_BACKEND_INCLUDE
 #include "resources.h"
+#include "synchronization.h"
 
 namespace lotus::graphics {
 	class context;

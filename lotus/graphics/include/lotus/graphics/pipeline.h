@@ -91,8 +91,19 @@ namespace lotus::graphics {
 	class pipeline_resources : public backend::pipeline_resources {
 		friend device;
 	public:
+		/// Creates an empty object.
+		pipeline_resources(std::nullptr_t) : backend::pipeline_resources(nullptr) {
+		}
+		/// Move constructor.
+		pipeline_resources(pipeline_resources &&src) : backend::pipeline_resources(std::move(src)) {
+		}
 		/// No copy construction.
 		pipeline_resources(const pipeline_resources&) = delete;
+		/// Move assignment.
+		pipeline_resources &operator=(pipeline_resources &&src) {
+			backend::pipeline_resources::operator=(std::move(src));
+			return *this;
+		}
 		/// No copy assignment.
 		pipeline_resources &operator=(const pipeline_resources&) = delete;
 	protected:

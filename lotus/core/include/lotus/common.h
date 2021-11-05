@@ -42,56 +42,57 @@ namespace lotus {
 	/// Shorthand for \ref enable_enum_bitwise_operators.
 	template <typename T> constexpr static bool enable_enum_bitwise_operators_v =
 		enable_enum_bitwise_operators<T>::value;
+}
+// these are put in the global scope so that all code can access these
+/// Bitwise and for enum classes.
+template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
+	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum
+> operator&(Enum lhs, Enum rhs) {
+	using _base = std::underlying_type_t<Enum>;
+	return static_cast<Enum>(static_cast<_base>(lhs) & static_cast<_base>(rhs));
+}
+/// Bitwise or for enum classes.
+template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
+	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum
+> operator|(Enum lhs, Enum rhs) {
+	using _base = std::underlying_type_t<Enum>;
+	return static_cast<Enum>(static_cast<_base>(lhs) | static_cast<_base>(rhs));
+}
+/// Bitwise xor for enum classes.
+template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
+	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum
+> operator^(Enum lhs, Enum rhs) {
+	using _base = std::underlying_type_t<Enum>;
+	return static_cast<Enum>(static_cast<_base>(lhs) ^ static_cast<_base>(rhs));
+}
+/// Bitwise not for enum classes.
+template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
+	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum
+> operator~(Enum v) {
+	using _base = std::underlying_type_t<Enum>;
+	return static_cast<Enum>(~static_cast<_base>(v));
+}
 
-	/// Bitwise and for enum classes.
-	template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
-		std::is_enum_v<Enum> && enable_enum_bitwise_operators_v<Enum>, Enum
-	> operator&(Enum lhs, Enum rhs) {
-		using _base = std::underlying_type_t<Enum>;
-		return static_cast<Enum>(static_cast<_base>(lhs) & static_cast<_base>(rhs));
-	}
-	/// Bitwise or for enum classes.
-	template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
-		std::is_enum_v<Enum> && enable_enum_bitwise_operators_v<Enum>, Enum
-	> operator|(Enum lhs, Enum rhs) {
-		using _base = std::underlying_type_t<Enum>;
-		return static_cast<Enum>(static_cast<_base>(lhs) | static_cast<_base>(rhs));
-	}
-	/// Bitwise xor for enum classes.
-	template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
-		std::is_enum_v<Enum> && enable_enum_bitwise_operators_v<Enum>, Enum
-	> operator^(Enum lhs, Enum rhs) {
-		using _base = std::underlying_type_t<Enum>;
-		return static_cast<Enum>(static_cast<_base>(lhs) ^ static_cast<_base>(rhs));
-	}
-	/// Bitwise not for enum classes.
-	template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
-		std::is_enum_v<Enum> && enable_enum_bitwise_operators_v<Enum>, Enum
-	> operator~(Enum v) {
-		using _base = std::underlying_type_t<Enum>;
-		return static_cast<Enum>(~static_cast<_base>(v));
-	}
+/// Bitwise and for enum classes.
+template <typename Enum> inline constexpr std::enable_if_t<
+	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum&
+> operator&=(Enum &lhs, Enum rhs) {
+	return lhs = lhs & rhs;
+}
+/// Bitwise or for enum classes.
+template <typename Enum> inline constexpr std::enable_if_t<
+	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum&
+> operator|=(Enum &lhs, Enum rhs) {
+	return lhs = lhs | rhs;
+}
+/// Bitwise xor for enum classes.
+template <typename Enum> inline constexpr std::enable_if_t<
+	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum&
+> operator^=(Enum &lhs, Enum rhs) {
+	return lhs = lhs ^ rhs;
+}
 
-	/// Bitwise and for enum classes.
-	template <typename Enum> inline constexpr std::enable_if_t<
-		std::is_enum_v<Enum> && enable_enum_bitwise_operators_v<Enum>, Enum&
-	> operator&=(Enum &lhs, Enum rhs) {
-		return lhs = lhs & rhs;
-	}
-	/// Bitwise or for enum classes.
-	template <typename Enum> inline constexpr std::enable_if_t<
-		std::is_enum_v<Enum> && enable_enum_bitwise_operators_v<Enum>, Enum&
-	> operator|=(Enum &lhs, Enum rhs) {
-		return lhs = lhs | rhs;
-	}
-	/// Bitwise xor for enum classes.
-	template <typename Enum> inline constexpr std::enable_if_t<
-		std::is_enum_v<Enum> && enable_enum_bitwise_operators_v<Enum>, Enum&
-	> operator^=(Enum &lhs, Enum rhs) {
-		return lhs = lhs ^ rhs;
-	}
-
-
+namespace lotus {
 	/// Indicates if an enum type can be used with \ref is_empty().
 	template <typename> struct enable_enum_is_empty : public std::false_type {
 	};

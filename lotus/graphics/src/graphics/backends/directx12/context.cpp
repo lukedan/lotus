@@ -11,21 +11,48 @@ namespace lotus::graphics::backends::directx12 {
 			_details::com_ptr<ID3D12Debug1> debug;
 			_details::assert_dx(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)));
 			debug->EnableDebugLayer();
+			debug->SetEnableGPUBasedValidation(true);
+			debug->SetEnableSynchronizedCommandQueueValidation(true);
 		}
 		return result;
 	}
 
-	swap_chain context::create_swap_chain_for_window(
-		system::platforms::windows::window &wnd, device&, command_queue &q,
-		std::size_t num_frames, format format
+	std::pair<swap_chain, format> context::create_swap_chain_for_window(
+		system::platforms::windows::window &wnd, device &dev, command_queue &q,
+		std::size_t num_frames, std::span<const format> formats
 	) {
 		swap_chain result = nullptr;
+
+		DXGI_FORMAT dx_format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		format result_format = format::r8g8b8a8_unorm;
+		for (auto fmt : formats) {
+			// check if the format is available
+			// https://docs.microsoft.com/en-us/previous-versions/windows/desktop/legacy/bb173064(v=vs.85)
+			DXGI_FORMAT cur_fmt = _details::conversions::for_format(fmt);
+			switch (cur_fmt) {
+			case DXGI_FORMAT_R8G8B8A8_UNORM: [[fallthrough]];
+			case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+				dx_format = DXGI_FORMAT_R8G8B8A8_UNORM;
+				break;
+			case DXGI_FORMAT_B8G8R8A8_UNORM: [[fallthrough]];
+			case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+				dx_format = DXGI_FORMAT_B8G8R8A8_UNORM;
+				break;
+			case DXGI_FORMAT_R16G16B16A16_FLOAT:
+				dx_format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+				break;
+			default:
+				continue; // not supported
+			}
+			result_format = fmt;
+			break;
+		}
 
 		// create swap chain itself
 		DXGI_SWAP_CHAIN_DESC1 desc = {};
 		desc.Width = 0;
 		desc.Height = 0;
-		desc.Format = _details::conversions::for_format(format);
+		desc.Format = dx_format;
 		desc.Stereo = false;
 		desc.SampleDesc.Count = 1;
 		desc.SampleDesc.Quality = 0;
@@ -50,6 +77,6 @@ namespace lotus::graphics::backends::directx12 {
 
 		result._synchronization.resize(num_frames, nullptr);
 
-		return result;
+		return { result, result_format };
 	}
 }

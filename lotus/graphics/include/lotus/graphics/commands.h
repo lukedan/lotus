@@ -58,9 +58,8 @@ namespace lotus::graphics {
 		/// No copy assignment.
 		command_list &operator=(const command_list&) = delete;
 
-		/// Resets this command list and starts recording commands to it. This is only valid when the command
-		/// allocator allows resetting individual command lists, and should only be called if this command list has
-		/// finished executing.
+		/// Resets this command list and starts recording commands to it. This should only be called if this command
+		/// list has finished executing.
 		void reset_and_start(command_allocator &alloc) {
 			backend::command_list::reset_and_start(alloc);
 		}

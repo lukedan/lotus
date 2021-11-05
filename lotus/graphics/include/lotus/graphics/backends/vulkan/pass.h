@@ -15,6 +15,9 @@ namespace lotus::graphics::backends::vulkan {
 		friend command_list;
 		friend device;
 	protected:
+		/// Creates an empty object.
+		pass_resources(std::nullptr_t) {
+		}
 	private:
 		vk::UniqueRenderPass _pass; ///< The pass.
 	};

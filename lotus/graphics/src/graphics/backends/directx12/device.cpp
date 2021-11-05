@@ -174,7 +174,7 @@ namespace lotus::graphics::backends::directx12 {
 			}
 		}
 
-		pipeline_resources result;
+		pipeline_resources result = nullptr;
 		_details::assert_dx(_device->CreateRootSignature(
 			0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&result._signature)
 		));
@@ -291,7 +291,7 @@ namespace lotus::graphics::backends::directx12 {
 	pass_resources device::create_pass_resources(
 		std::span<const render_target_pass_options> rtv, depth_stencil_pass_options dsv
 	) {
-		pass_resources result;
+		pass_resources result = nullptr;
 		assert(rtv.size() <= result._render_targets.size());
 		result._num_render_targets = static_cast<std::uint8_t>(rtv.size());
 		for (std::size_t i = 0; i < rtv.size(); ++i) {
@@ -422,8 +422,9 @@ namespace lotus::graphics::backends::directx12 {
 
 	shader device::load_shader(std::span<const std::byte> data) {
 		shader result = nullptr;
-		result._shader.pShaderBytecode = data.data();
-		result._shader.BytecodeLength  = static_cast<SIZE_T>(data.size());
+		result._code = std::vector<std::byte>(data.begin(), data.end());
+		result._shader.pShaderBytecode = result._code.data();
+		result._shader.BytecodeLength  = static_cast<SIZE_T>(result._code.size());
 		return result;
 	}
 
@@ -507,7 +508,7 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
-	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_buffer_as_image2d(
+	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_staging_buffer(
 		std::size_t width, std::size_t height, format fmt, heap_type type,
 		buffer_usage::mask allowed_usage
 	) {

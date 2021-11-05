@@ -45,10 +45,27 @@ namespace lotus::graphics {
 		}
 
 		/// Creates a swap chain for the given window.
-		[[nodiscard]] swap_chain create_swap_chain_for_window(
-			system::window &wnd, device &dev, command_queue &q, std::size_t frame_count, format format
+		///
+		/// \param wnd The window to create the swap chain for.
+		/// \param dev Device that can present to the swap chain.
+		/// \param q Command queue that can present to the swap chain.
+		/// \param frame_count The requested number of frames in the swap chain. The actual count may be different
+		///                    and can be queried using \ref swap_chain::get_image_count().
+		/// \param formats List of desired formats for the swap chain, ordered from most favorable to least
+		///                favorable. If none of them is available, a random format will be chosen.
+		[[nodiscard]] std::pair<swap_chain, format> create_swap_chain_for_window(
+			system::window &wnd, device &dev, command_queue &q, std::size_t frame_count,
+			std::span<const format> formats
 		) {
-			return backend::context::create_swap_chain_for_window(wnd, dev, q, frame_count, format);
+			auto [swapchain, f] = backend::context::create_swap_chain_for_window(wnd, dev, q, frame_count, formats);
+			return { swap_chain(std::move(swapchain)), f };
+		}
+		/// \overload
+		[[nodiscard]] std::pair<swap_chain, format> create_swap_chain_for_window(
+			system::window &wnd, device &dev, command_queue &q, std::size_t frame_count,
+			std::initializer_list<format> formats
+		) {
+			return create_swap_chain_for_window(wnd, dev, q, frame_count, { formats.begin(), formats.end() });
 		}
 	protected:
 		/// Initializes the base class.

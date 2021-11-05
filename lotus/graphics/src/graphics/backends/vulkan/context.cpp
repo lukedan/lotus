@@ -77,8 +77,8 @@ namespace lotus::graphics::backends::vulkan {
 		));
 	}
 
-	swap_chain context::create_swap_chain_for_window(
-		system::window &wnd, device &dev, command_queue&, std::size_t frame_count, format fmt
+	std::pair<swap_chain, format> context::create_swap_chain_for_window(
+		system::window &wnd, device &dev, command_queue&, std::size_t frame_count, std::span<const format> formats
 	) {
 		swap_chain result = nullptr;
 
@@ -99,18 +99,49 @@ namespace lotus::graphics::backends::vulkan {
 			dev._graphics_compute_queue_family_index, result._surface.get()
 		)));
 		auto capabilities = _details::unwrap(dev._physical_device.getSurfaceCapabilitiesKHR(result._surface.get()));
-		auto formats_alloc = bookmark.create_std_allocator<vk::SurfaceFormatKHR>();
-		auto formats = _details::unwrap(dev._physical_device.getSurfaceFormatsKHR(
-			result._surface.get(), formats_alloc
+		auto allocator = bookmark.create_std_allocator<vk::SurfaceFormatKHR>();
+		auto available_fmts = _details::unwrap(dev._physical_device.getSurfaceFormatsKHR(
+			result._surface.get(), allocator
 		));
+		std::sort(
+			available_fmts.begin(), available_fmts.end(),
+			[](const vk::SurfaceFormatKHR &lhs, const vk::SurfaceFormatKHR &rhs) {
+				if (lhs.format == rhs.format) {
+					// make sure sRGB is considered first
+					return
+						lhs.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear &&
+						rhs.colorSpace != vk::ColorSpaceKHR::eSrgbNonlinear;
+				}
+				return lhs.format < rhs.format;
+			}
+		);
+		vk::SurfaceFormatKHR vk_format = available_fmts[0];
+		format result_format = format::none;
+		for (auto fmt : formats) {
+			vk::Format result_fmt = _details::conversions::for_format(fmt);
+			auto it = std::lower_bound(
+				available_fmts.begin(), available_fmts.end(), result_fmt,
+				[](const vk::SurfaceFormatKHR &lhs, vk::Format rhs) {
+					return lhs.format < rhs;
+				}
+			);
+			if (it != available_fmts.end() && it->format == result_fmt) {
+				vk_format = *it;
+				result_format = fmt;
+				break;
+			}
+		}
+		if (result_format == format::none) {
+			result_format = _details::conversions::back_to_format(vk_format.format);
+		}
 
 		vk::SwapchainCreateInfoKHR info;
 		cvec2s size = wnd.get_size();
 		info
 			.setSurface(result._surface.get())
 			.setMinImageCount(static_cast<std::uint32_t>(frame_count))
-			.setImageFormat(_details::conversions::for_format(fmt)) // HACK
-			.setImageColorSpace(formats[0].colorSpace/*vk::ColorSpaceKHR::eSrgbNonlinear*/)
+			.setImageFormat(vk_format.format)
+			.setImageColorSpace(vk_format.colorSpace)
 			.setImageExtent(vk::Extent2D(static_cast<std::uint32_t>(size[0]), static_cast<std::uint32_t>(size[1])))
 			.setImageArrayLayers(1)
 			.setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
@@ -123,6 +154,6 @@ namespace lotus::graphics::backends::vulkan {
 		result._images = _details::unwrap(dev._device->getSwapchainImagesKHR(result._swapchain.get()));
 		result._synchronization.resize(result._images.size(), nullptr);
 
-		return result;
+		return { std::move(result), result_format };
 	}
 }

@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include LOTUS_SYSTEM_PLATFORM_INCLUDE
+#include "window.h"
 
 namespace lotus::system {
 	/// Interface to the operating system and windowing system.

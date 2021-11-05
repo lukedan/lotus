@@ -34,7 +34,7 @@ namespace lotus {
 		}
 
 		/// Invokes the function.
-		Ret operator()(Args &&...args) {
+		Ret operator()(Args &&...args) const {
 			return _get()->invoke(std::forward<Args>(args)...);
 		}
 
@@ -54,7 +54,7 @@ namespace lotus {
 			virtual ~_callable_base() = default;
 
 			/// Invokes the callable object.
-			virtual Ret invoke(Args &&...args) = 0;
+			virtual Ret invoke(Args &&...args) const = 0;
 			/// Returns if this callable object is valid.
 			[[nodiscard]] virtual bool is_valid() const = 0;
 		};
@@ -66,7 +66,7 @@ namespace lotus {
 			}
 
 			/// Invokes the callable object.
-			Ret invoke(Args &&...args) override {
+			Ret invoke(Args &&...args) const override {
 				return _callable_obj(std::forward<Args>(args)...);
 			}
 			/// Returns \p false only if this object contains an empty function pointer.

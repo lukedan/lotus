@@ -292,7 +292,7 @@ namespace lotus::graphics::backends::vulkan {
 	pipeline_resources device::create_pipeline_resources(
 		std::span<const graphics::descriptor_set_layout *const> layouts
 	) {
-		pipeline_resources result;
+		pipeline_resources result = nullptr;
 
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 		auto arr = bookmark.create_reserved_vector_array<vk::DescriptorSetLayout>(layouts.size());
@@ -506,7 +506,7 @@ namespace lotus::graphics::backends::vulkan {
 		std::span<const render_target_pass_options> color,
 		depth_stencil_pass_options ds
 	) {
-		pass_resources result;
+		pass_resources result = nullptr;
 
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 
@@ -648,7 +648,7 @@ namespace lotus::graphics::backends::vulkan {
 		return result;
 	}
 
-	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_buffer_as_image2d(
+	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_staging_buffer(
 		std::size_t width, std::size_t height, format fmt, heap_type committed_heap_type,
 		buffer_usage::mask allowed_usage
 	) {

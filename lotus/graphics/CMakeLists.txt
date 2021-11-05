@@ -101,3 +101,47 @@ if(LOTUS_GRAPHICS_USE_VULKAN)
 			VK_USE_PLATFORM_WIN32_KHR
 			"${LOTUS_GRAPHICS_BACKEND_INCLUDE_NAME}=<lotus/graphics/backends/vulkan.h>")
 endif()
+
+
+function(add_shader FILENAME STAGE ENTRY PROFILE DEPENDENT BACKEND)
+	# output file name
+	cmake_path(REPLACE_EXTENSION FILENAME LAST_ONLY ".${STAGE}.o" OUTPUT_VARIABLE OUTPUT_FILENAME)
+	cmake_path(APPEND CMAKE_CURRENT_BINARY_DIR "${OUTPUT_FILENAME}" OUTPUT_VARIABLE OUTPUT_FILENAME)
+	# make directory
+	cmake_path(GET OUTPUT_FILENAME PARENT_PATH OUTPUT_DIRECTORY)
+	file(MAKE_DIRECTORY "${OUTPUT_DIRECTORY}")
+	# target name
+	string(REGEX REPLACE "/|\\\\|:" "_" TARGET_NAME "${OUTPUT_FILENAME}")
+	string(PREPEND TARGET_NAME "shader")
+	# command and dependency
+	if(BACKEND STREQUAL "directx12")
+		set(DXC_EXTRA_ARGS)
+		set(DXC_EXECUTABLE dxc)
+	elseif(BACKEND STREQUAL "vulkan")
+		set(DXC_EXTRA_ARGS -spirv -fspv-reflect)
+		cmake_path(GET Vulkan_GLSLC_EXECUTABLE PARENT_PATH DXC_EXECUTABLE_PATH)
+		find_file(DXC_EXECUTABLE
+			NAMES dxc dxc.exe
+			PATHS "${DXC_EXECUTABLE_PATH}"
+			REQUIRED
+			NO_DEFAULT_PATH)
+	else()
+		message(FATAL_ERROR "Unknown backend for shader compilation: ${BACKEND}")
+	endif()
+	add_custom_target(
+		"${TARGET_NAME}"
+		COMMAND
+			"${DXC_EXECUTABLE}"
+				"${FILENAME}"
+				-T ${STAGE}_${PROFILE}
+				-Fo "${OUTPUT_FILENAME}"
+				-E "${ENTRY}"
+				-Ges
+				-Zpr
+				-Zi
+				-Qembed_debug
+				${DXC_EXTRA_ARGS}
+		COMMENT "Compiling shader ${FILENAME}"
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+	add_dependencies("${DEPENDENT}" "${TARGET_NAME}")
+endfunction()

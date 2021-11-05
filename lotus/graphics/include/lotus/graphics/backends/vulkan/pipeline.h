@@ -70,6 +70,9 @@ namespace lotus::graphics::backends::vulkan {
 		friend command_list;
 		friend device;
 	protected:
+		/// Creates an empty object.
+		pipeline_resources(std::nullptr_t) {
+		}
 	private:
 		vk::UniquePipelineLayout _layout; ///< The pipeline layout.
 	};

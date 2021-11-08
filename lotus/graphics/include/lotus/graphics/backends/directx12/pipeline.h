@@ -3,6 +3,8 @@
 /// \file
 /// Pipeline-related DirectX 12 classes.
 
+#include <optional>
+
 #include <directx/d3d12shader.h>
 
 #include "details.h"
@@ -10,15 +12,31 @@
 namespace lotus::graphics::backends::directx12 {
 	class device;
 	class command_list;
-	class graphics_pipeline_state;
 	class compute_pipeline_state;
+	class graphics_pipeline_state;
+	class shader_utility;
 
 	/// Contains a \p ID3D12ShaderReflection
 	class shader_reflection {
-		friend device;
+		friend shader_utility;
 	protected:
 		/// Initializes an empty reflection object.
 		shader_reflection(std::nullptr_t) {
+		}
+
+		/// Returns the result of ID3D12ShaderReflection::GetResourceBindingDescByName().
+		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const;
+		/// Enumerates over all resource bindings.
+		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) {
+			D3D12_SHADER_DESC shader_desc = {};
+			_details::assert_dx(_reflection->GetDesc(&shader_desc));
+			for (UINT i = 0; i < shader_desc.BoundResources; ++i) {
+				D3D12_SHADER_INPUT_BIND_DESC desc = {};
+				_details::assert_dx(_reflection->GetResourceBindingDesc(i, &desc));
+				if (!cb(_details::conversions::back_to_shader_resource_binding(desc))) {
+					break;
+				}
+			}
 		}
 	private:
 		_details::com_ptr<ID3D12ShaderReflection> _reflection; ///< Shader reflection object.

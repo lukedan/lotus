@@ -470,6 +470,41 @@ namespace lotus::graphics::backends::directx12::_details {
 			}
 			return result;
 		}
+
+
+		shader_resource_binding back_to_shader_resource_binding(const D3D12_SHADER_INPUT_BIND_DESC &desc) {
+			shader_resource_binding result = uninitialized;
+			result.first_register = desc.BindPoint;
+			result.register_count = desc.BindCount;
+			result.register_space = desc.Space;
+			result.name           = reinterpret_cast<const char8_t*>(desc.Name);
+
+			switch (desc.Type) {
+			case D3D_SIT_CBUFFER:
+				result.type = descriptor_type::constant_buffer;
+				break;
+			case D3D_SIT_TBUFFER:
+				result.type = descriptor_type::read_write_image;
+				break;
+			case D3D_SIT_TEXTURE:
+				result.type = descriptor_type::read_only_image;
+				break;
+			case D3D_SIT_SAMPLER:
+				result.type = descriptor_type::sampler;
+				break;
+			case D3D_SIT_UAV_RWTYPED: [[fallthrough]];
+			case D3D_SIT_UAV_RWSTRUCTURED:
+				result.type = descriptor_type::read_write_buffer;
+				break;
+			case D3D_SIT_STRUCTURED:
+				result.type = descriptor_type::read_only_buffer;
+				break;
+			default:
+				assert(false); // not supported
+			}
+
+			return result;
+		}
 	}
 
 

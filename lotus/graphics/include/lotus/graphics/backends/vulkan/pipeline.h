@@ -9,47 +9,43 @@
 #include <spirv_reflect.h>
 
 #include "details.h"
+#include "lotus/utils/stack_allocator.h"
 
 namespace lotus::graphics::backends::vulkan {
 	class command_list;
 	class device;
-	class shader;
+	class shader_utility;
 
 
 	/// Contains a \p SpvReflectShaderModule.
 	class shader_reflection {
 		friend device;
-		friend shader;
-	public:
-		/// Move constructor.
-		shader_reflection(shader_reflection &&src) : _reflection(std::exchange(src._reflection, std::nullopt)) {
-		}
-		/// No copy construction.
-		shader_reflection(const shader_reflection&) = delete;
-		/// Move assignment.
-		shader_reflection &operator=(shader_reflection &&src) {
-			if (this != &src) {
-				if (_reflection) {
-					spvReflectDestroyShaderModule(&_reflection.value());
-				}
-				_reflection = std::exchange(src._reflection, std::nullopt);
-			}
-			return *this;
-		}
-		/// No copy assignment.
-		shader_reflection &operator=(const shader_reflection&) = delete;
-		/// Destroys the reflection data if necessary.
-		~shader_reflection() {
-			if (_reflection) {
-				spvReflectDestroyShaderModule(&_reflection.value());
-			}
-		}
+		friend shader_utility;
 	protected:
 		/// Creates an empty object.
 		shader_reflection(std::nullptr_t) {
 		}
+
+		/// Iterates through the bindings and returns the one with the specified name.
+		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const;
+		/// Gets all \p SpvReflectDescriptorBinding using \p spv_reflect::ShaderModule::EnumerateDescriptorBindings()
+		/// and then enumerates over them.
+		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) const {
+			auto bookmark = stack_allocator::for_this_thread().bookmark();
+
+			std::uint32_t count;
+			_details::assert_spv_reflect(_reflection.EnumerateDescriptorBindings(&count, nullptr));
+			auto bindings = bookmark.create_vector_array<SpvReflectDescriptorBinding*>(count);
+			_details::assert_spv_reflect(_reflection.EnumerateDescriptorBindings(&count, bindings.data()));
+
+			for (std::uint32_t i = 0; i < count; ++i) {
+				if (!cb(_details::conversions::back_to_shader_resource_binding(*bindings[i]))) {
+					break;
+				}
+			}
+		}
 	private:
-		std::optional<SpvReflectShaderModule> _reflection; ///< Reflection data.
+		spv_reflect::ShaderModule _reflection; ///< Reflection data.
 	};
 	
 	/// Contains a \p vk::UniqueShaderModule.
@@ -57,12 +53,12 @@ namespace lotus::graphics::backends::vulkan {
 		friend device;
 	protected:
 		/// Creates an empty object.
-		shader(std::nullptr_t) : _reflection(nullptr) {
+		shader(std::nullptr_t) {
 		}
 	private:
 		vk::UniqueShaderModule _module; ///< The shader module.
 		// TODO get rid of this
-		shader_reflection _reflection; ///< Reflection data.
+		spv_reflect::ShaderModule _reflection; ///< Reflection data.
 	};
 
 	/// Contains a \p vk::UniquePipelineLayout.

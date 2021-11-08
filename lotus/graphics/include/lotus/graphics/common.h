@@ -30,13 +30,13 @@ namespace lotus::graphics {
 	class image {
 	protected:
 		/// Prevent objects of this type from being created directly.
-		image() = default;
+		~image() = default;
 	};
 	/// Base class of all image view types.
 	class image_view {
 	protected:
 		/// Prevent objects of this type from being created directly.
-		image_view() = default;
+		~image_view() = default;
 	};
 
 
@@ -1210,5 +1210,22 @@ namespace lotus::graphics {
 		constexpr viewport(aab2f plane, float mind, float maxd) :
 			xy(plane), minimum_depth(mind), maximum_depth(maxd) {
 		}
+	};
+
+
+	/// Describes a resource binding in a shader.
+	struct shader_resource_binding {
+	public:
+		/// No initialization.
+		shader_resource_binding(uninitialized_t) {
+		}
+
+		std::size_t first_register; ///< Index of the first register.
+		std::size_t register_count; ///< The number of registers.
+		std::size_t register_space; ///< Register space.
+		descriptor_type type; ///< The type of this descriptor binding.
+		// TODO allocator
+		std::u8string name; ///< Variable name of this binding.
+		// TODO more fields
 	};
 }

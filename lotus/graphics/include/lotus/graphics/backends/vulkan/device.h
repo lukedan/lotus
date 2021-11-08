@@ -29,6 +29,9 @@ namespace lotus::graphics::backends::vulkan {
 
 		/// Calls \p vk::UniqueDevice::acquireNextImageKHR().
 		[[nodiscard]] back_buffer_info acquire_back_buffer(swap_chain&);
+		/// Calls \p vk::UniqueDevice::createSwapchainKHRUnique() to create a new swap chain reusing the old swap
+		/// chain.
+		void resize_swap_chain_buffers(swap_chain&, cvec2s);
 
 		/// Calls \p vk::UniqueDevice::getQueue();
 		[[nodiscard]] command_queue create_command_queue();
@@ -69,8 +72,6 @@ namespace lotus::graphics::backends::vulkan {
 
 		/// Calls \p vk::UniqueDevice::createShaderModuleUnique().
 		[[nodiscard]] shader load_shader(std::span<const std::byte>);
-		/// \todo
-		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte>);
 
 		/// Calls \p vk::UniqueDevice::createSamplerUnique().
 		[[nodiscard]] sampler create_sampler(

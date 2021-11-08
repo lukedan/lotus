@@ -9,11 +9,81 @@
 #include <spirv_reflect.h>
 
 #include "lotus/graphics/common.h"
-#ifdef WIN32
-#	include "lotus/system/platforms/windows/details.h"
-#endif
 
 namespace lotus::graphics::backends::vulkan::_details {
+	// directX/windows stuff reimplemented for portability
+	/// RAII COM pointers.
+	template <typename T> struct com_ptr {
+	public:
+		/// Default constructor.
+		com_ptr() = default;
+		/// Move constructor.
+		com_ptr(com_ptr &&rhs) : _ptr(std::exchange(rhs._ptr, nullptr)) {
+		}
+		/// Copy constructor.
+		com_ptr(const com_ptr &rhs) : _ptr(rhs._ptr) {
+			if (_ptr) {
+				_ptr->AddRef();
+			}
+		}
+		/// Move assignment.
+		com_ptr &operator=(com_ptr &&rhs) {
+			if (&rhs != this) {
+				if (_ptr) {
+					_ptr->Release();
+				}
+				_ptr = std::exchange(rhs._ptr, nullptr);
+			}
+			return *this;
+		}
+		/// Copy assignment.
+		com_ptr &operator=(const com_ptr &rhs) {
+			if (rhs._ptr) {
+				rhs._ptr->AddRef();
+			}
+			if (_ptr) {
+				_ptr->Release();
+			}
+			_ptr = rhs._ptr;
+			return *this;
+		}
+		/// Destructor.
+		~com_ptr() {
+			if (_ptr) {
+				_ptr->Release();
+			}
+		}
+
+		/// Returns the underlying pointer.
+		T *Get() const {
+			return _ptr;
+		}
+		/// Dereferencing.
+		[[nodiscard]] T *operator->() const {
+			return Get();
+		}
+		/// Returns the address of the pointer.
+		[[nodiscard]] void **operator&() {
+			return reinterpret_cast<void**>(&_ptr);
+		}
+
+		/// Tests if this is \p nullptr.
+		[[nodiscard]] explicit operator bool() const {
+			return _ptr != nullptr;
+		}
+	private:
+		T *_ptr = nullptr; ///< The pointer.
+	};
+
+	/// Checks that the given \p HRESULT indicates success.
+	inline void assert_dx(HRESULT hr) {
+		if (hr != S_OK) {
+			std::cerr << "DirectX error " << hr << "\n";
+			std::abort();
+		}
+	}
+
+
 	/// Asserts that the result is \p vk::Result::eSuccess.
 	inline void assert_vk(vk::Result result) {
 		if (result != vk::Result::eSuccess) {
@@ -110,5 +180,8 @@ namespace lotus::graphics::backends::vulkan::_details {
 
 		/// Converts a \p vk::Format back to a \ref format.
 		[[nodiscard]] format back_to_format(vk::Format);
+
+		/// Converts a \p SpvReflectDescriptorBinding back to a \ref shader_resource_binding.
+		[[nodiscard]] shader_resource_binding back_to_shader_resource_binding(const SpvReflectDescriptorBinding&);
 	}
 }

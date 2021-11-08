@@ -64,6 +64,9 @@ namespace lotus::graphics::backends::vulkan {
 
 		vk::UniqueSurfaceKHR _surface; ///< The surface of the window.
 		vk::UniqueSwapchainKHR _swapchain; ///< The swapchain.
+
+		vk::SurfaceFormatKHR _format; ///< The format of this swap chain.
+
 		// TODO allocator
 		std::vector<vk::Image> _images; ///< Images associated with this \ref swap_chain.
 		/// Synchronization primitives for all back buffers.

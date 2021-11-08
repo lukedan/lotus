@@ -72,4 +72,63 @@ namespace lotus::graphics {
 		context(backend::context base) : backend::context(std::move(base)) {
 		}
 	};
+
+	/// Utility class for compiling shaders and parsing shader reflection data.
+	class shader_utility : public backend::shader_utility {
+	public:
+		/// Shader compilation result.
+		class compilation_result : public backend::shader_utility::compilation_result {
+			friend shader_utility;
+		public:
+			/// Returns whether shader compilation succeeded.
+			[[nodiscard]] bool succeeded() const {
+				return backend::shader_utility::compilation_result::succeeded();
+			}
+			/// Returns the output from the compiler.
+			[[nodiscard]] std::u8string_view get_compiler_output() {
+				return backend::shader_utility::compilation_result::get_compiler_output();
+			}
+			/// Returns the compiled binary code. Only valid if \ref succeeded() returns \p true.
+			[[nodiscard]] std::span<const std::byte> get_compiled_binary() {
+				return backend::shader_utility::compilation_result::get_compiled_binary();
+			}
+		protected:
+			/// Initializes the base class.
+			compilation_result(backend::shader_utility::compilation_result base) :
+				backend::shader_utility::compilation_result(std::move(base)) {
+			}
+		};
+
+		/// No default constructor.
+		shader_utility() = delete;
+		/// Creates a new object.
+		[[nodiscard]] inline static shader_utility create() {
+			return backend::shader_utility::create();
+		}
+		/// No copy construction.
+		shader_utility(const shader_utility&) = delete;
+		/// No copy assignment.
+		shader_utility &operator=(const shader_utility&) = delete;
+
+		/// Loads shader reflection from the given data.
+		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte> data) {
+			return backend::shader_utility::load_shader_reflection(data);
+		}
+		/// Loads shader reflection from the given compiled shader.
+		[[nodiscard]] shader_reflection load_shader_reflection(compilation_result &res) {
+			return backend::shader_utility::load_shader_reflection(res);
+		}
+		// TODO more options
+		// TODO allocator
+		/// Compiles the given shader.
+		[[nodiscard]] compilation_result compile_shader(
+			std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry
+		) {
+			return backend::shader_utility::compile_shader(code_utf8, stage, entry);
+		}
+	protected:
+		/// Initializes the base object.
+		shader_utility(backend::shader_utility src) : backend::shader_utility(std::move(src)) {
+		}
+	};
 }

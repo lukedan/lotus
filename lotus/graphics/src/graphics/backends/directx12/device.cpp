@@ -5,8 +5,6 @@
 
 #include <algorithm>
 
-#include <d3dcompiler.h>
-
 #include "lotus/utils/stack_allocator.h"
 #include "lotus/system/platforms/windows/details.h"
 #include "lotus/graphics/commands.h"
@@ -20,6 +18,16 @@ namespace lotus::graphics::backends::directx12 {
 		result.index = static_cast<std::size_t>(s._swap_chain->GetCurrentBackBufferIndex());
 		result.on_presented = s._synchronization[result.index].notify_fence;
 		return result;
+	}
+
+	void device::resize_swap_chain_buffers(swap_chain &s, cvec2s size) {
+		_details::assert_dx(s._swap_chain->ResizeBuffers(
+			s.get_image_count(), size[0], size[1], DXGI_FORMAT_UNKNOWN, 0
+		));
+		for (auto &sync : s._synchronization) {
+			sync.next_fence = nullptr;
+			sync.notify_fence = nullptr;
+		}
 	}
 
 	command_queue device::create_command_queue() {
@@ -425,37 +433,6 @@ namespace lotus::graphics::backends::directx12 {
 		result._code = std::vector<std::byte>(data.begin(), data.end());
 		result._shader.pShaderBytecode = result._code.data();
 		result._shader.BytecodeLength  = static_cast<SIZE_T>(result._code.size());
-		return result;
-	}
-
-	shader_reflection device::load_shader_reflection(std::span<const std::byte> data) {
-		if (!_dxc_utils) {
-			_details::assert_dx(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&_dxc_utils)));
-		}
-
-		// create container reflection
-		_details::com_ptr<IDxcBlob> blob;
-		{
-			_details::com_ptr<ID3DBlob> d3d_blob;
-			_details::assert_dx(D3DCreateBlob(data.size(), &d3d_blob));
-			_details::assert_dx(d3d_blob->QueryInterface(IID_PPV_ARGS(&blob)));
-			std::memcpy(blob->GetBufferPointer(), data.data(), data.size());
-		}
-		_details::com_ptr<IDxcContainerReflection> container_reflection;
-		_details::assert_dx(DxcCreateInstance(CLSID_DxcContainerReflection, IID_PPV_ARGS(&container_reflection)));
-		_details::assert_dx(container_reflection->Load(blob.Get()));
-
-		UINT32 part_index;
-		_details::com_ptr<IDxcBlob> reflection_blob;
-		_details::assert_dx(container_reflection->FindFirstPartKind(DXC_PART_REFLECTION_DATA, &part_index));
-		_details::assert_dx(container_reflection->GetPartContent(part_index, &reflection_blob));
-
-		shader_reflection result = nullptr;
-		DxcBuffer buf;
-		buf.Encoding = DXC_CP_ACP;
-		buf.Ptr      = reflection_blob->GetBufferPointer();
-		buf.Size     = reflection_blob->GetBufferSize();
-		_details::assert_dx(_dxc_utils->CreateReflection(&buf, IID_PPV_ARGS(&result._reflection)));
 		return result;
 	}
 

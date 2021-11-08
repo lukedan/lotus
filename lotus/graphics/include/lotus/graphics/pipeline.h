@@ -7,10 +7,11 @@
 
 namespace lotus::graphics {
 	class device;
+	class shader_utility;
 
 	/// Shader reflection.
 	class shader_reflection : public backend::shader_reflection {
-		friend device;
+		friend shader_utility;
 	public:
 		/// Creates an empty object.
 		shader_reflection(std::nullptr_t) : backend::shader_reflection(nullptr) {
@@ -27,6 +28,35 @@ namespace lotus::graphics {
 		}
 		/// No copy assignment.
 		shader_reflection &operator=(const shader_reflection&) = delete;
+
+		/// Finds the binding with the specified name.
+		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(
+			const char8_t *name
+		) const {
+			return backend::shader_reflection::find_resource_binding_by_name(name);
+		}
+		/// \overload
+		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(
+			const std::u8string &name
+		) const {
+			return find_resource_binding_by_name(name.c_str());
+		}
+		/// Calls the given callback function for each resource binding. The callback function can return \p false to
+		/// stop the enumeration early.
+		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) {
+			backend::shader_reflection::enumerate_resource_bindings(
+				[&](const shader_resource_binding &binding) {
+					using _result_t = std::invoke_result_t<Callback&&, const shader_resource_binding&>;
+					if constexpr (std::is_same_v<_result_t, bool>) {
+						return cb(binding);
+					} else {
+						static_assert(std::is_same_v<_result_t, void>, "Callback must return bool or nothing");
+						cb(binding);
+						return true;
+					}
+				}
+			);
+		}
 	protected:
 		/// Initializes the base object.
 		shader_reflection(backend::shader_reflection &&base) : backend::shader_reflection(std::move(base)) {

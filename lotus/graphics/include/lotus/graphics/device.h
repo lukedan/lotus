@@ -45,6 +45,10 @@ namespace lotus::graphics {
 		[[nodiscard]] back_buffer_info acquire_back_buffer(swap_chain &swapchain) {
 			return backend::device::acquire_back_buffer(swapchain);
 		}
+		/// Resizes all buffers in the swap chain.
+		void resize_swap_chain_buffers(swap_chain &swapchain, cvec2s size) {
+			backend::device::resize_swap_chain_buffers(swapchain, size);
+		}
 
 		/// Creates a \ref command_queue.
 		[[nodiscard]] command_queue create_command_queue() {
@@ -139,10 +143,6 @@ namespace lotus::graphics {
 		/// object.
 		[[nodiscard]] shader load_shader(std::span<const std::byte> data) {
 			return backend::device::load_shader(data);
-		}
-		/// Loads shader reflection from the given data.
-		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte> data) {
-			return backend::device::load_shader_reflection(data);
 		}
 
 		/// Creates a new \ref sampler object.
@@ -363,9 +363,17 @@ namespace lotus::graphics {
 		void set_debug_name(buffer &buf, const char8_t *name) {
 			backend::device::set_debug_name(buf, name);
 		}
+		/// \overload
+		void set_debug_name(buffer &buf, const std::u8string &name) {
+			set_debug_name(buf, name.c_str());
+		}
 		/// Sets the debug name of the given object.
 		void set_debug_name(image &img, const char8_t *name) {
 			backend::device::set_debug_name(img, name);
+		}
+		/// \overload
+		void set_debug_name(image &img, const std::u8string &name) {
+			set_debug_name(img, name.c_str());
 		}
 	protected:
 		/// Creates a device from a backend device.

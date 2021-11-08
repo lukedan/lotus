@@ -64,4 +64,6 @@ add_subdirectory("lotus/physics/")
 add_subdirectory("lotus/system/")
 add_subdirectory("lotus/graphics/")
 
+add_subdirectory("tools/")
+
 add_subdirectory("test/")

@@ -1,0 +1,9 @@
+{
+	"passes": {
+		"main": {
+			"source": "main.hlsl",
+			"entry_point": "main"
+		}
+	},
+	"main_pass": "main"
+}

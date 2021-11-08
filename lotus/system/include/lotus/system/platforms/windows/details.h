@@ -26,11 +26,9 @@ namespace lotus::system::platforms::windows::_details {
 
 	/// Converts the given UTF-8 string to strings usable for calling Windows API.
 	template <typename Allocator> [[nodiscard]] inline std::basic_string<
-		TCHAR, std::char_traits<TCHAR>, Allocator
-	> u8string_to_tstring(std::u8string_view view, const Allocator &allocator = Allocator()) {
-		using _string_t = std::basic_string<TCHAR, std::char_traits<TCHAR>, Allocator>;
-
-#ifdef UNICODE
+		wchar_t, std::char_traits<wchar_t>, Allocator
+	> u8string_to_wstring(std::u8string_view view, const Allocator &allocator = Allocator()) {
+		using _string_t = std::basic_string<wchar_t, std::char_traits<TCHAR>, Allocator>;
 		if (view.empty()) {
 			return _string_t(allocator);
 		}
@@ -38,11 +36,18 @@ namespace lotus::system::platforms::windows::_details {
 			CP_UTF8, 0, reinterpret_cast<LPCCH>(view.data()), static_cast<int>(view.size()), nullptr, 0
 		);
 		assert_win32(count);
-		_string_t result(count - 1, 0, allocator);
+		_string_t result(count, 0, allocator);
 		assert_win32(MultiByteToWideChar(
 			CP_UTF8, 0, reinterpret_cast<LPCCH>(view.data()), static_cast<int>(view.size()), result.data(), count
 		));
 		return result;
+	}
+	/// Converts the given UTF-8 string to strings usable for calling Windows API.
+	template <typename Allocator> [[nodiscard]] inline std::basic_string<
+		TCHAR, std::char_traits<TCHAR>, Allocator
+	> u8string_to_tstring(std::u8string_view view, const Allocator &allocator = Allocator()) {
+#ifdef UNICODE
+		return u8string_to_wstring(view, allocator);
 #else
 		return _string_t(reinterpret_cast<const TCHAR*>(view.data()), view.size(), allocator);
 #endif

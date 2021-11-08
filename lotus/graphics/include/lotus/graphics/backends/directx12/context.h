@@ -6,6 +6,8 @@
 #include <utility>
 
 #include <dxgi1_5.h>
+#include <directx/d3d12.h>
+#include <dxcapi.h>
 
 #include "lotus/system/platforms/windows/window.h"
 #include "lotus/graphics/common.h"
@@ -37,5 +39,45 @@ namespace lotus::graphics::backends::directx12 {
 		);
 	private:
 		_details::com_ptr<IDXGIFactory5> _dxgi_factory; ///< The DXGI factory.
+	};
+
+	/// Contains DXC classes.
+	class shader_utility {
+	protected:
+		/// Contains a \p IDxcResult.
+		struct compilation_result {
+			friend shader_utility;
+		protected:
+			/// Returns whether the result of \p IDxcResult::GetStatus() is success.
+			[[nodiscard]] bool succeeded() const;
+			/// Caches \ref _output if necessary, and returns it.
+			[[nodiscard]] std::u8string_view get_compiler_output();
+			/// Caches \ref _binary if necessary, and returns it.
+			[[nodiscard]] std::span<const std::byte> get_compiled_binary();
+		private:
+			_details::com_ptr<IDxcResult> _result; ///< Result.
+			_details::com_ptr<IDxcBlob> _binary; ///< Cached compiled binary.
+			_details::com_ptr<IDxcBlobUtf8> _messages; ///< Cached compiler output.
+		};
+
+		/// Does nothing - everything is lazy initialized.
+		[[nodiscard]] static shader_utility create();
+
+		/// Calls \p IDxcUtils::CreateReflection().
+		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte>);
+		/// Creates a reflection object for the compiled shader.
+		[[nodiscard]] shader_reflection load_shader_reflection(compilation_result&);
+		/// Calls \p IDxcCompiler3::Compile().
+		[[nodiscard]] compilation_result compile_shader(
+			std::span<const std::byte>, shader_stage, std::u8string_view entry_point
+		);
+	private:
+		_details::com_ptr<IDxcUtils> _dxc_utils; ///< Lazy-initialized DXC library handle.
+		_details::com_ptr<IDxcCompiler3> _dxc_compiler; ///< Lazy-initialized DXC compiler.
+
+		/// Initializes \ref _dxc_utils if necessary, and returns it.
+		[[nodiscard]] IDxcUtils &_utils();
+		/// Initializes \ref _dxc_compiler if necessary, and returns it.
+		[[nodiscard]] IDxcCompiler3 &_compiler();
 	};
 }

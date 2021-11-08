@@ -34,7 +34,7 @@ namespace lotus {
 		}
 
 		/// Invokes the function.
-		Ret operator()(Args &&...args) const {
+		Ret operator()(Args ...args) const {
 			return _get()->invoke(std::forward<Args>(args)...);
 		}
 

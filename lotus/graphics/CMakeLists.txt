@@ -45,6 +45,7 @@ if(WIN32 AND LOTUS_GRAPHICS_USE_DIRECTX12)
 			"src/graphics/backends/directx12/details.cpp"
 			"src/graphics/backends/directx12/device.cpp"
 			"src/graphics/backends/directx12/frame_buffer.cpp"
+			"src/graphics/backends/directx12/pipeline.cpp"
 
 			"src/graphics/common.cpp")
 	target_link_libraries(lotus_graphics_directx12
@@ -60,8 +61,8 @@ if(LOTUS_GRAPHICS_USE_VULKAN)
 	find_package(Vulkan REQUIRED)
 	# SPIRV-Reflect
 	add_library(SPIRV_Reflect STATIC)
-	target_sources(SPIRV_Reflect PRIVATE "${Vulkan_INCLUDE_DIR}/../Source/SPIRV-Reflect/spirv_reflect.c")
-	target_include_directories(SPIRV_Reflect INTERFACE "${Vulkan_INCLUDE_DIR}/../Source/SPIRV-Reflect/")
+	target_sources(SPIRV_Reflect PRIVATE "thirdparty/SPIRV-Reflect/spirv_reflect.c")
+	target_include_directories(SPIRV_Reflect INTERFACE "thirdparty/SPIRV-Reflect/")
 	target_link_libraries(SPIRV_Reflect PUBLIC Vulkan::Vulkan)
 
 	add_library(lotus_graphics_vulkan STATIC)
@@ -90,6 +91,7 @@ if(LOTUS_GRAPHICS_USE_VULKAN)
 			"src/graphics/backends/vulkan/details.cpp"
 			"src/graphics/backends/vulkan/device.cpp"
 			"src/graphics/backends/vulkan/frame_buffer.cpp"
+			"src/graphics/backends/vulkan/pipeline.cpp"
 			
 			"src/graphics/common.cpp")
 	target_link_libraries(lotus_graphics_vulkan
@@ -100,25 +102,37 @@ if(LOTUS_GRAPHICS_USE_VULKAN)
 			VULKAN_HPP_NO_EXCEPTIONS
 			VK_USE_PLATFORM_WIN32_KHR
 			"${LOTUS_GRAPHICS_BACKEND_INCLUDE_NAME}=<lotus/graphics/backends/vulkan.h>")
+
+	# if using DXC for shader compilation, find and link DXC
+	cmake_path(GET Vulkan_LIBRARY PARENT_PATH LOTUS_VULKAN_LIBRARY_PATH)
+	find_file(
+		LOTUS_VULKAN_DXC_LIBRARY
+		NAMES dxcompiler.lib libdxcompiler.a libdxcompiler.so
+		PATHS "${LOTUS_VULKAN_LIBRARY_PATH}"
+		NO_DEFAULT_PATH)
+	target_link_libraries(lotus_graphics_vulkan PUBLIC "${LOTUS_VULKAN_DXC_LIBRARY}")
 endif()
 
 
 function(add_shader FILENAME STAGE ENTRY PROFILE DEPENDENT BACKEND)
 	# output file name
 	cmake_path(REPLACE_EXTENSION FILENAME LAST_ONLY ".${STAGE}.o" OUTPUT_VARIABLE OUTPUT_FILENAME)
-	cmake_path(APPEND CMAKE_CURRENT_BINARY_DIR "${OUTPUT_FILENAME}" OUTPUT_VARIABLE OUTPUT_FILENAME)
+	cmake_path(APPEND CMAKE_CURRENT_BINARY_DIR "${OUTPUT_FILENAME}" OUTPUT_VARIABLE OUTPUT_FILENAME_FULL)
 	# make directory
-	cmake_path(GET OUTPUT_FILENAME PARENT_PATH OUTPUT_DIRECTORY)
+	cmake_path(GET OUTPUT_FILENAME_FULL PARENT_PATH OUTPUT_DIRECTORY)
 	file(MAKE_DIRECTORY "${OUTPUT_DIRECTORY}")
 	# target name
 	string(REGEX REPLACE "/|\\\\|:" "_" TARGET_NAME "${OUTPUT_FILENAME}")
-	string(PREPEND TARGET_NAME "shader")
+	set(TARGET_NAME "shader_${DEPENDENT}_${TARGET_NAME}")
 	# command and dependency
 	if(BACKEND STREQUAL "directx12")
 		set(DXC_EXTRA_ARGS)
 		set(DXC_EXECUTABLE dxc)
 	elseif(BACKEND STREQUAL "vulkan")
 		set(DXC_EXTRA_ARGS -spirv -fspv-reflect)
+		if(STAGE STREQUAL "vs" OR STAGE STREQUAL "gs" OR STAGE STREQUAL "ds")
+			set(DXC_EXTRA_ARGS ${DXC_EXTRA_ARGS} -fvk-invert-y)
+		endif()
 		cmake_path(GET Vulkan_GLSLC_EXECUTABLE PARENT_PATH DXC_EXECUTABLE_PATH)
 		find_file(DXC_EXECUTABLE
 			NAMES dxc dxc.exe
@@ -134,7 +148,7 @@ function(add_shader FILENAME STAGE ENTRY PROFILE DEPENDENT BACKEND)
 			"${DXC_EXECUTABLE}"
 				"${FILENAME}"
 				-T ${STAGE}_${PROFILE}
-				-Fo "${OUTPUT_FILENAME}"
+				-Fo "${OUTPUT_FILENAME_FULL}"
 				-E "${ENTRY}"
 				-Ges
 				-Zpr

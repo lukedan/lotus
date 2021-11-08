@@ -9,8 +9,6 @@
 
 #include "details.h"
 
-#include <dxcapi.h>
-
 #include "lotus/graphics/common.h"
 #include "commands.h"
 #include "descriptors.h"
@@ -41,6 +39,8 @@ namespace lotus::graphics::backends::directx12 {
 
 		/// Calls \p IDXGISwapChain3::GetCurrentBackBufferIndex().
 		[[nodiscard]] back_buffer_info acquire_back_buffer(swap_chain&);
+		/// Calls \p IDXGISwapChain3::ResizeBuffers().
+		void resize_swap_chain_buffers(swap_chain&, cvec2s);
 
 		/// Calls \p ID3D12Device::CreateCommandQueue().
 		[[nodiscard]] command_queue create_command_queue();
@@ -109,8 +109,6 @@ namespace lotus::graphics::backends::directx12 {
 
 		/// Fills out a \ref shader object.
 		[[nodiscard]] shader load_shader(std::span<const std::byte>);
-		/// Calls \p IDxcUtils::CreateReflection().
-		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte>);
 
 		/// Calls \p ID3D12Device::CreateHeap().
 		[[nodiscard]] device_heap create_device_heap(std::size_t size, heap_type);
@@ -180,7 +178,6 @@ namespace lotus::graphics::backends::directx12 {
 		_details::descriptor_heap<4, 5> _srv_descriptors = nullptr;
 		/// Heap used for allocating sampler descriptors.
 		_details::descriptor_heap<1, 4> _sampler_descriptors = nullptr;
-		_details::com_ptr<IDxcUtils> _dxc_utils; ///< Lazy-initialized DXC library handle.
 
 		/// Initializes this device.
 		explicit device(_details::com_ptr<ID3D12Device8>);

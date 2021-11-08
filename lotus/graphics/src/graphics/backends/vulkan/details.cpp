@@ -389,6 +389,7 @@ namespace lotus::graphics::backends::vulkan::_details {
 			return result;
 		}
 
+
 		[[nodiscard]] constexpr static std::array<
 			std::pair<format, vk::Format>, static_cast<std::size_t>(format::num_enumerators)
 		> _get_sorted_format_table() {
@@ -408,6 +409,35 @@ namespace lotus::graphics::backends::vulkan::_details {
 				return it->first;
 			}
 			assert(false); // no format found
+		}
+
+		shader_resource_binding back_to_shader_resource_binding(const SpvReflectDescriptorBinding &binding) {
+			shader_resource_binding result = uninitialized;
+			result.first_register = binding.binding;
+			result.register_count = binding.count;
+			result.register_space = binding.set;
+			result.name           = reinterpret_cast<const char8_t*>(binding.name);
+
+			switch (binding.descriptor_type) {
+			case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
+				result.type = descriptor_type::sampler;
+				break;
+			case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+				result.type = descriptor_type::read_only_image;
+				break;
+			case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+				result.type = descriptor_type::read_write_image;
+				break;
+			case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+				result.type = descriptor_type::read_only_buffer;
+				break;
+			case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+				result.type = descriptor_type::read_write_buffer;
+				break;
+			default:
+				assert(false); // not supported
+			}
+			return result;
 		}
 	}
 }

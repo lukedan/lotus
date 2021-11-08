@@ -37,6 +37,28 @@ namespace lotus::graphics::backends::vulkan {
 		return result;
 	}
 
+	void device::resize_swap_chain_buffers(swap_chain &s, cvec2s size) {
+		vk::UniqueSwapchainKHR old_swapchain = std::move(s._swapchain);
+		vk::SwapchainCreateInfoKHR info;
+		info
+			.setSurface(s._surface.get())
+			.setMinImageCount(s.get_image_count())
+			.setImageFormat(s._format.format)
+			.setImageColorSpace(s._format.colorSpace)
+			.setImageExtent(vk::Extent2D(static_cast<std::uint32_t>(size[0]), static_cast<std::uint32_t>(size[1])))
+			.setImageArrayLayers(1)
+			.setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
+			.setImageSharingMode(vk::SharingMode::eExclusive)
+			.setPresentMode(vk::PresentModeKHR::eMailbox)
+			.setClipped(true)
+			.setOldSwapchain(old_swapchain.get());
+		// TODO allocator
+		s._swapchain = _details::unwrap(_device->createSwapchainKHRUnique(info));
+
+		s._images = _details::unwrap(_device->getSwapchainImagesKHR(s._swapchain.get()));
+		s._synchronization.resize(s._images.size(), nullptr);
+	}
+
 	command_queue device::create_command_queue() {
 		command_queue result;
 		result._queue = _device->getQueue(_graphics_compute_queue_family_index, 0);
@@ -211,16 +233,8 @@ namespace lotus::graphics::backends::vulkan {
 		// TODO allocator
 		result._module = _details::unwrap(_device->createShaderModuleUnique(info));
 
-		result._reflection = load_shader_reflection(data);
+		result._reflection = spv_reflect::ShaderModule(data.size(), data.data());
 
-		return result;
-	}
-
-	shader_reflection device::load_shader_reflection(std::span<const std::byte> code) {
-		shader_reflection result = nullptr;
-		_details::assert_spv_reflect(spvReflectCreateShaderModule(
-			code.size(), code.data(), &result._reflection.emplace()
-		));
 		return result;
 	}
 
@@ -333,13 +347,12 @@ namespace lotus::graphics::backends::vulkan {
 			if (s) {
 				const char *entry_point = nullptr;
 				// TODO this is bad
-				const auto &refl = s->_reflection._reflection.value();
-				for (std::uint32_t i = 0; i < refl.entry_point_count; ++i) {
+				for (std::uint32_t i = 0; i < s->_reflection.GetEntryPointCount(); ++i) {
 					if (
-						static_cast<std::uint32_t>(refl.entry_points[i].shader_stage) ==
+						static_cast<std::uint32_t>(s->_reflection.GetEntryPointShaderStage(i)) ==
 						static_cast<std::uint32_t>(stage)
 					) {
-						entry_point = refl.entry_points[i].name;
+						entry_point = s->_reflection.GetEntryPointName(i);
 						break;
 					}
 				}
@@ -360,37 +373,37 @@ namespace lotus::graphics::backends::vulkan {
 			bookmark.create_reserved_vector_array<vk::VertexInputBindingDescription>(input_buffers.size());
 		auto attribute_descriptions = bookmark.create_vector_array<vk::VertexInputAttributeDescription>();
 		{
-			const auto &refl = vs->_reflection._reflection.value();
 			for (const auto &buf : input_buffers) {
 				input_bindings.emplace_back()
 					.setBinding(static_cast<std::uint32_t>(buf.buffer_index))
 					.setStride(static_cast<std::uint32_t>(buf.stride))
 					.setInputRate(_details::conversions::to_vertex_input_rate(buf.input_rate));
 				for (const auto &attr : buf.elements) {
-					auto location = std::numeric_limits<std::uint32_t>::max();
-					std::string_view expected_semantic(reinterpret_cast<const char*>(attr.semantic_name));
-					for (std::uint32_t i = 0; i < refl.input_variable_count; ++i) {
-						const auto &input = refl.input_variables[i];
-						std::string_view semantic(input->semantic);
-						if (semantic.starts_with(reinterpret_cast<const char*>(attr.semantic_name))) {
-							std::uint32_t index = 0;
-							if (semantic.size() > expected_semantic.size()) {
-								auto res = std::from_chars(
-									semantic.data() + expected_semantic.size(),
-									semantic.data() + semantic.size(),
-									index
-								);
-								assert(res.ec == std::errc() && res.ptr == semantic.data() + semantic.size());
-							}
-							if (index == attr.semantic_index) {
-								location = input->location;
-								break;
-							}
+					SpvReflectResult spv_result;
+					const SpvReflectInterfaceVariable *input = nullptr;
+					if (attr.semantic_index == 0) {
+						input = vs->_reflection.GetInputVariableBySemantic(
+							reinterpret_cast<const char*>(attr.semantic_name), &spv_result
+						);
+						if (spv_result == SPV_REFLECT_RESULT_ERROR_ELEMENT_NOT_FOUND) {
+							input = nullptr;
+						} else {
+							_details::assert_spv_reflect(spv_result);
 						}
 					}
-					assert(location < std::numeric_limits<std::uint32_t>::max());
+					if (!input) {
+						char sem_buf[30];
+						auto fmt_result = std::format_to_n(
+							std::begin(sem_buf), std::size(sem_buf) - 1,
+							"{}{}", reinterpret_cast<const char*>(attr.semantic_name), attr.semantic_index
+						);
+						assert(static_cast<std::size_t>(fmt_result.size) + 1 < std::size(sem_buf));
+						sem_buf[fmt_result.size] = '\0';
+						input = vs->_reflection.GetInputVariableBySemantic(sem_buf, &spv_result);
+						_details::assert_spv_reflect(spv_result);
+					}
 					attribute_descriptions.emplace_back()
-						.setLocation(location)
+						.setLocation(input->location)
 						.setBinding(static_cast<std::uint32_t>(buf.buffer_index))
 						.setFormat(_details::conversions::for_format(attr.element_format))
 						.setOffset(static_cast<std::uint32_t>(attr.byte_offset));

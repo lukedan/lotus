@@ -11,6 +11,7 @@
 
 #include <wrl/client.h>
 #include <directx/d3d12.h>
+#include <directx/d3d12shader.h>
 
 #include "lotus/graphics/common.h"
 
@@ -103,6 +104,10 @@ namespace lotus::graphics::backends::directx12::_details {
 		[[nodiscard]] D3D12_RENDER_PASS_DEPTH_STENCIL_DESC for_depth_stencil_pass_options(
 			const depth_stencil_pass_options&
 		);
+
+
+		/// Converts a \p D3D12_SHADER_INPUT_BIND_DESC back to a \ref shader_resource_binding.
+		[[nodiscard]] shader_resource_binding back_to_shader_resource_binding(const D3D12_SHADER_INPUT_BIND_DESC&);
 	}
 
 

@@ -13,3 +13,9 @@
 [submodule "thirdparty/DirectX-Headers"]
 	path = lotus/graphics/thirdparty/DirectX-Headers
 	url = https://github.com/microsoft/DirectX-Headers.git
+[submodule "tools/shadertoy/thirdparty/stb"]
+	path = tools/shadertoy/thirdparty/stb
+	url = https://github.com/nothings/stb.git
+[submodule "lotus/graphics/thirdparty/SPIRV-Reflect"]
+	path = lotus/graphics/thirdparty/SPIRV-Reflect
+	url = https://github.com/KhronosGroup/SPIRV-Reflect.git

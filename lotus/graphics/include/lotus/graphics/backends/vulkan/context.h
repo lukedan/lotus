@@ -3,6 +3,9 @@
 /// \file
 /// A Vulkan context.
 
+#include <Unknwn.h>
+#include <dxcapi.h>
+
 #include "lotus/utils/stack_allocator.h"
 #include "lotus/system/window.h"
 #include "details.h"
@@ -51,5 +54,51 @@ namespace lotus::graphics::backends::vulkan {
 		vk::UniqueInstance _instance; ///< The vulkan instance.
 		vk::DispatchLoaderDynamic _dispatch_loader; ///< Function pointer for extensions.
 		vk::DebugReportCallbackEXT _debug_callback; ///< The debug callback.
+	};
+
+	/// Shader utilities using SPIRV-Reflect.
+	class shader_utility {
+	protected:
+		// TODO find a way to reuse this code
+		/// Shader compilation result using DXC.
+		struct _compilation_result_dxc {
+			friend shader_utility;
+		protected:
+			/// Returns whether the result of \p IDxcResult::GetStatus() is success.
+			[[nodiscard]] bool succeeded() const;
+			/// Caches \ref _output if necessary, and returns it.
+			[[nodiscard]] std::u8string_view get_compiler_output();
+			/// Caches \ref _binary if necessary, and returns it.
+			[[nodiscard]] std::span<const std::byte> get_compiled_binary();
+		private:
+			_details::com_ptr<IDxcResult> _result; ///< Result.
+			_details::com_ptr<IDxcBlob> _binary; ///< Cached compiled binary.
+			_details::com_ptr<IDxcBlobUtf8> _messages; ///< Cached compiler output.
+		};
+
+		using compilation_result = _compilation_result_dxc; ///< Compilation result type.
+
+		/// Creates an instance of the utility object.
+		[[nodiscard]] static shader_utility create();
+
+		/// Creates a new \p spv_reflect::ShaderModule object from the given code.
+		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte>);
+		/// Unlike DirectX 12, this is just an overload of the other function.
+		[[nodiscard]] shader_reflection load_shader_reflection(_compilation_result_dxc&);
+
+		/// Compiles the given shader using the currently selected compiler.
+		[[nodiscard]] compilation_result compile_shader(
+			std::span<const std::byte> code, shader_stage stage, std::u8string_view entry
+		) {
+			return _compile_shader_dxc(code, stage, entry);
+		}
+	private:
+		_details::com_ptr<IDxcCompiler3> _dxc_compiler; ///< Lazy-initialized DXC compiler.
+
+		/// Initializes \ref _dxc_compiler if necessary, and returns it.
+		[[nodiscard]] IDxcCompiler3 &_compiler();
+
+		/// Compiles a shader using DXC.
+		_compilation_result_dxc _compile_shader_dxc(std::span<const std::byte>, shader_stage, std::u8string_view);
 	};
 }

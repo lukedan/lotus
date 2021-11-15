@@ -3,6 +3,8 @@
 /// \file
 /// Implementation of the DirectX 12 backend.
 
+#include <format>
+
 #include <d3dcompiler.h>
 
 #include "lotus/system/platforms/windows/details.h"
@@ -16,8 +18,8 @@ namespace lotus::graphics::backends::directx12 {
 			_details::com_ptr<ID3D12Debug1> debug;
 			_details::assert_dx(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)));
 			debug->EnableDebugLayer();
-			debug->SetEnableGPUBasedValidation(true);
-			debug->SetEnableSynchronizedCommandQueueValidation(true);
+			/*debug->SetEnableGPUBasedValidation(true);
+			debug->SetEnableSynchronizedCommandQueueValidation(true);*/
 		}
 		{ // allow unsigned shaders to run
 			const IID features[] = { D3D12ExperimentalShaderModels };
@@ -159,7 +161,8 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	shader_utility::compilation_result shader_utility::compile_shader(
-		std::span<const std::byte> code, shader_stage stage, std::u8string_view entry
+		std::span<const std::byte> code, shader_stage stage, std::u8string_view entry,
+		std::span<const std::filesystem::path> include_paths
 	) {
 		constexpr static enum_mapping<shader_stage, std::wstring_view> stage_names{
 			std::pair(shader_stage::all,             L"INVALID"),
@@ -175,18 +178,29 @@ namespace lotus::graphics::backends::directx12 {
 			entry, bookmark.create_std_allocator<wchar_t>()
 		);
 
-		wchar_t profile[10];
+		WCHAR profile[10];
 		auto fmt_result = std::format_to_n(profile, std::size(profile) - 1, L"{}_{}_{}", stage_names[stage], 6, 0);
-		assert(fmt_result.size + 1 < std::size(profile));
+		assert(static_cast<std::size_t>(fmt_result.size) + 1 < std::size(profile));
 		profile[fmt_result.size] = L'\0';
 
-		std::vector<LPCWSTR> args{
+		auto includes = bookmark.create_reserved_vector_array<stack_allocator::string_type<WCHAR>>(
+			include_paths.size()
+		);
+		for (const auto &p : include_paths) {
+			includes.emplace_back(bookmark.create_string<WCHAR>(p.wstring())); // TODO allocator?
+		}
+
+		auto args = bookmark.create_vector_array<LPCWSTR>();
+		args.insert(args.end(), {
 			L"-E", entry_wstr.c_str(),
 			L"-T", profile,
 			L"-Ges",
 			L"-Zi",
 			L"-Zpr",
-		};
+		});
+		for (const auto &inc : includes) {
+			args.insert(args.end(), { L"-I", inc.c_str() });
+		}
 
 		DxcBuffer buffer;
 		buffer.Ptr      = code.data();
@@ -194,7 +208,8 @@ namespace lotus::graphics::backends::directx12 {
 		buffer.Encoding = DXC_CP_UTF8;
 		compilation_result result;
 		_details::assert_dx(_compiler().Compile(
-			&buffer, args.data(), args.size(), nullptr, IID_PPV_ARGS(&result._result)
+			&buffer, args.data(), static_cast<UINT32>(args.size()),
+			&_include_handler(), IID_PPV_ARGS(&result._result)
 		));
 		return result;
 	}
@@ -211,5 +226,12 @@ namespace lotus::graphics::backends::directx12 {
 			_details::assert_dx(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&_dxc_compiler)));
 		}
 		return *_dxc_compiler.Get();
+	}
+
+	IDxcIncludeHandler &shader_utility::_include_handler() {
+		if (!_dxc_include_handler) {
+			_details::assert_dx(_utils().CreateDefaultIncludeHandler(&_dxc_include_handler));
+		}
+		return *_dxc_include_handler.Get();
 	}
 }

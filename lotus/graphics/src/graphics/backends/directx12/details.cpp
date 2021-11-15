@@ -505,6 +505,16 @@ namespace lotus::graphics::backends::directx12::_details {
 
 			return result;
 		}
+
+		shader_output_variable back_to_shader_output_variable(const D3D12_SIGNATURE_PARAMETER_DESC &desc) {
+			shader_output_variable result = uninitialized;
+			result.semantic_name  = reinterpret_cast<const char8_t*>(desc.SemanticName);
+			result.semantic_index = desc.SemanticIndex;
+			for (auto &ch : result.semantic_name) {
+				ch = std::toupper(ch);
+			}
+			return result;
+		}
 	}
 
 

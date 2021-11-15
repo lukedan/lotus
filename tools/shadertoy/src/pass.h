@@ -29,23 +29,29 @@ public:
 	/// Format of loaded input images.
 	constexpr static lgfx::format input_image_format = lgfx::format::r8g8b8a8_srgb;
 	/// Format of output images.
-	constexpr static lgfx::format output_image_format = lgfx::format::r8g8b8a8_unorm;
+	constexpr static lgfx::format output_image_format = lgfx::format::r32g32b32a32_float;
 
 	/// Code added before every shader.
 	constexpr static std::u8string_view pixel_shader_prefix = u8R"(
-	struct ps_input {
-		float4 position : SV_POSITION;
-		float2 uv : TEXCOORD;
-	};
+		#line 100000000
+		struct ps_input {
+			float4 position : SV_POSITION;
+			float2 uv : TEXCOORD;
+		};
 
-	struct global_input {
-		float time;
-		int2 resolution;
-	};
+		struct global_input {
+			float2 mouse;
+			float2 mouse_down;
+			float2 mouse_drag;
+			int2 resolution;
+			float time;
+		};
 
-	ConstantBuffer<global_input> globals : register(b0, space1);
+		ConstantBuffer<global_input> globals : register(b0, space1);
+		SamplerState nearest_sampler : register(s1, space1);
+		SamplerState linear_sampler : register(s2, space1);
 
-	#line 0
+		#line 0
 	)";
 
 	/// Global shader input.
@@ -54,29 +60,34 @@ public:
 		global_input(uninitialized_t) {
 		}
 
+		lotus::cvec2f mouse = uninitialized; ///< Mouse position in pixels.
+		lotus::cvec2f mouse_down = uninitialized; ///< Mouse position in pixels.
+		lotus::cvec2f mouse_drag = uninitialized; ///< Mouse position in pixels.
+		lotus::cvec2<std::int32_t> resolution = uninitialized; ///< Screen resolution.
 		float time; ///< Total run time.
-		lotus::cvec2i resolution = uninitialized; ///< Screen resolution.
 	};
 
 	/// An input.
 	class input {
 	public:
 		/// No initialization.
-		input(uninitialized_t) {
+		input(std::nullptr_t) {
 		}
 
 		/// Image output from another pass.
 		struct pass_output {
 			std::u8string name; ///< Name of the subpass.
+			bool previous_frame = false; ///< Whether or not to use the previous frame's output.
 		};
 		/// An external image.
 		struct image {
 			/// Creates an empty object.
-			image(std::nullptr_t) : texture(nullptr) {
+			image(std::nullptr_t) : texture(nullptr), texture_view(nullptr) {
 			}
 
 			std::filesystem::path path; ///< Path to the image.
 			lgfx::image2d texture; ///< Loaded texture.
+			lgfx::image2d_view texture_view; ///< Texture view.
 		};
 
 		using value_type = std::variant<pass_output, image>; ///< Input value storage type.
@@ -86,7 +97,47 @@ public:
 
 		std::u8string binding_name; ///< Name of the texture that this is bound to.
 		value_type value; ///< The value of this input.
-		std::size_t register_index; ///< Register index of the binding.
+		std::optional<std::size_t> register_index; ///< Register index of the binding.
+	};
+	/// A set of pass output resources.
+	class output {
+	public:
+		/// A single image and its associated data.
+		struct target {
+			/// Creates an empty output target.
+			target(std::nullptr_t) : image(nullptr), image_view(nullptr), current_usage(lgfx::image_usage::initial) {
+			}
+
+			/// Transitions the image to the specified state.
+			void transition_to(lgfx::command_list &cmd_list, lgfx::image_usage usage) {
+				if (usage != current_usage) {
+					cmd_list.resource_barrier(
+						{
+							lgfx::image_barrier::create(
+								lgfx::subresource_index::first_color(), image, current_usage, usage
+							),
+						},
+						{}
+					);
+					current_usage = usage;
+				}
+			}
+
+			lgfx::image2d image; ///< Output image.
+			lgfx::image2d_view image_view; ///< Output image view.
+			lgfx::image_usage current_usage; ///< Used for tracking the usage of this image.
+		};
+
+		/// Initializes everything to empty.
+		output(std::nullptr_t) : frame_buffer(nullptr) {
+		}
+		/// Creates a set of output buffers.
+		[[nodiscard]] static output create(
+			lgfx::device&, std::size_t count, lgfx::pass_resources&, lotus::cvec2s size
+		);
+
+		std::vector<target> targets; ///< Targets.
+		lgfx::frame_buffer frame_buffer; ///< Frame buffer that contains all targets.
 	};
 
 	/// Initializes everything to empty.
@@ -102,12 +153,12 @@ public:
 	);
 	/// Loads the shader and uses its reflection data to initialize the pipeline.
 	void load_shader(
-		lgfx::device&, lgfx::descriptor_pool&, lgfx::shader_utility&,
-		lgfx::shader &vert_shader, lgfx::descriptor_set_layout &global_descriptors,
+		lgfx::device&, lgfx::shader_utility&, lgfx::shader &vert_shader,
+		lgfx::descriptor_set_layout &global_descriptors,
 		const std::filesystem::path &root, const error_callback&
 	);
 	/// Creates the output image and framebuffer.
-	void create_output_image(lgfx::device&, lotus::cvec2s, const error_callback&);
+	void create_output_images(lgfx::device&, lotus::cvec2s, const error_callback&);
 
 
 	/// Returns whether this pass is ready to be rendered.
@@ -119,21 +170,22 @@ public:
 	std::u8string pass_name; ///< The name of this pass.
 
 	std::vector<input> inputs; ///< List of dependencies.
+	std::vector<std::u8string> output_names; ///< Names of all outputs.
 	std::filesystem::path shader_path; ///< Path to the shader file.
 	std::u8string entry_point; ///< Shader entry point.
 
 	lgfx::shader shader = nullptr; ///< The shader.
 	lgfx::descriptor_set_layout descriptor_set_layout = nullptr; ///< Layout of the only descriptor set.
-	lgfx::descriptor_set descriptor_set = nullptr; ///< Descriptor set.
 	lgfx::pipeline_resources pipeline_resources = nullptr; ///< Pipeline resources.
 	lgfx::pass_resources pass_resources = nullptr; ///< Pass resources.
 	lgfx::graphics_pipeline_state pipeline = nullptr; ///< Pipeline state.
 
-	lgfx::image2d output_image = nullptr; ///< Output image.
-	lgfx::image2d_view output_image_view = nullptr; ///< Output image view.
-	lgfx::frame_buffer frame_buffer = nullptr; ///< Frame buffer.
+	std::array<lgfx::descriptor_set, 2> input_descriptors{ { nullptr, nullptr} }; ///< Input descriptor sets.
+	std::array<std::vector<output::target*>, 2> dependencies; ///< Output dependencies from other passes.
 
-	bool images_loaded = false;
-	bool shader_loaded = false;
-	bool output_created = false;
+	std::array<output, 2> outputs{ { nullptr, nullptr } }; ///< Double-buffered output.
+
+	bool images_loaded = false; ///< Indicates whether the images have been loaded.
+	bool shader_loaded = false; ///< Indicates whether the shader and its reflection has been loaded.
+	bool output_created = false; ///< Indicates whether the output images have been created.
 };

@@ -57,6 +57,11 @@ namespace lotus {
 		protected:
 			stack_allocator *_alloc; ///< The underlying allocator.
 		};
+		/// Vector type that uses a stack allocator.
+		template <typename T> using vector_type = std::vector<T, allocator<T>>;
+		/// String type that uses a stack allocator.
+		template <typename Ch, typename Traits = std::char_traits<Ch>> using string_type =
+			std::basic_string<Ch, Traits, allocator<Ch>>;
 		/// An RAII bookmark.
 		struct scoped_bookmark {
 			friend stack_allocator;
@@ -98,17 +103,28 @@ namespace lotus {
 			/// Convenience function for creating a \p std::vector using the given parameters and this allocator.
 			template <
 				typename T, typename ...Args
-			> [[nodiscard]] std::vector<T, allocator<T>> create_vector_array(Args &&...args) {
-				return std::vector<T, allocator<T>>(std::forward<Args>(args)..., create_std_allocator<T>());
+			> [[nodiscard]] vector_type<T> create_vector_array(Args &&...args) {
+				return vector_type<T>(std::forward<Args>(args)..., create_std_allocator<T>());
 			}
 			/// Convenience function for creating a \p std::vector with the specified reserved space using the given
 			/// parameters and this allocator.
 			template <
 				typename T, typename ...Args
-			> [[nodiscard]] std::vector<T, allocator<T>> create_reserved_vector_array(std::size_t capacity) {
-				std::vector<T, allocator<T>> result(create_std_allocator<T>());
+			> [[nodiscard]] vector_type<T> create_reserved_vector_array(std::size_t capacity) {
+				vector_type<T> result(create_std_allocator<T>());
 				result.reserve(capacity);
 				return result;
+			}
+			/// Convenience function for creating a \p std::basic_string using the given parameters and this
+			/// allocator.
+			template <
+				typename Ch, typename Traits = std::char_traits<Ch>, typename ...Args
+			> [[nodiscard]] string_type<Ch, Traits> create_string(Args &&...args) {
+				return string_type<Ch, Traits>(std::forward<Args>(args)..., create_std_allocator<Ch>());
+			}
+			/// Convenience function for creating a \p std::u8string using the given parameters and this allocator.
+			template <typename ...Args> [[nodiscard]] string_type<char8_t> create_u8string(Args &&...args) {
+				return string_type<char8_t>(std::forward<Args>(args)..., create_std_allocator<char8_t>());
 			}
 
 			/// Resets this object, popping the bookmark if necessary.

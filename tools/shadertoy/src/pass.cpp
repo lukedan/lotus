@@ -18,6 +18,10 @@ std::optional<pass::input::value_type> pass::input::load_value(
 			}
 			input::pass_output result;
 			result.name = assume_utf8(type_it->get<std::string>());
+			if (!result.name.empty() && result.name[0] == u8'-') {
+				result.name = result.name.substr(1);
+				result.previous_frame = true;
+			}
 			return result;
 		}
 		if (auto type_it = val.find("image"); type_it != val.end()) {
@@ -38,6 +42,29 @@ std::optional<pass::input::value_type> pass::input::load_value(
 	}
 	on_error(u8"Invalid pass input format");
 	return std::nullopt;
+}
+
+
+pass::output pass::output::create(
+	lgfx::device &dev, std::size_t count, lgfx::pass_resources &pass_resources, lotus::cvec2s size
+) {
+	output result = nullptr;
+	for (std::size_t i = 0; i < count; ++i) {
+		auto &current = result.targets.emplace_back(nullptr);
+		current.image = dev.create_committed_image2d(
+			size[0], size[1], 1, 1, output_image_format, lgfx::image_tiling::optimal,
+			lgfx::image_usage::mask::color_render_target | lgfx::image_usage::mask::read_only_texture
+		);
+		current.image_view = dev.create_image2d_view_from(
+			current.image, output_image_format, lgfx::mip_levels::only_highest()
+		);
+	}
+	std::vector<lgfx::image2d_view*> target_views;
+	for (auto &t : result.targets) {
+		target_views.emplace_back(&t.image_view);
+	}
+	result.frame_buffer = dev.create_frame_buffer(target_views, nullptr, size, pass_resources);
+	return result;
 }
 
 
@@ -65,7 +92,7 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 			result.inputs.reserve(inputs_it->size());
 			for (auto input_desc : inputs_it.value().items()) {
 				if (auto input_val = input::load_value(input_desc.value(), on_error)) {
-					auto &in = result.inputs.emplace_back(uninitialized);
+					auto &in = result.inputs.emplace_back(nullptr);
 					in.binding_name = assume_utf8(input_desc.key());
 					in.value = std::move(input_val.value());
 				}
@@ -81,6 +108,23 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 		}
 	} else {
 		on_error(u8"No entry point specified for pass");
+	}
+
+	if (auto outputs_it = val.find("outputs"); outputs_it != val.end()) {
+		if (outputs_it->is_array()) {
+			for (const auto &str : outputs_it.value()) {
+				if (str.is_string()) {
+					result.output_names.emplace_back(assume_utf8(str.get<std::string>()));
+				} else {
+					result.output_names.emplace_back(); // preserve indices
+					on_error(u8"Output at location must be a string");
+				}
+			}
+		} else if (outputs_it->is_number_unsigned()) {
+			result.output_names.resize(outputs_it->get<std::size_t>());
+		} else {
+			on_error(u8"Pass outputs must be a list of strings or a single integer");
+		}
 	}
 
 	return result;
@@ -159,14 +203,18 @@ void pass::load_input_images(
 			dev.reset_fence(upload_fence);
 
 			std::free(data);
+
+			val.texture_view = dev.create_image2d_view_from(
+				val.texture, input_image_format, lgfx::mip_levels::all()
+			);
 		}
 	}
 	images_loaded = true;
 }
 
 void pass::load_shader(
-	lgfx::device &dev, lgfx::descriptor_pool &desc_pool, lgfx::shader_utility &shader_utils,
-	lgfx::shader &vert_shader, lgfx::descriptor_set_layout &global_descriptors,
+	lgfx::device &dev, lgfx::shader_utility &shader_utils, lgfx::shader &vert_shader,
+	lgfx::descriptor_set_layout &global_descriptors,
 	const std::filesystem::path &root, const error_callback &on_error
 ) {
 	std::optional<lgfx::shader_reflection> reflection;
@@ -181,7 +229,9 @@ void pass::load_shader(
 				reinterpret_cast<const std::byte*>(pixel_shader_prefix.data()),
 				reinterpret_cast<const std::byte*>(pixel_shader_prefix.data() + pixel_shader_prefix.size())
 			);
-			auto compiled = shader_utils.compile_shader(text, lgfx::shader_stage::pixel_shader, entry_point);
+			auto compiled = shader_utils.compile_shader(
+				text, lgfx::shader_stage::pixel_shader, entry_point, { root }
+			);
 			auto msg = compiled.get_compiler_output();
 			if (!msg.empty()) {
 				on_error(msg);
@@ -208,10 +258,31 @@ void pass::load_shader(
 			}
 		}
 
+		// find the number of outputs
+		std::size_t num_outputs = 0;
+		reflection->enumerate_output_variables([&](const lgfx::shader_output_variable &var) {
+			if (var.semantic_name == u8"SV_TARGET") {
+				++num_outputs;
+			}
+			// TODO do we need to make sure that these targets have contiguous indices?
+		});
+		if (!output_names.empty() && output_names.size() < num_outputs) {
+			on_error(format_utf8(
+				u8"Only {} output names specified, while the shader has {} outputs", output_names.size(), num_outputs
+			));
+		} else if (output_names.size() > num_outputs) {
+			on_error(format_utf8(
+				u8"Too many output names specified for shader: got {}, expected {}. "
+				u8"Out-of-bounds ones will be discarded",
+				output_names.size(), num_outputs
+			));
+		}
+		output_names.resize(num_outputs);
+
 		std::vector<lgfx::descriptor_range_binding> bindings;
 		reflection->enumerate_resource_bindings([&](const lgfx::shader_resource_binding &b) {
 			if (b.register_space != 0) {
-				if (b.name != u8"globals") {
+				if (b.name != u8"globals" && b.name != u8"nearest_sampler" && b.name != u8"linear_sampler") {
 					on_error(format_utf8(u8"Resource binding must be in register space 0: {}", as_string(b.name)));
 				}
 				return;
@@ -221,24 +292,30 @@ void pass::load_shader(
 			));
 		});
 		descriptor_set_layout = dev.create_descriptor_set_layout(bindings, lgfx::shader_stage::pixel_shader);
-		descriptor_set = dev.create_descriptor_set(desc_pool, descriptor_set_layout);
 		pipeline_resources = dev.create_pipeline_resources({ &descriptor_set_layout, &global_descriptors });
+
+		std::vector<lgfx::render_target_pass_options> pass_options(
+			output_names.size(),
+			lgfx::render_target_pass_options::create(
+				output_image_format, lgfx::pass_load_operation::clear, lgfx::pass_store_operation::preserve
+			)
+		);
 		pass_resources = dev.create_pass_resources(
-			{
-				lgfx::render_target_pass_options::create(
-					output_image_format, lgfx::pass_load_operation::clear, lgfx::pass_store_operation::preserve
-				)
-			},
+			pass_options,
 			lgfx::depth_stencil_pass_options::create(
 				lgfx::format::none,
 				lgfx::pass_load_operation::discard, lgfx::pass_store_operation::discard,
 				lgfx::pass_load_operation::discard, lgfx::pass_store_operation::discard
 			)
 		);
+
+		std::vector<lgfx::render_target_blend_options> blend_options(
+			output_names.size(), lgfx::render_target_blend_options::disabled()
+		);
 		pipeline = dev.create_graphics_pipeline_state(
 			pipeline_resources,
 			lgfx::shader_set::create(vert_shader, shader),
-			{ lgfx::render_target_blend_options::disabled() },
+			blend_options,
 			lgfx::rasterizer_options::create(
 				lgfx::depth_bias_options::disabled(),
 				lgfx::front_facing_mode::clockwise, lgfx::cull_mode::none
@@ -251,21 +328,18 @@ void pass::load_shader(
 	}
 }
 
-void pass::create_output_image(lgfx::device &dev, lotus::cvec2s size, const error_callback &on_error) {
-	output_image = nullptr;
-	output_image_view = nullptr;
-	frame_buffer = nullptr;
-
-	output_image = dev.create_committed_image2d(
-		size[0], size[1], 1, 1, output_image_format, lgfx::image_tiling::optimal,
-		lgfx::image_usage::mask::color_render_target | lgfx::image_usage::mask::read_only_texture
-	);
-	output_image_view = dev.create_image2d_view_from(
-		output_image, output_image_format, lgfx::mip_levels::only_highest()
-	);
-	frame_buffer = dev.create_frame_buffer({ &output_image_view }, nullptr, size, pass_resources);
-
-	dev.set_debug_name(output_image, format_utf8(u8"Pass output: {}", as_string(pass_name)));
+void pass::create_output_images(lgfx::device &dev, lotus::cvec2s size, const error_callback &on_error) {
+	if (output_names.empty()) {
+		return;
+	}
+	for (std::size_t i = 0; i < outputs.size(); ++i) {
+		outputs[i] = output::create(dev, output_names.size(), pass_resources, size);
+		for (std::size_t j = 0; j < output_names.size(); ++j) {
+			dev.set_debug_name(outputs[i].targets[j].image, format_utf8(
+				u8"Pass {} output #{} \"{}\" buffer #{}", as_string(pass_name), j, as_string(output_names[j]), i
+			));
+		}
+	}
 
 	output_created = true;
 }

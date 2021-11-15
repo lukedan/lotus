@@ -22,5 +22,13 @@ namespace lotus::graphics::backends::vulkan {
 				return _details::conversions::back_to_shader_resource_binding(*bindings[i]);
 			}
 		}
+		return std::nullopt;
 	}
+
+	std::size_t shader_reflection::get_output_variable_count() {
+		std::uint32_t count;
+		_details::assert_spv_reflect(_reflection.EnumerateOutputVariables(&count, nullptr));
+		return count;
+	}
+
 }

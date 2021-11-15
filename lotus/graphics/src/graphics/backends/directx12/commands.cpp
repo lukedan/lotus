@@ -56,7 +56,9 @@ namespace lotus::graphics::backends::directx12 {
 			images.size() + buffers.size()
 		);
 		for (const auto &img : images) {
-			if (img.from_state == image_usage::initial) {
+			D3D12_RESOURCE_STATES from_state = _details::conversions::for_image_usage(img.from_state);
+			D3D12_RESOURCE_STATES to_state   = _details::conversions::for_image_usage(img.to_state);
+			if (from_state == to_state) {
 				continue;
 			}
 			auto &barrier = resources.emplace_back();
@@ -66,8 +68,8 @@ namespace lotus::graphics::backends::directx12 {
 			barrier.Transition.Subresource = _details::compute_subresource_index(
 				img.subresource, static_cast<_details::image*>(img.target)->_image.Get()
 			);
-			barrier.Transition.StateBefore = _details::conversions::for_image_usage(img.from_state);
-			barrier.Transition.StateAfter  = _details::conversions::for_image_usage(img.to_state);
+			barrier.Transition.StateBefore = from_state;
+			barrier.Transition.StateAfter  = to_state;
 		}
 		for (const auto &buf : buffers) {
 			auto &barrier = resources.emplace_back();

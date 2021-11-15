@@ -22,7 +22,8 @@ namespace lotus::graphics::backends::directx12 {
 
 	void device::resize_swap_chain_buffers(swap_chain &s, cvec2s size) {
 		_details::assert_dx(s._swap_chain->ResizeBuffers(
-			s.get_image_count(), size[0], size[1], DXGI_FORMAT_UNKNOWN, 0
+			static_cast<UINT>(s.get_image_count()), static_cast<UINT>(size[0]), static_cast<UINT>(size[1]),
+			DXGI_FORMAT_UNKNOWN, 0
 		));
 		for (auto &sync : s._synchronization) {
 			sync.next_fence = nullptr;

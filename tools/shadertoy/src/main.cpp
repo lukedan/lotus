@@ -55,14 +55,21 @@ int main(int argc, char **argv) {
 	);
 	std::vector<lgfx::fence> frame_synchronization;
 	bool needs_recreating_resources = true;
+	bool reload = true;
 
 	// generic vertex shader
 	auto vert_shader_binary = load_binary_file("shaders/vertex.vs.o");
 	assert(!vert_shader_binary.empty());
 	lgfx::shader vert_shader = gdev.load_shader(vert_shader_binary);
 
-	auto point_sampler = gdev.create_sampler(
+	auto nearest_sampler = gdev.create_sampler(
 		lgfx::filtering::nearest, lgfx::filtering::nearest, lgfx::filtering::nearest,
+		0.0f, 0.0f, 0.0f, 1.0f,
+		lgfx::sampler_address_mode::repeat, lgfx::sampler_address_mode::repeat, lgfx::sampler_address_mode::repeat,
+		lotus::linear_rgba_f(0.0f, 0.0f, 0.0f, 0.0f), std::nullopt
+	);
+	auto linear_sampler = gdev.create_sampler(
+		lgfx::filtering::linear, lgfx::filtering::linear, lgfx::filtering::nearest,
 		0.0f, 0.0f, 0.0f, 1.0f,
 		lgfx::sampler_address_mode::repeat, lgfx::sampler_address_mode::repeat, lgfx::sampler_address_mode::repeat,
 		lotus::linear_rgba_f(0.0f, 0.0f, 0.0f, 0.0f), std::nullopt
@@ -75,6 +82,7 @@ int main(int argc, char **argv) {
 	lgfx::descriptor_set_layout globals_layout = gdev.create_descriptor_set_layout(
 		{
 			lgfx::descriptor_range_binding::create(lgfx::descriptor_type::constant_buffer, 1, 0),
+			lgfx::descriptor_range_binding::create(lgfx::descriptor_type::sampler, 2, 1),
 		},
 		lgfx::shader_stage::pixel_shader
 	);
@@ -85,22 +93,7 @@ int main(int argc, char **argv) {
 			lgfx::constant_buffer_view::create(globals_buf, 0, sizeof(pass::global_input)),
 		}
 	);
-
-	// load project
-	std::filesystem::path path = argv[1];
-	nlohmann::json proj_json;
-	{
-		std::ifstream fin(path);
-		fin >> proj_json;
-	}
-	auto error_callback = [](std::u8string_view msg) {
-		std::cerr << std::string_view(reinterpret_cast<const char*>(msg.data()), msg.size()) << "\n";
-	};
-	auto proj = project::load(proj_json, error_callback);
-	proj.load_resources(
-		gdev, desc_pool, shader_utils, cmd_alloc, cmd_queue,
-		vert_shader, globals_layout, path.parent_path(), error_callback
-	);
+	gdev.write_descriptor_set_samplers(globals_set, globals_layout, 1, { &nearest_sampler, &linear_sampler });
 
 	auto blit_pix_shader_binary = load_binary_file("shaders/blit.ps.o");
 	assert(!blit_pix_shader_binary.empty());
@@ -141,10 +134,19 @@ int main(int argc, char **argv) {
 		lgfx::primitive_topology::triangle_strip,
 		blit_pass_resources
 	);
-	lgfx::descriptor_set blit_descriptor_set = gdev.create_descriptor_set(desc_pool, blit_descriptor_layout);
-	gdev.write_descriptor_set_samplers(blit_descriptor_set, blit_descriptor_layout, 1, { &point_sampler });
+	std::array<lgfx::descriptor_set, 2> blit_descriptor_set{
+		gdev.create_descriptor_set(desc_pool, blit_descriptor_layout),
+		gdev.create_descriptor_set(desc_pool, blit_descriptor_layout),
+	};
+	for (std::size_t i = 0; i < 2; ++i) {
+		gdev.write_descriptor_set_samplers(blit_descriptor_set[i], blit_descriptor_layout, 1, { &nearest_sampler });
+	}
 
+	bool is_mouse_down = false;
 	lotus::cvec2s window_size = zero;
+	lotus::cvec2i mouse_pos = zero;
+	lotus::cvec2i mouse_down_pos = zero;
+	lotus::cvec2i mouse_drag_pos = zero;
 
 	auto recreate_resources = [&]() {
 		frame_synchronization.clear();
@@ -166,6 +168,7 @@ int main(int argc, char **argv) {
 
 			// transition all swapchain images to present state
 			auto img = swapchain.get_image(i);
+			gdev.set_debug_name(img, format_utf8(u8"Back buffer {}", i));
 			cmd_list.resource_barrier(
 				{
 					lgfx::image_barrier::create(
@@ -188,38 +191,109 @@ int main(int argc, char **argv) {
 			window_size = info.new_size;
 		}
 	);
+	auto mouse_down = wnd.on_mouse_button_down.create_linked_node(
+		[&](lsys::window &w, lsys::window_events::mouse::button_down &info) {
+			if (info.button == lsys::mouse_button::primary) {
+				w.acquire_mouse_capture();
+				is_mouse_down = true;
+			} else if (info.button == lsys::mouse_button::secondary) {
+				reload = true;
+			}
+		}
+	);
+	auto mouse_up = wnd.on_mouse_button_up.create_linked_node(
+		[&](lsys::window &w, lsys::window_events::mouse::button_up &info) {
+			if (info.button == lsys::mouse_button::primary) {
+				if (is_mouse_down) {
+					w.release_mouse_capture();
+					is_mouse_down = false;
+				}
+			}
+		}
+	);
+	auto capture_broken = wnd.on_capture_broken.create_linked_node(
+		[&](lsys::window&) {
+			is_mouse_down = false;
+		}
+	);
+	struct {
+		bool &is_mouse_down;
+		lotus::cvec2i &mouse_drag_pos;
+		lotus::cvec2i &mouse_down_pos;
+		lotus::cvec2i &mouse_pos;
+	} closure = { is_mouse_down, mouse_drag_pos, mouse_down_pos, mouse_pos };
+	auto mouse_move = wnd.on_mouse_move.create_linked_node(
+		[&](lsys::window&, lsys::window_events::mouse::move &info) {
+			if (closure.is_mouse_down) {
+				closure.mouse_drag_pos += info.new_position - closure.mouse_pos;
+				closure.mouse_down_pos = info.new_position;
+			}
+			closure.mouse_pos = info.new_position;
+		}
+	);
+
+	// load project
+	std::filesystem::path proj_path = argv[1];
+	auto error_callback = [](std::u8string_view msg) {
+		std::cerr << std::string_view(reinterpret_cast<const char*>(msg.data()), msg.size()) << "\n";
+	};
+	project proj = nullptr;
+	std::vector<std::map<std::u8string, pass>::iterator> pass_order;
 
 	std::chrono::high_resolution_clock::time_point last_frame = std::chrono::high_resolution_clock::now();
 	float time = 0.0f;
+	std::size_t frame_index = 0;
 
+	std::array<pass::output::target*, 2> main_out{ { nullptr, nullptr } };
 	wnd.show_and_activate();
 	while (app.process_message_nonblocking() != lsys::message_type::quit) {
+		bool update_pass_output = false;
+		if (reload) {
+			reload = false;
+			update_pass_output = true;
+			time = 0.0f;
+			proj = nullptr;
+
+			std::cerr << "Loading project\n";
+			nlohmann::json proj_json;
+			{
+				std::ifstream fin(proj_path);
+				fin >> proj_json;
+			}
+			proj = project::load(proj_json, error_callback);
+			proj.load_resources(
+				gdev, shader_utils, cmd_alloc, cmd_queue,
+				vert_shader, globals_layout, proj_path.parent_path(), error_callback
+			);
+			pass_order = proj.get_pass_order(error_callback);
+		}
 		if (needs_recreating_resources) {
 			needs_recreating_resources = false;
+			update_pass_output = true;
 			recreate_resources();
-
-			auto fence = gdev.create_fence(lgfx::synchronization_state::unset);
-			auto cmd_list = gdev.create_and_start_command_list(cmd_alloc);
+		}
+		if (update_pass_output) {
 			for (auto &p : proj.passes) {
-				p.second.create_output_image(gdev, window_size, error_callback);
-				cmd_list.resource_barrier(
-					{
-						lgfx::image_barrier::create(
-							lgfx::subresource_index::first_color(), p.second.output_image,
-							lgfx::image_usage::initial, lgfx::image_usage::read_only_texture
-						),
-					},
-					{}
-				);
+				p.second.create_output_images(gdev, window_size, error_callback);
 			}
-			cmd_list.finish();
-			cmd_queue.submit_command_lists({ &cmd_list }, &fence);
-			gdev.wait_for_fence(fence);
+			proj.update_descriptor_sets(gdev, desc_pool, error_callback);
+			for (std::size_t i = 0; i < 2; ++i) {
+				main_out[i] = proj.find_target(proj.main_pass, i, error_callback);
+				if (main_out[i]) {
+					gdev.write_descriptor_set_images(
+						blit_descriptor_set[i], blit_descriptor_layout,
+						0, { &main_out[i]->image_view }
+					);
+				}
+			}
 		}
 
 		auto *globals_buf_data = static_cast<pass::global_input*>(gdev.map_buffer(globals_buf, 0, 0));
+		globals_buf_data->mouse = mouse_pos.into<float>();
+		globals_buf_data->mouse_down = mouse_down_pos.into<float>();
+		globals_buf_data->mouse_drag = mouse_drag_pos.into<float>();
+		globals_buf_data->resolution = window_size.into<std::int32_t>();
 		globals_buf_data->time = time;
-		globals_buf_data->resolution = window_size.into<int>();
 		gdev.unmap_buffer(globals_buf, 0, sizeof(pass::global_input));
 
 		// acquire image
@@ -244,59 +318,48 @@ int main(int argc, char **argv) {
 		);
 
 		// render all passes
-		for (auto &p : proj.passes) {
-			cmd_list.resource_barrier(
-				{
-					lgfx::image_barrier::create(
-						lgfx::subresource_index::first_color(), p.second.output_image,
-						lgfx::image_usage::read_only_texture, lgfx::image_usage::color_render_target
-					),
-				},
-				{}
-			);
+		for (auto pit : pass_order) {
+			for (auto *dep : pit->second.dependencies[frame_index]) {
+				dep->transition_to(cmd_list, lgfx::image_usage::read_only_texture);
+			}
+			for (auto &out : pit->second.outputs[frame_index].targets) {
+				out.transition_to(cmd_list, lgfx::image_usage::color_render_target);
+			}
+			if (pit->second.ready()) {
+				std::vector<lotus::linear_rgba_f> clear_colors(
+					pit->second.output_names.size(), lotus::linear_rgba_f(0.0f, 0.0f, 0.0f, 0.0f)
+				);
+				cmd_list.begin_pass(
+					pit->second.pass_resources, pit->second.outputs[frame_index].frame_buffer, clear_colors, 0.0f, 0
+				);
+				cmd_list.bind_pipeline_state(pit->second.pipeline);
+				cmd_list.bind_graphics_descriptor_sets(
+					pit->second.pipeline_resources, 0, { &pit->second.input_descriptors[frame_index], &globals_set }
+				);
+				cmd_list.set_viewports({ lgfx::viewport::create(
+					lotus::aab2f::create_from_min_max(zero, window_size.into<float>()), 0.0f, 1.0f
+				) });
+				cmd_list.set_scissor_rectangles({ lotus::aab2i::create_from_min_max(zero, window_size.into<int>()) });
+				cmd_list.draw_instanced(0, 4, 0, 1);
+				cmd_list.end_pass();
+			}
+		}
+
+		if (main_out[frame_index]) {
+			main_out[frame_index]->transition_to(cmd_list, lgfx::image_usage::read_only_texture);
 			cmd_list.begin_pass(
-				p.second.pass_resources, p.second.frame_buffer,
+				blit_pass_resources, blit_frame_buffers[back_buffer.index],
 				{ lotus::linear_rgba_f(0.0f, 0.0f, 0.0f, 0.0f) }, 0.0f, 0
 			);
-			cmd_list.bind_pipeline_state(p.second.pipeline);
-			cmd_list.bind_graphics_descriptor_sets(
-				p.second.pipeline_resources, 0, { &p.second.descriptor_set, &globals_set }
-			);
+			cmd_list.bind_pipeline_state(blit_pipeline_state);
+			cmd_list.bind_graphics_descriptor_sets(blit_pipeline_resources, 0, { &blit_descriptor_set[frame_index] });
 			cmd_list.set_viewports({ lgfx::viewport::create(
 				lotus::aab2f::create_from_min_max(zero, window_size.into<float>()), 0.0f, 1.0f
 			) });
 			cmd_list.set_scissor_rectangles({ lotus::aab2i::create_from_min_max(zero, window_size.into<int>()) });
 			cmd_list.draw_instanced(0, 4, 0, 1);
 			cmd_list.end_pass();
-			cmd_list.resource_barrier(
-				{
-					lgfx::image_barrier::create(
-						lgfx::subresource_index::first_color(), p.second.output_image,
-						lgfx::image_usage::color_render_target, lgfx::image_usage::read_only_texture
-					),
-				},
-				{}
-			);
 		}
-
-		cmd_list.begin_pass(
-			blit_pass_resources, blit_frame_buffers[back_buffer.index],
-			{ lotus::linear_rgba_f(0.0f, 0.0f, 0.0f, 0.0f) }, 0.0f, 0
-		);
-		if (auto it = proj.passes.find(proj.main_pass); it != proj.passes.end()) {
-			gdev.write_descriptor_set_images(
-				blit_descriptor_set, blit_descriptor_layout, 0, { &it->second.output_image_view }
-			);
-
-			cmd_list.bind_pipeline_state(blit_pipeline_state);
-			cmd_list.bind_graphics_descriptor_sets(blit_pipeline_resources, 0, { &blit_descriptor_set });
-			cmd_list.set_viewports({ lgfx::viewport::create(
-				lotus::aab2f::create_from_min_max(zero, window_size.into<float>()), 0.0f, 1.0f
-			) });
-			cmd_list.set_scissor_rectangles({ lotus::aab2i::create_from_min_max(zero, window_size.into<int>()) });
-			cmd_list.draw_instanced(0, 4, 0, 1);
-		}
-		cmd_list.end_pass();
 
 		cmd_list.resource_barrier(
 			{
@@ -320,6 +383,9 @@ int main(int argc, char **argv) {
 			gdev.wait_for_fence(fence);
 		}
 
+		cmd_alloc.reset(gdev); // to avoid oom with dx12
+
+		frame_index = (frame_index + 1) % 2;
 		auto now = std::chrono::high_resolution_clock::now();
 		time += std::chrono::duration<float>(now - last_frame).count();
 		last_frame = now;

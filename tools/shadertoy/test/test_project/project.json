@@ -1,9 +1,28 @@
 {
 	"passes": {
-		"main": {
-			"source": "main.hlsl",
+		"gbuffer": {
+			"source": "gbuffer.hlsl",
 			"entry_point": "main"
+		},
+		"shadow": {
+			"source": "shadow.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"position": "gbuffer.2"
+			}
+		},
+		"lighting": {
+			"source": "lighting.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"albedo_metalness": "gbuffer.0",
+				"normal_glossiness": "gbuffer.1",
+				"position_depth": "gbuffer.2",
+				"emissive": "gbuffer.3",
+				"clearcoat": "gbuffer.4",
+				"shadow": "shadow"
+			}
 		}
 	},
-	"main_pass": "main"
+	"main_pass": "lighting"
 }

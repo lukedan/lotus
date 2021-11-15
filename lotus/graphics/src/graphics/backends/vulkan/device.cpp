@@ -3,6 +3,8 @@
 /// \file
 /// Implementation of vulkan devices.
 
+#include <format>
+
 #include <spirv_reflect.h>
 
 #include "lotus/graphics/descriptors.h"

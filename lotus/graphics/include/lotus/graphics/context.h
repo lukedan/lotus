@@ -119,12 +119,19 @@ namespace lotus::graphics {
 			return backend::shader_utility::load_shader_reflection(res);
 		}
 		// TODO more options
-		// TODO allocator
 		/// Compiles the given shader.
 		[[nodiscard]] compilation_result compile_shader(
-			std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry
+			std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry,
+			std::span<const std::filesystem::path> include_paths
 		) {
-			return backend::shader_utility::compile_shader(code_utf8, stage, entry);
+			return backend::shader_utility::compile_shader(code_utf8, stage, entry, include_paths);
+		}
+		/// \overload
+		[[nodiscard]] compilation_result compile_shader(
+			std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry,
+			std::initializer_list<const std::filesystem::path> include_paths
+		) {
+			return compile_shader(code_utf8, stage, entry, { include_paths.begin(), include_paths.end() });
 		}
 	protected:
 		/// Initializes the base object.

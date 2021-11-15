@@ -108,6 +108,8 @@ namespace lotus::graphics::backends::directx12::_details {
 
 		/// Converts a \p D3D12_SHADER_INPUT_BIND_DESC back to a \ref shader_resource_binding.
 		[[nodiscard]] shader_resource_binding back_to_shader_resource_binding(const D3D12_SHADER_INPUT_BIND_DESC&);
+		/// Converts a \p D3D12_SIGNATURE_PARAMETER_DESC back to a \ref shader_output_variable.
+		[[nodiscard]] shader_output_variable back_to_shader_output_variable(const D3D12_SIGNATURE_PARAMETER_DESC&);
 	}
 
 

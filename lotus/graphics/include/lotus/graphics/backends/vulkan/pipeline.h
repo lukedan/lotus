@@ -44,6 +44,22 @@ namespace lotus::graphics::backends::vulkan {
 				}
 			}
 		}
+		/// Queries the number of output variables using \p spv_reflect::ShaderModuleEnumerateOutputVariables().
+		[[nodiscard]] std::size_t get_output_variable_count();
+		/// Enumerates over all output varibles using \p spv_reflect::ShaderModuleEnumerateOutputVariables().
+		template <typename Callback> void enumerate_output_variables(Callback &&cb) {
+			auto bookmark = stack_allocator::for_this_thread().bookmark();
+			std::uint32_t count;
+			_details::assert_spv_reflect(_reflection.EnumerateOutputVariables(&count, nullptr));
+			auto variables = bookmark.create_vector_array<SpvReflectInterfaceVariable*>(count);
+			_details::assert_spv_reflect(_reflection.EnumerateOutputVariables(&count, variables.data()));
+
+			for (std::uint32_t i = 0; i < count; ++i) {
+				if (!cb(_details::conversions::back_to_shader_output_variable(*variables[i]))) {
+					break;
+				}
+			}
+		}
 	private:
 		spv_reflect::ShaderModule _reflection; ///< Reflection data.
 	};

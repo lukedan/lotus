@@ -22,7 +22,10 @@ namespace lotus::system::platforms::windows {
 			return 0;
 
 		case WM_CANCELMODE:
-			sys_wnd->on_capture_broken.invoke_all(*sys_wnd);
+			{
+				_details::assert_win32(ReleaseCapture());
+				sys_wnd->on_capture_broken.invoke_all(*sys_wnd);
+			}
 			return 0;
 
 		case WM_CLOSE:

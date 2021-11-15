@@ -26,7 +26,7 @@ namespace lotus::graphics::backends::directx12 {
 
 		/// Returns the result of ID3D12ShaderReflection::GetResourceBindingDescByName().
 		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const;
-		/// Enumerates over all resource bindings.
+		/// Enumerates over all resource bindings using \p ID3D12ShaderReflection::GetResourceBindingDesc().
 		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) {
 			D3D12_SHADER_DESC shader_desc = {};
 			_details::assert_dx(_reflection->GetDesc(&shader_desc));
@@ -34,6 +34,19 @@ namespace lotus::graphics::backends::directx12 {
 				D3D12_SHADER_INPUT_BIND_DESC desc = {};
 				_details::assert_dx(_reflection->GetResourceBindingDesc(i, &desc));
 				if (!cb(_details::conversions::back_to_shader_resource_binding(desc))) {
+					break;
+				}
+			}
+		}
+		/// Returns the number of output variables.
+		[[nodiscard]] std::size_t get_output_variable_count();
+		/// Enumerates over all output variables using \p ID3D12ShaderReflection::GetOutputParameterDesc().
+		template <typename Callback> void enumerate_output_variables(Callback &&cb) {
+			std::size_t count = get_output_variable_count();
+			for (UINT i = 0; i < count; ++i) {
+				D3D12_SIGNATURE_PARAMETER_DESC desc = {};
+				_details::assert_dx(_reflection->GetOutputParameterDesc(i, &desc));
+				if (!cb(_details::conversions::back_to_shader_output_variable(desc))) {
 					break;
 				}
 			}

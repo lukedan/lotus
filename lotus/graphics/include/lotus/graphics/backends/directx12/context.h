@@ -4,8 +4,9 @@
 /// DirectX 12 backend.
 
 #include <utility>
+#include <filesystem>
 
-#include <dxgi1_5.h>
+#include <dxgi1_6.h>
 #include <directx/d3d12.h>
 #include <dxcapi.h>
 
@@ -25,7 +26,10 @@ namespace lotus::graphics::backends::directx12 {
 		template <typename Callback> void enumerate_adapters(Callback &&cb) {
 			for (UINT i = 0; ; ++i) {
 				adapter adap = nullptr;
-				if (_dxgi_factory->EnumAdapters1(i, &adap._adapter) == DXGI_ERROR_NOT_FOUND) {
+				auto result = _dxgi_factory->EnumAdapterByGpuPreference(
+					i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adap._adapter)
+				);
+				if (result == DXGI_ERROR_NOT_FOUND) {
 					break;
 				}
 				if (!cb(std::move(adap))) {
@@ -38,7 +42,7 @@ namespace lotus::graphics::backends::directx12 {
 			system::platforms::windows::window&, device&, command_queue&, std::size_t, std::span<const format>
 		);
 	private:
-		_details::com_ptr<IDXGIFactory5> _dxgi_factory; ///< The DXGI factory.
+		_details::com_ptr<IDXGIFactory6> _dxgi_factory; ///< The DXGI factory.
 	};
 
 	/// Contains DXC classes.
@@ -69,15 +73,20 @@ namespace lotus::graphics::backends::directx12 {
 		[[nodiscard]] shader_reflection load_shader_reflection(compilation_result&);
 		/// Calls \p IDxcCompiler3::Compile().
 		[[nodiscard]] compilation_result compile_shader(
-			std::span<const std::byte>, shader_stage, std::u8string_view entry_point
+			std::span<const std::byte>, shader_stage, std::u8string_view entry_point,
+			std::span<const std::filesystem::path> include_paths
 		);
 	private:
 		_details::com_ptr<IDxcUtils> _dxc_utils; ///< Lazy-initialized DXC library handle.
 		_details::com_ptr<IDxcCompiler3> _dxc_compiler; ///< Lazy-initialized DXC compiler.
+		/// Lazy-initialized default DXC include handler.
+		_details::com_ptr<IDxcIncludeHandler> _dxc_include_handler;
 
 		/// Initializes \ref _dxc_utils if necessary, and returns it.
 		[[nodiscard]] IDxcUtils &_utils();
 		/// Initializes \ref _dxc_compiler if necessary, and returns it.
 		[[nodiscard]] IDxcCompiler3 &_compiler();
+		/// Initializes \ref _dxc_include_handler if necessary, and returns it.
+		[[nodiscard]] IDxcIncludeHandler &_include_handler();
 	};
 }

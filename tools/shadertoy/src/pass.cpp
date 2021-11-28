@@ -106,7 +106,7 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 			on_error(u8"Entry point must be a string");
 		}
 	} else {
-		on_error(u8"No entry point specified for pass");
+		result.entry_point = u8"main"; // default entry point is main. not main_ps, just main
 	}
 
 	if (auto outputs_it = val.find("outputs"); outputs_it != val.end()) {

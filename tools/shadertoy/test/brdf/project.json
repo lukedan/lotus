@@ -1,19 +1,16 @@
 {
 	"passes": {
 		"gbuffer": {
-			"source": "gbuffer.hlsl",
-			"entry_point": "main"
+			"source": "gbuffer.hlsl"
 		},
 		"shadow": {
 			"source": "shadow.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"position": "gbuffer.2"
 			}
 		},
 		"lighting": {
 			"source": "lighting.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"albedo_metalness": "gbuffer.0",
 				"normal_glossiness": "gbuffer.1",

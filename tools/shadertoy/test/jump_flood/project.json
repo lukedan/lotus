@@ -1,12 +1,10 @@
 {
 	"passes": {
 		"scene": {
-			"source": "scene.hlsl",
-			"entry_point": "main"
+			"source": "scene.hlsl"
 		},
 		"skip1": {
 			"source": "fill.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed_tex": "skip2"
 			},
@@ -16,7 +14,6 @@
 		},
 		"skip2": {
 			"source": "fill.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed_tex": "skip4"
 			},
@@ -26,7 +23,6 @@
 		},
 		"skip4": {
 			"source": "fill.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed_tex": "skip8"
 			},
@@ -36,7 +32,6 @@
 		},
 		"skip8": {
 			"source": "fill.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed_tex": "skip16"
 			},
@@ -46,7 +41,6 @@
 		},
 		"skip16": {
 			"source": "fill.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed_tex": "skip32"
 			},
@@ -56,7 +50,6 @@
 		},
 		"skip32": {
 			"source": "fill.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed_tex": "skip64"
 			},
@@ -66,7 +59,6 @@
 		},
 		"skip64": {
 			"source": "fill.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed_tex": "skip128"
 			},
@@ -76,7 +68,6 @@
 		},
 		"skip128": {
 			"source": "fill.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed_tex": "skip256"
 			},
@@ -86,7 +77,6 @@
 		},
 		"skip256": {
 			"source": "fill.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed_tex": "skip512"
 			},
@@ -96,7 +86,6 @@
 		},
 		"skip512": {
 			"source": "fill.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed_tex": "scene"
 			},
@@ -106,7 +95,6 @@
 		},
 		"final": {
 			"source": "final.hlsl",
-			"entry_point": "main",
 			"inputs": {
 				"seed": "skip1"
 			},

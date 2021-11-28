@@ -273,6 +273,9 @@ int main(int argc, char **argv) {
 			pass_order = proj.get_pass_order(error_callback);
 		}
 		if (needs_recreating_resources) {
+			if (window_size[0] == 0 || window_size[1] == 0) {
+				continue;
+			}
 			needs_recreating_resources = false;
 			update_pass_output = true;
 			recreate_resources();

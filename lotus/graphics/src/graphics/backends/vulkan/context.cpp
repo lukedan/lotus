@@ -161,29 +161,6 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 
-	bool shader_utility::_compilation_result_dxc::succeeded() const {
-		HRESULT stat;
-		_details::assert_dx(_result->GetStatus(&stat));
-		return stat == S_OK;
-	}
-
-	std::u8string_view shader_utility::_compilation_result_dxc::get_compiler_output() {
-		if (!_messages) {
-			_details::assert_dx(_result->GetOutput(DXC_OUT_ERRORS, __uuidof(IDxcBlobUtf8), &_messages, nullptr));
-		}
-		return std::u8string_view(
-			static_cast<const char8_t*>(_messages->GetBufferPointer()), _messages->GetBufferSize()
-		);
-	}
-
-	std::span<const std::byte> shader_utility::_compilation_result_dxc::get_compiled_binary() {
-		if (!_binary) {
-			_details::assert_dx(_result->GetOutput(DXC_OUT_OBJECT, __uuidof(IDxcBlob), &_binary, nullptr));
-		}
-		return std::span(static_cast<const std::byte*>(_binary->GetBufferPointer()), _binary->GetBufferSize());
-	}
-
-
 	shader_utility shader_utility::create() {
 		return shader_utility();
 	}
@@ -195,61 +172,7 @@ namespace lotus::graphics::backends::vulkan {
 		return result;
 	}
 
-	shader_reflection shader_utility::load_shader_reflection(_compilation_result_dxc &res) {
+	shader_reflection shader_utility::load_shader_reflection(compilation_result &res) {
 		return load_shader_reflection(res.get_compiled_binary());
-	}
-
-	IDxcCompiler3 &shader_utility::_compiler() {
-		if (!_dxc_compiler) {
-			_details::assert_dx(DxcCreateInstance(CLSID_DxcCompiler, __uuidof(IDxcCompiler3), &_dxc_compiler));
-		}
-		return *_dxc_compiler.Get();
-	}
-
-	shader_utility::_compilation_result_dxc shader_utility::_compile_shader_dxc(
-		std::span<const std::byte> code, shader_stage stage, std::u8string_view entry
-	) {
-		constexpr static enum_mapping<shader_stage, std::wstring_view> stage_names{
-			std::pair(shader_stage::all,             L"INVALID"),
-			std::pair(shader_stage::vertex_shader,   L"vs"),
-			std::pair(shader_stage::geometry_shader, L"gs"),
-			std::pair(shader_stage::pixel_shader,    L"ps"),
-			std::pair(shader_stage::compute_shader,  L"cs"),
-		};
-
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
-
-		// TODO this assumes the entire string is ascii
-		std::basic_string<WCHAR, std::char_traits<WCHAR>, stack_allocator::allocator<WCHAR>> entry_wstr(
-			entry.begin(), entry.end(), bookmark.create_std_allocator<WCHAR>()
-		);
-
-		WCHAR profile[10];
-		auto fmt_result = std::format_to_n(profile, std::size(profile) - 1, L"{}_{}_{}", stage_names[stage], 6, 0);
-		assert(fmt_result.size + 1 < std::size(profile));
-		profile[fmt_result.size] = L'\0';
-
-		std::vector<LPCWSTR> args{
-			L"-spirv",
-			L"-fspv-reflect",
-			L"-E", entry_wstr.c_str(),
-			L"-T", profile,
-			L"-Ges",
-			L"-Zi",
-			L"-Zpr",
-		};
-		if (stage == shader_stage::vertex_shader || stage == shader_stage::geometry_shader) {
-			args.emplace_back(L"-fvk-invert-y");
-		}
-
-		DxcBuffer buffer;
-		buffer.Ptr      = code.data();
-		buffer.Size     = code.size();
-		buffer.Encoding = DXC_CP_UTF8;
-		compilation_result result;
-		_details::assert_dx(_compiler().Compile(
-			&buffer, args.data(), args.size(), nullptr, __uuidof(IDxcResult), &result._result
-		));
-		return result;
 	}
 }

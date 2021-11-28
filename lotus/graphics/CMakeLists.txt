@@ -3,6 +3,8 @@ set(LOTUS_GRAPHICS_USE_VULKAN YES CACHE STRING "Whether to generate target for t
 
 set(LOTUS_GRAPHICS_BACKEND_INCLUDE_NAME "LOTUS_GRAPHICS_BACKEND_INCLUDE")
 set(LOTUS_GRAPHICS_COMMON_HEADERS
+	"include/lotus/graphics/backends/common/dxc.h"
+
 	"include/lotus/graphics/commands.h"
 	"include/lotus/graphics/common.h"
 	"include/lotus/graphics/context.h"
@@ -13,6 +15,8 @@ set(LOTUS_GRAPHICS_COMMON_HEADERS
 	"include/lotus/graphics/pipeline.h"
 	"include/lotus/graphics/resources.h"
 	"include/lotus/graphics/synchronization.h")
+set(LOTUS_GRAPHICS_COMMON_SOURCES
+	"src/graphics/backends/common/dxc.cpp")
 
 # DirectX 12
 if(WIN32 AND LOTUS_GRAPHICS_USE_DIRECTX12)
@@ -39,6 +43,8 @@ if(WIN32 AND LOTUS_GRAPHICS_USE_DIRECTX12)
 
 			"include/lotus/graphics/backends/directx12.h"
 		PRIVATE
+			${LOTUS_GRAPHICS_COMMON_SOURCES}
+
 			"src/graphics/backends/directx12/commands.cpp"
 			"src/graphics/backends/directx12/context.cpp"
 			"src/graphics/backends/directx12/descriptors.cpp"
@@ -86,6 +92,8 @@ if(LOTUS_GRAPHICS_USE_VULKAN)
 
 			"include/lotus/graphics/backends/vulkan.h"
 		PRIVATE
+			${LOTUS_GRAPHICS_COMMON_SOURCES}
+
 			"src/graphics/backends/vulkan/commands.cpp"
 			"src/graphics/backends/vulkan/context.cpp"
 			"src/graphics/backends/vulkan/details.cpp"

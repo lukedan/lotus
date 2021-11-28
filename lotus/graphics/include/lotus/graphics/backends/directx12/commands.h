@@ -117,7 +117,7 @@ namespace lotus::graphics::backends::directx12 {
 		void submit_command_lists(std::span<const graphics::command_list *const>, fence*);
 		/// Calls \p IDXGISwapChain::Present(), then signals any synchronization primitives associated with the
 		/// current back buffer.
-		void present(swap_chain&);
+		[[nodiscard]] swap_chain_status present(swap_chain&);
 		/// Calls \p ID3D12CommandQueue::Signal().
 		void signal(fence&);
 	private:

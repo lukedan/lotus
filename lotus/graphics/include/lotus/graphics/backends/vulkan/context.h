@@ -8,6 +8,7 @@
 
 #include "lotus/utils/stack_allocator.h"
 #include "lotus/system/window.h"
+#include "lotus/graphics/backends/common/dxc.h"
 #include "details.h"
 #include "device.h"
 #include "frame_buffer.h"
@@ -59,24 +60,29 @@ namespace lotus::graphics::backends::vulkan {
 	/// Shader utilities using SPIRV-Reflect.
 	class shader_utility {
 	protected:
-		// TODO find a way to reuse this code
-		/// Shader compilation result using DXC.
-		struct _compilation_result_dxc {
+		/// Compilation result interface.
+		struct compilation_result : protected backends::common::dxc_compiler::compilation_result {
 			friend shader_utility;
 		protected:
-			/// Returns whether the result of \p IDxcResult::GetStatus() is success.
-			[[nodiscard]] bool succeeded() const;
-			/// Caches \ref _output if necessary, and returns it.
-			[[nodiscard]] std::u8string_view get_compiler_output();
-			/// Caches \ref _binary if necessary, and returns it.
-			[[nodiscard]] std::span<const std::byte> get_compiled_binary();
-		private:
-			_details::com_ptr<IDxcResult> _result; ///< Result.
-			_details::com_ptr<IDxcBlob> _binary; ///< Cached compiled binary.
-			_details::com_ptr<IDxcBlobUtf8> _messages; ///< Cached compiler output.
-		};
+			using _base = backends::common::dxc_compiler::compilation_result; ///< Base class.
 
-		using compilation_result = _compilation_result_dxc; ///< Compilation result type.
+			/// Returns whether compilation succeeded.
+			[[nodiscard]] bool succeeded() const {
+				return _base::succeeded();
+			}
+			/// Returns compiler messages.
+			[[nodiscard]] std::u8string_view get_compiler_output() {
+				return _base::get_compiler_output();
+			}
+			/// Returns compiled binary.
+			[[nodiscard]] std::span<const std::byte> get_compiled_binary() {
+				return _base::get_compiled_binary();
+			}
+		private:
+			/// Initializes the base object.
+			compilation_result(_base &&b) : _base(std::move(b)) {
+			}
+		};
 
 		/// Creates an instance of the utility object.
 		[[nodiscard]] static shader_utility create();
@@ -84,21 +90,23 @@ namespace lotus::graphics::backends::vulkan {
 		/// Creates a new \p spv_reflect::ShaderModule object from the given code.
 		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte>);
 		/// Unlike DirectX 12, this is just an overload of the other function.
-		[[nodiscard]] shader_reflection load_shader_reflection(_compilation_result_dxc&);
+		[[nodiscard]] shader_reflection load_shader_reflection(compilation_result&);
 
 		/// Compiles the given shader using the currently selected compiler.
 		[[nodiscard]] compilation_result compile_shader(
-			std::span<const std::byte> code, shader_stage stage, std::u8string_view entry
+			std::span<const std::byte> code, shader_stage stage, std::u8string_view entry,
+			std::span<const std::filesystem::path> include_paths,
+			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 		) {
-			return _compile_shader_dxc(code, stage, entry);
+			auto bookmark = stack_allocator::for_this_thread().bookmark();
+			auto extra_args = bookmark.create_vector_array<LPCWSTR>();
+			extra_args.insert(extra_args.end(), { L"-spirv", L"-fspv-reflect", L"-Ges", L"-Zi", L"-Zpr" });
+			if (stage == shader_stage::vertex_shader || stage == shader_stage::geometry_shader) {
+				extra_args.emplace_back(L"-fvk-invert-y");
+			}
+			return _compiler.compile_shader(code, stage, entry, include_paths, defines, extra_args);
 		}
 	private:
-		_details::com_ptr<IDxcCompiler3> _dxc_compiler; ///< Lazy-initialized DXC compiler.
-
-		/// Initializes \ref _dxc_compiler if necessary, and returns it.
-		[[nodiscard]] IDxcCompiler3 &_compiler();
-
-		/// Compiles a shader using DXC.
-		_compilation_result_dxc _compile_shader_dxc(std::span<const std::byte>, shader_stage, std::u8string_view);
+		backends::common::dxc_compiler _compiler = nullptr; ///< The compiler.
 	};
 }

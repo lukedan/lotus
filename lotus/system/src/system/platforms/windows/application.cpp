@@ -16,8 +16,10 @@ namespace lotus::system::platforms::windows {
 		switch (msg) {
 		case WM_SIZE:
 			{
-				window_events::resize info(cvec2s(LOWORD(lparam), HIWORD(lparam)));
-				sys_wnd->on_resize.invoke_all(*sys_wnd, info);
+				if (wparam != SIZE_MINIMIZED) {
+					window_events::resize info(cvec2s(LOWORD(lparam), HIWORD(lparam)));
+					sys_wnd->on_resize.invoke_all(*sys_wnd, info);
+				}
 			}
 			return 0;
 

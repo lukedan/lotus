@@ -163,7 +163,7 @@ public:
 
 	/// Returns whether this pass is ready to be rendered.
 	[[nodiscard]] bool ready() const {
-		return images_loaded && shader_loaded && output_created;
+		return images_loaded && shader_loaded && output_created && descriptors_ready;
 	}
 
 
@@ -173,6 +173,7 @@ public:
 	std::vector<std::u8string> output_names; ///< Names of all outputs.
 	std::filesystem::path shader_path; ///< Path to the shader file.
 	std::u8string entry_point; ///< Shader entry point.
+	std::vector<std::pair<std::u8string, std::u8string>> defines; ///< Defines.
 
 	lgfx::shader shader = nullptr; ///< The shader.
 	lgfx::descriptor_set_layout descriptor_set_layout = nullptr; ///< Layout of the only descriptor set.
@@ -188,4 +189,5 @@ public:
 	bool images_loaded = false; ///< Indicates whether the images have been loaded.
 	bool shader_loaded = false; ///< Indicates whether the shader and its reflection has been loaded.
 	bool output_created = false; ///< Indicates whether the output images have been created.
+	bool descriptors_ready = false; ///< Whether \ref input_descriptors contain valid data.
 };

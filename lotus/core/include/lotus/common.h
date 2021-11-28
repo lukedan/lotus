@@ -5,6 +5,7 @@
 
 #include <type_traits>
 #include <array>
+#include <string_view>
 
 namespace lotus {
 #ifndef NDEBUG
@@ -134,6 +135,16 @@ namespace lotus {
 	protected:
 		const std::array<std::pair<Enum, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
 	};
+
+
+	/// Assumes that the given \p string_view contains UTF-8 text and converts it into a \p std::u8string_view.
+	[[nodiscard]] inline std::u8string_view assume_utf8(std::string_view str) {
+		return std::u8string_view(reinterpret_cast<const char8_t*>(str.data()), str.size());
+	}
+	/// Converts a UTF-8 string view to a generic string.
+	[[nodiscard]] inline std::string_view u8string_view_to_generic(std::u8string_view str) {
+		return std::string_view(reinterpret_cast<const char*>(str.data()), str.size());
+	}
 
 
 	/// Aligns the given size.

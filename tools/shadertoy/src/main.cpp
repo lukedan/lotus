@@ -95,11 +95,10 @@ int main(int argc, char **argv) {
 	);
 	gdev.write_descriptor_set_samplers(globals_set, globals_layout, 1, { &nearest_sampler, &linear_sampler });
 
+	// blit pass
 	auto blit_pix_shader_binary = load_binary_file("shaders/blit.ps.o");
 	assert(!blit_pix_shader_binary.empty());
 	lgfx::shader blit_pix_shader = gdev.load_shader(blit_pix_shader_binary);
-
-	// blit pass
 	lgfx::descriptor_set_layout blit_descriptor_layout = gdev.create_descriptor_set_layout(
 		{
 			lgfx::descriptor_range_binding::create(lgfx::descriptor_type::read_only_image, 1, 0),
@@ -254,11 +253,17 @@ int main(int argc, char **argv) {
 			time = 0.0f;
 			proj = nullptr;
 
-			std::cerr << "Loading project\n";
+			std::cerr << "\n==============================================\nLoading project\n";
 			nlohmann::json proj_json;
 			{
 				std::ifstream fin(proj_path);
-				fin >> proj_json;
+				try {
+					fin >> proj_json;
+				} catch (std::exception &ex) {
+					std::cerr << "Failed to load JSON: " << ex.what() << "\n";
+				} catch (...) {
+					std::cerr << "Failed to load JSON\n";
+				}
 			}
 			proj = project::load(proj_json, error_callback);
 			proj.load_resources(
@@ -298,6 +303,10 @@ int main(int argc, char **argv) {
 
 		// acquire image
 		auto back_buffer = gdev.acquire_back_buffer(swapchain);
+		if (back_buffer.status != lgfx::swap_chain_status::ok) {
+			needs_recreating_resources = true;
+			continue;
+		}
 		lgfx::image2d target_image = swapchain.get_image(back_buffer.index);
 		if (back_buffer.on_presented) {
 			gdev.wait_for_fence(*back_buffer.on_presented);
@@ -375,7 +384,9 @@ int main(int argc, char **argv) {
 
 		// submit & present
 		cmd_queue.submit_command_lists({ &cmd_list }, nullptr);
-		cmd_queue.present(swapchain);
+		if (cmd_queue.present(swapchain) != lgfx::swap_chain_status::ok) {
+			needs_recreating_resources = true;
+		}
 
 		{ // wait for device to finish everything (not ideal)
 			auto fence = gdev.create_fence(lgfx::synchronization_state::unset);

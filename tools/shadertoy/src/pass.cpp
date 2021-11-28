@@ -17,7 +17,7 @@ std::optional<pass::input::value_type> pass::input::load_value(
 				return std::nullopt;
 			}
 			input::pass_output result;
-			result.name = assume_utf8(type_it->get<std::string>());
+			result.name = std::u8string(lotus::assume_utf8(type_it->get<std::string>()));
 			if (!result.name.empty() && result.name[0] == u8'-') {
 				result.name = result.name.substr(1);
 				result.previous_frame = true;
@@ -37,7 +37,7 @@ std::optional<pass::input::value_type> pass::input::load_value(
 		return std::nullopt;
 	} else if (val.is_string()) { // shorthand for a pass
 		input::pass_output result;
-		result.name = assume_utf8(val.get<std::string>());
+		result.name = std::u8string(lotus::assume_utf8(val.get<std::string>()));
 		return result;
 	}
 	on_error(u8"Invalid pass input format");
@@ -84,7 +84,6 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 
 	result.shader_path = shader_file_it->get<std::string>();
 
-	// load inputs
 	if (auto inputs_it = val.find("inputs"); inputs_it != val.end()) {
 		if (!inputs_it->is_object()) {
 			on_error(u8"Pass inputs must be an array");
@@ -93,7 +92,7 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 			for (auto input_desc : inputs_it.value().items()) {
 				if (auto input_val = input::load_value(input_desc.value(), on_error)) {
 					auto &in = result.inputs.emplace_back(nullptr);
-					in.binding_name = assume_utf8(input_desc.key());
+					in.binding_name = std::u8string(lotus::assume_utf8(input_desc.key()));
 					in.value = std::move(input_val.value());
 				}
 			}
@@ -102,7 +101,7 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 
 	if (auto entry_point_it = val.find("entry_point"); entry_point_it != val.end()) {
 		if (entry_point_it->is_string()) {
-			result.entry_point = assume_utf8(entry_point_it->get<std::string>());
+			result.entry_point = std::u8string(lotus::assume_utf8(entry_point_it->get<std::string>()));
 		} else {
 			on_error(u8"Entry point must be a string");
 		}
@@ -114,7 +113,7 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 		if (outputs_it->is_array()) {
 			for (const auto &str : outputs_it.value()) {
 				if (str.is_string()) {
-					result.output_names.emplace_back(assume_utf8(str.get<std::string>()));
+					result.output_names.emplace_back(lotus::assume_utf8(str.get<std::string>()));
 				} else {
 					result.output_names.emplace_back(); // preserve indices
 					on_error(u8"Output at location must be a string");
@@ -124,6 +123,33 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 			result.output_names.resize(outputs_it->get<std::size_t>());
 		} else {
 			on_error(u8"Pass outputs must be a list of strings or a single integer");
+		}
+	}
+
+	if (auto defines_it = val.find("defines"); defines_it != val.end()) {
+		if (defines_it->is_object()) {
+			for (const auto &def : defines_it.value().items()) {
+				auto &pair = result.defines.emplace_back(lotus::assume_utf8(def.key()), u8"");
+				if (def.value().is_string()) {
+					pair.second = std::u8string(lotus::assume_utf8(def.value().get<std::string>()));
+				} else if (def.value().is_number_integer()) {
+					pair.second = std::u8string(lotus::assume_utf8(std::to_string(def.value().get<std::int64_t>())));
+				} else if (def.value().is_number()) {
+					pair.second = std::u8string(lotus::assume_utf8(std::to_string(def.value().get<double>())));
+				} else if (!def.value().is_null()) {
+					on_error(u8"Invalid define value type");
+				}
+			}
+		} else if (defines_it->is_array()) {
+			for (const auto &def : defines_it.value()) {
+				if (def.is_string()) {
+					result.defines.emplace_back(lotus::assume_utf8(def.get<std::string>()), u8"");
+				} else {
+					on_error(u8"Define is not a string");
+				}
+			}
+		} else {
+			on_error(u8"Invalid defines");
 		}
 	}
 
@@ -230,7 +256,7 @@ void pass::load_shader(
 				reinterpret_cast<const std::byte*>(pixel_shader_prefix.data() + pixel_shader_prefix.size())
 			);
 			auto compiled = shader_utils.compile_shader(
-				text, lgfx::shader_stage::pixel_shader, entry_point, { root }
+				text, lgfx::shader_stage::pixel_shader, entry_point, std::span(&root, 1), defines
 			);
 			auto msg = compiled.get_compiler_output();
 			if (!msg.empty()) {
@@ -239,7 +265,6 @@ void pass::load_shader(
 			if (compiled.succeeded()) {
 				shader = dev.load_shader(compiled.get_compiled_binary());
 				reflection = shader_utils.load_shader_reflection(compiled);
-				shader_loaded = true;
 			} else {
 				on_error(format_utf8(u8"Failed to compile shader {}", abs_shader_path.string()));
 			}
@@ -325,6 +350,7 @@ void pass::load_shader(
 			lgfx::primitive_topology::triangle_strip,
 			pass_resources
 		);
+		shader_loaded = true;
 	}
 }
 

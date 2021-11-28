@@ -1,0 +1,119 @@
+{
+	"passes": {
+		"scene": {
+			"source": "scene.hlsl",
+			"entry_point": "main"
+		},
+		"skip1": {
+			"source": "fill.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed_tex": "skip2"
+			},
+			"defines": {
+				"FILL_OFFSET": 1
+			}
+		},
+		"skip2": {
+			"source": "fill.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed_tex": "skip4"
+			},
+			"defines": {
+				"FILL_OFFSET": 2
+			}
+		},
+		"skip4": {
+			"source": "fill.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed_tex": "skip8"
+			},
+			"defines": {
+				"FILL_OFFSET": 4
+			}
+		},
+		"skip8": {
+			"source": "fill.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed_tex": "skip16"
+			},
+			"defines": {
+				"FILL_OFFSET": 8
+			}
+		},
+		"skip16": {
+			"source": "fill.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed_tex": "skip32"
+			},
+			"defines": {
+				"FILL_OFFSET": 16
+			}
+		},
+		"skip32": {
+			"source": "fill.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed_tex": "skip64"
+			},
+			"defines": {
+				"FILL_OFFSET": 32
+			}
+		},
+		"skip64": {
+			"source": "fill.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed_tex": "skip128"
+			},
+			"defines": {
+				"FILL_OFFSET": 64
+			}
+		},
+		"skip128": {
+			"source": "fill.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed_tex": "skip256"
+			},
+			"defines": {
+				"FILL_OFFSET": 128
+			}
+		},
+		"skip256": {
+			"source": "fill.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed_tex": "skip512"
+			},
+			"defines": {
+				"FILL_OFFSET": 256
+			}
+		},
+		"skip512": {
+			"source": "fill.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed_tex": "scene"
+			},
+			"defines": {
+				"FILL_OFFSET": 512
+			}
+		},
+		"final": {
+			"source": "final.hlsl",
+			"entry_point": "main",
+			"inputs": {
+				"seed": "skip1"
+			},
+			"defines": {
+				"BAND_WIDTH": 30
+			}
+		}
+	},
+	"main_pass": "final"
+}

@@ -13,8 +13,8 @@ project project::load(const nlohmann::json &val, const error_callback &on_error)
 		if (passes_it->is_object()) {
 			for (const auto &p : passes_it->items()) {
 				if (auto pass = pass::load(p.value(), on_error)) {
-					pass->pass_name = assume_utf8(p.key());
-					result.passes.emplace(assume_utf8(p.key()), std::move(pass.value()));
+					pass->pass_name = std::u8string(lotus::assume_utf8(p.key()));
+					result.passes.emplace(lotus::assume_utf8(p.key()), std::move(pass.value()));
 				} else {
 					on_error(format_utf8(u8"Failed to load pass {}", p.key()));
 				}
@@ -27,7 +27,7 @@ project project::load(const nlohmann::json &val, const error_callback &on_error)
 	}
 	if (auto main_pass_it = val.find("main_pass"); main_pass_it != val.end()) {
 		if (main_pass_it->is_string()) {
-			result.main_pass = assume_utf8(main_pass_it->get<std::string>());
+			result.main_pass = std::u8string(lotus::assume_utf8(main_pass_it->get<std::string>()));
 		} else {
 			on_error(u8"Invalid main pass");
 		}
@@ -54,25 +54,31 @@ void project::update_descriptor_sets(
 ) {
 	for (std::size_t i = 0; i < 2; ++i) {
 		for (auto &it : passes) {
-			it.second.dependencies[i].clear();
-			auto descriptors = dev.create_descriptor_set(desc_pool, it.second.descriptor_set_layout);
-			for (auto &in : it.second.inputs) {
-				if (in.register_index) {
-					auto &&[img_view, dep] = std::visit(
-						[&](auto &val) {
-							return get_image_view(val, i, on_error);
-						},
-						in.value
-					);
-					dev.write_descriptor_set_images(
-						descriptors, it.second.descriptor_set_layout, in.register_index.value(), { &img_view }
-					);
-					if (dep) {
-						it.second.dependencies[i].emplace_back(dep);
+			if (it.second.shader_loaded) {
+				it.second.dependencies[i].clear();
+				auto descriptors = dev.create_descriptor_set(desc_pool, it.second.descriptor_set_layout);
+				bool all_good = true;
+				for (auto &in : it.second.inputs) {
+					if (in.register_index) {
+						auto &&[img_view, dep] = std::visit(
+							[&](auto &val) {
+								return get_image_view(val, i, on_error);
+							},
+							in.value
+						);
+						dev.write_descriptor_set_images(
+							descriptors, it.second.descriptor_set_layout, in.register_index.value(), { &img_view }
+						);
+						if (dep) {
+							it.second.dependencies[i].emplace_back(dep);
+						}
+					} else {
+						all_good = false;
 					}
 				}
+				it.second.input_descriptors[i] = std::move(descriptors);
+				it.second.descriptors_ready = all_good;
 			}
-			it.second.input_descriptors[i] = std::move(descriptors);
 		}
 	}
 }

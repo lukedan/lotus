@@ -226,8 +226,8 @@ namespace lotus::graphics {
 			submit_command_lists({ lists.begin(), lists.end() }, on_completion);
 		}
 		/// Presents the current back buffer in the swap chain.
-		void present(swap_chain &target) {
-			backend::command_queue::present(target);
+		[[nodiscard]] swap_chain_status present(swap_chain &target) {
+			return backend::command_queue::present(target);
 		}
 		/// Signals the given fence once the GPU has finished all previous command lists.
 		void signal(fence &f) {

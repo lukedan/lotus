@@ -15,8 +15,9 @@
 namespace lotus::graphics::backends::directx12 {
 	back_buffer_info device::acquire_back_buffer(swap_chain &s) {
 		back_buffer_info result = uninitialized;
-		result.index = static_cast<std::size_t>(s._swap_chain->GetCurrentBackBufferIndex());
+		result.index        = static_cast<std::size_t>(s._swap_chain->GetCurrentBackBufferIndex());
 		result.on_presented = s._synchronization[result.index].notify_fence;
+		result.status       = swap_chain_status::ok;
 		return result;
 	}
 

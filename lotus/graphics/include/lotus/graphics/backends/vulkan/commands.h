@@ -109,7 +109,7 @@ namespace lotus::graphics::backends::vulkan {
 		/// Calls \p vk::Queue::submit().
 		void submit_command_lists(std::span<const graphics::command_list *const>, fence *on_completion);
 		/// Calls \p vk::Queue::presentKHR().
-		void present(swap_chain&);
+		[[nodiscard]] swap_chain_status present(swap_chain&);
 		/// Calls \p vk::Queue::submit() without any command lists.
 		void signal(fence&);
 	private:

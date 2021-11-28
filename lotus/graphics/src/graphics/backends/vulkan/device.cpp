@@ -26,16 +26,26 @@ namespace lotus::graphics::backends::vulkan {
 		}
 		assert(sync.notify_fence);
 
-		swapchain._frame_index = static_cast<std::uint16_t>(_details::unwrap(_device->acquireNextImageKHR(
+		std::uint32_t frame_index;
+		auto res = _device->acquireNextImageKHR(
 			swapchain._swapchain.get(),
 			std::numeric_limits<std::uint64_t>::max(),
 			nullptr,
-			sync.notify_fence ? static_cast<fence*>(sync.notify_fence)->_fence.get() : nullptr
-		)));
+			sync.notify_fence ? static_cast<fence*>(sync.notify_fence)->_fence.get() : nullptr,
+			&frame_index
+		);
+		swapchain._frame_index = static_cast<std::uint16_t>(frame_index);
 
 		back_buffer_info result = uninitialized;
 		result.index        = swapchain._frame_index;
 		result.on_presented = sync.notify_fence;
+		if (res == vk::Result::eErrorOutOfDateKHR || res == vk::Result::eErrorSurfaceLostKHR) {
+			result.status = swap_chain_status::unavailable;
+		} else if (res == vk::Result::eSuboptimalKHR) {
+			result.status = swap_chain_status::suboptimal;
+		} else {
+			result.status = swap_chain_status::ok;
+		}
 		return result;
 	}
 

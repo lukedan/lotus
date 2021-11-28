@@ -306,7 +306,7 @@ namespace lotus::graphics::backends::directx12 {
 		}
 	}
 
-	void command_queue::present(swap_chain &chain) {
+	swap_chain_status command_queue::present(swap_chain &chain) {
 		UINT index = chain._swap_chain->GetCurrentBackBufferIndex();
 		_details::assert_dx(chain._swap_chain->Present(0, 0));
 		auto &sync = chain._synchronization[index];
@@ -314,5 +314,6 @@ namespace lotus::graphics::backends::directx12 {
 		if (sync.notify_fence) {
 			_queue->Signal(sync.notify_fence->_fence.Get(), static_cast<UINT64>(synchronization_state::set));
 		}
+		return swap_chain_status::ok;
 	}
 }

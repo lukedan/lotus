@@ -118,7 +118,7 @@ namespace lotus {
 			/// Convenience function for creating a \p std::basic_string using the given parameters and this
 			/// allocator.
 			template <
-				typename Ch, typename Traits = std::char_traits<Ch>, typename ...Args
+				typename Ch = char, typename Traits = std::char_traits<Ch>, typename ...Args
 			> [[nodiscard]] string_type<Ch, Traits> create_string(Args &&...args) {
 				return string_type<Ch, Traits>(std::forward<Args>(args)..., create_std_allocator<Ch>());
 			}

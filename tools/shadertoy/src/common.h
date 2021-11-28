@@ -21,16 +21,6 @@ using lotus::uninitialized;
 using lotus::zero_t;
 using lotus::zero;
 
-/// Assumes the given string is UTF-8 and returns a copy of it.
-[[nodiscard]] inline std::u8string assume_utf8(std::string_view s) {
-	return std::u8string(reinterpret_cast<const char8_t*>(s.data()), s.size());
-}
-
-/// Assumes the given string is UTF-8 and returns a view of it.
-[[nodiscard]] inline std::u8string_view assume_utf8_view(std::string_view s) {
-	return std::u8string_view(reinterpret_cast<const char8_t*>(s.data()), s.size());
-}
-
 /// Converts a UTF-8 string view into a generic string view.
 [[nodiscard]] inline std::string_view as_string(std::u8string_view sv) {
 	return std::string_view(reinterpret_cast<const char*>(sv.data()), sv.size());

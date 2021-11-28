@@ -11,6 +11,7 @@
 #include <dxcapi.h>
 
 #include "lotus/system/platforms/windows/window.h"
+#include "lotus/graphics/backends/common/dxc.h"
 #include "lotus/graphics/common.h"
 #include "details.h"
 #include "device.h"
@@ -22,7 +23,7 @@ namespace lotus::graphics::backends::directx12 {
 		/// Initializes the DXGI factory.
 		[[nodiscard]] static context create();
 
-		/// Enumerates the list of adapters using .
+		/// Enumerates the list of adapters using \p IDXGIFactory6::EnumAdapterByGpuPreference().
 		template <typename Callback> void enumerate_adapters(Callback &&cb) {
 			for (UINT i = 0; ; ++i) {
 				adapter adap = nullptr;
@@ -48,45 +49,49 @@ namespace lotus::graphics::backends::directx12 {
 	/// Contains DXC classes.
 	class shader_utility {
 	protected:
-		/// Contains a \p IDxcResult.
-		struct compilation_result {
+		/// Compilation result interface.
+		struct compilation_result : protected backends::common::dxc_compiler::compilation_result {
 			friend shader_utility;
 		protected:
-			/// Returns whether the result of \p IDxcResult::GetStatus() is success.
-			[[nodiscard]] bool succeeded() const;
-			/// Caches \ref _output if necessary, and returns it.
-			[[nodiscard]] std::u8string_view get_compiler_output();
-			/// Caches \ref _binary if necessary, and returns it.
-			[[nodiscard]] std::span<const std::byte> get_compiled_binary();
+			using _base = backends::common::dxc_compiler::compilation_result; ///< Base class.
+
+			/// Returns whether compilation succeeded.
+			[[nodiscard]] bool succeeded() const {
+				return _base::succeeded();
+			}
+			/// Returns compiler messages.
+			[[nodiscard]] std::u8string_view get_compiler_output() {
+				return _base::get_compiler_output();
+			}
+			/// Returns compiled binary.
+			[[nodiscard]] std::span<const std::byte> get_compiled_binary() {
+				return _base::get_compiled_binary();
+			}
 		private:
-			_details::com_ptr<IDxcResult> _result; ///< Result.
-			_details::com_ptr<IDxcBlob> _binary; ///< Cached compiled binary.
-			_details::com_ptr<IDxcBlobUtf8> _messages; ///< Cached compiler output.
+			/// Initializes the base object.
+			compilation_result(_base &&b) : _base(std::move(b)) {
+			}
 		};
 
 		/// Does nothing - everything is lazy initialized.
 		[[nodiscard]] static shader_utility create();
 
+		/// Compiles a shader.
+		[[nodiscard]] compilation_result compile_shader(
+			std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry,
+			std::span<const std::filesystem::path> include_paths,
+			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+		) {
+			return _compiler.compile_shader(
+				code_utf8, stage, entry, include_paths, defines, { L"-Ges", L"-Zi", L"-Zpr" }
+			);
+		}
+
 		/// Calls \p IDxcUtils::CreateReflection().
 		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte>);
 		/// Creates a reflection object for the compiled shader.
 		[[nodiscard]] shader_reflection load_shader_reflection(compilation_result&);
-		/// Calls \p IDxcCompiler3::Compile().
-		[[nodiscard]] compilation_result compile_shader(
-			std::span<const std::byte>, shader_stage, std::u8string_view entry_point,
-			std::span<const std::filesystem::path> include_paths
-		);
 	private:
-		_details::com_ptr<IDxcUtils> _dxc_utils; ///< Lazy-initialized DXC library handle.
-		_details::com_ptr<IDxcCompiler3> _dxc_compiler; ///< Lazy-initialized DXC compiler.
-		/// Lazy-initialized default DXC include handler.
-		_details::com_ptr<IDxcIncludeHandler> _dxc_include_handler;
-
-		/// Initializes \ref _dxc_utils if necessary, and returns it.
-		[[nodiscard]] IDxcUtils &_utils();
-		/// Initializes \ref _dxc_compiler if necessary, and returns it.
-		[[nodiscard]] IDxcCompiler3 &_compiler();
-		/// Initializes \ref _dxc_include_handler if necessary, and returns it.
-		[[nodiscard]] IDxcIncludeHandler &_include_handler();
+		backends::common::dxc_compiler _compiler = nullptr; ///< Interface to the DXC compiler.
 	};
 }

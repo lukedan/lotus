@@ -511,7 +511,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			result.semantic_name  = reinterpret_cast<const char8_t*>(desc.SemanticName);
 			result.semantic_index = desc.SemanticIndex;
 			for (auto &ch : result.semantic_name) {
-				ch = std::toupper(ch);
+				ch = static_cast<char8_t>(std::toupper(ch));
 			}
 			return result;
 		}

@@ -572,6 +572,13 @@ namespace lotus::graphics {
 		num_enumerators ///< The total numbers of enumerators.
 	};
 
+	/// The status of a swap chain.
+	enum class swap_chain_status {
+		ok,          ///< The swap chain is functioning properly.
+		suboptimal,  ///< The swap chain does not match the surface properties exactly but still works.
+		unavailable, ///< The swap chain is no longer usable.
+	};
+
 
 	/// Properties of an adapter.
 	struct adapter_properties {
@@ -1033,6 +1040,7 @@ namespace lotus::graphics {
 		std::size_t index; ///< Index of the back buffer.
 		/// Fence that will be triggered when this has finished presenting the previous frame. This can be empty.
 		fence *on_presented;
+		swap_chain_status status; ///< The status of this swapchain.
 	};
 
 

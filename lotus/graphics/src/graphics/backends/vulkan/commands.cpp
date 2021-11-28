@@ -244,13 +244,21 @@ namespace lotus::graphics::backends::vulkan {
 		_details::assert_vk(_queue.submit(info, on_completion ? on_completion->_fence.get() : nullptr));
 	}
 
-	void command_queue::present(swap_chain &target) {
+	swap_chain_status command_queue::present(swap_chain &target) {
 		vk::PresentInfoKHR info;
 		std::uint32_t index = target._frame_index;
 		info
 			.setSwapchains(target._swapchain.get())
 			.setImageIndices(index);
-		_details::assert_vk(_queue.presentKHR(info));
+		vk::Result res = _queue.presentKHR(&info);
+		if (res == vk::Result::eSuboptimalKHR) {
+			return swap_chain_status::suboptimal;
+		}
+		if (res == vk::Result::eErrorOutOfDateKHR || res == vk::Result::eErrorSurfaceLostKHR) {
+			return swap_chain_status::unavailable;
+		}
+		_details::assert_vk(res);
+		return swap_chain_status::ok;
 	}
 
 	void command_queue::signal(fence &f) {

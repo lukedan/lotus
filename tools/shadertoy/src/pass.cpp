@@ -239,7 +239,7 @@ void pass::load_input_images(
 }
 
 void pass::load_shader(
-	lgfx::device &dev, lgfx::shader_utility &shader_utils, lgfx::shader &vert_shader,
+	lgfx::device &dev, lgfx::shader_utility &shader_utils, lgfx::shader_binary &vert_shader,
 	lgfx::descriptor_set_layout &global_descriptors,
 	const std::filesystem::path &root, const error_callback &on_error
 ) {

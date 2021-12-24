@@ -14,6 +14,7 @@ namespace lotus::graphics::backends::directx12 {
 	class command_list;
 	class compute_pipeline_state;
 	class graphics_pipeline_state;
+	class raytracing_pipeline_state;
 	class shader_utility;
 
 	/// Contains a \p ID3D12ShaderReflection
@@ -56,11 +57,11 @@ namespace lotus::graphics::backends::directx12 {
 	};
 
 	/// Contains a \p D3D12_SHADER_BYTECODE.
-	class shader {
+	class shader_binary {
 		friend device;
 	protected:
-		/// Creates an empty shader object.
-		shader(std::nullptr_t) : _shader{} {
+		/// Creates an empty object.
+		shader_binary(std::nullptr_t) : _shader{} {
 		}
 	private:
 		// TODO allocator
@@ -74,6 +75,7 @@ namespace lotus::graphics::backends::directx12 {
 		friend device;
 		friend graphics_pipeline_state;
 		friend compute_pipeline_state;
+		friend raytracing_pipeline_state;
 	protected:
 		/// Creates an empty object.
 		pipeline_resources(std::nullptr_t) {
@@ -127,7 +129,34 @@ namespace lotus::graphics::backends::directx12 {
 	private:
 		/// Root parameter indices of all descriptor tables.
 		std::span<const pipeline_resources::_root_param_indices> _descriptor_table_binding;
-		_details::com_ptr<ID3D12PipelineState> _pipeline; ///< The \p ID3D12PipelineState object.
 		_details::com_ptr<ID3D12RootSignature> _root_signature; ///< The root signature.
+		_details::com_ptr<ID3D12PipelineState> _pipeline; ///< The \p ID3D12PipelineState object.
+	};
+
+	/// Contains a \p ID3D12RootSignature and a \p ID3D12StateObject.
+	class raytracing_pipeline_state {
+		friend device;
+		friend command_list;
+	protected:
+		/// Creates an empty state object.
+		raytracing_pipeline_state(std::nullptr_t) {
+		}
+	private:
+		/// Root parameter indices of all descriptor tables.
+		std::span<const pipeline_resources::_root_param_indices> _descriptor_table_binding;
+		_details::com_ptr<ID3D12RootSignature> _root_signature; ///< The root signature.
+		_details::com_ptr<ID3D12StateObject> _state; ///< The \p ID3D12PipelineState object.
+		_details::com_ptr<ID3D12StateObjectProperties> _properties; ///< Lazily-initialized state object properties.
+	};
+
+	/// Contains a \p void* that identifies a shader group.
+	class shader_group_handle {
+		friend device;
+	protected:
+		/// No initialization.
+		shader_group_handle(uninitialized_t) {
+		}
+	private:
+		std::array<std::byte, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES> _id; ///< Shader identifier data.
 	};
 }

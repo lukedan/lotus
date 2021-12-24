@@ -34,10 +34,13 @@ namespace lotus::graphics::backends::directx12 {
 		// TODO allocator
 		std::vector<D3D12_DESCRIPTOR_RANGE1> _ranges; ///< Descriptor ranges.
 		D3D12_SHADER_VISIBILITY _visibility; ///< Visibility to various shader stages.
-		UINT _num_shader_resource_descriptors; ///< The number of shader resource descriptors.
-		UINT _num_sampler_descriptors; ///< The number of sampler descriptors.
+		/// The number of shader resource descriptors. Does not include any range with unbounded size.
+		UINT _num_shader_resource_descriptors;
+		/// The number of sampler descriptors. Does not include any range with unbounded size.
+		UINT _num_sampler_descriptors;
 		/// The number of ranges in \ref _ranges that contain shader resources.
 		std::size_t _num_shader_resource_ranges;
+		bool _unbounded_range_is_sampler; ///< If there is a range with unbounded size, whether it's for samplers.
 
 		/// Finds the descriptor range that corresponds to the given register range, and makes sure that it's valid.
 		[[nodiscard]] std::vector<D3D12_DESCRIPTOR_RANGE1>::const_iterator _find_register_range(

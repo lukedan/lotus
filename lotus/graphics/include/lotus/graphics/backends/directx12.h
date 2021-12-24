@@ -3,6 +3,7 @@
 /// \file
 /// Sets up DirectX 12 to be the graphics backend.
 
+#include "directx12/acceleration_structure.h"
 #include "directx12/commands.h"
 #include "directx12/context.h"
 #include "directx12/descriptors.h"

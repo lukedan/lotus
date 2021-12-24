@@ -153,7 +153,7 @@ public:
 	);
 	/// Loads the shader and uses its reflection data to initialize the pipeline.
 	void load_shader(
-		lgfx::device&, lgfx::shader_utility&, lgfx::shader &vert_shader,
+		lgfx::device&, lgfx::shader_utility&, lgfx::shader_binary &vert_shader,
 		lgfx::descriptor_set_layout &global_descriptors,
 		const std::filesystem::path &root, const error_callback&
 	);
@@ -175,7 +175,7 @@ public:
 	std::u8string entry_point; ///< Shader entry point.
 	std::vector<std::pair<std::u8string, std::u8string>> defines; ///< Defines.
 
-	lgfx::shader shader = nullptr; ///< The shader.
+	lgfx::shader_binary shader = nullptr; ///< The shader.
 	lgfx::descriptor_set_layout descriptor_set_layout = nullptr; ///< Layout of the only descriptor set.
 	lgfx::pipeline_resources pipeline_resources = nullptr; ///< Pipeline resources.
 	lgfx::pass_resources pass_resources = nullptr; ///< Pass resources.

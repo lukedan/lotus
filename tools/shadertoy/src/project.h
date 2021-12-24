@@ -25,7 +25,7 @@ public:
 	void load_resources(
 		lgfx::device&, lgfx::shader_utility&,
 		lgfx::command_allocator&, lgfx::command_queue&,
-		lgfx::shader &vert_shader, lgfx::descriptor_set_layout &global_descriptors,
+		lgfx::shader_binary &vert_shader, lgfx::descriptor_set_layout &global_descriptors,
 		const std::filesystem::path &root, const error_callback&
 	);
 	/// Updates descriptor sets for all passes.

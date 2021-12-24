@@ -2,10 +2,18 @@
 
 #include "gbuffer_pass.h"
 
-class composite_pass {
+class raytrace_resolve_pass {
 public:
+	struct global_data {
+		global_data(uninitialized_t) {
+		}
+
+		std::uint32_t frame_index;
+	};
+
 	struct input_resources {
-		gfx::descriptor_set gbuffer_descriptor_set = nullptr;
+		gfx::buffer globals_buffer = nullptr;
+		gfx::descriptor_set descriptor_set = nullptr;
 	};
 	struct output_resources {
 		gfx::image2d_view image_view = nullptr;
@@ -16,7 +24,7 @@ public:
 		gfx::graphics_pipeline_state pipeline_state = nullptr;
 	};
 
-	composite_pass(gfx::device &dev) :
+	raytrace_resolve_pass(gfx::device &dev) :
 		_point_sampler(dev.create_sampler(
 			gfx::filtering::nearest, gfx::filtering::nearest, gfx::filtering::nearest,
 			0, 0, 0, std::nullopt,
@@ -25,32 +33,37 @@ public:
 		)),
 		_gbuffer_descriptors_layout(dev.create_descriptor_set_layout(
 			{
-				gfx::descriptor_range_binding::create(gfx::descriptor_type::read_only_image, 4, 0),
-				gfx::descriptor_range_binding::create(gfx::descriptor_type::sampler, 1, 4),
+				gfx::descriptor_range_binding::create(gfx::descriptor_type::read_only_image, 1, 0),
+				gfx::descriptor_range_binding::create(gfx::descriptor_type::sampler, 1, 1),
+				gfx::descriptor_range_binding::create(gfx::descriptor_type::constant_buffer, 1, 2),
 			},
 			gfx::shader_stage::all
 		)),
-		_pipeline_resources(dev.create_pipeline_resources({ &_gbuffer_descriptors_layout }))
-	{
-		auto vs_binary = load_binary_file("shaders/composite.vs.o");
-		auto ps_binary = load_binary_file("shaders/composite.ps.o");
+		_pipeline_resources(dev.create_pipeline_resources({ &_gbuffer_descriptors_layout })) {
+
+		auto vs_binary = load_binary_file("shaders/rt_resolve.vs.o");
+		auto ps_binary = load_binary_file("shaders/rt_resolve.ps.o");
 		_vertex_shader = dev.load_shader(vs_binary);
 		_pixel_shader = dev.load_shader(ps_binary);
 	}
 
 	void record_commands(
-		gfx::command_list &list, gfx::image &img, const input_resources &input_rsrc, const output_resources &output_rsrc
+		gfx::command_list &list, gfx::image &img, gfx::image &input, const input_resources &input_rsrc, const output_resources &output_rsrc
 	) {
 		list.resource_barrier(
 			{
 				gfx::image_barrier::create(gfx::subresource_index::first_color(), img, gfx::image_usage::present, gfx::image_usage::color_render_target),
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), input, gfx::image_usage::read_write_color_texture, gfx::image_usage::read_only_texture),
 			},
 			{}
 		);
 
+		list.set_viewports({ gfx::viewport::create(aab2f::create_from_min_max(zero, output_rsrc.viewport_size.into<float>()), 0.0f, 1.0f) });
+		list.set_scissor_rectangles({ aab2i::create_from_min_max(zero, output_rsrc.viewport_size.into<int>()) });
+
 		list.begin_pass(output_rsrc.pass_resources, output_rsrc.frame_buffer, { linear_rgba_f(0.0f, 0.0f, 0.0f, 0.0f) }, 0.0f, 0);
 		list.bind_pipeline_state(output_rsrc.pipeline_state);
-		list.bind_graphics_descriptor_sets(_pipeline_resources, 0, { &input_rsrc.gbuffer_descriptor_set });
+		list.bind_graphics_descriptor_sets(_pipeline_resources, 0, { &input_rsrc.descriptor_set });
 		list.draw_instanced(0, 3, 0, 1);
 		list.end_pass();
 
@@ -62,16 +75,18 @@ public:
 		);
 	}
 
-	[[nodiscard]] input_resources create_input_resources(gfx::device &dev, gfx::descriptor_pool &pool, const gbuffer::view &gbuf) const {
+	[[nodiscard]] input_resources create_input_resources(gfx::device &dev, gfx::descriptor_pool &pool, gfx::image2d_view &input) const {
 		input_resources result;
-		result.gbuffer_descriptor_set = dev.create_descriptor_set(pool, _gbuffer_descriptors_layout);
+		result.globals_buffer = dev.create_committed_buffer(sizeof(global_data), gfx::heap_type::upload, gfx::buffer_usage::mask::read_only_buffer);
+		result.descriptor_set = dev.create_descriptor_set(pool, _gbuffer_descriptors_layout);
 		dev.write_descriptor_set_read_only_images(
-			result.gbuffer_descriptor_set, _gbuffer_descriptors_layout, 0,
-			{ &gbuf.base_color_metalness, &gbuf.normal, &gbuf.gloss, &gbuf.depth_stencil }
+			result.descriptor_set, _gbuffer_descriptors_layout, 0, { &input }
 		);
 		dev.write_descriptor_set_samplers(
-			result.gbuffer_descriptor_set, _gbuffer_descriptors_layout, 4,
-			{ &_point_sampler }
+			result.descriptor_set, _gbuffer_descriptors_layout, 1, { &_point_sampler }
+		);
+		dev.write_descriptor_set_constant_buffers(
+			result.descriptor_set, _gbuffer_descriptors_layout, 2, { gfx::constant_buffer_view::create(result.globals_buffer, 0, sizeof(global_data)), }
 		);
 		return result;
 	}

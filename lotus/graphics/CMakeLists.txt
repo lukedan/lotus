@@ -5,6 +5,7 @@ set(LOTUS_GRAPHICS_BACKEND_INCLUDE_NAME "LOTUS_GRAPHICS_BACKEND_INCLUDE")
 set(LOTUS_GRAPHICS_COMMON_HEADERS
 	"include/lotus/graphics/backends/common/dxc.h"
 
+	"include/lotus/graphics/acceleration_structure.h"
 	"include/lotus/graphics/commands.h"
 	"include/lotus/graphics/common.h"
 	"include/lotus/graphics/context.h"
@@ -30,6 +31,7 @@ if(WIN32 AND LOTUS_GRAPHICS_USE_DIRECTX12)
 		PUBLIC
 			${LOTUS_GRAPHICS_COMMON_HEADERS}
 
+			"include/lotus/graphics/backends/directx12/acceleration_structure.h"
 			"include/lotus/graphics/backends/directx12/commands.h"
 			"include/lotus/graphics/backends/directx12/context.h"
 			"include/lotus/graphics/backends/directx12/descriptors.h"
@@ -45,6 +47,7 @@ if(WIN32 AND LOTUS_GRAPHICS_USE_DIRECTX12)
 		PRIVATE
 			${LOTUS_GRAPHICS_COMMON_SOURCES}
 
+			"src/graphics/backends/directx12/acceleration_structure.cpp"
 			"src/graphics/backends/directx12/commands.cpp"
 			"src/graphics/backends/directx12/context.cpp"
 			"src/graphics/backends/directx12/descriptors.cpp"
@@ -162,6 +165,7 @@ function(add_shader FILENAME STAGE ENTRY PROFILE DEPENDENT BACKEND)
 				-Zpr
 				-Zi
 				-Qembed_debug
+				#-no-legacy-cbuf-layout # somehow crashes the exe with access violation
 				${DXC_EXTRA_ARGS}
 		COMMENT "Compiling shader ${FILENAME}"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

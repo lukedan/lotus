@@ -73,10 +73,11 @@ namespace lotus::graphics::backends::directx12 {
 			auto &dst = result._ranges[i];
 			const auto &src = ranges[i];
 			dst = {};
-			dst.RangeType                         = _details::conversions::for_descriptor_type(src.range.type);
-			dst.NumDescriptors                    = static_cast<UINT>(src.range.count);
-			dst.BaseShaderRegister                = static_cast<UINT>(src.register_index);
-			dst.Flags                             = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
+			dst.RangeType          = _details::conversions::for_descriptor_type(src.range.type);
+			dst.NumDescriptors     =
+				src.range.count == descriptor_range::unbounded_count ? UINT_MAX : static_cast<UINT>(src.range.count);
+			dst.BaseShaderRegister = static_cast<UINT>(src.register_index);
+			dst.Flags              = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
 		}
 		// sort the ranges first by type, then by register index, so that we can find a range in O(logn) time
 		std::sort(
@@ -89,22 +90,42 @@ namespace lotus::graphics::backends::directx12 {
 			}
 		);
 		{ // assign descriptor indices
+			std::size_t unbounded_index = result._ranges.size(); // index of the range with unbounded size
 			UINT total_count = 0;
 			auto it = result._ranges.begin();
-			for (; it != result._ranges.end(); ++it) {
-				if (it->RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER) {
-					break;
+			for (; it != result._ranges.end() && it->RangeType != D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER; ++it) {
+				if (it->NumDescriptors == UINT_MAX) {
+					assert(unbounded_index == result._ranges.size()); // cannot have multiple
+					unbounded_index = it - result._ranges.begin();
+				} else {
+					it->OffsetInDescriptorsFromTableStart = total_count;
+					total_count += it->NumDescriptors;
 				}
-				it->OffsetInDescriptorsFromTableStart = total_count;
-				total_count += it->NumDescriptors;
 			}
 			result._num_shader_resource_descriptors = total_count;
 			result._num_shader_resource_ranges = it - result._ranges.begin();
+			// put the unbounded one at the very back
+			if (unbounded_index < result._ranges.size()) {
+				result._ranges[unbounded_index].OffsetInDescriptorsFromTableStart = total_count;
+				result._unbounded_range_is_sampler = false;
+			}
+
+			// samplers
 			total_count = 0;
 			for (; it != result._ranges.end(); ++it) {
 				assert(it->RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER);
-				it->OffsetInDescriptorsFromTableStart = total_count;
-				total_count += it->NumDescriptors;
+				if (it->NumDescriptors == UINT_MAX) { // not sure why anyone would want bindless samplers, but hey
+					assert(unbounded_index == result._ranges.size()); // cannot have multiple
+					unbounded_index = it - result._ranges.begin();
+				} else {
+					it->OffsetInDescriptorsFromTableStart = total_count;
+					total_count += it->NumDescriptors;
+				}
+			}
+			// put the unbounded one at the very back
+			if (unbounded_index < result._ranges.size() && unbounded_index > result._num_shader_resource_ranges) {
+				result._ranges[unbounded_index].OffsetInDescriptorsFromTableStart = total_count;
+				result._unbounded_range_is_sampler = true;
 			}
 			result._num_sampler_descriptors = total_count;
 		}
@@ -194,11 +215,11 @@ namespace lotus::graphics::backends::directx12 {
 
 	graphics_pipeline_state device::create_graphics_pipeline_state(
 		const pipeline_resources &resources,
-		const shader *vertex_shader,
-		const shader *pixel_shader,
-		const shader *domain_shader,
-		const shader *hull_shader,
-		const shader *geometry_shader,
+		const shader_binary *vertex_shader,
+		const shader_binary *pixel_shader,
+		const shader_binary *domain_shader,
+		const shader_binary *hull_shader,
+		const shader_binary *geometry_shader,
 		std::span<const render_target_blend_options> blend,
 		const rasterizer_options &rasterizer,
 		const depth_stencil_options &depth_stencil,
@@ -280,7 +301,7 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
-	compute_pipeline_state device::create_compute_pipeline_state(const pipeline_resources &rsrc, const shader &shader) {
+	compute_pipeline_state device::create_compute_pipeline_state(const pipeline_resources &rsrc, const shader_binary &shader) {
 		compute_pipeline_state result = nullptr;
 
 		D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
@@ -321,6 +342,13 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	descriptor_set device::create_descriptor_set(descriptor_pool &pool, const descriptor_set_layout &layout) {
+		// check that we don't have unbounded ranges
+		if constexpr (is_debugging) {
+			for (const auto &range : layout._ranges) {
+				assert(range.NumDescriptors != UINT_MAX);
+			}
+		}
+
 		// TODO check max values
 		descriptor_set result(*this);
 
@@ -335,13 +363,52 @@ namespace lotus::graphics::backends::directx12 {
 				static_cast<_details::descriptor_range::index_t>(layout._num_sampler_descriptors)
 			);
 		}
-		
+
 		// TODO update pool
 
 		return result;
 	}
 
-	void device::write_descriptor_set_images(
+	descriptor_set device::create_descriptor_set(
+		descriptor_pool &pool, const descriptor_set_layout &layout, std::size_t dynamic_count
+	) {
+		// check that we do have unbounded ranges
+		if constexpr (is_debugging) {
+			bool has_unbounded = false;
+			for (const auto &range : layout._ranges) {
+				if (range.NumDescriptors == UINT_MAX) {
+					has_unbounded = true;
+					break;
+				}
+			}
+			assert(has_unbounded);
+		}
+
+		// TODO check max values
+		descriptor_set result(*this);
+
+		// allocate descriptors
+		// shader resources
+		const auto srv_count = static_cast<_details::descriptor_range::index_t>(
+			layout._num_shader_resource_descriptors + (layout._unbounded_range_is_sampler ? 0 : dynamic_count)
+		);
+		if (srv_count > 0) {
+			result._shader_resource_descriptors = _srv_descriptors.allocate(srv_count);
+		}
+		// samplers
+		const auto sampler_count = static_cast<_details::descriptor_range::index_t>(
+			layout._num_sampler_descriptors + (layout._unbounded_range_is_sampler ? dynamic_count : 0)
+		);
+		if (sampler_count > 0) {
+			result._sampler_descriptors = _sampler_descriptors.allocate(sampler_count);
+		}
+
+		// TODO update pool
+
+		return result;
+	}
+
+	void device::write_descriptor_set_read_only_images(
 		descriptor_set &set, const descriptor_set_layout &layout,
 		std::size_t first_register, std::span<const image_view *const> images
 	) {
@@ -353,8 +420,8 @@ namespace lotus::graphics::backends::directx12 {
 			));
 		for (auto *base_view : images) {
 			auto *view = static_cast<const _details::image_view*>(base_view);
+			D3D12_SHADER_RESOURCE_VIEW_DESC desc = view->_srv_desc;
 			// make sure we're viewing depth textures with the correct format
-			D3D12_SHADER_RESOURCE_VIEW_DESC desc = view->_desc;
 			switch (desc.Format) {
 			case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
 				desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
@@ -365,9 +432,33 @@ namespace lotus::graphics::backends::directx12 {
 		}
 	}
 
-	void device::write_descriptor_set_buffers(
+	void device::write_descriptor_set_read_write_images(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		std::size_t first_register, std::span<const buffer_view> buffers
+		std::size_t first_register, std::span<const image_view *const> images
+	) {
+		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, first_register, images.size());
+		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor =
+			set._shader_resource_descriptors.get_cpu(static_cast<_details::descriptor_range::index_t>(
+				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
+			));
+		for (auto *base_view : images) {
+			auto *view = static_cast<const _details::image_view*>(base_view);
+			D3D12_UNORDERED_ACCESS_VIEW_DESC desc = view->_uav_desc;
+			// make sure we're viewing depth textures with the correct format
+			switch (desc.Format) {
+			case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+				desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+				break;
+			}
+			_device->CreateUnorderedAccessView(view->_image.Get(), nullptr, &desc, current_descriptor);
+			current_descriptor.ptr += increment;
+		}
+	}
+
+	void device::write_descriptor_set_read_only_structured_buffers(
+		descriptor_set &set, const descriptor_set_layout &layout,
+		std::size_t first_register, std::span<const structured_buffer_view> buffers
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, buffers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -382,7 +473,7 @@ namespace lotus::graphics::backends::directx12 {
 			desc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
 			desc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 			desc.Buffer.FirstElement        = static_cast<UINT64>(buf.first);
-			desc.Buffer.NumElements         = static_cast<UINT>(buf.size);
+			desc.Buffer.NumElements         = static_cast<UINT>(buf.count);
 			desc.Buffer.StructureByteStride = static_cast<UINT>(buf.stride);
 			desc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
 			_device->CreateShaderResourceView(buf_data->_buffer.Get(), &desc, current_descriptor);
@@ -430,8 +521,8 @@ namespace lotus::graphics::backends::directx12 {
 		}
 	}
 
-	shader device::load_shader(std::span<const std::byte> data) {
-		shader result = nullptr;
+	shader_binary device::load_shader(std::span<const std::byte> data) {
+		shader_binary result = nullptr;
 		result._code = std::vector<std::byte>(data.begin(), data.end());
 		result._shader.pShaderBytecode = result._code.data();
 		result._shader.BytecodeLength  = static_cast<SIZE_T>(result._code.size());
@@ -540,19 +631,26 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	image2d_view device::create_image2d_view_from(const image2d &img, format fmt, mip_levels mip) {
-		D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
-		desc.Format                        = _details::conversions::for_format(fmt);
-		desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE2D;
-		desc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		desc.Texture2D.MostDetailedMip     = static_cast<UINT>(mip.minimum);
-		desc.Texture2D.MipLevels           =
+		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+		srv_desc.Format                        = _details::conversions::for_format(fmt);
+		srv_desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srv_desc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srv_desc.Texture2D.MostDetailedMip     = static_cast<UINT>(mip.minimum);
+		srv_desc.Texture2D.MipLevels           =
 			static_cast<UINT>(mip.num_levels == mip_levels::all_mip_levels ? -1 : mip.num_levels);
-		desc.Texture2D.PlaneSlice          = 0;
-		desc.Texture2D.ResourceMinLODClamp = 0.0f;
+		srv_desc.Texture2D.PlaneSlice          = 0;
+		srv_desc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
+		uav_desc.Format               = srv_desc.Format;
+		uav_desc.ViewDimension        = D3D12_UAV_DIMENSION_TEXTURE2D;
+		uav_desc.Texture2D.MipSlice   = srv_desc.Texture2D.MostDetailedMip;
+		uav_desc.Texture2D.PlaneSlice = 0;
 
 		image2d_view result = nullptr;
 		result._image = img._image;
-		result._desc = desc;
+		result._srv_desc = srv_desc;
+		result._uav_desc = uav_desc;
 		return result;
 	}
 
@@ -628,6 +726,202 @@ namespace lotus::graphics::backends::directx12 {
 		));
 	}
 
+	acceleration_structure_build_sizes device::get_bottom_level_acceleration_structure_build_sizes(
+		const bottom_level_acceleration_structure_geometry &geom
+	) {
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info;
+		_device->GetRaytracingAccelerationStructurePrebuildInfo(&geom._inputs, &info);
+
+		acceleration_structure_build_sizes result = uninitialized;
+		result.acceleration_structure_size = info.ResultDataMaxSizeInBytes;
+		result.build_scratch_size          = info.ScratchDataSizeInBytes;
+		result.update_scratch_size         = info.UpdateScratchDataSizeInBytes;
+		return result;
+	}
+
+	acceleration_structure_build_sizes device::get_top_level_acceleration_structure_build_sizes(
+		const buffer &tlas_buf, std::size_t offset, std::size_t count
+	) {
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
+		inputs.Type          = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+		inputs.Flags         = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
+		inputs.NumDescs      = static_cast<UINT>(count);
+		inputs.DescsLayout   = D3D12_ELEMENTS_LAYOUT_ARRAY;
+		inputs.InstanceDescs = tlas_buf._buffer->GetGPUVirtualAddress() + offset;
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info;
+		_device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &info);
+
+		acceleration_structure_build_sizes result = uninitialized;
+		result.acceleration_structure_size = info.ResultDataMaxSizeInBytes;
+		result.build_scratch_size          = info.ScratchDataSizeInBytes;
+		result.update_scratch_size         = info.UpdateScratchDataSizeInBytes;
+		return result;
+	}
+
+	bottom_level_acceleration_structure device::create_bottom_level_acceleration_structure(
+		buffer &buf, std::size_t off, std::size_t // size doesn't matter
+	) {
+		bottom_level_acceleration_structure res = nullptr;
+		res._buffer = buf._buffer;
+		res._offset = off;
+		return res;
+	}
+
+	top_level_acceleration_structure device::create_top_level_acceleration_structure(
+		buffer &buf, std::size_t off, std::size_t // size doesn't matter
+	) {
+		top_level_acceleration_structure res = nullptr;
+		res._buffer = buf._buffer;
+		res._offset = off;
+		return res;
+	}
+
+	void device::write_descriptor_set_acceleration_structures(
+		descriptor_set &set, const descriptor_set_layout &layout, std::size_t first_register,
+		std::span<graphics::top_level_acceleration_structure *const> as
+	) {
+		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, as.size());
+		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = 
+			set._shader_resource_descriptors.get_cpu(static_cast<_details::descriptor_range::index_t>(
+				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
+			));
+		for (auto *buf : as) {
+			D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+			desc.Format                                   = DXGI_FORMAT_UNKNOWN;
+			desc.ViewDimension                            = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+			desc.Shader4ComponentMapping                  = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			desc.RaytracingAccelerationStructure.Location = buf->_buffer->GetGPUVirtualAddress() + buf->_offset;
+			_device->CreateShaderResourceView(nullptr, &desc, current_descriptor);
+			current_descriptor.ptr += increment;
+		}
+	}
+
+	shader_group_handle device::get_shader_group_handle(raytracing_pipeline_state &pipeline, std::size_t index) {
+		if (!pipeline._properties) {
+			_details::assert_dx(pipeline._state->QueryInterface(IID_PPV_ARGS(&pipeline._properties)));
+		}
+		shader_group_handle result = uninitialized;
+		void *ptr = pipeline._properties->GetShaderIdentifier(_details::shader_record_name(index));
+		assert(ptr);
+		std::memcpy(result._id.data(), ptr, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
+		return result;
+	}
+
+	raytracing_pipeline_state device::create_raytracing_pipeline_state(
+		std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
+		std::span<const shader_function> general_shaders,
+		std::size_t max_recursion, std::size_t max_payload_size, std::size_t max_attribute_size,
+		pipeline_resources &rsrc
+	) {
+		raytracing_pipeline_state result = nullptr;
+
+		result._descriptor_table_binding = rsrc._descriptor_table_binding;
+		result._root_signature = rsrc._signature;
+
+		std::size_t num_subobjects = hit_group_shaders.size() + hit_groups.size() + general_shaders.size() + 3;
+
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto subobjects = bookmark.create_reserved_vector_array<D3D12_STATE_SUBOBJECT>(num_subobjects);
+
+		// root signature
+		D3D12_GLOBAL_ROOT_SIGNATURE root_signature = {};
+		root_signature.pGlobalRootSignature = rsrc._signature.Get();
+		{
+			auto &obj = subobjects.emplace_back();
+			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE;
+			obj.pDesc = &root_signature;
+		}
+
+		// pipeline settings
+		D3D12_RAYTRACING_SHADER_CONFIG shader_config = {};
+		shader_config.MaxPayloadSizeInBytes   = max_payload_size;
+		shader_config.MaxAttributeSizeInBytes = max_attribute_size;
+		{
+			auto &obj = subobjects.emplace_back();
+			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
+			obj.pDesc = &shader_config;
+		}
+		D3D12_RAYTRACING_PIPELINE_CONFIG pipeline_config = {};
+		pipeline_config.MaxTraceRecursionDepth = max_recursion;
+		{
+			auto &obj = subobjects.emplace_back();
+			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
+			obj.pDesc = &pipeline_config;
+		}
+
+		std::size_t first_shader_subject = subobjects.size();
+
+		// shaders
+		// these arrays must be reserved or the objects may be moved and cause pointers to be invalidated
+		std::size_t num_shaders = hit_group_shaders.size() + general_shaders.size();
+		auto shader_libs = bookmark.create_reserved_vector_array<D3D12_DXIL_LIBRARY_DESC>(num_shaders);
+		auto shader_exports = bookmark.create_reserved_vector_array<D3D12_EXPORT_DESC>(num_shaders);
+		auto shader_names = bookmark.create_reserved_vector_array<stack_allocator::string_type<WCHAR>>(num_shaders);
+		auto add_shader = [&](const shader_function &sh, LPCWSTR export_name) {
+			auto name = shader_names.emplace_back(
+				system::platforms::windows::_details::u8string_to_wstring(
+					sh.entry_point, bookmark.create_std_allocator<WCHAR>()
+				)
+			);
+
+			auto &exp = shader_exports.emplace_back();
+			exp.ExportToRename = name.c_str();
+			exp.Name           = export_name;
+
+			auto &lib = shader_libs.emplace_back();
+			lib.DXILLibrary = sh.code->_shader;
+			lib.NumExports  = 1;
+			lib.pExports    = &exp;
+
+			auto &obj = subobjects.emplace_back();
+			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
+			obj.pDesc = &lib;
+		};
+		// hit group shaders
+		for (std::size_t i = 0; i < hit_group_shaders.size(); ++i) {
+			add_shader(hit_group_shaders[i], _details::shader_name(i));
+		}
+
+		// hit groups
+		auto hit_shader_groups = bookmark.create_reserved_vector_array<D3D12_HIT_GROUP_DESC>(hit_groups.size());
+		for (std::size_t i = 0; i < hit_groups.size(); ++i) {
+			const auto &group = hit_groups[i];
+
+			auto &gp = hit_shader_groups.emplace_back();
+			gp.HitGroupExport           = _details::shader_record_name(i);
+			gp.Type                     = D3D12_HIT_GROUP_TYPE_TRIANGLES;
+			gp.AnyHitShaderImport       =
+				group.any_hit_shader_index == hit_shader_group::no_shader ?
+				nullptr : _details::shader_name(group.any_hit_shader_index);
+			gp.ClosestHitShaderImport   =
+				group.closest_hit_shader_index == hit_shader_group::no_shader ?
+				nullptr : _details::shader_name(group.closest_hit_shader_index);
+			gp.IntersectionShaderImport = nullptr;
+
+			auto &obj = subobjects.emplace_back();
+			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
+			obj.pDesc = &gp;
+		}
+
+		// general shaders
+		for (std::size_t i = 0; i < general_shaders.size(); ++i) {
+			add_shader(general_shaders[i], _details::shader_record_name(i + hit_groups.size()));
+		}
+
+		// make sure we haven't invalidated any pointers
+		assert(shader_libs.size() == num_shaders);
+		assert(subobjects.size() == num_subobjects);
+
+		D3D12_STATE_OBJECT_DESC desc = {};
+		desc.Type          = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
+		desc.NumSubobjects = subobjects.size();
+		desc.pSubobjects   = subobjects.data();
+		_details::assert_dx(_device->CreateStateObject(&desc, IID_PPV_ARGS(&result._state)));
+
+		return result;
+	}
+
 	device::device(_details::com_ptr<ID3D12Device8> dev) : _device(std::move(dev)) {
 		_rtv_descriptors.initialize(*_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, descriptor_heap_size);
 		_dsv_descriptors.initialize(*_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, descriptor_heap_size);
@@ -649,15 +943,19 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	adapter_properties adapter::get_properties() const {
-		adapter_properties result = uninitialized;
 		DXGI_ADAPTER_DESC1 desc;
 		_details::assert_dx(_adapter->GetDesc1(&desc));
-		result.is_software = desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE;
-		result.constant_buffer_alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
-		result.name = system::platforms::windows::_details::wstring_to_u8string(
-			desc.Description, std::allocator<char8_t>()
-		);
-		result.is_discrete = true; // TODO
+
+		adapter_properties result = uninitialized;
+		result.name                             =
+			system::platforms::windows::_details::wstring_to_u8string(desc.Description, std::allocator<char8_t>());
+		result.is_software                      = desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE;
+		result.is_discrete                      = true; // TODO
+		result.constant_buffer_alignment        = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+		result.acceleration_structure_alignment = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT;
+		result.shader_record_alignment          = D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT;
+		result.shader_record_table_alignment    = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT;
+
 		// TODO
 		return result;
 	}

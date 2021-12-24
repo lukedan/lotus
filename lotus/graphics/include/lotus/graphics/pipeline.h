@@ -83,28 +83,28 @@ namespace lotus::graphics {
 		}
 	};
 
-	/// A shader.
-	class shader : public backend::shader {
+	/// Shader binary that contains one or more shaders.
+	class shader_binary : public backend::shader_binary {
 		friend device;
 	public:
-		/// Creates an empty shader object.
-		shader(std::nullptr_t) : backend::shader(nullptr) {
+		/// Creates an empty object.
+		shader_binary(std::nullptr_t) : backend::shader_binary(nullptr) {
 		}
 		/// Move constructor.
-		shader(shader &&src) : backend::shader(std::move(src)) {
+		shader_binary(shader_binary &&src) : backend::shader_binary(std::move(src)) {
 		}
 		/// No copy construction.
-		shader(const shader&) = delete;
+		shader_binary(const shader_binary&) = delete;
 		/// Move assignment.
-		shader &operator=(shader &&src) {
-			backend::shader::operator=(std::move(src));
+		shader_binary &operator=(shader_binary &&src) {
+			backend::shader_binary::operator=(std::move(src));
 			return *this;
 		}
 		/// No copy assignment.
-		shader &operator=(const shader&) = delete;
+		shader_binary &operator=(const shader_binary&) = delete;
 	protected:
 		/// Initializes the base object.
-		shader(backend::shader &&base) : backend::shader(std::move(base)) {
+		shader_binary(backend::shader_binary &&base) : backend::shader_binary(std::move(base)) {
 		}
 	};
 
@@ -115,11 +115,11 @@ namespace lotus::graphics {
 		}
 		/// Creates a \ref shader_set object.
 		[[nodiscard]] inline static shader_set create(
-			const shader &vert,
-			const shader &pix,
-			const shader *domain = nullptr,
-			const shader *hull = nullptr,
-			const shader *geometry = nullptr
+			const shader_binary &vert,
+			const shader_binary &pix,
+			const shader_binary *domain = nullptr,
+			const shader_binary *hull = nullptr,
+			const shader_binary *geometry = nullptr
 		) {
 			shader_set result = uninitialized;
 			result.vertex_shader = &vert;
@@ -130,11 +130,11 @@ namespace lotus::graphics {
 			return result;
 		}
 
-		const shader *vertex_shader;
-		const shader *pixel_shader;
-		const shader *domain_shader;
-		const shader *hull_shader;
-		const shader *geometry_shader;
+		const shader_binary *vertex_shader;
+		const shader_binary *pixel_shader;
+		const shader_binary *domain_shader;
+		const shader_binary *hull_shader;
+		const shader_binary *geometry_shader;
 	};
 
 	/// Resources (textures, buffers, etc.) used by a rendering pipeline.
@@ -213,4 +213,45 @@ namespace lotus::graphics {
 			backend::compute_pipeline_state(std::move(base)) {
 		}
 	};
+
+	/// Describes the full state of the raytracing pipeline.
+	class raytracing_pipeline_state : public backend::raytracing_pipeline_state {
+		friend device;
+	public:
+		/// Creates an empty pipeline state object.
+		raytracing_pipeline_state(std::nullptr_t) : backend::raytracing_pipeline_state(nullptr) {
+		}
+		/// Move construction.
+		raytracing_pipeline_state(raytracing_pipeline_state &&src) :
+			backend::raytracing_pipeline_state(std::move(src)) {
+		}
+		/// No copy construction.
+		raytracing_pipeline_state(const raytracing_pipeline_state&) = delete;
+		/// Move assignment.
+		raytracing_pipeline_state &operator=(raytracing_pipeline_state &&src) {
+			backend::raytracing_pipeline_state::operator=(std::move(src));
+			return *this;
+		}
+		/// No copy assignment.
+		raytracing_pipeline_state &operator=(const raytracing_pipeline_state&) = delete;
+	protected:
+		/// Initializes the base object.
+		raytracing_pipeline_state(backend::raytracing_pipeline_state &&base) :
+			backend::raytracing_pipeline_state(std::move(base)) {
+		}
+	};
+
+	/// A POD data type for handles of shader groups, used for raytracing.
+	class shader_group_handle : public backend::shader_group_handle {
+		friend device;
+	public:
+		/// Initializes the handle to empty.
+		shader_group_handle(uninitialized_t) : backend::shader_group_handle(uninitialized) {
+		}
+	protected:
+		/// Initializes the base object.
+		shader_group_handle(backend::shader_group_handle &&base) : backend::shader_group_handle(std::move(base)) {
+		}
+	};
+	static_assert(sizeof(shader_group_handle) == sizeof(backend::shader_group_handle), "Object size mismatch");
 }

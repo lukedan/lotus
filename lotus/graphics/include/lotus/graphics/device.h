@@ -7,6 +7,7 @@
 
 #include "lotus/common.h"
 #include LOTUS_GRAPHICS_BACKEND_INCLUDE
+#include "acceleration_structure.h"
 #include "commands.h"
 #include "descriptors.h"
 #include "pass.h"
@@ -81,34 +82,57 @@ namespace lotus::graphics {
 		) {
 			return backend::device::create_descriptor_set(pool, layout);
 		}
+		/// Allocates a new \ref descriptor_set from the given \ref descriptor_pool, where one descriptor range in
+		/// the set has dynamic (unbounded) size that is specified using the additional parameter.
+		[[nodiscard]] descriptor_set create_descriptor_set(
+			descriptor_pool &pool, const descriptor_set_layout &layout, std::size_t dynamic_size
+		) {
+			return backend::device::create_descriptor_set(pool, layout, dynamic_size);
+		}
 
 		/// Updates the descriptors in the set with the given read-only images.
-		void write_descriptor_set_images(
+		void write_descriptor_set_read_only_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
 			std::size_t first_register, std::span<const image_view *const> images
 		) {
-			backend::device::write_descriptor_set_images(set, layout, first_register, images);
+			backend::device::write_descriptor_set_read_only_images(set, layout, first_register, images);
 		}
 		/// \overload
-		void write_descriptor_set_images(
+		void write_descriptor_set_read_only_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
 			std::size_t first_register, std::initializer_list<const image_view*> images
 		) {
-			write_descriptor_set_images(set, layout, first_register, { images.begin(), images.end() });
+			write_descriptor_set_read_only_images(set, layout, first_register, { images.begin(), images.end() });
 		}
-		/// Updates the descriptors in the set with the given read-only buffers.
-		void write_descriptor_set_buffers(
+		/// Updates the descriptors in the set with the given read-write images.
+		void write_descriptor_set_read_write_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::span<const buffer_view> buffers
+			std::size_t first_register, std::span<const image_view *const> images
 		) {
-			backend::device::write_descriptor_set_buffers(set, layout, first_register, buffers);
+			backend::device::write_descriptor_set_read_write_images(set, layout, first_register, images);
 		}
 		/// \overload
-		void write_descriptor_set_buffers(
+		void write_descriptor_set_read_write_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::initializer_list<buffer_view> buffers
+			std::size_t first_register, std::initializer_list<const image_view*> images
 		) {
-			write_descriptor_set_buffers(set, layout, first_register, { buffers.begin(), buffers.end() });
+			write_descriptor_set_read_write_images(set, layout, first_register, { images.begin(), images.end() });
+		}
+		/// Updates the descriptors in the set with the given read-only structured buffers.
+		void write_descriptor_set_read_only_structured_buffers(
+			descriptor_set &set, const descriptor_set_layout &layout,
+			std::size_t first_register, std::span<const structured_buffer_view> buffers
+		) {
+			backend::device::write_descriptor_set_read_only_structured_buffers(set, layout, first_register, buffers);
+		}
+		/// \overload
+		void write_descriptor_set_read_only_structured_buffers(
+			descriptor_set &set, const descriptor_set_layout &layout,
+			std::size_t first_register, std::initializer_list<structured_buffer_view> buffers
+		) {
+			write_descriptor_set_read_only_structured_buffers(
+				set, layout, first_register, { buffers.begin(), buffers.end() }
+			);
 		}
 		/// Updates the descriptors in the set with the given constant buffers.
 		void write_descriptor_set_constant_buffers(
@@ -141,7 +165,7 @@ namespace lotus::graphics {
 
 		/// Loads the given compiled shader. It's assumed that the input data would live as long as the shader
 		/// object.
-		[[nodiscard]] shader load_shader(std::span<const std::byte> data) {
+		[[nodiscard]] shader_binary load_shader(std::span<const std::byte> data) {
 			return backend::device::load_shader(data);
 		}
 
@@ -233,7 +257,7 @@ namespace lotus::graphics {
 		}
 		/// Creates a \ref compute_pipeline_state object.
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(
-			const pipeline_resources &resources, const shader &compute_shader
+			const pipeline_resources &resources, const shader_binary &compute_shader
 		) {
 			return backend::device::create_compute_pipeline_state(resources, compute_shader);
 		}
@@ -374,6 +398,86 @@ namespace lotus::graphics {
 		/// \overload
 		void set_debug_name(image &img, const std::u8string &name) {
 			set_debug_name(img, name.c_str());
+		}
+
+
+		// ray-tracing related
+		/// Queries size information for the given bottom level acceleration structure.
+		[[nodiscard]] acceleration_structure_build_sizes get_bottom_level_acceleration_structure_build_sizes(
+			const bottom_level_acceleration_structure_geometry &geom
+		) {
+			return backend::device::get_bottom_level_acceleration_structure_build_sizes(geom);
+		}
+		/// Queries size information for the given top level acceleration structure.
+		[[nodiscard]] acceleration_structure_build_sizes get_top_level_acceleration_structure_build_sizes(
+			const buffer &top_level_buf, std::size_t offset, std::size_t count
+		) {
+			return backend::device::get_top_level_acceleration_structure_build_sizes(top_level_buf, offset, count);
+		}
+		/// Creates an uninitialized bottom-level acceleration structure object.
+		[[nodiscard]] bottom_level_acceleration_structure create_bottom_level_acceleration_structure(
+			buffer &buf, std::size_t offset, std::size_t size
+		) {
+			return backend::device::create_bottom_level_acceleration_structure(buf, offset, size);
+		}
+		/// Creates an uninitialized top-level acceleration structure object.
+		[[nodiscard]] top_level_acceleration_structure create_top_level_acceleration_structure(
+			buffer &buf, std::size_t offset, std::size_t size
+		) {
+			return backend::device::create_top_level_acceleration_structure(buf, offset, size);
+		}
+
+		/// Updates the descriptors in the set with the given acceleration structures.
+		void write_descriptor_set_acceleration_structures(
+			descriptor_set &set, const descriptor_set_layout &layout, std::size_t first_register,
+			std::span<top_level_acceleration_structure *const> acceleration_structures
+		) {
+			backend::device::write_descriptor_set_acceleration_structures(
+				set, layout, first_register, acceleration_structures
+			);
+		}
+		/// \override
+		void write_descriptor_set_acceleration_structures(
+			descriptor_set &set, const descriptor_set_layout &layout, std::size_t first_register,
+			std::initializer_list<top_level_acceleration_structure*> acceleration_structures
+		) {
+			write_descriptor_set_acceleration_structures(
+				set, layout, first_register, { acceleration_structures.begin(), acceleration_structures.end() }
+			);
+		}
+
+		/// Returns a handle to the shader group at the given index.
+		[[nodiscard]] shader_group_handle get_shader_group_handle(
+			raytracing_pipeline_state &pipeline, std::size_t index
+		) {
+			return backend::device::get_shader_group_handle(pipeline, index);
+		}
+
+		/// Creates a \ref raytracing_pipeline_state.
+		[[nodiscard]] raytracing_pipeline_state create_raytracing_pipeline_state(
+			std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
+			std::span<const shader_function> general_shaders,
+			std::size_t max_recursion_depth, std::size_t max_payload_size, std::size_t max_attribute_size,
+			pipeline_resources &rsrc
+		) {
+			return backend::device::create_raytracing_pipeline_state(
+				hit_group_shaders, hit_groups, general_shaders,
+				max_recursion_depth, max_payload_size, max_attribute_size, rsrc
+			);
+		}
+		/// \overload
+		[[nodiscard]] raytracing_pipeline_state create_raytracing_pipeline_state(
+			std::initializer_list<shader_function> hit_group_shaders,
+			std::initializer_list<hit_shader_group> hit_groups,
+			std::initializer_list<shader_function> general_shaders,
+			std::size_t max_recursion_depth, std::size_t max_payload_size, std::size_t max_attribute_size,
+			pipeline_resources &rsrc
+		) {
+			return create_raytracing_pipeline_state(
+				{ hit_group_shaders.begin(), hit_group_shaders.end() }, { hit_groups.begin(), hit_groups.end() },
+				{ general_shaders.begin(), general_shaders.end() },
+				max_recursion_depth, max_payload_size, max_attribute_size, rsrc
+			);
 		}
 	protected:
 		/// Creates a device from a backend device.

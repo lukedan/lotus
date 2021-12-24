@@ -7,6 +7,7 @@
 
 #include "lotus/color.h"
 #include "lotus/math/aab.h"
+#include "acceleration_structure.h"
 #include "details.h"
 #include "pass.h"
 #include "resources.h"
@@ -102,6 +103,27 @@ namespace lotus::graphics::backends::directx12 {
 		void end_pass();
 		/// Calls \p ID3D12GraphicsCommandList::Close().
 		void finish();
+
+
+		/// Calls \p ID3D12GraphicsCommandList4::BuildRaytracingAccelerationStructure().
+		void build_acceleration_structure(
+			const bottom_level_acceleration_structure_geometry&,
+			bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+		);
+		/// Calls \p ID3D12GraphicsCommandList4::BuildRaytracingAccelerationStructure().
+		void build_acceleration_structure(
+			const buffer &instances, std::size_t offset, std::size_t count,
+			top_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+		);
+
+		/// Calls \p ID3D12GraphicsCommandList4::SetPipelineState1().
+		void bind_pipeline_state(const raytracing_pipeline_state&);
+		/// Calls \p ID3D12GraphicsCommandList4::DispatchRays().
+		void trace_rays(
+			constant_buffer_view ray_geneneration,
+			shader_record_view miss_shaders, shader_record_view hit_groups,
+			std::size_t width, std::size_t height, std::size_t depth
+		);
 	private:
 		_details::com_ptr<ID3D12GraphicsCommandList4> _list; ///< The command list.
 		std::array<ID3D12DescriptorHeap*, 2> _descriptor_heaps; ///< Descriptor heaps.

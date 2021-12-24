@@ -43,11 +43,17 @@ namespace lotus::graphics::backends::common {
 		std::span<const LPCWSTR> extra_args
 	) {
 		constexpr static enum_mapping<shader_stage, std::string_view> stage_names{
-			std::pair(shader_stage::all,             "INVALID"),
-			std::pair(shader_stage::vertex_shader,   "vs"),
-			std::pair(shader_stage::geometry_shader, "gs"),
-			std::pair(shader_stage::pixel_shader,    "ps"),
-			std::pair(shader_stage::compute_shader,  "cs"),
+			std::pair(shader_stage::all,                   "INVALID"),
+			std::pair(shader_stage::vertex_shader,         "vs" ),
+			std::pair(shader_stage::geometry_shader,       "gs" ),
+			std::pair(shader_stage::pixel_shader,          "ps" ),
+			std::pair(shader_stage::compute_shader,        "cs" ),
+			std::pair(shader_stage::callable_shader,       "lib"),
+			std::pair(shader_stage::ray_generation_shader, "lib"),
+			std::pair(shader_stage::intersection_shader,   "lib"),
+			std::pair(shader_stage::any_hit_shader,        "lib"),
+			std::pair(shader_stage::closest_hit_shader,    "lib"),
+			std::pair(shader_stage::miss_shader,           "lib"),
 		};
 		using _wstring = stack_allocator::string_type<WCHAR>;
 
@@ -57,7 +63,7 @@ namespace lotus::graphics::backends::common {
 
 		char profile_ascii[10];
 		auto fmt_result = std::format_to_n(
-			profile_ascii, std::size(profile_ascii) - 1, "{}_{}_{}", stage_names[stage], 6, 0
+			profile_ascii, std::size(profile_ascii) - 1, "{}_{}_{}", stage_names[stage], 6, 3
 		);
 		assert(static_cast<std::size_t>(fmt_result.size) + 1 < std::size(profile_ascii));
 		profile_ascii[fmt_result.size] = L'\0';

@@ -86,22 +86,22 @@ public:
 	struct input_resources {
 		gfx::buffer constant_buffer = nullptr;
 		gfx::descriptor_set constant_descriptor_set = nullptr;
-		std::vector<std::vector<gfx::graphics_pipeline_state>> pipeline_states;
 	};
 	struct output_resources {
 		gfx::frame_buffer frame_buffer = nullptr;
 		cvec2s viewport_size = uninitialized;
 	};
 
-	gbuffer_pass(gfx::device &dev, const gfx::descriptor_set_layout &mat_set_layout, const gfx::descriptor_set_layout &node_set_layout) :
+	gbuffer_pass(gfx::device &dev, const gfx::descriptor_set_layout &textures_layout, const gfx::descriptor_set_layout &mat_set_layout, const gfx::descriptor_set_layout &node_set_layout) :
 		_constant_descriptors_layout(dev.create_descriptor_set_layout(
 			{
 				gfx::descriptor_range_binding::create(gfx::descriptor_range::create(gfx::descriptor_type::constant_buffer, 1), 0),
+				gfx::descriptor_range_binding::create(gfx::descriptor_type::sampler, 1, 1),
 			},
 			gfx::shader_stage::all
 		)),
 		_pipeline_resources(dev.create_pipeline_resources(
-			{ &mat_set_layout, &node_set_layout, &_constant_descriptors_layout }
+			{ &textures_layout, &mat_set_layout, &node_set_layout, &_constant_descriptors_layout }
 		)),
 		_pass_resources(dev.create_pass_resources(
 			{
@@ -120,6 +120,30 @@ public:
 		_ps_binary = load_binary_file("shaders/gbuffer.ps.o");
 		_vertex_shader = dev.load_shader(_vs_binary);
 		_pixel_shader = dev.load_shader(_ps_binary);
+
+		auto shaders = gfx::shader_set::create(_vertex_shader, _pixel_shader);
+		auto rasterizer = gfx::rasterizer_options::create(gfx::depth_bias_options::disabled(), gfx::front_facing_mode::counter_clockwise, gfx::cull_mode::none);
+		auto depth_stencil = gfx::depth_stencil_options::create(
+			true, true, gfx::comparison_function::greater,
+			false, 0, 0, gfx::stencil_options::always_pass_no_op(), gfx::stencil_options::always_pass_no_op()
+		);
+		std::vector<gfx::input_buffer_element> vert_buffer_elements{
+			gfx::input_buffer_element::create(u8"POSITION", 0, gfx::format::r32g32b32_float, offsetof(scene_resources::vertex, position)),
+			gfx::input_buffer_element::create(u8"NORMAL", 0, gfx::format::r32g32b32_float, offsetof(scene_resources::vertex, normal)),
+			gfx::input_buffer_element::create(u8"TANGENT", 0, gfx::format::r32g32b32a32_float, offsetof(scene_resources::vertex, tangent)),
+			gfx::input_buffer_element::create(u8"TEXCOORD", 0, gfx::format::r32g32_float, offsetof(scene_resources::vertex, uv)),
+		};
+		_pipeline_state = dev.create_graphics_pipeline_state(
+			_pipeline_resources, shaders,
+			{
+				gfx::render_target_blend_options::disabled(),
+				gfx::render_target_blend_options::disabled(),
+				gfx::render_target_blend_options::disabled(),
+			},
+			rasterizer, depth_stencil,
+			{ gfx::input_buffer_layout::create_vertex_buffer<scene_resources::vertex>(vert_buffer_elements, 0) },
+			gfx::primitive_topology::triangle_list, _pass_resources
+		);
 	}
 
 	void record_commands(
@@ -156,22 +180,20 @@ public:
 			const auto &mesh = model.meshes[node.mesh];
 			for (std::size_t prim_i = 0; prim_i < mesh.primitives.size(); ++prim_i) {
 				const auto &prim = mesh.primitives[prim_i];
+				const auto &instance = model_rsrc.instances[model_rsrc.instance_indices[node.mesh][prim_i]];
 
-				std::vector<gfx::vertex_buffer> vert_buffers;
-				vert_buffers.reserve(prim.attributes.size());
-				for (const auto &attr : prim.attributes) {
-					const auto &accessor = model.accessors[attr.second];
-					const auto &view = model.bufferViews[accessor.bufferView];
-					vert_buffers.emplace_back(gfx::vertex_buffer::from_buffer_offset_stride(
-						model_rsrc.buffers[view.buffer], view.byteOffset, accessor.ByteStride(view)
-					));
-				}
+				std::vector<gfx::vertex_buffer> vert_buffers{
+					gfx::vertex_buffer::from_buffer_offset_stride(
+						model_rsrc.vertex_buffer, sizeof(scene_resources::vertex) * instance.first_vertex, sizeof(scene_resources::vertex)
+					)
+				};
 
-				list.bind_pipeline_state(input_rsrc.pipeline_states[node.mesh][prim_i]);
+				list.bind_pipeline_state(_pipeline_state);
 				list.bind_vertex_buffers(0, vert_buffers);
 				list.bind_graphics_descriptor_sets(
 					_pipeline_resources, 0,
 					{
+						&model_rsrc.textures_descriptor_set,
 						&model_rsrc.material_descriptor_sets[prim.material],
 						&model_rsrc.node_descriptor_sets[node_i],
 						&input_rsrc.constant_descriptor_set
@@ -182,20 +204,7 @@ public:
 					list.draw_instanced(0, model.accessors[prim.attributes.begin()->second].count, node_i, 1);
 				} else {
 					const auto &index_accessor = model.accessors[prim.indices];
-					const auto &index_buf_view = model.bufferViews[index_accessor.bufferView];
-					gfx::index_format fmt;
-					switch (index_accessor.componentType) {
-					case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
-						fmt = gfx::index_format::uint16;
-						break;
-					case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
-						fmt = gfx::index_format::uint32;
-						break;
-					default:
-						std::cerr << "Unhandled index buffer format: " << index_accessor.componentType << std::endl;
-						continue;
-					}
-					list.bind_index_buffer(model_rsrc.buffers[index_buf_view.buffer], index_buf_view.byteOffset, fmt);
+					list.bind_index_buffer(model_rsrc.index_buffer, sizeof(std::uint32_t) * instance.first_index, gfx::index_format::uint32);
 					list.draw_indexed_instanced(0, index_accessor.count, 0, 0, 1);
 				}
 			}
@@ -215,7 +224,7 @@ public:
 	}
 
 	[[nodiscard]] input_resources create_input_resources(
-		gfx::device &dev, const gfx::adapter_properties &props, gfx::descriptor_pool &pool, const gltf::Model &model, const scene_resources &rsrc
+		gfx::device &dev, const gfx::adapter_properties &props, gfx::descriptor_pool &pool, gfx::sampler &sampler, const gltf::Model &model, const scene_resources &rsrc
 	) const {
 		input_resources result;
 
@@ -231,27 +240,10 @@ public:
 				gfx::constant_buffer_view::create(result.constant_buffer, 0, sizeof(constants)),
 			}
 		);
+		dev.write_descriptor_set_samplers(
+			result.constant_descriptor_set, _constant_descriptors_layout, 1, { &sampler }
+		);
 
-		auto shaders = gfx::shader_set::create(_vertex_shader, _pixel_shader);
-		auto rasterizer = gfx::rasterizer_options::create(gfx::depth_bias_options::disabled(), gfx::front_facing_mode::clockwise, gfx::cull_mode::none);
-		auto depth_stencil = gfx::depth_stencil_options::create(
-			true, true, gfx::comparison_function::greater,
-			false, 0, 0, gfx::stencil_options::always_pass_no_op(), gfx::stencil_options::always_pass_no_op()
-		);
-		std::array blend_states{
-			gfx::render_target_blend_options::disabled(),
-			gfx::render_target_blend_options::disabled(),
-			gfx::render_target_blend_options::disabled()
-		};
-		result.pipeline_states = rsrc.create_pipeline_states(
-			model,
-			[&](const std::vector<gfx::input_buffer_layout> &vert_buffer_layouts) {
-				return dev.create_graphics_pipeline_state(
-					_pipeline_resources, shaders, blend_states, rasterizer, depth_stencil,
-					vert_buffer_layouts, gfx::primitive_topology::triangle_list, _pass_resources
-				);
-			}
-		);
 
 		return result;
 	}
@@ -267,9 +259,10 @@ public:
 protected:
 	std::vector<std::byte> _vs_binary;
 	std::vector<std::byte> _ps_binary;
-	gfx::shader _vertex_shader = nullptr;
-	gfx::shader _pixel_shader = nullptr;
+	gfx::shader_binary _vertex_shader = nullptr;
+	gfx::shader_binary _pixel_shader = nullptr;
 	gfx::descriptor_set_layout _constant_descriptors_layout;
 	gfx::pipeline_resources _pipeline_resources;
+	gfx::graphics_pipeline_state _pipeline_state = nullptr;
 	gfx::pass_resources _pass_resources;
 };

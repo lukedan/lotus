@@ -8,6 +8,8 @@ function(add_renderer_executable GRAPHICS_BACKEND)
 			"common.h"
 			"composite_pass.h"
 			"gbuffer_pass.h"
+			"raytrace_pass.h"
+			"rt_resolve_pass.h"
 			"scene.h"
 
 			"main.cpp")
@@ -15,6 +17,9 @@ function(add_renderer_executable GRAPHICS_BACKEND)
 	add_shader("shaders/gbuffer.hlsl" ps main_ps 6_0 ${PROJ} ${GRAPHICS_BACKEND})
 	add_shader("shaders/composite.hlsl" vs main_vs 6_0 ${PROJ} ${GRAPHICS_BACKEND})
 	add_shader("shaders/composite.hlsl" ps main_ps 6_0 ${PROJ} ${GRAPHICS_BACKEND})
+	add_shader("shaders/raytracing.hlsl" lib main_raygen 6_3 ${PROJ} ${GRAPHICS_BACKEND})
+	add_shader("shaders/rt_resolve.hlsl" vs main_vs 6_0 ${PROJ} ${GRAPHICS_BACKEND})
+	add_shader("shaders/rt_resolve.hlsl" ps main_ps 6_0 ${PROJ} ${GRAPHICS_BACKEND})
 	target_link_libraries(${PROJ} PRIVATE lotus_graphics_${GRAPHICS_BACKEND} tinygltf)
 endfunction()
 

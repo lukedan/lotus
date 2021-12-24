@@ -23,6 +23,7 @@ namespace lotus::graphics::backends::directx12 {
 
 	/// A \p ID3D12Resource that represents a generic buffer.
 	class buffer {
+		friend bottom_level_acceleration_structure_geometry;
 		friend command_list;
 		friend device;
 	protected:
@@ -80,7 +81,8 @@ namespace lotus::graphics::backends::directx12 {
 			friend device;
 		protected:
 			_details::com_ptr<ID3D12Resource> _image; ///< The image.
-			D3D12_SHADER_RESOURCE_VIEW_DESC _desc; ///< Resource view description of this view.
+			D3D12_SHADER_RESOURCE_VIEW_DESC _srv_desc; ///< Shader resource view description.
+			D3D12_UNORDERED_ACCESS_VIEW_DESC _uav_desc; ///< Unordered access view description.
 		};
 	}
 
@@ -97,19 +99,19 @@ namespace lotus::graphics::backends::directx12 {
 
 		/// Fills a \p D3D12_RENDER_TARGET_VIEW_DESC.
 		void _fill_rtv_desc(D3D12_RENDER_TARGET_VIEW_DESC &desc) const {
-			assert(_desc.Texture2D.MipLevels == 1);
-			desc.Format               = _desc.Format;
+			assert(_srv_desc.Texture2D.MipLevels == 1);
+			desc.Format               = _srv_desc.Format;
 			desc.ViewDimension        = D3D12_RTV_DIMENSION_TEXTURE2D;
-			desc.Texture2D.MipSlice   = _desc.Texture2D.MostDetailedMip;
-			desc.Texture2D.PlaneSlice = _desc.Texture2D.PlaneSlice;
+			desc.Texture2D.MipSlice   = _srv_desc.Texture2D.MostDetailedMip;
+			desc.Texture2D.PlaneSlice = _srv_desc.Texture2D.PlaneSlice;
 		}
 		/// Fills a \p D3D12_DEPTH_STENCIL_VIEW_DESC.
 		void _fill_dsv_desc(D3D12_DEPTH_STENCIL_VIEW_DESC &desc) const {
-			assert(_desc.Texture2D.MipLevels == 1);
-			desc.Format             = _desc.Format;
+			assert(_srv_desc.Texture2D.MipLevels == 1);
+			desc.Format             = _srv_desc.Format;
 			desc.ViewDimension      = D3D12_DSV_DIMENSION_TEXTURE2D;
 			desc.Flags              = D3D12_DSV_FLAG_NONE;
-			desc.Texture2D.MipSlice = _desc.Texture2D.MostDetailedMip;
+			desc.Texture2D.MipSlice = _srv_desc.Texture2D.MostDetailedMip;
 		}
 	};
 

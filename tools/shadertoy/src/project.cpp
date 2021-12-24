@@ -40,7 +40,7 @@ project project::load(const nlohmann::json &val, const error_callback &on_error)
 void project::load_resources(
 	lgfx::device &dev, lgfx::shader_utility &shader_utils,
 	lgfx::command_allocator &cmd_alloc, lgfx::command_queue &cmd_queue,
-	lgfx::shader &vert_shader, lgfx::descriptor_set_layout &global_descriptors,
+	lgfx::shader_binary &vert_shader, lgfx::descriptor_set_layout &global_descriptors,
 	const std::filesystem::path &root, const error_callback &on_error
 ) {
 	for (auto &it : passes) {
@@ -147,7 +147,7 @@ void project::update_descriptor_sets(
 }
 
 std::pair<lgfx::image2d_view&, pass::output::target*> project::get_image_view(
-	pass::input::image &img, std::size_t i, const error_callback&
+	pass::input::image &img, std::size_t, const error_callback&
 ) {
 	return { img.texture_view, nullptr };
 }

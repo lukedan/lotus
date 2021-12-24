@@ -9,6 +9,7 @@
 #include LOTUS_GRAPHICS_BACKEND_INCLUDE
 #include "lotus/math/aab.h"
 #include "lotus/color.h"
+#include "acceleration_structure.h"
 #include "pass.h"
 #include "resources.h"
 #include "frame_buffer.h"
@@ -199,6 +200,38 @@ namespace lotus::graphics {
 		/// Finishes recording to this command list.
 		void finish() {
 			backend::command_list::finish();
+		}
+
+
+		// ray-tracing related
+		/// Inserts a command that builds an acceleration structure.
+		void build_acceleration_structure(
+			const bottom_level_acceleration_structure_geometry &geom,
+			bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+		) {
+			backend::command_list::build_acceleration_structure(geom, output, scratch, scratch_offset);
+		}
+		/// Inserts a command that builds a top-level acceleration structure.
+		void build_acceleration_structure(
+			const buffer &instances, std::size_t offset, std::size_t count,
+			top_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+		) {
+			backend::command_list::build_acceleration_structure(
+				instances, offset, count, output, scratch, scratch_offset
+			);
+		}
+
+		/// Binds the given raytracing pipeline state.
+		void bind_pipeline_state(const raytracing_pipeline_state &state) {
+			backend::command_list::bind_pipeline_state(state);
+		}
+		/// Traces a batch of rays.
+		void trace_rays(
+			constant_buffer_view ray_geneneration,
+			shader_record_view miss_shaders, shader_record_view hit_groups,
+			std::size_t width, std::size_t height, std::size_t depth
+		) {
+			backend::command_list::trace_rays(ray_geneneration, miss_shaders, hit_groups, width, height, depth);
 		}
 	protected:
 		/// Implicit conversion from base type.

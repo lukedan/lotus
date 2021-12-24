@@ -288,6 +288,65 @@ namespace lotus::graphics::backends::directx12 {
 		_details::assert_dx(_list->Close());
 	}
 
+	void command_list::build_acceleration_structure(
+		const bottom_level_acceleration_structure_geometry &geom,
+		bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+	) {
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
+		desc.DestAccelerationStructureData    = output._buffer->GetGPUVirtualAddress() + output._offset;
+		desc.Inputs                           = geom._inputs;
+		desc.SourceAccelerationStructureData  = 0;
+		desc.ScratchAccelerationStructureData = scratch._buffer->GetGPUVirtualAddress() + scratch_offset;
+		_list->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
+	}
+
+	void command_list::build_acceleration_structure(
+		const buffer &instances, std::size_t offset, std::size_t count,
+		top_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+	) {
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
+		desc.DestAccelerationStructureData    = output._buffer->GetGPUVirtualAddress() + output._offset;
+		desc.Inputs.Type                      = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+		desc.Inputs.Flags                     = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
+		desc.Inputs.NumDescs                  = static_cast<UINT>(count);
+		desc.Inputs.DescsLayout               = D3D12_ELEMENTS_LAYOUT_ARRAY;
+		desc.Inputs.InstanceDescs             = instances._buffer->GetGPUVirtualAddress() + offset;
+		desc.SourceAccelerationStructureData  = 0;
+		desc.ScratchAccelerationStructureData = scratch._buffer->GetGPUVirtualAddress() + scratch_offset;
+		_list->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
+	}
+
+	void command_list::bind_pipeline_state(const raytracing_pipeline_state &state) {
+		_list->SetComputeRootSignature(state._root_signature.Get());
+		_list->SetPipelineState1(state._state.Get());
+	}
+
+	void command_list::trace_rays(
+		constant_buffer_view ray_generation,
+		shader_record_view miss_shaders, shader_record_view hit_groups,
+		std::size_t width, std::size_t height, std::size_t depth
+	) {
+		D3D12_DISPATCH_RAYS_DESC desc = {};
+		desc.RayGenerationShaderRecord.StartAddress =
+			ray_generation.data->_buffer->GetGPUVirtualAddress() + ray_generation.offset;
+		desc.RayGenerationShaderRecord.SizeInBytes  = ray_generation.size;
+		desc.MissShaderTable.StartAddress           =
+			miss_shaders.data->_buffer->GetGPUVirtualAddress() + miss_shaders.offset;
+		desc.MissShaderTable.SizeInBytes            = miss_shaders.count * miss_shaders.stride;
+		desc.MissShaderTable.StrideInBytes          = miss_shaders.stride;
+		desc.HitGroupTable.StartAddress             =
+			hit_groups.data->_buffer->GetGPUVirtualAddress() + hit_groups.offset;
+		desc.HitGroupTable.SizeInBytes              = hit_groups.count * hit_groups.stride;
+		desc.HitGroupTable.StrideInBytes            = hit_groups.stride;
+		desc.CallableShaderTable.StartAddress       = 0;
+		desc.CallableShaderTable.SizeInBytes        = 0;
+		desc.CallableShaderTable.StrideInBytes      = 0;
+		desc.Width                                  = static_cast<UINT>(width);
+		desc.Height                                 = static_cast<UINT>(height);
+		desc.Depth                                  = static_cast<UINT>(depth);
+		_list->DispatchRays(&desc);
+	}
+
 
 	void command_queue::signal(fence &f) {
 		_details::assert_dx(_queue->Signal(f._fence.Get(), static_cast<UINT64>(synchronization_state::set)));

@@ -63,24 +63,24 @@ namespace lotus::graphics::backends::directx12 {
 
 		// create swap chain itself
 		DXGI_SWAP_CHAIN_DESC1 desc = {};
-		desc.Width = 0;
-		desc.Height = 0;
-		desc.Format = dx_format;
-		desc.Stereo = false;
-		desc.SampleDesc.Count = 1;
+		desc.Width              = 0;
+		desc.Height             = 0;
+		desc.Format             = dx_format;
+		desc.Stereo             = false;
+		desc.SampleDesc.Count   = 1;
 		desc.SampleDesc.Quality = 0;
-		desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-		desc.BufferCount = static_cast<UINT>(num_frames);
-		desc.Scaling = DXGI_SCALING_NONE;
-		desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-		desc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+		desc.BufferUsage        = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+		desc.BufferCount        = static_cast<UINT>(num_frames);
+		desc.Scaling            = DXGI_SCALING_NONE;
+		desc.SwapEffect         = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+		desc.AlphaMode          = DXGI_ALPHA_MODE_UNSPECIFIED;
 
 		DXGI_SWAP_CHAIN_FULLSCREEN_DESC fullscreen_desc = {};
-		fullscreen_desc.RefreshRate.Numerator = 60;
+		fullscreen_desc.RefreshRate.Numerator   = 60;
 		fullscreen_desc.RefreshRate.Denominator = 1;
-		fullscreen_desc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-		fullscreen_desc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
-		fullscreen_desc.Windowed = true;
+		fullscreen_desc.ScanlineOrdering        = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+		fullscreen_desc.Scaling                 = DXGI_MODE_SCALING_UNSPECIFIED;
+		fullscreen_desc.Windowed                = true;
 
 		_details::com_ptr<IDXGISwapChain1> swap_chain;
 		_details::assert_dx(_dxgi_factory->CreateSwapChainForHwnd(

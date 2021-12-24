@@ -3,6 +3,8 @@
 /// \file
 /// Implementation of miscellaneous DirectX 12 related functions.
 
+#include <mutex>
+
 #include <comdef.h>
 #include <directx/d3dx12.h>
 
@@ -215,37 +217,27 @@ namespace lotus::graphics::backends::directx12::_details {
 
 		D3D12_RESOURCE_STATES for_image_usage(image_usage st) {
 			constexpr static enum_mapping<image_usage, D3D12_RESOURCE_STATES> table{
-				std::pair(image_usage::color_render_target,         D3D12_RESOURCE_STATE_RENDER_TARGET),
-				std::pair(image_usage::depth_stencil_render_target, D3D12_RESOURCE_STATE_DEPTH_WRITE  ),
-				std::pair(image_usage::read_only_texture,
-					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE                                        |
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE                                    ),
-				std::pair(image_usage::read_write_color_texture,
-					D3D12_RESOURCE_STATE_UNORDERED_ACCESS                                             |
-					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE                                        |
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE                                    ),
-				std::pair(image_usage::present,                     D3D12_RESOURCE_STATE_PRESENT      ),
-				std::pair(image_usage::copy_source,                 D3D12_RESOURCE_STATE_COPY_SOURCE  ),
-				std::pair(image_usage::copy_destination,            D3D12_RESOURCE_STATE_COPY_DEST    ),
-				std::pair(image_usage::initial,                     D3D12_RESOURCE_STATE_COMMON       )
+				std::pair(image_usage::color_render_target,         D3D12_RESOURCE_STATE_RENDER_TARGET                                                         ),
+				std::pair(image_usage::depth_stencil_render_target, D3D12_RESOURCE_STATE_DEPTH_WRITE                                                           ),
+				std::pair(image_usage::read_only_texture,           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
+				std::pair(image_usage::read_write_color_texture,    D3D12_RESOURCE_STATE_UNORDERED_ACCESS                                                      ),
+				std::pair(image_usage::present,                     D3D12_RESOURCE_STATE_PRESENT                                                               ),
+				std::pair(image_usage::copy_source,                 D3D12_RESOURCE_STATE_COPY_SOURCE                                                           ),
+				std::pair(image_usage::copy_destination,            D3D12_RESOURCE_STATE_COPY_DEST                                                             ),
+				std::pair(image_usage::initial,                     D3D12_RESOURCE_STATE_COMMON                                                                ),
 			};
 			return table[st];
 		}
 
 		D3D12_RESOURCE_STATES for_buffer_usage(buffer_usage st) {
 			constexpr static enum_mapping<buffer_usage, D3D12_RESOURCE_STATES> table{
-				std::pair(buffer_usage::index_buffer,     D3D12_RESOURCE_STATE_INDEX_BUFFER              ),
-				std::pair(buffer_usage::vertex_buffer,    D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER),
-				std::pair(buffer_usage::read_only_buffer,
-					D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER                                      |
-					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE                                           |
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE                                       ),
-				std::pair(buffer_usage::read_write_buffer,
-					D3D12_RESOURCE_STATE_UNORDERED_ACCESS                                                |
-					D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE                                           |
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE                                       ),
-				std::pair(buffer_usage::copy_source,      D3D12_RESOURCE_STATE_COPY_SOURCE               ),
-				std::pair(buffer_usage::copy_destination, D3D12_RESOURCE_STATE_COPY_DEST                 ),
+				std::pair(buffer_usage::index_buffer,           D3D12_RESOURCE_STATE_INDEX_BUFFER                                                                                                            ),
+				std::pair(buffer_usage::vertex_buffer,          D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER                                                                                              ),
+				std::pair(buffer_usage::read_only_buffer,       D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
+				std::pair(buffer_usage::read_write_buffer,      D3D12_RESOURCE_STATE_UNORDERED_ACCESS                                                                                                        ),
+				std::pair(buffer_usage::copy_source,            D3D12_RESOURCE_STATE_COPY_SOURCE                                                                                                             ),
+				std::pair(buffer_usage::copy_destination,       D3D12_RESOURCE_STATE_COPY_DEST                                                                                                               ),
+				std::pair(buffer_usage::acceleration_structure, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE                                                                                       ),
 			};
 			return table[st];
 		}
@@ -295,18 +287,26 @@ namespace lotus::graphics::backends::directx12::_details {
 			for (auto [myval, dxval] : table) {
 				if ((mask & myval) == myval) {
 					result |= dxval;
+					mask &= ~myval;
 				}
 			}
+			assert(mask == channel_mask::none); // make sure we've exhausted all bits
 			return static_cast<D3D12_COLOR_WRITE_ENABLE>(result);
 		}
 
 		D3D12_SHADER_VISIBILITY to_shader_visibility(shader_stage stage) {
 			constexpr static enum_mapping<shader_stage, D3D12_SHADER_VISIBILITY> table{
-				std::pair(shader_stage::all,             D3D12_SHADER_VISIBILITY_ALL     ),
-				std::pair(shader_stage::vertex_shader,   D3D12_SHADER_VISIBILITY_VERTEX  ),
-				std::pair(shader_stage::geometry_shader, D3D12_SHADER_VISIBILITY_GEOMETRY),
-				std::pair(shader_stage::pixel_shader,    D3D12_SHADER_VISIBILITY_PIXEL   ),
-				std::pair(shader_stage::compute_shader,  D3D12_SHADER_VISIBILITY_ALL     ),
+				std::pair(shader_stage::all,                   D3D12_SHADER_VISIBILITY_ALL     ),
+				std::pair(shader_stage::vertex_shader,         D3D12_SHADER_VISIBILITY_VERTEX  ),
+				std::pair(shader_stage::geometry_shader,       D3D12_SHADER_VISIBILITY_GEOMETRY),
+				std::pair(shader_stage::pixel_shader,          D3D12_SHADER_VISIBILITY_PIXEL   ),
+				std::pair(shader_stage::compute_shader,        D3D12_SHADER_VISIBILITY_ALL     ),
+				std::pair(shader_stage::callable_shader,       D3D12_SHADER_VISIBILITY_ALL     ),
+				std::pair(shader_stage::ray_generation_shader, D3D12_SHADER_VISIBILITY_ALL     ),
+				std::pair(shader_stage::intersection_shader,   D3D12_SHADER_VISIBILITY_ALL     ),
+				std::pair(shader_stage::any_hit_shader,        D3D12_SHADER_VISIBILITY_ALL     ),
+				std::pair(shader_stage::closest_hit_shader,    D3D12_SHADER_VISIBILITY_ALL     ),
+				std::pair(shader_stage::miss_shader,           D3D12_SHADER_VISIBILITY_ALL     ),
 			};
 			return table[stage];
 		}
@@ -534,6 +534,41 @@ namespace lotus::graphics::backends::directx12::_details {
 	}
 
 
+	LPCWSTR shader_name(std::size_t index) {
+		static std::deque<std::basic_string<WCHAR>> _names;
+		static std::mutex _mutex;
+
+		// TODO this is really bad
+		std::lock_guard<std::mutex> lock(_mutex);
+		if (_names.size() <= index) {
+			for (std::size_t i = 0; i < std::max<std::size_t>(1024, index + 1); ++i) {
+				auto &str = _names.emplace_back(L"_");
+				for (std::size_t id = _names.size(); id > 0; id /= 10) {
+					str.push_back(L'0' + id % 10);
+				}
+			}
+		}
+		return _names[index].c_str();
+	}
+
+	LPCWSTR shader_record_name(std::size_t index) {
+		static std::deque<std::basic_string<WCHAR>> _names;
+		static std::mutex _mutex;
+
+		// TODO this is really bad
+		std::lock_guard<std::mutex> lock(_mutex);
+		if (_names.size() <= index) {
+			for (std::size_t i = 0; i < std::max<std::size_t>(1024, index + 1); ++i) {
+				auto &str = _names.emplace_back(L"_R");
+				for (std::size_t id = _names.size(); id > 0; id /= 10) {
+					str.push_back(L'0' + id % 10);
+				}
+			}
+		}
+		return _names[index].c_str();
+	}
+
+
 	namespace resource_desc {
 		D3D12_RESOURCE_DESC for_buffer(std::size_t size) {
 			D3D12_RESOURCE_DESC desc = {};
@@ -547,7 +582,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			desc.SampleDesc.Count   = 1;
 			desc.SampleDesc.Quality = 0;
 			desc.Layout             = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-			desc.Flags              = D3D12_RESOURCE_FLAG_NONE;
+			desc.Flags              = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 			return desc;
 		}
 
@@ -556,7 +591,10 @@ namespace lotus::graphics::backends::directx12::_details {
 			D3D12_RESOURCE_DESC &desc, D3D12_RESOURCE_STATES &states, D3D12_HEAP_FLAGS *heap_flags
 		) {
 			if (type == heap_type::device_only) {
-				if (!is_empty(all_usages & buffer_usage::mask::read_write_buffer)) {
+				if (!is_empty(all_usages & buffer_usage::mask::acceleration_structure)) {
+					assert(all_usages == buffer_usage::mask::acceleration_structure);
+					states = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
+				} else if (!is_empty(all_usages & buffer_usage::mask::read_write_buffer)) {
 					desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 					if (heap_flags) {
 						*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;	
@@ -564,6 +602,7 @@ namespace lotus::graphics::backends::directx12::_details {
 				}
 			} else if (type == heap_type::upload) {
 				states = D3D12_RESOURCE_STATE_GENERIC_READ;
+				desc.Flags &= ~D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 			}
 		}
 

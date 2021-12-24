@@ -17,6 +17,8 @@
 #include "scene.h"
 #include "gbuffer_pass.h"
 #include "composite_pass.h"
+#include "raytrace_pass.h"
+#include "rt_resolve_pass.h"
 
 int main(int argc, char **argv) {
 	if (argc < 2) {
@@ -72,32 +74,51 @@ int main(int argc, char **argv) {
 		linear_rgba_f(1.f, 1.f, 1.f, 1.f), std::nullopt
 	);
 
-	auto model_resources = scene_resources::create(dev, dev_prop, cmd_alloc, cmd_queue, descriptor_pool, sampler, model);
+	auto model_resources = scene_resources::create(dev, dev_prop, cmd_alloc, cmd_queue, descriptor_pool, model);
 
-	gbuffer_pass gbuf_pass(dev, model_resources.material_descriptor_layout, model_resources.node_descriptor_layout);
+	gbuffer_pass gbuf_pass(dev, model_resources.textures_descriptor_layout, model_resources.material_descriptor_layout, model_resources.node_descriptor_layout);
 	composite_pass comp_pass(dev);
+
+	raytrace_pass rt_pass(dev, model_resources, dev_prop);
+	raytrace_resolve_pass rt_resolve_pass(dev);
 
 	// buffers
 	gbuffer gbuf;
 	gbuffer::view gbuf_view;
-	gbuffer_pass::input_resources gbuf_input = gbuf_pass.create_input_resources(dev, dev_prop, descriptor_pool, model, model_resources);
+	gbuffer_pass::input_resources gbuf_input = gbuf_pass.create_input_resources(dev, dev_prop, descriptor_pool, sampler, model, model_resources);
 	gbuffer_pass::output_resources gbuf_output;
 
 	composite_pass::input_resources comp_input;
 	std::vector<composite_pass::output_resources> comp_output;
 
+	// raytracing buffers
+	gfx::image2d raytrace_buffer = nullptr;
+	gfx::image2d_view raytrace_buffer_view = nullptr;
+	raytrace_pass::input_resources rt_input;
+
+	raytrace_resolve_pass::input_resources rt_resolve_input;
+	std::vector<raytrace_resolve_pass::output_resources> rt_resolve_output;
+
+
 	gfx::swap_chain swapchain = nullptr;
 	std::vector<gfx::fence> present_fences;
 	std::vector<gfx::command_list> cmd_lists;
 
+	std::size_t frame_index = 0;
+
 	auto recreate_buffers = [&](cvec2s size) {
 		auto beg = std::chrono::high_resolution_clock::now();
+
+		frame_index = 0;
 
 		// reset all textures
 		gbuf = gbuffer();
 		gbuf_view = gbuffer::view();
+		raytrace_buffer = nullptr;
+		raytrace_buffer_view = nullptr;
 		swapchain = nullptr;
 		comp_output.clear();
+		rt_resolve_output.clear();
 		present_fences.clear();
 
 		// create all textures
@@ -115,6 +136,19 @@ int main(int argc, char **argv) {
 		auto list = dev.create_and_start_command_list(cmd_alloc);
 
 		comp_input = comp_pass.create_input_resources(dev, descriptor_pool, gbuf_view);
+
+		raytrace_buffer = dev.create_committed_image2d(size[0], size[1], 1, 1, gfx::format::r32g32b32a32_float, gfx::image_tiling::optimal, gfx::image_usage::mask::read_write_color_texture | gfx::image_usage::mask::read_only_texture);
+		raytrace_buffer_view = dev.create_image2d_view_from(raytrace_buffer, gfx::format::r32g32b32a32_float, gfx::mip_levels::only_highest());
+		rt_input = rt_pass.create_input_resources(dev, descriptor_pool, model, model_resources, wnd.get_size(), raytrace_buffer_view, sampler);
+		list.resource_barrier(
+			{
+				gfx::image_barrier::create(gfx::subresource_index::first_color(), raytrace_buffer, gfx::image_usage::initial, gfx::image_usage::read_only_texture),
+			},
+			{}
+		);
+
+		rt_resolve_input = rt_resolve_pass.create_input_resources(dev, descriptor_pool, raytrace_buffer_view);
+
 		std::size_t num_images = swapchain.get_image_count();
 		cmd_lists.clear();
 		for (std::size_t i = 0; i < num_images; ++i) {
@@ -123,6 +157,7 @@ int main(int argc, char **argv) {
 			std::snprintf(reinterpret_cast<char*>(buffer), std::size(buffer), "Back buffer %d", static_cast<int>(i));
 			dev.set_debug_name(image, buffer);
 			comp_output.emplace_back(comp_pass.create_output_resources(dev, image, fmt, size));
+			rt_resolve_output.emplace_back(rt_resolve_pass.create_output_resources(dev, image, fmt, size));
 			present_fences.emplace_back(dev.create_fence(gfx::synchronization_state::unset));
 			cmd_lists.emplace_back(nullptr);
 			list.resource_barrier(
@@ -168,22 +203,25 @@ int main(int argc, char **argv) {
 	struct {
 		camera_parameters<float> &cam_params;
 		camera<float> &cam;
+		std::size_t &frame_index;
 		bool rotate = false;
 		bool zoom = false;
 		bool move = false;
 		cvec2i prev_mouse = uninitialized;
-	} cam_closure = { cam_params, cam };
+	} cam_closure = { cam_params, cam, frame_index };
 	auto mouse_move_node = wnd.on_mouse_move.create_linked_node(
 		[&cam_closure](sys::window&, sys::window_events::mouse::move &move) {
 			cvec2f offset = (move.new_position - cam_closure.prev_mouse).into<float>();
 			offset[0] = -offset[0];
 			if (cam_closure.rotate) {
 				cam_closure.cam_params.rotate_around_world_up(offset * 0.004f);
+				cam_closure.frame_index = 0;
 			}
 			if (cam_closure.zoom) {
 				cvec3f cam_offset = cam_closure.cam_params.position - cam_closure.cam_params.look_at;
 				cam_offset *= std::exp(-0.005f * offset[1]);
 				cam_closure.cam_params.position = cam_closure.cam_params.look_at + cam_offset;
+				cam_closure.frame_index = 0;
 			}
 			if (cam_closure.move) {
 				cvec3f x = cam_closure.cam.unit_right * offset[0];
@@ -192,6 +230,7 @@ int main(int argc, char **argv) {
 				cvec3f cam_off = (x + y) * distance;
 				cam_closure.cam_params.position += cam_off;
 				cam_closure.cam_params.look_at += cam_off;
+				cam_closure.frame_index = 0;
 			}
 			cam_closure.prev_mouse = move.new_position;
 		}
@@ -236,21 +275,29 @@ int main(int argc, char **argv) {
 		}
 	);
 	auto quit_node = wnd.on_close_request.create_linked_node(
-		[&app](sys::window&, sys::window_events::close_request&) {
+		[&app](sys::window&, sys::window_events::close_request &req) {
+			req.should_close = true;
 			app.quit();
 		}
 	);
 
 
-
 	wnd.show_and_activate();
 	while (app.process_message_nonblocking() != sys::message_type::quit) {
 		if (resized) {
-			recreate_buffers(wnd.get_size());
+			cvec2s size = wnd.get_size();
+			if (size[0] == 0 || size[1] == 0) {
+				continue;
+			}
+			recreate_buffers(size);
 			resized = false;
 		}
 
 		auto back_buffer = dev.acquire_back_buffer(swapchain);
+		if (back_buffer.status != gfx::swap_chain_status::ok) {
+			resized = true;
+			continue;
+		}
 
 		if (back_buffer.on_presented) {
 			dev.wait_for_fence(*back_buffer.on_presented);
@@ -259,36 +306,61 @@ int main(int argc, char **argv) {
 
 		cam = cam_params.into_camera();
 
-		auto *data = static_cast<gbuffer_pass::constants*>(dev.map_buffer(gbuf_input.constant_buffer, 0, 0));
-		data->view = cam.view_matrix.into<float>();
-		data->projection_view = cam.projection_view_matrix.into<float>();
-		dev.unmap_buffer(gbuf_input.constant_buffer, 0, sizeof(gbuffer_pass::constants));
+		{
+			auto *data = static_cast<gbuffer_pass::constants*>(dev.map_buffer(gbuf_input.constant_buffer, 0, 0));
+			data->view = cam.view_matrix.into<float>();
+			data->projection_view = cam.projection_view_matrix.into<float>();
+			dev.unmap_buffer(gbuf_input.constant_buffer, 0, sizeof(gbuffer_pass::constants));
+		}
+
+		{
+			auto *data = static_cast<raytrace_pass::global_data*>(dev.map_buffer(rt_input.constant_buffer, 0, 0));
+			data->camera_position = cam_params.position;
+			data->t_min = 0.001f;
+			float tan_half_y = std::tan(0.5f * cam_params.fov_y_radians);
+			auto x = cam.unit_right * cam_params.aspect_ratio * tan_half_y;
+			auto y = cam.unit_up * tan_half_y;
+			data->top_left = cam.unit_forward - x + y;
+			data->t_max = 10000.0f;
+			data->right = matf::concat_rows(x * (2.0f / rt_input.output_size[0]), column_vector<1, float>(0.0f));
+			data->down = y * (-2.0f / rt_input.output_size[1]);
+			data->frame_index = frame_index;
+			dev.unmap_buffer(rt_input.constant_buffer, 0, sizeof(raytrace_pass::global_data));
+		}
+
+		{
+			auto *data = static_cast<raytrace_resolve_pass::global_data*>(dev.map_buffer(rt_resolve_input.globals_buffer, 0, 0));
+			data->frame_index = frame_index;
+			dev.unmap_buffer(rt_resolve_input.globals_buffer, 0, sizeof(raytrace_resolve_pass::global_data));
+		}
 
 		auto &cmd_list = cmd_lists[back_buffer.index];
 		cmd_list = dev.create_and_start_command_list(cmd_alloc);
 		{
 			auto image = swapchain.get_image(back_buffer.index);
 			
+			/*
 			gbuf_pass.record_commands(cmd_list, gbuf, model, model_resources, gbuf_input, gbuf_output);
 			comp_pass.record_commands(cmd_list, image, comp_input, comp_output[back_buffer.index]);
+			*/
+			rt_pass.record_commands(cmd_list, model, model_resources, rt_input, raytrace_buffer);
+			rt_resolve_pass.record_commands(cmd_list, image, raytrace_buffer, rt_resolve_input, rt_resolve_output[back_buffer.index]);
 
 			cmd_list.finish();
 		}
 		cmd_queue.submit_command_lists({ &cmd_list }, nullptr);
 
-		cmd_queue.present(swapchain);
+		++frame_index;
+
+		if (cmd_queue.present(swapchain) != gfx::swap_chain_status::ok) {
+			resized = true;
+		}
 
 		{ // wait until the previous frame has finished
 			gfx::fence frame_fence = dev.create_fence(gfx::synchronization_state::unset);
 			cmd_queue.signal(frame_fence);
 			dev.wait_for_fence(frame_fence);
 		}
-	}
-
-	{
-		auto fence = dev.create_fence(gfx::synchronization_state::unset);
-		cmd_queue.signal(fence);
-		dev.wait_for_fence(fence);
 	}
 
 	return 0;

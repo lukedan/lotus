@@ -16,6 +16,8 @@ namespace lotus::graphics {
 	// one goal of these forward declarations are used to pass spans of pointers to derived classes to base class
 	// functions. implementation of base class functions should be defined where the derived class has been defined
 	// (i.e., the proper header has been included)
+	class bottom_level_acceleration_structure_geometry;
+	class bottom_level_acceleration_structure;
 	class buffer;
 	class command_list;
 	class descriptor_set_layout;
@@ -23,7 +25,9 @@ namespace lotus::graphics {
 	class fence;
 	class image2d_view;
 	class sampler;
+	class shader_binary;
 	class staging_buffer;
+	class top_level_acceleration_structure;
 
 
 	/// Base class of all image types.
@@ -251,12 +255,19 @@ namespace lotus {
 namespace lotus::graphics {
 	/// A specific shader stage or all shader stages.
 	enum class shader_stage {
-		all,             ///< All used stages.
-		vertex_shader,   ///< Vertex shader.
+		all,                   ///< All used stages.
+		vertex_shader,         ///< Vertex shader.
 		// TODO tessellation shaders
-		geometry_shader, ///< Geometry shader.
-		pixel_shader,    ///< Pixel shader.
-		compute_shader,  ///< Compute shader.
+		geometry_shader,       ///< Geometry shader.
+		pixel_shader,          ///< Pixel shader.
+		compute_shader,        ///< Compute shader.
+
+		callable_shader,       ///< Callable shader.
+		ray_generation_shader, ///< Ray-tracing ray generation shader.
+		intersection_shader,   ///< Ray-tracing intersection shader.
+		any_hit_shader,        ///< Ray-tracing any hit shader.
+		closest_hit_shader,    ///< Ray-tracing closest hit shader.
+		miss_shader,           ///< Ray-tracing miss shader.
 
 		num_enumerators ///< The number of available stages.
 	};
@@ -432,12 +443,13 @@ namespace lotus::graphics {
 	struct buffer_usage {
 		/// Values indicating a single usage.
 		enum values {
-			index_buffer,      ///< Used as an index buffer.
-			vertex_buffer,     ///< Used as a vertex buffer.
-			read_only_buffer,  ///< Used as a read-only uniform buffer.
-			read_write_buffer, ///< Used as a read-write buffer.
-			copy_source,       ///< Source for copy operations.
-			copy_destination,  ///< Target for copy operations.
+			index_buffer,           ///< Used as an index buffer.
+			vertex_buffer,          ///< Used as a vertex buffer.
+			read_only_buffer,       ///< Used as a read-only uniform buffer.
+			read_write_buffer,      ///< Used as a read-write buffer.
+			copy_source,            ///< Source for copy operations.
+			copy_destination,       ///< Target for copy operations.
+			acceleration_structure, ///< Acceleration structure.
 
 			num_enumerators ///< The total number of enumerators.
 		};
@@ -445,12 +457,13 @@ namespace lotus::graphics {
 		enum class mask : std::uint8_t {
 			none = 0, ///< No usage.
 
-			index_buffer      = 1 << values::index_buffer,
-			vertex_buffer     = 1 << values::vertex_buffer,
-			read_only_buffer  = 1 << values::read_only_buffer,
-			read_write_buffer = 1 << values::read_write_buffer,
-			copy_source       = 1 << values::copy_source,
-			copy_destination  = 1 << values::copy_destination,
+			index_buffer           = 1 << values::index_buffer,
+			vertex_buffer          = 1 << values::vertex_buffer,
+			read_only_buffer       = 1 << values::read_only_buffer,
+			read_write_buffer      = 1 << values::read_write_buffer,
+			copy_source            = 1 << values::copy_source,
+			copy_destination       = 1 << values::copy_destination,
+			acceleration_structure = 1 << values::acceleration_structure,
 		};
 
 		/// No initialization.
@@ -588,10 +601,13 @@ namespace lotus::graphics {
 
 		// TODO allocator
 		std::u8string name; ///< The name of this device.
-		/// Alignment required for multiple regions in a buffer to be used as constant buffers.
-		std::size_t constant_buffer_alignment;
 		bool is_software; ///< Whether this is a software adapter.
 		bool is_discrete; ///< Whether this is a discrete adapter.
+
+		std::size_t constant_buffer_alignment;        ///< Alignment required for constant buffers.
+		std::size_t acceleration_structure_alignment; ///< Alignment required for acceleration structures.
+		std::size_t shader_record_alignment;          ///< Alignment required for a single shader record.
+		std::size_t shader_record_table_alignment;    ///< Alignment required for a table of shader records.
 	};
 
 	/// Describes how color blending is carried out for a single render target.
@@ -1047,12 +1063,19 @@ namespace lotus::graphics {
 	/// A range of descriptors of the same type.
 	struct descriptor_range {
 	public:
+		/// Indicates that the number of descriptors is unbounded.
+		constexpr static std::size_t unbounded_count = std::numeric_limits<std::size_t>::max();
+
 		/// No initialization.
 		descriptor_range(uninitialized_t) {
 		}
 		/// Creates a new \ref descriptor_range object.
 		[[nodiscard]] constexpr inline static descriptor_range create(descriptor_type ty, std::size_t c) {
 			return descriptor_range(ty, c);
+		}
+		/// Creates a \ref descriptor_range with unbounded descriptor count.
+		[[nodiscard]] constexpr inline static descriptor_range create_unbounded(descriptor_type ty) {
+			return descriptor_range(ty, unbounded_count);
 		}
 
 		descriptor_type type; ///< The type of the descriptors.
@@ -1078,9 +1101,15 @@ namespace lotus::graphics {
 		) {
 			return descriptor_range_binding(descriptor_range::create(ty, count), reg);
 		}
+		/// Creates a new \ref descriptor_range_binding object with unbounded size.
+		[[nodiscard]] constexpr inline static descriptor_range_binding create_unbounded(
+			descriptor_type ty, std::size_t reg
+		) {
+			return descriptor_range_binding(descriptor_range::create_unbounded(ty), reg);
+		}
 
 		descriptor_range range = uninitialized; ///< The type and number of descriptors.
-		std::size_t register_index; ///< Register index corresponding to this descriptor.
+		std::size_t register_index; ///< Register index corresponding to the first descriptor.
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr descriptor_range_binding(descriptor_range rng, std::size_t reg) : range(rng), register_index(reg) {
@@ -1154,26 +1183,26 @@ namespace lotus::graphics {
 		}
 	};
 	/// A view into a structured buffer.
-	struct buffer_view {
+	struct structured_buffer_view {
 	public:
 		/// No initialization.
-		buffer_view(uninitialized_t) {
+		structured_buffer_view(uninitialized_t) {
 		}
 		/// Creates a new view with the given values.
-		[[nodiscard]] constexpr inline static buffer_view create(
-			buffer &b, std::size_t f, std::size_t sz, std::size_t str
+		[[nodiscard]] constexpr inline static structured_buffer_view create(
+			buffer &b, std::size_t f, std::size_t c, std::size_t str
 		) {
-			return buffer_view(b, f, sz, str);
+			return structured_buffer_view(b, f, c, str);
 		}
 
 		buffer *data; ///< Data for the buffer.
 		std::size_t first; ///< Index of the first buffer element.
-		std::size_t size; ///< Size of the buffer in elements.
+		std::size_t count; ///< Size of the buffer in elements.
 		std::size_t stride; ///< Stride between two consecutive buffer elements.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr buffer_view(buffer &b, std::size_t f, std::size_t sz, std::size_t str) :
-			data(&b), first(f), size(sz), stride(str) {
+		constexpr structured_buffer_view(buffer &b, std::size_t f, std::size_t c, std::size_t str) :
+			data(&b), first(f), count(c), stride(str) {
 		}
 	};
 	/// A view into a constant buffer.
@@ -1221,6 +1250,29 @@ namespace lotus::graphics {
 	};
 
 
+	/// A generic shader function.
+	struct shader_function {
+	public:
+		/// Initializes an empty object.
+		shader_function(std::nullptr_t) : code(nullptr), entry_point(nullptr) {
+		}
+		/// Creates a new shader function object.
+		[[nodiscard]] inline static shader_function create(
+			shader_binary &bin, const char8_t *entry, shader_stage s
+		) {
+			return shader_function(&bin, entry, s);
+		}
+
+		shader_binary *code; ///< Binary shader code.
+		const char8_t *entry_point; ///< Entry point.
+		shader_stage stage; ///< Shader stage.
+	protected:
+		/// Initializes all fields of this struct.
+		shader_function(shader_binary *c, const char8_t *entry, shader_stage s) :
+			code(c), entry_point(entry), stage(s) {
+		}
+	};
+
 	/// Describes a resource binding in a shader.
 	struct shader_resource_binding {
 	public:
@@ -1247,5 +1299,121 @@ namespace lotus::graphics {
 		// TODO allocator
 		std::u8string semantic_name; ///< Upper case semantic name without the index.
 		std::size_t semantic_index; ///< Semantic index.
+	};
+
+
+	// raytracing related
+	/// Computed sizes of an acceleration structure.
+	struct acceleration_structure_build_sizes {
+		/// No initialization.
+		acceleration_structure_build_sizes(uninitialized_t) {
+		}
+
+		std::size_t acceleration_structure_size; ///< Size of the acceleration structure itself.
+		/// Required size of the scratch buffer when building the acceleration structure.
+		std::size_t build_scratch_size;
+		/// Required size of the scratch buffer when updating the acceleration structure.
+		std::size_t update_scratch_size;
+	};
+
+	/// A view into a vertex buffer with a specific offset and stride.
+	struct vertex_buffer_view {
+	public:
+		/// Initializes this view to empty.
+		constexpr vertex_buffer_view(std::nullptr_t) : data(nullptr) {
+		}
+		/// Creates an object from the given arguments.
+		[[nodiscard]] inline static constexpr vertex_buffer_view create(
+			buffer &b, format fmt, std::size_t off, std::size_t stride, std::size_t count
+		) {
+			return vertex_buffer_view(b, fmt, off, stride, count);
+		}
+
+		buffer *data; ///< Data of the vertex buffer.
+		format vertex_format; ///< Format used for a single element.
+		std::size_t offset; ///< Offset in bytes to the first element.
+		std::size_t stride; ///< Stride between two consecutive elements.
+		std::size_t count; ///< Total number of elements.
+	protected:
+		/// Initializes all fields of this struct.
+		constexpr vertex_buffer_view(buffer &d, format f, std::size_t off, std::size_t s, std::size_t c) :
+			data(&d), vertex_format(f), offset(off), stride(s), count(c) {
+		}
+	};
+	/// A view into an index buffer.
+	struct index_buffer_view {
+	public:
+		/// Initializes this view to empty.
+		constexpr index_buffer_view(std::nullptr_t) : data(nullptr) {
+		}
+		/// Creates a new object from the given arguments.
+		[[nodiscard]] inline static constexpr index_buffer_view create(
+			buffer &d, index_format fmt, std::size_t off, std::size_t count
+		) {
+			return index_buffer_view(d, fmt, off, count);
+		}
+
+		buffer *data; ///< Data of the index buffer.
+		index_format element_format; ///< Index format.
+		std::size_t offset; ///< Offset in bytes to the first index.
+		std::size_t count; ///< The number of indices.
+	protected:
+		/// Initializes all fields of this struct.
+		constexpr index_buffer_view(buffer &d, index_format f, std::size_t off, std::size_t c) :
+			data(&d), element_format(f), offset(off), count(c) {
+		}
+	};
+	/// A view into an array of an array of shader records.
+	struct shader_record_view {
+	public:
+		/// Initializes this view to empty.
+		constexpr shader_record_view(std::nullptr_t) : data(nullptr) {
+		}
+		/// Creates a new object from the given arguments.
+		[[nodiscard]] inline static constexpr shader_record_view create(
+			buffer &d, std::size_t off, std::size_t c, std::size_t str
+		) {
+			return shader_record_view(d, off, c, str);
+		}
+
+		buffer *data; ///< Data of the shader records.
+		std::size_t offset; ///< Offset of the first entry in bytes.
+		std::size_t count; ///< Size of the buffer in elements.
+		std::size_t stride; ///< Stride of an element.
+	protected:
+		/// Initializes all fields of this struct.
+		constexpr shader_record_view(buffer &d, std::size_t off, std::size_t c, std::size_t str) :
+			data(&d), offset(off), count(c), stride(str) {
+		}
+	};
+
+	/// A group of shaders responsible for handling ray intersections.
+	struct hit_shader_group {
+	public:
+		/// Index indicating that no shader is associated and that the default behavior should be used.
+		constexpr static std::size_t no_shader = std::numeric_limits<std::size_t>::max();
+
+		/// No initialization.
+		hit_shader_group(uninitialized_t) {
+		}
+		/// Creates a group with no associated shaders.
+		constexpr hit_shader_group(std::nullptr_t) : closest_hit_shader_index(no_shader), any_hit_shader_index(no_shader) {
+		}
+		/// Creates a new object from the given parameters.
+		[[nodiscard]] inline static constexpr hit_shader_group create(std::size_t closest_hit, std::size_t any_hit) {
+			return hit_shader_group(closest_hit, any_hit);
+		}
+		/// Creates a shader group with only a closest hit shader.
+		[[nodiscard]] inline static constexpr hit_shader_group create_closest_hit(std::size_t closest_hit) {
+			return hit_shader_group(closest_hit, no_shader);
+		}
+
+		std::size_t closest_hit_shader_index; ///< Index of the closest hit shader.
+		std::size_t any_hit_shader_index; ///< Index of the any hit shader.
+	protected:
+		/// Initializes all fields of this struct.
+		constexpr hit_shader_group(std::size_t closest_hit, std::size_t any_hit) :
+			closest_hit_shader_index(closest_hit), any_hit_shader_index(any_hit) {
+		}
 	};
 }

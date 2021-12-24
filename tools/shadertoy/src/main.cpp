@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 	// generic vertex shader
 	auto vert_shader_binary = load_binary_file("shaders/vertex.vs.o");
 	assert(!vert_shader_binary.empty());
-	lgfx::shader vert_shader = gdev.load_shader(vert_shader_binary);
+	lgfx::shader_binary vert_shader = gdev.load_shader(vert_shader_binary);
 
 	auto nearest_sampler = gdev.create_sampler(
 		lgfx::filtering::nearest, lgfx::filtering::nearest, lgfx::filtering::nearest,
@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
 	// blit pass
 	auto blit_pix_shader_binary = load_binary_file("shaders/blit.ps.o");
 	assert(!blit_pix_shader_binary.empty());
-	lgfx::shader blit_pix_shader = gdev.load_shader(blit_pix_shader_binary);
+	lgfx::shader_binary blit_pix_shader = gdev.load_shader(blit_pix_shader_binary);
 	lgfx::descriptor_set_layout blit_descriptor_layout = gdev.create_descriptor_set_layout(
 		{
 			lgfx::descriptor_range_binding::create(lgfx::descriptor_type::read_only_image, 1, 0),

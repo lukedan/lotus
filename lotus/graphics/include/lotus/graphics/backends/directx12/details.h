@@ -387,6 +387,11 @@ namespace lotus::graphics::backends::directx12::_details {
 	/// Computes the index of the given subresource.
 	[[nodiscard]] UINT compute_subresource_index(const subresource_index&, ID3D12Resource*);
 
+	/// Returns a unique shader name corresponding to the given index.
+	[[nodiscard]] LPCWSTR shader_name(std::size_t index);
+	/// Returns a unique shader record name corresponding to the given index.
+	[[nodiscard]] LPCWSTR shader_record_name(std::size_t index);
+
 	/// Used to create \p D3D12_RESOURCE_DESC objects for various types of resources.
 	namespace resource_desc {
 		/// Description for a buffer with the specified size.

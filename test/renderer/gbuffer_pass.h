@@ -177,6 +177,9 @@ public:
 
 		for (std::size_t node_i = 0; node_i < model.nodes.size(); ++node_i) {
 			const auto &node = model.nodes[node_i];
+			if (node.mesh < 0) {
+				continue;
+			}
 			const auto &mesh = model.meshes[node.mesh];
 			for (std::size_t prim_i = 0; prim_i < mesh.primitives.size(); ++prim_i) {
 				const auto &prim = mesh.primitives[prim_i];

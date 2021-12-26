@@ -27,7 +27,7 @@ struct scene_resources {
 		std::uint32_t base_color_index;
 		std::uint32_t normal_index;
 		std::uint32_t metallic_roughness_index;
-		std::uint32_t _padding;
+		std::uint32_t is_metallic_roughness;
 	};
 	struct vertex {
 		vertex(uninitialized_t) {
@@ -545,6 +545,7 @@ struct scene_resources {
 				mat_data.base_color_index = base_color_index;
 				mat_data.normal_index = normal_index;
 				mat_data.metallic_roughness_index = metalness_roughness_index;
+				mat_data.is_metallic_roughness = true;
 
 				auto *buffer = reinterpret_cast<material_data*>(reinterpret_cast<std::uintptr_t>(uniform_buffer_ptr) + i * result.aligned_material_data_size);
 				*buffer = mat_data;
@@ -614,7 +615,7 @@ struct scene_resources {
 		dev.write_descriptor_set_read_only_images(result.textures_descriptor_set, result.textures_descriptor_layout, 0, views);
 
 		// bottom level acceleration structures
-		for (std::size_t mesh_i = 0; mesh_i < model.nodes.size(); ++mesh_i) {
+		for (std::size_t mesh_i = 0; mesh_i < model.meshes.size(); ++mesh_i) {
 			const auto &mesh = model.meshes[mesh_i];
 			auto &mesh_blases = result.blas.emplace_back();
 			auto &mesh_blas_bufs = result.blas_buffers.emplace_back();
@@ -667,6 +668,9 @@ struct scene_resources {
 		// top level acceleration structure
 		std::size_t num_instances = 0;
 		for (const auto &prim : model.nodes) {
+			if (prim.mesh < 0) {
+				continue;
+			}
 			num_instances += model.meshes[prim.mesh].primitives.size();
 		}
 		std::size_t tlas_buf_size = num_instances * sizeof(gfx::instance_description);
@@ -674,6 +678,9 @@ struct scene_resources {
 		auto *ptr = static_cast<gfx::instance_description*>(dev.map_buffer(tlas_buf, 0, 0));
 		std::size_t instance_i = 0;
 		for (const auto &node : model.nodes) {
+			if (node.mesh < 0) {
+				continue;
+			}
 			auto &mesh = model.meshes[node.mesh];
 			auto transform = mat44f::identity();
 			if (!node.matrix.empty()) {

@@ -22,5 +22,12 @@ ps_input main_vs(uint vert_id : SV_VertexID) {
 }
 
 float4 main_ps(ps_input input) : SV_Target0 {
-	return float4(light.SampleLevel(point_sampler, input.uv.xy, 0).rgb / (globals.frame_index + 1), 1.0f);
+	float3 color = light.SampleLevel(point_sampler, input.uv.xy, 0).rgb / (globals.frame_index + 1);
+	if (any(isinf(color))) {
+		color = float3(1.0f, 0.0f, 0.0f);
+	}
+	if (any(isnan(color))) {
+		color = float3(1.0f, 0.0f, 1.0f);
+	}
+	return float4(color, 1.0f);
 }

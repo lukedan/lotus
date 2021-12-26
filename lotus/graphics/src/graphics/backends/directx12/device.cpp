@@ -335,13 +335,13 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
-	descriptor_pool device::create_descriptor_pool(std::span<const descriptor_range> ranges, std::size_t) {
+	descriptor_pool device::create_descriptor_pool(std::span<const descriptor_range> /*ranges*/, std::size_t) {
 		descriptor_pool result;
 		// TODO set max values
 		return result;
 	}
 
-	descriptor_set device::create_descriptor_set(descriptor_pool &pool, const descriptor_set_layout &layout) {
+	descriptor_set device::create_descriptor_set(descriptor_pool &/*pool*/, const descriptor_set_layout &layout) {
 		// check that we don't have unbounded ranges
 		if constexpr (is_debugging) {
 			for (const auto &range : layout._ranges) {
@@ -888,22 +888,20 @@ namespace lotus::graphics::backends::directx12 {
 
 		// pipeline settings
 		D3D12_RAYTRACING_SHADER_CONFIG shader_config = {};
-		shader_config.MaxPayloadSizeInBytes   = max_payload_size;
-		shader_config.MaxAttributeSizeInBytes = max_attribute_size;
+		shader_config.MaxPayloadSizeInBytes   = static_cast<UINT>(max_payload_size);
+		shader_config.MaxAttributeSizeInBytes = static_cast<UINT>(max_attribute_size);
 		{
 			auto &obj = subobjects.emplace_back();
 			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
 			obj.pDesc = &shader_config;
 		}
 		D3D12_RAYTRACING_PIPELINE_CONFIG pipeline_config = {};
-		pipeline_config.MaxTraceRecursionDepth = max_recursion;
+		pipeline_config.MaxTraceRecursionDepth = static_cast<UINT>(max_recursion);
 		{
 			auto &obj = subobjects.emplace_back();
 			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
 			obj.pDesc = &pipeline_config;
 		}
-
-		std::size_t first_shader_subject = subobjects.size();
 
 		// shaders
 		// these arrays must be reserved or the objects may be moved and cause pointers to be invalidated
@@ -968,7 +966,7 @@ namespace lotus::graphics::backends::directx12 {
 
 		D3D12_STATE_OBJECT_DESC desc = {};
 		desc.Type          = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
-		desc.NumSubobjects = subobjects.size();
+		desc.NumSubobjects = static_cast<UINT>(subobjects.size());
 		desc.pSubobjects   = subobjects.data();
 		_details::assert_dx(_device->CreateStateObject(&desc, IID_PPV_ARGS(&result._state)));
 

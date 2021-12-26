@@ -473,7 +473,7 @@ namespace lotus::graphics::backends::vulkan::_details {
 				result.semantic_name.pop_back();
 			}
 			for (auto &ch : result.semantic_name) {
-				ch = std::toupper(ch);
+				ch = static_cast<char8_t>(std::toupper(ch));
 			}
 			return result;
 		}

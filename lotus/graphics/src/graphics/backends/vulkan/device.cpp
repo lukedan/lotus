@@ -56,7 +56,7 @@ namespace lotus::graphics::backends::vulkan {
 		vk::SwapchainCreateInfoKHR info;
 		info
 			.setSurface(s._surface.get())
-			.setMinImageCount(s.get_image_count())
+			.setMinImageCount(static_cast<std::uint32_t>(s.get_image_count()))
 			.setImageFormat(s._format.format)
 			.setImageColorSpace(s._format.colorSpace)
 			.setImageExtent(vk::Extent2D(static_cast<std::uint32_t>(size[0]), static_cast<std::uint32_t>(size[1])))
@@ -350,7 +350,7 @@ namespace lotus::graphics::backends::vulkan {
 			if (rng.range.count == descriptor_range::unbounded_count) {
 				binding
 					.setDescriptorCount(1000) // TODO what should I use here?
-					.setBinding(rng.register_index);
+					.setBinding(static_cast<std::uint32_t>(rng.register_index));
 				arr.emplace_back(binding);
 				flags_arr.emplace_back(vk::DescriptorBindingFlagBits::eVariableDescriptorCount);
 			} else {
@@ -650,7 +650,7 @@ namespace lotus::graphics::backends::vulkan {
 		return result;
 	}
 
-	device_heap device::create_device_heap(std::size_t size, heap_type type) {
+	device_heap device::create_device_heap(std::size_t size, heap_type /*type*/) {
 		device_heap result;
 
 		vk::MemoryAllocateInfo info;
@@ -920,18 +920,18 @@ namespace lotus::graphics::backends::vulkan {
 				.setVertexFormat(_details::conversions::for_format(vert.vertex_format))
 				.setVertexData(_device->getBufferAddress(vert.data->_buffer) + vert.offset)
 				.setVertexStride(vert.stride)
-				.setMaxVertex(vert.count)
+				.setMaxVertex(static_cast<std::uint32_t>(vert.count))
 				.setTransformData(nullptr);
 			if (index.data) {
 				geom.geometry.triangles
 					.setIndexType(_details::conversions::for_index_format(index.element_format))
 					.setIndexData(_device->getBufferAddress(index.data->_buffer) + index.offset);
-				result._pimitive_counts.emplace_back(index.count / 3);
+				result._pimitive_counts.emplace_back(static_cast<std::uint32_t>(index.count / 3));
 			} else {
 				geom.geometry.triangles
 					.setIndexType(vk::IndexType::eNoneKHR)
 					.setIndexData(nullptr);
-				result._pimitive_counts.emplace_back(vert.count / 3);
+				result._pimitive_counts.emplace_back(static_cast<std::uint32_t>(vert.count / 3));
 			}
 		}
 		result._build_info
@@ -1024,9 +1024,9 @@ namespace lotus::graphics::backends::vulkan {
 			.setSize(size)
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel);
 		// TODO allocator
-		result._acceleration_structure = _device->createAccelerationStructureKHRUnique(
+		result._acceleration_structure = _details::unwrap(_device->createAccelerationStructureKHRUnique(
 			create_info, nullptr, *_dispatch_loader
-		);
+		));
 		return result;
 	}
 
@@ -1042,14 +1042,14 @@ namespace lotus::graphics::backends::vulkan {
 			.setSize(size)
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel);
 		// TODO allocator
-		result._acceleration_structure = _device->createAccelerationStructureKHRUnique(
+		result._acceleration_structure = _details::unwrap(_device->createAccelerationStructureKHRUnique(
 			create_info, nullptr, *_dispatch_loader
-		);
+		));
 		return result;
 	}
 
 	void device::write_descriptor_set_acceleration_structures(
-		descriptor_set &set, const descriptor_set_layout &layout, std::size_t first_register,
+		descriptor_set &set, const descriptor_set_layout&, std::size_t first_register,
 		std::span<graphics::top_level_acceleration_structure *const> acceleration_structures
 	) {
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
@@ -1069,7 +1069,7 @@ namespace lotus::graphics::backends::vulkan {
 			.setPNext(&as_writes)
 			.setDstSet(set._set.get())
 			.setDstBinding(static_cast<std::uint32_t>(first_register))
-			.setDescriptorCount(acceleration_structures.size())
+			.setDescriptorCount(static_cast<std::uint32_t>(acceleration_structures.size()))
 			.setDescriptorType(vk::DescriptorType::eAccelerationStructureKHR);
 		_device->updateDescriptorSets(info, {});
 	}
@@ -1080,7 +1080,8 @@ namespace lotus::graphics::backends::vulkan {
 		shader_group_handle result = uninitialized;
 		result._data.resize(_raytracing_properties.shaderGroupHandleSize);
 		_details::assert_vk(_device->getRayTracingShaderGroupHandlesKHR(
-			pipeline._pipeline.get(), index, 1, result._data.size(), result._data.data(), *_dispatch_loader
+			pipeline._pipeline.get(), static_cast<std::uint32_t>(index), 1,
+			result._data.size(), result._data.data(), *_dispatch_loader
 		));
 		return result;
 	}
@@ -1114,18 +1115,18 @@ namespace lotus::graphics::backends::vulkan {
 				.setGeneralShader(VK_SHADER_UNUSED_KHR)
 				.setClosestHitShader(
 					group.closest_hit_shader_index == hit_shader_group::no_shader ?
-					VK_SHADER_UNUSED_KHR : group.closest_hit_shader_index
+					VK_SHADER_UNUSED_KHR : static_cast<std::uint32_t>(group.closest_hit_shader_index)
 				)
 				.setAnyHitShader(
 					group.any_hit_shader_index == hit_shader_group::no_shader ?
-					VK_SHADER_UNUSED_KHR : group.any_hit_shader_index
+					VK_SHADER_UNUSED_KHR : static_cast<std::uint32_t>(group.any_hit_shader_index)
 				)
 				.setIntersectionShader(VK_SHADER_UNUSED_KHR);
 		}
 		for (const auto &general : general_shaders) {
 			groups.emplace_back()
 				.setType(vk::RayTracingShaderGroupTypeKHR::eGeneral)
-				.setGeneralShader(stages.size())
+				.setGeneralShader(static_cast<std::uint32_t>(stages.size()))
 				.setClosestHitShader(VK_SHADER_UNUSED_KHR)
 				.setAnyHitShader(VK_SHADER_UNUSED_KHR)
 				.setIntersectionShader(VK_SHADER_UNUSED_KHR);
@@ -1144,7 +1145,7 @@ namespace lotus::graphics::backends::vulkan {
 			.setFlags(vk::PipelineCreateFlags())
 			.setStages(stages)
 			.setGroups(groups)
-			.setMaxPipelineRayRecursionDepth(max_recursion_depth)
+			.setMaxPipelineRayRecursionDepth(static_cast<std::uint32_t>(max_recursion_depth))
 			.setLayout(rsrc._layout.get());
 		raytracing_pipeline_state result = nullptr;
 		result._pipeline = _details::unwrap(_device->createRayTracingPipelineKHRUnique(

@@ -66,7 +66,7 @@ void project::update_descriptor_sets(
 							},
 							in.value
 						);
-						dev.write_descriptor_set_images(
+						dev.write_descriptor_set_read_only_images(
 							descriptors, it.second.descriptor_set_layout, in.register_index.value(), { &img_view }
 						);
 						if (dep) {

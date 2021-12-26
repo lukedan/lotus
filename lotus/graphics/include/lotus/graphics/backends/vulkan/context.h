@@ -100,7 +100,19 @@ namespace lotus::graphics::backends::vulkan {
 		) {
 			auto bookmark = stack_allocator::for_this_thread().bookmark();
 			auto extra_args = bookmark.create_vector_array<LPCWSTR>();
-			extra_args.insert(extra_args.end(), { L"-spirv", L"-fspv-reflect", L"-Ges", L"-Zi", L"-Zpr" });
+			extra_args.insert(
+				extra_args.end(),
+				{
+					L"-Ges",
+					L"-Zi",
+					L"-Zpr",
+					L"-spirv",
+					L"-fspv-reflect",
+					L"-fspv-target-env=vulkan1.2",
+					L"-fvk-use-dx-layout",
+					L"-no-legacy-cbuf-layout"
+				}
+			);
 			if (stage == shader_stage::vertex_shader || stage == shader_stage::geometry_shader) {
 				extra_args.emplace_back(L"-fvk-invert-y");
 			}

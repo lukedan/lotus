@@ -294,7 +294,7 @@ namespace lotus::graphics::backends::vulkan {
 			.setScratchData(_device->_device->getBufferAddress(scratch._buffer) + scratch_offset);
 		vk::AccelerationStructureBuildRangeInfoKHR build_range;
 		build_range
-			.setPrimitiveCount(count)
+			.setPrimitiveCount(static_cast<std::uint32_t>(count))
 			.setPrimitiveOffset(0)
 			.setFirstVertex(0)
 			.setTransformOffset(0);
@@ -337,7 +337,10 @@ namespace lotus::graphics::backends::vulkan {
 				hit_groups.stride, hit_groups.stride * hit_groups.count
 			),
 			vk::StridedDeviceAddressRegionKHR(),
-			width, height, depth, *_device->_dispatch_loader
+			static_cast<std::uint32_t>(width),
+			static_cast<std::uint32_t>(height),
+			static_cast<std::uint32_t>(depth),
+			*_device->_dispatch_loader
 		);
 	}
 

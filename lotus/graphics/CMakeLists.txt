@@ -140,7 +140,11 @@ function(add_shader FILENAME STAGE ENTRY PROFILE DEPENDENT BACKEND)
 		set(DXC_EXTRA_ARGS)
 		set(DXC_EXECUTABLE dxc)
 	elseif(BACKEND STREQUAL "vulkan")
-		set(DXC_EXTRA_ARGS -spirv -fspv-reflect -fspv-target-env=vulkan1.2)
+		set(DXC_EXTRA_ARGS
+			-spirv
+			-fspv-reflect
+			-fspv-target-env=vulkan1.2
+			-fvk-use-dx-layout)
 		if(STAGE STREQUAL "vs" OR STAGE STREQUAL "gs" OR STAGE STREQUAL "ds")
 			set(DXC_EXTRA_ARGS ${DXC_EXTRA_ARGS} -fvk-invert-y)
 		endif()

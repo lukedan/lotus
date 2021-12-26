@@ -338,13 +338,14 @@ int main(int argc, char **argv) {
 		cmd_list = dev.create_and_start_command_list(cmd_alloc);
 		{
 			auto image = swapchain.get_image(back_buffer.index);
-			
-			/*
-			gbuf_pass.record_commands(cmd_list, gbuf, model, model_resources, gbuf_input, gbuf_output);
-			comp_pass.record_commands(cmd_list, image, comp_input, comp_output[back_buffer.index]);
-			*/
-			rt_pass.record_commands(cmd_list, model, model_resources, rt_input, raytrace_buffer);
-			rt_resolve_pass.record_commands(cmd_list, image, raytrace_buffer, rt_resolve_input, rt_resolve_output[back_buffer.index]);
+
+			if constexpr (0) {
+				gbuf_pass.record_commands(cmd_list, gbuf, model, model_resources, gbuf_input, gbuf_output);
+				comp_pass.record_commands(cmd_list, image, comp_input, comp_output[back_buffer.index]);
+			} else {
+				rt_pass.record_commands(cmd_list, model, model_resources, rt_input, raytrace_buffer);
+				rt_resolve_pass.record_commands(cmd_list, image, raytrace_buffer, rt_resolve_input, rt_resolve_output[back_buffer.index]);
+			}
 
 			cmd_list.finish();
 		}

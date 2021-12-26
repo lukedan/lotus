@@ -288,7 +288,7 @@ int main(int argc, char **argv) {
 			for (std::size_t i = 0; i < 2; ++i) {
 				main_out[i] = proj.find_target(proj.main_pass, i, error_callback);
 				if (main_out[i]) {
-					gdev.write_descriptor_set_images(
+					gdev.write_descriptor_set_read_only_images(
 						blit_descriptor_set[i], blit_descriptor_layout,
 						0, { &main_out[i]->image_view }
 					);

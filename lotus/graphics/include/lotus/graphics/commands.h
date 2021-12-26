@@ -204,7 +204,7 @@ namespace lotus::graphics {
 
 
 		// ray-tracing related
-		/// Inserts a command that builds an acceleration structure.
+		/// Inserts a command that builds a bottom-level acceleration structure.
 		void build_acceleration_structure(
 			const bottom_level_acceleration_structure_geometry &geom,
 			bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
@@ -225,13 +225,25 @@ namespace lotus::graphics {
 		void bind_pipeline_state(const raytracing_pipeline_state &state) {
 			backend::command_list::bind_pipeline_state(state);
 		}
+		/// Binds descriptor sets for ray tracing.
+		void bind_ray_tracing_descriptor_sets(
+			const pipeline_resources &rsrc, std::size_t first, std::span<const descriptor_set *const> sets
+		) {
+			backend::command_list::bind_ray_tracing_descriptor_sets(rsrc, first, sets);
+		}
+		/// \overload
+		void bind_ray_tracing_descriptor_sets(
+			const pipeline_resources &rsrc, std::size_t first, std::initializer_list<const descriptor_set*> sets
+		) {
+			bind_ray_tracing_descriptor_sets(rsrc, first, { sets.begin(), sets.end() });
+		}
 		/// Traces a batch of rays.
 		void trace_rays(
-			constant_buffer_view ray_geneneration,
+			constant_buffer_view ray_generation,
 			shader_record_view miss_shaders, shader_record_view hit_groups,
 			std::size_t width, std::size_t height, std::size_t depth
 		) {
-			backend::command_list::trace_rays(ray_geneneration, miss_shaders, hit_groups, width, height, depth);
+			backend::command_list::trace_rays(ray_generation, miss_shaders, hit_groups, width, height, depth);
 		}
 	protected:
 		/// Implicit conversion from base type.

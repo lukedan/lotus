@@ -486,17 +486,27 @@ struct scene_resources {
 		);
 		result.material_descriptor_sets.reserve(model.materials.size());
 		result.aligned_material_data_size = align_size(sizeof(material_data), dev_props.constant_buffer_alignment);
-		result.material_buffer = dev.create_committed_buffer(
+		result.material_uniform_buffer = dev.create_committed_buffer(
 			result.aligned_material_data_size * model.materials.size(),
 			gfx::heap_type::device_only,
 			gfx::buffer_usage::mask::read_only_buffer | gfx::buffer_usage::mask::copy_destination
 		);
+		result.material_buffer = dev.create_committed_buffer(
+			sizeof(material_data) * model.materials.size(),
+			gfx::heap_type::device_only,
+			gfx::buffer_usage::mask::read_only_buffer | gfx::buffer_usage::mask::copy_destination
+		);
 		{
-			auto material_upload_buffer = dev.create_committed_buffer(
+			auto material_uniform_upload_buffer = dev.create_committed_buffer(
 				result.aligned_material_data_size * model.materials.size(),
 				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
 			);
-			void *buffer_ptr = dev.map_buffer(material_upload_buffer, 0, 0);
+			auto material_upload_buffer = dev.create_committed_buffer(
+				sizeof(material_data) * model.materials.size(),
+				gfx::heap_type::upload, gfx::buffer_usage::mask::copy_source
+			);
+			void *uniform_buffer_ptr = dev.map_buffer(material_uniform_upload_buffer, 0, 0);
+			auto *buffer_ptr = static_cast<material_data*>(dev.map_buffer(material_upload_buffer, 0, 0));
 			for (std::size_t i = 0; i < model.materials.size(); ++i) {
 				const auto &mat = model.materials[i];
 
@@ -513,46 +523,53 @@ struct scene_resources {
 					mat.pbrMetallicRoughness.metallicRoughnessTexture.index :
 					result.empty_metalness_glossiness_view_index;
 
-				auto *buffer = reinterpret_cast<material_data*>(reinterpret_cast<std::uintptr_t>(buffer_ptr) + i * result.aligned_material_data_size);
-				buffer->base_color = cvec4d(
+				material_data mat_data = uninitialized;
+				mat_data.base_color = cvec4d(
 					mat.pbrMetallicRoughness.baseColorFactor[0],
 					mat.pbrMetallicRoughness.baseColorFactor[1],
 					mat.pbrMetallicRoughness.baseColorFactor[2],
 					mat.pbrMetallicRoughness.baseColorFactor[3]
 				).into<float>();
 
-				buffer->normal_scale = static_cast<float>(mat.normalTexture.scale);
-				buffer->metalness = static_cast<float>(mat.pbrMetallicRoughness.metallicFactor);
-				buffer->roughness = static_cast<float>(mat.pbrMetallicRoughness.roughnessFactor);
+				mat_data.normal_scale = static_cast<float>(mat.normalTexture.scale);
+				mat_data.metalness = static_cast<float>(mat.pbrMetallicRoughness.metallicFactor);
+				mat_data.roughness = static_cast<float>(mat.pbrMetallicRoughness.roughnessFactor);
 				if (mat.alphaMode == "OPAQUE") {
-					buffer->alpha_cutoff = 0.0f;
+					mat_data.alpha_cutoff = 0.0f;
 				} else if (mat.alphaMode == "MASK") {
-					buffer->alpha_cutoff = static_cast<float>(mat.alphaCutoff);
+					mat_data.alpha_cutoff = static_cast<float>(mat.alphaCutoff);
 				} else {
 					std::cerr << "Unknown alpha mode: " << mat.alphaMode << "\n";
 				}
 
-				buffer->base_color_index = base_color_index;
-				buffer->normal_index = normal_index;
-				buffer->metallic_roughness_index = metalness_roughness_index;
+				mat_data.base_color_index = base_color_index;
+				mat_data.normal_index = normal_index;
+				mat_data.metallic_roughness_index = metalness_roughness_index;
+
+				auto *buffer = reinterpret_cast<material_data*>(reinterpret_cast<std::uintptr_t>(uniform_buffer_ptr) + i * result.aligned_material_data_size);
+				*buffer = mat_data;
+				buffer_ptr[i] = mat_data;
 
 				auto set = dev.create_descriptor_set(descriptor_pool, result.material_descriptor_layout);
 				dev.write_descriptor_set_constant_buffers(
 					set, result.material_descriptor_layout, 0,
 					{
-						gfx::constant_buffer_view::create(result.material_buffer, i * result.aligned_material_data_size, sizeof(material_data)),
+						gfx::constant_buffer_view::create(result.material_uniform_buffer, i * result.aligned_material_data_size, sizeof(material_data)),
 					}
 				);
 				result.material_descriptor_sets.emplace_back(std::move(set));
 			}
-			dev.unmap_buffer(material_upload_buffer, 0, model.materials.size() * result.aligned_material_data_size);
+			dev.unmap_buffer(material_uniform_upload_buffer, 0, model.materials.size() * result.aligned_material_data_size);
+			dev.unmap_buffer(material_upload_buffer, 0, model.materials.size() * sizeof(material_data));
 
 			// upload constants
 			auto cmd_list = dev.create_and_start_command_list(cmd_alloc);
-			cmd_list.copy_buffer(material_upload_buffer, 0, result.material_buffer, 0, model.materials.size() * result.aligned_material_data_size);
+			cmd_list.copy_buffer(material_uniform_upload_buffer, 0, result.material_uniform_buffer, 0, model.materials.size() * result.aligned_material_data_size);
+			cmd_list.copy_buffer(material_upload_buffer, 0, result.material_buffer, 0, model.materials.size() * sizeof(material_data));
 			cmd_list.resource_barrier(
 				{},
 				{
+					gfx::buffer_barrier::create(result.material_uniform_buffer, gfx::buffer_usage::copy_destination, gfx::buffer_usage::read_only_buffer),
 					gfx::buffer_barrier::create(result.material_buffer, gfx::buffer_usage::copy_destination, gfx::buffer_usage::read_only_buffer),
 				}
 			);
@@ -600,6 +617,7 @@ struct scene_resources {
 		for (std::size_t mesh_i = 0; mesh_i < model.nodes.size(); ++mesh_i) {
 			const auto &mesh = model.meshes[mesh_i];
 			auto &mesh_blases = result.blas.emplace_back();
+			auto &mesh_blas_bufs = result.blas_buffers.emplace_back();
 			for (std::size_t prim_i = 0; prim_i < mesh.primitives.size(); ++prim_i) {
 				const auto &prim = mesh.primitives[prim_i];
 				const auto &instance = result.instances[result.instance_indices[mesh_i][prim_i]];
@@ -625,7 +643,7 @@ struct scene_resources {
 					assert(false);
 				}
 
-				auto geom = gfx::bottom_level_acceleration_structure_geometry::create({ { vert_buf, index_buf } });
+				auto geom = dev.create_bottom_level_acceleration_structure_geometry({ { vert_buf, index_buf } });
 
 				auto build_sizes = dev.get_bottom_level_acceleration_structure_build_sizes(geom);
 				auto buf = dev.create_committed_buffer(build_sizes.acceleration_structure_size, gfx::heap_type::device_only, gfx::buffer_usage::mask::acceleration_structure);
@@ -642,6 +660,7 @@ struct scene_resources {
 				dev.wait_for_fence(fence);
 
 				mesh_blases.emplace_back(std::move(blas));
+				mesh_blas_bufs.emplace_back(std::move(buf));
 			}
 		}
 
@@ -666,15 +685,17 @@ struct scene_resources {
 			}
 			for (std::size_t prim_i = 0; prim_i < mesh.primitives.size(); ++prim_i) {
 				const auto &prim = mesh.primitives[prim_i];
-				ptr[instance_i] = result.blas[node.mesh][prim_i].get_description(transform, result.instance_indices[node.mesh][prim_i], 0xFFu, prim.indices < 0 ? 1 : 0);
+				ptr[instance_i] = dev.get_bottom_level_acceleration_structure_description(
+					result.blas[node.mesh][prim_i], transform, result.instance_indices[node.mesh][prim_i], 0xFFu, prim.indices < 0 ? 1 : 0
+				);
 				++instance_i;
 			}
 		}
 		assert(instance_i == num_instances);
 		dev.unmap_buffer(tlas_buf, 0, tlas_buf_size);
 		auto tlas_sizes = dev.get_top_level_acceleration_structure_build_sizes(tlas_buf, 0, num_instances);
-		auto tlas_data_buf = dev.create_committed_buffer(tlas_sizes.acceleration_structure_size, gfx::heap_type::device_only, gfx::buffer_usage::mask::acceleration_structure);
-		result.tlas = dev.create_top_level_acceleration_structure(tlas_data_buf, 0, tlas_sizes.acceleration_structure_size);
+		result.tlas_buffer = dev.create_committed_buffer(tlas_sizes.acceleration_structure_size, gfx::heap_type::device_only, gfx::buffer_usage::mask::acceleration_structure);
+		result.tlas = dev.create_top_level_acceleration_structure(result.tlas_buffer, 0, tlas_sizes.acceleration_structure_size);
 		{
 			auto tlas_scratch = dev.create_committed_buffer(tlas_sizes.build_scratch_size, gfx::heap_type::device_only, gfx::buffer_usage::mask::read_write_buffer);
 			auto cmd_list = dev.create_and_start_command_list(cmd_alloc);
@@ -775,18 +796,21 @@ struct scene_resources {
 	gfx::buffer index_buffer = nullptr;
 	std::size_t index_count;
 	gfx::buffer instance_buffer = nullptr;
+	gfx::buffer material_buffer = nullptr;
 
 	gfx::descriptor_set textures_descriptor_set = nullptr;
 	std::vector<gfx::descriptor_set> material_descriptor_sets;
 	std::vector<gfx::descriptor_set> node_descriptor_sets;
 	gfx::buffer node_buffer = nullptr;
 	std::size_t aligned_node_data_size;
-	gfx::buffer material_buffer = nullptr;
+	gfx::buffer material_uniform_buffer = nullptr;
 	std::size_t aligned_material_data_size;
 	gfx::descriptor_set_layout textures_descriptor_layout = nullptr;
 	gfx::descriptor_set_layout material_descriptor_layout = nullptr;
 	gfx::descriptor_set_layout node_descriptor_layout = nullptr;
 
 	std::vector<std::vector<gfx::bottom_level_acceleration_structure>> blas;
+	std::vector<std::vector<gfx::buffer>> blas_buffers;
 	gfx::top_level_acceleration_structure tlas = nullptr;
+	gfx::buffer tlas_buffer = nullptr;
 };

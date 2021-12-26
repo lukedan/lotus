@@ -118,6 +118,12 @@ namespace lotus::graphics::backends::directx12 {
 
 		/// Calls \p ID3D12GraphicsCommandList4::SetPipelineState1().
 		void bind_pipeline_state(const raytracing_pipeline_state&);
+		/// This is the same as \ref bind_compute_descriptor_sets().
+		void bind_ray_tracing_descriptor_sets(
+			const pipeline_resources &rsrc, std::size_t first, std::span<const graphics::descriptor_set *const> sets
+		) {
+			bind_compute_descriptor_sets(rsrc, first, sets);
+		}
 		/// Calls \p ID3D12GraphicsCommandList4::DispatchRays().
 		void trace_rays(
 			constant_buffer_view ray_geneneration,

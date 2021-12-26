@@ -402,6 +402,31 @@ namespace lotus::graphics {
 
 
 		// ray-tracing related
+		/// Creates an acceleration structure geometry description from the given buffer views.
+		[[nodiscard]] bottom_level_acceleration_structure_geometry
+			create_bottom_level_acceleration_structure_geometry(
+				std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
+			) {
+			return backend::device::create_bottom_level_acceleration_structure_geometry(data);
+		}
+		/// \overload
+		[[nodiscard]] bottom_level_acceleration_structure_geometry
+			create_bottom_level_acceleration_structure_geometry(
+				std::initializer_list<std::pair<vertex_buffer_view, index_buffer_view>> data
+			) {
+			return create_bottom_level_acceleration_structure_geometry({ data.begin(), data.end() });
+		}
+
+		/// Returns an \ref instance_description for a bottom-level acceleration structure.
+		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
+			bottom_level_acceleration_structure &as,
+			mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset // TODO options
+		) const {
+			return backend::device::get_bottom_level_acceleration_structure_description(
+				as, trans, id, mask, hit_group_offset
+			);
+		}
+
 		/// Queries size information for the given bottom level acceleration structure.
 		[[nodiscard]] acceleration_structure_build_sizes get_bottom_level_acceleration_structure_build_sizes(
 			const bottom_level_acceleration_structure_geometry &geom

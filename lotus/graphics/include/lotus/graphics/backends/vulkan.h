@@ -3,6 +3,7 @@
 /// \file
 /// Sets up Vulkan to be the graphics backend.
 
+#include "vulkan/acceleration_structure.h"
 #include "vulkan/commands.h"
 #include "vulkan/context.h"
 #include "vulkan/descriptors.h"

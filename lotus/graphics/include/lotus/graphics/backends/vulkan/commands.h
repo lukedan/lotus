@@ -5,6 +5,7 @@
 
 #include "lotus/color.h"
 #include "details.h"
+#include "acceleration_structure.h"
 #include "pass.h"
 #include "pipeline.h"
 #include "frame_buffer.h"
@@ -29,10 +30,25 @@ namespace lotus::graphics::backends::vulkan {
 	class command_list {
 		friend command_queue;
 		friend device;
+	public:
+		/// Destructor.
+		~command_list();
 	protected:
 		/// Creates an empty object.
 		command_list(std::nullptr_t) {
 		}
+		/// Move construction.
+		command_list(command_list &&src) :
+			_buffer(std::exchange(src._buffer, nullptr)),
+			_pool(std::exchange(src._pool, nullptr)),
+			_device(std::exchange(src._device, nullptr)) {
+		}
+		/// No copy construction.
+		command_list(const command_list&) = delete;
+		/// Move assignment.
+		command_list &operator=(command_list&&);
+		/// No copy assignment.
+		command_list &operator=(const command_list&) = delete;
 
 		/// Calls \p vk::CommandBuffer::reset() and \p vk::CommandBuffer::begin().
 		void reset_and_start(command_allocator&);
@@ -98,8 +114,36 @@ namespace lotus::graphics::backends::vulkan {
 		void end_pass();
 		/// Calls \p vk::CommandBuffer::end().
 		void finish();
+
+
+		// ray-tracing related
+		/// Calls \p vk::CommandBuffer::buildAccelerationStructuresKHR().
+		void build_acceleration_structure(
+			const bottom_level_acceleration_structure_geometry &geom,
+			bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+		);
+		/// Calls \p vk::CommandBuffer::buildAccelerationStructuresKHR().
+		void build_acceleration_structure(
+			const buffer &instances, std::size_t offset, std::size_t count,
+			top_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+		);
+
+		/// Calls \p vk::CommandBuffer::bindPipeline().
+		void bind_pipeline_state(const raytracing_pipeline_state&);
+		/// Calls \p vk::CommandBuffer::bindDescriptorSets().
+		void bind_ray_tracing_descriptor_sets(
+			const pipeline_resources&, std::size_t first, std::span<const graphics::descriptor_set *const>
+		);
+		/// Calls \p vk::CommandBuffer::traceRaysKHR().
+		void trace_rays(
+			constant_buffer_view ray_generation,
+			shader_record_view miss_shaders, shader_record_view hit_groups,
+			std::size_t width, std::size_t height, std::size_t depth
+		);
 	private:
-		vk::UniqueCommandBuffer _buffer; ///< The command buffer.
+		vk::CommandBuffer _buffer; ///< The command buffer.
+		vk::CommandPool _pool; ///< The command pool that this buffer is allocated from.
+		device *_device; ///< The device that created this command buffer.
 	};
 
 	/// Contains a \p vk::Queue.

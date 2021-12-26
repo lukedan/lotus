@@ -13,6 +13,7 @@ namespace lotus::graphics {
 	/// Contains geometry description for bottom-level acceleration structures.
 	class bottom_level_acceleration_structure_geometry :
 		public backend::bottom_level_acceleration_structure_geometry {
+		friend device;
 	public:
 		/// Move construction.
 		bottom_level_acceleration_structure_geometry(bottom_level_acceleration_structure_geometry &&src) :
@@ -29,18 +30,6 @@ namespace lotus::graphics {
 		bottom_level_acceleration_structure_geometry &operator=(
 			const bottom_level_acceleration_structure_geometry&
 		) = delete;
-		/// Creates a geometry description from the given buffer views.
-		[[nodiscard]] inline static bottom_level_acceleration_structure_geometry create(
-			std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
-		) {
-			return backend::bottom_level_acceleration_structure_geometry::create(data);
-		}
-		/// \overload
-		[[nodiscard]] inline static bottom_level_acceleration_structure_geometry create(
-			std::initializer_list<std::pair<vertex_buffer_view, index_buffer_view>> data
-		) {
-			return create({ data.begin(), data.end() });
-		}
 	protected:
 		/// Initializes the base object.
 		bottom_level_acceleration_structure_geometry(backend::bottom_level_acceleration_structure_geometry &&src) :
@@ -51,7 +40,7 @@ namespace lotus::graphics {
 	/// Describes an instance in a top-level acceleration structure. This struct is used to directly describe one
 	/// instance in GPU memory.
 	class instance_description : public backend::instance_description {
-		friend bottom_level_acceleration_structure;
+		friend device;
 	public:
 		/// No initialization.
 		instance_description(uninitialized_t) : backend::instance_description(uninitialized) {
@@ -86,13 +75,6 @@ namespace lotus::graphics {
 		}
 		/// No copy construction.
 		bottom_level_acceleration_structure &operator=(const bottom_level_acceleration_structure&) = delete;
-
-		/// Returns an \ref instance_description for this instance.
-		[[nodiscard]] instance_description get_description(
-			mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset // TODO options
-		) const {
-			return backend::bottom_level_acceleration_structure::get_description(trans, id, mask, hit_group_offset);
-		}
 	protected:
 		/// Initializes the base object.
 		bottom_level_acceleration_structure(backend::bottom_level_acceleration_structure &&src) :

@@ -205,12 +205,13 @@ namespace lotus::graphics::backends::directx12::_details {
 
 		D3D12_DESCRIPTOR_RANGE_TYPE for_descriptor_type(descriptor_type ty) {
 			constexpr static enum_mapping<descriptor_type, D3D12_DESCRIPTOR_RANGE_TYPE> table{
-				std::pair(descriptor_type::sampler,           D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER),
-				std::pair(descriptor_type::read_only_image,   D3D12_DESCRIPTOR_RANGE_TYPE_SRV    ),
-				std::pair(descriptor_type::read_write_image,  D3D12_DESCRIPTOR_RANGE_TYPE_UAV    ),
-				std::pair(descriptor_type::read_only_buffer,  D3D12_DESCRIPTOR_RANGE_TYPE_SRV    ),
-				std::pair(descriptor_type::read_write_buffer, D3D12_DESCRIPTOR_RANGE_TYPE_UAV    ),
-				std::pair(descriptor_type::constant_buffer,   D3D12_DESCRIPTOR_RANGE_TYPE_CBV    ),
+				std::pair(descriptor_type::sampler,                D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER),
+				std::pair(descriptor_type::read_only_image,        D3D12_DESCRIPTOR_RANGE_TYPE_SRV    ),
+				std::pair(descriptor_type::read_write_image,       D3D12_DESCRIPTOR_RANGE_TYPE_UAV    ),
+				std::pair(descriptor_type::read_only_buffer,       D3D12_DESCRIPTOR_RANGE_TYPE_SRV    ),
+				std::pair(descriptor_type::read_write_buffer,      D3D12_DESCRIPTOR_RANGE_TYPE_UAV    ),
+				std::pair(descriptor_type::constant_buffer,        D3D12_DESCRIPTOR_RANGE_TYPE_CBV    ),
+				std::pair(descriptor_type::acceleration_structure, D3D12_DESCRIPTOR_RANGE_TYPE_SRV    ),
 			};
 			return table[ty];
 		}

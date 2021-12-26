@@ -78,8 +78,10 @@ namespace lotus::graphics::backends::vulkan::_details {
 			for (auto [myval, vkval] : table) {
 				if ((mask & myval) == myval) {
 					result |= vkval;
+					mask &= ~myval;
 				}
 			}
+			assert(is_empty(mask));
 			return result;
 		}
 
@@ -99,19 +101,22 @@ namespace lotus::graphics::backends::vulkan::_details {
 
 		vk::BufferUsageFlags to_buffer_usage_flags(buffer_usage::mask mask) {
 			constexpr static std::pair<buffer_usage::mask, vk::BufferUsageFlags> table[]{
-				{ buffer_usage::mask::index_buffer,      vk::BufferUsageFlagBits::eIndexBuffer   },
-				{ buffer_usage::mask::vertex_buffer,     vk::BufferUsageFlagBits::eVertexBuffer  },
-				{ buffer_usage::mask::read_only_buffer,  vk::BufferUsageFlagBits::eUniformBuffer },
-				{ buffer_usage::mask::read_write_buffer, vk::BufferUsageFlagBits::eStorageBuffer },
-				{ buffer_usage::mask::copy_source,       vk::BufferUsageFlagBits::eTransferSrc   },
-				{ buffer_usage::mask::copy_destination,  vk::BufferUsageFlagBits::eTransferDst   },
+				{ buffer_usage::mask::index_buffer,           vk::BufferUsageFlagBits::eIndexBuffer                                             },
+				{ buffer_usage::mask::vertex_buffer,          vk::BufferUsageFlagBits::eVertexBuffer                                            },
+				{ buffer_usage::mask::read_only_buffer,       vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer },
+				{ buffer_usage::mask::read_write_buffer,      vk::BufferUsageFlagBits::eStorageBuffer                                           },
+				{ buffer_usage::mask::copy_source,            vk::BufferUsageFlagBits::eTransferSrc                                             },
+				{ buffer_usage::mask::copy_destination,       vk::BufferUsageFlagBits::eTransferDst                                             },
+				{ buffer_usage::mask::acceleration_structure, vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR                         },
 			};
 			vk::BufferUsageFlags result;
 			for (auto [myval, vkval] : table) {
 				if ((mask & myval) == myval) {
 					result |= vkval;
+					mask &= ~myval;
 				}
 			}
+			assert(is_empty(mask));
 			return result;
 		}
 
@@ -129,31 +134,35 @@ namespace lotus::graphics::backends::vulkan::_details {
 			for (auto [myval, vkval] : table) {
 				if ((mask & myval) == myval) {
 					result |= vkval;
+					mask &= ~myval;
 				}
 			}
+			assert(is_empty(mask));
 			return result;
 		}
 
 		vk::AccessFlags to_access_flags(buffer_usage usage) {
 			constexpr static enum_mapping<buffer_usage, vk::AccessFlags> table{
-				std::pair(buffer_usage::index_buffer,      vk::AccessFlagBits::eIndexRead                                    ),
-				std::pair(buffer_usage::vertex_buffer,     vk::AccessFlagBits::eVertexAttributeRead                          ),
-				std::pair(buffer_usage::read_only_buffer,  vk::AccessFlagBits::eUniformRead                                  ),
-				std::pair(buffer_usage::read_write_buffer, vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite),
-				std::pair(buffer_usage::copy_source,       vk::AccessFlagBits::eTransferRead                                 ),
-				std::pair(buffer_usage::copy_destination,  vk::AccessFlagBits::eTransferWrite                                ),
+				std::pair(buffer_usage::index_buffer,           vk::AccessFlagBits::eIndexRead                                    ),
+				std::pair(buffer_usage::vertex_buffer,          vk::AccessFlagBits::eVertexAttributeRead                          ),
+				std::pair(buffer_usage::read_only_buffer,       vk::AccessFlagBits::eUniformRead                                  ),
+				std::pair(buffer_usage::read_write_buffer,      vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite),
+				std::pair(buffer_usage::copy_source,            vk::AccessFlagBits::eTransferRead                                 ),
+				std::pair(buffer_usage::copy_destination,       vk::AccessFlagBits::eTransferWrite                                ),
+				std::pair(buffer_usage::acceleration_structure, vk::AccessFlagBits::eAccelerationStructureReadKHR                 ), // TODO this won't work
 			};
 			return table[usage];
 		}
 
 		vk::DescriptorType to_descriptor_type(descriptor_type ty) {
 			constexpr static enum_mapping<descriptor_type, vk::DescriptorType> table{
-				std::pair(descriptor_type::sampler,           vk::DescriptorType::eSampler),
-				std::pair(descriptor_type::read_only_image,   vk::DescriptorType::eSampledImage),
-				std::pair(descriptor_type::read_write_image,  vk::DescriptorType::eStorageImage),
-				std::pair(descriptor_type::read_only_buffer,  vk::DescriptorType::eUniformBuffer),
-				std::pair(descriptor_type::read_write_buffer, vk::DescriptorType::eStorageBuffer),
-				std::pair(descriptor_type::constant_buffer,   vk::DescriptorType::eUniformBuffer),
+				std::pair(descriptor_type::sampler,                vk::DescriptorType::eSampler                 ),
+				std::pair(descriptor_type::read_only_image,        vk::DescriptorType::eSampledImage            ),
+				std::pair(descriptor_type::read_write_image,       vk::DescriptorType::eStorageImage            ),
+				std::pair(descriptor_type::read_only_buffer,       vk::DescriptorType::eStorageBuffer           ), // aka structured buffer
+				std::pair(descriptor_type::read_write_buffer,      vk::DescriptorType::eStorageBuffer           ),
+				std::pair(descriptor_type::constant_buffer,        vk::DescriptorType::eUniformBuffer           ),
+				std::pair(descriptor_type::acceleration_structure, vk::DescriptorType::eAccelerationStructureKHR),
 			};
 			return table[ty];
 		}
@@ -200,11 +209,17 @@ namespace lotus::graphics::backends::vulkan::_details {
 
 		vk::ShaderStageFlags to_shader_stage_flags(shader_stage stage) {
 			constexpr static enum_mapping<shader_stage, vk::ShaderStageFlagBits> table{
-				std::pair(shader_stage::all,             vk::ShaderStageFlagBits::eAll     ),
-				std::pair(shader_stage::vertex_shader,   vk::ShaderStageFlagBits::eVertex  ),
-				std::pair(shader_stage::geometry_shader, vk::ShaderStageFlagBits::eGeometry),
-				std::pair(shader_stage::pixel_shader,    vk::ShaderStageFlagBits::eFragment),
-				std::pair(shader_stage::compute_shader,  vk::ShaderStageFlagBits::eCompute ),
+				std::pair(shader_stage::all,                   vk::ShaderStageFlagBits::eAll            ),
+				std::pair(shader_stage::vertex_shader,         vk::ShaderStageFlagBits::eVertex         ),
+				std::pair(shader_stage::geometry_shader,       vk::ShaderStageFlagBits::eGeometry       ),
+				std::pair(shader_stage::pixel_shader,          vk::ShaderStageFlagBits::eFragment       ),
+				std::pair(shader_stage::compute_shader,        vk::ShaderStageFlagBits::eCompute        ),
+				std::pair(shader_stage::callable_shader,       vk::ShaderStageFlagBits::eCallableKHR    ),
+				std::pair(shader_stage::ray_generation_shader, vk::ShaderStageFlagBits::eRaygenKHR      ),
+				std::pair(shader_stage::intersection_shader,   vk::ShaderStageFlagBits::eIntersectionKHR),
+				std::pair(shader_stage::any_hit_shader,        vk::ShaderStageFlagBits::eAnyHitKHR      ),
+				std::pair(shader_stage::closest_hit_shader,    vk::ShaderStageFlagBits::eClosestHitKHR  ),
+				std::pair(shader_stage::miss_shader,           vk::ShaderStageFlagBits::eMissKHR        ),
 			};
 			return table[stage];
 		}
@@ -301,8 +316,10 @@ namespace lotus::graphics::backends::vulkan::_details {
 			for (auto [myval, vkval] : table) {
 				if ((mask & myval) == myval) {
 					result |= vkval;
+					mask &= ~myval;
 				}
 			}
+			assert(is_empty(mask));
 			return result;
 		}
 

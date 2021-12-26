@@ -7,9 +7,11 @@
 
 #include <spirv_reflect.h>
 
+#include "lotus/graphics/acceleration_structure.h"
 #include "lotus/graphics/descriptors.h"
 #include "lotus/graphics/frame_buffer.h"
 #include "lotus/graphics/pass.h"
+#include "lotus/graphics/pipeline.h"
 #include "lotus/graphics/synchronization.h"
 
 namespace lotus::graphics::backends::vulkan {
@@ -99,12 +101,14 @@ namespace lotus::graphics::backends::vulkan {
 			.setCommandPool(alloc._pool.get())
 			.setLevel(vk::CommandBufferLevel::ePrimary)
 			.setCommandBufferCount(1);
-		auto buffers = _details::unwrap(_device->allocateCommandBuffersUnique(info));
+		auto buffers = _details::unwrap(_device->allocateCommandBuffers(info));
 		assert(buffers.size() == 1);
-		result._buffer = std::move(buffers[0]);
+		result._buffer = buffers[0];
+		result._pool   = alloc._pool.get();
+		result._device = this;
 
 		vk::CommandBufferBeginInfo begin_info;
-		_details::assert_vk(result._buffer->begin(begin_info));
+		_details::assert_vk(result._buffer.begin(begin_info));
 
 		return result;
 	}
@@ -149,7 +153,28 @@ namespace lotus::graphics::backends::vulkan {
 		return result;
 	}
 
-	void device::write_descriptor_set_images(
+	descriptor_set device::create_descriptor_set(
+		descriptor_pool &pool, const descriptor_set_layout &layout, std::size_t dynamic_size
+	) {
+		descriptor_set result = nullptr;
+		auto count = static_cast<std::uint32_t>(dynamic_size);
+		vk::DescriptorSetVariableDescriptorCountAllocateInfo variable_count_info;
+		variable_count_info
+			.setDescriptorCounts(count);
+		vk::DescriptorSetAllocateInfo info;
+		info
+			.setPNext(&variable_count_info)
+			.setDescriptorPool(pool._pool.get())
+			.setDescriptorSetCount(1)
+			.setSetLayouts(layout._layout.get());
+		auto sets = _details::unwrap(_device->allocateDescriptorSetsUnique(info));
+		assert(sets.size() == 1);
+		result._set = std::move(sets[0]);
+
+		return result;
+	}
+
+	void device::write_descriptor_set_read_only_images(
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const graphics::image_view *const> images
 	) {
@@ -158,7 +183,7 @@ namespace lotus::graphics::backends::vulkan {
 		for (const auto *img : images) {
 			imgs.emplace_back()
 				.setImageView(static_cast<const _details::image_view*>(img)->_view.get())
-				.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal); // TODO RW?
+				.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 		}
 
 		vk::WriteDescriptorSet info;
@@ -170,9 +195,30 @@ namespace lotus::graphics::backends::vulkan {
 		_device->updateDescriptorSets(info, {});
 	}
 
-	void device::write_descriptor_set_buffers(
+	void device::write_descriptor_set_read_write_images(
 		descriptor_set &set, const descriptor_set_layout&,
-		std::size_t first_register, std::span<const buffer_view> buffers
+		std::size_t first_register, std::span<const image_view *const> images
+	) {
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto imgs = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
+		for (const auto *img : images) {
+			imgs.emplace_back()
+				.setImageView(static_cast<const _details::image_view*>(img)->_view.get())
+				.setImageLayout(vk::ImageLayout::eGeneral);
+		}
+
+		vk::WriteDescriptorSet info;
+		info
+			.setDstSet(set._set.get())
+			.setDstBinding(static_cast<std::uint32_t>(first_register))
+			.setDescriptorType(vk::DescriptorType::eStorageImage)
+			.setImageInfo(imgs);
+		_device->updateDescriptorSets(info, {});
+	}
+
+	void device::write_descriptor_set_read_only_structured_buffers(
+		descriptor_set &set, const descriptor_set_layout&,
+		std::size_t first_register, std::span<const structured_buffer_view> buffers
 	) {
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
@@ -180,14 +226,14 @@ namespace lotus::graphics::backends::vulkan {
 			bufs.emplace_back()
 				.setBuffer(static_cast<buffer*>(buf.data)->_buffer)
 				.setOffset(buf.first * buf.stride)
-				.setRange(buf.size * buf.stride);
+				.setRange(buf.count * buf.stride);
 		}
 
 		vk::WriteDescriptorSet info;
 		info
 			.setDstSet(set._set.get())
 			.setDstBinding(static_cast<std::uint32_t>(first_register))
-			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+			.setDescriptorType(vk::DescriptorType::eStorageBuffer)
 			.setBufferInfo(bufs);
 		_device->updateDescriptorSets(info, {});
 	}
@@ -234,8 +280,8 @@ namespace lotus::graphics::backends::vulkan {
 		_device->updateDescriptorSets(info, {});
 	}
 
-	shader device::load_shader(std::span<const std::byte> data) {
-		shader result = nullptr;
+	shader_binary device::load_shader(std::span<const std::byte> data) {
+		shader_binary result = nullptr;
 
 		vk::ShaderModuleCreateInfo info;
 		constexpr std::size_t word_size = sizeof(std::uint32_t);
@@ -291,23 +337,37 @@ namespace lotus::graphics::backends::vulkan {
 	) {
 		descriptor_set_layout result = nullptr;
 
+		auto stages = _details::conversions::to_shader_stage_flags(visible_stages);
+
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 		auto arr = bookmark.create_vector_array<vk::DescriptorSetLayoutBinding>();
-		auto stages = _details::conversions::to_shader_stage_flags(visible_stages);
+		auto flags_arr = bookmark.create_vector_array<vk::DescriptorBindingFlags>();
 		for (const auto &rng : ranges) {
 			vk::DescriptorSetLayoutBinding binding;
 			binding
 				.setDescriptorType(_details::conversions::to_descriptor_type(rng.range.type))
-				.setDescriptorCount(1)
 				.setStageFlags(stages);
-			for (std::size_t i = 0; i < rng.range.count; ++i) {
-				binding.setBinding(static_cast<std::uint32_t>(rng.register_index + i));
+			if (rng.range.count == descriptor_range::unbounded_count) {
+				binding
+					.setDescriptorCount(1000) // TODO what should I use here?
+					.setBinding(rng.register_index);
 				arr.emplace_back(binding);
+				flags_arr.emplace_back(vk::DescriptorBindingFlagBits::eVariableDescriptorCount);
+			} else {
+				binding.setDescriptorCount(1);
+				for (std::size_t i = 0; i < rng.range.count; ++i) {
+					binding.setBinding(static_cast<std::uint32_t>(rng.register_index + i));
+					arr.emplace_back(binding);
+					flags_arr.emplace_back(vk::DescriptorBindingFlags());
+				}
 			}
 		}
 
+		vk::DescriptorSetLayoutBindingFlagsCreateInfo variable_info;
+		variable_info.setBindingFlags(flags_arr);
 		vk::DescriptorSetLayoutCreateInfo info;
 		info
+			.setPNext(&variable_info)
 			.setBindings(arr);
 		// TODO allocator
 		result._layout = _details::unwrap(_device->createDescriptorSetLayoutUnique(info));
@@ -336,11 +396,11 @@ namespace lotus::graphics::backends::vulkan {
 
 	graphics_pipeline_state device::create_graphics_pipeline_state(
 		const pipeline_resources &resources,
-		const shader *vs,
-		const shader *ps,
-		const shader *ds,
-		const shader *hs,
-		const shader *gs,
+		const shader_binary *vs,
+		const shader_binary *ps,
+		const shader_binary *ds,
+		const shader_binary *hs,
+		const shader_binary *gs,
 		std::span<const render_target_blend_options> blend,
 		const rasterizer_options &rasterizer,
 		const depth_stencil_options &depth_stencil,
@@ -355,7 +415,7 @@ namespace lotus::graphics::backends::vulkan {
 
 		std::size_t count = 0;
 		std::array<vk::PipelineShaderStageCreateInfo, 5> stages;
-		auto add_shader = [&](const shader *s, vk::ShaderStageFlagBits stage) {
+		auto add_shader = [&](const shader_binary *s, vk::ShaderStageFlagBits stage) {
 			if (s) {
 				const char *entry_point = nullptr;
 				// TODO this is bad
@@ -511,7 +571,7 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	compute_pipeline_state device::create_compute_pipeline_state(
-		const pipeline_resources &rsrc, const shader &cs
+		const pipeline_resources &rsrc, const shader_binary &cs
 	) {
 		compute_pipeline_state result = nullptr;
 
@@ -612,7 +672,10 @@ namespace lotus::graphics::backends::vulkan {
 		vk::BufferCreateInfo buf_info;
 		buf_info
 			.setSize(size)
-			.setUsage(_details::conversions::to_buffer_usage_flags(allowed_usage));
+			.setUsage(
+				_details::conversions::to_buffer_usage_flags(allowed_usage) |
+				vk::BufferUsageFlagBits::eShaderDeviceAddress
+			);
 		// TODO allocator
 		result._buffer = _details::unwrap(_device->createBuffer(buf_info));
 
@@ -622,9 +685,14 @@ namespace lotus::graphics::backends::vulkan {
 		dedicated_info
 			.setBuffer(result._buffer);
 
+		vk::MemoryAllocateFlagsInfo flags_info;
+		flags_info
+			.setPNext(&dedicated_info)
+			.setFlags(vk::MemoryAllocateFlagBits::eDeviceAddress);
+
 		vk::MemoryAllocateInfo info;
 		info
-			.setPNext(&dedicated_info)
+			.setPNext(&flags_info)
 			.setAllocationSize(req.size)
 			.setMemoryTypeIndex(_find_memory_type_index(req.memoryTypeBits, type));
 		// TODO allocator
@@ -837,6 +905,254 @@ namespace lotus::graphics::backends::vulkan {
 		_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
 	}
 
+	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
+		std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
+	) {
+		bottom_level_acceleration_structure_geometry result;
+		result._geometries.reserve(data.size());
+		result._pimitive_counts.reserve(data.size());
+		for (const auto &[vert, index] : data) {
+			auto &geom = result._geometries.emplace_back();
+			geom
+				.setGeometryType(vk::GeometryTypeKHR::eTriangles)
+				.setFlags(vk::GeometryFlagsKHR());
+			geom.geometry.triangles
+				.setVertexFormat(_details::conversions::for_format(vert.vertex_format))
+				.setVertexData(_device->getBufferAddress(vert.data->_buffer) + vert.offset)
+				.setVertexStride(vert.stride)
+				.setMaxVertex(vert.count)
+				.setTransformData(nullptr);
+			if (index.data) {
+				geom.geometry.triangles
+					.setIndexType(_details::conversions::for_index_format(index.element_format))
+					.setIndexData(_device->getBufferAddress(index.data->_buffer) + index.offset);
+				result._pimitive_counts.emplace_back(index.count / 3);
+			} else {
+				geom.geometry.triangles
+					.setIndexType(vk::IndexType::eNoneKHR)
+					.setIndexData(nullptr);
+				result._pimitive_counts.emplace_back(vert.count / 3);
+			}
+		}
+		result._build_info
+			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
+			.setFlags(vk::BuildAccelerationStructureFlagsKHR())
+			.setMode(vk::BuildAccelerationStructureModeKHR::eBuild)
+			.setSrcAccelerationStructure(nullptr)
+			.setDstAccelerationStructure(nullptr)
+			.setGeometries(result._geometries)
+			.setScratchData(nullptr);
+		return result;
+	}
+
+	instance_description device::get_bottom_level_acceleration_structure_description(
+		bottom_level_acceleration_structure &as,
+		mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset
+	) const {
+		instance_description result = uninitialized;
+		result._instance
+			.setInstanceCustomIndex(id)
+			.setMask(mask)
+			.setInstanceShaderBindingTableRecordOffset(hit_group_offset)
+			.setFlags(vk::GeometryInstanceFlagsKHR())
+			.setAccelerationStructureReference(_device->getAccelerationStructureAddressKHR(
+				as._acceleration_structure.get(), *_dispatch_loader
+			));
+		for (std::size_t row = 0; row < 3; ++row) {
+			for (std::size_t col = 0; col < 4; ++col) {
+				result._instance.transform.matrix[row][col] = trans(row, col);
+			}
+		}
+		return result;
+	}
+
+	acceleration_structure_build_sizes device::get_bottom_level_acceleration_structure_build_sizes(
+		const bottom_level_acceleration_structure_geometry &geom
+	) {
+		auto vk_result = _device->getAccelerationStructureBuildSizesKHR(
+			vk::AccelerationStructureBuildTypeKHR::eDevice, geom._build_info, geom._pimitive_counts,
+			*_dispatch_loader
+		);
+		acceleration_structure_build_sizes result = uninitialized;
+		result.acceleration_structure_size = vk_result.accelerationStructureSize;
+		result.build_scratch_size          = vk_result.buildScratchSize;
+		result.update_scratch_size         = vk_result.updateScratchSize;
+		return result;
+	}
+
+	acceleration_structure_build_sizes device::get_top_level_acceleration_structure_build_sizes(
+		const buffer &top_level_buf, std::size_t offset, std::size_t count
+	) {
+		vk::AccelerationStructureGeometryInstancesDataKHR instances;
+		instances
+			.setArrayOfPointers(false)
+			.setData(_device->getBufferAddress(top_level_buf._buffer) + offset);
+		vk::AccelerationStructureGeometryKHR geom;
+		geom
+			.setGeometryType(vk::GeometryTypeKHR::eInstances)
+			.setFlags(vk::GeometryFlagsKHR());
+		geom.geometry.setInstances(instances);
+		vk::AccelerationStructureBuildGeometryInfoKHR build_info;
+		build_info
+			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
+			.setFlags(vk::BuildAccelerationStructureFlagsKHR())
+			.setMode(vk::BuildAccelerationStructureModeKHR::eBuild)
+			.setSrcAccelerationStructure(nullptr)
+			.setDstAccelerationStructure(nullptr)
+			.setGeometries(geom);
+		auto instance_count = static_cast<std::uint32_t>(count);
+		auto vk_result = _device->getAccelerationStructureBuildSizesKHR(
+			vk::AccelerationStructureBuildTypeKHR::eDevice, build_info, instance_count, *_dispatch_loader
+		);
+
+		acceleration_structure_build_sizes result = uninitialized;
+		result.acceleration_structure_size = vk_result.accelerationStructureSize;
+		result.build_scratch_size          = vk_result.buildScratchSize;
+		result.update_scratch_size         = vk_result.updateScratchSize;
+		return result;
+	}
+
+	bottom_level_acceleration_structure device::create_bottom_level_acceleration_structure(
+		buffer &buf, std::size_t offset, std::size_t size
+	) {
+		bottom_level_acceleration_structure result = nullptr;
+		vk::AccelerationStructureCreateInfoKHR create_info;
+		create_info
+			.setCreateFlags(vk::AccelerationStructureCreateFlagsKHR())
+			.setBuffer(buf._buffer)
+			.setOffset(offset)
+			.setSize(size)
+			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel);
+		// TODO allocator
+		result._acceleration_structure = _device->createAccelerationStructureKHRUnique(
+			create_info, nullptr, *_dispatch_loader
+		);
+		return result;
+	}
+
+	top_level_acceleration_structure device::create_top_level_acceleration_structure(
+		buffer &buf, std::size_t offset, std::size_t size
+	) {
+		top_level_acceleration_structure result = nullptr;
+		vk::AccelerationStructureCreateInfoKHR create_info;
+		create_info
+			.setCreateFlags(vk::AccelerationStructureCreateFlagsKHR())
+			.setBuffer(buf._buffer)
+			.setOffset(offset)
+			.setSize(size)
+			.setType(vk::AccelerationStructureTypeKHR::eTopLevel);
+		// TODO allocator
+		result._acceleration_structure = _device->createAccelerationStructureKHRUnique(
+			create_info, nullptr, *_dispatch_loader
+		);
+		return result;
+	}
+
+	void device::write_descriptor_set_acceleration_structures(
+		descriptor_set &set, const descriptor_set_layout &layout, std::size_t first_register,
+		std::span<graphics::top_level_acceleration_structure *const> acceleration_structures
+	) {
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto as_ptrs = bookmark.create_reserved_vector_array<vk::AccelerationStructureKHR>(
+			acceleration_structures.size()
+		);
+		for (const auto *as : acceleration_structures) {
+			as_ptrs.emplace_back(as->_acceleration_structure.get());
+		}
+
+		vk::WriteDescriptorSetAccelerationStructureKHR as_writes;
+		as_writes
+			.setAccelerationStructures(as_ptrs);
+
+		vk::WriteDescriptorSet info;
+		info
+			.setPNext(&as_writes)
+			.setDstSet(set._set.get())
+			.setDstBinding(static_cast<std::uint32_t>(first_register))
+			.setDescriptorCount(acceleration_structures.size())
+			.setDescriptorType(vk::DescriptorType::eAccelerationStructureKHR);
+		_device->updateDescriptorSets(info, {});
+	}
+
+	shader_group_handle device::get_shader_group_handle(
+		raytracing_pipeline_state &pipeline, std::size_t index
+	) {
+		shader_group_handle result = uninitialized;
+		result._data.resize(_raytracing_properties.shaderGroupHandleSize);
+		_details::assert_vk(_device->getRayTracingShaderGroupHandlesKHR(
+			pipeline._pipeline.get(), index, 1, result._data.size(), result._data.data(), *_dispatch_loader
+		));
+		return result;
+	}
+
+	raytracing_pipeline_state device::create_raytracing_pipeline_state(
+		std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
+		std::span<const shader_function> general_shaders, std::size_t max_recursion_depth, std::size_t, std::size_t,
+		pipeline_resources &rsrc
+	) {
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+
+		auto stages = bookmark.create_reserved_vector_array<vk::PipelineShaderStageCreateInfo>(
+			hit_group_shaders.size() + general_shaders.size()
+		);
+		auto groups = bookmark.create_reserved_vector_array<vk::RayTracingShaderGroupCreateInfoKHR>(
+			hit_groups.size() + general_shaders.size()
+		);
+		for (const auto &func : hit_group_shaders) {
+			stages.emplace_back()
+				.setStage(static_cast<vk::ShaderStageFlagBits>(
+					static_cast<std::underlying_type_t<vk::ShaderStageFlagBits>>(
+						_details::conversions::to_shader_stage_flags(func.stage)
+					)
+				))
+				.setModule(func.code->_module.get())
+				.setPName(reinterpret_cast<const char*>(func.entry_point));
+		}
+		for (const auto &group : hit_groups) {
+			groups.emplace_back()
+				.setType(vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup)
+				.setGeneralShader(VK_SHADER_UNUSED_KHR)
+				.setClosestHitShader(
+					group.closest_hit_shader_index == hit_shader_group::no_shader ?
+					VK_SHADER_UNUSED_KHR : group.closest_hit_shader_index
+				)
+				.setAnyHitShader(
+					group.any_hit_shader_index == hit_shader_group::no_shader ?
+					VK_SHADER_UNUSED_KHR : group.any_hit_shader_index
+				)
+				.setIntersectionShader(VK_SHADER_UNUSED_KHR);
+		}
+		for (const auto &general : general_shaders) {
+			groups.emplace_back()
+				.setType(vk::RayTracingShaderGroupTypeKHR::eGeneral)
+				.setGeneralShader(stages.size())
+				.setClosestHitShader(VK_SHADER_UNUSED_KHR)
+				.setAnyHitShader(VK_SHADER_UNUSED_KHR)
+				.setIntersectionShader(VK_SHADER_UNUSED_KHR);
+			stages.emplace_back()
+				.setStage(static_cast<vk::ShaderStageFlagBits>(
+					static_cast<std::underlying_type_t<vk::ShaderStageFlagBits>>(
+						_details::conversions::to_shader_stage_flags(general.stage)
+					)
+				))
+				.setModule(general.code->_module.get())
+				.setPName(reinterpret_cast<const char*>(general.entry_point));
+		}
+
+		vk::RayTracingPipelineCreateInfoKHR info;
+		info
+			.setFlags(vk::PipelineCreateFlags())
+			.setStages(stages)
+			.setGroups(groups)
+			.setMaxPipelineRayRecursionDepth(max_recursion_depth)
+			.setLayout(rsrc._layout.get());
+		raytracing_pipeline_state result = nullptr;
+		result._pipeline = _details::unwrap(_device->createRayTracingPipelineKHRUnique(
+			nullptr, nullptr, info, nullptr, *_dispatch_loader
+		));
+		return result;
+	}
+
 	std::uint32_t device::_find_memory_type_index(std::uint32_t requirements, heap_type ty) const {
 		vk::MemoryPropertyFlags req_on, req_off, opt_on, opt_off;
 		switch (ty) {
@@ -957,6 +1273,9 @@ namespace lotus::graphics::backends::vulkan {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
 			VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
+			VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+			VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+			VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 			/*VK_GOOGLE_HLSL_FUNCTIONALITY1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
@@ -966,10 +1285,28 @@ namespace lotus::graphics::backends::vulkan {
 			.setCustomBorderColors(true)
 			.setCustomBorderColorWithoutFormat(true);
 
+		vk::PhysicalDeviceRayTracingPipelineFeaturesKHR raytracing_features;
+		raytracing_features
+			.setPNext(&border_color_features)
+			.setRayTracingPipeline(true);
+
+		vk::PhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features;
+		acceleration_structure_features
+			.setPNext(&raytracing_features)
+			.setAccelerationStructure(true);
+
+		vk::PhysicalDeviceVulkan12Features vk12_features;
+		vk12_features
+			.setPNext(&acceleration_structure_features)
+			.setBufferDeviceAddress(true)
+			.setDescriptorBindingVariableDescriptorCount(true)
+			.setRuntimeDescriptorArray(true);
+
 		vk::PhysicalDeviceFeatures2 features;
-		features.setPNext(&border_color_features);
+		features.setPNext(&vk12_features);
 		features.features
-			.setSamplerAnisotropy(true);
+			.setSamplerAnisotropy(true)
+			.setShaderInt64(true);
 
 		vk::DeviceCreateInfo info;
 		info
@@ -980,16 +1317,37 @@ namespace lotus::graphics::backends::vulkan {
 		// TODO allocator
 		result._device = _details::unwrap(_device.createDeviceUnique(info));
 
+		auto all_props = _device.getProperties2<
+			vk::PhysicalDeviceProperties2,
+			vk::PhysicalDeviceRayTracingPipelinePropertiesKHR
+		>();
+		result._raytracing_properties = all_props.get<vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
+
 		return result;
 	}
 
 	adapter_properties adapter::get_properties() const {
 		adapter_properties result = uninitialized;
-		auto props = _device.getProperties();
-		result.constant_buffer_alignment = props.limits.minUniformBufferOffsetAlignment;
-		result.is_software               = props.deviceType == vk::PhysicalDeviceType::eCpu;
-		result.is_discrete               = props.deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
-		result.name                      = reinterpret_cast<const char8_t*>(props.deviceName.data());
+		const auto &&[props, ray_tracing_props, acceleration_structure_props] = _device.getProperties2<
+			vk::PhysicalDeviceProperties2,
+			vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
+			vk::PhysicalDeviceAccelerationStructurePropertiesKHR
+		>().get<
+			vk::PhysicalDeviceProperties2,
+			vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
+			vk::PhysicalDeviceAccelerationStructurePropertiesKHR
+		>();
+
+		result.is_software                         = props.properties.deviceType == vk::PhysicalDeviceType::eCpu;
+		result.is_discrete                         = props.properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
+		result.name                                = reinterpret_cast<const char8_t*>(props.properties.deviceName.data());
+
+		result.constant_buffer_alignment           = props.properties.limits.minUniformBufferOffsetAlignment;
+		result.acceleration_structure_alignment    = 1; // TODO what should this be?
+		result.shader_group_handle_size            = ray_tracing_props.shaderGroupHandleSize;
+		result.shader_group_handle_alignment       = ray_tracing_props.shaderGroupHandleAlignment;
+		result.shader_group_handle_table_alignment = ray_tracing_props.shaderGroupHandleCaptureReplaySize;
+
 		return result;
 	}
 }

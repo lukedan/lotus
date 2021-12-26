@@ -14,8 +14,6 @@ struct material_data {
 	uint normal_index;
 	uint metallic_roughness_index;
 	uint _padding;
-
-	uint _paddint2[52];
 };
 struct global_data {
 	float3 camera_position;

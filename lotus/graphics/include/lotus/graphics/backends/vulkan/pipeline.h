@@ -65,11 +65,11 @@ namespace lotus::graphics::backends::vulkan {
 	};
 	
 	/// Contains a \p vk::UniqueShaderModule.
-	class shader {
+	class shader_binary {
 		friend device;
 	protected:
 		/// Creates an empty object.
-		shader(std::nullptr_t) {
+		shader_binary(std::nullptr_t) {
 		}
 	private:
 		vk::UniqueShaderModule _module; ///< The shader module.
@@ -111,5 +111,34 @@ namespace lotus::graphics::backends::vulkan {
 		}
 	private:
 		vk::UniquePipeline _pipeline; ///< The pipeline state.
+	};
+
+	/// Contains a \p vk::UniquePipeline.
+	class raytracing_pipeline_state {
+		friend command_list;
+		friend device;
+	protected:
+		/// Creates an empty object.
+		raytracing_pipeline_state(std::nullptr_t) {
+		}
+	private:
+		vk::UniqueHandle<vk::Pipeline, vk::DispatchLoaderDynamic> _pipeline; ///< The pipeline state.
+	};
+
+	/// Contains a Vulkan shader group handle.
+	class shader_group_handle {
+		friend device;
+	protected:
+		/// No initialization.
+		shader_group_handle(uninitialized_t) {
+		}
+
+		/// Returns \ref _data.
+		[[nodiscard]] std::span<const std::byte> data() const {
+			return _data;
+		}
+	private:
+		// unfortunately, for vulkan this can be dynamic
+		std::vector<std::byte> _data; ///< Shader group handle data.
 	};
 }

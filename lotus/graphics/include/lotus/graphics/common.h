@@ -429,12 +429,13 @@ namespace lotus::graphics {
 
 	/// The type of a descriptor.
 	enum class descriptor_type : std::uint8_t {
-		sampler,           ///< A sampler.
-		read_only_image,   ///< An image that can only be read.
-		read_write_image,  ///< An image that can be read from or written to.
-		read_only_buffer,  ///< A buffer that can only be read.
-		read_write_buffer, ///< A buffer that can be read from or written to.
-		constant_buffer,   ///< A small buffer containing constants.
+		sampler,                ///< A sampler.
+		read_only_image,        ///< An image that can only be read.
+		read_write_image,       ///< An image that can be read from or written to.
+		read_only_buffer,       ///< A structured buffer that can only be read.
+		read_write_buffer,      ///< A structured buffer that can be read from or written to.
+		constant_buffer,        ///< A small buffer containing constants.
+		acceleration_structure, ///< A ray-tracing acceleration structure.
 
 		num_enumerators ///< The total number of enumerators.
 	};
@@ -604,10 +605,11 @@ namespace lotus::graphics {
 		bool is_software; ///< Whether this is a software adapter.
 		bool is_discrete; ///< Whether this is a discrete adapter.
 
-		std::size_t constant_buffer_alignment;        ///< Alignment required for constant buffers.
-		std::size_t acceleration_structure_alignment; ///< Alignment required for acceleration structures.
-		std::size_t shader_record_alignment;          ///< Alignment required for a single shader record.
-		std::size_t shader_record_table_alignment;    ///< Alignment required for a table of shader records.
+		std::size_t constant_buffer_alignment;           ///< Alignment required for constant buffers.
+		std::size_t acceleration_structure_alignment;    ///< Alignment required for acceleration structures.
+		std::size_t shader_group_handle_size;            ///< Size of a shader record.
+		std::size_t shader_group_handle_alignment;       ///< Alignment required for a single shader record.
+		std::size_t shader_group_handle_table_alignment; ///< Alignment required for a table of shader records.
 	};
 
 	/// Describes how color blending is carried out for a single render target.

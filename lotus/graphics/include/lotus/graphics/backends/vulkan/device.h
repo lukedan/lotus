@@ -5,6 +5,7 @@
 
 #include <optional>
 
+#include "acceleration_structure.h"
 #include "commands.h"
 #include "descriptors.h"
 #include "details.h"
@@ -20,6 +21,7 @@ namespace lotus::graphics::backends::vulkan {
 	/// Contains a \p vk::UniqueDevice.
 	class device {
 		friend adapter;
+		friend command_list;
 		friend context;
 		friend void command_allocator::reset(device&);
 	protected:
@@ -37,7 +39,7 @@ namespace lotus::graphics::backends::vulkan {
 		[[nodiscard]] command_queue create_command_queue();
 		/// Calls \p vk::UniqueDevice::createCommandPoolUnique().
 		[[nodiscard]] command_allocator create_command_allocator();
-		/// Calls \p vk::UniqueDevice::allocateCommandBuffersUnique() and \p vk::UniqueCommandBuffer::begin().
+		/// Calls \p vk::UniqueDevice::allocateCommandBuffers() and \p vk::CommandBuffer::begin().
 		[[nodiscard]] command_list create_and_start_command_list(command_allocator&);
 
 		/// Calls \p vk::UniqueDevice::createDescriptorPoolUnique().
@@ -48,16 +50,25 @@ namespace lotus::graphics::backends::vulkan {
 		[[nodiscard]] descriptor_set create_descriptor_set(
 			descriptor_pool&, const descriptor_set_layout&
 		);
+		/// Calls \p vk::UniqueDevice::allocateDescriptorSetsUnique().
+		[[nodiscard]] descriptor_set create_descriptor_set(
+			descriptor_pool&, const descriptor_set_layout&, std::size_t dynamic_size
+		);
 
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
-		void write_descriptor_set_images(
+		void write_descriptor_set_read_only_images(
 			descriptor_set&, const descriptor_set_layout&,
 			std::size_t first_register, std::span<const image_view *const>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
-		void write_descriptor_set_buffers(
+		void write_descriptor_set_read_write_images(
 			descriptor_set&, const descriptor_set_layout&,
-			std::size_t first_register, std::span<const buffer_view>
+			std::size_t first_register, std::span<const image_view *const>
+		);
+		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
+		void write_descriptor_set_read_only_structured_buffers(
+			descriptor_set&, const descriptor_set_layout&,
+			std::size_t first_register, std::span<const structured_buffer_view>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_constant_buffers(
@@ -71,7 +82,7 @@ namespace lotus::graphics::backends::vulkan {
 		);
 
 		/// Calls \p vk::UniqueDevice::createShaderModuleUnique().
-		[[nodiscard]] shader load_shader(std::span<const std::byte>);
+		[[nodiscard]] shader_binary load_shader(std::span<const std::byte>);
 
 		/// Calls \p vk::UniqueDevice::createSamplerUnique().
 		[[nodiscard]] sampler create_sampler(
@@ -93,11 +104,11 @@ namespace lotus::graphics::backends::vulkan {
 		/// Calls \p vk::UniqueDevice::createGraphicsPipelineUnique().
 		[[nodiscard]] graphics_pipeline_state create_graphics_pipeline_state(
 			const pipeline_resources&,
-			const shader *vs,
-			const shader *ps,
-			const shader *ds,
-			const shader *hs,
-			const shader *gs,
+			const shader_binary *vs,
+			const shader_binary *ps,
+			const shader_binary *ds,
+			const shader_binary *hs,
+			const shader_binary *gs,
 			std::span<const render_target_blend_options>,
 			const rasterizer_options&,
 			const depth_stencil_options&,
@@ -108,7 +119,7 @@ namespace lotus::graphics::backends::vulkan {
 		);
 		/// Calls \p vk::UniqueDevice::createComputePipelineUnique().
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(
-			const pipeline_resources&, const shader&
+			const pipeline_resources&, const shader_binary&
 		);
 
 		/// Calls \p vk::UniqueDevice::createRenderPassUnique().
@@ -171,6 +182,55 @@ namespace lotus::graphics::backends::vulkan {
 		void set_debug_name(buffer&, const char8_t*);
 		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT().
 		void set_debug_name(image&, const char8_t*);
+
+
+		// ray-tracing related
+		/// Fills in the \p vk::AccelerationStructureBuildGeometryInfoKHR with the given information.
+		[[nodiscard]] bottom_level_acceleration_structure_geometry
+			create_bottom_level_acceleration_structure_geometry(
+				std::span<const std::pair<vertex_buffer_view, index_buffer_view>>
+			);
+		/// Fills in the \p vk::AccelerationStructureInstanceKHR.
+		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
+			bottom_level_acceleration_structure&,
+			mat44f, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset // TODO options
+		) const;
+
+		/// Returns the result of \p vk::UniqueDevice::getAccelerationStructureBuildSizesKHR().
+		[[nodiscard]] acceleration_structure_build_sizes get_bottom_level_acceleration_structure_build_sizes(
+			const bottom_level_acceleration_structure_geometry&
+		);
+		/// Returns the result of \p vk::UniqueDevice::getAccelerationStructureBuildSizesKHR().
+		[[nodiscard]] acceleration_structure_build_sizes get_top_level_acceleration_structure_build_sizes(
+			const buffer &top_level_buf, std::size_t offset, std::size_t count
+		);
+		/// Returns the result of \p vk::UniqueDevice::createAccelerationStructureKHRUnique().
+		[[nodiscard]] bottom_level_acceleration_structure create_bottom_level_acceleration_structure(
+			buffer &buf, std::size_t offset, std::size_t size
+		);
+		/// Returns the result of \p vk::UniqueDevice::createAccelerationStructureKHRUnique().
+		[[nodiscard]] top_level_acceleration_structure create_top_level_acceleration_structure(
+			buffer &buf, std::size_t offset, std::size_t size
+		);
+
+		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
+		void write_descriptor_set_acceleration_structures(
+			descriptor_set&, const descriptor_set_layout&, std::size_t first_register,
+			std::span<graphics::top_level_acceleration_structure *const> acceleration_structures
+		);
+
+		/// Returns the result of \p vk::UniqueDevice::getRayTracingShaderGroupHandlesKHR().
+		[[nodiscard]] shader_group_handle get_shader_group_handle(
+			raytracing_pipeline_state &pipeline, std::size_t index
+		);
+
+		/// Returns the result of \p vk::UniqueDevice::createRayTracingPipelineKHRUnique().
+		[[nodiscard]] raytracing_pipeline_state create_raytracing_pipeline_state(
+			std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
+			std::span<const shader_function> general_shaders,
+			std::size_t max_recursion_depth, std::size_t max_payload_size, std::size_t max_attribute_size,
+			pipeline_resources &rsrc
+		);
 	private:
 		vk::UniqueDevice _device; ///< The device.
 		vk::PhysicalDevice _physical_device; ///< The physical device.
@@ -179,6 +239,7 @@ namespace lotus::graphics::backends::vulkan {
 		std::uint32_t _compute_queue_family_index; ///< Compute-only command queue family index.
 		vk::PhysicalDeviceLimits _device_limits; ///< Device limits.
 		vk::PhysicalDeviceMemoryProperties _memory_properties; ///< Memory properties.
+		vk::PhysicalDeviceRayTracingPipelinePropertiesKHR _raytracing_properties; ///< Raytracing properties.
 		const vk::DispatchLoaderDynamic *_dispatch_loader; ///< The dispatch loader.
 
 		/// Finds the best memory type fit for the given requirements and \ref heap_type.

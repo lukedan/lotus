@@ -156,6 +156,11 @@ namespace lotus::graphics::backends::directx12 {
 		/// No initialization.
 		shader_group_handle(uninitialized_t) {
 		}
+
+		/// Returns the shader group handle data.
+		[[nodiscard]] std::span<const std::byte> data() const {
+			return _id;
+		}
 	private:
 		std::array<std::byte, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES> _id; ///< Shader identifier data.
 	};

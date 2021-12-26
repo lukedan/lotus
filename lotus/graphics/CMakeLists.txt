@@ -47,7 +47,6 @@ if(WIN32 AND LOTUS_GRAPHICS_USE_DIRECTX12)
 		PRIVATE
 			${LOTUS_GRAPHICS_COMMON_SOURCES}
 
-			"src/graphics/backends/directx12/acceleration_structure.cpp"
 			"src/graphics/backends/directx12/commands.cpp"
 			"src/graphics/backends/directx12/context.cpp"
 			"src/graphics/backends/directx12/descriptors.cpp"
@@ -82,6 +81,7 @@ if(LOTUS_GRAPHICS_USE_VULKAN)
 		PUBLIC
 			${LOTUS_GRAPHICS_COMMON_HEADERS}
 
+			"include/lotus/graphics/backends/vulkan/acceleration_structure.h"
 			"include/lotus/graphics/backends/vulkan/commands.h"
 			"include/lotus/graphics/backends/vulkan/context.h"
 			"include/lotus/graphics/backends/vulkan/descriptors.h"
@@ -140,7 +140,7 @@ function(add_shader FILENAME STAGE ENTRY PROFILE DEPENDENT BACKEND)
 		set(DXC_EXTRA_ARGS)
 		set(DXC_EXECUTABLE dxc)
 	elseif(BACKEND STREQUAL "vulkan")
-		set(DXC_EXTRA_ARGS -spirv -fspv-reflect)
+		set(DXC_EXTRA_ARGS -spirv -fspv-reflect -fspv-target-env=vulkan1.2)
 		if(STAGE STREQUAL "vs" OR STAGE STREQUAL "gs" OR STAGE STREQUAL "ds")
 			set(DXC_EXTRA_ARGS ${DXC_EXTRA_ARGS} -fvk-invert-y)
 		endif()

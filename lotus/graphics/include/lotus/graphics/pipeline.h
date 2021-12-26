@@ -241,17 +241,22 @@ namespace lotus::graphics {
 		}
 	};
 
-	/// A POD data type for handles of shader groups, used for raytracing.
+	/// Handle of a shader group, used for raytracing.
 	class shader_group_handle : public backend::shader_group_handle {
 		friend device;
 	public:
 		/// Initializes the handle to empty.
 		shader_group_handle(uninitialized_t) : backend::shader_group_handle(uninitialized) {
 		}
+
+		/// Returns the handle data that can be copied to buffers that are used when calling
+		/// \ref command_list::trace_rays().
+		[[nodiscard]] std::span<const std::byte> data() const {
+			return backend::shader_group_handle::data();
+		}
 	protected:
 		/// Initializes the base object.
 		shader_group_handle(backend::shader_group_handle &&base) : backend::shader_group_handle(std::move(base)) {
 		}
 	};
-	static_assert(sizeof(shader_group_handle) == sizeof(backend::shader_group_handle), "Object size mismatch");
 }

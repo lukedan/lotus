@@ -14,7 +14,6 @@
 #include "commands.h"
 #include "descriptors.h"
 #include "frame_buffer.h"
-#include "pass.h"
 #include "pipeline.h"
 #include "resources.h"
 #include "synchronization.h"
@@ -73,16 +72,11 @@ namespace lotus::graphics::backends::directx12 {
 			const depth_stencil_options&,
 			std::span<const input_buffer_layout>,
 			primitive_topology,
-			const pass_resources&,
+			const frame_buffer_layout&,
 			std::size_t num_viewports
 		);
 		/// Calls \p ID3D12Device::CreateComputePipelineState().
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(const pipeline_resources&, const shader_binary&);
-
-		/// Fills in all fields in a \ref pass except for descriptors.
-		[[nodiscard]] pass_resources create_pass_resources(
-			std::span<const render_target_pass_options>, depth_stencil_pass_options
-		);
 
 		/// Calls \p ID3D12Device::CreateDescriptorHeap().
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
@@ -157,7 +151,7 @@ namespace lotus::graphics::backends::directx12 {
 
 		/// Fills out all fields in a \ref frame_buffer.
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::span<const graphics::image2d_view *const>, const image2d_view*, cvec2s size, const pass_resources&
+			std::span<const graphics::image2d_view *const>, const image2d_view*, cvec2s
 		);
 
 		/// Calls \p ID3D12Device::CreateFence().

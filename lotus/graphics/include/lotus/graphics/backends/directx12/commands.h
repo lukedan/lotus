@@ -9,7 +9,6 @@
 #include "lotus/math/aab.h"
 #include "acceleration_structure.h"
 #include "details.h"
-#include "pass.h"
 #include "resources.h"
 #include "frame_buffer.h"
 #include "pipeline.h"
@@ -45,9 +44,7 @@ namespace lotus::graphics::backends::directx12 {
 		void reset_and_start(command_allocator&);
 
 		/// Calls \p ID3D12GraphicsCommandList4::BeginRenderPass().
-		void begin_pass(
-			const pass_resources&, const frame_buffer&, std::span<const linear_rgba_f>, float, std::uint8_t
-		);
+		void begin_pass(const frame_buffer&, const frame_buffer_access&);
 
 		/// Calls \p ID3D12GraphicsCommandList::SetPipelineState().
 		void bind_pipeline_state(const graphics_pipeline_state&);
@@ -130,6 +127,11 @@ namespace lotus::graphics::backends::directx12 {
 			shader_record_view miss_shaders, shader_record_view hit_groups,
 			std::size_t width, std::size_t height, std::size_t depth
 		);
+
+		/// Returns whether this object holds a valid command list.
+		[[nodiscard]] bool is_valid() const {
+			return _list;
+		}
 	private:
 		_details::com_ptr<ID3D12GraphicsCommandList4> _list; ///< The command list.
 		std::array<ID3D12DescriptorHeap*, 2> _descriptor_heaps; ///< Descriptor heaps.

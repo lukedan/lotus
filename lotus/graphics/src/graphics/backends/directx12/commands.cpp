@@ -8,7 +8,6 @@
 #include "lotus/graphics/resources.h"
 #include "lotus/graphics/commands.h"
 #include "lotus/graphics/backends/directx12/descriptors.h"
-#include "lotus/graphics/backends/directx12/pass.h"
 
 namespace lotus::graphics::backends::directx12 {
 	void command_allocator::reset(device&) {
@@ -21,31 +20,54 @@ namespace lotus::graphics::backends::directx12 {
 		_list->SetDescriptorHeaps(static_cast<UINT>(_descriptor_heaps.size()), _descriptor_heaps.data());
 	}
 
-	void command_list::begin_pass(
-		const pass_resources &p, const frame_buffer &fb,
-		std::span<const linear_rgba_f> clear_colors, float clear_depth, std::uint8_t clear_stencil
-	) {
-		assert(clear_colors.size() == p._num_render_targets);
-		pass_resources pass = p;
-		assert(fb._color.get_count() == pass._num_render_targets);
-		for (std::uint8_t i = 0; i < pass._num_render_targets; ++i) {
-			pass._render_targets[i].cpuDescriptor = fb._color.get_cpu(i);
-			pass._render_targets[i].BeginningAccess.Clear.ClearValue.Color[0] = clear_colors[i].r;
-			pass._render_targets[i].BeginningAccess.Clear.ClearValue.Color[1] = clear_colors[i].g;
-			pass._render_targets[i].BeginningAccess.Clear.ClearValue.Color[2] = clear_colors[i].b;
-			pass._render_targets[i].BeginningAccess.Clear.ClearValue.Color[3] = clear_colors[i].a;
+	void command_list::begin_pass(const frame_buffer &fb, const frame_buffer_access &access) {
+		assert(fb._color.get_count() == access.color_render_targets.size());
+		std::size_t num_rts = fb._color.get_count();
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto color_rts = bookmark.create_vector_array<D3D12_RENDER_PASS_RENDER_TARGET_DESC>(num_rts);
+		for (std::size_t i = 0; i < num_rts; ++i) {
+			auto &desc = color_rts[i];
+			desc = {};
+			const auto &rt_access = access.color_render_targets[i];
+			desc.cpuDescriptor                           =
+				fb._color.get_cpu(static_cast<_details::descriptor_range::index_t>(i));
+			desc.BeginningAccess.Type                    =
+				_details::conversions::for_pass_load_operation(rt_access.load_operation);
+			desc.BeginningAccess.Clear.ClearValue.Format = fb._color_formats[i];
+			std::visit([&](const auto &color4) {
+				for (std::size_t i = 0; i < color4.dimensionality; ++i) {
+					desc.BeginningAccess.Clear.ClearValue.Color[i] = static_cast<FLOAT>(color4[i]);
+				}
+			}, rt_access.clear_value.value);
+			desc.EndingAccess.Type                       =
+				_details::conversions::for_pass_store_operation(rt_access.store_operation);
 		}
-		const D3D12_RENDER_PASS_DEPTH_STENCIL_DESC *ds_desc = nullptr;
+		const D3D12_RENDER_PASS_DEPTH_STENCIL_DESC *ds_desc_ptr = nullptr;
+		D3D12_RENDER_PASS_DEPTH_STENCIL_DESC ds_desc = {};
 		if (!fb._depth_stencil.is_empty()) {
-			pass._depth_stencil.cpuDescriptor = fb._depth_stencil.get_cpu(0);
-			D3D12_DEPTH_STENCIL_VALUE clear_value = {};
-			clear_value.Depth = clear_depth;
-			clear_value.Stencil = clear_stencil;
-			pass._depth_stencil.DepthBeginningAccess.Clear.ClearValue.DepthStencil = clear_value;
-			pass._depth_stencil.StencilBeginningAccess.Clear.ClearValue.DepthStencil = clear_value;
-			ds_desc = &pass._depth_stencil;
+			ds_desc_ptr = &ds_desc;
+			ds_desc.cpuDescriptor                                                = fb._depth_stencil.get_cpu(0);
+
+			ds_desc.DepthBeginningAccess.Type                                    =
+				_details::conversions::for_pass_load_operation(access.depth_render_target.load_operation);
+			ds_desc.DepthBeginningAccess.Clear.ClearValue.Format                 = fb._depth_stencil_format;
+			ds_desc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Depth     =
+				static_cast<FLOAT>(access.depth_render_target.clear_value);
+			ds_desc.DepthEndingAccess.Type                                       =
+				_details::conversions::for_pass_store_operation(access.depth_render_target.store_operation);
+
+			ds_desc.StencilBeginningAccess.Type                                  =
+				_details::conversions::for_pass_load_operation(access.stencil_render_target.load_operation);
+			ds_desc.StencilBeginningAccess.Clear.ClearValue.Format               = fb._depth_stencil_format;
+			ds_desc.StencilBeginningAccess.Clear.ClearValue.DepthStencil.Stencil =
+				static_cast<UINT8>(access.stencil_render_target.clear_value);
+			ds_desc.StencilEndingAccess.Type                                     =
+				_details::conversions::for_pass_store_operation(access.stencil_render_target.store_operation);
 		}
-		_list->BeginRenderPass(pass._num_render_targets, pass._render_targets.data(), ds_desc, pass._flags);
+		_list->BeginRenderPass(
+			static_cast<UINT>(color_rts.size()), color_rts.data(), ds_desc_ptr,
+			D3D12_RENDER_PASS_FLAG_ALLOW_UAV_WRITES // TODO more/less flags?
+		);
 	}
 
 	void command_list::resource_barrier(
@@ -102,7 +124,7 @@ namespace lotus::graphics::backends::directx12 {
 		auto bindings = bookmark.create_vector_array<D3D12_VERTEX_BUFFER_VIEW>(buffers.size());
 		for (std::size_t i = 0; i < buffers.size(); ++i) {
 			auto &vert_buf = buffers[i];
-			auto *buf = static_cast<buffer*>(vert_buf.data);
+			const auto *buf = static_cast<const buffer*>(vert_buf.data);
 			bindings[i] = {};
 			bindings[i].BufferLocation = buf->_buffer->GetGPUVirtualAddress() + vert_buf.offset;
 			bindings[i].SizeInBytes    = static_cast<UINT>(buf->_buffer->GetDesc().Width - vert_buf.offset);

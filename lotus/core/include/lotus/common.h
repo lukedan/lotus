@@ -5,7 +5,10 @@
 
 #include <type_traits>
 #include <array>
+#include <cassert>
 #include <string_view>
+#include <source_location>
+#include <span>
 
 namespace lotus {
 #ifndef NDEBUG
@@ -28,12 +31,12 @@ namespace lotus {
 		/// Implicit conversion to arithmetic types and pointers.
 		template <
 			typename T, std::enable_if_t<std::is_arithmetic_v<T> || std::is_pointer_v<T>, int> = 0
-		> constexpr operator T() const {
+		> consteval operator T() const {
 			return static_cast<T>(0);
 		}
 	};
-	constexpr inline uninitialized_t uninitialized; ///< An instance of \ref uninitialized_t.
-	constexpr inline zero_t zero; ///< An instance of \ref zero_t.
+	constexpr inline const uninitialized_t uninitialized; ///< An instance of \ref uninitialized_t.
+	constexpr inline const zero_t zero; ///< An instance of \ref zero_t.
 
 
 	/// Indicates if all following bitwise operators are enabled for a type. Enum classes can create specializations
@@ -137,18 +140,78 @@ namespace lotus {
 	};
 
 
-	/// Assumes that the given \p string_view contains UTF-8 text and converts it into a \p std::u8string_view.
-	[[nodiscard]] inline std::u8string_view assume_utf8(std::string_view str) {
-		return std::u8string_view(reinterpret_cast<const char8_t*>(str.data()), str.size());
-	}
-	/// Converts a UTF-8 string view to a generic string.
-	[[nodiscard]] inline std::string_view u8string_view_to_generic(std::u8string_view str) {
-		return std::string_view(reinterpret_cast<const char*>(str.data()), str.size());
-	}
+	/// Used to obtain certain attributes of member pointers.
+	template <typename> struct member_pointer_type_traits;
+	/// Specialization for member object pointers.
+	template <typename Owner, typename Val> struct member_pointer_type_traits<Val Owner::*> {
+		using value_type = Val; ///< The type of the pointed-to object.
+		using owner_type = Owner; ///< The type of the owner.
+	};
+	/// Shorthand for \ref member_pointer_type_traits using a member pointer instance.
+	template <auto MemberPtr> using member_pointer_traits = member_pointer_type_traits<decltype(MemberPtr)>;
+
+	/// Template parameter pack utilities.
+	template <typename T> struct parameter_pack {
+	public:
+		/// Dynamically retrieves the i-th element.
+		template <T First, T ...Others> [[nodiscard]] constexpr inline static T get(std::size_t i) {
+			if constexpr (sizeof...(Others) == 0) {
+				assert(i == 0);
+				return First;
+			} else {
+				return i == 0 ? First : get<Others...>(i - 1);
+			}
+		}
+	};
 
 
-	/// Aligns the given size.
-	[[nodiscard]] inline constexpr std::size_t align_size(std::size_t size, std::size_t align) {
-		return align * ((size + align - 1) / align);
+	/// Tests the equality of two \p std::source_location objects.
+	[[nodiscard]] inline bool source_locations_equal(
+		const std::source_location &lhs, const std::source_location &rhs
+	) {
+		if (lhs.line() != rhs.line() || lhs.column() != rhs.column()) {
+			return false;
+		}
+		if (lhs.file_name() != rhs.file_name()) {
+			return std::strcmp(lhs.file_name(), rhs.file_name()) == 0;
+		}
+		return true;
+	}
+
+	/// Shorthand for creating a hash object and then hashing the given object.
+	template <typename T, typename Hash = std::hash<T>> [[nodiscard]] inline constexpr std::size_t compute_hash(
+		const T &obj, const Hash &hash = Hash()
+	) {
+		return hash(obj);
+	}
+
+	/// Combines the result of two hash functions.
+	[[nodiscard]] constexpr inline std::size_t hash_combine(std::size_t hash1, std::size_t hash2) {
+		return hash1 ^ (hash2 + 0x9e3779b9 + (hash1 << 6) + (hash1 >> 2));
+	}
+	/// Shorthand for combining a sequence of hashes, with each hash being combined with the result of all previous
+	/// hashes with \ref hash_combine().
+	[[nodiscard]] constexpr inline std::size_t hash_combine(std::span<const std::size_t> hashes) {
+		if (hashes.empty()) {
+			return 0;
+		}
+		std::size_t result = hashes[0];
+		for (auto it = hashes.begin() + 1; it != hashes.end(); ++it) {
+			result = hash_combine(result, *it);
+		}
+		return result;
+	}
+	/// \overload
+	[[nodiscard]] constexpr inline std::size_t hash_combine(std::initializer_list<std::size_t> hashes) {
+		return hash_combine({ hashes.begin(), hashes.end() });
+	}
+
+	/// Hashes a \p std::source_location.
+	[[nodiscard]] inline std::size_t hash_source_location(const std::source_location &loc) {
+		return hash_combine({
+			compute_hash(loc.file_name()),
+			compute_hash(loc.line()),
+			compute_hash(loc.column()),
+		});
 	}
 }

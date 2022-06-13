@@ -130,8 +130,8 @@ namespace lotus::graphics {
 		/// \overload
 		[[nodiscard]] compilation_result compile_shader(
 			std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry,
-			std::initializer_list<const std::filesystem::path> include_paths,
-			std::initializer_list<const std::pair<std::u8string_view, std::u8string_view>> defines
+			std::initializer_list<std::filesystem::path> include_paths,
+			std::initializer_list<std::pair<std::u8string_view, std::u8string_view>> defines
 		) {
 			return compile_shader(
 				code_utf8, stage, entry, { include_paths.begin(), include_paths.end() }, defines

@@ -8,6 +8,7 @@
 #include <comdef.h>
 #include <directx/d3dx12.h>
 
+#include "lotus/memory.h"
 #include "lotus/system/platforms/windows/details.h"
 #include "lotus/graphics/backends/directx12/device.h"
 
@@ -575,7 +576,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			D3D12_RESOURCE_DESC desc = {};
 			desc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
 			desc.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-			desc.Width              = align_size(size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+			desc.Width              = memory::align_size(size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 			desc.Height             = 1;
 			desc.DepthOrArraySize   = 1;
 			desc.MipLevels          = 1;

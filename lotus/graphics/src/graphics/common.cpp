@@ -6,11 +6,11 @@
 #include "lotus/common.h"
 
 namespace lotus::graphics {
-	constexpr static std::uint8_t o = 0; // zero for visibility
-	constexpr static enum_mapping<format, format_properties> format_property_table{
+	constexpr static const std::uint8_t o = 0; // zero for visibility
+	constexpr static const enum_mapping<format, format_properties> format_property_table{
 		std::pair(format::none,               zero                                                                                                                                 ),
-		std::pair(format::d32_float_s8,       format_properties::create_depth_stencil(32, 8,  format_properties::data_type::floatint_point                                        )),
-		std::pair(format::d32_float,          format_properties::create_depth_stencil(32, o,  format_properties::data_type::floatint_point                                        )),
+		std::pair(format::d32_float_s8,       format_properties::create_depth_stencil(32, 8,  format_properties::data_type::floating_point                                        )),
+		std::pair(format::d32_float,          format_properties::create_depth_stencil(32, o,  format_properties::data_type::floating_point                                        )),
 		std::pair(format::d24_unorm_s8,       format_properties::create_depth_stencil(24, 8,  format_properties::data_type::unsigned_norm                                         )),
 		std::pair(format::d16_unorm,          format_properties::create_depth_stencil(16, o,  format_properties::data_type::unsigned_norm                                         )),
 		std::pair(format::r8_unorm,           format_properties::create_color( 8,  o,  o,  o, format_properties::data_type::unsigned_norm,  format_properties::channel_order::rgba)),
@@ -32,29 +32,29 @@ namespace lotus::graphics {
 		std::pair(format::r16_snorm,          format_properties::create_color(16,  o,  o,  o, format_properties::data_type::signed_norm,    format_properties::channel_order::rgba)),
 		std::pair(format::r16_uint,           format_properties::create_color(16,  o,  o,  o, format_properties::data_type::unsigned_int,   format_properties::channel_order::rgba)),
 		std::pair(format::r16_sint,           format_properties::create_color(16,  o,  o,  o, format_properties::data_type::signed_int,     format_properties::channel_order::rgba)),
-		std::pair(format::r16_float,          format_properties::create_color(16,  o,  o,  o, format_properties::data_type::floatint_point, format_properties::channel_order::rgba)),
+		std::pair(format::r16_float,          format_properties::create_color(16,  o,  o,  o, format_properties::data_type::floating_point, format_properties::channel_order::rgba)),
 		std::pair(format::r16g16_unorm,       format_properties::create_color(16, 16,  o,  o, format_properties::data_type::unsigned_norm,  format_properties::channel_order::rgba)),
 		std::pair(format::r16g16_snorm,       format_properties::create_color(16, 16,  o,  o, format_properties::data_type::signed_norm,    format_properties::channel_order::rgba)),
 		std::pair(format::r16g16_uint,        format_properties::create_color(16, 16,  o,  o, format_properties::data_type::unsigned_int,   format_properties::channel_order::rgba)),
 		std::pair(format::r16g16_sint,        format_properties::create_color(16, 16,  o,  o, format_properties::data_type::signed_int,     format_properties::channel_order::rgba)),
-		std::pair(format::r16g16_float,       format_properties::create_color(16, 16,  o,  o, format_properties::data_type::floatint_point, format_properties::channel_order::rgba)),
+		std::pair(format::r16g16_float,       format_properties::create_color(16, 16,  o,  o, format_properties::data_type::floating_point, format_properties::channel_order::rgba)),
 		std::pair(format::r16g16b16a16_unorm, format_properties::create_color(16, 16, 16, 16, format_properties::data_type::unsigned_norm,  format_properties::channel_order::rgba)),
 		std::pair(format::r16g16b16a16_snorm, format_properties::create_color(16, 16, 16, 16, format_properties::data_type::signed_norm,    format_properties::channel_order::rgba)),
 		std::pair(format::r16g16b16a16_uint,  format_properties::create_color(16, 16, 16, 16, format_properties::data_type::unsigned_int,   format_properties::channel_order::rgba)),
 		std::pair(format::r16g16b16a16_sint,  format_properties::create_color(16, 16, 16, 16, format_properties::data_type::signed_int,     format_properties::channel_order::rgba)),
-		std::pair(format::r16g16b16a16_float, format_properties::create_color(16, 16, 16, 16, format_properties::data_type::floatint_point, format_properties::channel_order::rgba)),
+		std::pair(format::r16g16b16a16_float, format_properties::create_color(16, 16, 16, 16, format_properties::data_type::floating_point, format_properties::channel_order::rgba)),
 		std::pair(format::r32_uint,           format_properties::create_color(32,  o,  o,  o, format_properties::data_type::unsigned_int,   format_properties::channel_order::rgba)),
 		std::pair(format::r32_sint,           format_properties::create_color(32,  o,  o,  o, format_properties::data_type::signed_int,     format_properties::channel_order::rgba)),
-		std::pair(format::r32_float,          format_properties::create_color(32,  o,  o,  o, format_properties::data_type::floatint_point, format_properties::channel_order::rgba)),
+		std::pair(format::r32_float,          format_properties::create_color(32,  o,  o,  o, format_properties::data_type::floating_point, format_properties::channel_order::rgba)),
 		std::pair(format::r32g32_uint,        format_properties::create_color(32, 32,  o,  o, format_properties::data_type::unsigned_int,   format_properties::channel_order::rgba)),
 		std::pair(format::r32g32_sint,        format_properties::create_color(32, 32,  o,  o, format_properties::data_type::signed_int,     format_properties::channel_order::rgba)),
-		std::pair(format::r32g32_float,       format_properties::create_color(32, 32,  o,  o, format_properties::data_type::floatint_point, format_properties::channel_order::rgba)),
+		std::pair(format::r32g32_float,       format_properties::create_color(32, 32,  o,  o, format_properties::data_type::floating_point, format_properties::channel_order::rgba)),
 		std::pair(format::r32g32b32_uint,     format_properties::create_color(32, 32, 32,  o, format_properties::data_type::unsigned_int,   format_properties::channel_order::rgba)),
 		std::pair(format::r32g32b32_sint,     format_properties::create_color(32, 32, 32,  o, format_properties::data_type::signed_int,     format_properties::channel_order::rgba)),
-		std::pair(format::r32g32b32_float,    format_properties::create_color(32, 32, 32,  o, format_properties::data_type::floatint_point, format_properties::channel_order::rgba)),
+		std::pair(format::r32g32b32_float,    format_properties::create_color(32, 32, 32,  o, format_properties::data_type::floating_point, format_properties::channel_order::rgba)),
 		std::pair(format::r32g32b32a32_uint,  format_properties::create_color(32, 32, 32, 32, format_properties::data_type::unsigned_int,   format_properties::channel_order::rgba)),
 		std::pair(format::r32g32b32a32_sint,  format_properties::create_color(32, 32, 32, 32, format_properties::data_type::signed_int,     format_properties::channel_order::rgba)),
-		std::pair(format::r32g32b32a32_float, format_properties::create_color(32, 32, 32, 32, format_properties::data_type::floatint_point, format_properties::channel_order::rgba)),
+		std::pair(format::r32g32b32a32_float, format_properties::create_color(32, 32, 32, 32, format_properties::data_type::floating_point, format_properties::channel_order::rgba)),
 	};
 
 	const format_properties &format_properties::get(format fmt) {

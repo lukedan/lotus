@@ -23,26 +23,14 @@ public:
 	[[nodiscard]] static project load(const nlohmann::json&, const error_callback&);
 	/// Loads resources for all passes.
 	void load_resources(
-		lgfx::device&, lgfx::shader_utility&,
-		lgfx::command_allocator&, lgfx::command_queue&,
-		lgfx::shader_binary &vert_shader, lgfx::descriptor_set_layout &global_descriptors,
+		lren::assets::manager&, lren::context&,
+		lren::assets::owning_handle<lren::assets::shader> vert_shader,
 		const std::filesystem::path &root, const error_callback&
 	);
-	/// Updates descriptor sets for all passes.
-	void update_descriptor_sets(lgfx::device&, lgfx::descriptor_pool&, const error_callback&);
 
 	/// Finds the output buffer corresponding to the given name.
 	[[nodiscard]] pass::output::target *find_target(
 		std::u8string_view name, std::size_t index, const error_callback&
-	);
-
-	/// Returns the image view corresponding to the given input.
-	[[nodiscard]] std::pair<lgfx::image2d_view&, pass::output::target*> get_image_view(
-		pass::input::image&, std::size_t i, const error_callback&
-	);
-	/// Returns the image view corresponding to the given input.
-	[[nodiscard]] std::pair<lgfx::image2d_view&, pass::output::target*> get_image_view(
-		pass::input::pass_output&, std::size_t i, const error_callback&
 	);
 
 	/// Returns the order in which these passes should be executed.

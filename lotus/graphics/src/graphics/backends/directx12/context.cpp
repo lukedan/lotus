@@ -18,20 +18,20 @@ namespace lotus::graphics::backends::directx12 {
 			_details::com_ptr<ID3D12Debug1> debug;
 			_details::assert_dx(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)));
 			debug->EnableDebugLayer();
-			/*debug->SetEnableGPUBasedValidation(true);
-			debug->SetEnableSynchronizedCommandQueueValidation(true);*/
+			debug->SetEnableGPUBasedValidation(true);
+			debug->SetEnableSynchronizedCommandQueueValidation(true);
 		}
-		{ // allow unsigned shaders to run
+		/*{ // allow unsigned shaders to run
 			const IID features[] = { D3D12ExperimentalShaderModels };
 			void *structs[] = { nullptr };
 			UINT sizes[] = { 0 };
 			_details::assert_dx(D3D12EnableExperimentalFeatures(1, features, structs, sizes));
-		}
+		}*/
 		return result;
 	}
 
 	std::pair<swap_chain, format> context::create_swap_chain_for_window(
-		system::platforms::windows::window &wnd, device &dev, command_queue &q,
+		system::platforms::windows::window &wnd, device&, command_queue &q,
 		std::size_t num_frames, std::span<const format> formats
 	) {
 		swap_chain result = nullptr;

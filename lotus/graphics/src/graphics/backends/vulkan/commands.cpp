@@ -6,7 +6,6 @@
 #include "lotus/utils/stack_allocator.h"
 #include "lotus/graphics/descriptors.h"
 #include "lotus/graphics/device.h"
-#include "lotus/graphics/pass.h"
 #include "lotus/graphics/pipeline.h"
 #include "lotus/graphics/resources.h"
 
@@ -40,25 +39,36 @@ namespace lotus::graphics::backends::vulkan {
 		_details::assert_vk(_buffer.begin(info));
 	}
 
-	void command_list::begin_pass(
-		const pass_resources &rsrc, const frame_buffer &buf,
-		std::span<const linear_rgba_f> clear, float clear_depth, std::uint8_t clear_stencil
-	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
-		auto clear_values = bookmark.create_reserved_vector_array<vk::ClearValue>(clear.size() + 1);
-		for (const auto &v : clear) {
-			// TODO integer types
-			clear_values.emplace_back(vk::ClearColorValue(std::array<float, 4>({ v.r, v.g, v.b, v.a })));
-		}
-		clear_values.emplace_back(vk::ClearDepthStencilValue(clear_depth, clear_stencil));
+	void command_list::begin_pass(const frame_buffer &buf, const frame_buffer_access &access) {
+		assert(buf._color_views.size() == access.color_render_targets.size());
 
-		vk::RenderPassBeginInfo info;
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto color_attachments = bookmark.create_reserved_vector_array<vk::RenderingAttachmentInfo>(
+			access.color_render_targets.size()
+		);
+		vk::RenderingAttachmentInfo depth_attachment;
+		vk::RenderingAttachmentInfo stencil_attachment;
+		for (std::size_t i = 0; i < access.color_render_targets.size(); ++i) {
+			const auto &rt_access = access.color_render_targets[i];
+			color_attachments.emplace_back()
+				.setImageView(buf._color_views[i])
+				.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+				.setLoadOp(_details::conversions::to_attachment_load_op(rt_access.load_operation))
+				.setStoreOp(_details::conversions::to_attachment_store_op(rt_access.store_operation))
+				.setClearValue(_details::conversions::to_clear_value(rt_access.clear_value));
+		}
+		if (buf._depth_stencil_view) {
+			/*depth_attachment.set*/ // TODO
+		}
+
+		vk::RenderingInfo info;
 		info
-			.setRenderPass(rsrc._pass.get())
-			.setFramebuffer(buf._framebuffer.get())
-			.setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), buf._size))
-			.setClearValues(clear_values);
-		_buffer.beginRenderPass(info, vk::SubpassContents::eInline);
+			.setRenderArea(vk::Rect2D({ 0, 0 }, _details::conversions::to_extent_2d(buf._size)))
+			.setLayerCount(1)
+			.setColorAttachments(color_attachments)/*
+			.setPDepthAttachment(&depth_attachment)
+			.setPStencilAttachment(&stencil_attachment)*/;
+		_buffer.beginRendering(info);
 	}
 
 	void command_list::bind_pipeline_state(const graphics_pipeline_state &state) {
@@ -74,7 +84,7 @@ namespace lotus::graphics::backends::vulkan {
 		auto buffer_ptrs = bookmark.create_reserved_vector_array<vk::Buffer>(buffers.size());
 		auto offsets = bookmark.create_reserved_vector_array<vk::DeviceSize>(buffers.size());
 		for (auto &buf : buffers) {
-			buffer_ptrs.emplace_back(static_cast<buffer*>(buf.data)->_buffer);
+			buffer_ptrs.emplace_back(static_cast<const buffer*>(buf.data)->_buffer);
 			offsets.emplace_back(static_cast<vk::DeviceSize>(buf.offset));
 		}
 		_buffer.bindVertexBuffers(static_cast<std::uint32_t>(start), buffer_ptrs, offsets);
@@ -241,7 +251,7 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	void command_list::end_pass() {
-		_buffer.endRenderPass();
+		_buffer.endRendering();
 	}
 
 	void command_list::finish() {

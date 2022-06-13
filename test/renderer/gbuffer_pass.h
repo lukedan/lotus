@@ -231,7 +231,7 @@ public:
 	) const {
 		input_resources result;
 
-		std::size_t aligned_global_data_size = align_size(sizeof(constants), props.constant_buffer_alignment);
+		std::size_t aligned_global_data_size = memory::align_size(sizeof(constants), props.constant_buffer_alignment);
 		result.constant_buffer = dev.create_committed_buffer(
 			aligned_global_data_size, gfx::heap_type::upload, gfx::buffer_usage::mask::read_only_buffer
 		);

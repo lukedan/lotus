@@ -12,13 +12,17 @@
 #include <lotus/system/window.h>
 #include <lotus/system/application.h>
 #include <lotus/utils/camera.h>
+#include <lotus/utils/misc.h>
+#include <lotus/renderer/asset_manager.h>
+#include <lotus/renderer/gltf_loader.h>
+#include <lotus/renderer/g_buffer.h>
 
 #include "common.h"
-#include "scene.h"
+/*#include "scene.h"
 #include "gbuffer_pass.h"
 #include "composite_pass.h"
 #include "raytrace_pass.h"
-#include "rt_resolve_pass.h"
+#include "rt_resolve_pass.h"*/
 
 int main(int argc, char **argv) {
 	if (argc < 2) {
@@ -32,6 +36,7 @@ int main(int argc, char **argv) {
 	sys::application app(u8"test");
 	auto wnd = app.create_window();
 
+	auto shader_util = gfx::shader_utility::create();
 	auto ctx = gfx::context::create();
 	gfx::device dev = nullptr;
 	gfx::adapter_properties dev_prop = uninitialized;
@@ -48,56 +53,36 @@ int main(int argc, char **argv) {
 	auto cmd_queue = dev.create_command_queue();
 	auto cmd_alloc = dev.create_command_allocator();
 
+	auto asset_man = ren::assets::manager::create(dev, cmd_queue, &shader_util);
+	auto ren_ctx = ren::context::create(asset_man, ctx, cmd_queue);
+
+	auto g_buffer = ren::g_buffer::view::create(ren_ctx, cvec2s(0, 0));
 
 	// model & resources
-	gltf::Model model;
-	{
-		gltf::TinyGLTF loader;
-		std::string err;
-		std::string warn;
-		std::cout << "Loading " << argv[1] << "\n";
-		if (!loader.LoadASCIIFromFile(&model, &err, &warn, argv[1])) {
-			std::cout << "Failed to load scene: " << err << "\n";
-		}
-		std::cout << warn << "\n";
-	}
+	auto gltf_ctx = ren::gltf::context::create(asset_man);
+	auto instances = gltf_ctx.load(argv[1]);
 
-	auto descriptor_pool = dev.create_descriptor_pool(
-		{
-			gfx::descriptor_range::create(gfx::descriptor_type::read_only_image, 100),
-			gfx::descriptor_range::create(gfx::descriptor_type::sampler, 100),
-		}, 100
-	);
 	auto sampler = dev.create_sampler(
 		gfx::filtering::linear, gfx::filtering::linear, gfx::filtering::linear, 0, 0, 1, 16.0f,
 		gfx::sampler_address_mode::repeat, gfx::sampler_address_mode::repeat, gfx::sampler_address_mode::repeat,
 		linear_rgba_f(1.f, 1.f, 1.f, 1.f), std::nullopt
 	);
 
-	auto model_resources = scene_resources::create(dev, dev_prop, cmd_alloc, cmd_queue, descriptor_pool, model);
+	/*composite_pass comp_pass(dev);*/
 
-	gbuffer_pass gbuf_pass(dev, model_resources.textures_descriptor_layout, model_resources.material_descriptor_layout, model_resources.node_descriptor_layout);
-	composite_pass comp_pass(dev);
+	/*raytrace_pass rt_pass(dev, model_resources, dev_prop);
+	raytrace_resolve_pass rt_resolve_pass(dev);*/
 
-	raytrace_pass rt_pass(dev, model_resources, dev_prop);
-	raytrace_resolve_pass rt_resolve_pass(dev);
-
-	// buffers
-	gbuffer gbuf;
-	gbuffer::view gbuf_view;
-	gbuffer_pass::input_resources gbuf_input = gbuf_pass.create_input_resources(dev, dev_prop, descriptor_pool, sampler, model, model_resources);
-	gbuffer_pass::output_resources gbuf_output;
-
-	composite_pass::input_resources comp_input;
-	std::vector<composite_pass::output_resources> comp_output;
+	/*composite_pass::input_resources comp_input;
+	std::vector<composite_pass::output_resources> comp_output;*/
 
 	// raytracing buffers
-	gfx::image2d raytrace_buffer = nullptr;
+	/*gfx::image2d raytrace_buffer = nullptr;
 	gfx::image2d_view raytrace_buffer_view = nullptr;
 	raytrace_pass::input_resources rt_input;
 
 	raytrace_resolve_pass::input_resources rt_resolve_input;
-	std::vector<raytrace_resolve_pass::output_resources> rt_resolve_output;
+	std::vector<raytrace_resolve_pass::output_resources> rt_resolve_output;*/
 
 
 	gfx::swap_chain swapchain = nullptr;
@@ -111,19 +96,16 @@ int main(int argc, char **argv) {
 
 		frame_index = 0;
 
-		// reset all textures
-		gbuf = gbuffer();
-		gbuf_view = gbuffer::view();
-		raytrace_buffer = nullptr;
-		raytrace_buffer_view = nullptr;
+		// reset all resources
+		g_buffer = nullptr;
+		/*raytrace_buffer = nullptr;
+		raytrace_buffer_view = nullptr;*/
 		swapchain = nullptr;
-		comp_output.clear();
-		rt_resolve_output.clear();
+		/*comp_output.clear();
+		rt_resolve_output.clear();*/
 		present_fences.clear();
 
-		// create all textures
-		gbuf = gbuffer::create(dev, cmd_alloc, cmd_queue, size);
-		gbuf_view = gbuf.create_view(dev);
+		// create all surfaces
 		auto [sc, fmt] = ctx.create_swap_chain_for_window(
 			wnd, dev, cmd_queue, 2, { gfx::format::r8g8b8a8_srgb, gfx::format::b8g8r8a8_srgb }
 		);
@@ -131,11 +113,9 @@ int main(int argc, char **argv) {
 		auto time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count();
 
 		// create input/output resources
-		gbuf_output = gbuf_pass.create_output_resources(dev, gbuf_view, size);
-
 		auto list = dev.create_and_start_command_list(cmd_alloc);
 
-		comp_input = comp_pass.create_input_resources(dev, descriptor_pool, gbuf_view);
+		/*comp_input = comp_pass.create_input_resources(dev, descriptor_pool, gbuf_view);
 
 		raytrace_buffer = dev.create_committed_image2d(size[0], size[1], 1, 1, gfx::format::r32g32b32a32_float, gfx::image_tiling::optimal, gfx::image_usage::mask::read_write_color_texture | gfx::image_usage::mask::read_only_texture);
 		raytrace_buffer_view = dev.create_image2d_view_from(raytrace_buffer, gfx::format::r32g32b32a32_float, gfx::mip_levels::only_highest());
@@ -147,7 +127,7 @@ int main(int argc, char **argv) {
 			{}
 		);
 
-		rt_resolve_input = rt_resolve_pass.create_input_resources(dev, descriptor_pool, raytrace_buffer_view);
+		rt_resolve_input = rt_resolve_pass.create_input_resources(dev, descriptor_pool, raytrace_buffer_view);*/
 
 		std::size_t num_images = swapchain.get_image_count();
 		cmd_lists.clear();
@@ -156,8 +136,8 @@ int main(int argc, char **argv) {
 			char8_t buffer[20];
 			std::snprintf(reinterpret_cast<char*>(buffer), std::size(buffer), "Back buffer %d", static_cast<int>(i));
 			dev.set_debug_name(image, buffer);
-			comp_output.emplace_back(comp_pass.create_output_resources(dev, image, fmt, size));
-			rt_resolve_output.emplace_back(rt_resolve_pass.create_output_resources(dev, image, fmt, size));
+			/*comp_output.emplace_back(comp_pass.create_output_resources(dev, image, fmt, size));
+			rt_resolve_output.emplace_back(rt_resolve_pass.create_output_resources(dev, image, fmt, size));*/
 			present_fences.emplace_back(dev.create_fence(gfx::synchronization_state::unset));
 			cmd_lists.emplace_back(nullptr);
 			list.resource_barrier(
@@ -306,7 +286,7 @@ int main(int argc, char **argv) {
 
 		cam = cam_params.into_camera();
 
-		{
+		/*{
 			auto *data = static_cast<gbuffer_pass::constants*>(dev.map_buffer(gbuf_input.constant_buffer, 0, 0));
 			data->view = cam.view_matrix.into<float>();
 			data->projection_view = cam.projection_view_matrix.into<float>();
@@ -332,20 +312,20 @@ int main(int argc, char **argv) {
 			auto *data = static_cast<raytrace_resolve_pass::global_data*>(dev.map_buffer(rt_resolve_input.globals_buffer, 0, 0));
 			data->frame_index = frame_index;
 			dev.unmap_buffer(rt_resolve_input.globals_buffer, 0, sizeof(raytrace_resolve_pass::global_data));
-		}
+		}*/
 
 		auto &cmd_list = cmd_lists[back_buffer.index];
 		cmd_list = dev.create_and_start_command_list(cmd_alloc);
 		{
 			auto image = swapchain.get_image(back_buffer.index);
 
-			if constexpr (0) {
+			/*if constexpr (0) {
 				gbuf_pass.record_commands(cmd_list, gbuf, model, model_resources, gbuf_input, gbuf_output);
 				comp_pass.record_commands(cmd_list, image, comp_input, comp_output[back_buffer.index]);
 			} else {
 				rt_pass.record_commands(cmd_list, model, model_resources, rt_input, raytrace_buffer);
 				rt_resolve_pass.record_commands(cmd_list, image, raytrace_buffer, rt_resolve_input, rt_resolve_output[back_buffer.index]);
-			}
+			}*/
 
 			cmd_list.finish();
 		}

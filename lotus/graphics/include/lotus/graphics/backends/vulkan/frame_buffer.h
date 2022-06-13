@@ -49,6 +49,11 @@ namespace lotus::graphics::backends::vulkan {
 		[[nodiscard]] image2d get_image(std::size_t index);
 		/// Updates \ref _synchronization.
 		void update_synchronization_primitives(std::span<const back_buffer_synchronization>);
+
+		/// Returns whether this object holds a valid swap chain.
+		[[nodiscard]] bool is_valid() const {
+			return _swapchain.get();
+		}
 	private:
 		/// Synchronization primitives that will be notified when a frame has finished presenting.
 		struct _cached_back_buffer_synchronization {
@@ -84,7 +89,8 @@ namespace lotus::graphics::backends::vulkan {
 		frame_buffer(std::nullptr_t) {
 		}
 	private:
-		vk::Extent2D _size; ///< Size of this frame buffer.
-		vk::UniqueFramebuffer _framebuffer; ///< The frame buffer.
+		std::vector<vk::ImageView> _color_views; ///< Color views.
+		vk::ImageView _depth_stencil_view; ///< Deptn stencil view.
+		cvec2s _size = zero; ///< The size of this frame buffer.
 	};
 }

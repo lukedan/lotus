@@ -406,6 +406,34 @@ namespace lotus::graphics::backends::vulkan::_details {
 			return result;
 		}
 
+		/// Implementation for \ref to_clear_value() for \ref cvec4d.
+		[[nodiscard]] static vk::ClearValue _to_clear_value_impl(const cvec4d &vec) {
+			vk::ClearValue result;
+			result.setColor(std::array<float, 4>{
+				static_cast<float>(vec[0]),
+				static_cast<float>(vec[1]),
+				static_cast<float>(vec[2]),
+				static_cast<float>(vec[3]),
+			});
+			return result;
+		}
+		/// Implementation for \ref to_clear_value() for \ref cvec4<std::uint64_t>.
+		[[nodiscard]] static vk::ClearValue _to_clear_value_impl(const cvec4<std::uint64_t> &vec) {
+			vk::ClearValue result;
+			result.setColor(std::array<std::uint32_t, 4>{
+				static_cast<std::uint32_t>(vec[0]),
+				static_cast<std::uint32_t>(vec[1]),
+				static_cast<std::uint32_t>(vec[2]),
+				static_cast<std::uint32_t>(vec[3]),
+			});
+			return result;
+		}
+		vk::ClearValue to_clear_value(const color_clear_value &val) {
+			return std::visit([](const auto &x) {
+				return _to_clear_value_impl(x);
+			}, val.value);
+		}
+
 
 		[[nodiscard]] constexpr static std::array<
 			std::pair<format, vk::Format>, static_cast<std::size_t>(format::num_enumerators)

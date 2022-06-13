@@ -10,7 +10,6 @@
 #include "acceleration_structure.h"
 #include "commands.h"
 #include "descriptors.h"
-#include "pass.h"
 #include "pipeline.h"
 #include "resources.h"
 #include "frame_buffer.h"
@@ -216,7 +215,7 @@ namespace lotus::graphics {
 			const depth_stencil_options &depth_stencil,
 			std::span<const input_buffer_layout> input_buffers,
 			primitive_topology topology,
-			const pass_resources &environment,
+			const frame_buffer_layout &fb_layout,
 			std::size_t num_viewports = 1
 		) {
 			return backend::device::create_graphics_pipeline_state(
@@ -231,7 +230,7 @@ namespace lotus::graphics {
 				depth_stencil,
 				input_buffers,
 				topology,
-				environment,
+				fb_layout,
 				num_viewports
 			);
 		}
@@ -244,7 +243,7 @@ namespace lotus::graphics {
 			const depth_stencil_options &depth_stencil,
 			std::initializer_list<input_buffer_layout> input_buffers,
 			primitive_topology topology,
-			const pass_resources &environment,
+			const frame_buffer_layout &fb_layout,
 			std::size_t num_viewports = 1
 		) {
 			return create_graphics_pipeline_state(
@@ -252,7 +251,7 @@ namespace lotus::graphics {
 				{ blend.begin(), blend.end() },
 				rasterizer, depth_stencil,
 				{ input_buffers.begin(), input_buffers.end() },
-				topology, environment, num_viewports
+				topology, fb_layout, num_viewports
 			);
 		}
 		/// Creates a \ref compute_pipeline_state object.
@@ -260,21 +259,6 @@ namespace lotus::graphics {
 			const pipeline_resources &resources, const shader_binary &compute_shader
 		) {
 			return backend::device::create_compute_pipeline_state(resources, compute_shader);
-		}
-
-		/// Creates a \ref pass object.
-		[[nodiscard]] pass_resources create_pass_resources(
-			std::span<const render_target_pass_options> render_targets,
-			depth_stencil_pass_options depth_stencil
-		) {
-			return backend::device::create_pass_resources(render_targets, depth_stencil);
-		}
-		/// \overload
-		[[nodiscard]] pass_resources create_pass_resources(
-			std::initializer_list<render_target_pass_options> render_targets,
-			depth_stencil_pass_options depth_stencil
-		) {
-			return create_pass_resources({ render_targets.begin(), render_targets.end() }, depth_stencil);
 		}
 
 		/// Creates a \ref device_heap.
@@ -354,17 +338,15 @@ namespace lotus::graphics {
 
 		/// Creates a \ref frame_buffer.
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::span<const image2d_view *const> color, const image2d_view *depth_stencil,
-			cvec2s size, const pass_resources &pass
+			std::span<const image2d_view *const> color, const image2d_view *depth_stencil, cvec2s size
 		) {
-			return backend::device::create_frame_buffer(color, depth_stencil, size, pass);
+			return backend::device::create_frame_buffer(color, depth_stencil, size);
 		}
 		/// \overload
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::initializer_list<const image2d_view*> color, const image2d_view *depth_stencil,
-			const cvec2s &size, const pass_resources &pass
+			std::initializer_list<const image2d_view*> color, const image2d_view *depth_stencil, cvec2s size
 		) {
-			return create_frame_buffer({ color.begin(), color.end() }, depth_stencil, size, pass);
+			return create_frame_buffer({ color.begin(), color.end() }, depth_stencil, size);
 		}
 
 		/// Creates a \ref fence.
@@ -406,14 +388,14 @@ namespace lotus::graphics {
 		[[nodiscard]] bottom_level_acceleration_structure_geometry
 			create_bottom_level_acceleration_structure_geometry(
 				std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
-			) {
+		) {
 			return backend::device::create_bottom_level_acceleration_structure_geometry(data);
 		}
 		/// \overload
 		[[nodiscard]] bottom_level_acceleration_structure_geometry
 			create_bottom_level_acceleration_structure_geometry(
 				std::initializer_list<std::pair<vertex_buffer_view, index_buffer_view>> data
-			) {
+		) {
 			return create_bottom_level_acceleration_structure_geometry({ data.begin(), data.end() });
 		}
 

@@ -50,6 +50,11 @@ namespace lotus::graphics::backends::vulkan {
 		~buffer() {
 			_free();
 		}
+
+		/// Returns whether \ref _buffer is empty.
+		[[nodiscard]] bool is_valid() const {
+			return _buffer;
+		}
 	protected:
 		/// Creates an empty object.
 		buffer(std::nullptr_t) {
@@ -123,6 +128,11 @@ namespace lotus::graphics::backends::vulkan {
 		protected:
 			/// Creates an empty object.
 			image(std::nullptr_t) {
+			}
+
+			/// Returns whether this refers to a valid image object.
+			[[nodiscard]] bool is_valid() const {
+				return _image;
 			}
 		private:
 			/// The device. If this \p nullptr, it means that the image is not owned by this object and does not need

@@ -9,7 +9,6 @@
 #include "directx12/descriptors.h"
 #include "directx12/device.h"
 #include "directx12/frame_buffer.h"
-#include "directx12/pass.h"
 #include "directx12/pipeline.h"
 #include "directx12/resources.h"
 #include "directx12/synchronization.h"

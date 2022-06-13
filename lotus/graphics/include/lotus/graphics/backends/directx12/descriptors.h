@@ -17,6 +17,9 @@ namespace lotus::graphics::backends::directx12 {
 	class descriptor_pool {
 		friend device;
 	protected:
+		/// Initializes this object to empty.
+		descriptor_pool(std::nullptr_t) {
+		}
 	private:
 		// TODO actually do bookkeeping
 	};
@@ -28,7 +31,13 @@ namespace lotus::graphics::backends::directx12 {
 		/// Creates an invalid layout.
 		descriptor_set_layout(std::nullptr_t) :
 			_visibility(D3D12_SHADER_VISIBILITY_ALL),
-			_num_shader_resource_descriptors(0), _num_sampler_descriptors(0), _num_shader_resource_ranges(0) {
+			_num_shader_resource_descriptors(0), _num_sampler_descriptors(0),
+			_num_shader_resource_ranges(std::numeric_limits<std::size_t>::max()) {
+		}
+
+		/// Checks if this layout is valid.
+		[[nodiscard]] bool is_valid() const {
+			return _num_shader_resource_ranges <= _ranges.size();
 		}
 	private:
 		// TODO allocator
@@ -38,7 +47,8 @@ namespace lotus::graphics::backends::directx12 {
 		UINT _num_shader_resource_descriptors;
 		/// The number of sampler descriptors. Does not include any range with unbounded size.
 		UINT _num_sampler_descriptors;
-		/// The number of ranges in \ref _ranges that contain shader resources.
+		/// The number of ranges in \ref _ranges that contain shader resources. If this is larger than the size of
+		/// \ref _ranges, it indicates that this layout has not been properly initialized.
 		std::size_t _num_shader_resource_ranges;
 		bool _unbounded_range_is_sampler; ///< If there is a range with unbounded size, whether it's for samplers.
 
@@ -64,6 +74,11 @@ namespace lotus::graphics::backends::directx12 {
 		descriptor_set(descriptor_set&&) noexcept;
 		/// Move assignment.
 		descriptor_set &operator=(descriptor_set&&) noexcept;
+
+		/// Returns whether this descriptor set is valid.
+		[[nodiscard]] bool is_valid() const {
+			return _device;
+		}
 	private:
 		_details::descriptor_range _shader_resource_descriptors; ///< Shader resource descriptors.
 		_details::descriptor_range _sampler_descriptors; ///< Sampler descriptors.

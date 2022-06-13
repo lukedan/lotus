@@ -6,7 +6,6 @@
 #include "lotus/color.h"
 #include "details.h"
 #include "acceleration_structure.h"
-#include "pass.h"
 #include "pipeline.h"
 #include "frame_buffer.h"
 
@@ -53,11 +52,8 @@ namespace lotus::graphics::backends::vulkan {
 		/// Calls \p vk::CommandBuffer::reset() and \p vk::CommandBuffer::begin().
 		void reset_and_start(command_allocator&);
 
-		/// Calls \p vk::CommandBuffer::beginRenderPass().
-		void begin_pass(
-			const pass_resources&, const frame_buffer&,
-			std::span<const linear_rgba_f> clear, float clear_depth, std::uint8_t clear_stencil
-		);
+		/// Calls \p vk::CommandBuffer::beginRendering().
+		void begin_pass(const frame_buffer&, const frame_buffer_access&);
 
 		/// Calls \p vk::CommandBuffer::bindPipeline() with \p vk::PipelineBindPoint::eGraphics.
 		void bind_pipeline_state(const graphics_pipeline_state&);
@@ -110,7 +106,7 @@ namespace lotus::graphics::backends::vulkan {
 		/// Calls \p vk::CommandBuffer::pipelineBarrier().
 		void resource_barrier(std::span<const image_barrier>, std::span<const buffer_barrier>);
 
-		/// Calls \p vk::CommandBuffer::endRenderPass().
+		/// Calls \p vk::CommandBuffer::endRendering().
 		void end_pass();
 		/// Calls \p vk::CommandBuffer::end().
 		void finish();
@@ -140,6 +136,11 @@ namespace lotus::graphics::backends::vulkan {
 			shader_record_view miss_shaders, shader_record_view hit_groups,
 			std::size_t width, std::size_t height, std::size_t depth
 		);
+
+		/// Checks that this object holds a valid command list.
+		[[nodiscard]] bool is_valid() const {
+			return _buffer;
+		}
 	private:
 		vk::CommandBuffer _buffer; ///< The command buffer.
 		vk::CommandPool _pool; ///< The command pool that this buffer is allocated from.

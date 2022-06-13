@@ -12,6 +12,7 @@
 
 #include "lotus/common.h"
 #include "lotus/memory.h"
+#include "lotus/containers/static_optional.h"
 
 namespace lotus {
 	/// An allocator that allocates out of a stack. The user can make bookmarks in the stack that the allocator can
@@ -23,15 +24,11 @@ namespace lotus {
 	public:
 		/// Whether or not to poision memory that has been freed.
 		constexpr static bool poison_freed_memory = is_debugging;
-
-		/// A STL container compatible allocator for \ref stack_allocator.
-		template <typename T> class allocator {
-			template <typename U> friend class allocator;
+		/// Allocator type for a stack allocator.
+		class allocator {
 		public:
-			using value_type = T; ///< Value type.
-
-			/// Creates an empty (and invalid) allocator.
-			allocator(std::nullptr_t) {
+			/// Creates an empty allocator.
+			allocator(std::nullptr_t) : _alloc(nullptr) {
 			}
 			/// Creates an allocator for the given \ref stack_allocator.
 			[[nodiscard]] inline static allocator create_for(stack_allocator &alloc) {
@@ -39,29 +36,60 @@ namespace lotus {
 				result._alloc = &alloc;
 				return result;
 			}
+			/// Copy constructor.
+			allocator(const allocator&) = default;
+			/// Copy assignment.
+			allocator &operator=(const allocator&) = default;
+
+			/// Calls \ref stack_allocator::_allocate().
+			[[nodiscard]] void *allocate(memory::size_alignment s) const {
+				return _alloc->_allocate(s);
+			}
+			/// Memory allocated from a stack allocator cannot be freed in isolation.
+			void free(void*) const {
+				// nothing to do
+			}
+		private:
+			stack_allocator *_alloc; ///< The underlying allocator.
+		};
+		/// A STL container compatible allocator for \ref stack_allocator.
+		template <typename T> class std_allocator {
+			template <typename U> friend class std_allocator;
+		public:
+			using value_type = T; ///< Value type.
+
+			/// Creates an empty (and invalid) allocator.
+			std_allocator(std::nullptr_t) {
+			}
+			/// Creates an allocator for the given \ref stack_allocator.
+			[[nodiscard]] inline static std_allocator create_for(stack_allocator &alloc) {
+				std_allocator result = nullptr;
+				result._alloc = &alloc;
+				return result;
+			}
 			/// Conversion from an allocator of another type.
-			template <typename U> explicit allocator(const allocator<U> &src) :
+			template <typename U> explicit std_allocator(const std_allocator<U> &src) :
 				_alloc(src._alloc) {
 			}
 
 			/// Allocates an array.
 			[[nodiscard]] T *allocate(std::size_t n) const {
-				return static_cast<T*>(_alloc->_allocate(sizeof(T) * n, alignof(T)));
+				return static_cast<T*>(_alloc->_allocate(memory::size_alignment::of_array<T>(n)));
 			}
 			/// Does nothing. De-allocation only happens when popping bookmarks.
 			void deallocate(T*, std::size_t) const {
 			}
 
-			/// If two objects are on the same thread, they use the same underlying allocator.
-			friend bool operator==(const allocator&, const allocator&) = default;
+			/// Tests that two allocators refer to the same \ref stack_allocator.
+			friend bool operator==(const std_allocator&, const std_allocator&) = default;
 		protected:
 			stack_allocator *_alloc; ///< The underlying allocator.
 		};
 		/// Vector type that uses a stack allocator.
-		template <typename T> using vector_type = std::vector<T, allocator<T>>;
+		template <typename T> using vector_type = std::vector<T, std_allocator<T>>;
 		/// String type that uses a stack allocator.
 		template <typename Ch, typename Traits = std::char_traits<Ch>> using string_type =
-			std::basic_string<Ch, Traits, allocator<Ch>>;
+			std::basic_string<Ch, Traits, std_allocator<Ch>>;
 		/// An RAII bookmark.
 		struct scoped_bookmark {
 			friend stack_allocator;
@@ -86,19 +114,24 @@ namespace lotus {
 			}
 
 			/// Allocates a piece of memory from the current segment.
-			[[nodiscard]] void *allocate(std::size_t size, std::size_t align) {
-				assert(_alloc && _alloc->_top_bookmark == _this_bookmark);
-				return _alloc->_allocate(size, align);
+			[[nodiscard]] void *allocate(memory::size_alignment s) {
+				if constexpr (_this_bookmark.is_enabled) {
+					assert(_alloc && _alloc->_top_bookmark == *_this_bookmark);
+				}
+				return _alloc->_allocate(s);
 			}
 			/// Allocates memory for an object or an array of objects.
 			template <typename T> [[nodiscard]] T *allocate(std::size_t count = 1) {
-				return static_cast<T*>(allocate(sizeof(T) * count, alignof(T)));
+				return static_cast<T*>(allocate(memory::size_alignment::of_array<T>(count)));
 			}
 
+			/// Creates an \ref allocator for the allocator associated with this bookmark.
+			[[nodiscard]] allocator create_allocator() const {
+				return allocator::create_for(*_alloc);
+			}
 			/// Creates a \ref allocator for the given type.
-			template <typename T> [[nodiscard]] allocator<T> create_std_allocator() {
-				assert(_alloc && _alloc->_top_bookmark == _this_bookmark);
-				return allocator<T>::create_for(*_alloc);
+			template <typename T> [[nodiscard]] std_allocator<T> create_std_allocator() const {
+				return std_allocator<T>::create_for(*_alloc);
 			}
 			/// Convenience function for creating a \p std::vector using the given parameters and this allocator.
 			template <
@@ -136,12 +169,15 @@ namespace lotus {
 			}
 		protected:
 			stack_allocator *_alloc; ///< The allocator;
-			_bookmark *_this_bookmark; ///< Position of this bookmark used for debugging.
+			/// Position of this bookmark used for debugging.
+			[[no_unique_address]] debug_value<_bookmark*> _this_bookmark;
 
 			/// Creates an object for the given allocator and sets a bookmark.
 			explicit scoped_bookmark(stack_allocator &alloc) : _alloc(&alloc) {
 				_alloc->_set_bookmark();
-				_this_bookmark = _alloc->_top_bookmark;
+				if constexpr (_this_bookmark.is_enabled) {
+					*_this_bookmark = _alloc->_top_bookmark;
+				}
 			}
 		};
 
@@ -166,7 +202,7 @@ namespace lotus {
 		static stack_allocator &for_this_thread();
 
 		std::size_t page_size = 8 * 1024 * 1024; /// Size of a page.
-		void *(*allocate_page)(std::size_t, std::size_t) = memory::raw::allocate; ///< Used to allocate the pages.
+		void *(*allocate_page)(memory::size_alignment) = memory::raw::allocate; ///< Used to allocate the pages.
 		void (*free_page)(void*) = memory::raw::free; ///< Used to free a page.
 	protected:
 		/// Reference to a page.
@@ -182,10 +218,10 @@ namespace lotus {
 
 			/// Allocates a block of memory from this page. If there's not enough space within this page, this
 			/// function returns \p nullptr. The returned memory block is not initialized.
-			[[nodiscard]] void *allocate(std::size_t size, std::size_t align);
+			[[nodiscard]] void *allocate(memory::size_alignment);
 			/// \overload
 			template <typename T> [[nodiscard]] T *allocate() {
-				return static_cast<T*>(allocate(sizeof(T), alignof(T)));
+				return static_cast<T*>(allocate(memory::size_alignment::of<T>()));
 			}
 
 			/// Calls the destructor of \ref header, then empties this page and re-allocate the header.
@@ -198,7 +234,7 @@ namespace lotus {
 			/// Poisons all bytes in the page after the given pointer.
 			void poison_after(void *ptr) {
 				assert(ptr >= memory && ptr <= end);
-				std::memset(ptr, 0xCD, static_cast<std::byte*>(end) - static_cast<std::byte*>(ptr));
+				memory::poison(ptr, static_cast<std::byte*>(end) - static_cast<std::byte*>(ptr));
 			}
 
 			/// Tests if this reference is empty.
@@ -237,7 +273,7 @@ namespace lotus {
 
 		/// Creates a new page and allocates a \ref _page_ref at the front to the current top page.
 		[[nodiscard]] _page_ref _allocate_new_page(_page_ref prev, std::size_t size) const {
-			auto result = _page_ref::to_new_page(allocate_page(size, alignof(_page_header)), size);
+			auto result = _page_ref::to_new_page(allocate_page(memory::size_alignment(size, alignof(_page_header))), size);
 			result.header = new (result.allocate<_page_header>()) _page_header(_page_header::create(prev, free_page));
 			return result;
 		}
@@ -249,14 +285,14 @@ namespace lotus {
 		/// Sets a new bookmark.
 		void _set_bookmark() {
 			auto mark = _bookmark::create(_top_page.memory, _top_page.current, _top_bookmark);
-			_top_bookmark = new (_allocate(sizeof(_bookmark), alignof(_bookmark))) _bookmark(mark);
+			_top_bookmark = new (_allocate(memory::size_alignment::of<_bookmark>())) _bookmark(mark);
 		}
 		/// Resets the allocator to the state before the last bookmark was allocated. All allocated memory since then
 		/// must be properly freed by this point.
 		void _pop_bookmark();
 
 		/// Allocates a new block of memory.
-		void *_allocate(std::size_t size, std::size_t align);
+		void *_allocate(memory::size_alignment);
 
 		/// Replaces \ref _top_page with a new page. If \ref _free_pages is empty, a page is taken from the list;
 		/// otherwise a new page is allocated.

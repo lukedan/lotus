@@ -26,7 +26,8 @@ namespace lotus::graphics::backends::directx12 {
 
 	frame_buffer::frame_buffer(frame_buffer &&src) noexcept :
 		_color(std::move(src._color)), _depth_stencil(std::move(src._depth_stencil)),
-		_device(std::exchange(src._device, nullptr)) {
+		_device(std::exchange(src._device, nullptr)),
+		_color_formats(std::move(src._color_formats)), _depth_stencil_format(src._depth_stencil_format) {
 	}
 
 	frame_buffer &frame_buffer::operator=(frame_buffer &&src) noexcept {
@@ -34,6 +35,8 @@ namespace lotus::graphics::backends::directx12 {
 		_device = std::exchange(src._device, nullptr);
 		_color = std::move(src._color);
 		_depth_stencil = std::move(src._depth_stencil);
+		_color_formats = std::move(src._color_formats);
+		_depth_stencil_format = src._depth_stencil_format;
 		return *this;
 	}
 

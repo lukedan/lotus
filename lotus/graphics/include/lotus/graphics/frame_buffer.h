@@ -42,7 +42,7 @@ namespace lotus::graphics {
 		}
 		/// Updates the synchronization primitives used internally. This will affect the next frame for which
 		/// \ref command_queue::present() has not been called. There should be exactly \ref get_image_count()
-		/// elements in the array, although they may not correspond one-to-one to each swapchain image.
+		/// elements in the array, but they may not correspond to the swapchain images at the same index.
 		void update_synchronization_primitives(std::span<const back_buffer_synchronization> prim) {
 			backend::swap_chain::update_synchronization_primitives(prim);
 		}
@@ -59,6 +59,15 @@ namespace lotus::graphics {
 				prims[i].notify_fence = &fences[i];
 			}
 			update_synchronization_primitives(prims);
+		}
+
+		/// Checks if this object holds a valid swap chain.
+		[[nodiscard]] bool is_valid() const {
+			return backend::swap_chain::is_valid();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
 		}
 	protected:
 		/// Initializes the backend swap chain.

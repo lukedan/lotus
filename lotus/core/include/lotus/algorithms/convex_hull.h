@@ -78,7 +78,7 @@ namespace lotus {
 				return index == null_index;
 			}
 			/// \overload
-			[[nodiscard]] operator bool() const {
+			[[nodiscard]] explicit operator bool() const {
 				return !empty();
 			}
 
@@ -205,7 +205,7 @@ namespace lotus {
 			vertex v, typename face_collection::iterator hint, const ComputeFaceData &compute_data
 		) {
 			using _ptr = typename face_collection::iterator;
-			using _ptr_deque = std::deque<_ptr, stack_allocator::allocator<_ptr>>;
+			using _ptr_deque = std::deque<_ptr, stack_allocator::std_allocator<_ptr>>;
 
 			std::size_t vert_id = vertices.size();
 			auto &vert = vertices.emplace_back(std::move(v));

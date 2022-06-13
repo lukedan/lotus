@@ -43,7 +43,7 @@ namespace lotus::graphics {
 		}
 		/// Calls the given callback function for each resource binding. The callback function can return \p false to
 		/// stop the enumeration early.
-		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) {
+		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) const {
 			backend::shader_reflection::enumerate_resource_bindings(
 				[&](const shader_resource_binding &binding) {
 					using _result_t = std::invoke_result_t<Callback&&, const shader_resource_binding&>;
@@ -58,12 +58,12 @@ namespace lotus::graphics {
 			);
 		}
 		/// Returns the number of output variables.
-		[[nodiscard]] std::size_t get_output_variable_count() {
+		[[nodiscard]] std::size_t get_output_variable_count() const {
 			return backend::shader_reflection::get_output_variable_count();
 		}
 		/// Calls the given callback for each output variable. The callback function can return \p false to stop the
 		/// enumeration early.
-		template <typename Callback> void enumerate_output_variables(Callback &&cb) {
+		template <typename Callback> void enumerate_output_variables(Callback &&cb) const {
 			backend::shader_reflection::enumerate_output_variables(
 				[&](const shader_output_variable &var) {
 					using _result_t = std::invoke_result_t<Callback&&, const shader_output_variable&>;
@@ -110,31 +110,29 @@ namespace lotus::graphics {
 
 	/// A full set of shaders used by a pipeline.
 	struct shader_set {
-		/// No initialization.
-		shader_set(uninitialized_t) {
+		/// Initializes all shaders to empty.
+		shader_set(std::nullptr_t) {
 		}
-		/// Creates a \ref shader_set object.
-		[[nodiscard]] inline static shader_set create(
+		/// Initializes all fields of this struct.
+		shader_set(
 			const shader_binary &vert,
 			const shader_binary &pix,
 			const shader_binary *domain = nullptr,
 			const shader_binary *hull = nullptr,
 			const shader_binary *geometry = nullptr
-		) {
-			shader_set result = uninitialized;
-			result.vertex_shader = &vert;
-			result.pixel_shader = &pix;
-			result.domain_shader = domain;
-			result.hull_shader = hull;
-			result.geometry_shader = geometry;
-			return result;
+		) :
+			vertex_shader(&vert),
+			pixel_shader(&pix),
+			domain_shader(domain),
+			hull_shader(hull),
+			geometry_shader(geometry) {
 		}
 
-		const shader_binary *vertex_shader;
-		const shader_binary *pixel_shader;
-		const shader_binary *domain_shader;
-		const shader_binary *hull_shader;
-		const shader_binary *geometry_shader;
+		const shader_binary *vertex_shader   = nullptr; ///< Vertex shader.
+		const shader_binary *pixel_shader    = nullptr; ///< Pixel shader.
+		const shader_binary *domain_shader   = nullptr; ///< Domain shader.
+		const shader_binary *hull_shader     = nullptr; ///< Hull shader.
+		const shader_binary *geometry_shader = nullptr; ///< Geometry shader.
 	};
 
 	/// Resources (textures, buffers, etc.) used by a rendering pipeline.

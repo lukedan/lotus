@@ -21,7 +21,8 @@ struct global_data {
 	float t_min;
 	float3 top_left;
 	float t_max;
-	float4 right;
+	float3 right;
+	float padding;
 	float3 down;
 	uint frame_index;
 };
@@ -46,10 +47,15 @@ StructuredBuffer<uint> indices            : register(t5, space1);
 StructuredBuffer<instance_data> instances : register(t6, space1);
 SamplerState image_sampler                : register(s7, space1);
 
+
+float rd(uint sequence, uint index) {
+	return frac(pow(0.898654f, sequence) * index);
+}
+
+
 struct ray_payload {
 	float3 light;
 	uint bounces;
-	pcg32 rand;
 };
 
 [shader("miss")]
@@ -201,39 +207,121 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	}
 	float3 shading_bitangent = cross(shading_normal, shading_tangent);
 
-	float xi1 = pcg32_random_01(payload.rand);
-	float xi2 = pcg32_random_01(payload.rand);
-	float xi3 = pcg32_random_01(payload.rand);
-	float cosine_prob = 1.0f - 0.5f * (1.0f - metalness);
-	float3 dir;
-	float inv_pdf;
-	if (xi3 < cosine_prob) {
-		float2 sampled = importance_sample_ggx_cos_theta(alpha, xi1);
-		float cos_theta = sampled.x;
-		float sin_theta = sqrt(1.0f - sqr(cos_theta));
-		float cos_phi = cos(xi2 * 2.0f * pi);
-		float sin_phi = sin(xi2 * 2.0f * pi);
-		float3 half_vec =
-			sin_theta * (cos_phi * shading_tangent + sin_phi * shading_bitangent) +
-			cos_theta * shading_normal;
-		dir = reflect(WorldRayDirection(), half_vec);
-		inv_pdf = 4.0f * dot(dir, half_vec) * sampled.y / cosine_prob;
+	float3 attenuation = payload.light;
+	float3 total_light = (float3)0.0f;
+
+	if (payload.bounces == 1) {
+		{ // evaluate diffuse lobe
+			float xi1 = rd(3, globals.frame_index);
+			float xi2 = rd(4, globals.frame_index);
+
+			float3 normal_dir = square_to_unit_hemisphere_y_cosine(float2(xi1, xi2));
+			float3 dir = shading_tangent * normal_dir.x + shading_normal * normal_dir.y + shading_bitangent * normal_dir.z;
+			float3 brdf = disney_diffuse_brdf_times_pi(dir, -WorldRayDirection(), shading_normal, base_color, metalness, roughness);
+			payload.light = attenuation * brdf;
+
+			RayDesc ray;
+			ray.Origin = get_hit_position();
+			ray.TMin = globals.t_min;
+			ray.Direction = dir;
+			ray.TMax = globals.t_max;
+			TraceRay(rtas, 0, 0xFF, 0, 1, 0, ray, payload);
+			total_light += payload.light;
+		}
+
+		{ // evaluate specular lobe
+			float xi1 = rd(5, globals.frame_index);
+			float xi2 = rd(6, globals.frame_index);
+
+#if 0
+			float2 sampled = importance_sample_ggx_cos_theta(alpha, xi1);
+			float cos_theta = sampled.x;
+			float sin_theta = sqrt(1.0f - sqr(cos_theta));
+			float cos_phi = cos(xi2 * 2.0f * pi);
+			float sin_phi = sin(xi2 * 2.0f * pi);
+			float3 half_vec =
+				sin_theta * (cos_phi * shading_tangent + sin_phi * shading_bitangent) +
+				cos_theta * shading_normal;
+			float3 dir = reflect(WorldRayDirection(), half_vec);
+			float inv_pdf = 4.0f * dot(dir, half_vec) * sampled.y;
+			float cosine = dot(dir, shading_normal);
+			float3 brdf = disney_specular_brdf(dir, -WorldRayDirection(), shading_normal, base_color, metalness, roughness);
+			payload.light = attenuation * brdf * cosine * inv_pdf;
+#else
+			float3 view = -WorldRayDirection();
+			float3 view_ts = float3(dot(view, shading_bitangent), dot(view, shading_normal), dot(view, shading_tangent));
+			float3 sampled = importance_sample_visible_ggx_smith_g(view_ts, roughness, float2(xi1, xi2));
+			float3 half_vec = shading_bitangent * sampled.x + shading_normal * sampled.y + shading_tangent * sampled.z;
+			float3 dir = reflect(WorldRayDirection(), half_vec);
+
+			float l_h = dot(dir, half_vec);
+			float n_l = dot(shading_normal, dir);
+
+			// specular
+			float a = max(0.001f, sqr(roughness));
+			float fh = schlick_fresnel(l_h);
+			float3 specular0 = lerp((float3)0.08f, base_color, metalness);
+			float3 f_specular = lerp(specular0, (float3)1.0f, fh);
+#	if 1
+			float3 refl = smith_g_ggx(n_l, a) * f_specular;
+#	else
+			float n_v = dot(shading_normal, view);
+			float da = n_v * sqrt(a + (1.0f - a) * sqr(n_l));
+			float db = n_l * sqrt(a + (1.0f - a) * sqr(n_v));
+			float shadowing = 2.0f * da * db / (da + db);
+			float3 refl = f_specular * shadowing / smith_g_ggx(n_v, a);
+#	endif
+			payload.light = attenuation * refl;
+#endif
+
+			if (dot(dir, shading_normal) > 0.0f) {
+				RayDesc ray;
+				ray.Origin = get_hit_position();
+				ray.TMin = globals.t_min;
+				ray.Direction = dir;
+				ray.TMax = globals.t_max;
+				TraceRay(rtas, 0, 0xFF, 0, 1, 0, ray, payload);
+				total_light += payload.light;
+			}
+		}
 	} else {
-		float3 normal_dir = square_to_unit_hemisphere_y_cosine(float2(xi1, xi2));
-		dir = shading_tangent * normal_dir.x + shading_normal * normal_dir.y + shading_bitangent * normal_dir.z;
-		inv_pdf = pi / ((1.0f - cosine_prob) * normal_dir.y);
+		float xi1 = rd(payload.bounces * 2 + 3, globals.frame_index);
+		float xi2 = rd(payload.bounces * 2 + 4, globals.frame_index);
+
+		float3 dir;
+		float cosine_over_pdf;
+		float threshold = 0.5f * (1.0f - metalness);
+		if (xi1 < threshold) {
+			xi1 /= threshold;
+			float3 normal_dir = square_to_unit_hemisphere_y_cosine(float2(xi1, xi2));
+			dir = shading_tangent * normal_dir.x + shading_normal * normal_dir.y + shading_bitangent * normal_dir.z;
+			cosine_over_pdf = 1.0f;
+		} else {
+			xi1 = (xi1 - threshold) / (1.0f - threshold);
+			float2 sampled = importance_sample_ggx_cos_theta(alpha, xi1);
+			float cos_theta = sampled.x;
+			float sin_theta = sqrt(1.0f - sqr(cos_theta));
+			float cos_phi = cos(xi2 * 2.0f * pi);
+			float sin_phi = sin(xi2 * 2.0f * pi);
+			float3 half_vec =
+				sin_theta * (cos_phi * shading_tangent + sin_phi * shading_bitangent) +
+				cos_theta * shading_normal;
+			dir = reflect(WorldRayDirection(), half_vec);
+			cosine_over_pdf = dot(dir, shading_normal) * 4.0f * dot(dir, half_vec) * sampled.y;
+		}
+		float3 brdf = disney_brdf(dir, -WorldRayDirection(), shading_normal, base_color, metalness, roughness);
+		payload.light = attenuation * brdf * cosine_over_pdf;
+
+		RayDesc ray;
+		ray.Origin = get_hit_position();
+		ray.TMin = globals.t_min;
+		ray.Direction = dir;
+		ray.TMax = globals.t_max;
+		TraceRay(rtas, 0, 0xFF, 0, 1, 0, ray, payload);
+		total_light += payload.light;
 	}
-	float cosine = dot(dir, shading_normal);
 
-	float3 brdf = disney_brdf(dir, -WorldRayDirection(), shading_normal, base_color, metalness, roughness);
-	payload.light *= base_color * brdf * cosine * inv_pdf;
-
-	RayDesc ray;
-	ray.Origin    = get_hit_position();
-	ray.TMin      = globals.t_min;
-	ray.Direction = dir;
-	ray.TMax      = globals.t_max;
-	TraceRay(rtas, 0, 0xFF, 0, 1, 0, ray, payload);
+	payload.light = total_light;
 }
 
 [shader("closesthit")]
@@ -250,11 +338,10 @@ void main_closesthit_unindexed(inout ray_payload payload, BuiltInTriangleInterse
 void main_raygen() {
 	ray_payload payload = (ray_payload)0;
 	payload.light = (float3)1.0f;
-	payload.rand = pcg32_seed(globals.frame_index, DispatchRaysIndex().x * 10007 + DispatchRaysIndex().y);
 
 	float2 jitter;
-	jitter.x = pcg32_random_01(payload.rand);
-	jitter.y = pcg32_random_01(payload.rand);
+	jitter.x = rd(1, globals.frame_index);
+	jitter.y = rd(2, globals.frame_index);
 
 	RayDesc ray;
 	ray.Origin    = globals.camera_position;

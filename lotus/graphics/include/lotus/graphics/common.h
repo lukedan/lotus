@@ -8,6 +8,7 @@
 #include <compare>
 #include <string_view>
 #include <span>
+#include <variant>
 
 #include "lotus/common.h"
 #include "lotus/math/aab.h"
@@ -122,7 +123,7 @@ namespace lotus::graphics {
 			srgb,           ///< sRGB values in [0, 1].
 			unsigned_int,   ///< Unsigned integer.
 			signed_int,     ///< Signed integer.
-			floatint_point, ///< Floating-point number.
+			floating_point, ///< Floating-point number.
 		};
 		/// The order of channels. One or more channels may not present in the format.
 		enum class channel_order {
@@ -161,12 +162,21 @@ namespace lotus::graphics {
 		);
 
 		/// Bits per pixel.
-		[[nodiscard]] std::uint8_t bits_per_pixel() const {
+		[[nodiscard]] constexpr std::uint8_t bits_per_pixel() const {
 			return _bits_per_pixel;
 		}
 		/// Bytes per pixel.
-		[[nodiscard]] std::uint8_t bytes_per_pixel() const {
+		[[nodiscard]] constexpr std::uint8_t bytes_per_pixel() const {
 			return _bytes_per_pixel;
+		}
+
+		/// Returns whether this format has any color components.
+		[[nodiscard]] constexpr bool has_color() const {
+			return red_bits > 0 || green_bits > 0 || blue_bits > 0 || alpha_bits > 0;
+		}
+		/// Returns whether this format has any depth or stencil components.
+		[[nodiscard]] constexpr bool has_depth_stencil() const {
+			return depth_bits > 0 || stencil_bits > 0;
 		}
 
 		std::uint8_t red_bits;     ///< Number of bits for the red channel.
@@ -594,6 +604,24 @@ namespace lotus::graphics {
 	};
 
 
+	/// Clear value for a color render target.
+	struct color_clear_value {
+	public:
+		/// Initializes the value to integer zero.
+		color_clear_value(zero_t) : value(std::in_place_type<cvec4<std::uint64_t>>, 0, 0, 0, 0) {
+		}
+		/// Initializes this struct with the given integral value.
+		color_clear_value(cvec4<std::uint64_t> v) : value(v) {
+		}
+		/// Initializes this struct with the given floating-point value.
+		color_clear_value(cvec4d v) : value(v) {
+		}
+
+		/// The clear color value that can be either floating-point or integral.
+		std::variant<cvec4<std::uint64_t>, cvec4d> value;
+	};
+
+
 	/// Properties of an adapter.
 	struct adapter_properties {
 		/// No initialization.
@@ -668,7 +696,31 @@ namespace lotus::graphics {
 			write_mask(channel_mask::all) {
 		}
 	};
+}
+namespace std {
+	/// Hash for \ref lotus::graphics::render_target_blend_options.
+	template <> struct hash<lotus::graphics::render_target_blend_options> {
+		/// Hashes the given object.
+		[[nodiscard]] constexpr size_t operator()(const lotus::graphics::render_target_blend_options &opt) const {
+			size_t result = lotus::compute_hash(opt.enabled);
+			if (opt.enabled) {
+				result = lotus::hash_combine({
+					result,
+					lotus::compute_hash(opt.source_color),
+					lotus::compute_hash(opt.destination_color),
+					lotus::compute_hash(opt.color_operation),
+					lotus::compute_hash(opt.source_alpha),
+					lotus::compute_hash(opt.destination_alpha),
+					lotus::compute_hash(opt.alpha_operation),
+					lotus::compute_hash(opt.write_mask),
+				});
+			}
+			return result;
+		}
+	};
+}
 
+namespace lotus::graphics {
 	/// Option used by the rasterizer to offset depth values.
 	struct depth_bias_options {
 	public:
@@ -702,18 +754,31 @@ namespace lotus::graphics {
 			bias(constant), slope_scaled_bias(slope), clamp(c) {
 		}
 	};
+}
+namespace std {
+	/// Hash for \ref lotus::graphics::depth_bias_options.
+	template <> struct hash<lotus::graphics::depth_bias_options> {
+		/// Hashes the given object.
+		[[nodiscard]] constexpr size_t operator()(const lotus::graphics::depth_bias_options &opt) const {
+			return lotus::hash_combine({
+				lotus::compute_hash(opt.bias),
+				lotus::compute_hash(opt.slope_scaled_bias),
+				lotus::compute_hash(opt.clamp),
+			});
+		}
+	};
+}
 
+namespace lotus::graphics {
 	/// Options for the rasterizer.
 	struct rasterizer_options {
 	public:
 		/// No initialization.
 		rasterizer_options(uninitialized_t) {
 		}
-		/// Creates a \ref rasterizer_options object using the given parameters.
-		[[nodiscard]] constexpr inline static rasterizer_options create(
-			depth_bias_options db, front_facing_mode front, cull_mode cull, bool wf = false
-		) {
-			return rasterizer_options(db, front, cull, wf);
+		/// Initializes all fields of this struct.
+		constexpr rasterizer_options(depth_bias_options db, front_facing_mode front, cull_mode cull, bool wf) :
+			depth_bias(db), front_facing(front), culling(cull), is_wireframe(wf) {
 		}
 
 		depth_bias_options depth_bias = uninitialized; ///< \ref depth_bias_options.
@@ -721,12 +786,24 @@ namespace lotus::graphics {
 		cull_mode culling; ///< The \ref cull_mode.
 		bool is_wireframe; ///< Whether or not to render in wireframe mode.
 	protected:
-		/// Initializes all fields of this struct.
-		constexpr rasterizer_options(depth_bias_options db, front_facing_mode front, cull_mode cull, bool wf) :
-			depth_bias(db), front_facing(front), culling(cull), is_wireframe(wf) {
+	};
+}
+namespace std {
+	/// Hash for \ref lotus::graphics::rasterizer_options.
+	template <> struct hash<lotus::graphics::rasterizer_options> {
+		/// Hashes the given object.
+		[[nodiscard]] constexpr size_t operator()(const lotus::graphics::rasterizer_options &opt) const {
+			return lotus::hash_combine({
+				lotus::compute_hash(opt.depth_bias),
+				lotus::compute_hash(opt.front_facing),
+				lotus::compute_hash(opt.culling),
+				lotus::compute_hash(opt.is_wireframe),
+			});
 		}
 	};
+}
 
+namespace lotus::graphics {
 	/// Describes how stencil values should be tested and updated.
 	struct stencil_options {
 	public:
@@ -760,7 +837,23 @@ namespace lotus::graphics {
 		) : comparison(cmp), fail(f), depth_fail(df), pass(p) {
 		}
 	};
+}
+namespace std {
+	/// Hash for \ref lotus::graphics::stencil_options.
+	template <> struct hash<lotus::graphics::stencil_options> {
+		/// Hashes the given object.
+		[[nodiscard]] constexpr size_t operator()(const lotus::graphics::stencil_options &opt) const {
+			return lotus::hash_combine({
+				lotus::compute_hash(opt.comparison),
+				lotus::compute_hash(opt.fail),
+				lotus::compute_hash(opt.depth_fail),
+				lotus::compute_hash(opt.pass),
+			});
+		}
+	};
+}
 
+namespace lotus::graphics {
 	/// Options for depth stencil operations.
 	struct depth_stencil_options {
 	public:
@@ -805,11 +898,30 @@ namespace lotus::graphics {
 		) :
 			enable_depth_testing(depth_test), write_depth(depth_write), depth_comparison(depth_comp),
 			enable_stencil_testing(stencil_test), stencil_read_mask(sread_mask), stencil_write_mask(swrite_mask),
-			stencil_front_face(front_op), stencil_back_face(back_op)
-		{
+			stencil_front_face(front_op), stencil_back_face(back_op) {
 		}
 	};
+}
+namespace std {
+	/// Hash for \ref lotus::graphics::depth_stencil_options.
+	template <> struct hash<lotus::graphics::depth_stencil_options> {
+		/// Hashes the given object.
+		[[nodiscard]] constexpr size_t operator()(const lotus::graphics::depth_stencil_options &opt) const {
+			return lotus::hash_combine({
+				lotus::compute_hash(opt.enable_depth_testing),
+				lotus::compute_hash(opt.write_depth),
+				lotus::compute_hash(opt.depth_comparison),
+				lotus::compute_hash(opt.enable_stencil_testing),
+				lotus::compute_hash(opt.stencil_read_mask),
+				lotus::compute_hash(opt.stencil_write_mask),
+				lotus::compute_hash(opt.stencil_front_face),
+				lotus::compute_hash(opt.stencil_back_face),
+			});
+		}
+	};
+}
 
+namespace lotus::graphics {
 	/// An element used for vertex/instance input.
 	struct input_buffer_element {
 	public:
@@ -837,9 +949,14 @@ namespace lotus::graphics {
 
 	/// Information about an input (vertex/instance) buffer.
 	struct input_buffer_layout {
-	public:
 		/// No initialization.
 		input_buffer_layout(uninitialized_t) {
+		}
+		/// Initializes all fields of this struct.
+		constexpr input_buffer_layout(
+			std::span<const input_buffer_element> elems,
+			std::size_t s, input_buffer_rate rate, std::size_t buf_id
+		) : elements(elems), stride(s), input_rate(rate), buffer_index(buf_id) {
 		}
 		/// Creates a new layout for vertex buffers with the given arguments.
 		[[nodiscard]] constexpr inline static input_buffer_layout create_vertex_buffer(
@@ -876,13 +993,6 @@ namespace lotus::graphics {
 		std::size_t stride; ///< The size of one vertex.
 		std::size_t buffer_index; ///< Index of the vertex buffer.
 		input_buffer_rate input_rate; ///< Specifies how the buffer data is used.
-	protected:
-		/// Initializes all fields of this struct.
-		constexpr input_buffer_layout(
-			std::span<const input_buffer_element> elems,
-			std::size_t s, input_buffer_rate rate, std::size_t buf_id
-		) : elements(elems), stride(s), input_rate(rate), buffer_index(buf_id) {
-		}
 	};
 
 
@@ -892,8 +1002,14 @@ namespace lotus::graphics {
 		/// No initialization.
 		render_target_pass_options(uninitialized_t) {
 		}
+		/// Initializes this struct to refer to an empty render target.
+		render_target_pass_options(std::nullptr_t) :
+			pixel_format(format::none),
+			load_operation(pass_load_operation::discard),
+			store_operation(pass_store_operation::discard) {
+		}
 		/// Creates a new \ref render_target_pass_options object.
-		[[nodiscard]] constexpr inline static render_target_pass_options create(
+		[[nodiscard]] inline static render_target_pass_options create(
 			format fmt, pass_load_operation load_op, pass_store_operation store_op
 		) {
 			return render_target_pass_options(fmt, load_op, store_op);
@@ -904,7 +1020,7 @@ namespace lotus::graphics {
 		pass_store_operation store_operation; ///< Determines the behavior when the pass stores to the attachment.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr render_target_pass_options(
+		render_target_pass_options(
 			format fmt, pass_load_operation load_op, pass_store_operation store_op
 		) : pixel_format(fmt), load_operation(load_op), store_operation(store_op) {
 		}
@@ -915,8 +1031,16 @@ namespace lotus::graphics {
 		/// No initialization.
 		depth_stencil_pass_options(uninitialized_t) {
 		}
+		/// Initializes this struct to refer to an empty render target.
+		depth_stencil_pass_options(std::nullptr_t) :
+			pixel_format(format::none),
+			depth_load_operation(pass_load_operation::discard),
+			depth_store_operation(pass_store_operation::discard),
+			stencil_load_operation(pass_load_operation::discard),
+			stencil_store_operation(pass_store_operation::discard) {
+		}
 		/// Creates a new \ref depth_stencil_pass_options object.
-		[[nodiscard]] constexpr inline static depth_stencil_pass_options create(
+		[[nodiscard]] inline static depth_stencil_pass_options create(
 			format fmt,
 			pass_load_operation depth_load_op, pass_store_operation depth_store_op,
 			pass_load_operation stencil_load_op, pass_store_operation stencil_store_op
@@ -931,7 +1055,7 @@ namespace lotus::graphics {
 		pass_store_operation stencil_store_operation; ///< \ref pass_store_operation for stencil.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr depth_stencil_pass_options(
+		depth_stencil_pass_options(
 			format fmt,
 			pass_load_operation depth_load_op, pass_store_operation depth_store_op,
 			pass_load_operation stencil_load_op, pass_store_operation stencil_store_op
@@ -939,6 +1063,23 @@ namespace lotus::graphics {
 			pixel_format(fmt),
 			depth_load_operation(depth_load_op), depth_store_operation(depth_store_op),
 			stencil_load_operation(stencil_load_op), stencil_store_operation(stencil_store_op) {
+
+			if constexpr (is_debugging) {
+				// checks that this is not a color render target and we don't have redundant load/store operations
+				const auto &fmt_props = format_properties::get(pixel_format);
+				if (fmt_props.depth_bits == 0) {
+					assert(
+						depth_load_operation == pass_load_operation::discard &&
+						depth_store_operation == pass_store_operation::discard
+					);
+				}
+				if (fmt_props.stencil_bits == 0) {
+					assert(
+						stencil_load_operation == pass_load_operation::discard &&
+						stencil_store_operation == pass_store_operation::discard
+					);
+				}
+			}
 		}
 	};
 
@@ -1054,6 +1195,9 @@ namespace lotus::graphics {
 		/// No initialization.
 		back_buffer_info(uninitialized_t) {
 		}
+		/// Initializes the \ref fence to \p nullptr and the status to \ref swap_chain_status::unavailable.
+		back_buffer_info(std::nullptr_t) : index(0), on_presented(nullptr), status(swap_chain_status::unavailable) {
+		}
 
 		std::size_t index; ///< Index of the back buffer.
 		/// Fence that will be triggered when this has finished presenting the previous frame. This can be empty.
@@ -1080,6 +1224,9 @@ namespace lotus::graphics {
 			return descriptor_range(ty, unbounded_count);
 		}
 
+		/// Equality and inequality.
+		[[nodiscard]] friend bool operator==(const descriptor_range&, const descriptor_range&) = default;
+
 		descriptor_type type; ///< The type of the descriptors.
 		std::size_t count; ///< The number of descriptors.
 	protected:
@@ -1093,9 +1240,8 @@ namespace lotus::graphics {
 		/// No initialization.
 		descriptor_range_binding(uninitialized_t) {
 		}
-		/// Creates a new \ref descriptor_range_binding object.
-		[[nodiscard]] constexpr inline static descriptor_range_binding create(descriptor_range r, std::size_t reg) {
-			return descriptor_range_binding(r, reg);
+		/// Initializes all fields of this struct.
+		constexpr descriptor_range_binding(descriptor_range rng, std::size_t reg) : range(rng), register_index(reg) {
 		}
 		/// \overload
 		[[nodiscard]] constexpr inline static descriptor_range_binding create(
@@ -1110,12 +1256,19 @@ namespace lotus::graphics {
 			return descriptor_range_binding(descriptor_range::create_unbounded(ty), reg);
 		}
 
+		/// Equality and inequality.
+		[[nodiscard]] friend bool operator==(
+			const descriptor_range_binding&, const descriptor_range_binding&
+		) = default;
+
+		/// Returns the register index of the last binding in this range.
+		[[nodiscard]] constexpr std::size_t get_last_register_index() const {
+			return register_index + range.count - 1;
+		}
+
 		descriptor_range range = uninitialized; ///< The type and number of descriptors.
 		std::size_t register_index; ///< Register index corresponding to the first descriptor.
 	protected:
-		/// Initializes all fields of this struct.
-		constexpr descriptor_range_binding(descriptor_range rng, std::size_t reg) : range(rng), register_index(reg) {
-		}
 	};
 
 	/// An image resource barrier.
@@ -1166,23 +1319,16 @@ namespace lotus::graphics {
 	/// Information about a vertex buffer.
 	struct vertex_buffer {
 	public:
-		/// No initialization.
-		vertex_buffer(uninitialized_t) {
+		/// Initializes this struct to empty.
+		constexpr vertex_buffer(std::nullptr_t) {
 		}
-		/// Creates a new object with the given values.
-		[[nodiscard]] constexpr inline static vertex_buffer from_buffer_offset_stride(
-			buffer &b, std::size_t off, std::size_t s
-		) {
-			return vertex_buffer(b, off, s);
+		/// Initializes all fields of this struct.
+		constexpr vertex_buffer(const buffer &b, std::size_t off, std::size_t s) : data(&b), offset(off), stride(s) {
 		}
 
-		buffer *data; ///< Data for the vertex buffer.
-		std::size_t offset; ///< Offset from the start of the buffer.
-		std::size_t stride; ///< The stride of a single vertex.
-	protected:
-		/// Initializes all fields of this struct.
-		constexpr vertex_buffer(buffer &b, std::size_t off, std::size_t s) : data(&b), offset(off), stride(s) {
-		}
+		const buffer *data = nullptr; ///< Data for the vertex buffer.
+		std::size_t offset = 0; ///< Offset from the start of the buffer.
+		std::size_t stride = 0; ///< The stride of a single vertex.
 	};
 	/// A view into a structured buffer.
 	struct structured_buffer_view {
@@ -1230,6 +1376,87 @@ namespace lotus::graphics {
 		}
 	};
 
+
+	/// Describes the layout of a frame buffer.
+	struct frame_buffer_layout {
+		/// Initializes this layout to empty.
+		frame_buffer_layout(std::nullptr_t) {
+		}
+		/// Initializes all fields of this struct.
+		constexpr frame_buffer_layout(std::span<const format> crts, format dsrt) :
+			color_render_target_formats(crts), depth_stencil_render_target_format(dsrt) {
+		}
+
+		std::span<const format> color_render_target_formats; ///< Format of all color render targets.
+		/// Format of the depth-stencil render target, or \ref format::none.
+		format depth_stencil_render_target_format = format::none;
+	};
+
+	/// Describes how a render target is accessed during a render pass.
+	template <typename ClearValue> struct render_target_access {
+	public:
+		/// Initializes clear value to zero, and both \ref load_operation and \ref store_operation to \p discard.
+		constexpr render_target_access(std::nullptr_t) :
+			clear_value(zero),
+			load_operation(pass_load_operation::discard),
+			store_operation(pass_store_operation::discard) {
+		}
+		/// Returns a struct with the specified access.
+		[[nodiscard]] constexpr inline static render_target_access create_custom(
+			ClearValue clear, pass_load_operation load, pass_store_operation store
+		) {
+			return render_target_access(clear, load, store);
+		}
+		/// Returns a struct indicating that the contents of the render target is irrelevant both before and after
+		/// the pass.
+		[[nodiscard]] constexpr inline static render_target_access create_discard() {
+			return create_custom(zero, pass_load_operation::discard, pass_store_operation::discard);
+		}
+		/// Returns a struct indicating that the render target is cleared before the pass and the contents produced
+		/// by the pass are preserved.
+		[[nodiscard]] constexpr inline static render_target_access create_clear(ClearValue clear) {
+			return create_custom(clear, pass_load_operation::clear, pass_store_operation::preserve);
+		}
+		/// Returns a struct indicating that the original contents of the render target should be ignored and newly
+		/// rendered contents should be written back to the render target.
+		[[nodiscard]] constexpr inline static render_target_access create_discard_then_write() {
+			return create_custom(zero, pass_load_operation::discard, pass_store_operation::preserve);
+		}
+
+		ClearValue           clear_value;     ///< Clear value.
+		pass_load_operation  load_operation;  ///< Load opepration.
+		pass_store_operation store_operation; ///< Store operation.
+	protected:
+		/// Initializes all fields of this struct.
+		constexpr render_target_access(
+			ClearValue clear, pass_load_operation load, pass_store_operation store
+		) : clear_value(clear), load_operation(load), store_operation(store) {
+		}
+	};
+	/// Access of a color render target by a pass.
+	using color_render_target_access = render_target_access<color_clear_value>;
+	/// Access of a depth render target by a pass.
+	using depth_render_target_access = render_target_access<double>;
+	/// Access of a stencil render target by a pass.
+	using stencil_render_target_access = render_target_access<std::uint32_t>;
+	/// Describes how a frame buffer is accessed during a render pass.
+	struct frame_buffer_access {
+	public:
+		/// Does not initialize any of the fields.
+		frame_buffer_access(std::nullptr_t) {
+		}
+		/// Initializes all fields of the struct.
+		constexpr frame_buffer_access(
+			std::span<const color_render_target_access> color_rts,
+			depth_render_target_access depth_rt, stencil_render_target_access stencil_rt
+		) : color_render_targets(color_rts), depth_render_target(depth_rt), stencil_render_target(stencil_rt) {
+		}
+
+		std::span<const color_render_target_access> color_render_targets;  ///< Access of the color render targets.
+		depth_render_target_access   depth_render_target   = nullptr; ///< Access of the depth render target.
+		stencil_render_target_access stencil_render_target = nullptr; ///< Access of the stencil render target.
+	};
+
 	/// A viewport.
 	struct viewport {
 	public:
@@ -1258,21 +1485,14 @@ namespace lotus::graphics {
 		/// Initializes an empty object.
 		shader_function(std::nullptr_t) : code(nullptr), entry_point(nullptr) {
 		}
-		/// Creates a new shader function object.
-		[[nodiscard]] inline static shader_function create(
-			shader_binary &bin, const char8_t *entry, shader_stage s
-		) {
-			return shader_function(&bin, entry, s);
+		/// Initializes all fields of this struct.
+		shader_function(shader_binary *c, const char8_t *entry, shader_stage s) :
+			code(c), entry_point(entry), stage(s) {
 		}
 
 		shader_binary *code; ///< Binary shader code.
 		const char8_t *entry_point; ///< Entry point.
 		shader_stage stage; ///< Shader stage.
-	protected:
-		/// Initializes all fields of this struct.
-		shader_function(shader_binary *c, const char8_t *entry, shader_stage s) :
-			code(c), entry_point(entry), stage(s) {
-		}
 	};
 
 	/// Describes a resource binding in a shader.
@@ -1322,48 +1542,34 @@ namespace lotus::graphics {
 	struct vertex_buffer_view {
 	public:
 		/// Initializes this view to empty.
-		constexpr vertex_buffer_view(std::nullptr_t) : data(nullptr) {
+		constexpr vertex_buffer_view(std::nullptr_t) {
 		}
-		/// Creates an object from the given arguments.
-		[[nodiscard]] inline static constexpr vertex_buffer_view create(
-			buffer &b, format fmt, std::size_t off, std::size_t stride, std::size_t count
-		) {
-			return vertex_buffer_view(b, fmt, off, stride, count);
-		}
-
-		buffer *data; ///< Data of the vertex buffer.
-		format vertex_format; ///< Format used for a single element.
-		std::size_t offset; ///< Offset in bytes to the first element.
-		std::size_t stride; ///< Stride between two consecutive elements.
-		std::size_t count; ///< Total number of elements.
-	protected:
 		/// Initializes all fields of this struct.
-		constexpr vertex_buffer_view(buffer &d, format f, std::size_t off, std::size_t s, std::size_t c) :
+		constexpr vertex_buffer_view(const buffer &d, format f, std::size_t off, std::size_t s, std::size_t c) :
 			data(&d), vertex_format(f), offset(off), stride(s), count(c) {
 		}
+
+		const buffer *data = nullptr; ///< Data of the vertex buffer.
+		format vertex_format = format::none; ///< Format used for a single element.
+		std::size_t offset = 0; ///< Offset in bytes to the first element.
+		std::size_t stride = 0; ///< Stride between two consecutive elements.
+		std::size_t count  = 0; ///< Total number of elements.
 	};
 	/// A view into an index buffer.
 	struct index_buffer_view {
 	public:
 		/// Initializes this view to empty.
-		constexpr index_buffer_view(std::nullptr_t) : data(nullptr) {
+		constexpr index_buffer_view(std::nullptr_t) {
 		}
-		/// Creates a new object from the given arguments.
-		[[nodiscard]] inline static constexpr index_buffer_view create(
-			buffer &d, index_format fmt, std::size_t off, std::size_t count
-		) {
-			return index_buffer_view(d, fmt, off, count);
-		}
-
-		buffer *data; ///< Data of the index buffer.
-		index_format element_format; ///< Index format.
-		std::size_t offset; ///< Offset in bytes to the first index.
-		std::size_t count; ///< The number of indices.
-	protected:
 		/// Initializes all fields of this struct.
-		constexpr index_buffer_view(buffer &d, index_format f, std::size_t off, std::size_t c) :
+		constexpr index_buffer_view(const buffer &d, index_format f, std::size_t off, std::size_t c) :
 			data(&d), element_format(f), offset(off), count(c) {
 		}
+
+		const buffer *data = nullptr; ///< Data of the index buffer.
+		index_format element_format = index_format::uint16; ///< Index format.
+		std::size_t offset = 0; ///< Offset in bytes to the first index.
+		std::size_t count  = 0; ///< The number of indices.
 	};
 	/// A view into an array of an array of shader records.
 	struct shader_record_view {

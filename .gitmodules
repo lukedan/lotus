@@ -7,9 +7,6 @@
 [submodule "thirdparty/glTF-Sample-Models"]
 	path = thirdparty/glTF-Sample-Models
 	url = https://github.com/KhronosGroup/glTF-Sample-Models.git
-[submodule "thirdparty/DirectXShaderCompiler"]
-	path = thirdparty/DirectXShaderCompiler
-	url = https://github.com/microsoft/DirectXShaderCompiler.git
 [submodule "thirdparty/DirectX-Headers"]
 	path = lotus/graphics/thirdparty/DirectX-Headers
 	url = https://github.com/microsoft/DirectX-Headers.git

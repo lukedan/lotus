@@ -83,7 +83,7 @@ namespace lotus::graphics::backends::directx12 {
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 		) {
 			return _compiler.compile_shader(
-				code_utf8, stage, entry, include_paths, defines, { L"-Ges", L"-Zi", L"-Zpr" }
+				code_utf8, stage, entry, include_paths, defines, { L"-Ges", L"-Zi", L"-Zpr", L"-no-legacy-cbuf-layout" }
 			);
 		}
 

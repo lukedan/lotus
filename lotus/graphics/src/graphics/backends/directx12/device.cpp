@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "lotus/utils/stack_allocator.h"
+#include "lotus/logging.h"
 #include "lotus/system/platforms/windows/details.h"
 #include "lotus/graphics/commands.h"
 #include "lotus/graphics/resources.h"
@@ -143,7 +144,7 @@ namespace lotus::graphics::backends::directx12 {
 
 			auto root_params = bookmark.create_reserved_vector_array<D3D12_ROOT_PARAMETER1>(sets.size() * 2);
 			auto descriptor_tables = bookmark.create_reserved_vector_array<
-				std::vector<D3D12_DESCRIPTOR_RANGE1, stack_allocator::allocator<D3D12_DESCRIPTOR_RANGE1>>
+				stack_allocator::vector_type<D3D12_DESCRIPTOR_RANGE1>
 			>(sets.size() * 2);
 
 			for (std::size_t i = 0; i < sets.size(); ++i) {
@@ -225,7 +226,7 @@ namespace lotus::graphics::backends::directx12 {
 		const depth_stencil_options &depth_stencil,
 		std::span<const input_buffer_layout> input_buffers,
 		primitive_topology topology,
-		const pass_resources &environment,
+		const frame_buffer_layout &fb_layout,
 		[[maybe_unused]] std::size_t num_viewports
 	) {
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
@@ -279,11 +280,12 @@ namespace lotus::graphics::backends::directx12 {
 		desc.IBStripCutValue                = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED; // TODO
 		desc.PrimitiveTopologyType          = _details::conversions::for_primitive_topology_type(topology);
 
-		desc.NumRenderTargets = static_cast<UINT>(environment._num_render_targets);
-		for (std::size_t i = 0; i < environment._num_render_targets; ++i) {
-			desc.RTVFormats[i] = environment._render_target_format[i];
+		desc.NumRenderTargets = static_cast<UINT>(fb_layout.color_render_target_formats.size());
+		for (std::size_t i = 0; i < fb_layout.color_render_target_formats.size(); ++i) {
+			desc.RTVFormats[i] = _details::conversions::for_format(fb_layout.color_render_target_formats[i]);
 		}
-		desc.DSVFormat                       = environment._depth_stencil_format;
+		desc.DSVFormat                       =
+			_details::conversions::for_format(fb_layout.depth_stencil_render_target_format);
 		
 		// TODO multisample settings
 		desc.SampleDesc.Count                = 1;
@@ -319,24 +321,8 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
-	pass_resources device::create_pass_resources(
-		std::span<const render_target_pass_options> rtv, depth_stencil_pass_options dsv
-	) {
-		pass_resources result = nullptr;
-		assert(rtv.size() <= result._render_targets.size());
-		result._num_render_targets = static_cast<std::uint8_t>(rtv.size());
-		for (std::size_t i = 0; i < rtv.size(); ++i) {
-			result._render_targets[i]       = _details::conversions::for_render_target_pass_options(rtv[i]);
-			result._render_target_format[i] = _details::conversions::for_format(rtv[i].pixel_format);
-		}
-		result._depth_stencil        = _details::conversions::for_depth_stencil_pass_options(dsv);
-		result._depth_stencil_format = _details::conversions::for_format(dsv.pixel_format);
-		result._flags                = D3D12_RENDER_PASS_FLAG_NONE;
-		return result;
-	}
-
 	descriptor_pool device::create_descriptor_pool(std::span<const descriptor_range> /*ranges*/, std::size_t) {
-		descriptor_pool result;
+		descriptor_pool result = nullptr;
 		// TODO set max values
 		return result;
 	}
@@ -496,7 +482,7 @@ namespace lotus::graphics::backends::directx12 {
 			D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
 			desc.BufferLocation = buf_data->_buffer->GetGPUVirtualAddress() + buf.offset;
 			desc.SizeInBytes    =
-				static_cast<UINT>(align_size(buf.size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT));
+				static_cast<UINT>(memory::align_size(buf.size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT));
 			_device->CreateConstantBufferView(&desc, current_descriptor);
 			current_descriptor.ptr += increment;
 		}
@@ -686,10 +672,10 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	frame_buffer device::create_frame_buffer(
-		std::span<const graphics::image2d_view *const> color, const image2d_view *depth_stencil,
-		cvec2s, const pass_resources&
+		std::span<const graphics::image2d_view *const> color, const image2d_view *depth_stencil, cvec2s
 	) {
 		frame_buffer result(*this);
+		result._color_formats.resize(color.size());
 		result._color = _rtv_descriptors.allocate(static_cast<_details::descriptor_range::index_t>(color.size()));
 		for (std::size_t i = 0; i < color.size(); ++i) {
 			D3D12_RENDER_TARGET_VIEW_DESC desc = {};
@@ -698,12 +684,14 @@ namespace lotus::graphics::backends::directx12 {
 				color[i]->_image.Get(), &desc,
 				result._color.get_cpu(static_cast<_details::descriptor_range::index_t>(i))
 			);
+			result._color_formats[i] = color[i]->_srv_desc.Format;
 		}
 		if (depth_stencil) {
 			result._depth_stencil = _dsv_descriptors.allocate(1);
 			D3D12_DEPTH_STENCIL_VIEW_DESC desc = {};
 			depth_stencil->_fill_dsv_desc(desc);
 			_device->CreateDepthStencilView(depth_stencil->_image.Get(), &desc, result._depth_stencil.get_cpu(0));
+			result._depth_stencil_format = depth_stencil->_srv_desc.Format;
 		}
 		return result;
 	}
@@ -990,6 +978,28 @@ namespace lotus::graphics::backends::directx12 {
 	device adapter::create_device() {
 		_details::com_ptr<ID3D12Device8> result;
 		_details::assert_dx(D3D12CreateDevice(_adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&result)));
+		_details::com_ptr<ID3D12InfoQueue1> info_queue;
+		_details::assert_dx(result->QueryInterface(IID_PPV_ARGS(&info_queue)));
+		DWORD dummy;
+		_details::assert_dx(info_queue->RegisterMessageCallback(
+			[](
+				D3D12_MESSAGE_CATEGORY category,
+				D3D12_MESSAGE_SEVERITY severity,
+				D3D12_MESSAGE_ID id,
+				LPCSTR description,
+				void*
+			) {
+				log().debug<u8"DirectX message: category: {}, severity: {}, id: {}, \"{}\"">(
+					static_cast<std::underlying_type_t<D3D12_MESSAGE_CATEGORY>>(category),
+					static_cast<std::underlying_type_t<D3D12_MESSAGE_SEVERITY>>(severity),
+					static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
+					description
+				);
+			},
+			D3D12_MESSAGE_CALLBACK_FLAG_NONE,
+			nullptr,
+			&dummy
+		));
 		return device(std::move(result));
 	}
 

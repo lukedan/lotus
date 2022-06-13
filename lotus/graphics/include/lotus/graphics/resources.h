@@ -44,6 +44,15 @@ namespace lotus::graphics {
 		}
 		/// No copy assignment.
 		buffer &operator=(const buffer&) = delete;
+
+		/// Returns whether this object references a valid buffer.
+		[[nodiscard]] bool is_valid() const {
+			return backend::buffer::is_valid();
+		}
+		/// Shorthand for \ref is_valid.
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
+		}
 	protected:
 		/// Initializes the base class.
 		buffer(backend::buffer base) : backend::buffer(std::move(base)) {
@@ -106,6 +115,15 @@ namespace lotus::graphics {
 		}
 		/// No copy assignment.
 		image2d &operator=(const image2d&) = delete;
+
+		/// Returns whether this is a valid image.
+		[[nodiscard]] bool is_valid() const {
+			return backend::image2d::is_valid();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
+		}
 	protected:
 		/// Initializes the base class.
 		image2d(backend::image2d base) : backend::image2d(std::move(base)) {

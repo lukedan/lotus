@@ -56,7 +56,7 @@ public:
 			20, 32, 8, _pipeline_resources
 		);
 
-		_shader_group_handle_size = align_size(prop.shader_group_handle_size, prop.shader_group_handle_alignment);
+		_shader_group_handle_size = memory::align_size(prop.shader_group_handle_size, prop.shader_group_handle_alignment);
 		_raygen_buffer = dev.create_committed_buffer(_shader_group_handle_size, gfx::heap_type::upload, gfx::buffer_usage::mask::read_only_buffer);
 		_miss_buffer = dev.create_committed_buffer(_shader_group_handle_size, gfx::heap_type::upload, gfx::buffer_usage::mask::read_only_buffer);
 		_hit_group_buffer = dev.create_committed_buffer(_shader_group_handle_size * 2, gfx::heap_type::upload, gfx::buffer_usage::mask::read_only_buffer);

@@ -17,7 +17,7 @@ namespace lotus::graphics::backends::directx12 {
 	class raytracing_pipeline_state;
 	class shader_utility;
 
-	/// Contains a \p ID3D12ShaderReflection
+	/// Contains a \p ID3D12ShaderReflection.
 	class shader_reflection {
 		friend shader_utility;
 	protected:
@@ -28,7 +28,7 @@ namespace lotus::graphics::backends::directx12 {
 		/// Returns the result of ID3D12ShaderReflection::GetResourceBindingDescByName().
 		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const;
 		/// Enumerates over all resource bindings using \p ID3D12ShaderReflection::GetResourceBindingDesc().
-		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) {
+		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) const {
 			D3D12_SHADER_DESC shader_desc = {};
 			_details::assert_dx(_reflection->GetDesc(&shader_desc));
 			for (UINT i = 0; i < shader_desc.BoundResources; ++i) {
@@ -40,9 +40,9 @@ namespace lotus::graphics::backends::directx12 {
 			}
 		}
 		/// Returns the number of output variables.
-		[[nodiscard]] std::size_t get_output_variable_count();
+		[[nodiscard]] std::size_t get_output_variable_count() const;
 		/// Enumerates over all output variables using \p ID3D12ShaderReflection::GetOutputParameterDesc().
-		template <typename Callback> void enumerate_output_variables(Callback &&cb) {
+		template <typename Callback> void enumerate_output_variables(Callback &&cb) const {
 			std::size_t count = get_output_variable_count();
 			for (UINT i = 0; i < count; ++i) {
 				D3D12_SIGNATURE_PARAMETER_DESC desc = {};

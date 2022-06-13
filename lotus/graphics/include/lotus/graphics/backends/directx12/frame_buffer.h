@@ -36,6 +36,11 @@ namespace lotus::graphics::backends::directx12 {
 		[[nodiscard]] image2d get_image(std::size_t);
 		/// Updates all elements in \ref _synchronization.
 		void update_synchronization_primitives(std::span<const back_buffer_synchronization>);
+
+		/// Returns whether this object contains a valid swap chain.
+		[[nodiscard]] bool is_valid() const {
+			return _swap_chain;
+		}
 	private:
 		/// Cached synchronization primitives for a back buffer.
 		struct _cached_back_buffer_synchronization {
@@ -61,19 +66,22 @@ namespace lotus::graphics::backends::directx12 {
 		~frame_buffer();
 	protected:
 		/// Creates an empty object.
-		frame_buffer(std::nullptr_t) : _color(nullptr), _depth_stencil(nullptr), _device(nullptr) {
+		frame_buffer(std::nullptr_t) : _depth_stencil_format(DXGI_FORMAT_UNKNOWN) {
 		}
 		/// Move construction.
 		frame_buffer(frame_buffer&&) noexcept;
 		/// Move assignment.
 		frame_buffer &operator=(frame_buffer&&) noexcept;
 	private:
-		_details::descriptor_range _color; ///< Color descriptors.
-		_details::descriptor_range _depth_stencil; ///< Depth stencil descriptor.
-		device *_device; ///< The device that created this object.
+		// TODO allocator
+		_details::descriptor_range _color         = nullptr; ///< Color descriptors.
+		_details::descriptor_range _depth_stencil = nullptr; ///< Depth stencil descriptor.
+		device *_device = nullptr; ///< The device that created this object.
+		std::vector<DXGI_FORMAT> _color_formats; ///< Format of all color render targets.
+		DXGI_FORMAT _depth_stencil_format; ///< Format of the depth-stencil render target.
 
 		/// Initializes \ref _device.
-		explicit frame_buffer(device &dev) : _color(nullptr), _depth_stencil(nullptr), _device(&dev) {
+		explicit frame_buffer(device &dev) : _device(&dev) {
 		}
 
 		/// Frees all descriptors.

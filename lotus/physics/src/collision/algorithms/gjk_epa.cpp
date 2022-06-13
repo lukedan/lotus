@@ -149,7 +149,7 @@ namespace lotus::collision {
 	}
 
 	gjk_epa::epa_result gjk_epa::epa(gjk_result_state gjk_state) const {
-		using _convex_hull_t = incremental_convex_hull<simplex_vertex, double, stack_allocator::allocator>;
+		using _convex_hull_t = incremental_convex_hull<simplex_vertex, double, stack_allocator::std_allocator>;
 
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 

@@ -1,7 +1,8 @@
 set(LOTUS_GRAPHICS_USE_DIRECTX12 YES CACHE STRING "Whether to generate target for the DirectX 12 backend.")
 set(LOTUS_GRAPHICS_USE_VULKAN YES CACHE STRING "Whether to generate target for the Vulkan backend.")
 
-set(LOTUS_GRAPHICS_BACKEND_INCLUDE_NAME "LOTUS_GRAPHICS_BACKEND_INCLUDE")
+set(LOTUS_GRAPHICS_VULKAN_USE_SYSTEM_DXC NO CACHE STRING "Whether to use system DXC for vulkan instead of the one bundled in Vulkan SDK.")
+
 set(LOTUS_GRAPHICS_COMMON_HEADERS
 	"include/lotus/graphics/backends/common/dxc.h"
 
@@ -12,7 +13,6 @@ set(LOTUS_GRAPHICS_COMMON_HEADERS
 	"include/lotus/graphics/descriptors.h"
 	"include/lotus/graphics/device.h"
 	"include/lotus/graphics/frame_buffer.h"
-	"include/lotus/graphics/pass.h"
 	"include/lotus/graphics/pipeline.h"
 	"include/lotus/graphics/resources.h"
 	"include/lotus/graphics/synchronization.h")
@@ -20,9 +20,12 @@ set(LOTUS_GRAPHICS_COMMON_SOURCES
 	"src/graphics/backends/common/dxc.cpp")
 
 # DirectX 12
+set(LOTUS_GRAPHICS_HAS_DIRECTX12 NO CACHE INTERNAL "Whether the DirectX12 backend is available." FORCE)
 if(WIN32 AND LOTUS_GRAPHICS_USE_DIRECTX12)
+	set(LOTUS_GRAPHICS_HAS_DIRECTX12 YES CACHE INTERNAL "Whether the DirectX12 backend is available." FORCE)
+
 	add_library(lotus_graphics_directx12 STATIC)
-	set_target_compile_options(lotus_graphics_directx12)
+	configure_lotus_module(lotus_graphics_directx12)
 
 	add_subdirectory("thirdparty/DirectX-Headers/")
 
@@ -38,7 +41,6 @@ if(WIN32 AND LOTUS_GRAPHICS_USE_DIRECTX12)
 			"include/lotus/graphics/backends/directx12/details.h"
 			"include/lotus/graphics/backends/directx12/device.h"
 			"include/lotus/graphics/backends/directx12/frame_buffer.h"
-			"include/lotus/graphics/backends/directx12/pass.h"
 			"include/lotus/graphics/backends/directx12/pipeline.h"
 			"include/lotus/graphics/backends/directx12/resources.h"
 			"include/lotus/graphics/backends/directx12/synchronization.h"
@@ -61,11 +63,14 @@ if(WIN32 AND LOTUS_GRAPHICS_USE_DIRECTX12)
 			lotus_core lotus_system d3d12 dxgi dxguid d3dcompiler dxcompiler Microsoft::DirectX-Headers)
 	target_compile_definitions(lotus_graphics_directx12
 		PUBLIC
-			"${LOTUS_GRAPHICS_BACKEND_INCLUDE_NAME}=<lotus/graphics/backends/directx12.h>")
+			"LOTUS_GRAPHICS_BACKEND_INCLUDE=<lotus/graphics/backends/directx12.h>")
 endif()
 
 # Vulkan
+set(LOTUS_GRAPHICS_HAS_VULKAN YES CACHE INTERNAL "Whether the Vulkan backend is available." FORCE)
 if(LOTUS_GRAPHICS_USE_VULKAN)
+	set(LOTUS_GRAPHICS_HAS_VULKAN YES CACHE INTERNAL "Whether the Vulkan backend is available." FORCE)
+
 	find_package(Vulkan REQUIRED)
 	# SPIRV-Reflect
 	add_library(SPIRV_Reflect STATIC)
@@ -74,7 +79,7 @@ if(LOTUS_GRAPHICS_USE_VULKAN)
 	target_link_libraries(SPIRV_Reflect PUBLIC Vulkan::Vulkan)
 
 	add_library(lotus_graphics_vulkan STATIC)
-	set_target_compile_options(lotus_graphics_vulkan)
+	configure_lotus_module(lotus_graphics_vulkan)
 
 	target_include_directories(lotus_graphics_vulkan PUBLIC "include/")
 	target_sources(lotus_graphics_vulkan
@@ -88,7 +93,6 @@ if(LOTUS_GRAPHICS_USE_VULKAN)
 			"include/lotus/graphics/backends/vulkan/details.h"
 			"include/lotus/graphics/backends/vulkan/device.h"
 			"include/lotus/graphics/backends/vulkan/frame_buffer.h"
-			"include/lotus/graphics/backends/vulkan/pass.h"
 			"include/lotus/graphics/backends/vulkan/pipeline.h"
 			"include/lotus/graphics/backends/vulkan/resources.h"
 			"include/lotus/graphics/backends/vulkan/synchronization.h"
@@ -111,17 +115,23 @@ if(LOTUS_GRAPHICS_USE_VULKAN)
 	target_compile_definitions(lotus_graphics_vulkan
 		PUBLIC
 			VULKAN_HPP_NO_EXCEPTIONS
-			VK_USE_PLATFORM_WIN32_KHR
-			"${LOTUS_GRAPHICS_BACKEND_INCLUDE_NAME}=<lotus/graphics/backends/vulkan.h>")
+			"LOTUS_GRAPHICS_BACKEND_INCLUDE=<lotus/graphics/backends/vulkan.h>")
+	if(WIN32)
+		target_compile_definitions(lotus_graphics_vulkan PUBLIC VK_USE_PLATFORM_WIN32_KHR)
+	endif()
 
 	# if using DXC for shader compilation, find and link DXC
-	cmake_path(GET Vulkan_LIBRARY PARENT_PATH LOTUS_VULKAN_LIBRARY_PATH)
-	find_file(
-		LOTUS_VULKAN_DXC_LIBRARY
-		NAMES dxcompiler.lib libdxcompiler.a libdxcompiler.so
-		PATHS "${LOTUS_VULKAN_LIBRARY_PATH}"
-		NO_DEFAULT_PATH)
-	target_link_libraries(lotus_graphics_vulkan PUBLIC "${LOTUS_VULKAN_DXC_LIBRARY}")
+	if(LOTUS_GRAPHICS_VULKAN_USE_SYSTEM_DXC)
+		target_link_libraries(lotus_graphics_vulkan PUBLIC dxcompiler)
+	else()
+		cmake_path(GET Vulkan_LIBRARY PARENT_PATH LOTUS_VULKAN_LIBRARY_PATH)
+		find_file(
+			LOTUS_VULKAN_DXC_LIBRARY
+			NAMES dxcompiler.lib libdxcompiler.a libdxcompiler.so
+			PATHS "${LOTUS_VULKAN_LIBRARY_PATH}"
+			NO_DEFAULT_PATH)
+		target_link_libraries(lotus_graphics_vulkan PUBLIC "${LOTUS_VULKAN_DXC_LIBRARY}")
+	endif()
 endif()
 
 

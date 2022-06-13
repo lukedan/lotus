@@ -44,7 +44,7 @@ namespace lotus {
 		template <
 			typename ...Args, typename Dummy = int,
 			std::enable_if_t<sizeof...(Args) == dimensionality && (Rows == 1 || Cols == 1), Dummy> = 0
-		> constexpr matrix(Args &&...data) : matrix(zero) {
+		> constexpr matrix(Args &&...data) : elements{} {
 			_fill_vector(*this, std::make_index_sequence<dimensionality>(), std::forward<Args>(data)...);
 		}
 		/// Default move constructor.
@@ -57,7 +57,7 @@ namespace lotus {
 		constexpr matrix &operator=(const matrix&) = default;
 
 		/// Returns an identity matrix.
-		[[nodiscard]] inline static constexpr matrix identity() {
+		[[nodiscard]] inline static consteval matrix identity() {
 			matrix result = zero;
 			for (std::size_t i = 0; i < std::min(Rows, Cols); ++i) {
 				result(i, i) = static_cast<T>(1);
@@ -207,6 +207,9 @@ namespace lotus {
 		> [[nodiscard]] constexpr Res norm() const {
 			return std::sqrt(static_cast<Res>(squared_norm()));
 		}
+
+		/// Default equality and inequality comparisons.
+		[[nodiscard]] friend bool operator==(const matrix&, const matrix&) = default;
 
 		std::array<std::array<T, Cols>, Rows> elements; ///< The elements of this matrix.
 	protected:

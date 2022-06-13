@@ -103,6 +103,8 @@ namespace lotus::graphics::backends::vulkan::_details {
 		[[nodiscard]] vk::StencilOpState to_stencil_op_state(
 			const stencil_options&, std::uint32_t cmp_mask, std::uint32_t write_mask
 		);
+		/// Converts a \ref color_clear_value to a \p vk::ClearValue.
+		[[nodiscard]] vk::ClearValue to_clear_value(const color_clear_value&);
 
 
 		/// Converts a \p vk::Format back to a \ref format.

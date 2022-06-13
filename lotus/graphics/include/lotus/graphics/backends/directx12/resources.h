@@ -30,6 +30,11 @@ namespace lotus::graphics::backends::directx12 {
 		/// Creates an invalid buffer object.
 		buffer(std::nullptr_t) {
 		}
+
+		/// Returns whether \ref _buffer is \p nullptr.
+		[[nodiscard]] bool is_valid() const {
+			return _buffer != nullptr;
+		}
 	private:
 		_details::com_ptr<ID3D12Resource> _buffer; ///< The buffer.
 	};
@@ -59,6 +64,11 @@ namespace lotus::graphics::backends::directx12 {
 			friend command_list;
 			friend device;
 		protected:
+			/// Returns whether \ref _image is valid.
+			[[nodiscard]] bool is_valid() const {
+				return _image;
+			}
+
 			_details::com_ptr<ID3D12Resource> _image; ///< The image.
 		};
 	}

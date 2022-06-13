@@ -7,10 +7,10 @@
 
 #include <spirv_reflect.h>
 
+#include "lotus/logging.h"
 #include "lotus/graphics/acceleration_structure.h"
 #include "lotus/graphics/descriptors.h"
 #include "lotus/graphics/frame_buffer.h"
-#include "lotus/graphics/pass.h"
 #include "lotus/graphics/pipeline.h"
 #include "lotus/graphics/synchronization.h"
 
@@ -116,7 +116,7 @@ namespace lotus::graphics::backends::vulkan {
 	descriptor_pool device::create_descriptor_pool(
 		std::span<const descriptor_range> capacity, std::size_t max_num_sets
 	) {
-		descriptor_pool result;
+		descriptor_pool result = nullptr;
 
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 		auto ranges = bookmark.create_reserved_vector_array<vk::DescriptorPoolSize>(capacity.size());
@@ -406,7 +406,7 @@ namespace lotus::graphics::backends::vulkan {
 		const depth_stencil_options &depth_stencil,
 		std::span<const input_buffer_layout> input_buffers,
 		primitive_topology topology,
-		const pass_resources &environment,
+		const frame_buffer_layout&,
 		std::size_t num_viewports
 	) {
 		graphics_pipeline_state result = nullptr;
@@ -562,7 +562,6 @@ namespace lotus::graphics::backends::vulkan {
 			.setPColorBlendState(&color_blend)
 			.setPDynamicState(&dynamic)
 			.setLayout(resources._layout.get())
-			.setRenderPass(environment._pass.get())
 			.setSubpass(0);
 		// TODO allocator
 		result._pipeline = _details::unwrap(_device->createGraphicsPipelineUnique(nullptr, info));
@@ -583,69 +582,6 @@ namespace lotus::graphics::backends::vulkan {
 			.setLayout(rsrc._layout.get());
 		// TODO allocator
 		result._pipeline = _details::unwrap(_device->createComputePipelineUnique(nullptr, info));
-
-		return result;
-	}
-
-	pass_resources device::create_pass_resources(
-		std::span<const render_target_pass_options> color,
-		depth_stencil_pass_options ds
-	) {
-		pass_resources result = nullptr;
-
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
-
-		bool has_depth_stencil = ds.pixel_format != format::none;
-		bool has_stencil = format_properties::get(ds.pixel_format).stencil_bits > 0;
-		vk::ImageLayout ds_layout =
-			has_stencil ?
-			vk::ImageLayout::eDepthStencilAttachmentOptimal :
-			vk::ImageLayout::eDepthAttachmentOptimal;
-		auto attachments = bookmark.create_reserved_vector_array<vk::AttachmentDescription>(
-			color.size() + has_depth_stencil ? 1 : 0
-		);
-		for (const auto &opt : color) {
-			attachments.emplace_back()
-				.setFormat(_details::conversions::for_format(opt.pixel_format))
-				.setLoadOp(_details::conversions::to_attachment_load_op(opt.load_operation))
-				.setStoreOp(_details::conversions::to_attachment_store_op(opt.store_operation))
-				.setInitialLayout(vk::ImageLayout::eColorAttachmentOptimal)
-				.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
-		}
-		if (has_depth_stencil) {
-			attachments.emplace_back()
-				.setFormat(_details::conversions::for_format(ds.pixel_format))
-				.setLoadOp(_details::conversions::to_attachment_load_op(ds.depth_load_operation))
-				.setStoreOp(_details::conversions::to_attachment_store_op(ds.depth_store_operation))
-				.setStencilLoadOp(_details::conversions::to_attachment_load_op(ds.stencil_load_operation))
-				.setStencilStoreOp(_details::conversions::to_attachment_store_op(ds.stencil_store_operation))
-				.setInitialLayout(ds_layout)
-				.setFinalLayout(ds_layout);
-		}
-
-		auto attachment_ref = bookmark.create_reserved_vector_array<vk::AttachmentReference>(color.size());
-		for (std::size_t i = 0; i < color.size(); ++i) {
-			attachment_ref.emplace_back()
-				.setAttachment(static_cast<std::uint32_t>(i))
-				.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-		}
-		vk::AttachmentReference ds_ref;
-		ds_ref
-			.setAttachment(static_cast<std::uint32_t>(color.size()))
-			.setLayout(ds_layout);
-
-		vk::SubpassDescription subpass;
-		subpass
-			.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-			.setColorAttachments(attachment_ref)
-			.setPDepthStencilAttachment(has_depth_stencil ? &ds_ref : nullptr);
-
-		vk::RenderPassCreateInfo info;
-		info
-			.setAttachments(attachments)
-			.setSubpasses(subpass);
-		// TODO allocator
-		result._pass = _details::unwrap(_device->createRenderPassUnique(info));
 
 		return result;
 	}
@@ -833,31 +769,17 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	frame_buffer device::create_frame_buffer(
-		std::span<const graphics::image2d_view *const> color, const image2d_view *ds,
-		const cvec2s &size, const pass_resources &pass
+		std::span<const graphics::image2d_view *const> color, const image2d_view *ds, cvec2s size
 	) {
 		frame_buffer result = nullptr;
-
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
-		auto attachments = bookmark.create_reserved_vector_array<vk::ImageView>(color.size() + ds ? 1 : 0);
-		for (const auto *view : color) {
-			attachments.emplace_back(view->_view.get());
+		result._color_views.reserve(color.size());
+		for (const auto *c : color) {
+			result._color_views.emplace_back(c->_view.get());
 		}
 		if (ds) {
-			attachments.emplace_back(ds->_view.get());
+			result._depth_stencil_view = ds->_view.get();
 		}
-
-		vk::FramebufferCreateInfo info;
-		info
-			.setRenderPass(pass._pass.get())
-			.setAttachments(attachments)
-			.setWidth(static_cast<std::uint32_t>(size[0]))
-			.setHeight(static_cast<std::uint32_t>(size[1]))
-			.setLayers(1);
-		// TODO allocator
-		result._framebuffer = _details::unwrap(_device->createFramebufferUnique(info));
-		result._size = vk::Extent2D(static_cast<std::uint32_t>(size[0]), static_cast<std::uint32_t>(size[1]));
-
+		result._size = size;
 		return result;
 	}
 
@@ -1242,8 +1164,8 @@ namespace lotus::graphics::backends::vulkan {
 		result._dispatch_loader = _dispatch_loader;
 
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
-		auto allocator = bookmark.create_std_allocator<vk::QueueFamilyProperties>();
-		auto families = _device.getQueueFamilyProperties(allocator);
+		auto queue_familly_allocator = bookmark.create_std_allocator<vk::QueueFamilyProperties>();
+		auto families = _device.getQueueFamilyProperties(queue_familly_allocator);
 		result._graphics_compute_queue_family_index = result._compute_queue_family_index =
 			static_cast<std::uint32_t>(families.size());
 		constexpr vk::QueueFlags graphics_compute_flags = vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute;
@@ -1274,12 +1196,29 @@ namespace lotus::graphics::backends::vulkan {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
 			VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
-			VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+			/*VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 			VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-			VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-			/*VK_GOOGLE_HLSL_FUNCTIONALITY1_EXTENSION_NAME,
+			VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,*/
+			/*VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
+
+		auto extension_allocator = bookmark.create_std_allocator<vk::ExtensionProperties>();
+		auto available_extensions = _details::unwrap(_device.enumerateDeviceExtensionProperties(
+			nullptr, extension_allocator, *_dispatch_loader
+		));
+		for (auto *ext_required : extensions) {
+			bool found = false;
+			for (const auto &ext : available_extensions) {
+				if (std::strncmp(ext_required, ext.extensionName.data(), ext.extensionName.size()) == 0) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				log().error<u8"Extension {} not found. Device creation may fail.">(ext_required);
+			}
+		}
 
 		vk::PhysicalDeviceCustomBorderColorFeaturesEXT border_color_features;
 		border_color_features
@@ -1296,9 +1235,14 @@ namespace lotus::graphics::backends::vulkan {
 			.setPNext(&raytracing_features)
 			.setAccelerationStructure(true);
 
+		vk::PhysicalDeviceVulkan13Features vk13_features;
+		vk13_features
+			.setPNext(&acceleration_structure_features)
+			.setDynamicRendering(true);
+
 		vk::PhysicalDeviceVulkan12Features vk12_features;
 		vk12_features
-			.setPNext(&acceleration_structure_features)
+			.setPNext(&vk13_features)
 			.setBufferDeviceAddress(true)
 			.setDescriptorBindingVariableDescriptorCount(true)
 			.setRuntimeDescriptorArray(true);
@@ -1339,12 +1283,12 @@ namespace lotus::graphics::backends::vulkan {
 			vk::PhysicalDeviceAccelerationStructurePropertiesKHR
 		>();
 
-		result.is_software                         = props.properties.deviceType == vk::PhysicalDeviceType::eCpu;
-		result.is_discrete                         = props.properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
-		result.name                                = reinterpret_cast<const char8_t*>(props.properties.deviceName.data());
+		result.is_software = props.properties.deviceType == vk::PhysicalDeviceType::eCpu;
+		result.is_discrete = props.properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
+		result.name        = reinterpret_cast<const char8_t*>(props.properties.deviceName.data());
 
 		result.constant_buffer_alignment           = props.properties.limits.minUniformBufferOffsetAlignment;
-		result.acceleration_structure_alignment    = 1; // TODO what should this be?
+		result.acceleration_structure_alignment    = props.properties.limits.minStorageBufferOffsetAlignment; // TODO what should this be?
 		result.shader_group_handle_size            = ray_tracing_props.shaderGroupHandleSize;
 		result.shader_group_handle_alignment       = ray_tracing_props.shaderGroupHandleAlignment;
 		result.shader_group_handle_table_alignment = ray_tracing_props.shaderGroupHandleCaptureReplaySize;

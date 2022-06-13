@@ -16,6 +16,9 @@ namespace lotus::graphics::backends::vulkan {
 	class descriptor_pool {
 		friend device;
 	protected:
+		/// Initializes this pool to empty.
+		descriptor_pool(std::nullptr_t) {
+		}
 	private:
 		vk::UniqueDescriptorPool _pool; ///< The descriptor pool.
 	};
@@ -28,6 +31,11 @@ namespace lotus::graphics::backends::vulkan {
 		/// Creates an empty object.
 		descriptor_set_layout(std::nullptr_t) {
 		}
+
+		/// Checks if this layout is valid.
+		[[nodiscard]] bool is_valid() const {
+			return _layout.get();
+		}
 	private:
 		vk::UniqueDescriptorSetLayout _layout; ///< The descriptor set layout.
 	};
@@ -39,6 +47,11 @@ namespace lotus::graphics::backends::vulkan {
 	protected:
 		/// Creates an empty object.
 		descriptor_set(std::nullptr_t) {
+		}
+
+		/// Returns whether this descriptor set is valid.
+		[[nodiscard]] bool is_valid() const {
+			return static_cast<bool>(_set);
 		}
 	private:
 		vk::UniqueDescriptorSet _set; ///< The descriptor set.

@@ -32,7 +32,7 @@ namespace lotus::graphics::backends::vulkan {
 		};
 		vk::ApplicationInfo app_info;
 		app_info
-			.setApiVersion(VK_API_VERSION_1_2)
+			.setApiVersion(VK_API_VERSION_1_3)
 			.setPEngineName("Lotus");
 		vk::InstanceCreateInfo create_info;
 		create_info

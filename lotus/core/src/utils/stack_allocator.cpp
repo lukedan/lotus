@@ -12,10 +12,10 @@ namespace lotus {
 		return result;
 	}
 
-	void *stack_allocator::_page_ref::allocate(std::size_t size, std::size_t align) {
+	void *stack_allocator::_page_ref::allocate(memory::size_alignment s) {
 		std::size_t sz = static_cast<std::byte*>(end) - static_cast<std::byte*>(current);
-		if (void *result = std::align(align, size, current, sz)) {
-			current = static_cast<std::byte*>(current) + size;
+		if (void *result = std::align(s.alignment, s.size, current, sz)) {
+			current = static_cast<std::byte*>(current) + s.size;
 			return result;
 		}
 		return nullptr;
@@ -50,17 +50,17 @@ namespace lotus {
 		}
 	}
 
-	void *stack_allocator::_allocate(std::size_t size, std::size_t align) {
-		if (void *result = _top_page.allocate(size, align)) {
+	void *stack_allocator::_allocate(memory::size_alignment s) {
+		if (void *result = _top_page.allocate(s)) {
 			return result;
 		}
 		_take_page();
-		if (void *result = _top_page.allocate(size, align)) {
+		if (void *result = _top_page.allocate(s)) {
 			return result;
 		}
 		_return_page();
-		_top_page = _allocate_new_page(_top_page, page_size + size);
-		return _top_page.allocate(size, align);
+		_top_page = _allocate_new_page(_top_page, page_size + s.size);
+		return _top_page.allocate(s);
 	}
 
 	void stack_allocator::_pop_bookmark() {

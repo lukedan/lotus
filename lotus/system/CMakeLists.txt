@@ -1,7 +1,7 @@
 set(LOTUS_SYSTEM_PLATFORM_INCLUDE_NAME "LOTUS_SYSTEM_PLATFORM_INCLUDE")
 
 add_library(lotus_system STATIC)
-set_target_compile_options(lotus_system)
+configure_lotus_module(lotus_system)
 
 target_sources(lotus_system
 	PUBLIC

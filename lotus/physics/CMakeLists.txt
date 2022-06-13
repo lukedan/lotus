@@ -1,5 +1,5 @@
 add_library(lotus_physics STATIC)
-set_target_compile_options(lotus_physics)
+configure_lotus_module(lotus_physics)
 
 target_include_directories(lotus_physics PUBLIC "include/")
 target_sources(lotus_physics

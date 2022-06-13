@@ -3,6 +3,8 @@
 /// \file
 /// Project implementation.
 
+#include "lotus/utils/strings.h"
+
 project project::load(const nlohmann::json &val, const error_callback &on_error) {
 	project result = nullptr;
 	if (!val.is_object()) {
@@ -13,10 +15,10 @@ project project::load(const nlohmann::json &val, const error_callback &on_error)
 		if (passes_it->is_object()) {
 			for (const auto &p : passes_it->items()) {
 				if (auto pass = pass::load(p.value(), on_error)) {
-					pass->pass_name = std::u8string(lotus::assume_utf8(p.key()));
-					result.passes.emplace(lotus::assume_utf8(p.key()), std::move(pass.value()));
+					pass->pass_name = std::u8string(lotus::string::assume_utf8(p.key()));
+					result.passes.emplace(lotus::string::assume_utf8(p.key()), std::move(pass.value()));
 				} else {
-					on_error(format_utf8(u8"Failed to load pass {}", p.key()));
+					on_error(format_utf8<u8"Failed to load pass {}">(p.key()));
 				}
 			}
 		} else {
@@ -27,7 +29,7 @@ project project::load(const nlohmann::json &val, const error_callback &on_error)
 	}
 	if (auto main_pass_it = val.find("main_pass"); main_pass_it != val.end()) {
 		if (main_pass_it->is_string()) {
-			result.main_pass = std::u8string(lotus::assume_utf8(main_pass_it->get<std::string>()));
+			result.main_pass = std::u8string(lotus::string::assume_utf8(main_pass_it->get<std::string>()));
 		} else {
 			on_error(u8"Invalid main pass");
 		}
@@ -38,48 +40,13 @@ project project::load(const nlohmann::json &val, const error_callback &on_error)
 }
 
 void project::load_resources(
-	lgfx::device &dev, lgfx::shader_utility &shader_utils,
-	lgfx::command_allocator &cmd_alloc, lgfx::command_queue &cmd_queue,
-	lgfx::shader_binary &vert_shader, lgfx::descriptor_set_layout &global_descriptors,
+	lren::assets::manager &man, lren::context &ctx,
+	lren::assets::owning_handle<lren::assets::shader> vert_shader,
 	const std::filesystem::path &root, const error_callback &on_error
 ) {
 	for (auto &it : passes) {
-		it.second.load_input_images(dev, cmd_alloc, cmd_queue, root, on_error);
-		it.second.load_shader(dev, shader_utils, vert_shader, global_descriptors, root, on_error);
-	}
-}
-
-void project::update_descriptor_sets(
-	lgfx::device &dev, lgfx::descriptor_pool &desc_pool, const error_callback &on_error
-) {
-	for (std::size_t i = 0; i < 2; ++i) {
-		for (auto &it : passes) {
-			if (it.second.shader_loaded) {
-				it.second.dependencies[i].clear();
-				auto descriptors = dev.create_descriptor_set(desc_pool, it.second.descriptor_set_layout);
-				bool all_good = true;
-				for (auto &in : it.second.inputs) {
-					if (in.register_index) {
-						auto &&[img_view, dep] = std::visit(
-							[&](auto &val) {
-								return get_image_view(val, i, on_error);
-							},
-							in.value
-						);
-						dev.write_descriptor_set_read_only_images(
-							descriptors, it.second.descriptor_set_layout, in.register_index.value(), { &img_view }
-						);
-						if (dep) {
-							it.second.dependencies[i].emplace_back(dep);
-						}
-					} else {
-						all_good = false;
-					}
-				}
-				it.second.input_descriptors[i] = std::move(descriptors);
-				it.second.descriptors_ready = all_good;
-			}
-		}
+		it.second.load_input_images(man, root, on_error);
+		it.second.load_shader(man, std::move(vert_shader), root, on_error);
 	}
 }
 
@@ -92,10 +59,10 @@ void project::update_descriptor_sets(
 			return nullptr;
 		}
 		if (it->second.output_names.size() != 1) {
-			on_error(format_utf8(u8"Ambiguous output name: {}, using first output", as_string(name)));
+			on_error(format_utf8<u8"Ambiguous output name: {}, using first output">(lstr::to_generic(name)));
 		}
 		if (!it->second.output_created) {
-			on_error(format_utf8(u8"No output images created for pass {}", as_string(name)));
+			on_error(format_utf8<u8"No output images created for pass {}">(lstr::to_generic(name)));
 			return nullptr;
 		}
 		return &it->second.outputs[index].targets[0];
@@ -114,7 +81,7 @@ void project::update_descriptor_sets(
 				return nullptr;
 			}
 			if (!it->second.output_created) {
-				on_error(format_utf8(u8"No output images created for pass {}", as_string(name)));
+				on_error(format_utf8<u8"No output images created for pass {}">(lstr::to_generic(name)));
 				return nullptr;
 			}
 			// named
@@ -131,38 +98,21 @@ void project::update_descriptor_sets(
 			auto result = std::from_chars(beg, end, out_index);
 			if (result.ec == std::errc() && result.ptr == end) {
 				if (out_index >= it->second.output_names.size()) {
-					on_error(format_utf8(
-						u8"Output index {} out of range for pass {}", out_index, as_string(pass_name)
+					on_error(format_utf8<u8"Output index {} out of range for pass {}">(
+						out_index, lstr::to_generic(pass_name)
 					));
 					return nullptr;
 				}
 				return &it->second.outputs[index].targets[out_index];
 			}
-			on_error(format_utf8(u8"Invalid output {} for pass {}", as_string(member), as_string(pass_name)));
+			on_error(format_utf8<u8"Invalid output {} for pass {}">(
+				lstr::to_generic(member), lstr::to_generic(pass_name))
+			);
 		}
-		on_error(format_utf8(u8"Cannot find pass {}", as_string(pass_name)));
+		on_error(format_utf8<u8"Cannot find pass {}">(lstr::to_generic(pass_name)));
 	}
-	on_error(format_utf8(u8"Cannot find pass {}", as_string(name)));
+	on_error(format_utf8<u8"Cannot find pass {}">(lstr::to_generic(name)));
 	return nullptr;
-}
-
-std::pair<lgfx::image2d_view&, pass::output::target*> project::get_image_view(
-	pass::input::image &img, std::size_t, const error_callback&
-) {
-	return { img.texture_view, nullptr };
-}
-
-std::pair<lgfx::image2d_view&, pass::output::target*> project::get_image_view(
-	pass::input::pass_output &out, std::size_t i, const error_callback &on_error
-) {
-	if (out.previous_frame) {
-		i = (i + 1) % 2;
-	}
-	if (auto *target = find_target(out.name, i, on_error)) {
-		return { target->image_view, target };
-	}
-	on_error(format_utf8(u8"Failed to find output image with key {}", as_string(out.name)));
-	return { empty_image, nullptr };
 }
 
 std::vector<std::map<std::u8string, pass>::iterator> project::get_pass_order(const error_callback &on_error) {

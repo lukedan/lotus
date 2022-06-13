@@ -10,7 +10,6 @@
 #include "lotus/math/aab.h"
 #include "lotus/color.h"
 #include "acceleration_structure.h"
-#include "pass.h"
 #include "resources.h"
 #include "frame_buffer.h"
 #include "pipeline.h"
@@ -66,18 +65,8 @@ namespace lotus::graphics {
 		}
 
 		/// Starts a rendering pass.
-		void begin_pass(
-			const pass_resources &p, const frame_buffer &fb,
-			std::span<const linear_rgba_f> clear_colors, float clear_depth, std::uint8_t clear_stencil
-		) {
-			backend::command_list::begin_pass(p, fb, clear_colors, clear_depth, clear_stencil);
-		}
-		/// \overload
-		void begin_pass(
-			const pass_resources &p, const frame_buffer &fb,
-			std::initializer_list<linear_rgba_f> clear_colors, float clear_depth, std::uint8_t clear_stencil
-		) {
-			begin_pass(p, fb, { clear_colors.begin(), clear_colors.end() }, clear_depth, clear_stencil);
+		void begin_pass(const frame_buffer &fb, const frame_buffer_access &access) {
+			backend::command_list::begin_pass(fb, access);
 		}
 
 		/// Sets all state of the fixed-function graphics pipeline.
@@ -244,6 +233,16 @@ namespace lotus::graphics {
 			std::size_t width, std::size_t height, std::size_t depth
 		) {
 			backend::command_list::trace_rays(ray_generation, miss_shaders, hit_groups, width, height, depth);
+		}
+
+
+		/// Returns whether this object holds a valid command list.
+		[[nodiscard]] bool is_valid() const {
+			return backend::command_list::is_valid();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
 		}
 	protected:
 		/// Implicit conversion from base type.

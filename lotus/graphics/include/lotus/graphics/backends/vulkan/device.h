@@ -114,18 +114,12 @@ namespace lotus::graphics::backends::vulkan {
 			const depth_stencil_options&,
 			std::span<const input_buffer_layout>,
 			primitive_topology,
-			const pass_resources&,
+			const frame_buffer_layout&,
 			std::size_t num_viewports = 1
 		);
 		/// Calls \p vk::UniqueDevice::createComputePipelineUnique().
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(
 			const pipeline_resources&, const shader_binary&
-		);
-
-		/// Calls \p vk::UniqueDevice::createRenderPassUnique().
-		[[nodiscard]] pass_resources create_pass_resources(
-			std::span<const render_target_pass_options>,
-			depth_stencil_pass_options
 		);
 
 		/// Calls \p vk::UniqueDevice::allocateMemoryUnique().
@@ -164,10 +158,9 @@ namespace lotus::graphics::backends::vulkan {
 
 		/// Calls \p vk::UniqueDevice::createImageViewUnique().
 		[[nodiscard]] image2d_view create_image2d_view_from(const image2d&, format, mip_levels);
-		/// Calls \p vk::UniqueDevice::createFramebufferUnique().
+		/// Fills in the frame buffer structure.
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::span<const graphics::image2d_view *const> color, const image2d_view *depth_stencil,
-			const cvec2s &size, const pass_resources&
+			std::span<const graphics::image2d_view *const> color, const image2d_view *depth_stencil, cvec2s size
 		);
 
 		/// Calls \p vk::UniqueDevice::createFenceUnique().

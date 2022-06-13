@@ -11,12 +11,7 @@
 
 #include <lotus/common.h>
 #include <lotus/utils/static_function.h>
-#include <lotus/graphics/commands.h>
-#include <lotus/graphics/context.h>
-#include <lotus/graphics/device.h>
-#include <lotus/graphics/resources.h>
-#include <lotus/graphics/frame_buffer.h>
-#include <lotus/graphics/pipeline.h>
+#include <lotus/renderer/context.h>
 
 #include "common.h"
 
@@ -27,7 +22,7 @@ public:
 	using error_callback = lotus::static_function<void(std::u8string_view)>;
 
 	/// Format of loaded input images.
-	constexpr static lgfx::format input_image_format = lgfx::format::r8g8b8a8_srgb;
+	constexpr static lgfx::format input_image_format = lgfx::format::r8g8b8a8_unorm;
 	/// Format of output images.
 	constexpr static lgfx::format output_image_format = lgfx::format::r32g32b32a32_float;
 
@@ -82,12 +77,11 @@ public:
 		/// An external image.
 		struct image {
 			/// Creates an empty object.
-			image(std::nullptr_t) : texture(nullptr), texture_view(nullptr) {
+			image(std::nullptr_t) : texture(nullptr) {
 			}
 
 			std::filesystem::path path; ///< Path to the image.
-			lgfx::image2d texture; ///< Loaded texture.
-			lgfx::image2d_view texture_view; ///< Texture view.
+			lren::assets::owning_handle<lren::assets::texture2d> texture; ///< Loaded texture.
 		};
 
 		using value_type = std::variant<pass_output, image>; ///< Input value storage type.
@@ -105,39 +99,17 @@ public:
 		/// A single image and its associated data.
 		struct target {
 			/// Creates an empty output target.
-			target(std::nullptr_t) : image(nullptr), image_view(nullptr), current_usage(lgfx::image_usage::initial) {
+			target(std::nullptr_t) : image(nullptr) {
 			}
 
-			/// Transitions the image to the specified state.
-			void transition_to(lgfx::command_list &cmd_list, lgfx::image_usage usage) {
-				if (usage != current_usage) {
-					cmd_list.resource_barrier(
-						{
-							lgfx::image_barrier::create(
-								lgfx::subresource_index::first_color(), image, current_usage, usage
-							),
-						},
-						{}
-					);
-					current_usage = usage;
-				}
-			}
-
-			lgfx::image2d image; ///< Output image.
-			lgfx::image2d_view image_view; ///< Output image view.
-			lgfx::image_usage current_usage; ///< Used for tracking the usage of this image.
+			lren::image2d_view image; ///< The output image.
 		};
 
 		/// Initializes everything to empty.
-		output(std::nullptr_t) : frame_buffer(nullptr) {
+		output(std::nullptr_t) {
 		}
-		/// Creates a set of output buffers.
-		[[nodiscard]] static output create(
-			lgfx::device&, std::size_t count, lgfx::pass_resources&, lotus::cvec2s size
-		);
 
 		std::vector<target> targets; ///< Targets.
-		lgfx::frame_buffer frame_buffer; ///< Frame buffer that contains all targets.
 	};
 
 	/// Initializes everything to empty.
@@ -147,18 +119,14 @@ public:
 	[[nodiscard]] static std::optional<pass> load(const nlohmann::json&, const error_callback&);
 
 	/// Loads all input images.
-	void load_input_images(
-		lgfx::device&, lgfx::command_allocator&, lgfx::command_queue&,
-		const std::filesystem::path &root, const error_callback&
-	);
+	void load_input_images(lren::assets::manager&, const std::filesystem::path &root, const error_callback&);
 	/// Loads the shader and uses its reflection data to initialize the pipeline.
 	void load_shader(
-		lgfx::device&, lgfx::shader_utility&, lgfx::shader_binary &vert_shader,
-		lgfx::descriptor_set_layout &global_descriptors,
+		lren::assets::manager&, lren::assets::owning_handle<lren::assets::shader> vert_shader,
 		const std::filesystem::path &root, const error_callback&
 	);
 	/// Creates the output image and framebuffer.
-	void create_output_images(lgfx::device&, lotus::cvec2s, const error_callback&);
+	void create_output_images(lren::context&, lotus::cvec2s, const error_callback&);
 
 
 	/// Returns whether this pass is ready to be rendered.
@@ -175,13 +143,8 @@ public:
 	std::u8string entry_point; ///< Shader entry point.
 	std::vector<std::pair<std::u8string, std::u8string>> defines; ///< Defines.
 
-	lgfx::shader_binary shader = nullptr; ///< The shader.
-	lgfx::descriptor_set_layout descriptor_set_layout = nullptr; ///< Layout of the only descriptor set.
-	lgfx::pipeline_resources pipeline_resources = nullptr; ///< Pipeline resources.
-	lgfx::pass_resources pass_resources = nullptr; ///< Pass resources.
-	lgfx::graphics_pipeline_state pipeline = nullptr; ///< Pipeline state.
+	lren::assets::owning_handle<lren::assets::shader> shader = nullptr; ///< The shader.
 
-	std::array<lgfx::descriptor_set, 2> input_descriptors{ { nullptr, nullptr} }; ///< Input descriptor sets.
 	std::array<std::vector<output::target*>, 2> dependencies; ///< Output dependencies from other passes.
 
 	std::array<output, 2> outputs{ { nullptr, nullptr } }; ///< Double-buffered output.

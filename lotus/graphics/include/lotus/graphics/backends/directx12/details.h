@@ -244,9 +244,12 @@ namespace lotus::graphics::backends::directx12::_details {
 		[[nodiscard]] descriptor_range allocate(descriptor_range::index_t count) {
 			auto range = _sized_free.allocate_range(count);
 			auto node = _free.extract(range);
+			D3D12_GPU_DESCRIPTOR_HANDLE gpu_addr = { 0 };
+			if (_heap->GetDesc().Flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE) {
+				gpu_addr = _heap->GetGPUDescriptorHandleForHeapStart();
+			}
 			descriptor_range result(
-				_heap->GetCPUDescriptorHandleForHeapStart(), _heap->GetGPUDescriptorHandleForHeapStart(), _increment,
-				node.key(), count
+				_heap->GetCPUDescriptorHandleForHeapStart(), gpu_addr, _increment, node.key(), count
 			);
 			if (node.mapped().count != count) { // not an exact fit
 				node.key() += count;

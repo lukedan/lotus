@@ -9,7 +9,6 @@
 #include "vulkan/descriptors.h"
 #include "vulkan/device.h"
 #include "vulkan/frame_buffer.h"
-#include "vulkan/pass.h"
 #include "vulkan/pipeline.h"
 #include "vulkan/resources.h"
 #include "vulkan/synchronization.h"

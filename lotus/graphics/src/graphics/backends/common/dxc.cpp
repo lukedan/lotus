@@ -4,6 +4,7 @@
 /// Implementation of DXC functions.
 
 #include "lotus/utils/stack_allocator.h"
+#include "lotus/utils/strings.h"
 
 namespace lotus::graphics::backends::common {
 	bool dxc_compiler::compilation_result::succeeded() const {
@@ -16,9 +17,9 @@ namespace lotus::graphics::backends::common {
 		if (!_messages) {
 			_details::assert_dx(_result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&_messages), nullptr));
 		}
-		return std::u8string_view(
-			static_cast<const char8_t*>(_messages->GetBufferPointer()), _messages->GetBufferSize()
-		);
+		const auto *str = static_cast<const char8_t*>(_messages->GetBufferPointer());
+		assert(str[_messages->GetBufferSize()] == u8'\0');
+		return std::u8string_view(str, _messages->GetBufferSize() - 1);
 	}
 
 	std::span<const std::byte> dxc_compiler::compilation_result::get_compiled_binary() {
@@ -78,20 +79,21 @@ namespace lotus::graphics::backends::common {
 		for (const auto &def : defines) {
 			auto str = bookmark.create_string();
 			if (def.second.empty()) {
-				std::format_to(std::back_inserter(str), "-D{}", u8string_view_to_generic(def.first));
+				std::format_to(std::back_inserter(str), "-D{}", string::to_generic(def.first));
 			} else {
 				std::format_to(
 					std::back_inserter(str), "-D{}={}",
-					u8string_view_to_generic(def.first), u8string_view_to_generic(def.second)
+					string::to_generic(def.first), string::to_generic(def.second)
 				);
 			}
-			defs.emplace_back(_u8string_to_wstring(bookmark, assume_utf8(str)));
+			defs.emplace_back(_u8string_to_wstring(bookmark, string::assume_utf8(str)));
 		}
 
 		auto args = bookmark.create_vector_array<LPCWSTR>();
 		args.insert(args.end(), {
 			L"-E", entry_wstr.c_str(),
 			L"-T", profile.c_str(),
+			L"-Zi",
 		});
 		for (const auto &inc : includes) {
 			args.insert(args.end(), { L"-I", inc.c_str() });

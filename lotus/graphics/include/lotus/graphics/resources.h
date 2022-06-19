@@ -166,8 +166,16 @@ namespace lotus::graphics {
 	class sampler : public backend::sampler {
 		friend device;
 	public:
+		/// Move constructor.
+		sampler(sampler &&src) : backend::sampler(std::move(src)) {
+		}
 		/// No copy construction.
 		sampler(const sampler&) = delete;
+		/// Move assignment.
+		sampler &operator=(sampler &&src) {
+			backend::sampler::operator=(std::move(src));
+			return *this;
+		}
 		/// No copy assignment.
 		sampler &operator=(const sampler&) = delete;
 	protected:

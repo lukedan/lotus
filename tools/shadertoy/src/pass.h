@@ -131,7 +131,7 @@ public:
 
 	/// Returns whether this pass is ready to be rendered.
 	[[nodiscard]] bool ready() const {
-		return images_loaded && shader_loaded && output_created && descriptors_ready;
+		return images_loaded && shader_loaded && output_created;
 	}
 
 
@@ -145,12 +145,11 @@ public:
 
 	lren::assets::owning_handle<lren::assets::shader> shader = nullptr; ///< The shader.
 
-	std::array<std::vector<output::target*>, 2> dependencies; ///< Output dependencies from other passes.
+	//std::array<std::vector<output::target*>, 2> dependencies; ///< Output dependencies from other passes.
 
 	std::array<output, 2> outputs{ { nullptr, nullptr } }; ///< Double-buffered output.
 
 	bool images_loaded = false; ///< Indicates whether the images have been loaded.
 	bool shader_loaded = false; ///< Indicates whether the shader and its reflection has been loaded.
 	bool output_created = false; ///< Indicates whether the output images have been created.
-	bool descriptors_ready = false; ///< Whether \ref input_descriptors contain valid data.
 };

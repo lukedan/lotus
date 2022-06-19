@@ -31,7 +31,8 @@ namespace lotus::graphics::backends::directx12 {
 		friend void descriptor_set::_free();
 	protected:
 		/// The capacity of \ref _rtv_descriptors and \ref _dsv_descriptors.
-		constexpr static std::size_t descriptor_heap_size = 1024;
+		constexpr static std::size_t descriptor_heap_size = 65535;
+		constexpr static std::size_t sampler_heap_size = 2048;
 
 		/// Does not create a device.
 		device(std::nullptr_t) {
@@ -156,11 +157,18 @@ namespace lotus::graphics::backends::directx12 {
 
 		/// Calls \p ID3D12Device::CreateFence().
 		[[nodiscard]] fence create_fence(synchronization_state);
+		/// Calls \p ID3D12Device::CreateFence().
+		[[nodiscard]] timeline_semaphore create_timeline_semaphore(std::uint64_t);
 
 		/// Calls \p ID3D12Fence::Signal() to reset the given fence to the unset state.
 		void reset_fence(fence&);
 		/// Calls \p ID3D12Fence::SetEventOnCompletion() to wait for the \ref fence to be set.
 		void wait_for_fence(fence&);
+
+		/// Calls \p ID3D12Fence::Signal() to update the value of the semaphore.
+		void signal_timeline_semaphore(timeline_semaphore&, std::uint64_t);
+		/// Calls \p ID3D12Fence::GetCompletedValue() to retrieve the current value of the semaphore.
+		[[nodiscard]] std::uint64_t query_timeline_semaphore(timeline_semaphore&);
 
 
 		/// Calls \ref _set_debug_name().

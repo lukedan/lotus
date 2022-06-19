@@ -66,13 +66,7 @@ int main(int argc, char **argv) {
 	// blit pass
 	auto blit_pix_shader = ass_man.compile_shader_in_filesystem(lren::assets::identifier::create("shaders/blit.hlsl", u8"ps|main_ps")).take_ownership();
 
-	lren::graphics_pipeline_state state(
-		{ lgfx::render_target_blend_options::disabled() },
-		lgfx::rasterizer_options(
-			lgfx::depth_bias_options::disabled(), lgfx::front_facing_mode::clockwise, lgfx::cull_mode::none, false
-		),
-		lgfx::depth_stencil_options::all_disabled()
-	);
+	lotus::cvec2s window_size = zero;
 
 	bool is_mouse_down = false;
 	lotus::cvec2i mouse_pos = zero;
@@ -81,13 +75,11 @@ int main(int argc, char **argv) {
 
 	auto close_request = wnd.on_close_request.create_linked_node(
 		[&](lsys::window&, lsys::window_events::close_request &request) {
-			/*window_size = zero;*/ // prevent from resizing the frame buffers
+			window_size = zero; // prevent from resizing the frame buffers
 			request.should_close = true;
 			app.quit();
 		}
 	);
-
-	lotus::cvec2s window_size = zero;
 
 	auto resize = wnd.on_resize.create_linked_node(
 		[&](lsys::window&, lsys::window_events::resize &info) {
@@ -147,7 +139,6 @@ int main(int argc, char **argv) {
 	float time = 0.0f;
 	std::size_t frame_index = 0;
 
-	std::array<pass::output::target*, 2> main_out{ { nullptr, nullptr } };
 	wnd.show_and_activate();
 	while (app.process_message_nonblocking() != lsys::message_type::quit) {
 		bool update_pass_output = false;
@@ -201,10 +192,43 @@ int main(int argc, char **argv) {
 					lgfx::depth_stencil_options::all_disabled()
 				);
 				for (auto &out : pit->second.outputs[frame_index].targets) {
-					color_surfaces.emplace_back(out.image, lgfx::color_render_target_access::create_clear(lotus::cvec4d(0.0, 0.0, 0.0, 0.0)));
+					color_surfaces.emplace_back(
+						out.image,
+						lgfx::color_render_target_access::create_clear(lotus::cvec4d(0.0, 0.0, 0.0, 0.0))
+					);
 					state.blend_options.emplace_back(lgfx::render_target_blend_options::disabled());
 				}
-				lren::all_resource_bindings resource_bindings = nullptr; // TODO
+				lren::all_resource_bindings resource_bindings = nullptr;
+				resource_bindings.sets = {
+					lren::resource_set_binding({
+						lren::resource_binding(
+							lren::descriptor_resource::immediate_constant_buffer::create_for(globals_buf_data), 0
+						),
+						lren::resource_binding(
+							lren::descriptor_resource::sampler(lgfx::filtering::nearest, lgfx::filtering::nearest, lgfx::filtering::nearest), 1
+						),
+						lren::resource_binding(
+							lren::descriptor_resource::sampler(), 2
+						),
+					}, 1)
+				};
+				for (const auto &in : pit->second.inputs) {
+					if (in.register_index) {
+						if (std::holds_alternative<pass::input::pass_output>(in.value)) {
+							const auto &out = std::get<pass::input::pass_output>(in.value);
+							const auto *target = proj.find_target(
+								out.name, out.previous_frame ? (frame_index + 1) % 2 : frame_index, error_callback
+							);
+							if (target) {
+								resource_bindings.sets.emplace_back(std::vector({ lren::resource_binding(
+									lren::descriptor_resource::image2d::create_read_only(target->image),
+									in.register_index.value()
+								) }), 0);
+							}
+						}
+					}
+				}
+				resource_bindings.consolidate();
 
 				auto pass = rctx.begin_pass(std::move(color_surfaces), nullptr, window_size);
 				pass.draw_instanced(
@@ -215,7 +239,7 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		if (main_out[frame_index]) {
+		if (auto *main_out = proj.find_target(proj.main_pass, frame_index, error_callback)) {
 			lren::graphics_pipeline_state state(
 				{ lgfx::render_target_blend_options::disabled() },
 				lgfx::rasterizer_options(
@@ -227,6 +251,13 @@ int main(int argc, char **argv) {
 				lgfx::depth_stencil_options::all_disabled()
 			);
 			lren::all_resource_bindings resource_bindings = nullptr; // TODO
+			resource_bindings.sets = {
+				lren::resource_set_binding({
+					lren::resource_binding(
+						lren::descriptor_resource::image2d::create_read_only(main_out->image), 0
+					),
+				}, 0)
+			};
 
 			auto pass = rctx.begin_pass({ lren::surface2d_color(swapchain, lgfx::color_render_target_access::create_clear(lotus::cvec4d(0.0, 0.0, 0.0, 0.0))) }, nullptr, window_size);
 			pass.draw_instanced({}, 3, nullptr, 0, lgfx::primitive_topology::triangle_list, resource_bindings, vert_shader.duplicate(), blit_pix_shader.duplicate(), state);

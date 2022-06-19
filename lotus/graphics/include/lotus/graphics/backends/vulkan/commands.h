@@ -152,11 +152,14 @@ namespace lotus::graphics::backends::vulkan {
 		friend device;
 	protected:
 		/// Calls \p vk::Queue::submit().
-		void submit_command_lists(std::span<const graphics::command_list *const>, fence *on_completion);
+		void submit_command_lists(std::span<const graphics::command_list *const>, queue_synchronization synch);
 		/// Calls \p vk::Queue::presentKHR().
 		[[nodiscard]] swap_chain_status present(swap_chain&);
+
 		/// Calls \p vk::Queue::submit() without any command lists.
 		void signal(fence&);
+		/// Calls \p vk::Queue::submit() without any command lists.
+		void signal(timeline_semaphore&, std::uint64_t);
 	private:
 		vk::Queue _queue; ///< The queue.
 	};

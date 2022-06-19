@@ -165,11 +165,18 @@ namespace lotus::graphics::backends::vulkan {
 
 		/// Calls \p vk::UniqueDevice::createFenceUnique().
 		[[nodiscard]] fence create_fence(synchronization_state state);
+		/// Calls \p vk::UniqueDevice::createSemaphoreUnique().
+		[[nodiscard]] timeline_semaphore create_timeline_semaphore(std::uint64_t);
 
 		/// Calls \p vk::UniqueDevice::resetFences().
 		void reset_fence(fence&);
 		/// Calls \p vk::UniqueDevice::waitForFences().
 		void wait_for_fence(fence&);
+
+		/// Calls \p vk::UniqueDevice::signalSemaphore().
+		void signal_timeline_semaphore(timeline_semaphore&, std::uint64_t);
+		/// Calls \p vk::UniqueDevice::getSemaphoreCounterValue().
+		[[nodiscard]] std::uint64_t query_timeline_semaphore(timeline_semaphore&);
 
 		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT().
 		void set_debug_name(buffer&, const char8_t*);

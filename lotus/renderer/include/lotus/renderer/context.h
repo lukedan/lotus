@@ -138,6 +138,20 @@ namespace lotus::renderer {
 		private:
 			context *_ctx = nullptr; ///< The context.
 		};
+
+
+		/// A descriptor set and its register space.
+		struct descriptor_set_info {
+			/// Initializes this structure to empty.
+			descriptor_set_info(std::nullptr_t) {
+			}
+			/// Initializes all fields of this struct.
+			descriptor_set_info(graphics::descriptor_set &se, std::uint32_t s) : set(&se), space(s) {
+			}
+
+			graphics::descriptor_set *set = nullptr; ///< The descriptor set.
+			std::uint32_t space = 0; ///< Register space of this descriptor set.
+		};
 	}
 
 
@@ -251,7 +265,8 @@ namespace lotus::renderer {
 			assets::owning_handle<assets::buffer> buf, std::uint32_t off, graphics::input_buffer_layout layout
 		) {
 			return input_buffer_binding(
-				layout.buffer_index, std::move(buf), off, layout.stride,
+				static_cast<std::uint32_t>(layout.buffer_index), std::move(buf),
+				off, static_cast<std::uint32_t>(layout.stride),
 				layout.input_rate, { layout.elements.begin(), layout.elements.end() }
 			);
 		}
@@ -325,17 +340,60 @@ namespace lotus::renderer {
 
 			std::vector<std::byte> data; ///< Constant buffer data.
 		};
+		/// A sampler.
+		struct sampler {
+			/// Initializes the sampler value to a default point sampler.
+			sampler(std::nullptr_t) {
+			}
+			/// Initializes all fields of this struct.
+			sampler(
+				graphics::filtering min = graphics::filtering::linear,
+				graphics::filtering mag = graphics::filtering::linear,
+				graphics::filtering mip = graphics::filtering::linear,
+				float lod_bias = 0.0f, float minlod = 0.0f, float maxlod = std::numeric_limits<float>::max(),
+				std::optional<float> max_aniso = std::nullopt,
+				graphics::sampler_address_mode addr_u = graphics::sampler_address_mode::repeat,
+				graphics::sampler_address_mode addr_v = graphics::sampler_address_mode::repeat,
+				graphics::sampler_address_mode addr_w = graphics::sampler_address_mode::repeat,
+				linear_rgba_f border = zero,
+				std::optional<graphics::comparison_function> comp = std::nullopt
+			) :
+				minification(min), magnification(mag), mipmapping(mip),
+				mip_lod_bias(lod_bias), min_lod(minlod), max_lod(maxlod), max_anisotropy(max_aniso),
+				addressing_u(addr_u), addressing_v(addr_v), addressing_w(addr_w),
+				border_color(border), comparison(comp) {
+			}
+
+			graphics::filtering minification  = graphics::filtering::nearest;
+			graphics::filtering magnification = graphics::filtering::nearest;
+			graphics::filtering mipmapping    = graphics::filtering::nearest;
+			float mip_lod_bias = 0.0f;
+			float min_lod      = 0.0f;
+			float max_lod      = 0.0f;
+			std::optional<float> max_anisotropy;
+			graphics::sampler_address_mode addressing_u = graphics::sampler_address_mode::repeat;
+			graphics::sampler_address_mode addressing_v = graphics::sampler_address_mode::repeat;
+			graphics::sampler_address_mode addressing_w = graphics::sampler_address_mode::repeat;
+			linear_rgba_f border_color = zero;
+			std::optional<graphics::comparison_function> comparison;
+
+		};
 
 
 		/// A union of all possible resource types.
-		using value = std::variant<image2d, swap_chain_image, immediate_constant_buffer>;
+		using value = std::variant<image2d, swap_chain_image, immediate_constant_buffer, sampler>;
 	}
 
 	/// The binding of a single resource.
 	struct resource_binding {
+		/// Initializes all fields of this struct.
+		resource_binding(descriptor_resource::value rsrc, std::uint32_t reg) :
+			resource(std::move(rsrc)), register_index(reg) {
+		}
+
 		/// The resource to bind to this register.
 		descriptor_resource::value resource;
-		std::uint32_t register_index; ///< Register index to bind to.
+		std::uint32_t register_index = 0; ///< Register index to bind to.
 	};
 	/// The binding of a set of resources corresponding to a descriptor set or register space.
 	struct resource_set_binding {
@@ -361,15 +419,10 @@ namespace lotus::renderer {
 		all_resource_bindings(std::nullptr_t) {
 		}
 		/// Initializes the resource sets and sorts them based on their register space.
-		explicit all_resource_bindings(std::vector<resource_set_binding> s) : sets(std::move(s)) {
-			// sort based on register space
-			std::sort(
-				sets.begin(), sets.end(),
-				[](const resource_set_binding &lhs, const resource_set_binding &rhs) {
-					return lhs.space < rhs.space;
-				}
-			);
-		}
+		[[nodiscard]] static all_resource_bindings from_unsorted(std::vector<resource_set_binding>);
+
+		/// Removes duplicate sets and sorts all sets and bindings.
+		void consolidate();
 
 		std::vector<resource_set_binding> sets; ///< Sets of resource bindings.
 	};
@@ -377,6 +430,18 @@ namespace lotus::renderer {
 
 	/// Commands to be executed during a render pass.
 	namespace pass_commands {
+		/// Cached data used by a single command.
+		struct command_data {
+			/// Initializes this structure to empty.
+			command_data(std::nullptr_t) {
+			}
+
+			graphics::pipeline_resources *resources = nullptr; ///< Pipeline resources.
+			graphics::graphics_pipeline_state *pipeline_state = nullptr; ///< Pipeline state.
+			std::vector<_details::descriptor_set_info> descriptor_sets; ///< Descriptor sets.
+		};
+
+
 		/// Draws a number of instances of a given mesh.
 		struct draw_instanced {
 			/// Initializes all fields of this struct.
@@ -563,8 +628,8 @@ namespace lotus::renderer {
 			graphics, ///< The descriptor sets are used for graphics operations.
 			compute,  ///< The descriptor sets are used for compute operations.
 		};
-		/// Internal resources used by the context.
-		struct _internal_resources {
+		/// Transient resources used by a batch.
+		struct _batch_resources {
 			std::deque<graphics::descriptor_set>          descriptor_sets;    ///< Descriptor sets.
 			std::deque<graphics::pipeline_resources>      pipeline_resources; ///< Pipeline resources.
 			std::deque<graphics::compute_pipeline_state>  compute_pipelines;  ///< Compute pipeline states.
@@ -574,44 +639,86 @@ namespace lotus::renderer {
 			std::deque<graphics::buffer>                  buffers;            ///< Constant buffers.
 			std::deque<graphics::command_list>            command_lists;      ///< Command lists.
 			std::deque<graphics::frame_buffer>            frame_buffers;      ///< Frame buffers.
+			std::deque<graphics::sampler>                 samplers;           ///< Samplers.
 		};
 		/// Stores temporary objects used when executing commands.
 		struct _execution_context {
-			/// Initializes this context.
-			explicit _execution_context(context &ctx) : context(ctx), list(nullptr) {
-			}
+		public:
+			/// Creates a new execution context for the given context.
+			[[nodiscard]] inline static _execution_context create(context&);
 			/// No move construction.
-			_execution_context(_execution_context&&) = delete;
+			_execution_context(const _execution_context&) = delete;
 			/// No move assignment.
-			_execution_context &operator=(_execution_context&&) = delete;
-
-			context &context; ///< The \ref context object for convenience.
-			graphics::command_list list; ///< Current command list. May be empty.
+			_execution_context &operator=(const _execution_context&) = delete;
 
 			/// Creates the command list if necessary, and returns the current command list.
-			[[nodiscard]] graphics::command_list &get_command_list() {
-				if (!list) {
-					list = context._device.create_and_start_command_list(context._cmd_alloc);
+			[[nodiscard]] graphics::command_list &get_command_list();
+			/// Submits the current command list.
+			///
+			/// \return Whether a command list has been submitted. If not, an empty submission will have been
+			///         performed with the given synchronization requirements.
+			bool submit(graphics::command_queue &q, graphics::queue_synchronization sync) {
+				if (!_list) {
+					q.submit_command_lists({}, std::move(sync));
+					return false;
 				}
-				return list;
-			}
-			/// Takes the command list from the context and leaves an empty command list.
-			[[nodiscard]] graphics::command_list take_command_list() {
-				return std::exchange(list, nullptr);
-			}
-			/// Takes the command list if there's one that has been recorded.
-			[[nodiscard]] graphics::command_list maybe_take_command_list() {
-				return list ? std::exchange(list, nullptr) : nullptr;
-			}
-		};
-		/// A descriptor set and its register space.
-		struct _descriptor_set {
-			/// Initializes all fields of this struct.
-			_descriptor_set(graphics::descriptor_set se, std::uint32_t s) : set(std::move(se)), space(s) {
+
+				_list->finish();
+				q.submit_command_lists({ _list }, std::move(sync));
+				_list = nullptr;
+				return true;
 			}
 
-			graphics::descriptor_set set; ///< The descriptor set.
-			std::uint32_t space; ///< Register space of this descriptor set.
+			/// Registers the given object as a resource.
+			template <typename T> T &record(T obj) {
+				if constexpr (std::is_same_v<T, graphics::descriptor_set>) {
+					return _resources.descriptor_sets.emplace_back(std::move(obj));
+				} else if constexpr (std::is_same_v<T, graphics::pipeline_resources>) {
+					return _resources.pipeline_resources.emplace_back(std::move(obj));
+				} else if constexpr (std::is_same_v<T, graphics::compute_pipeline_state>) {
+					return _resources.compute_pipelines.emplace_back(std::move(obj));
+				} else if constexpr (std::is_same_v<T, graphics::graphics_pipeline_state>) {
+					return _resources.graphics_pipelines.emplace_back(std::move(obj));
+				} else if constexpr (std::is_same_v<T, graphics::image2d>) {
+					return _resources.images.emplace_back(std::move(obj));
+				} else if constexpr (std::is_same_v<T, graphics::sampler>) {
+					return _resources.samplers.emplace_back(std::move(obj));
+				} else if constexpr (std::is_same_v<T, graphics::command_list>) {
+					return _resources.command_lists.emplace_back(std::move(obj));
+				} else {
+					static_assert(sizeof(T*) == 0, "Unhandled resource type");
+				}
+			}
+			/// Creates a new image view with the given parameters.
+			[[nodiscard]] graphics::image2d_view &create_image2d_view(
+				graphics::image2d &img, graphics::format fmt, graphics::mip_levels mips
+			) {
+				return _resources.image_views.emplace_back(
+					_ctx._device.create_image2d_view_from(img, fmt, mips)
+				);
+			}
+			/// Creates a new buffer with the given parameters.
+			[[nodiscard]] graphics::buffer &create_buffer(
+				std::size_t size, graphics::heap_type heap, graphics::buffer_usage::mask usage
+			) {
+				return _resources.buffers.emplace_back(_ctx._device.create_committed_buffer(size, heap, usage));
+			}
+			/// Creates a frame buffer with the given parameters.
+			[[nodiscard]] graphics::frame_buffer &create_frame_buffer(
+				std::span<const graphics::image2d_view *const> color_rts, const graphics::image2d_view *ds_rt, cvec2s size
+			) {
+				return _resources.frame_buffers.emplace_back(
+					_ctx._device.create_frame_buffer(color_rts, ds_rt, size)
+				);
+			}
+		private:
+			/// Initializes this context.
+			_execution_context(context &ctx, _batch_resources &rsrc) : _ctx(ctx), _resources(rsrc) {
+			}
+
+			context &_ctx; ///< The associated context.
+			_batch_resources &_resources; ///< Internal resources.
+			graphics::command_list *_list = nullptr; ///< Current command list.
 		};
 
 		assets::manager &_assets;        ///< Associated asset manager.
@@ -621,17 +728,22 @@ namespace lotus::renderer {
 
 		graphics::command_allocator _cmd_alloc;     ///< Command allocator.
 		graphics::descriptor_pool _descriptor_pool; ///< Descriptor pool to allocate descriptors out of.
+		graphics::descriptor_set_layout _empty_layout; ///< Empty descriptor set layout.
+		graphics::timeline_semaphore _batch_semaphore; ///< A semaphore that is signaled after each batch.
 
 		std::thread::id _thread; ///< \ref flush() can only be called from the thread that created this object.
+
 		std::vector<context_commands::value> _commands; ///< Recorded commands.
-		std::deque<_internal_resources> _resources; ///< Resources that are in use by previous operations.
+
+		std::deque<_batch_resources> _all_resources; ///< Resources that are in use by previous operations.
+		std::uint32_t _batch_index = 0; ///< Index of the last batch that has been submitted.
 
 		/// Initializes all fields of the context.
 		context(assets::manager&, graphics::context&, graphics::command_queue&);
 
 		/// Creates or finds a \ref graphics::image2d_view from the given \ref renderer::image2d_view, allocating
 		/// storage for then image if necessary.
-		[[nodiscard]] graphics::image2d_view &_request_image_view(const image2d_view&);
+		[[nodiscard]] graphics::image2d_view &_request_image_view(_execution_context&, const image2d_view&);
 		/// Creates or finds a \ref graphics::image2d_view from the next image in the given \ref swap_chain.
 		[[nodiscard]] graphics::image2d_view &_request_image_view(_execution_context&, const swap_chain&);
 
@@ -653,26 +765,38 @@ namespace lotus::renderer {
 			const graphics::descriptor_set_layout&, std::uint32_t reg,
 			const descriptor_resource::immediate_constant_buffer&
 		);
+		/// Creates a descriptor binding for a sampler.
+		void _create_descriptor_binding(
+			_execution_context&, graphics::descriptor_set&,
+			const graphics::descriptor_set_layout&, std::uint32_t reg,
+			const descriptor_resource::sampler&
+		);
+
 		/// Checks and creates a descriptor set for the given resources.
-		[[nodiscard]] std::vector<_descriptor_set> _check_and_create_descriptor_set_bindings(
+		[[nodiscard]] std::vector<_details::descriptor_set_info> _check_and_create_descriptor_set_bindings(
 			_execution_context&,
-			const asset<assets::shader>&,
+			std::initializer_list<const asset<assets::shader>*>,
 			const all_resource_bindings&
 		);
 		/// Binds the given descriptor sets.
 		void _bind_descriptor_sets(
 			_execution_context&, const graphics::pipeline_resources&,
-			const std::vector<_descriptor_set>&, _bind_point
+			std::vector<_details::descriptor_set_info>, _bind_point
 		);
 
 		/// Creates pipeline resources for the given set of shaders.
-		[[nodiscard]] graphics::pipeline_resources _create_pipeline_resources(
-			std::initializer_list<const asset<assets::shader>*>
+		[[nodiscard]] graphics::pipeline_resources &_create_pipeline_resources(
+			_execution_context&, std::initializer_list<const asset<assets::shader>*>
+		);
+
+		/// Preprocesses the given instanced draw command.
+		[[nodiscard]] pass_commands::command_data _preprocess_command(
+			_execution_context&, const graphics::frame_buffer_layout&, const pass_commands::draw_instanced&
 		);
 
 		/// Handles a instanced draw command.
 		void _handle_pass_command(
-			_execution_context&, const graphics::frame_buffer_layout&, const pass_commands::draw_instanced&
+			_execution_context&, pass_commands::command_data, const pass_commands::draw_instanced&
 		);
 
 		/// Handles an invalid command by asserting.

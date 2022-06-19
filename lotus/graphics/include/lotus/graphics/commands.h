@@ -262,20 +262,25 @@ namespace lotus::graphics {
 		/// Submits all given command lists for execution. These command lists are guaranteed to execute after all
 		/// command lists in the last call to this function has finished, but multiple command lists in a single call
 		/// may start simultaneously or overlap.
-		void submit_command_lists(std::span<const command_list *const> lists, fence *on_completion) {
-			backend::command_queue::submit_command_lists(lists, on_completion);
+		void submit_command_lists(std::span<const command_list *const> lists, queue_synchronization synch) {
+			backend::command_queue::submit_command_lists(lists, synch);
 		}
 		/// \overload
-		void submit_command_lists(std::initializer_list<command_list*> lists, fence *on_completion) {
-			submit_command_lists({ lists.begin(), lists.end() }, on_completion);
+		void submit_command_lists(std::initializer_list<command_list*> lists, queue_synchronization synch) {
+			submit_command_lists({ lists.begin(), lists.end() }, synch);
 		}
 		/// Presents the current back buffer in the swap chain.
 		[[nodiscard]] swap_chain_status present(swap_chain &target) {
 			return backend::command_queue::present(target);
 		}
+
 		/// Signals the given fence once the GPU has finished all previous command lists.
 		void signal(fence &f) {
 			backend::command_queue::signal(f);
+		}
+		/// Sets the given timeline semaphore to the given value.
+		void signal(timeline_semaphore &sem, std::uint64_t value) {
+			backend::command_queue::signal(sem, value);
 		}
 	protected:
 		/// Initializes the backend command queue.

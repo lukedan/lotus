@@ -704,6 +704,12 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
+	timeline_semaphore device::create_timeline_semaphore(std::uint64_t value) {
+		timeline_semaphore result = nullptr;
+		_details::assert_dx(_device->CreateFence(value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&result._semaphore)));
+		return result;
+	}
+
 	void device::reset_fence(fence &f) {
 		_details::assert_dx(f._fence->Signal(static_cast<UINT64>(synchronization_state::unset)));
 	}
@@ -712,6 +718,14 @@ namespace lotus::graphics::backends::directx12 {
 		_details::assert_dx(f._fence->SetEventOnCompletion(
 			static_cast<UINT64>(synchronization_state::set), nullptr
 		));
+	}
+
+	void device::signal_timeline_semaphore(timeline_semaphore &sem, std::uint64_t val) {
+		_details::assert_dx(sem._semaphore->Signal(val));
+	}
+
+	std::uint64_t device::query_timeline_semaphore(timeline_semaphore &sem) {
+		return sem._semaphore->GetCompletedValue();
 	}
 
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
@@ -879,15 +893,15 @@ namespace lotus::graphics::backends::directx12 {
 		shader_config.MaxPayloadSizeInBytes   = static_cast<UINT>(max_payload_size);
 		shader_config.MaxAttributeSizeInBytes = static_cast<UINT>(max_attribute_size);
 		{
-			auto &obj = subobjects.emplace_back();
-			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
-			obj.pDesc = &shader_config;
+auto &obj = subobjects.emplace_back();
+obj.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
+obj.pDesc = &shader_config;
 		}
 		D3D12_RAYTRACING_PIPELINE_CONFIG pipeline_config = {};
 		pipeline_config.MaxTraceRecursionDepth = static_cast<UINT>(max_recursion);
 		{
 			auto &obj = subobjects.emplace_back();
-			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
+			obj.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
 			obj.pDesc = &pipeline_config;
 		}
 
@@ -906,15 +920,15 @@ namespace lotus::graphics::backends::directx12 {
 
 			auto &exp = shader_exports.emplace_back();
 			exp.ExportToRename = name.c_str();
-			exp.Name           = export_name;
+			exp.Name = export_name;
 
 			auto &lib = shader_libs.emplace_back();
 			lib.DXILLibrary = sh.code->_shader;
-			lib.NumExports  = 1;
-			lib.pExports    = &exp;
+			lib.NumExports = 1;
+			lib.pExports = &exp;
 
 			auto &obj = subobjects.emplace_back();
-			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
+			obj.Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
 			obj.pDesc = &lib;
 		};
 		// hit group shaders
@@ -928,18 +942,18 @@ namespace lotus::graphics::backends::directx12 {
 			const auto &group = hit_groups[i];
 
 			auto &gp = hit_shader_groups.emplace_back();
-			gp.HitGroupExport           = _details::shader_record_name(i);
-			gp.Type                     = D3D12_HIT_GROUP_TYPE_TRIANGLES;
-			gp.AnyHitShaderImport       =
+			gp.HitGroupExport = _details::shader_record_name(i);
+			gp.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
+			gp.AnyHitShaderImport =
 				group.any_hit_shader_index == hit_shader_group::no_shader ?
 				nullptr : _details::shader_name(group.any_hit_shader_index);
-			gp.ClosestHitShaderImport   =
+			gp.ClosestHitShaderImport =
 				group.closest_hit_shader_index == hit_shader_group::no_shader ?
 				nullptr : _details::shader_name(group.closest_hit_shader_index);
 			gp.IntersectionShaderImport = nullptr;
 
 			auto &obj = subobjects.emplace_back();
-			obj.Type  = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
+			obj.Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
 			obj.pDesc = &gp;
 		}
 
@@ -953,9 +967,9 @@ namespace lotus::graphics::backends::directx12 {
 		assert(subobjects.size() == num_subobjects);
 
 		D3D12_STATE_OBJECT_DESC desc = {};
-		desc.Type          = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
+		desc.Type = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
 		desc.NumSubobjects = static_cast<UINT>(subobjects.size());
-		desc.pSubobjects   = subobjects.data();
+		desc.pSubobjects = subobjects.data();
 		_details::assert_dx(_device->CreateStateObject(&desc, IID_PPV_ARGS(&result._state)));
 
 		return result;
@@ -965,7 +979,7 @@ namespace lotus::graphics::backends::directx12 {
 		_rtv_descriptors.initialize(*_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, descriptor_heap_size);
 		_dsv_descriptors.initialize(*_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, descriptor_heap_size);
 		_srv_descriptors.initialize(*_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, descriptor_heap_size);
-		_sampler_descriptors.initialize(*_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, descriptor_heap_size);
+		_sampler_descriptors.initialize(*_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, sampler_heap_size);
 	}
 
 	void device::_set_debug_name(ID3D12Object &obj, const char8_t *name) {
@@ -979,27 +993,31 @@ namespace lotus::graphics::backends::directx12 {
 		_details::com_ptr<ID3D12Device8> result;
 		_details::assert_dx(D3D12CreateDevice(_adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&result)));
 		_details::com_ptr<ID3D12InfoQueue1> info_queue;
-		_details::assert_dx(result->QueryInterface(IID_PPV_ARGS(&info_queue)));
-		DWORD dummy;
-		_details::assert_dx(info_queue->RegisterMessageCallback(
-			[](
-				D3D12_MESSAGE_CATEGORY category,
-				D3D12_MESSAGE_SEVERITY severity,
-				D3D12_MESSAGE_ID id,
-				LPCSTR description,
-				void*
-			) {
-				log().debug<u8"DirectX message: category: {}, severity: {}, id: {}, \"{}\"">(
-					static_cast<std::underlying_type_t<D3D12_MESSAGE_CATEGORY>>(category),
-					static_cast<std::underlying_type_t<D3D12_MESSAGE_SEVERITY>>(severity),
-					static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
-					description
-				);
-			},
-			D3D12_MESSAGE_CALLBACK_FLAG_NONE,
-			nullptr,
-			&dummy
-		));
+		HRESULT res = result->QueryInterface(IID_PPV_ARGS(&info_queue));
+		if (res == S_OK) {
+			DWORD dummy;
+			_details::assert_dx(info_queue->RegisterMessageCallback(
+				[](
+					D3D12_MESSAGE_CATEGORY category,
+					D3D12_MESSAGE_SEVERITY severity,
+					D3D12_MESSAGE_ID id,
+					LPCSTR description,
+					void*
+				) {
+					log().debug<u8"DirectX message: category: {}, severity: {}, id: {}, \"{}\"">(
+						static_cast<std::underlying_type_t<D3D12_MESSAGE_CATEGORY>>(category),
+						static_cast<std::underlying_type_t<D3D12_MESSAGE_SEVERITY>>(severity),
+						static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
+						description
+					);
+				},
+				D3D12_MESSAGE_CALLBACK_FLAG_NONE,
+				nullptr,
+				&dummy
+			));
+		} else {
+			log().error<u8"Failed to register DirectX message callback: {}">(res);
+		}
 		return device(std::move(result));
 	}
 

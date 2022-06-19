@@ -475,10 +475,13 @@ namespace lotus::graphics::backends::vulkan::_details {
 				result.type = descriptor_type::read_write_image;
 				break;
 			case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-				result.type = descriptor_type::read_only_buffer;
+				result.type = descriptor_type::constant_buffer;
 				break;
 			case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-				result.type = descriptor_type::read_write_buffer;
+				result.type =
+					(binding.resource_type & SPV_REFLECT_RESOURCE_FLAG_UAV) ?
+					descriptor_type::read_write_buffer :
+					descriptor_type::read_only_buffer;
 				break;
 			default:
 				assert(false); // not supported

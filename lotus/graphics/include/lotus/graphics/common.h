@@ -28,6 +28,7 @@ namespace lotus::graphics {
 	class sampler;
 	class shader_binary;
 	class staging_buffer;
+	class timeline_semaphore;
 	class top_level_acceleration_structure;
 
 
@@ -1169,11 +1170,41 @@ namespace lotus::graphics {
 		}
 	};
 
+
+	/// Synchronization values used by a timeline semaphore.
+	struct timeline_semaphore_synchronization {
+		/// Initializes this struct to empty.
+		timeline_semaphore_synchronization(std::nullptr_t) {
+		}
+		/// Initializes all fields of this struct.
+		timeline_semaphore_synchronization(timeline_semaphore &sem, std::uint64_t v) : semaphore(&sem), value(v) {
+		}
+
+		std::uint64_t value = 0; ///< The value of the semaphore.
+		timeline_semaphore *semaphore = nullptr; ///< The semaphore.
+	};
+
+	/// Synchronization primitives that will be waited for and/or notified when commands are submitted to a queue.
+	struct queue_synchronization {
+	public:
+		/// Initializes all fields of this struct.
+		queue_synchronization(
+			fence *f,
+			std::span<const timeline_semaphore_synchronization> wait   = {},
+			std::span<const timeline_semaphore_synchronization> notify = {}
+		) : wait_semaphores(wait), notify_semaphores(notify), notify_fence(f) {
+		}
+
+		std::span<const timeline_semaphore_synchronization> wait_semaphores;   ///< Semaphores to wait for.
+		std::span<const timeline_semaphore_synchronization> notify_semaphores; ///< Semaphores to notify.
+		fence *notify_fence = nullptr; ///< Fence to notify.
+	};
+
 	/// Synchronization primitives that will be notified when a frame has finished presenting.
 	struct back_buffer_synchronization {
 	public:
 		/// Initializes all fields to \p nullptr.
-		back_buffer_synchronization(std::nullptr_t) : notify_fence(nullptr) {
+		back_buffer_synchronization(std::nullptr_t) {
 		}
 		/// Creates a new object with the specified parameters.
 		[[nodiscard]] inline static back_buffer_synchronization create(fence *f) {
@@ -1184,7 +1215,7 @@ namespace lotus::graphics {
 			return back_buffer_synchronization(&f);
 		}
 
-		fence *notify_fence; ///< Fence to notify.
+		fence *notify_fence = nullptr; ///< Fence to notify.
 	protected:
 		/// Initializes all fields of this struct.
 		back_buffer_synchronization(fence *f) : notify_fence(f) {

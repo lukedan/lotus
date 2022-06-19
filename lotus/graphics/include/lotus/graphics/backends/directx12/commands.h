@@ -142,14 +142,18 @@ namespace lotus::graphics::backends::directx12 {
 		friend device;
 		friend context;
 	protected:
-		/// Calls \p ID3D12CommandQueue::ExecuteCommandLists(), then optionally signals the fence using
+		/// Calls \p ID3D12CommandQueue::Wait() for any synchronization primitives, submit all command lists using
+		/// \p ID3D12CommandQueue::ExecuteCommandLists(), then signals any synchronization primitives using
 		/// \p ID3D12CommandQueue::Signal().
-		void submit_command_lists(std::span<const graphics::command_list *const>, fence*);
+		void submit_command_lists(std::span<const graphics::command_list *const>, queue_synchronization);
 		/// Calls \p IDXGISwapChain::Present(), then signals any synchronization primitives associated with the
 		/// current back buffer.
 		[[nodiscard]] swap_chain_status present(swap_chain&);
+
 		/// Calls \p ID3D12CommandQueue::Signal().
 		void signal(fence&);
+		/// Calls \p ID3D12CommandQueue::Signal().
+		void signal(timeline_semaphore&, std::uint64_t);
 	private:
 		_details::com_ptr<ID3D12CommandQueue> _queue; ///< The command queue.
 	};

@@ -80,6 +80,9 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
+		if (buffers.empty()) {
+			return;
+		}
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 		auto buffer_ptrs = bookmark.create_reserved_vector_array<vk::Buffer>(buffers.size());
 		auto offsets = bookmark.create_reserved_vector_array<vk::DeviceSize>(buffers.size());
@@ -99,6 +102,9 @@ namespace lotus::graphics::backends::vulkan {
 	void command_list::bind_graphics_descriptor_sets(
 		const pipeline_resources &rsrc, std::size_t first, std::span<const graphics::descriptor_set *const> sets
 	) {
+		if (sets.empty()) {
+			return;
+		}
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 		auto vk_sets = bookmark.create_reserved_vector_array<vk::DescriptorSet>(sets.size());
 		for (auto *set : sets) {
@@ -112,6 +118,9 @@ namespace lotus::graphics::backends::vulkan {
 	void command_list::bind_compute_descriptor_sets(
 		const pipeline_resources &rsrc, std::size_t first, std::span<const graphics::descriptor_set *const> sets
 	) {
+		if (sets.empty()) {
+			return;
+		}
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 		auto vk_sets = bookmark.create_reserved_vector_array<vk::DescriptorSet>(sets.size());
 		for (auto *set : sets) {
@@ -356,16 +365,36 @@ namespace lotus::graphics::backends::vulkan {
 
 
 	void command_queue::submit_command_lists(
-		std::span<const graphics::command_list *const> lists, fence *on_completion
+		std::span<const graphics::command_list *const> lists, queue_synchronization synch
 	) {
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
-		auto arr = bookmark.create_reserved_vector_array<vk::CommandBuffer>(lists.size());
+		auto vk_lists = bookmark.create_reserved_vector_array<vk::CommandBuffer>(lists.size());
 		for (const auto *list : lists) {
-			arr.emplace_back(list->_buffer);
+			vk_lists.emplace_back(list->_buffer);
 		}
+		auto wait_sems = bookmark.create_reserved_vector_array<vk::Semaphore>(synch.wait_semaphores.size());
+		auto wait_sem_values = bookmark.create_reserved_vector_array<std::uint64_t>(synch.wait_semaphores.size());
+		for (const auto &sem : synch.wait_semaphores) {
+			wait_sems.emplace_back(sem.semaphore->_semaphore.get());
+			wait_sem_values.emplace_back(sem.value);
+		}
+		auto sig_sems = bookmark.create_reserved_vector_array<vk::Semaphore>(synch.notify_semaphores.size());
+		auto sig_sem_values = bookmark.create_reserved_vector_array<std::uint64_t>(synch.notify_semaphores.size());
+		for (const auto &sem : synch.notify_semaphores) {
+			sig_sems.emplace_back(sem.semaphore->_semaphore.get());
+			sig_sem_values.emplace_back(sem.value);
+		}
+		vk::TimelineSemaphoreSubmitInfo sem_info;
+		sem_info
+			.setWaitSemaphoreValues(wait_sem_values)
+			.setSignalSemaphoreValues(sig_sem_values);
 		vk::SubmitInfo info;
-		info.setCommandBuffers(arr);
-		_details::assert_vk(_queue.submit(info, on_completion ? on_completion->_fence.get() : nullptr));
+		info
+			.setPNext(&sem_info)
+			.setCommandBuffers(vk_lists)
+			.setWaitSemaphores(wait_sems)
+			.setSignalSemaphores(sig_sems);
+		_details::assert_vk(_queue.submit(info, synch.notify_fence ? synch.notify_fence->_fence.get() : nullptr));
 	}
 
 	swap_chain_status command_queue::present(swap_chain &target) {
@@ -387,5 +416,16 @@ namespace lotus::graphics::backends::vulkan {
 
 	void command_queue::signal(fence &f) {
 		_details::assert_vk(_queue.submit({}, f._fence.get()));
+	}
+
+	void command_queue::signal(timeline_semaphore &sem, std::uint64_t value) {
+		vk::Semaphore sem_handle = sem._semaphore.get();
+		vk::TimelineSemaphoreSubmitInfo sem_info;
+		sem_info
+			.setSignalSemaphoreValues(value);
+		vk::SubmitInfo info;
+		info
+			.setSignalSemaphores(sem_handle);
+		_details::assert_vk(_queue.submit(info));
 	}
 }

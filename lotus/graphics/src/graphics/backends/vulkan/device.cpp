@@ -349,7 +349,7 @@ namespace lotus::graphics::backends::vulkan {
 				.setStageFlags(stages);
 			if (rng.range.count == descriptor_range::unbounded_count) {
 				binding
-					.setDescriptorCount(1000) // TODO what should I use here?
+					.setDescriptorCount(65536) // TODO what should I use here?
 					.setBinding(static_cast<std::uint32_t>(rng.register_index));
 				arr.emplace_back(binding);
 				flags_arr.emplace_back(vk::DescriptorBindingFlagBits::eVariableDescriptorCount);
@@ -799,12 +799,40 @@ namespace lotus::graphics::backends::vulkan {
 		return result;
 	}
 
+	timeline_semaphore device::create_timeline_semaphore(std::uint64_t value) {
+		timeline_semaphore result = nullptr;
+
+		vk::SemaphoreTypeCreateInfo type_info;
+		type_info
+			.setSemaphoreType(vk::SemaphoreType::eTimeline)
+			.setInitialValue(value);
+		vk::SemaphoreCreateInfo info;
+		info
+			.setPNext(&type_info);
+		// TODO allocator
+		result._semaphore = _details::unwrap(_device->createSemaphoreUnique(info));
+
+		return result;
+	}
+
 	void device::reset_fence(fence &f) {
 		_details::assert_vk(_device->resetFences(f._fence.get()));
 	}
 
 	void device::wait_for_fence(fence &f) {
 		_details::assert_vk(_device->waitForFences(f._fence.get(), true, std::numeric_limits<std::uint64_t>::max()));
+	}
+
+	void device::signal_timeline_semaphore(timeline_semaphore &sem, std::uint64_t val) {
+		vk::SemaphoreSignalInfo info;
+		info
+			.setSemaphore(sem._semaphore.get())
+			.setValue(val);
+		_details::assert_vk(_device->signalSemaphore(info));
+	}
+
+	std::uint64_t device::query_timeline_semaphore(timeline_semaphore &sem) {
+		return _details::unwrap(_device->getSemaphoreCounterValue(sem._semaphore.get()));
 	}
 
 	void device::set_debug_name(buffer &buf, const char8_t *name) {
@@ -1245,7 +1273,8 @@ namespace lotus::graphics::backends::vulkan {
 			.setPNext(&vk13_features)
 			.setBufferDeviceAddress(true)
 			.setDescriptorBindingVariableDescriptorCount(true)
-			.setRuntimeDescriptorArray(true);
+			.setRuntimeDescriptorArray(true)
+			.setTimelineSemaphore(true);
 
 		vk::PhysicalDeviceFeatures2 features;
 		features.setPNext(&vk12_features);

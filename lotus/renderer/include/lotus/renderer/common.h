@@ -48,7 +48,7 @@ namespace lotus::renderer {
 				if (result.sets.empty() || result.sets.back().space != range.first) {
 					result.sets.emplace_back().space = range.first;
 				}
-				auto ranges = result.sets.back().ranges;
+				auto &ranges = result.sets.back().ranges;
 				bool merge =
 					!ranges.empty() &&
 					ranges.back().range.type == range.second.range.type &&

@@ -374,7 +374,17 @@ namespace lotus::graphics::backends::directx12 {
 		_details::assert_dx(_queue->Signal(f._fence.Get(), static_cast<UINT64>(synchronization_state::set)));
 	}
 
-	void command_queue::submit_command_lists(std::span<const graphics::command_list *const> lists, fence *f) {
+	void command_queue::signal(timeline_semaphore &sem, std::uint64_t val) {
+		_details::assert_dx(_queue->Signal(sem._semaphore.Get(), val));
+	}
+
+	void command_queue::submit_command_lists(
+		std::span<const graphics::command_list *const> lists, queue_synchronization synch
+	) {
+		for (const auto &sem : synch.wait_semaphores) {
+			_details::assert_dx(_queue->Wait(sem.semaphore->_semaphore.Get(), sem.value));
+		}
+
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 		auto dx_lists = bookmark.create_vector_array<ID3D12CommandList*>(lists.size(), nullptr);
 		for (std::size_t i = 0; i < lists.size(); ++i) {
@@ -382,8 +392,13 @@ namespace lotus::graphics::backends::directx12 {
 		}
 		_queue->ExecuteCommandLists(static_cast<UINT>(lists.size()), dx_lists.data());
 
-		if (f) {
-			_details::assert_dx(_queue->Signal(f->_fence.Get(), static_cast<UINT64>(synchronization_state::set)));
+		for (const auto &sem : synch.notify_semaphores) {
+			_details::assert_dx(_queue->Signal(sem.semaphore->_semaphore.Get(), sem.value));
+		}
+		if (synch.notify_fence) {
+			_details::assert_dx(_queue->Signal(
+				synch.notify_fence->_fence.Get(), static_cast<UINT64>(synchronization_state::set)
+			));
 		}
 	}
 

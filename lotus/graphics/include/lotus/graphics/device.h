@@ -353,6 +353,10 @@ namespace lotus::graphics {
 		[[nodiscard]] fence create_fence(synchronization_state state) {
 			return backend::device::create_fence(state);
 		}
+		/// Creates a \ref timeline_semaphore.
+		[[nodiscard]] timeline_semaphore create_timeline_semaphore(std::uint64_t value) {
+			return backend::device::create_timeline_semaphore(value);
+		}
 
 
 		/// Resets the given fence.
@@ -362,6 +366,15 @@ namespace lotus::graphics {
 		/// Waits for the given fence to be signaled.
 		void wait_for_fence(fence &f) {
 			backend::device::wait_for_fence(f);
+		}
+
+		/// Signals the timeline semaphore from the CPU side.
+		void signal_timeline_semaphore(timeline_semaphore &sem, std::uint64_t value) {
+			backend::device::signal_timeline_semaphore(sem, value);
+		}
+		/// Queries the current value of the given \ref timeline_semaphore.
+		[[nodiscard]] std::uint64_t query_timeline_semaphore(timeline_semaphore &sem) {
+			return backend::device::query_timeline_semaphore(sem);
 		}
 
 

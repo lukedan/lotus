@@ -18,6 +18,11 @@ namespace lotus::renderer {
 	}
 
 
+	void swap_chain::resize(cvec2s sz) {
+		_swap_chain->current_size = sz;
+	}
+
+
 	all_resource_bindings all_resource_bindings::from_unsorted(std::vector<resource_set_binding> s) {
 		all_resource_bindings result = nullptr;
 		result.consolidate();
@@ -79,9 +84,11 @@ namespace lotus::renderer {
 		assets::owning_handle<assets::shader> vs,
 		assets::owning_handle<assets::shader> ps,
 		graphics_pipeline_state state,
-		std::uint32_t num_insts
+		std::uint32_t num_insts,
+		std::u8string_view description
 	) {
 		_command.commands.emplace_back(
+			description,
 			std::in_place_type<pass_commands::draw_instanced>,
 			num_insts,
 			std::move(inputs), num_verts,
@@ -98,19 +105,21 @@ namespace lotus::renderer {
 		assets::owning_handle<assets::material> mat,
 		std::span<const input_buffer_binding> additional_inputs,
 		graphics_pipeline_state state,
-		std::uint32_t num_insts
+		std::uint32_t num_insts,
+		std::u8string_view description
 	) {
 		assert(false); // TODO not implemented
 	}
 
 	void context::pass::end() {
-		_context->_commands.emplace_back<context_commands::render_pass>(std::move(_command));
+		_context->_commands.emplace_back(std::move(_description), std::move(_command));
 		_context = nullptr;
 	}
 
 
 	context::_execution_context context::_execution_context::create(context &ctx) {
-		return _execution_context(ctx, ctx._all_resources.emplace_back());
+		auto &resources = ctx._all_resources.emplace_back(std::exchange(ctx._deferred_delete_resources, {}));
+		return _execution_context(ctx, resources);
 	}
 
 	graphics::command_list &context::_execution_context::get_command_list() {
@@ -153,21 +162,22 @@ namespace lotus::renderer {
 
 	void context::run_compute_shader(
 		assets::owning_handle<assets::shader> shader, cvec3<std::uint32_t> num_thread_groups,
-		all_resource_bindings bindings
+		all_resource_bindings bindings, std::u8string_view description
 	) {
-		_commands.emplace_back().emplace<context_commands::dispatch_compute>(
+		_commands.emplace_back(description).value.emplace<context_commands::dispatch_compute>(
 			std::move(bindings), std::move(shader), num_thread_groups
 		);
 	}
 
 	context::pass context::begin_pass(
-		std::vector<surface2d_color> color_rts, surface2d_depth_stencil ds_rt, cvec2s sz
+		std::vector<surface2d_color> color_rts, surface2d_depth_stencil ds_rt, cvec2s sz,
+		std::u8string_view description
 	) {
-		return context::pass(*this, std::move(color_rts), std::move(ds_rt), sz);
+		return context::pass(*this, std::move(color_rts), std::move(ds_rt), sz, description);
 	}
 
-	void context::present(swap_chain sc) {
-		_commands.emplace_back().emplace<context_commands::present>(std::move(sc));
+	void context::present(swap_chain sc, std::u8string_view description) {
+		_commands.emplace_back(description).value.emplace<context_commands::present>(std::move(sc));
 	}
 
 	context::context(assets::manager &asset_man, graphics::context &ctx, graphics::command_queue &queue) :
@@ -194,6 +204,9 @@ namespace lotus::renderer {
 				view._surface->size[0], view._surface->size[1], 1, 1,
 				view._surface->original_format, view._surface->tiling, view._surface->usages
 			);
+			if constexpr (register_debug_names) {
+				_device.set_debug_name(view._surface->image, view._surface->name);
+			}
 			view._surface->current_usage = graphics::image_usage::initial;
 		}
 		auto mip_levels = graphics::mip_levels::only_highest(); // TODO
@@ -244,7 +257,11 @@ namespace lotus::renderer {
 				assert(back_buffer.status == graphics::swap_chain_status::ok);
 			}
 			chain_data.next_image_index = back_buffer.index;
-			chain_data.next_fence = back_buffer.on_presented;
+			
+			// wait until the buffer becomes available
+			if (back_buffer.on_presented) {
+				_device.wait_for_fence(*back_buffer.on_presented);
+			}
 
 			// TODO state transition
 		}
@@ -436,10 +453,14 @@ namespace lotus::renderer {
 
 			switch (pt) {
 			case _bind_point::graphics:
-				ectx.get_command_list().bind_graphics_descriptor_sets(rsrc, sets[i].space, { set_ptrs.begin() + i, set_ptrs.begin() + end });
+				ectx.get_command_list().bind_graphics_descriptor_sets(
+					rsrc, sets[i].space, { set_ptrs.begin() + i, set_ptrs.begin() + end }
+				);
 				break;
 			case _bind_point::compute:
-				ectx.get_command_list().bind_compute_descriptor_sets(rsrc, sets[i].space, { set_ptrs.begin() + i, set_ptrs.begin() + end });
+				ectx.get_command_list().bind_compute_descriptor_sets(
+					rsrc, sets[i].space, { set_ptrs.begin() + i, set_ptrs.begin() + end }
+				);
 				break;
 			}
 
@@ -515,8 +536,6 @@ namespace lotus::renderer {
 		pass_commands::command_data data,
 		const pass_commands::draw_instanced &cmd
 	) {
-		auto &cmd_list = ectx.get_command_list();
-
 		std::vector<graphics::vertex_buffer> bufs;
 		for (const auto &input : cmd.inputs) {
 			if (input.buffer_index >= bufs.size()) {
@@ -526,6 +545,7 @@ namespace lotus::renderer {
 				graphics::vertex_buffer(input.buffer.get().value.data, input.offset, input.stride);
 		}
 
+		auto &cmd_list = ectx.get_command_list();
 		cmd_list.bind_pipeline_state(*data.pipeline_state);
 		_bind_descriptor_sets(ectx, *data.resources, std::move(data.descriptor_sets), _bind_point::graphics);
 		cmd_list.bind_vertex_buffers(0, bufs);
@@ -542,8 +562,6 @@ namespace lotus::renderer {
 	}
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::dispatch_compute &cmd) {
-		auto &cmd_list = ectx.get_command_list();
-
 		// check that the descriptor bindings are correct
 		auto sets = _check_and_create_descriptor_set_bindings(ectx, { &cmd.shader.get() }, cmd.resources);
 		auto &pipeline_resources = _create_pipeline_resources(ectx, { &cmd.shader.get() });
@@ -551,14 +569,13 @@ namespace lotus::renderer {
 			pipeline_resources, cmd.shader.get().value.binary
 		));
 
+		auto &cmd_list = ectx.get_command_list();
 		cmd_list.bind_pipeline_state(pipeline);
 		_bind_descriptor_sets(ectx, pipeline_resources, std::move(sets), _bind_point::compute);
 		cmd_list.run_compute_shader(cmd.num_thread_groups[0], cmd.num_thread_groups[1], cmd.num_thread_groups[2]);
 	}
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::render_pass &cmd) {
-		auto &cmd_list = ectx.get_command_list();
-
 		std::vector<graphics::color_render_target_access> color_rt_access;
 		std::vector<graphics::image2d_view*> color_rts;
 		std::vector<graphics::format> color_rt_formats;
@@ -600,9 +617,10 @@ namespace lotus::renderer {
 		for (const auto &pass_cmd_val : cmd.commands) {
 			std::visit([&](const auto &pass_cmd) {
 				data.emplace_back(_preprocess_command(ectx, fb_layout, pass_cmd));
-			}, pass_cmd_val);
+			}, pass_cmd_val.value);
 		}
 
+		auto &cmd_list = ectx.get_command_list();
 		cmd_list.begin_pass(frame_buffer, access);
 		cmd_list.set_viewports({ graphics::viewport::create(
 			aab2f::create_from_min_max(zero, cmd.render_target_size.into<float>()), 0.0f, 1.0f
@@ -612,7 +630,7 @@ namespace lotus::renderer {
 		for (std::size_t i = 0; i < cmd.commands.size(); ++i) {
 			std::visit([&](const auto &pass_cmd) {
 				_handle_pass_command(ectx, std::move(data[i]), pass_cmd);
-			}, cmd.commands[i]);
+			}, cmd.commands[i].value);
 		}
 
 		cmd_list.end_pass();
@@ -639,7 +657,7 @@ namespace lotus::renderer {
 		for (const auto &cmd : cmds) {
 			std::visit([&, this](const auto &cmd_val) {
 				_handle_command(ectx, cmd_val);
-			}, cmd);
+			}, cmd.value);
 		}
 
 		auto signal_semaphores = {

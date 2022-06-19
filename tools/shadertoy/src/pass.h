@@ -94,22 +94,14 @@ public:
 		std::optional<std::size_t> register_index; ///< Register index of the binding.
 	};
 	/// A set of pass output resources.
-	class output {
-	public:
-		/// A single image and its associated data.
-		struct target {
-			/// Creates an empty output target.
-			target(std::nullptr_t) : image(nullptr) {
-			}
-
-			lren::image2d_view image; ///< The output image.
-		};
-
-		/// Initializes everything to empty.
-		output(std::nullptr_t) {
+	struct target {
+		/// Initializes this target to empty.
+		target(std::nullptr_t) : previous_frame(nullptr), current_frame(nullptr) {
 		}
 
-		std::vector<target> targets; ///< Targets.
+		std::u8string name; ///< Name of this target.
+		lren::image2d_view previous_frame; ///< Image of the previous frame.
+		lren::image2d_view current_frame;  ///< Image of this frame.
 	};
 
 	/// Initializes everything to empty.
@@ -125,31 +117,25 @@ public:
 		lren::assets::manager&, lren::assets::owning_handle<lren::assets::shader> vert_shader,
 		const std::filesystem::path &root, const error_callback&
 	);
-	/// Creates the output image and framebuffer.
-	void create_output_images(lren::context&, lotus::cvec2s, const error_callback&);
 
 
 	/// Returns whether this pass is ready to be rendered.
 	[[nodiscard]] bool ready() const {
-		return images_loaded && shader_loaded && output_created;
+		return images_loaded && shader_loaded;
 	}
 
 
 	std::u8string pass_name; ///< The name of this pass.
 
-	std::vector<input> inputs; ///< List of dependencies.
-	std::vector<std::u8string> output_names; ///< Names of all outputs.
 	std::filesystem::path shader_path; ///< Path to the shader file.
 	std::u8string entry_point; ///< Shader entry point.
 	std::vector<std::pair<std::u8string, std::u8string>> defines; ///< Defines.
 
 	lren::assets::owning_handle<lren::assets::shader> shader = nullptr; ///< The shader.
 
-	//std::array<std::vector<output::target*>, 2> dependencies; ///< Output dependencies from other passes.
-
-	std::array<output, 2> outputs{ { nullptr, nullptr } }; ///< Double-buffered output.
+	std::vector<input> inputs; ///< List of dependencies.
+	std::vector<target> targets; ///< Output textures of this pass.
 
 	bool images_loaded = false; ///< Indicates whether the images have been loaded.
 	bool shader_loaded = false; ///< Indicates whether the shader and its reflection has been loaded.
-	bool output_created = false; ///< Indicates whether the output images have been created.
 };

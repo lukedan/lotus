@@ -71,8 +71,8 @@ namespace lotus::renderer {
 				system::window &wnd, std::uint32_t imgs, std::vector<graphics::format> fmts, std::u8string n
 			) :
 				chain(nullptr), current_size(zero), current_format(graphics::format::none),
-				next_image_index(invalid_image_index), next_fence(nullptr),
-				window(wnd), num_images(imgs), expected_formats(std::move(fmts)), name(std::move(n)) {
+				next_image_index(invalid_image_index), window(wnd), num_images(imgs),
+				expected_formats(std::move(fmts)), name(std::move(n)) {
 			}
 
 			graphics::swap_chain chain; ///< The swap chain.
@@ -81,8 +81,7 @@ namespace lotus::renderer {
 			cvec2s current_size; ///< Current size of swap chain images.
 			graphics::format current_format; ///< Format of the swap chain images.
 
-			std::uint32_t next_image_index; ///< Index of the next image.
-			graphics::fence *next_fence; ///< Fence indicating that \ref next_image_index is ready.
+			std::uint32_t next_image_index = 0; ///< Index of the next image.
 
 			system::window &window; ///< The window that owns this swap chain.
 			std::uint32_t num_images; ///< Number of images in the swap chain.
@@ -194,6 +193,9 @@ namespace lotus::renderer {
 		/// Initializes this object to empty.
 		swap_chain(std::nullptr_t) {
 		}
+
+		/// Resizes this swap chain.
+		void resize(cvec2s);
 
 		/// Returns whether this object holds a valid image view.
 		[[nodiscard]] bool is_valid() const {
@@ -475,10 +477,18 @@ namespace lotus::renderer {
 			/// Primitive topology.
 			graphics::primitive_topology topology = graphics::primitive_topology::point_list;
 		};
-
-		/// A union of all command types.
-		using value = std::variant<draw_instanced>;
 	}
+	/// A union of all pass command types.
+	struct pass_command {
+		/// Initializes this command.
+		template <typename ...Args> explicit pass_command(std::u8string_view desc, Args &&...args) :
+			value(std::forward<Args>(args)...), description(desc) {
+		}
+
+		std::variant<pass_commands::draw_instanced> value; ///< The value of this command.
+		/// Debug description of this command.
+		[[no_unique_address]] static_optional<std::u8string, register_debug_names> description;
+	};
 
 	/// Commands.
 	namespace context_commands {
@@ -514,7 +524,7 @@ namespace lotus::renderer {
 			std::vector<surface2d_color> color_render_targets; ///< Color render targets.
 			surface2d_depth_stencil depth_stencil_target; ///< Depth stencil render target.
 			cvec2s render_target_size; ///< The size of the render target.
-			std::vector<pass_commands::value> commands; ///< Commands within this pass.
+			std::vector<pass_command> commands; ///< Commands within this pass.
 		};
 
 		/// Presents the given swap chain.
@@ -525,11 +535,28 @@ namespace lotus::renderer {
 
 			swap_chain target; ///< The swap chain to present.
 		};
-
-
-		/// A union of all command types.
-		using value = std::variant<invalid, dispatch_compute, render_pass, present>;
 	}
+	/// A union of all context command types.
+	struct context_command {
+		/// Initializes this command.
+		template <typename ...Args> explicit context_command(std::u8string_view desc, Args &&...args) :
+			value(std::forward<Args>(args)...), description(desc) {
+		}
+		/// \overload
+		template <typename ...Args> explicit context_command(
+			static_optional<std::u8string, register_debug_names> desc, Args &&...args
+		) : value(std::forward<Args>(args)...), description(std::move(desc)) {
+		}
+
+		std::variant<
+			context_commands::invalid,
+			context_commands::dispatch_compute,
+			context_commands::render_pass,
+			context_commands::present
+		> value; ///< The value of this command.
+		/// Debug description of this command.
+		[[no_unique_address]] static_optional<std::u8string, register_debug_names> description;
+	};
 
 
 	/// Keeps track of the rendering of a frame, including resources used for rendering.
@@ -559,7 +586,8 @@ namespace lotus::renderer {
 				assets::owning_handle<assets::shader> vs,
 				assets::owning_handle<assets::shader> ps,
 				graphics_pipeline_state,
-				std::uint32_t num_insts = 1
+				std::uint32_t num_insts,
+				std::u8string_view description
 			);
 			/// \overload
 			void draw_instanced(
@@ -567,7 +595,8 @@ namespace lotus::renderer {
 				assets::owning_handle<assets::material>,
 				std::span<const input_buffer_binding> additional_inputs,
 				graphics_pipeline_state,
-				std::uint32_t num_insts = 1
+				std::uint32_t num_insts,
+				std::u8string_view description
 			);
 
 			/// Finishes rendering to the pass and records all commands into the context.
@@ -575,11 +604,18 @@ namespace lotus::renderer {
 		private:
 			// TODO allocator?
 			context_commands::render_pass _command; ///< The resulting render pass command.
-			context *_context; ///< The context that created this pass.
+			context *_context = nullptr; ///< The context that created this pass.
+			/// The description of this pass.
+			[[no_unique_address]] static_optional<std::u8string, register_debug_names> _description;
 
 			/// Initializes the pass.
-			pass(context &ctx, std::vector<surface2d_color> color_rts, surface2d_depth_stencil ds_rt, cvec2s sz) :
-				_context(&ctx), _command(std::move(color_rts), std::move(ds_rt), sz) {
+			pass(
+				context &ctx, std::vector<surface2d_color> color_rts, surface2d_depth_stencil ds_rt, cvec2s sz,
+				std::u8string_view description
+			) :
+				_context(&ctx),
+				_command(std::move(color_rts), std::move(ds_rt), sz),
+				_description(description) {
 			}
 		};
 
@@ -604,19 +640,23 @@ namespace lotus::renderer {
 
 		/// Runs a compute shader.
 		void run_compute_shader(
-			assets::owning_handle<assets::shader>, cvec3<std::uint32_t> num_thread_groups, all_resource_bindings
+			assets::owning_handle<assets::shader>, cvec3<std::uint32_t> num_thread_groups, all_resource_bindings,
+			std::u8string_view description
 		);
 		/// Runs a compute shader with the given number of threads. Asserts if the number of threads is not
 		/// divisible by the shader's thread group size.
 		void run_compute_shader_with_thread_dimensions(
-			assets::owning_handle<assets::shader>, cvec3<std::uint32_t> num_threads, all_resource_bindings
+			assets::owning_handle<assets::shader>, cvec3<std::uint32_t> num_threads, all_resource_bindings,
+			std::u8string_view description
 		);
 
 		/// Starts rendering to the given surfaces. No other operations can be performed until the pass finishes.
-		[[nodiscard]] pass begin_pass(std::vector<surface2d_color>, surface2d_depth_stencil, cvec2s sz);
+		[[nodiscard]] pass begin_pass(
+			std::vector<surface2d_color>, surface2d_depth_stencil, cvec2s sz, std::u8string_view description
+		);
 
 		/// Presents the given swap chain.
-		void present(swap_chain);
+		void present(swap_chain, std::u8string_view description);
 
 
 		/// Analyzes and executes all pending commands. This is the only place where that happens - it doesn't happen
@@ -640,6 +680,8 @@ namespace lotus::renderer {
 			std::deque<graphics::command_list>            command_lists;      ///< Command lists.
 			std::deque<graphics::frame_buffer>            frame_buffers;      ///< Frame buffers.
 			std::deque<graphics::sampler>                 samplers;           ///< Samplers.
+			std::deque<graphics::swap_chain>              swap_chains;        ///< Swap chains.
+			std::deque<graphics::fence>                   fences;             ///< Fences.
 		};
 		/// Stores temporary objects used when executing commands.
 		struct _execution_context {
@@ -733,9 +775,10 @@ namespace lotus::renderer {
 
 		std::thread::id _thread; ///< \ref flush() can only be called from the thread that created this object.
 
-		std::vector<context_commands::value> _commands; ///< Recorded commands.
+		std::vector<context_command> _commands; ///< Recorded commands.
 
 		std::deque<_batch_resources> _all_resources; ///< Resources that are in use by previous operations.
+		_batch_resources _deferred_delete_resources; ///< Resources that are marked for deferred deletion.
 		std::uint32_t _batch_index = 0; ///< Index of the last batch that has been submitted.
 
 		/// Initializes all fields of the context.
@@ -811,12 +854,21 @@ namespace lotus::renderer {
 		void _handle_command(_execution_context&, const context_commands::present&);
 
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a surface.
-		void _deferred_delete(_details::surface2d*) {
-			// TODO actually manage & delete stuff
+		void _deferred_delete(_details::surface2d *surf) {
+			if (surf->image) {
+				_deferred_delete_resources.images.emplace_back(std::move(surf->image));
+			}
+			delete surf;
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a swap chain.
-		void _deferred_delete(_details::swap_chain*) {
-			// TODO
+		void _deferred_delete(_details::swap_chain *chain) {
+			if (chain->chain) {
+				_deferred_delete_resources.swap_chains.emplace_back(std::move(chain->chain));
+				for (auto &fence : chain->fences) {
+					_deferred_delete_resources.fences.emplace_back(std::move(fence));
+				}
+			}
+			delete chain;
 		}
 	};
 

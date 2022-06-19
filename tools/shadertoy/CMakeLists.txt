@@ -2,6 +2,7 @@ function(add_shadertoy_executable GRAPHICS_BACKEND)
 	set(PROJ shadertoy_${GRAPHICS_BACKEND})
 	add_executable(${PROJ})
 	configure_lotus_module(${PROJ})
+	set_target_properties(${PROJ} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${GRAPHICS_BACKEND}/")
 
 	find_package(nlohmann_json CONFIG REQUIRED)
 
@@ -19,9 +20,6 @@ function(add_shadertoy_executable GRAPHICS_BACKEND)
 	target_link_libraries(${PROJ} PRIVATE
 		lotus_renderer_${GRAPHICS_BACKEND}
 		nlohmann_json::nlohmann_json)
-
-	add_shader("shaders/vertex.hlsl" vs main_vs 6_0 ${PROJ} ${GRAPHICS_BACKEND})
-	add_shader("shaders/blit.hlsl" ps main_ps 6_0 ${PROJ} ${GRAPHICS_BACKEND})
 endfunction()
 
 add_shadertoy_executable(directx12)

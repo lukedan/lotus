@@ -93,14 +93,14 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 		if (outputs_it->is_array()) {
 			for (const auto &str : outputs_it.value()) {
 				if (str.is_string()) {
-					result.output_names.emplace_back(lotus::string::assume_utf8(str.get<std::string>()));
+					result.targets.emplace_back(nullptr).name = lotus::string::assume_utf8(str.get<std::string>());
 				} else {
-					result.output_names.emplace_back(); // preserve indices
+					result.targets.emplace_back(nullptr); // preserve indices
 					on_error(u8"Output at location must be a string");
 				}
 			}
 		} else if (outputs_it->is_number_unsigned()) {
-			result.output_names.resize(outputs_it->get<std::size_t>());
+			result.targets.resize(outputs_it->get<std::size_t>(), nullptr);
 		} else {
 			on_error(u8"Pass outputs must be a list of strings or a single integer");
 		}
@@ -198,48 +198,26 @@ void pass::load_shader(
 		}
 		// TODO do we need to make sure that these targets have contiguous indices?
 	});
-	if (!output_names.empty() && output_names.size() < num_outputs) {
+	if (!targets.empty() && targets.size() < num_outputs) {
 		on_error(format_utf8<u8"Only {} output names specified, while the shader has {} outputs">(
-			output_names.size(), num_outputs
+			targets.size(), num_outputs
 		));
-	} else if (output_names.size() > num_outputs) {
+	} else if (targets.size() > num_outputs) {
 		on_error(format_utf8<
 			u8"Too many output names specified for shader: got {}, expected {}. "
 			u8"Out-of-bounds ones will be discarded"
-		>(output_names.size(), num_outputs));
+		>(targets.size(), num_outputs));
 	}
-	output_names.resize(num_outputs);
+	targets.resize(num_outputs, nullptr);
 
-	std::vector<lgfx::descriptor_range_binding> bindings;
+	// check that all resources are bound in space 0
 	reflection.enumerate_resource_bindings([&](const lgfx::shader_resource_binding &b) {
 		if (b.register_space != 0) {
 			if (b.name != u8"globals" && b.name != u8"nearest_sampler" && b.name != u8"linear_sampler") {
 				on_error(format_utf8<u8"Resource binding must be in register space 0: {}">(lstr::to_generic(b.name)));
 			}
-			return;
 		}
-		bindings.emplace_back(lgfx::descriptor_range_binding::create(
-			b.type, b.register_count, b.first_register
-		));
 	});
 
 	shader_loaded = true;
-}
-
-void pass::create_output_images(lren::context &ctx, lotus::cvec2s size, const error_callback&) {
-	if (output_names.empty()) {
-		return;
-	}
-	for (std::size_t i = 0; i < outputs.size(); ++i) {
-		outputs[i] = nullptr;
-		for (std::size_t j = 0; j < output_names.size(); ++j) {
-			auto &current = outputs[i].targets.emplace_back(nullptr);
-			auto id = format_utf8<u8"Pass {} output #{} \"{}\" buffer #{}">(
-				lstr::to_generic(pass_name), j, lstr::to_generic(output_names[j]), i
-			);
-			current.image = ctx.request_surface2d(id, size, output_image_format);
-		}
-	}
-
-	output_created = true;
 }

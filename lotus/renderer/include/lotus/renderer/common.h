@@ -8,6 +8,9 @@
 #include "lotus/graphics/frame_buffer.h"
 
 namespace lotus::renderer {
+	/// Indicates whether debug names would be registered for resources.
+	constexpr static bool register_debug_names = is_debugging;
+
 	/// All descriptor bindings of a specific shader, categorized into sets.
 	struct shader_descriptor_bindings {
 		/// All descriptor bindgs in a particular set, sorted by register index.

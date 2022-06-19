@@ -50,22 +50,18 @@ void project::load_resources(
 	}
 }
 
-[[nodiscard]] pass::output::target *project::find_target(
-	std::u8string_view name, std::size_t index, const error_callback &on_error
+[[nodiscard]] pass::target *project::find_target(
+	std::u8string_view name, const error_callback &on_error
 ) {
 	// first attempt: raw name
 	if (auto it = passes.find(name); it != passes.end()) {
 		if (!it->second.shader_loaded) {
 			return nullptr;
 		}
-		if (it->second.output_names.size() != 1) {
+		if (it->second.targets.size() != 1) {
 			on_error(format_utf8<u8"Ambiguous output name: {}, using first output">(lstr::to_generic(name)));
 		}
-		if (!it->second.output_created) {
-			on_error(format_utf8<u8"No output images created for pass {}">(lstr::to_generic(name)));
-			return nullptr;
-		}
-		return &it->second.outputs[index].targets[0];
+		return &it->second.targets[0];
 	}
 	// second attempt: dot-separated
 	std::size_t dot = 0;
@@ -80,15 +76,11 @@ void project::load_resources(
 			if (!it->second.shader_loaded) {
 				return nullptr;
 			}
-			if (!it->second.output_created) {
-				on_error(format_utf8<u8"No output images created for pass {}">(lstr::to_generic(name)));
-				return nullptr;
-			}
 			// named
 			std::u8string_view member(name.begin() + dot + 1, name.end());
-			for (std::size_t i = 0; i < it->second.output_names.size(); ++i) {
-				if (!it->second.output_names[i].empty() && it->second.output_names[i] == member) {
-					return &it->second.outputs[index].targets[i];
+			for (std::size_t i = 0; i < it->second.targets.size(); ++i) {
+				if (!it->second.targets[i].name.empty() && it->second.targets[i].name == member) {
+					return &it->second.targets[i];
 				}
 			}
 			// indexed
@@ -97,13 +89,13 @@ void project::load_resources(
 			std::size_t out_index = 0;
 			auto result = std::from_chars(beg, end, out_index);
 			if (result.ec == std::errc() && result.ptr == end) {
-				if (out_index >= it->second.output_names.size()) {
+				if (out_index >= it->second.targets.size()) {
 					on_error(format_utf8<u8"Output index {} out of range for pass {}">(
 						out_index, lstr::to_generic(pass_name)
 					));
 					return nullptr;
 				}
-				return &it->second.outputs[index].targets[out_index];
+				return &it->second.targets[out_index];
 			}
 			on_error(format_utf8<u8"Invalid output {} for pass {}">(
 				lstr::to_generic(member), lstr::to_generic(pass_name))

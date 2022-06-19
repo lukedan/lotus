@@ -29,9 +29,7 @@ public:
 	);
 
 	/// Finds the output buffer corresponding to the given name.
-	[[nodiscard]] pass::output::target *find_target(
-		std::u8string_view name, std::size_t index, const error_callback&
-	);
+	[[nodiscard]] pass::target *find_target(std::u8string_view name, const error_callback&);
 
 	/// Returns the order in which these passes should be executed.
 	[[nodiscard]] std::vector<std::map<std::u8string, pass>::iterator> get_pass_order(const error_callback&);

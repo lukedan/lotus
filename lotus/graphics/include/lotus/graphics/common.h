@@ -658,43 +658,35 @@ namespace lotus::graphics {
 			channel_mask mask
 		) {
 			render_target_blend_options result = zero;
-			result.enabled = true;
-			result.source_color = src_color;
+			result.enabled           = true;
+			result.source_color      = src_color;
 			result.destination_color = dst_color;
-			result.color_operation = color_op;
-			result.source_alpha = src_alpha;
+			result.color_operation   = color_op;
+			result.source_alpha      = src_alpha;
 			result.destination_alpha = dst_alpha;
-			result.alpha_operation = alpha_op;
-			result.write_mask = mask;
+			result.alpha_operation   = alpha_op;
+			result.write_mask        = mask;
 			return result;
 		}
 
-		bool enabled; ///< Whether or not blend is enabled for this render target.
+		bool enabled = false; ///< Whether or not blend is enabled for this render target.
 		
 		/// \ref blend_factor to be multiplied with the output color RGB.
-		blend_factor source_color;
+		blend_factor source_color = blend_factor::one;
 		/// \ref blend_factor to be multiplied with the color RGB on the destination surface.
-		blend_factor destination_color;
-		blend_operation color_operation; ///< \ref blend_operation for color RGB.
+		blend_factor destination_color = blend_factor::zero;
+		blend_operation color_operation = blend_operation::add; ///< \ref blend_operation for color RGB.
 
 		/// \ref blend_factor to be multiplied with the output alpha.
-		blend_factor source_alpha;
+		blend_factor source_alpha = blend_factor::one;
 		/// \ref blend_factor to be multiplied with the color alpha on the destination surface.
-		blend_factor destination_alpha;
-		blend_operation alpha_operation; ///< \ref blend_operation for color alpha.
+		blend_factor destination_alpha = blend_factor::zero;
+		blend_operation alpha_operation = blend_operation::add; ///< \ref blend_operation for color alpha.
 
-		channel_mask write_mask; ///< Indicates which channels to write to.
+		channel_mask write_mask = channel_mask::all; ///< Indicates which channels to write to.
 	protected:
 		/// Initializes \ref enabled to \p false, and other fields to as if no blending is applied.
-		constexpr render_target_blend_options(zero_t) :
-			enabled(false),
-			source_color(blend_factor::one),
-			destination_color(blend_factor::zero),
-			color_operation(blend_operation::add),
-			source_alpha(blend_factor::one),
-			destination_alpha(blend_factor::zero),
-			alpha_operation(blend_operation::add),
-			write_mask(channel_mask::all) {
+		constexpr render_target_blend_options(zero_t) {
 		}
 	};
 }
@@ -1126,6 +1118,9 @@ namespace lotus::graphics {
 		std::uint16_t mip_level; ///< Mip level.
 		std::uint16_t array_slice; ///< Array slice.
 		image_aspect_mask aspects; ///< The aspects of the subresource.
+
+		/// Default equality and inequality comparison.
+		[[nodiscard]] friend bool operator==(const subresource_index&, const subresource_index&) = default;
 	protected:
 		/// Initializes all members of this struct.
 		constexpr subresource_index(std::uint16_t mip, std::uint16_t arr, image_aspect_mask asp) :
@@ -1160,6 +1155,11 @@ namespace lotus::graphics {
 		/// Creates an object indicating that mip levels in the given range can be used.
 		[[nodiscard]] constexpr inline static mip_levels create(std::uint16_t min, std::uint16_t num) {
 			return mip_levels(min, num);
+		}
+
+		/// Returns whether this struct represents all mip levels about the specified one.
+		[[nodiscard]] constexpr bool is_all() const {
+			return num_levels == all_mip_levels;
 		}
 
 		std::uint16_t minimum; ///< Minimum mip level.
@@ -1304,47 +1304,33 @@ namespace lotus::graphics {
 
 	/// An image resource barrier.
 	struct image_barrier {
-	public:
 		/// No initialization.
 		image_barrier(uninitialized_t) {
 		}
-		/// Creates a new \ref image_barrier object.
-		[[nodiscard]] constexpr static inline image_barrier create(
-			subresource_index sub, image &img, image_usage from, image_usage to
-		) {
-			return image_barrier(sub, img, from, to);
+		/// Initializes all fields of this struct.
+		constexpr image_barrier(subresource_index sub, image &i, image_usage from, image_usage to) :
+			subresource(sub), target(&i), from_state(from), to_state(to) {
 		}
 
 		subresource_index subresource = uninitialized; ///< Subresource.
 		image *target; ///< Target image.
 		image_usage from_state = uninitialized; ///< State to transition from.
 		image_usage to_state   = uninitialized; ///< State to transition to.
-	protected:
-		/// Initializes all fields of this struct.
-		constexpr image_barrier(subresource_index sub, image &i, image_usage from, image_usage to) :
-			subresource(sub), target(&i), from_state(from), to_state(to) {
-		}
 	};
 	/// A buffer resource barrier.
 	struct buffer_barrier {
-	public:
 		/// No initialization.
 		buffer_barrier(uninitialized_t) {
 		}
-		/// Creates a new \ref buffer_barrier object.
-		[[nodiscard]] constexpr static inline buffer_barrier create(buffer &b, buffer_usage from, buffer_usage to) {
-			return buffer_barrier(b, from, to);
+		/// Initializes all fields of this struct.
+		constexpr buffer_barrier(buffer &b, buffer_usage from, buffer_usage to) :
+			target(&b), from_state(from), to_state(to) {
 		}
 
 		buffer *target; ///< Target buffer.
 		// TODO subresource
 		buffer_usage from_state = uninitialized; ///< State to transition from.
 		buffer_usage to_state   = uninitialized; ///< State to transition to.
-	protected:
-		/// Initializes all fields of this struct.
-		constexpr buffer_barrier(buffer &b, buffer_usage from, buffer_usage to) :
-			target(&b), from_state(from), to_state(to) {
-		}
 	};
 
 	/// Information about a vertex buffer.

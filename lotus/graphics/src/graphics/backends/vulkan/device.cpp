@@ -1320,7 +1320,7 @@ namespace lotus::graphics::backends::vulkan {
 		result.acceleration_structure_alignment    = props.properties.limits.minStorageBufferOffsetAlignment; // TODO what should this be?
 		result.shader_group_handle_size            = ray_tracing_props.shaderGroupHandleSize;
 		result.shader_group_handle_alignment       = ray_tracing_props.shaderGroupHandleAlignment;
-		result.shader_group_handle_table_alignment = ray_tracing_props.shaderGroupHandleCaptureReplaySize;
+		result.shader_group_handle_table_alignment = ray_tracing_props.shaderGroupBaseAlignment;
 
 		return result;
 	}

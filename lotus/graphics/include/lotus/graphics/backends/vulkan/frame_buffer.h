@@ -29,6 +29,8 @@ namespace lotus::graphics::backends::vulkan {
 				_swapchain = std::exchange(src._swapchain, vk::UniqueSwapchainKHR());
 				_surface = std::exchange(src._surface, vk::UniqueSurfaceKHR());
 
+				_format = src._format;
+
 				_images = std::move(src._images);
 				_synchronization = std::move(src._synchronization);
 				_frame_counter = src._frame_counter;

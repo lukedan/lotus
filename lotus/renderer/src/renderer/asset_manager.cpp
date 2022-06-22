@@ -127,7 +127,7 @@ namespace lotus::renderer::assets {
 		);
 		cmd_list.resource_barrier(
 			{
-				graphics::image_barrier::create(
+				graphics::image_barrier(
 					graphics::subresource_index::first_color(), tex.value.image,
 					graphics::image_usage::copy_destination, graphics::image_usage::read_only_texture
 				)

@@ -25,7 +25,6 @@ namespace lotus::renderer::gltf {
 		int component_type = accessor.componentType;
 		std::int32_t num_components = tinygltf::GetNumComponentsInType(accessor.type);
 		std::size_t buffer_elements = accessor.count * num_components;
-		std::size_t buffer_size = sizeof(T) * buffer_elements;
 
 		if (num_components != expected_components) {
 			log().warn<u8"Expected {} components but getting {}">(expected_components, num_components);

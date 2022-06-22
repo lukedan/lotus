@@ -12,10 +12,12 @@ function(add_lotus_renderer_target BACKEND)
 			"include/lotus/renderer/context.h"
 			"include/lotus/renderer/g_buffer.h"
 			"include/lotus/renderer/gltf_loader.h"
+			"include/lotus/renderer/resources.h"
 			"include/lotus/renderer/shader_types.h"
 			"include/lotus/renderer/surface.h"
 		PRIVATE
 			"src/renderer/asset_manager.cpp"
+			"src/renderer/resources.cpp"
 			"src/renderer/context.cpp"
 			"src/renderer/g_buffer.cpp"
 			"src/renderer/gltf_loader.cpp")

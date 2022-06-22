@@ -142,6 +142,10 @@ int main(int argc, char **argv) {
 
 	wnd.show_and_activate();
 	while (app.process_message_nonblocking() != lsys::message_type::quit) {
+		if (window_size == zero) {
+			continue;
+		}
+
 		if (reload) {
 			reload = false;
 			time = 0.0f;
@@ -200,7 +204,7 @@ int main(int argc, char **argv) {
 				for (auto &out : pit->second.targets) {
 					color_surfaces.emplace_back(
 						out.current_frame,
-						lgfx::color_render_target_access::create_clear(lotus::cvec4d(0.0, 0.0, 0.0, 0.0))
+						lgfx::color_render_target_access::create_clear(lotus::cvec4d(1.0, 0.0, 0.0, 0.0))
 					);
 					state.blend_options.emplace_back(lgfx::render_target_blend_options::disabled());
 				}
@@ -264,13 +268,18 @@ int main(int argc, char **argv) {
 					lren::resource_binding(
 						lren::descriptor_resource::image2d::create_read_only(main_out->current_frame), 0
 					),
+					lren::resource_binding(
+						lren::descriptor_resource::sampler(
+							lgfx::filtering::nearest, lgfx::filtering::nearest, lgfx::filtering::nearest
+						), 1
+					),
 				}, 0)
 			};
 
 			auto pass = rctx.begin_pass(
 				{
 					lren::surface2d_color(
-						swapchain, lgfx::color_render_target_access::create_clear(lotus::cvec4d(0.0, 0.0, 0.0, 0.0))
+						swapchain, lgfx::color_render_target_access::create_clear(lotus::cvec4d(1.0, 0.0, 0.0, 0.0))
 					)
 				},
 				nullptr, window_size, u8"Main blit pass"

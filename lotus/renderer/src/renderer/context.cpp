@@ -7,73 +7,6 @@
 #include "lotus/utils/stack_allocator.h"
 
 namespace lotus::renderer {
-	namespace _details {
-		graphics::descriptor_type to_descriptor_type(image_binding_type type) {
-			constexpr static enum_mapping<image_binding_type, graphics::descriptor_type> table{
-				std::pair(image_binding_type::read_only,  graphics::descriptor_type::read_only_image ),
-				std::pair(image_binding_type::read_write, graphics::descriptor_type::read_write_image),
-			};
-			return table[type];
-		}
-	}
-
-
-	void swap_chain::resize(cvec2s sz) {
-		_swap_chain->current_size = sz;
-	}
-
-
-	all_resource_bindings all_resource_bindings::from_unsorted(std::vector<resource_set_binding> s) {
-		all_resource_bindings result = nullptr;
-		result.consolidate();
-		return result;
-	}
-
-	void all_resource_bindings::consolidate() {
-		// sort based on register space
-		std::sort(
-			sets.begin(), sets.end(),
-			[](const resource_set_binding &lhs, const resource_set_binding &rhs) {
-				return lhs.space < rhs.space;
-			}
-		);
-		// deduplicate
-		auto last = sets.begin();
-		for (auto it = sets.begin(); it != sets.end(); ++it) {
-			if (last->space == it->space) {
-				if (last != it) {
-					for (auto &b : it->bindings) {
-						last->bindings.emplace_back(std::move(b));
-					}
-				}
-			} else {
-				++last;
-				if (last != it) {
-					*last = std::move(*it);
-				}
-			}
-		}
-		sets.erase(last + 1, sets.end());
-		// sort each set
-		for (auto &set : sets) {
-			std::sort(
-				set.bindings.begin(), set.bindings.end(),
-				[](const resource_binding &lhs, const resource_binding &rhs) {
-					return lhs.register_index < rhs.register_index;
-				}
-			);
-			// check for any duplicate bindings
-			for (std::size_t i = 1; i < set.bindings.size(); ++i) {
-				if (set.bindings[i].register_index == set.bindings[i - 1].register_index) {
-					log().error<
-						u8"Duplicate bindings for set {} register {}"
-					>(set.space, set.bindings[i].register_index);
-				}
-			}
-		}
-	}
-
-
 	void context::pass::draw_instanced(
 		std::vector<input_buffer_binding> inputs,
 		std::uint32_t num_verts,
@@ -129,6 +62,96 @@ namespace lotus::renderer {
 		return *_list;
 	}
 
+	void context::_execution_context::flush_transitions() {
+		std::vector<graphics::image_barrier> image_barriers;
+
+		{ // handle surface transitions
+			auto surf_transitions = std::exchange(_surface_transitions, {});
+			std::sort(
+				surf_transitions.begin(), surf_transitions.end(),
+				[](const _surface2d_transition_info &lhs, const _surface2d_transition_info &rhs) {
+					if (lhs.surface == rhs.surface) {
+						return lhs.mip_levels.minimum < rhs.mip_levels.minimum;
+					}
+					assert(lhs.surface->id != rhs.surface->id);
+					return lhs.surface->id < rhs.surface->id;
+				}
+			);
+			for (auto it = surf_transitions.begin(); it != surf_transitions.end(); ) {
+				// transition resources
+				std::size_t first_barrier = image_barriers.size();
+				auto *surf = it->surface;
+				for (auto first = it; it != surf_transitions.end() && it->surface == first->surface; ++it) {
+					std::uint16_t max_mip =
+						it->mip_levels.is_all() ?
+						it->surface->num_mips :
+						it->mip_levels.minimum + it->mip_levels.num_levels;
+					for (std::uint16_t mip = it->mip_levels.minimum; mip < max_mip; ++mip) {
+						image_barriers.emplace_back(
+							graphics::subresource_index::create_color(mip, 0),
+							it->surface->image,
+							it->surface->current_usages[mip],
+							it->usage
+						);
+					}
+				}
+				// deduplicate & warn about any conflicts
+				std::sort(
+					image_barriers.begin() + first_barrier, image_barriers.end(),
+					[](const graphics::image_barrier &lhs, const graphics::image_barrier &rhs) {
+						if (lhs.subresource.aspects == rhs.subresource.aspects) {
+							if (lhs.subresource.array_slice == rhs.subresource.array_slice) {
+								return lhs.subresource.mip_level < rhs.subresource.mip_level;
+							}
+							return lhs.subresource.array_slice < rhs.subresource.array_slice;
+						}
+						return lhs.subresource.aspects < rhs.subresource.aspects;
+					}
+				);
+				if (image_barriers.size() > first_barrier) {
+					auto last = image_barriers.begin() + first_barrier;
+					for (auto cur = last; cur != image_barriers.end(); ++cur) {
+						if (cur->subresource == last->subresource) {
+							if (cur->to_state != last->to_state) {
+								log().error<
+									u8"Multiple transition targets for image resource {} slice {} mip {}. "
+									u8"Maybe a flush_transitions() call is missing?"
+								>(
+									string::to_generic(surf->name),
+									last->subresource.array_slice, last->subresource.mip_level
+								);
+							}
+						} else {
+							*++last = *cur;
+						}
+					}
+					image_barriers.erase(last + 1, image_barriers.end());
+					for (auto cur = image_barriers.begin() + first_barrier; cur != image_barriers.end(); ++cur) {
+						surf->current_usages[cur->subresource.mip_level] = cur->to_state;
+					}
+				}
+			}
+		}
+
+		{ // handle swap chain image transitions
+			auto swap_chain_transitions = std::exchange(_swap_chain_transitions, {});
+			// TODO check for conflicts
+			for (const auto &trans : swap_chain_transitions) {
+				image_barriers.emplace_back(
+					graphics::subresource_index::first_color(),
+					trans.chain->images[trans.chain->next_image_index],
+					trans.chain->current_usages[trans.chain->next_image_index],
+					trans.usage
+				);
+				trans.chain->current_usages[trans.chain->next_image_index] = trans.usage;
+			}
+		}
+
+		if (image_barriers.size() > 0) {
+			get_command_list().resource_barrier(image_barriers, {});
+		}
+	}
+
 
 	context context::create(assets::manager &asset_man, graphics::context &ctx, graphics::command_queue &queue) {
 		return context(asset_man, ctx, queue);
@@ -144,9 +167,11 @@ namespace lotus::renderer {
 				graphics::image_usage::mask::depth_stencil_render_target :
 				graphics::image_usage::mask::color_render_target
 			);
-		auto *surf = new _details::surface2d(size, 1, fmt, tiling, usage_mask, std::u8string(name));
+		auto *surf = new _details::surface2d(
+			size, 1, fmt, tiling, usage_mask, _resource_index++, std::u8string(name)
+		);
 		auto surf_ptr = std::shared_ptr<_details::surface2d>(surf, _details::context_managed_deleter(*this));
-		return image2d_view(std::move(surf_ptr), fmt);
+		return image2d_view(std::move(surf_ptr), fmt, graphics::mip_levels::all());
 	}
 
 	swap_chain context::request_swap_chain(
@@ -197,32 +222,39 @@ namespace lotus::renderer {
 		_thread(std::this_thread::get_id()) {
 	}
 
-	graphics::image2d_view &context::_request_image_view(_execution_context &ectx, const image2d_view &view) {
+	graphics::image2d_view &context::_request_image_view(
+		_execution_context &ectx, const recorded_resources::image2d_view &view
+	) {
 		if (!view._surface->image) {
 			// create resource if it's not initialized
 			view._surface->image = _device.create_committed_image2d(
-				view._surface->size[0], view._surface->size[1], 1, 1,
-				view._surface->original_format, view._surface->tiling, view._surface->usages
+				view._surface->size[0], view._surface->size[1], 1, view._surface->num_mips,
+				view._surface->format, view._surface->tiling, view._surface->usages
 			);
 			if constexpr (register_debug_names) {
 				_device.set_debug_name(view._surface->image, view._surface->name);
 			}
-			view._surface->current_usage = graphics::image_usage::initial;
 		}
-		auto mip_levels = graphics::mip_levels::only_highest(); // TODO
-		return ectx.create_image2d_view(view._surface->image, view._view_format, mip_levels);
+		return ectx.create_image2d_view(view._surface->image, view._view_format, view._mip_levels);
 	}
 
-	graphics::image2d_view &context::_request_image_view(_execution_context &ectx, const swap_chain &chain) {
+	graphics::image2d_view &context::_request_image_view(
+		_execution_context &ectx, const recorded_resources::swap_chain &chain
+	) {
 		auto &chain_data = *chain._swap_chain;
 
 		if (chain_data.next_image_index == _details::swap_chain::invalid_image_index) {
 			graphics::back_buffer_info back_buffer = nullptr;
 			if (chain_data.chain) {
 				back_buffer = _device.acquire_back_buffer(chain_data.chain);
+				// wait until the buffer becomes available
+				// we must always immediate wait after acquiring to make vulkan happy
+				if (back_buffer.on_presented) {
+					_device.wait_for_fence(*back_buffer.on_presented);
+					_device.reset_fence(*back_buffer.on_presented);
+				}
 			}
-			cvec2s size = chain_data.window.get_size();
-			if (size != chain_data.current_size || back_buffer.status != graphics::swap_chain_status::ok) {
+			if (chain_data.desired_size != chain_data.current_size || back_buffer.status != graphics::swap_chain_status::ok) {
 				// wait until everything's done
 				{
 					auto fence = _device.create_fence(graphics::synchronization_state::unset);
@@ -230,13 +262,13 @@ namespace lotus::renderer {
 					_device.wait_for_fence(fence);
 				}
 				// create or resize the swap chain
-				chain_data.current_size = size;
+				chain_data.current_size = chain_data.desired_size;
 				if (chain_data.chain && back_buffer.status == graphics::swap_chain_status::ok) {
 					_device.resize_swap_chain_buffers(
 						chain_data.chain, chain_data.current_size
 					);
 				} else {
-					chain_data.chain = nullptr;
+					ectx.record(std::move(chain_data.chain));
 					auto [new_chain, fmt] = _context.create_swap_chain_for_window(
 						chain_data.window, _device, _queue,
 						chain_data.num_images, chain_data.expected_formats
@@ -244,33 +276,40 @@ namespace lotus::renderer {
 					chain_data.chain = std::move(new_chain);
 					chain_data.current_format = fmt;
 				}
+				// update chain images
+				chain_data.images.clear();
+				for (std::size_t i = 0; i < chain_data.num_images; ++i) {
+					chain_data.images.emplace_back(chain_data.chain.get_image(i));
+				}
+				chain_data.current_usages = std::vector<graphics::image_usage>(
+					chain_data.num_images, graphics::image_usage::initial
+				);
 				// update fences
 				for (auto &fence : chain_data.fences) {
-					_device.reset_fence(fence);
+					ectx.record(std::move(fence));
 				}
-				while (chain_data.fences.size() < chain_data.num_images) {
+				chain_data.fences.clear();
+				for (std::size_t i = 0; i < chain_data.num_images; ++i) {
 					chain_data.fences.emplace_back(_device.create_fence(graphics::synchronization_state::unset));
 				}
 				chain_data.chain.update_synchronization_primitives(chain_data.fences);
 				// re-acquire back buffer
 				back_buffer = _device.acquire_back_buffer(chain_data.chain);
+				// wait until the buffer becomes available
+				if (back_buffer.on_presented) {
+					_device.wait_for_fence(*back_buffer.on_presented);
+					_device.reset_fence(*back_buffer.on_presented);
+				}
 				assert(back_buffer.status == graphics::swap_chain_status::ok);
 			}
 			chain_data.next_image_index = back_buffer.index;
-			
-			// wait until the buffer becomes available
-			if (back_buffer.on_presented) {
-				_device.wait_for_fence(*back_buffer.on_presented);
-			}
-
-			// TODO state transition
 		}
 
-		auto &img = ectx.record(chain_data.chain.get_image(chain_data.next_image_index));
-		auto &img_view = ectx.create_image2d_view(
-			img, chain_data.current_format, graphics::mip_levels::only_highest() // TODO
+		return ectx.create_image2d_view(
+			chain_data.images[chain_data.next_image_index],
+			chain_data.current_format,
+			graphics::mip_levels::only_highest()
 		);
-		return img_view;
 	}
 
 	void context::_create_descriptor_binding(
@@ -280,14 +319,17 @@ namespace lotus::renderer {
 	) {
 		auto &img_view = _request_image_view(ectx, img.view);
 		graphics::image_usage target_usage = uninitialized;
-		if (img.writable) {
-			_device.write_descriptor_set_read_write_images(set, layout, reg, { &img_view });
-			target_usage = graphics::image_usage::read_write_color_texture;
-		} else {
+		switch (img.binding_type) {
+		case image_binding_type::read_only:
 			_device.write_descriptor_set_read_only_images(set, layout, reg, { &img_view });
 			target_usage = graphics::image_usage::read_only_texture;
+			break;
+		case image_binding_type::read_write:
+			_device.write_descriptor_set_read_write_images(set, layout, reg, { &img_view });
+			target_usage = graphics::image_usage::read_write_color_texture;
+			break;
 		}
-		// TODO state transition
+		ectx.stage_transition(*img.view._surface, img.view._mip_levels, target_usage);
 	}
 
 	void context::_create_descriptor_binding(
@@ -297,6 +339,7 @@ namespace lotus::renderer {
 	) {
 		auto &img_view = _request_image_view(ectx, chain.image);
 		_device.write_descriptor_set_read_write_images(set, layout, reg, { &img_view });
+		ectx.stage_transition(*chain.image._swap_chain, graphics::image_usage::read_write_color_texture);
 	}
 
 	void context::_create_descriptor_binding(
@@ -318,7 +361,11 @@ namespace lotus::renderer {
 			graphics::buffer_usage::mask::copy_destination | graphics::buffer_usage::mask::read_only_buffer
 		);
 		ectx.get_command_list().copy_buffer(upload_buf, 0, constant_buf, 0, cbuf.data.size());
-		// TODO state transition
+
+		// TODO use barriers provided by the execution context
+		ectx.get_command_list().resource_barrier({}, {
+			graphics::buffer_barrier(constant_buf, graphics::buffer_usage::copy_destination, graphics::buffer_usage::read_only_buffer),
+		});
 
 		_device.write_descriptor_set_constant_buffers(
 			set, layout, reg,
@@ -341,23 +388,26 @@ namespace lotus::renderer {
 		);
 	}
 
-	std::vector<_details::descriptor_set_info> context::_check_and_create_descriptor_set_bindings(
+	std::vector<context::_descriptor_set_info> context::_check_and_create_descriptor_set_bindings(
 		_execution_context &ectx, std::initializer_list<const asset<assets::shader>*> targets,
 		const all_resource_bindings &resources
 	) {
-		std::vector<_details::descriptor_set_info> result;
+		std::vector<_descriptor_set_info> result;
 
 		using _iter_t = std::vector<shader_descriptor_bindings::set>::const_iterator;
 		std::vector<std::pair<_iter_t, _iter_t>> iters;
 		for (const auto *t : targets) {
 			iters.emplace_back(t->value.descriptor_bindings.sets.begin(), t->value.descriptor_bindings.sets.end());
 		}
-		for (const auto &set_bindings : resources.sets) {
-			_details::descriptor_set_info *result_set = nullptr;
+		for (std::size_t set_index = 0; set_index < resources.sets.size(); ++set_index) {
+			const auto &set_bindings = resources.sets[set_index];
+			_descriptor_set_info *result_set = nullptr;
 			_iter_t prev_iter;
 			for (auto &layout : iters) {
 				while (layout.first != layout.second && layout.first->space < set_bindings.space) {
-					log().error<u8"Missing bindings for register space {}">(layout.first->space);
+					if (set_index > 0 && layout.first->space != resources.sets[set_index - 1].space) {
+						log().error<u8"Missing bindings for register space {}">(layout.first->space);
+					}
 					++layout.first;
 				}
 				if (layout.first == layout.second || layout.first->space > set_bindings.space) {
@@ -399,9 +449,10 @@ namespace lotus::renderer {
 						binding_it == layout.first->ranges.end() ||
 						binding_it->register_index > binding.register_index
 					) {
-						log().error<u8"Specified inexistant binding for register index {}, space {}">(
+						// the compiler can optimize out unused descriptors
+						/*log().error<u8"Specified inexistant binding for register index {}, space {}">(
 							binding.register_index, set_bindings.space
-						);
+						);*/
 						continue;
 					}
 					std::uint32_t offset_in_range = binding.register_index - binding_it->register_index;
@@ -432,12 +483,12 @@ namespace lotus::renderer {
 
 	void context::_bind_descriptor_sets(
 		_execution_context &ectx, const graphics::pipeline_resources &rsrc,
-		std::vector<_details::descriptor_set_info> sets, _bind_point pt
+		std::vector<_descriptor_set_info> sets, _bind_point pt
 	) {
 		// organize descriptor sets by register space
 		std::sort(
 			sets.begin(), sets.end(),
-			[](const _details::descriptor_set_info &lhs, const _details::descriptor_set_info &rhs) {
+			[](const _descriptor_set_info &lhs, const _descriptor_set_info &rhs) {
 				return lhs.space < rhs.space;
 			}
 		);
@@ -500,12 +551,12 @@ namespace lotus::renderer {
 		return ectx.record(_device.create_pipeline_resources(sets));
 	}
 
-	pass_commands::command_data context::_preprocess_command(
+	context::_pass_command_data context::_preprocess_command(
 		_execution_context &ectx,
 		const graphics::frame_buffer_layout &fb_layout,
 		const pass_commands::draw_instanced &cmd
 	) {
-		pass_commands::command_data result = nullptr;
+		context::_pass_command_data result = nullptr;
 		result.resources = &_create_pipeline_resources(ectx, { &cmd.vertex_shader.get(), &cmd.pixel_shader.get() });
 
 		graphics::shader_set shaders(cmd.vertex_shader.get().value.binary, cmd.pixel_shader.get().value.binary);
@@ -532,9 +583,7 @@ namespace lotus::renderer {
 	}
 
 	void context::_handle_pass_command(
-		_execution_context &ectx,
-		pass_commands::command_data data,
-		const pass_commands::draw_instanced &cmd
+		_execution_context &ectx, _pass_command_data data, const pass_commands::draw_instanced &cmd
 	) {
 		std::vector<graphics::vertex_buffer> bufs;
 		for (const auto &input : cmd.inputs) {
@@ -562,12 +611,13 @@ namespace lotus::renderer {
 	}
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::dispatch_compute &cmd) {
-		// check that the descriptor bindings are correct
+		// create descriptor bindings
 		auto sets = _check_and_create_descriptor_set_bindings(ectx, { &cmd.shader.get() }, cmd.resources);
 		auto &pipeline_resources = _create_pipeline_resources(ectx, { &cmd.shader.get() });
 		auto &pipeline = ectx.record(_device.create_compute_pipeline_state(
 			pipeline_resources, cmd.shader.get().value.binary
 		));
+		ectx.flush_transitions();
 
 		auto &cmd_list = ectx.get_command_list();
 		cmd_list.bind_pipeline_state(pipeline);
@@ -583,16 +633,33 @@ namespace lotus::renderer {
 
 		// create frame buffer
 		for (const auto &rt : cmd.color_render_targets) {
-			if (std::holds_alternative<image2d_view>(rt.view)) {
-				auto &img = std::get<image2d_view>(rt.view);
-				assert(img._surface->size == cmd.render_target_size);
+			if (std::holds_alternative<recorded_resources::image2d_view>(rt.view)) {
+				auto img = std::get<recorded_resources::image2d_view>(rt.view);
+				// make sure we're only using one mip
+				if (img._mip_levels.num_levels != 1) {
+					if (img._surface->num_mips - img._mip_levels.minimum > 1) {
+						std::uint16_t num_levels =
+							img._mip_levels.is_all() ?
+							img._surface->num_mips - img._mip_levels.minimum :
+							img._mip_levels.num_levels;
+						log().error<u8"More than one ({}) mip specified for render target for texture {}">(
+							num_levels, string::to_generic(img._surface->name)
+						);
+					}
+					img._mip_levels.num_levels = 1;
+				}
 				color_rts.emplace_back(&_request_image_view(ectx, img));
 				color_rt_formats.emplace_back(img._view_format);
-			} else {
-				auto &chain = std::get<swap_chain>(rt.view);
+				ectx.stage_transition(*img._surface, img._mip_levels, graphics::image_usage::color_render_target);
+				assert(img._surface->size == cmd.render_target_size);
+			} else if (std::holds_alternative<recorded_resources::swap_chain>(rt.view)) {
+				auto &chain = std::get<recorded_resources::swap_chain>(rt.view);
 				color_rts.emplace_back(&_request_image_view(ectx, chain));
-				assert(chain._swap_chain->current_size == cmd.render_target_size);
 				color_rt_formats.emplace_back(chain._swap_chain->current_format);
+				ectx.stage_transition(*chain._swap_chain, graphics::image_usage::color_render_target);
+				assert(chain._swap_chain->current_size == cmd.render_target_size);
+			} else {
+				assert(false); // unhandled
 			}
 			color_rt_access.emplace_back(rt.access);
 		}
@@ -601,6 +668,11 @@ namespace lotus::renderer {
 			assert(cmd.depth_stencil_target.view._surface->size == cmd.render_target_size);
 			depth_stencil_rt = &_request_image_view(ectx, cmd.depth_stencil_target.view);
 			ds_rt_format = cmd.depth_stencil_target.view._view_format;
+			ectx.stage_transition(
+				*cmd.depth_stencil_target.view._surface,
+				cmd.depth_stencil_target.view._mip_levels,
+				graphics::image_usage::depth_stencil_render_target
+			);
 		}
 		auto &frame_buffer = ectx.create_frame_buffer(color_rts, depth_stencil_rt, cmd.render_target_size);
 
@@ -612,13 +684,14 @@ namespace lotus::renderer {
 
 		graphics::frame_buffer_layout fb_layout(color_rt_formats, ds_rt_format);
 
-		// TODO state transition for everything in the pass
-		std::vector<pass_commands::command_data> data;
+		// preprocess all commands in the pass and transition resources
+		std::vector<_pass_command_data> data;
 		for (const auto &pass_cmd_val : cmd.commands) {
 			std::visit([&](const auto &pass_cmd) {
 				data.emplace_back(_preprocess_command(ectx, fb_layout, pass_cmd));
 			}, pass_cmd_val.value);
 		}
+		ectx.flush_transitions();
 
 		auto &cmd_list = ectx.get_command_list();
 		cmd_list.begin_pass(frame_buffer, access);
@@ -639,12 +712,16 @@ namespace lotus::renderer {
 	void context::_handle_command(_execution_context &ectx, const context_commands::present &cmd) {
 		// if we haven't written anything to the swap chain, just don't present
 		if (cmd.target._swap_chain->chain) {
-			cmd.target._swap_chain->next_image_index = _details::swap_chain::invalid_image_index;
+			ectx.stage_transition(*cmd.target._swap_chain, graphics::image_usage::present);
+			ectx.flush_transitions();
+
 			ectx.submit(_queue, nullptr);
 			if (_queue.present(cmd.target._swap_chain->chain) != graphics::swap_chain_status::ok) {
 				// TODO?
 			}
 		}
+		// do this last, since handling transitions needs the index of the image
+		cmd.target._swap_chain->next_image_index = _details::swap_chain::invalid_image_index;
 	}
 
 	void context::flush() {
@@ -659,6 +736,7 @@ namespace lotus::renderer {
 				_handle_command(ectx, cmd_val);
 			}, cmd.value);
 		}
+		ectx.flush_transitions();
 
 		auto signal_semaphores = {
 			graphics::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)

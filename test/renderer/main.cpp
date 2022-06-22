@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
 			cmd_lists.emplace_back(nullptr);
 			list.resource_barrier(
 				{
-					gfx::image_barrier::create(gfx::subresource_index::first_color(), image, gfx::image_usage::initial, gfx::image_usage::present),
+					gfx::image_barrier(gfx::subresource_index::first_color(), image, gfx::image_usage::initial, gfx::image_usage::present),
 				},
 				{}
 			);

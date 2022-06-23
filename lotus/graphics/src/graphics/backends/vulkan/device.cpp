@@ -406,7 +406,7 @@ namespace lotus::graphics::backends::vulkan {
 		const depth_stencil_options &depth_stencil,
 		std::span<const input_buffer_layout> input_buffers,
 		primitive_topology topology,
-		const frame_buffer_layout&,
+		const frame_buffer_layout &fb_layout,
 		std::size_t num_viewports
 	) {
 		graphics_pipeline_state result = nullptr;
@@ -550,8 +550,24 @@ namespace lotus::graphics::backends::vulkan {
 		vk::PipelineDynamicStateCreateInfo dynamic;
 		dynamic.setDynamicStates(dynamic_states);
 
+		auto color_rt_formats = bookmark.create_reserved_vector_array<vk::Format>(
+			fb_layout.color_render_target_formats.size()
+		);
+		for (const auto &f : fb_layout.color_render_target_formats) {
+			color_rt_formats.emplace_back(_details::conversions::for_format(f));
+		}
+
+		vk::Format ds_rt_format = _details::conversions::for_format(fb_layout.depth_stencil_render_target_format);
+
+		vk::PipelineRenderingCreateInfo fb_info;
+		fb_info
+			.setColorAttachmentFormats(color_rt_formats)
+			.setDepthAttachmentFormat(ds_rt_format)
+			.setStencilAttachmentFormat(ds_rt_format);
+
 		vk::GraphicsPipelineCreateInfo info;
 		info
+			.setPNext(&fb_info)
 			.setStages({ static_cast<std::uint32_t>(count), stages.data() })
 			.setPVertexInputState(&vertex_input)
 			.setPInputAssemblyState(&input_assembly)

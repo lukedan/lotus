@@ -175,9 +175,9 @@ namespace lotus {
 			/// Creates an object for the given allocator and sets a bookmark.
 			explicit scoped_bookmark(stack_allocator &alloc) : _alloc(&alloc) {
 				_alloc->_set_bookmark();
-				if constexpr (_this_bookmark.is_enabled) {
-					*_this_bookmark = _alloc->_top_bookmark;
-				}
+				_this_bookmark.if_enabled([&](_bookmark *&b) {
+					b = _alloc->_top_bookmark;
+				});
 			}
 		};
 

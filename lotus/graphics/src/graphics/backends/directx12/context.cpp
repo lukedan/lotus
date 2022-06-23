@@ -14,6 +14,7 @@ namespace lotus::graphics::backends::directx12 {
 	context context::create() {
 		context result;
 		_details::assert_dx(CreateDXGIFactory1(IID_PPV_ARGS(&result._dxgi_factory)));
+		if constexpr (is_debugging)
 		{ // enable debug layer
 			_details::com_ptr<ID3D12Debug1> debug;
 			_details::assert_dx(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)));

@@ -261,6 +261,7 @@ namespace lotus::renderer {
 					ectx.submit(_queue, &fence);
 					_device.wait_for_fence(fence);
 				}
+				chain_data.images.clear();
 				// create or resize the swap chain
 				chain_data.current_size = chain_data.desired_size;
 				if (chain_data.chain && back_buffer.status == graphics::swap_chain_status::ok) {
@@ -277,7 +278,6 @@ namespace lotus::renderer {
 					chain_data.current_format = fmt;
 				}
 				// update chain images
-				chain_data.images.clear();
 				for (std::size_t i = 0; i < chain_data.num_images; ++i) {
 					chain_data.images.emplace_back(chain_data.chain.get_image(i));
 				}

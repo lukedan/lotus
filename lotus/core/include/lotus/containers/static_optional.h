@@ -41,6 +41,11 @@ namespace lotus {
 			return value;
 		}
 
+		/// Calls the callback with the stored value.
+		template <typename Cb> void if_enabled(Cb &&callback) {
+			callback(value);
+		}
+
 		T value; ///< The value.
 	};
 	/// Specialization for disabled \ref static_optional objects.
@@ -54,6 +59,10 @@ namespace lotus {
 
 		/// Dummy constructor.
 		template <typename ...Args> constexpr static_optional(Args&&...) {
+		}
+
+		/// Does nothing.
+		template <typename Cb> void if_enabled(Cb&&) {
 		}
 	};
 

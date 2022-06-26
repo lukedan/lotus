@@ -56,11 +56,11 @@ namespace lotus::graphics::backends::vulkan::_details {
 			std::pair(format::r32g32b32a32_sint,  vk::Format::eR32G32B32A32Sint  ),
 			std::pair(format::r32g32b32a32_float, vk::Format::eR32G32B32A32Sfloat),
 		};
-		vk::Format for_format(format fmt) {
+		vk::Format to_format(format fmt) {
 			return _format_table[fmt];
 		}
 
-		vk::IndexType for_index_format(index_format fmt) {
+		vk::IndexType to_index_type(index_format fmt) {
 			constexpr static enum_mapping<index_format, vk::IndexType> table{
 				std::pair(index_format::uint16, vk::IndexType::eUint16),
 				std::pair(index_format::uint32, vk::IndexType::eUint32),
@@ -68,7 +68,7 @@ namespace lotus::graphics::backends::vulkan::_details {
 			return table[fmt];
 		}
 
-		vk::ImageAspectFlags for_image_aspect_mask(image_aspect_mask mask) {
+		vk::ImageAspectFlags to_image_aspect_flags(image_aspect_mask mask) {
 			constexpr static std::pair<image_aspect_mask, vk::ImageAspectFlagBits> table[]{
 				{ image_aspect_mask::color,   vk::ImageAspectFlagBits::eColor   },
 				{ image_aspect_mask::depth,   vk::ImageAspectFlagBits::eDepth   },
@@ -352,7 +352,7 @@ namespace lotus::graphics::backends::vulkan::_details {
 		vk::ImageSubresourceLayers to_image_subresource_layers(const subresource_index &i) {
 			vk::ImageSubresourceLayers result;
 			result
-				.setAspectMask(for_image_aspect_mask(i.aspects))
+				.setAspectMask(to_image_aspect_flags(i.aspects))
 				.setMipLevel(i.mip_level)
 				.setBaseArrayLayer(i.array_slice)
 				.setLayerCount(1);
@@ -362,7 +362,7 @@ namespace lotus::graphics::backends::vulkan::_details {
 		vk::ImageSubresourceRange to_image_subresource_range(const subresource_index &id) {
 			vk::ImageSubresourceRange result;
 			result
-				.setAspectMask(for_image_aspect_mask(id.aspects))
+				.setAspectMask(to_image_aspect_flags(id.aspects))
 				.setBaseMipLevel(id.mip_level)
 				.setLevelCount(1)
 				.setBaseArrayLayer(id.array_slice)
@@ -386,7 +386,7 @@ namespace lotus::graphics::backends::vulkan::_details {
 		vk::ImageSubresource to_image_subresource(const subresource_index &i) {
 			vk::ImageSubresource result;
 			result
-				.setAspectMask(for_image_aspect_mask(i.aspects))
+				.setAspectMask(to_image_aspect_flags(i.aspects))
 				.setMipLevel(i.mip_level)
 				.setArrayLayer(i.array_slice);
 			return result;

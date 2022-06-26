@@ -74,7 +74,7 @@ namespace lotus::graphics::backends::directx12 {
 			auto &dst = result._ranges[i];
 			const auto &src = ranges[i];
 			dst = {};
-			dst.RangeType          = _details::conversions::for_descriptor_type(src.range.type);
+			dst.RangeType          = _details::conversions::to_descriptor_range_type(src.range.type);
 			dst.NumDescriptors     =
 				src.range.count == descriptor_range::unbounded_count ? UINT_MAX : static_cast<UINT>(src.range.count);
 			dst.BaseShaderRegister = static_cast<UINT>(src.register_index);
@@ -251,10 +251,10 @@ namespace lotus::graphics::backends::directx12 {
 			desc.GS = geometry_shader->_shader;
 		}
 		// TODO stream output?
-		desc.BlendState        = _details::conversions::for_blend_options(blend);
+		desc.BlendState        = _details::conversions::to_blend_description(blend);
 		desc.SampleMask        = std::numeric_limits<UINT>::max();
-		desc.RasterizerState   = _details::conversions::for_rasterizer_options(rasterizer);
-		desc.DepthStencilState = _details::conversions::for_depth_stencil_options(depth_stencil);
+		desc.RasterizerState   = _details::conversions::to_rasterizer_description(rasterizer);
+		desc.DepthStencilState = _details::conversions::to_depth_stencil_description(depth_stencil);
 
 		// gather & convert input buffer
 		std::size_t total_elements = 0;
@@ -263,12 +263,12 @@ namespace lotus::graphics::backends::directx12 {
 		}
 		auto element_desc = bookmark.create_reserved_vector_array<D3D12_INPUT_ELEMENT_DESC>(total_elements);
 		for (auto &buf : input_buffers) {
-			auto input_rate = _details::conversions::for_input_buffer_rate(buf.input_rate);
+			auto input_rate = _details::conversions::to_input_classification(buf.input_rate);
 			for (auto &elem : buf.elements) {
 				auto &elem_desc = element_desc.emplace_back();
 				elem_desc.SemanticName         = reinterpret_cast<LPCSTR>(elem.semantic_name);
 				elem_desc.SemanticIndex        = elem.semantic_index;
-				elem_desc.Format               = _details::conversions::for_format(elem.element_format);
+				elem_desc.Format               = _details::conversions::to_format(elem.element_format);
 				elem_desc.InputSlot            = static_cast<UINT>(buf.buffer_index);
 				elem_desc.AlignedByteOffset    = static_cast<UINT>(elem.byte_offset);
 				elem_desc.InputSlotClass       = input_rate;
@@ -278,14 +278,14 @@ namespace lotus::graphics::backends::directx12 {
 		desc.InputLayout.NumElements        = static_cast<UINT>(element_desc.size());
 		desc.InputLayout.pInputElementDescs = element_desc.data();
 		desc.IBStripCutValue                = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED; // TODO
-		desc.PrimitiveTopologyType          = _details::conversions::for_primitive_topology_type(topology);
+		desc.PrimitiveTopologyType          = _details::conversions::to_primitive_topology_type(topology);
 
 		desc.NumRenderTargets = static_cast<UINT>(fb_layout.color_render_target_formats.size());
 		for (std::size_t i = 0; i < fb_layout.color_render_target_formats.size(); ++i) {
-			desc.RTVFormats[i] = _details::conversions::for_format(fb_layout.color_render_target_formats[i]);
+			desc.RTVFormats[i] = _details::conversions::to_format(fb_layout.color_render_target_formats[i]);
 		}
 		desc.DSVFormat                       =
-			_details::conversions::for_format(fb_layout.depth_stencil_render_target_format);
+			_details::conversions::to_format(fb_layout.depth_stencil_render_target_format);
 		
 		// TODO multisample settings
 		desc.SampleDesc.Count                = 1;
@@ -298,7 +298,7 @@ namespace lotus::graphics::backends::directx12 {
 
 		_details::assert_dx(_device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(&result._pipeline)));
 		result._root_signature = resources._signature;
-		result._topology = _details::conversions::for_primitive_topology(topology);
+		result._topology = _details::conversions::to_primitive_topology(topology);
 
 		return result;
 	}
@@ -618,7 +618,7 @@ namespace lotus::graphics::backends::directx12 {
 
 	image2d_view device::create_image2d_view_from(const image2d &img, format fmt, mip_levels mip) {
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-		srv_desc.Format                        = _details::conversions::for_format(fmt);
+		srv_desc.Format                        = _details::conversions::to_format(fmt);
 		srv_desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srv_desc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srv_desc.Texture2D.MostDetailedMip     = static_cast<UINT>(mip.minimum);
@@ -648,19 +648,19 @@ namespace lotus::graphics::backends::directx12 {
 	) {
 		sampler result;
 		result._desc = {};
-		result._desc.Filter         = _details::conversions::for_filtering(
+		result._desc.Filter         = _details::conversions::to_filter(
 			minification, magnification, mipmapping, max_anisotropy.has_value(), comparison.has_value()
 		);
-		result._desc.AddressU       = _details::conversions::for_sampler_address_mode(addressing_u);
-		result._desc.AddressV       = _details::conversions::for_sampler_address_mode(addressing_v);
-		result._desc.AddressW       = _details::conversions::for_sampler_address_mode(addressing_w);
+		result._desc.AddressU       = _details::conversions::to_texture_address_mode(addressing_u);
+		result._desc.AddressV       = _details::conversions::to_texture_address_mode(addressing_v);
+		result._desc.AddressW       = _details::conversions::to_texture_address_mode(addressing_w);
 		result._desc.MipLODBias     = mip_lod_bias;
 		result._desc.MaxAnisotropy  = std::clamp<UINT>(
 			static_cast<UINT>(std::round(max_anisotropy.value_or(0.0f))), 1, 16
 		);
 		result._desc.ComparisonFunc =
 			comparison.has_value() ?
-			_details::conversions::for_comparison_function(comparison.value()) :
+			_details::conversions::to_comparison_function(comparison.value()) :
 			D3D12_COMPARISON_FUNC_ALWAYS;
 		result._desc.BorderColor[0] = border_color.r;
 		result._desc.BorderColor[1] = border_color.g;
@@ -728,6 +728,10 @@ namespace lotus::graphics::backends::directx12 {
 		return sem._semaphore->GetCompletedValue();
 	}
 
+	void device::wait_for_timeline_semaphore(timeline_semaphore &sem, std::uint64_t val) {
+		_details::assert_dx(sem._semaphore->SetEventOnCompletion(val, nullptr));
+	}
+
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
 		std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
 	) {
@@ -739,12 +743,12 @@ namespace lotus::graphics::backends::directx12 {
 			desc.Type                                 = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
 			desc.Flags                                = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
 			desc.Triangles.Transform3x4               = 0;
-			desc.Triangles.VertexFormat               = _details::conversions::for_format(vert.vertex_format);
+			desc.Triangles.VertexFormat               = _details::conversions::to_format(vert.vertex_format);
 			desc.Triangles.VertexCount                = static_cast<UINT>(vert.count);
 			desc.Triangles.VertexBuffer.StartAddress  = vert.data->_buffer->GetGPUVirtualAddress() + vert.offset;
 			desc.Triangles.VertexBuffer.StrideInBytes = vert.stride;
 			if (idx.data) {
-				desc.Triangles.IndexFormat = _details::conversions::for_index_format(idx.element_format);
+				desc.Triangles.IndexFormat = _details::conversions::to_format(idx.element_format);
 				desc.Triangles.IndexCount  = static_cast<UINT>(idx.count);
 				desc.Triangles.IndexBuffer = idx.data->_buffer->GetGPUVirtualAddress() + idx.offset;
 			} else {

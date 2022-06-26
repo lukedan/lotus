@@ -29,79 +29,79 @@ namespace lotus::graphics::backends::directx12::_details {
 	namespace conversions {
 		// simple enum conversions
 		/// Converts a \ref format to a \p DXGI_FORMAT.
-		[[nodiscard]] DXGI_FORMAT for_format(format);
+		[[nodiscard]] DXGI_FORMAT to_format(format);
 		/// Converts a \ref index_format to a \p DXGI_FORMAT.
-		[[nodiscard]] DXGI_FORMAT for_index_format(index_format);
+		[[nodiscard]] DXGI_FORMAT to_format(index_format);
 		/// Converts a \ref image_tiling to a \p D3D12_TEXTURE_LAYOUT.
-		[[nodiscard]] D3D12_TEXTURE_LAYOUT for_image_tiling(image_tiling);
+		[[nodiscard]] D3D12_TEXTURE_LAYOUT to_texture_layout(image_tiling);
 		/// Converts a \ref blend_factor to a \p D3D12_BLEND.
-		[[nodiscard]] D3D12_BLEND for_blend_factor(blend_factor);
+		[[nodiscard]] D3D12_BLEND to_blend_factor(blend_factor);
 		/// Converts a \ref blend_operation to a \p D3D12_BLEND_OP.
-		[[nodiscard]] D3D12_BLEND_OP for_blend_operation(blend_operation);
+		[[nodiscard]] D3D12_BLEND_OP to_blend_operation(blend_operation);
 		/// Converts a \ref cull_mode to a \p D3D12_CULL_MODE.
-		[[nodiscard]] D3D12_CULL_MODE for_cull_mode(cull_mode);
+		[[nodiscard]] D3D12_CULL_MODE to_cull_mode(cull_mode);
 		/// Converts a \ref stencil_operation to a \p D3D12_STENCIL_OP.
-		[[nodiscard]] D3D12_STENCIL_OP for_stencil_operation(stencil_operation);
+		[[nodiscard]] D3D12_STENCIL_OP to_stencil_operation(stencil_operation);
 		/// Converts a \ref input_buffer_rate to a \p D3D12_INPUT_CLASSIFICATION.
-		[[nodiscard]] D3D12_INPUT_CLASSIFICATION for_input_buffer_rate(input_buffer_rate);
+		[[nodiscard]] D3D12_INPUT_CLASSIFICATION to_input_classification(input_buffer_rate);
 		/// Converts a \ref primitive_topology to a \p D3D12_PRIMITIVE_TOPOLOGY_TYPE.
-		[[nodiscard]] D3D12_PRIMITIVE_TOPOLOGY_TYPE for_primitive_topology_type(primitive_topology);
+		[[nodiscard]] D3D12_PRIMITIVE_TOPOLOGY_TYPE to_primitive_topology_type(primitive_topology);
 		/// Converts a \ref primitive_topology to a \p D3D_PRIMITIVE_TOPOLOGY.
-		[[nodiscard]] D3D_PRIMITIVE_TOPOLOGY for_primitive_topology(primitive_topology);
+		[[nodiscard]] D3D_PRIMITIVE_TOPOLOGY to_primitive_topology(primitive_topology);
 		/// Converts a \ref pass_load_operation to a \p D3D12_RENDER_PASS_BEGINNING_ACCESS.
-		[[nodiscard]] D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE for_pass_load_operation(pass_load_operation);
+		[[nodiscard]] D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE to_render_pass_beginning_access_type(pass_load_operation);
 		/// Converts a \ref pass_store_operation to a \p D3D12_RENDER_PASS_ENDING_ACCESS.
-		[[nodiscard]] D3D12_RENDER_PASS_ENDING_ACCESS_TYPE for_pass_store_operation(pass_store_operation);
+		[[nodiscard]] D3D12_RENDER_PASS_ENDING_ACCESS_TYPE to_render_pass_ending_access_type(pass_store_operation);
 		/// Converts a \ref descriptor_type to a \p D3D12_DESCRIPTOR_RANGE_TYPE.
-		[[nodiscard]] D3D12_DESCRIPTOR_RANGE_TYPE for_descriptor_type(descriptor_type);
+		[[nodiscard]] D3D12_DESCRIPTOR_RANGE_TYPE to_descriptor_range_type(descriptor_type);
 		/// Converts a \ref image_usage to a \p D3D12_RESOURCE_STATES.
-		[[nodiscard]] D3D12_RESOURCE_STATES for_image_usage(image_usage);
+		[[nodiscard]] D3D12_RESOURCE_STATES to_resource_states(image_usage);
 		/// Converts a \ref buffer_usage to a \p D3D12_RESOURCE_STATES.
-		[[nodiscard]] D3D12_RESOURCE_STATES for_buffer_usage(buffer_usage);
+		[[nodiscard]] D3D12_RESOURCE_STATES to_resource_states(buffer_usage);
 		/// Converts a \ref heap_type to a \p D3D12_HEAP_TYPE.
-		[[nodiscard]] D3D12_HEAP_TYPE for_heap_type(heap_type);
+		[[nodiscard]] D3D12_HEAP_TYPE to_heap_type(heap_type);
 		/// Converts a \ref sampler_address_mode to a \p D3D12_TEXTURE_ADDRESS_MODE.
-		[[nodiscard]] D3D12_TEXTURE_ADDRESS_MODE for_sampler_address_mode(sampler_address_mode);
+		[[nodiscard]] D3D12_TEXTURE_ADDRESS_MODE to_texture_address_mode(sampler_address_mode);
 		/// Converts a \ref comparison_function to a \p D3D12_COMPARISON_FUNC.
-		[[nodiscard]] D3D12_COMPARISON_FUNC for_comparison_function(comparison_function);
+		[[nodiscard]] D3D12_COMPARISON_FUNC to_comparison_function(comparison_function);
 
 		// bitmask conversions
 		/// Converts a \ref channel_mask to a \p D3D12_COLOR_WRITE_ENABLE.
-		[[nodiscard]] D3D12_COLOR_WRITE_ENABLE for_channel_mask(channel_mask);
+		[[nodiscard]] D3D12_COLOR_WRITE_ENABLE to_color_write_mask(channel_mask);
 		/// Converts a \ref shader_stage to a \p D3D12_SHADER_VISIBILITY.
 		[[nodiscard]] D3D12_SHADER_VISIBILITY to_shader_visibility(shader_stage);
 
 		// complex enum conversions
 		/// Converts filter parameters to a \p D3D12_FILTER.
-		[[nodiscard]] D3D12_FILTER for_filtering(
+		[[nodiscard]] D3D12_FILTER to_filter(
 			filtering minification, filtering magnification, filtering mipmapping, bool anisotropic, bool comparison
 		);
 
 		// struct conversions
 		/// Converts a \ref viewport to a \p D3D12_VIEWPORT.
-		[[nodiscard]] D3D12_VIEWPORT for_viewport(const viewport&);
+		[[nodiscard]] D3D12_VIEWPORT to_viewport(const viewport&);
 		/// Converts a \ref aab2i to a \p D3D12_RECT.
-		[[nodiscard]] D3D12_RECT for_rect(const aab2i&);
+		[[nodiscard]] D3D12_RECT to_rect(const aab2i&);
 
 		/// Converts a \ref render_target_blend_options to a \p D3D12_RENDER_TARGET_BLEND_DESC.
-		[[nodiscard]] D3D12_RENDER_TARGET_BLEND_DESC for_render_target_blend_options(
+		[[nodiscard]] D3D12_RENDER_TARGET_BLEND_DESC to_render_target_blend_description(
 			const render_target_blend_options&
 		);
 		/// Converts a \ref blend_options to a \p D3D12_BLEND_DESC.
-		[[nodiscard]] D3D12_BLEND_DESC for_blend_options(std::span<const render_target_blend_options>);
+		[[nodiscard]] D3D12_BLEND_DESC to_blend_description(std::span<const render_target_blend_options>);
 		/// Converts a \ref rasterizer_options to a \p D3D12_RASTERIZER_DESC.
-		[[nodiscard]] D3D12_RASTERIZER_DESC for_rasterizer_options(const rasterizer_options&);
+		[[nodiscard]] D3D12_RASTERIZER_DESC to_rasterizer_description(const rasterizer_options&);
 		/// Converts a \ref stencil_options to a \p D3D12_DEPTH_STENCILOP_DESC.
-		[[nodiscard]] D3D12_DEPTH_STENCILOP_DESC for_stencil_options(const stencil_options&);
+		[[nodiscard]] D3D12_DEPTH_STENCILOP_DESC to_depth_stencil_operation_description(const stencil_options&);
 		/// Converts a \ref depth_stencil_options to a \p D3D12_DEPTH_STENCIL_DESC1.
-		[[nodiscard]] D3D12_DEPTH_STENCIL_DESC for_depth_stencil_options(const depth_stencil_options&);
+		[[nodiscard]] D3D12_DEPTH_STENCIL_DESC to_depth_stencil_description(const depth_stencil_options&);
 
 		/// Converts a \ref render_target_pass_options to a \p D3D12_RENDER_PASS_RENDER_TARGET_DESC.
-		[[nodiscard]] D3D12_RENDER_PASS_RENDER_TARGET_DESC for_render_target_pass_options(
+		[[nodiscard]] D3D12_RENDER_PASS_RENDER_TARGET_DESC to_render_pass_render_target_description(
 			const render_target_pass_options&
 		);
 		/// Converts a \ref depth_stencil_pass_options to a \p D3D12_DEPTH_STENCIL_RENDER_TARGET_DESC.
-		[[nodiscard]] D3D12_RENDER_PASS_DEPTH_STENCIL_DESC for_depth_stencil_pass_options(
+		[[nodiscard]] D3D12_RENDER_PASS_DEPTH_STENCIL_DESC to_render_pass_depth_stencil_description(
 			const depth_stencil_pass_options&
 		);
 
@@ -120,7 +120,7 @@ namespace lotus::graphics::backends::directx12::_details {
 		using index_t = std::uint16_t; ///< Index of a descriptor.
 
 		/// Initializes this descriptor to empty.
-		descriptor_range(std::nullptr_t) : _index(0), _count(0) {
+		descriptor_range(std::nullptr_t) {
 		}
 		/// Move constructor.
 		descriptor_range(descriptor_range &&src) noexcept :
@@ -171,12 +171,12 @@ namespace lotus::graphics::backends::directx12::_details {
 			return _count == 0;
 		}
 	private:
-		D3D12_CPU_DESCRIPTOR_HANDLE _cpu; ///< The CPU descriptor.
-		D3D12_GPU_DESCRIPTOR_HANDLE _gpu; ///< The GPU descriptor.
-		UINT _increment; ///< The size of a single descriptor.
-		index_t _index; ///< Index of the descriptor in the heap.
+		D3D12_CPU_DESCRIPTOR_HANDLE _cpu = {}; ///< The CPU descriptor.
+		D3D12_GPU_DESCRIPTOR_HANDLE _gpu = {}; ///< The GPU descriptor.
+		UINT _increment = 0; ///< The size of a single descriptor.
+		index_t _index = 0; ///< Index of the descriptor in the heap.
 		/// The number of descriptors. If this is 0, it indicates that the range is empty or has been freed.
-		index_t _count;
+		index_t _count = 0;
 
 		/// Initializes all members. Note that the descriptor handles point to the start of the heap, instead of the
 		/// start of the range, to simplify construction.

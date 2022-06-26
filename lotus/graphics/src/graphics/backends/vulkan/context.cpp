@@ -121,7 +121,7 @@ namespace lotus::graphics::backends::vulkan {
 		result._format = available_fmts[0];
 		format result_format = format::none;
 		for (auto fmt : formats) {
-			vk::Format result_fmt = _details::conversions::for_format(fmt);
+			vk::Format result_fmt = _details::conversions::to_format(fmt);
 			auto it = std::lower_bound(
 				available_fmts.begin(), available_fmts.end(), result_fmt,
 				[](const vk::SurfaceFormatKHR &lhs, vk::Format rhs) {

@@ -477,7 +477,7 @@ namespace lotus::graphics::backends::vulkan {
 					attribute_descriptions.emplace_back()
 						.setLocation(input->location)
 						.setBinding(static_cast<std::uint32_t>(buf.buffer_index))
-						.setFormat(_details::conversions::for_format(attr.element_format))
+						.setFormat(_details::conversions::to_format(attr.element_format))
 						.setOffset(static_cast<std::uint32_t>(attr.byte_offset));
 				}
 			}
@@ -554,10 +554,10 @@ namespace lotus::graphics::backends::vulkan {
 			fb_layout.color_render_target_formats.size()
 		);
 		for (const auto &f : fb_layout.color_render_target_formats) {
-			color_rt_formats.emplace_back(_details::conversions::for_format(f));
+			color_rt_formats.emplace_back(_details::conversions::to_format(f));
 		}
 
-		vk::Format ds_rt_format = _details::conversions::for_format(fb_layout.depth_stencil_render_target_format);
+		vk::Format ds_rt_format = _details::conversions::to_format(fb_layout.depth_stencil_render_target_format);
 
 		vk::PipelineRenderingCreateInfo fb_info;
 		fb_info
@@ -664,7 +664,7 @@ namespace lotus::graphics::backends::vulkan {
 		vk::ImageCreateInfo img_info;
 		img_info
 			.setImageType(vk::ImageType::e2D)
-			.setFormat(_details::conversions::for_format(fmt))
+			.setFormat(_details::conversions::to_format(fmt))
 			.setExtent(vk::Extent3D(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1))
 			.setMipLevels(static_cast<std::uint32_t>(mip_levels))
 			.setArrayLayers(static_cast<std::uint32_t>(array_slices))
@@ -702,7 +702,7 @@ namespace lotus::graphics::backends::vulkan {
 			vk::ImageCreateInfo img_info;
 			img_info
 				.setImageType(vk::ImageType::e2D)
-				.setFormat(_details::conversions::for_format(fmt))
+				.setFormat(_details::conversions::to_format(fmt))
 				.setExtent(vk::Extent3D(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1))
 				.setMipLevels(1)
 				.setArrayLayers(1)
@@ -775,7 +775,7 @@ namespace lotus::graphics::backends::vulkan {
 		info
 			.setImage(img._image)
 			.setViewType(vk::ImageViewType::e2D)
-			.setFormat(_details::conversions::for_format(f))
+			.setFormat(_details::conversions::to_format(f))
 			.setComponents(vk::ComponentMapping())
 			.setSubresourceRange(_details::conversions::to_image_subresource_range(mip, aspects));
 		// TODO allocator
@@ -851,6 +851,14 @@ namespace lotus::graphics::backends::vulkan {
 		return _details::unwrap(_device->getSemaphoreCounterValue(sem._semaphore.get()));
 	}
 
+	void device::wait_for_timeline_semaphore(timeline_semaphore &sem, std::uint64_t val) {
+		vk::SemaphoreWaitInfo info;
+		info
+			.setSemaphores(sem._semaphore.get())
+			.setValues(val);
+		_details::assert_vk(_device->waitSemaphores(info, std::numeric_limits<std::uint64_t>::max()));
+	}
+
 	void device::set_debug_name(buffer &buf, const char8_t *name) {
 		vk::DebugMarkerObjectNameInfoEXT info;
 		info
@@ -883,14 +891,14 @@ namespace lotus::graphics::backends::vulkan {
 				.setGeometryType(vk::GeometryTypeKHR::eTriangles)
 				.setFlags(vk::GeometryFlagsKHR());
 			geom.geometry.triangles
-				.setVertexFormat(_details::conversions::for_format(vert.vertex_format))
+				.setVertexFormat(_details::conversions::to_format(vert.vertex_format))
 				.setVertexData(_device->getBufferAddress(vert.data->_buffer) + vert.offset)
 				.setVertexStride(vert.stride)
 				.setMaxVertex(static_cast<std::uint32_t>(vert.count))
 				.setTransformData(nullptr);
 			if (index.data) {
 				geom.geometry.triangles
-					.setIndexType(_details::conversions::for_index_format(index.element_format))
+					.setIndexType(_details::conversions::to_index_type(index.element_format))
 					.setIndexData(_device->getBufferAddress(index.data->_buffer) + index.offset);
 				result._pimitive_counts.emplace_back(static_cast<std::uint32_t>(index.count / 3));
 			} else {

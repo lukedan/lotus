@@ -95,7 +95,7 @@ namespace lotus::graphics::backends::vulkan {
 
 	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset, index_format fmt) {
 		_buffer.bindIndexBuffer(
-			buf._buffer, static_cast<vk::DeviceSize>(offset), _details::conversions::for_index_format(fmt)
+			buf._buffer, static_cast<vk::DeviceSize>(offset), _details::conversions::to_index_type(fmt)
 		);
 	}
 

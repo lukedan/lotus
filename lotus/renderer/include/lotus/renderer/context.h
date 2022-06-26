@@ -195,6 +195,8 @@ namespace lotus::renderer {
 
 		/// Creates a new context object.
 		[[nodiscard]] static context create(assets::manager&, graphics::context&, graphics::command_queue&);
+		/// Disposes of all resources.
+		~context();
 
 		/// Creates a 2D surface with the given properties.
 		[[nodiscard]] image2d_view request_surface2d(std::u8string_view name, cvec2s size, graphics::format);
@@ -236,6 +238,8 @@ namespace lotus::renderer {
 		/// Analyzes and executes all pending commands. This is the only place where that happens - it doesn't happen
 		/// automatically.
 		void flush();
+		/// Waits until all previous batches have finished executing.
+		void wait_idle();
 	private:
 		/// Indicates a descriptor set bind point.
 		enum class _bind_point {
@@ -511,6 +515,9 @@ namespace lotus::renderer {
 		void _handle_command(_execution_context&, const context_commands::render_pass&);
 		/// Handles a present command.
 		void _handle_command(_execution_context&, const context_commands::present&);
+
+		/// Cleans up all unused resources.
+		void _cleanup();
 
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a surface.
 		void _deferred_delete(_details::surface2d *surf) {

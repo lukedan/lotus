@@ -107,12 +107,8 @@ namespace lotus::renderer {
 			/// Initializes \ref _ctx.
 			explicit context_managed_deleter(context &ctx) : _ctx(&ctx) {
 			}
-			/// Default move construction.
-			context_managed_deleter(context_managed_deleter&&) = default;
 			/// Default copy construction.
 			context_managed_deleter(const context_managed_deleter&) = default;
-			/// Default move assignment.
-			context_managed_deleter &operator=(context_managed_deleter&&) = default;
 			/// Default copy assignment.
 			context_managed_deleter &operator=(const context_managed_deleter&) = default;
 

@@ -42,7 +42,7 @@ namespace lotus::graphics::backends::directx12 {
 		for (auto fmt : formats) {
 			// check if the format is available
 			// https://docs.microsoft.com/en-us/previous-versions/windows/desktop/legacy/bb173064(v=vs.85)
-			DXGI_FORMAT cur_fmt = _details::conversions::for_format(fmt);
+			DXGI_FORMAT cur_fmt = _details::conversions::to_format(fmt);
 			switch (cur_fmt) {
 			case DXGI_FORMAT_R8G8B8A8_UNORM: [[fallthrough]];
 			case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:

@@ -177,6 +177,8 @@ namespace lotus::graphics::backends::vulkan {
 		void signal_timeline_semaphore(timeline_semaphore&, std::uint64_t);
 		/// Calls \p vk::UniqueDevice::getSemaphoreCounterValue().
 		[[nodiscard]] std::uint64_t query_timeline_semaphore(timeline_semaphore&);
+		/// Calls \p vk::UniqueDevice::waitSemaphores().
+		void wait_for_timeline_semaphore(timeline_semaphore&, std::uint64_t);
 
 		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT().
 		void set_debug_name(buffer&, const char8_t*);

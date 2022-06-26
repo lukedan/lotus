@@ -376,6 +376,10 @@ namespace lotus::graphics {
 		[[nodiscard]] std::uint64_t query_timeline_semaphore(timeline_semaphore &sem) {
 			return backend::device::query_timeline_semaphore(sem);
 		}
+		/// Waits until the given timeline semaphore has reached a value equal to or greater than the given value.
+		void wait_for_timeline_semaphore(timeline_semaphore &sem, std::uint64_t value) {
+			backend::device::wait_for_timeline_semaphore(sem, value);
+		}
 
 
 		/// Sets the debug name of the given object.

@@ -157,6 +157,10 @@ namespace lotus::renderer {
 		return context(asset_man, ctx, queue);
 	}
 
+	context::~context() {
+		wait_idle();
+	}
+
 	image2d_view context::request_surface2d(std::u8string_view name, cvec2s size, graphics::format fmt) {
 		graphics::image_tiling tiling = graphics::image_tiling::optimal;
 		graphics::image_usage::mask usage_mask = 
@@ -724,6 +728,15 @@ namespace lotus::renderer {
 		cmd.target._swap_chain->next_image_index = _details::swap_chain::invalid_image_index;
 	}
 
+	void context::_cleanup() {
+		std::uint32_t first_batch = _batch_index + 1 - _all_resources.size();
+		std::uint64_t finished_batch = _device.query_timeline_semaphore(_batch_semaphore);
+		while (first_batch <= finished_batch) {
+			_all_resources.pop_front();
+			++first_batch;
+		}
+	}
+
 	void context::flush() {
 		assert(std::this_thread::get_id() == _thread);
 
@@ -743,12 +756,11 @@ namespace lotus::renderer {
 		};
 		ectx.submit(_queue, graphics::queue_synchronization(nullptr, {}, signal_semaphores));
 
-		// cleanup
-		std::uint32_t first_batch = _batch_index + 1 - _all_resources.size();
-		std::uint64_t finished_batch = _device.query_timeline_semaphore(_batch_semaphore);
-		while (first_batch <= finished_batch) {
-			_all_resources.pop_front();
-			++first_batch;
-		}
+		_cleanup();
+	}
+
+	void context::wait_idle() {
+		_device.wait_for_timeline_semaphore(_batch_semaphore, _batch_index);
+		_cleanup();
 	}
 }

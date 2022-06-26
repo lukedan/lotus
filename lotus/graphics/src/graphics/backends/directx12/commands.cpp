@@ -32,7 +32,7 @@ namespace lotus::graphics::backends::directx12 {
 			desc.cpuDescriptor                           =
 				fb._color.get_cpu(static_cast<_details::descriptor_range::index_t>(i));
 			desc.BeginningAccess.Type                    =
-				_details::conversions::for_pass_load_operation(rt_access.load_operation);
+				_details::conversions::to_render_pass_beginning_access_type(rt_access.load_operation);
 			desc.BeginningAccess.Clear.ClearValue.Format = fb._color_formats[i];
 			std::visit([&](const auto &color4) {
 				for (std::size_t i = 0; i < color4.dimensionality; ++i) {
@@ -40,7 +40,7 @@ namespace lotus::graphics::backends::directx12 {
 				}
 			}, rt_access.clear_value.value);
 			desc.EndingAccess.Type                       =
-				_details::conversions::for_pass_store_operation(rt_access.store_operation);
+				_details::conversions::to_render_pass_ending_access_type(rt_access.store_operation);
 		}
 		const D3D12_RENDER_PASS_DEPTH_STENCIL_DESC *ds_desc_ptr = nullptr;
 		D3D12_RENDER_PASS_DEPTH_STENCIL_DESC ds_desc = {};
@@ -49,20 +49,26 @@ namespace lotus::graphics::backends::directx12 {
 			ds_desc.cpuDescriptor                                                = fb._depth_stencil.get_cpu(0);
 
 			ds_desc.DepthBeginningAccess.Type                                    =
-				_details::conversions::for_pass_load_operation(access.depth_render_target.load_operation);
+				_details::conversions::to_render_pass_beginning_access_type(
+					access.depth_render_target.load_operation
+				);
 			ds_desc.DepthBeginningAccess.Clear.ClearValue.Format                 = fb._depth_stencil_format;
 			ds_desc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Depth     =
 				static_cast<FLOAT>(access.depth_render_target.clear_value);
 			ds_desc.DepthEndingAccess.Type                                       =
-				_details::conversions::for_pass_store_operation(access.depth_render_target.store_operation);
+				_details::conversions::to_render_pass_ending_access_type(access.depth_render_target.store_operation);
 
 			ds_desc.StencilBeginningAccess.Type                                  =
-				_details::conversions::for_pass_load_operation(access.stencil_render_target.load_operation);
+				_details::conversions::to_render_pass_beginning_access_type(
+					access.stencil_render_target.load_operation
+				);
 			ds_desc.StencilBeginningAccess.Clear.ClearValue.Format               = fb._depth_stencil_format;
 			ds_desc.StencilBeginningAccess.Clear.ClearValue.DepthStencil.Stencil =
 				static_cast<UINT8>(access.stencil_render_target.clear_value);
 			ds_desc.StencilEndingAccess.Type                                     =
-				_details::conversions::for_pass_store_operation(access.stencil_render_target.store_operation);
+				_details::conversions::to_render_pass_ending_access_type(
+					access.stencil_render_target.store_operation
+				);
 		}
 		_list->BeginRenderPass(
 			static_cast<UINT>(color_rts.size()), color_rts.data(), ds_desc_ptr,
@@ -78,8 +84,8 @@ namespace lotus::graphics::backends::directx12 {
 			images.size() + buffers.size()
 		);
 		for (const auto &img : images) {
-			D3D12_RESOURCE_STATES from_state = _details::conversions::for_image_usage(img.from_state);
-			D3D12_RESOURCE_STATES to_state   = _details::conversions::for_image_usage(img.to_state);
+			D3D12_RESOURCE_STATES from_state = _details::conversions::to_resource_states(img.from_state);
+			D3D12_RESOURCE_STATES to_state   = _details::conversions::to_resource_states(img.to_state);
 			if (from_state == to_state) {
 				continue;
 			}
@@ -99,8 +105,8 @@ namespace lotus::graphics::backends::directx12 {
 			barrier.Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 			barrier.Transition.pResource   = static_cast<buffer*>(buf.target)->_buffer.Get();
 			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			barrier.Transition.StateBefore = _details::conversions::for_buffer_usage(buf.from_state);
-			barrier.Transition.StateAfter  = _details::conversions::for_buffer_usage(buf.to_state);
+			barrier.Transition.StateBefore = _details::conversions::to_resource_states(buf.from_state);
+			barrier.Transition.StateAfter  = _details::conversions::to_resource_states(buf.to_state);
 		}
 		if (resources.empty()) {
 			return;
@@ -139,7 +145,7 @@ namespace lotus::graphics::backends::directx12 {
 		D3D12_INDEX_BUFFER_VIEW buf_view = {};
 		buf_view.BufferLocation = buf._buffer->GetGPUVirtualAddress() + offset;
 		buf_view.SizeInBytes    = static_cast<UINT>(buf._buffer->GetDesc().Width - offset);
-		buf_view.Format         = _details::conversions::for_index_format(fmt);
+		buf_view.Format         = _details::conversions::to_format(fmt);
 		_list->IASetIndexBuffer(&buf_view);
 	}
 
@@ -203,7 +209,7 @@ namespace lotus::graphics::backends::directx12 {
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 		auto vec = bookmark.create_vector_array<D3D12_VIEWPORT>(vps.size());
 		for (std::size_t i = 0; i < vps.size(); ++i) {
-			vec[i] = _details::conversions::for_viewport(vps[i]);
+			vec[i] = _details::conversions::to_viewport(vps[i]);
 		}
 		_list->RSSetViewports(static_cast<UINT>(vec.size()), vec.data());
 	}
@@ -212,7 +218,7 @@ namespace lotus::graphics::backends::directx12 {
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 		auto vec = bookmark.create_vector_array<D3D12_RECT>(rects.size());
 		for (std::size_t i = 0; i < rects.size(); ++i) {
-			vec[i] = _details::conversions::for_rect(rects[i]);
+			vec[i] = _details::conversions::to_rect(rects[i]);
 		}
 		_list->RSSetScissorRects(static_cast<UINT>(vec.size()), vec.data());
 	}

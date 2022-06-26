@@ -34,11 +34,11 @@ namespace lotus::graphics::backends::vulkan::_details {
 	/// Conversions to Vulkan data types.
 	namespace conversions {
 		/// Converts a \ref format to a \p vk::Format.
-		[[nodiscard]] vk::Format for_format(format);
+		[[nodiscard]] vk::Format to_format(format);
 		/// Converts a \ref index_format to a \p vk::IndexType.
-		[[nodiscard]] vk::IndexType for_index_format(index_format);
+		[[nodiscard]] vk::IndexType to_index_type(index_format);
 		/// Converts a \ref image_aspect_mask to a \p vk::ImageAspectFlags.
-		[[nodiscard]] vk::ImageAspectFlags for_image_aspect_mask(image_aspect_mask);
+		[[nodiscard]] vk::ImageAspectFlags to_image_aspect_flags(image_aspect_mask);
 		/// Converts a \ref image_usage to a \p vk::AccessFlags and \p vk::ImageLayout.
 		[[nodiscard]] std::pair<vk::AccessFlags, vk::ImageLayout> to_image_access_layout(image_usage);
 		/// Converts a \ref buffer_usage::mask to a \p vk::BufferUsageFlags.

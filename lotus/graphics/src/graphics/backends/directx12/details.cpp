@@ -30,7 +30,7 @@ namespace lotus::graphics::backends::directx12::_details {
 
 
 	namespace conversions {
-		DXGI_FORMAT for_format(format fmt) {
+		DXGI_FORMAT to_format(format fmt) {
 			constexpr static enum_mapping<format, DXGI_FORMAT> table{
 				std::pair(format::none,               DXGI_FORMAT_UNKNOWN             ),
 				std::pair(format::d32_float_s8,       DXGI_FORMAT_D32_FLOAT_S8X24_UINT),
@@ -83,7 +83,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[fmt];
 		}
 
-		DXGI_FORMAT for_index_format(index_format fmt) {
+		DXGI_FORMAT to_format(index_format fmt) {
 			constexpr static enum_mapping<index_format, DXGI_FORMAT> table{
 				std::pair(index_format::uint16, DXGI_FORMAT_R16_UINT),
 				std::pair(index_format::uint32, DXGI_FORMAT_R32_UINT),
@@ -91,7 +91,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[fmt];
 		}
 
-		D3D12_TEXTURE_LAYOUT for_image_tiling(image_tiling tiling) {
+		D3D12_TEXTURE_LAYOUT to_texture_layout(image_tiling tiling) {
 			constexpr static enum_mapping<image_tiling, D3D12_TEXTURE_LAYOUT> table{
 				std::pair(image_tiling::row_major, D3D12_TEXTURE_LAYOUT_ROW_MAJOR),
 				std::pair(image_tiling::optimal,   D3D12_TEXTURE_LAYOUT_UNKNOWN  ),
@@ -99,7 +99,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[tiling];
 		}
 
-		D3D12_BLEND for_blend_factor(blend_factor factor) {
+		D3D12_BLEND to_blend_factor(blend_factor factor) {
 			constexpr static enum_mapping<blend_factor, D3D12_BLEND> table{
 				std::pair(blend_factor::zero,                        D3D12_BLEND_ZERO          ),
 				std::pair(blend_factor::one,                         D3D12_BLEND_ONE           ),
@@ -115,7 +115,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[factor];
 		}
 
-		D3D12_BLEND_OP for_blend_operation(blend_operation op) {
+		D3D12_BLEND_OP to_blend_operation(blend_operation op) {
 			constexpr static enum_mapping<blend_operation, D3D12_BLEND_OP> table{
 				std::pair(blend_operation::add,              D3D12_BLEND_OP_ADD         ),
 				std::pair(blend_operation::subtract,         D3D12_BLEND_OP_SUBTRACT    ),
@@ -126,7 +126,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[op];
 		}
 
-		D3D12_CULL_MODE for_cull_mode(cull_mode mode) {
+		D3D12_CULL_MODE to_cull_mode(cull_mode mode) {
 			constexpr static enum_mapping<cull_mode, D3D12_CULL_MODE> table{
 				std::pair(cull_mode::none,       D3D12_CULL_MODE_NONE ),
 				std::pair(cull_mode::cull_front, D3D12_CULL_MODE_FRONT),
@@ -135,7 +135,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[mode];
 		}
 
-		D3D12_STENCIL_OP for_stencil_operation(stencil_operation op) {
+		D3D12_STENCIL_OP to_stencil_operation(stencil_operation op) {
 			constexpr static enum_mapping<stencil_operation, D3D12_STENCIL_OP> table{
 				std::pair(stencil_operation::keep,                D3D12_STENCIL_OP_KEEP    ),
 				std::pair(stencil_operation::zero,                D3D12_STENCIL_OP_ZERO    ),
@@ -149,7 +149,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[op];
 		}
 
-		D3D12_INPUT_CLASSIFICATION for_input_buffer_rate(input_buffer_rate rate) {
+		D3D12_INPUT_CLASSIFICATION to_input_classification(input_buffer_rate rate) {
 			constexpr static enum_mapping<input_buffer_rate, D3D12_INPUT_CLASSIFICATION> table{
 				std::pair(input_buffer_rate::per_vertex,   D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA  ),
 				std::pair(input_buffer_rate::per_instance, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA),
@@ -157,7 +157,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[rate];
 		}
 
-		D3D12_PRIMITIVE_TOPOLOGY_TYPE for_primitive_topology_type(primitive_topology topology) {
+		D3D12_PRIMITIVE_TOPOLOGY_TYPE to_primitive_topology_type(primitive_topology topology) {
 			constexpr static enum_mapping<primitive_topology, D3D12_PRIMITIVE_TOPOLOGY_TYPE> table{
 				std::pair(primitive_topology::point_list,                    D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT   ),
 				std::pair(primitive_topology::line_list,                     D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE    ),
@@ -172,7 +172,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[topology];
 		}
 
-		D3D_PRIMITIVE_TOPOLOGY for_primitive_topology(primitive_topology topology) {
+		D3D_PRIMITIVE_TOPOLOGY to_primitive_topology(primitive_topology topology) {
 			constexpr static enum_mapping<primitive_topology, D3D_PRIMITIVE_TOPOLOGY> table{
 				std::pair(primitive_topology::point_list,                    D3D_PRIMITIVE_TOPOLOGY_POINTLIST        ),
 				std::pair(primitive_topology::line_list,                     D3D_PRIMITIVE_TOPOLOGY_LINELIST         ),
@@ -187,7 +187,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[topology];
 		}
 
-		D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE for_pass_load_operation(pass_load_operation op) {
+		D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE to_render_pass_beginning_access_type(pass_load_operation op) {
 			constexpr static enum_mapping<pass_load_operation, D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE> table{
 				std::pair(pass_load_operation::discard,  D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD ),
 				std::pair(pass_load_operation::preserve, D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE),
@@ -196,7 +196,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[op];
 		}
 
-		D3D12_RENDER_PASS_ENDING_ACCESS_TYPE for_pass_store_operation(pass_store_operation op) {
+		D3D12_RENDER_PASS_ENDING_ACCESS_TYPE to_render_pass_ending_access_type(pass_store_operation op) {
 			constexpr static enum_mapping<pass_store_operation, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE> table{
 				std::pair(pass_store_operation::discard,  D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD ),
 				std::pair(pass_store_operation::preserve, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE),
@@ -204,7 +204,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[op];
 		}
 
-		D3D12_DESCRIPTOR_RANGE_TYPE for_descriptor_type(descriptor_type ty) {
+		D3D12_DESCRIPTOR_RANGE_TYPE to_descriptor_range_type(descriptor_type ty) {
 			constexpr static enum_mapping<descriptor_type, D3D12_DESCRIPTOR_RANGE_TYPE> table{
 				std::pair(descriptor_type::sampler,                D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER),
 				std::pair(descriptor_type::read_only_image,        D3D12_DESCRIPTOR_RANGE_TYPE_SRV    ),
@@ -217,7 +217,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[ty];
 		}
 
-		D3D12_RESOURCE_STATES for_image_usage(image_usage st) {
+		D3D12_RESOURCE_STATES to_resource_states(image_usage st) {
 			constexpr static enum_mapping<image_usage, D3D12_RESOURCE_STATES> table{
 				std::pair(image_usage::color_render_target,         D3D12_RESOURCE_STATE_RENDER_TARGET                                                         ),
 				std::pair(image_usage::depth_stencil_render_target, D3D12_RESOURCE_STATE_DEPTH_WRITE                                                           ),
@@ -231,7 +231,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[st];
 		}
 
-		D3D12_RESOURCE_STATES for_buffer_usage(buffer_usage st) {
+		D3D12_RESOURCE_STATES to_resource_states(buffer_usage st) {
 			constexpr static enum_mapping<buffer_usage, D3D12_RESOURCE_STATES> table{
 				std::pair(buffer_usage::index_buffer,           D3D12_RESOURCE_STATE_INDEX_BUFFER                                                                                                            ),
 				std::pair(buffer_usage::vertex_buffer,          D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER                                                                                              ),
@@ -244,7 +244,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[st];
 		}
 
-		D3D12_HEAP_TYPE for_heap_type(heap_type ty) {
+		D3D12_HEAP_TYPE to_heap_type(heap_type ty) {
 			constexpr static enum_mapping<heap_type, D3D12_HEAP_TYPE> table{
 				std::pair(heap_type::device_only, D3D12_HEAP_TYPE_DEFAULT ),
 				std::pair(heap_type::upload,      D3D12_HEAP_TYPE_UPLOAD  ),
@@ -253,7 +253,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[ty];
 		}
 
-		D3D12_TEXTURE_ADDRESS_MODE for_sampler_address_mode(sampler_address_mode mode) {
+		D3D12_TEXTURE_ADDRESS_MODE to_texture_address_mode(sampler_address_mode mode) {
 			constexpr static enum_mapping<sampler_address_mode, D3D12_TEXTURE_ADDRESS_MODE> table{
 				std::pair(sampler_address_mode::repeat, D3D12_TEXTURE_ADDRESS_MODE_WRAP  ),
 				std::pair(sampler_address_mode::mirror, D3D12_TEXTURE_ADDRESS_MODE_MIRROR),
@@ -263,7 +263,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[mode];
 		}
 
-		D3D12_COMPARISON_FUNC for_comparison_function(comparison_function mode) {
+		D3D12_COMPARISON_FUNC to_comparison_function(comparison_function mode) {
 			constexpr static enum_mapping<comparison_function, D3D12_COMPARISON_FUNC> table{
 				std::pair(comparison_function::never,            D3D12_COMPARISON_FUNC_NEVER        ),
 				std::pair(comparison_function::less,             D3D12_COMPARISON_FUNC_LESS         ),
@@ -278,7 +278,7 @@ namespace lotus::graphics::backends::directx12::_details {
 		}
 
 
-		D3D12_COLOR_WRITE_ENABLE for_channel_mask(channel_mask mask) {
+		D3D12_COLOR_WRITE_ENABLE to_color_write_mask(channel_mask mask) {
 			constexpr static std::pair<channel_mask, D3D12_COLOR_WRITE_ENABLE> table[]{
 				{ channel_mask::red,   D3D12_COLOR_WRITE_ENABLE_RED   },
 				{ channel_mask::green, D3D12_COLOR_WRITE_ENABLE_GREEN },
@@ -314,7 +314,7 @@ namespace lotus::graphics::backends::directx12::_details {
 		}
 
 
-		D3D12_FILTER for_filtering(
+		D3D12_FILTER to_filter(
 			filtering minification, filtering magnification, filtering mipmapping, bool anisotropic, bool comparison
 		) {
 			constexpr auto _num_filtering_types = static_cast<std::size_t>(filtering::num_enumerators);
@@ -353,7 +353,7 @@ namespace lotus::graphics::backends::directx12::_details {
 		}
 
 
-		D3D12_VIEWPORT for_viewport(const viewport &vp) {
+		D3D12_VIEWPORT to_viewport(const viewport &vp) {
 			cvec2f size = vp.xy.signed_size();
 			D3D12_VIEWPORT result = {};
 			result.TopLeftX = vp.xy.min[0];
@@ -365,7 +365,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			return result;
 		}
 
-		D3D12_RECT for_rect(const aab2i &rect) {
+		D3D12_RECT to_rect(const aab2i &rect) {
 			D3D12_RECT result = {};
 			result.left   = static_cast<LONG>(rect.min[0]);
 			result.top    = static_cast<LONG>(rect.min[1]);
@@ -375,36 +375,36 @@ namespace lotus::graphics::backends::directx12::_details {
 		}
 
 
-		D3D12_RENDER_TARGET_BLEND_DESC for_render_target_blend_options(
+		D3D12_RENDER_TARGET_BLEND_DESC to_render_target_blend_description(
 			const render_target_blend_options &opt
 		) {
 			D3D12_RENDER_TARGET_BLEND_DESC result = {};
 			result.BlendEnable           = opt.enabled;
-			result.SrcBlend              = for_blend_factor(opt.source_color);
-			result.DestBlend             = for_blend_factor(opt.destination_color);
-			result.BlendOp               = for_blend_operation(opt.color_operation);
-			result.SrcBlendAlpha         = for_blend_factor(opt.source_alpha);
-			result.DestBlendAlpha        = for_blend_factor(opt.destination_alpha);
-			result.BlendOp               = for_blend_operation(opt.color_operation);
-			result.RenderTargetWriteMask = static_cast<UINT8>(for_channel_mask(opt.write_mask));
+			result.SrcBlend              = to_blend_factor(opt.source_color);
+			result.DestBlend             = to_blend_factor(opt.destination_color);
+			result.BlendOp               = to_blend_operation(opt.color_operation);
+			result.SrcBlendAlpha         = to_blend_factor(opt.source_alpha);
+			result.DestBlendAlpha        = to_blend_factor(opt.destination_alpha);
+			result.BlendOp               = to_blend_operation(opt.color_operation);
+			result.RenderTargetWriteMask = static_cast<UINT8>(to_color_write_mask(opt.write_mask));
 			return result;
 		}
 
-		D3D12_BLEND_DESC for_blend_options(std::span<const render_target_blend_options> targets) {
+		D3D12_BLEND_DESC to_blend_description(std::span<const render_target_blend_options> targets) {
 			assert(targets.size() < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT);
 			D3D12_BLEND_DESC result = {};
 			// TODO handle logic operations
 			result.IndependentBlendEnable = true;
 			for (std::size_t i = 0; i < targets.size(); ++i) {
-				result.RenderTarget[i] = for_render_target_blend_options(targets[i]);
+				result.RenderTarget[i] = to_render_target_blend_description(targets[i]);
 			}
 			return result;
 		}
 
-		D3D12_RASTERIZER_DESC for_rasterizer_options(const rasterizer_options &opt) {
+		D3D12_RASTERIZER_DESC to_rasterizer_description(const rasterizer_options &opt) {
 			D3D12_RASTERIZER_DESC result = {};
 			result.FillMode              = opt.is_wireframe ? D3D12_FILL_MODE_WIREFRAME : D3D12_FILL_MODE_SOLID;
-			result.CullMode              = for_cull_mode(opt.culling);
+			result.CullMode              = to_cull_mode(opt.culling);
 			result.FrontCounterClockwise = opt.front_facing == front_facing_mode::counter_clockwise;
 			result.DepthBias             = static_cast<INT>(std::round(opt.depth_bias.bias));
 			result.DepthBiasClamp        = opt.depth_bias.clamp;
@@ -417,55 +417,56 @@ namespace lotus::graphics::backends::directx12::_details {
 			return result;
 		}
 
-		D3D12_DEPTH_STENCILOP_DESC for_stencil_options(const stencil_options &op) {
+		D3D12_DEPTH_STENCILOP_DESC to_depth_stencil_operation_description(const stencil_options &op) {
 			D3D12_DEPTH_STENCILOP_DESC result = {};
-			result.StencilFailOp      = for_stencil_operation(op.fail);
-			result.StencilDepthFailOp = for_stencil_operation(op.depth_fail);
-			result.StencilPassOp      = for_stencil_operation(op.pass);
-			result.StencilFunc        = for_comparison_function(op.comparison);
+			result.StencilFailOp      = to_stencil_operation(op.fail);
+			result.StencilDepthFailOp = to_stencil_operation(op.depth_fail);
+			result.StencilPassOp      = to_stencil_operation(op.pass);
+			result.StencilFunc        = to_comparison_function(op.comparison);
 			return result;
 		}
 
-		D3D12_DEPTH_STENCIL_DESC for_depth_stencil_options(const depth_stencil_options &opt) {
+		D3D12_DEPTH_STENCIL_DESC to_depth_stencil_description(const depth_stencil_options &opt) {
 			D3D12_DEPTH_STENCIL_DESC result = {};
 			result.DepthEnable      = opt.enable_depth_testing;
 			result.DepthWriteMask   = opt.write_depth ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-			result.DepthFunc        = for_comparison_function(opt.depth_comparison);
+			result.DepthFunc        = to_comparison_function(opt.depth_comparison);
 			result.StencilEnable    = opt.enable_stencil_testing;
 			result.StencilReadMask  = opt.stencil_read_mask;
 			result.StencilWriteMask = opt.stencil_write_mask;
-			result.FrontFace        = for_stencil_options(opt.stencil_front_face);
-			result.BackFace         = for_stencil_options(opt.stencil_back_face);
+			result.FrontFace        = to_depth_stencil_operation_description(opt.stencil_front_face);
+			result.BackFace         = to_depth_stencil_operation_description(opt.stencil_back_face);
 			return result;
 		}
 
-		D3D12_RENDER_PASS_RENDER_TARGET_DESC for_render_target_pass_options(
+		D3D12_RENDER_PASS_RENDER_TARGET_DESC to_render_pass_render_target_description(
 			const render_target_pass_options &opt
 		) {
 			D3D12_RENDER_PASS_RENDER_TARGET_DESC result = {};
-			result.BeginningAccess.Clear.ClearValue.Format = for_format(opt.pixel_format);
-			result.BeginningAccess.Type                    = for_pass_load_operation(opt.load_operation);
-			result.EndingAccess.Type                       = for_pass_store_operation(opt.store_operation);
+			result.BeginningAccess.Clear.ClearValue.Format = to_format(opt.pixel_format);
+			result.BeginningAccess.Type                    = to_render_pass_beginning_access_type(opt.load_operation);
+			result.EndingAccess.Type                       = to_render_pass_ending_access_type(opt.store_operation);
 			return result;
 		}
 
-		D3D12_RENDER_PASS_DEPTH_STENCIL_DESC for_depth_stencil_pass_options(
+		D3D12_RENDER_PASS_DEPTH_STENCIL_DESC to_render_pass_depth_stencil_description(
 			const depth_stencil_pass_options &opt
 		) {
 			D3D12_RENDER_PASS_DEPTH_STENCIL_DESC result = {};
-			DXGI_FORMAT format = for_format(opt.pixel_format);
+			DXGI_FORMAT format = to_format(opt.pixel_format);
 			if (format_properties::get(opt.pixel_format).depth_bits > 0) {
 				result.DepthBeginningAccess.Clear.ClearValue.Format = format;
-				result.DepthBeginningAccess.Type = for_pass_load_operation(opt.depth_load_operation);
-				result.DepthEndingAccess.Type    = for_pass_store_operation(opt.depth_store_operation);
+				result.DepthBeginningAccess.Type = to_render_pass_beginning_access_type(opt.depth_load_operation);
+				result.DepthEndingAccess.Type    = to_render_pass_ending_access_type(opt.depth_store_operation);
 			} else {
 				result.DepthBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
 				result.DepthEndingAccess.Type    = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
 			}
 			if (format_properties::get(opt.pixel_format).stencil_bits > 0) {
 				result.StencilBeginningAccess.Clear.ClearValue.Format = format;
-				result.StencilBeginningAccess.Type = for_pass_load_operation(opt.stencil_load_operation);
-				result.StencilEndingAccess.Type    = for_pass_store_operation(opt.stencil_store_operation);
+				result.StencilBeginningAccess.Type =
+					to_render_pass_beginning_access_type(opt.stencil_load_operation);
+				result.StencilEndingAccess.Type    = to_render_pass_ending_access_type(opt.stencil_store_operation);
 			} else {
 				result.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
 				result.StencilEndingAccess.Type    = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
@@ -522,7 +523,7 @@ namespace lotus::graphics::backends::directx12::_details {
 
 	D3D12_HEAP_PROPERTIES heap_type_to_properties(heap_type type) {
 		D3D12_HEAP_PROPERTIES result = {};
-		result.Type                 = conversions::for_heap_type(type);
+		result.Type                 = conversions::to_heap_type(type);
 		result.CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 		result.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 		result.CreationNodeMask     = 0;
@@ -619,10 +620,10 @@ namespace lotus::graphics::backends::directx12::_details {
 			desc.Height             = static_cast<UINT>(height);
 			desc.DepthOrArraySize   = static_cast<UINT16>(array_slices);
 			desc.MipLevels          = static_cast<UINT16>(mip_levels);
-			desc.Format             = conversions::for_format(fmt);
+			desc.Format             = conversions::to_format(fmt);
 			desc.SampleDesc.Count   = 1;
 			desc.SampleDesc.Quality = 0;
-			desc.Layout             = conversions::for_image_tiling(tiling);
+			desc.Layout             = conversions::to_texture_layout(tiling);
 			desc.Flags              = D3D12_RESOURCE_FLAG_NONE;
 			return desc;
 		}

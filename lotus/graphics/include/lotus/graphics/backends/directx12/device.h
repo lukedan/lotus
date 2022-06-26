@@ -169,6 +169,9 @@ namespace lotus::graphics::backends::directx12 {
 		void signal_timeline_semaphore(timeline_semaphore&, std::uint64_t);
 		/// Calls \p ID3D12Fence::GetCompletedValue() to retrieve the current value of the semaphore.
 		[[nodiscard]] std::uint64_t query_timeline_semaphore(timeline_semaphore&);
+		/// Calls \p ID3D12Fence::SetEventOnCompletion() to wait for the value of the \ref timeline_semaphore to
+		/// reach the given value.
+		void wait_for_timeline_semaphore(timeline_semaphore &sem, std::uint64_t);
 
 
 		/// Calls \ref _set_debug_name().

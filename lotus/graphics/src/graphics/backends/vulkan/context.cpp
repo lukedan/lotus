@@ -55,7 +55,7 @@ namespace lotus::graphics::backends::vulkan {
 			)
 			.setPfnCallback(
 				[](
-					VkDebugReportFlagsEXT /*flags*/,
+					VkDebugReportFlagsEXT flags,
 					VkDebugReportObjectTypeEXT /*object_type*/,
 					uint64_t /*object*/,
 					size_t /*location*/,
@@ -70,7 +70,15 @@ namespace lotus::graphics::backends::vulkan {
 					) {
 						return false;
 					}
-					std::cerr << message << "\n\n";
+					if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
+						log().error<u8"{}">(message);
+					} else if (
+						flags & (VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
+					) {
+						log().warn<u8"{}">(message);
+					} else {
+						log().info<u8"{}">(message);
+					}
 					return false;
 				}
 			);

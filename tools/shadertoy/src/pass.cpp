@@ -9,6 +9,7 @@
 
 #include "lotus/utils/strings.h"
 #include "lotus/utils/misc.h"
+#include "lotus/renderer/asset_manager.h"
 
 std::optional<pass::input::value_type> pass::input::load_value(
 	const nlohmann::json &val, const error_callback &on_error
@@ -146,35 +147,29 @@ void pass::load_input_images(
 	for (auto &in : inputs) {
 		if (std::holds_alternative<input::image>(in.value)) {
 			auto &val = std::get<input::image>(in.value);
-			val.texture = man.get_texture2d(lren::assets::identifier::create(root / val.path)).take_ownership();
+			val.texture = man.get_texture2d(lren::assets::identifier(root / val.path));
 		}
 	}
 	images_loaded = true;
 }
 
 void pass::load_shader(
-	lren::assets::manager &man, lren::assets::owning_handle<lren::assets::shader> vert_shader,
+	lren::assets::manager &man, lren::assets::handle<lren::assets::shader> vert_shader,
 	const std::filesystem::path &root, const error_callback &on_error
 ) {
 	shader_loaded = false;
 
 	// load shader
 	if (std::filesystem::path abs_shader_path = root / shader_path; std::filesystem::exists(abs_shader_path)) {
-		std::u8string id_part2 = format_utf8<u8"ps|{}">(lotus::string::to_generic(entry_point));
-		for (const auto &[def, val] : defines) {
-			id_part2 += u8"|" + def;
-			if (!val.empty()) {
-				id_part2 += u8"=" + val;
-			}
-		}
-		// TODO prepend global shader code
-		auto id = lren::assets::identifier::create(abs_shader_path, id_part2);
+		// prepend global shader code
 		auto [code, size] = lotus::load_binary_file(abs_shader_path.string().c_str());
 		const auto *data1 = static_cast<const std::byte*>(static_cast<const void*>(pixel_shader_prefix.data()));
 		const auto *data2 = static_cast<const std::byte*>(code.get());
 		std::vector<std::byte> full_code(data1, data1 + pixel_shader_prefix.size());
 		full_code.insert(full_code.end(), data2, data2 + size);
-		shader = man.compile_shader_from_source(std::move(id), full_code).take_ownership();
+		shader = man.compile_shader_from_source(
+			abs_shader_path, full_code, lgfx::shader_stage::pixel_shader, entry_point, defines
+		);
 	} else {
 		return;
 	}

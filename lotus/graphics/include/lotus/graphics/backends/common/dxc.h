@@ -3,7 +3,6 @@
 /// \file
 /// DirectX shader compiler interface.
 
-#include <iostream>
 #include <filesystem>
 #include <span>
 
@@ -14,6 +13,7 @@
 #endif
 #include <dxcapi.h>
 
+#include "lotus/logging.h"
 #include "lotus/graphics/common.h"
 
 namespace lotus::graphics::backends::common {
@@ -24,7 +24,7 @@ namespace lotus::graphics::backends::common {
 		/// Checks that the given \p HRESULT indicates success.
 		inline void assert_dx(HRESULT hr) {
 			if (hr != S_OK) {
-				std::cerr << "DirectX error " << hr << "\n";
+				log().error<u8"DirectX error {}">(hr);
 				std::abort();
 			}
 		}

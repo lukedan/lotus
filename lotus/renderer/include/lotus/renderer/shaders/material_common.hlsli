@@ -6,13 +6,13 @@
 struct vs_input {
 	float3 position : POSITION;
 #ifdef VERTEX_INPUT_HAS_UV
-	float3 uv       : TEXCOORD;
+	float2 uv       : TEXCOORD;
 #endif
 #ifdef VERTEX_INPUT_HAS_NORMAL
 	float3 normal   : NORMAL;
 #endif
 #ifdef VERTEX_INPUT_HAS_TANGENT
-	float4 tangent  : TANGENT;
+	float3 tangent  : TANGENT;
 #endif
 };
 

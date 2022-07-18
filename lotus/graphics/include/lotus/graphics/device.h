@@ -117,6 +117,20 @@ namespace lotus::graphics {
 		) {
 			write_descriptor_set_read_write_images(set, layout, first_register, { images.begin(), images.end() });
 		}
+		/// Retrieves a member function pointer to the function that writes descriptors of the specified type.
+		inline static void (device::*get_write_image_descriptor_function(descriptor_type type))(
+			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view *const>
+		) {
+			switch (type) {
+			case descriptor_type::read_only_image:
+				return &write_descriptor_set_read_only_images;
+			case descriptor_type::read_write_image:
+				return &write_descriptor_set_read_write_images;
+			default:
+				return nullptr;
+			}
+		}
+
 		/// Updates the descriptors in the set with the given read-only structured buffers.
 		void write_descriptor_set_read_only_structured_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,

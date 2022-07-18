@@ -2,25 +2,20 @@ function(add_renderer_executable GRAPHICS_BACKEND)
 	set(PROJ renderer_${GRAPHICS_BACKEND})
 
 	add_executable(${PROJ})
+	set_target_properties(${PROJ} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${GRAPHICS_BACKEND}/")
 
 	target_sources(${PROJ}
 		PRIVATE
-			"common.h"
-			"composite_pass.h"
-			"gbuffer_pass.h"
-			"raytrace_pass.h"
-			"rt_resolve_pass.h"
-			"scene.h"
+			"src/common.h"
+			"src/composite_pass.h"
+			"src/gbuffer_pass.h"
+			"src/raytrace_pass.h"
+			"src/rt_resolve_pass.h"
+			"src/scene.h"
+			"src/shader_types.h"
 
-			"main.cpp")
-	add_shader("shaders/gbuffer.hlsl" vs main_vs 6_0 ${PROJ} ${GRAPHICS_BACKEND})
-	add_shader("shaders/gbuffer.hlsl" ps main_ps 6_0 ${PROJ} ${GRAPHICS_BACKEND})
-	add_shader("shaders/composite.hlsl" vs main_vs 6_0 ${PROJ} ${GRAPHICS_BACKEND})
-	add_shader("shaders/composite.hlsl" ps main_ps 6_0 ${PROJ} ${GRAPHICS_BACKEND})
-	add_shader("shaders/raytracing.hlsl" lib main_raygen 6_3 ${PROJ} ${GRAPHICS_BACKEND})
-	add_shader("shaders/rt_resolve.hlsl" vs main_vs 6_0 ${PROJ} ${GRAPHICS_BACKEND})
-	add_shader("shaders/rt_resolve.hlsl" ps main_ps 6_0 ${PROJ} ${GRAPHICS_BACKEND})
-	target_link_libraries(${PROJ} PRIVATE lotus_renderer_${GRAPHICS_BACKEND} tinygltf)
+			"src/main.cpp")
+	target_link_libraries(${PROJ} PRIVATE lotus_renderer_${GRAPHICS_BACKEND})
 endfunction()
 
 add_renderer_executable(vulkan)

@@ -1,6 +1,38 @@
 #include "lotus/renderer/resources.h"
 
 namespace lotus::renderer {
+	namespace recorded_resources {
+		image2d_view::image2d_view(const renderer::image2d_view &view) :
+			_surface(view._surface.get()), _view_format(view._view_format), _mip_levels(view._mip_levels) {
+		}
+
+		image2d_view image2d_view::highest_mip_with_warning() const {
+			image2d_view result = *this;
+			if (result._mip_levels.num_levels != 1) {
+				if (result._surface->num_mips - result._mip_levels.minimum > 1) {
+					std::uint16_t num_levels =
+						result._mip_levels.is_all() ?
+						result._surface->num_mips - result._mip_levels.minimum :
+						result._mip_levels.num_levels;
+					log().error<u8"More than one ({}) mip specified for render target for texture {}">(
+						num_levels, string::to_generic(result._surface->name)
+					);
+				}
+				result._mip_levels.num_levels = 1;
+			}
+			return result;
+		}
+
+
+		swap_chain::swap_chain(const renderer::swap_chain &c) : _swap_chain(c._swap_chain.get()) {
+		}
+
+
+		descriptor_array::descriptor_array(const renderer::descriptor_array &arr) : _array(arr._array.get()) {
+		}
+	}
+
+
 	namespace _details {
 		graphics::descriptor_type to_descriptor_type(image_binding_type type) {
 			constexpr static enum_mapping<image_binding_type, graphics::descriptor_type> table{
@@ -19,6 +51,7 @@ namespace lotus::renderer {
 
 	all_resource_bindings all_resource_bindings::from_unsorted(std::vector<resource_set_binding> s) {
 		all_resource_bindings result = nullptr;
+		result.sets = std::move(s);
 		result.consolidate();
 		return result;
 	}
@@ -36,8 +69,20 @@ namespace lotus::renderer {
 		for (auto it = sets.begin(); it != sets.end(); ++it) {
 			if (last->space == it->space) {
 				if (last != it) {
-					for (auto &b : it->bindings) {
-						last->bindings.emplace_back(std::move(b));
+					if (
+						std::holds_alternative<resource_set_binding::descriptor_bindings>(last->bindings) &&
+						std::holds_alternative<resource_set_binding::descriptor_bindings>(it->bindings)
+					) {
+						auto &prev_descriptors = std::get<resource_set_binding::descriptor_bindings>(last->bindings);
+						auto &cur_descriptors = std::get<resource_set_binding::descriptor_bindings>(it->bindings);
+						for (auto &b : cur_descriptors.bindings) {
+							prev_descriptors.bindings.emplace_back(std::move(b));
+						}
+					} else {
+						log().error<
+							u8"Multiple incompatible bindings specified for space {}. "
+							u8"Only the first one will be kept"
+						>(it->space);
 					}
 				}
 			} else {
@@ -47,21 +92,26 @@ namespace lotus::renderer {
 				}
 			}
 		}
-		sets.erase(last + 1, sets.end());
+		if (last != sets.end()) {
+			sets.erase(last + 1, sets.end());
+		}
 		// sort each set
 		for (auto &set : sets) {
-			std::sort(
-				set.bindings.begin(), set.bindings.end(),
-				[](const resource_binding &lhs, const resource_binding &rhs) {
-					return lhs.register_index < rhs.register_index;
-				}
-			);
-			// check for any duplicate bindings
-			for (std::size_t i = 1; i < set.bindings.size(); ++i) {
-				if (set.bindings[i].register_index == set.bindings[i - 1].register_index) {
-					log().error<
-						u8"Duplicate bindings for set {} register {}"
-					>(set.space, set.bindings[i].register_index);
+			if (std::holds_alternative<resource_set_binding::descriptor_bindings>(set.bindings)) {
+				auto &descriptors = std::get<resource_set_binding::descriptor_bindings>(set.bindings);
+				std::sort(
+					descriptors.bindings.begin(), descriptors.bindings.end(),
+					[](const resource_binding &lhs, const resource_binding &rhs) {
+						return lhs.register_index < rhs.register_index;
+					}
+				);
+				// check for any duplicate bindings
+				for (std::size_t i = 1; i < descriptors.bindings.size(); ++i) {
+					if (descriptors.bindings[i].register_index == descriptors.bindings[i - 1].register_index) {
+						log().error<
+							u8"Duplicate bindings for set {} register {}"
+						>(set.space, descriptors.bindings[i].register_index);
+					}
 				}
 			}
 		}

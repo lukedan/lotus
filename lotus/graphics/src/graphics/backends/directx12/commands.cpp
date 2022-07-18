@@ -156,20 +156,20 @@ namespace lotus::graphics::backends::directx12 {
 			std::size_t set_index = first + i;
 			auto *set = static_cast<const descriptor_set*>(sets[i]);
 			const auto &indices = rsrc._descriptor_table_binding[set_index];
-			assert(
+			/*assert(
 				set->_shader_resource_descriptors.is_empty() ==
 				(indices.resource_index == pipeline_resources::_invalid_root_param)
 			);
 			assert(
 				set->_sampler_descriptors.is_empty() ==
 				(indices.sampler_index == pipeline_resources::_invalid_root_param)
-			);
-			if (!set->_shader_resource_descriptors.is_empty()) {
+			);*/
+			if (indices.resource_index != pipeline_resources::_invalid_root_param) {
 				_list->SetGraphicsRootDescriptorTable(
 					indices.resource_index, set->_shader_resource_descriptors.get_gpu(0)
 				);
 			}
-			if (!set->_sampler_descriptors.is_empty()) {
+			if (indices.sampler_index != pipeline_resources::_invalid_root_param) {
 				_list->SetGraphicsRootDescriptorTable(
 					indices.sampler_index, set->_sampler_descriptors.get_gpu(0)
 				);
@@ -255,7 +255,7 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	void command_list::copy_buffer_to_image(
-		buffer &from, std::size_t byte_offset, staging_buffer_pitch row_pitch, aab2s region,
+		const buffer &from, std::size_t byte_offset, staging_buffer_pitch row_pitch, aab2s region,
 		image2d &to, subresource_index subresource, cvec2s off
 	) {
 		D3D12_TEXTURE_COPY_LOCATION dest = {};

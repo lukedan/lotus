@@ -198,10 +198,9 @@ namespace lotus::graphics::backends::directx12 {
 			_details::com_ptr<ID3DBlob> error;
 			HRESULT hr = D3D12SerializeVersionedRootSignature(&desc, &signature, &error);
 			if (FAILED(hr)) {
-				std::cerr <<
-					"Failed to serialize root signature: " <<
-					std::string_view(static_cast<const char*>(error->GetBufferPointer()), error->GetBufferSize()) <<
-					std::endl;
+				log().error<u8"Failed to serialize root signature: {}">(
+					std::string_view(static_cast<const char*>(error->GetBufferPointer()), error->GetBufferSize())
+				);
 				_details::assert_dx(hr);
 			}
 		}
@@ -405,15 +404,19 @@ namespace lotus::graphics::backends::directx12 {
 				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
 			));
 		for (auto *base_view : images) {
-			auto *view = static_cast<const _details::image_view*>(base_view);
-			D3D12_SHADER_RESOURCE_VIEW_DESC desc = view->_srv_desc;
-			// make sure we're viewing depth textures with the correct format
-			switch (desc.Format) {
-			case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-				desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
-				break;
+			if (base_view) {
+				auto *view = static_cast<const _details::image_view*>(base_view);
+				D3D12_SHADER_RESOURCE_VIEW_DESC desc = view->_srv_desc;
+				// make sure we're viewing depth textures with the correct format
+				switch (desc.Format) {
+				case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+					desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+					break;
+				}
+				_device->CreateShaderResourceView(view->_image.Get(), &desc, current_descriptor);
+			} else {
+				_device->CreateShaderResourceView(nullptr, nullptr, current_descriptor);
 			}
-			_device->CreateShaderResourceView(view->_image.Get(), &desc, current_descriptor);
 			current_descriptor.ptr += increment;
 		}
 	}
@@ -429,15 +432,19 @@ namespace lotus::graphics::backends::directx12 {
 				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
 			));
 		for (auto *base_view : images) {
-			auto *view = static_cast<const _details::image_view*>(base_view);
-			D3D12_UNORDERED_ACCESS_VIEW_DESC desc = view->_uav_desc;
-			// make sure we're viewing depth textures with the correct format
-			switch (desc.Format) {
-			case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-				desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
-				break;
+			if (base_view) {
+				auto *view = static_cast<const _details::image_view*>(base_view);
+				D3D12_UNORDERED_ACCESS_VIEW_DESC desc = view->_uav_desc;
+				// make sure we're viewing depth textures with the correct format
+				switch (desc.Format) {
+				case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+					desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+					break;
+				}
+				_device->CreateUnorderedAccessView(view->_image.Get(), nullptr, &desc, current_descriptor);
+			} else {
+				_device->CreateUnorderedAccessView(nullptr, nullptr, nullptr, current_descriptor);
 			}
-			_device->CreateUnorderedAccessView(view->_image.Get(), nullptr, &desc, current_descriptor);
 			current_descriptor.ptr += increment;
 		}
 	}
@@ -453,16 +460,20 @@ namespace lotus::graphics::backends::directx12 {
 				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
 			));
 		for (const auto &buf : buffers) {
-			auto *buf_data = static_cast<const buffer*>(buf.data);
-			D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
-			desc.Format                     = DXGI_FORMAT_UNKNOWN;
-			desc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
-			desc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			desc.Buffer.FirstElement        = static_cast<UINT64>(buf.first);
-			desc.Buffer.NumElements         = static_cast<UINT>(buf.count);
-			desc.Buffer.StructureByteStride = static_cast<UINT>(buf.stride);
-			desc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
-			_device->CreateShaderResourceView(buf_data->_buffer.Get(), &desc, current_descriptor);
+			if (buf.data) {
+				auto *buf_data = static_cast<const buffer*>(buf.data);
+				D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+				desc.Format                     = DXGI_FORMAT_UNKNOWN;
+				desc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
+				desc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				desc.Buffer.FirstElement        = static_cast<UINT64>(buf.first);
+				desc.Buffer.NumElements         = static_cast<UINT>(buf.count);
+				desc.Buffer.StructureByteStride = static_cast<UINT>(buf.stride);
+				desc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
+				_device->CreateShaderResourceView(buf_data->_buffer.Get(), &desc, current_descriptor);
+			} else {
+				_device->CreateShaderResourceView(nullptr, nullptr, current_descriptor);
+			}
 			current_descriptor.ptr += increment;
 		}
 	}
@@ -478,12 +489,16 @@ namespace lotus::graphics::backends::directx12 {
 				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
 			));
 		for (const auto &buf : buffers) {
-			auto *buf_data = static_cast<const buffer*>(buf.data);
-			D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
-			desc.BufferLocation = buf_data->_buffer->GetGPUVirtualAddress() + buf.offset;
-			desc.SizeInBytes    =
-				static_cast<UINT>(memory::align_size(buf.size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT));
-			_device->CreateConstantBufferView(&desc, current_descriptor);
+			if (buf.data) {
+				auto *buf_data = static_cast<const buffer*>(buf.data);
+				D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+				desc.BufferLocation = buf_data->_buffer->GetGPUVirtualAddress() + buf.offset;
+				desc.SizeInBytes    =
+					static_cast<UINT>(memory::align_size(buf.size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT));
+				_device->CreateConstantBufferView(&desc, current_descriptor);
+			} else {
+				_device->CreateConstantBufferView(nullptr, current_descriptor);
+			}
 			current_descriptor.ptr += increment;
 		}
 	}

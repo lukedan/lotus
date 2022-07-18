@@ -4,12 +4,14 @@
 /// Material context.
 
 #include "lotus/utils/stack_allocator.h"
-#include "lotus/graphics/resources.h"
+#include "lotus/graphics/descriptors.h"
+#include "lotus/graphics/device.h"
 #include "lotus/graphics/frame_buffer.h"
+#include "lotus/graphics/resources.h"
 
 namespace lotus::renderer {
 	/// Indicates whether debug names would be registered for resources.
-	constexpr static bool register_debug_names = is_debugging;
+	constexpr static bool should_register_debug_names = is_debugging;
 
 	/// All descriptor bindings of a specific shader, categorized into sets.
 	struct shader_descriptor_bindings {
@@ -30,7 +32,6 @@ namespace lotus::renderer {
 			std::vector<_range> bindings;
 			refl.enumerate_resource_bindings([&bindings](const graphics::shader_resource_binding &binding) {
 				assert(binding.register_count > 0);
-				assert(binding.register_count < 10000); // TODO how are boundless arrays identified?
 				bindings.emplace_back(
 					static_cast<std::uint32_t>(binding.register_space),
 					graphics::descriptor_range_binding::create(
@@ -80,8 +81,7 @@ namespace lotus::renderer {
 	/// Aggregates graphics pipeline states that are not resource binding related.
 	struct graphics_pipeline_state {
 		/// No initialization.
-		graphics_pipeline_state(uninitialized_t) :
-			rasterizer_options(uninitialized), depth_stencil_options(uninitialized) {
+		graphics_pipeline_state(std::nullptr_t) : rasterizer_options(nullptr), depth_stencil_options(nullptr) {
 		}
 		/// Initializes all fields of this struct.
 		graphics_pipeline_state(
@@ -92,9 +92,9 @@ namespace lotus::renderer {
 		}
 
 		// TODO allocator
-		std::vector<graphics::render_target_blend_options> blend_options;         ///< Blending options.
-		graphics::rasterizer_options                       rasterizer_options;    ///< Rasterizer options.
-		graphics::depth_stencil_options                    depth_stencil_options; ///< Depth stencil options.
+		std::vector<graphics::render_target_blend_options> blend_options; ///< Blending options.
+		graphics::rasterizer_options rasterizer_options; ///< Rasterizer options.
+		graphics::depth_stencil_options depth_stencil_options; ///< Depth stencil options.
 	};
 }
 namespace std {

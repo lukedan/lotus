@@ -18,8 +18,7 @@ namespace lotus::graphics::backends::common {
 			_details::assert_dx(_result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&_messages), nullptr));
 		}
 		const auto *str = static_cast<const char8_t*>(_messages->GetBufferPointer());
-		assert(str[_messages->GetBufferSize()] == u8'\0');
-		return std::u8string_view(str, _messages->GetBufferSize() - 1);
+		return std::u8string_view(str, _messages->GetBufferSize());
 	}
 
 	std::span<const std::byte> dxc_compiler::compilation_result::get_compiled_binary() {

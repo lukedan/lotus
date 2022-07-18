@@ -85,7 +85,7 @@ namespace lotus::graphics::backends::vulkan {
 		);
 		/// Calls \p vk::CommandBuffer::copyBufferToImage().
 		void copy_buffer_to_image(
-			buffer &from, std::size_t byte_offset, staging_buffer_pitch, aab2s region,
+			const buffer &from, std::size_t byte_offset, staging_buffer_pitch, aab2s region,
 			image2d &to, subresource_index subresource, cvec2s off
 		);
 

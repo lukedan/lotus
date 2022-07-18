@@ -4,7 +4,6 @@
 /// Common typedefs and functions for DirectX 12.
 
 #include <cstdlib>
-#include <iostream>
 #include <vector>
 #include <deque>
 #include <map>

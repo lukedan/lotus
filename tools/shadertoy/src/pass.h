@@ -81,7 +81,7 @@ public:
 			}
 
 			std::filesystem::path path; ///< Path to the image.
-			lren::assets::owning_handle<lren::assets::texture2d> texture; ///< Loaded texture.
+			lren::assets::handle<lren::assets::texture2d> texture; ///< Loaded texture.
 		};
 
 		using value_type = std::variant<pass_output, image>; ///< Input value storage type.
@@ -114,7 +114,7 @@ public:
 	void load_input_images(lren::assets::manager&, const std::filesystem::path &root, const error_callback&);
 	/// Loads the shader and uses its reflection data to initialize the pipeline.
 	void load_shader(
-		lren::assets::manager&, lren::assets::owning_handle<lren::assets::shader> vert_shader,
+		lren::assets::manager&, lren::assets::handle<lren::assets::shader> vert_shader,
 		const std::filesystem::path &root, const error_callback&
 	);
 
@@ -131,7 +131,7 @@ public:
 	std::u8string entry_point; ///< Shader entry point.
 	std::vector<std::pair<std::u8string, std::u8string>> defines; ///< Defines.
 
-	lren::assets::owning_handle<lren::assets::shader> shader = nullptr; ///< The shader.
+	lren::assets::handle<lren::assets::shader> shader = nullptr; ///< The shader.
 
 	std::vector<input> inputs; ///< List of dependencies.
 	std::vector<target> targets; ///< Output textures of this pass.

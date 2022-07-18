@@ -605,6 +605,20 @@ namespace lotus::graphics {
 	};
 
 
+	/// Converts the given \ref descriptor_type to a \ref image_usage. Returns \ref image_usage::num_enumerators
+	/// for invalid descriptor types.
+	[[nodiscard]] constexpr image_usage to_image_usage(descriptor_type ty) {
+		switch (ty) {
+		case descriptor_type::read_only_image:
+			return image_usage::read_only_texture;
+		case descriptor_type::read_write_image:
+			return image_usage::read_write_color_texture;
+		default:
+			return image_usage::num_enumerators;
+		}
+	}
+
+
 	/// Clear value for a color render target.
 	struct color_clear_value {
 	public:
@@ -718,7 +732,7 @@ namespace lotus::graphics {
 	struct depth_bias_options {
 	public:
 		/// No initialization.
-		depth_bias_options(uninitialized_t) {
+		depth_bias_options(std::nullptr_t) {
 		}
 		/// Initializes all fields to zero, effectively having no bias.
 		[[nodiscard]] constexpr inline static depth_bias_options disabled() {
@@ -735,12 +749,12 @@ namespace lotus::graphics {
 			return depth_bias_options(bias, slope_bias, clamp);
 		}
 
-		float bias; ///< Uniform depth bias based on the floating-point precision at the triangle.
-		float slope_scaled_bias; ///< Slope (and implicitly texel size) scaled depth bias.
+		float bias = 0.0f; ///< Uniform depth bias based on the floating-point precision at the triangle.
+		float slope_scaled_bias = 0.0f; ///< Slope (and implicitly texel size) scaled depth bias.
 		/// The value that the resulting bias is clamped to. If this is greater than zero, it specifies the maximum
 		/// bias value; otherwise, if this is less than zero, it specifies the negative minimum bias value;
 		/// otherwise, the bias value is not altered.
-		float clamp;
+		float clamp = 0.0f;
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr depth_bias_options(float constant, float slope, float c) :
@@ -767,17 +781,18 @@ namespace lotus::graphics {
 	struct rasterizer_options {
 	public:
 		/// No initialization.
-		rasterizer_options(uninitialized_t) {
+		rasterizer_options(std::nullptr_t) : depth_bias(nullptr) {
 		}
 		/// Initializes all fields of this struct.
 		constexpr rasterizer_options(depth_bias_options db, front_facing_mode front, cull_mode cull, bool wf) :
 			depth_bias(db), front_facing(front), culling(cull), is_wireframe(wf) {
 		}
 
-		depth_bias_options depth_bias = uninitialized; ///< \ref depth_bias_options.
-		front_facing_mode front_facing; ///< Indicates how front-facing triangles are determined.
-		cull_mode culling; ///< The \ref cull_mode.
-		bool is_wireframe; ///< Whether or not to render in wireframe mode.
+		depth_bias_options depth_bias; ///< \ref depth_bias_options.
+		/// Indicates how front-facing triangles are determined.
+		front_facing_mode front_facing = front_facing_mode::clockwise;
+		cull_mode culling = cull_mode::none; ///< The \ref cull_mode.
+		bool is_wireframe = false; ///< Whether or not to render in wireframe mode.
 	protected:
 	};
 }
@@ -801,7 +816,7 @@ namespace lotus::graphics {
 	struct stencil_options {
 	public:
 		/// No initialization.
-		stencil_options(uninitialized_t) {
+		stencil_options(std::nullptr_t) {
 		}
 		/// Creates an object indicating that stencil test should always pass, and no modifications should be made to
 		/// the stencil buffer.
@@ -818,11 +833,13 @@ namespace lotus::graphics {
 			return stencil_options(cmp, fail, depth_fail, pass);
 		}
 
-		comparison_function comparison; ///< Comparison function for stencil testing.
-		stencil_operation fail; ///< The operation to perform when stencil testing fails.
+		comparison_function comparison = comparison_function::always; ///< Comparison function for stencil testing.
+		/// The operation to perform when stencil testing fails.
+		stencil_operation fail       = stencil_operation::keep;
 		/// The operation to perform when stencil testing passes but depth testing fails.
-		stencil_operation depth_fail;
-		stencil_operation pass; ///< The operation to perform when both stencil testing and depth testing passes.
+		stencil_operation depth_fail = stencil_operation::keep;
+		/// The operation to perform when both stencil testing and depth testing passes.
+		stencil_operation pass       = stencil_operation::keep;
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr stencil_options(
@@ -850,39 +867,9 @@ namespace lotus::graphics {
 	/// Options for depth stencil operations.
 	struct depth_stencil_options {
 	public:
-		/// No initialization.
-		depth_stencil_options(uninitialized_t) {
+		/// Initializes the options to a default value.
+		depth_stencil_options(std::nullptr_t) : stencil_front_face(nullptr), stencil_back_face(nullptr) {
 		}
-		/// Creates an object indicating that all tests are disabled.
-		[[nodiscard]] constexpr inline static depth_stencil_options all_disabled() {
-			return depth_stencil_options(
-				false, false, comparison_function::always,
-				false, 0, 0, stencil_options::always_pass_no_op(), stencil_options::always_pass_no_op()
-			);
-		}
-		/// Creates an object with the given parameters.
-		[[nodiscard]] constexpr inline static depth_stencil_options create(
-			bool enable_depth_testing, bool write_depth, comparison_function depth_comparison,
-			bool enable_stencil_testing, std::uint8_t stencil_read_mask, std::uint8_t stencil_write_mask,
-			stencil_options stencil_front_face, stencil_options stencil_back_face
-		) {
-			return depth_stencil_options(
-				enable_depth_testing, write_depth, depth_comparison,
-				enable_stencil_testing, stencil_read_mask, stencil_write_mask,
-				stencil_front_face, stencil_back_face
-			);
-		}
-
-		bool enable_depth_testing; ///< Whether depth testing is enabled.
-		bool write_depth; ///< Whether to write depth values.
-		comparison_function depth_comparison; ///< Comparison function used for depth testing.
-
-		bool enable_stencil_testing; ///< Whether stencil testing is enabled.
-		std::uint8_t stencil_read_mask;  ///< Stencil read mask.
-		std::uint8_t stencil_write_mask; ///< Stencil write mask.
-		stencil_options stencil_front_face = uninitialized; ///< Stencil operation for front-facing triangles.
-		stencil_options stencil_back_face  = uninitialized; ///< Stencil operation for back-facing triangles.
-	protected:
 		/// Initializes all fields of this struct.
 		constexpr depth_stencil_options(
 			bool depth_test, bool depth_write, comparison_function depth_comp,
@@ -893,6 +880,24 @@ namespace lotus::graphics {
 			enable_stencil_testing(stencil_test), stencil_read_mask(sread_mask), stencil_write_mask(swrite_mask),
 			stencil_front_face(front_op), stencil_back_face(back_op) {
 		}
+		/// Creates an object indicating that all tests are disabled.
+		[[nodiscard]] constexpr inline static depth_stencil_options all_disabled() {
+			return depth_stencil_options(
+				false, false, comparison_function::always,
+				false, 0, 0, stencil_options::always_pass_no_op(), stencil_options::always_pass_no_op()
+			);
+		}
+
+		bool enable_depth_testing = false; ///< Whether depth testing is enabled.
+		bool write_depth = false; ///< Whether to write depth values.
+		/// Comparison function used for depth testing.
+		comparison_function depth_comparison = comparison_function::always;
+
+		bool enable_stencil_testing = false; ///< Whether stencil testing is enabled.
+		std::uint8_t stencil_read_mask  = 0; ///< Stencil read mask.
+		std::uint8_t stencil_write_mask = 0; ///< Stencil write mask.
+		stencil_options stencil_front_face; ///< Stencil operation for front-facing triangles.
+		stencil_options stencil_back_face;  ///< Stencil operation for back-facing triangles.
 	};
 }
 namespace std {
@@ -917,15 +922,12 @@ namespace std {
 namespace lotus::graphics {
 	/// An element used for vertex/instance input.
 	struct input_buffer_element {
-	public:
 		/// No initialization.
 		input_buffer_element(uninitialized_t) {
 		}
-		/// Creates a new object with the given arguments.
-		[[nodiscard]] constexpr inline static input_buffer_element create(
-			const char8_t *sname, std::uint32_t sindex, format fmt, std::size_t off
-		) {
-			return input_buffer_element(sname, sindex, fmt, off);
+		/// Initializes all fields of this struct.
+		constexpr input_buffer_element(const char8_t *sname, std::uint32_t sindex, format fmt, std::size_t off) :
+			semantic_name(sname), semantic_index(sindex), element_format(fmt), byte_offset(off) {
 		}
 
 		const char8_t *semantic_name;
@@ -933,11 +935,6 @@ namespace lotus::graphics {
 
 		format element_format; ///< The format of this element.
 		std::size_t byte_offset; ///< Byte offset of this element in a vertex.
-	protected:
-		/// Initializes all fields of this struct.
-		constexpr input_buffer_element(const char8_t *sname, std::uint32_t sindex, format fmt, std::size_t off) :
-			semantic_name(sname), semantic_index(sindex), element_format(fmt), byte_offset(off) {
-		}
 	};
 
 	/// Information about an input (vertex/instance) buffer.
@@ -1082,6 +1079,10 @@ namespace lotus::graphics {
 		/// No initialization.
 		subresource_index(uninitialized_t) {
 		}
+		/// Initializes all members of this struct.
+		constexpr subresource_index(std::uint16_t mip, std::uint16_t arr, image_aspect_mask asp) :
+			mip_level(mip), array_slice(arr), aspects(asp) {
+		}
 		/// Creates an index pointing to the color aspect of the first subresource.
 		[[nodiscard]] constexpr inline static subresource_index first_color() {
 			return subresource_index(0, 0, image_aspect_mask::color);
@@ -1108,12 +1109,6 @@ namespace lotus::graphics {
 		) {
 			return subresource_index(mip, arr, image_aspect_mask::stencil);
 		}
-		/// Creates an index with the specified arguments.
-		[[nodiscard]] constexpr inline static subresource_index create(
-			std::uint16_t mip, std::uint16_t arr, image_aspect_mask asp
-		) {
-			return subresource_index(mip, arr, asp);
-		}
 
 		std::uint16_t mip_level; ///< Mip level.
 		std::uint16_t array_slice; ///< Array slice.
@@ -1121,11 +1116,6 @@ namespace lotus::graphics {
 
 		/// Default equality and inequality comparison.
 		[[nodiscard]] friend bool operator==(const subresource_index&, const subresource_index&) = default;
-	protected:
-		/// Initializes all members of this struct.
-		constexpr subresource_index(std::uint16_t mip, std::uint16_t arr, image_aspect_mask asp) :
-			mip_level(mip), array_slice(arr), aspects(asp) {
-		}
 	};
 	/// Describes a range of mip levels.
 	struct mip_levels {
@@ -1135,6 +1125,10 @@ namespace lotus::graphics {
 
 		/// No initialization.
 		mip_levels(uninitialized_t) {
+		}
+		/// Returns zero mip levels.
+		[[nodiscard]] constexpr inline static mip_levels empty() {
+			return mip_levels(0, 0);
 		}
 		/// Indicates that all mip levels can be used.
 		[[nodiscard]] constexpr inline static mip_levels all() {
@@ -1160,6 +1154,23 @@ namespace lotus::graphics {
 		/// Returns whether this struct represents all mip levels about the specified one.
 		[[nodiscard]] constexpr bool is_all() const {
 			return num_levels == all_mip_levels;
+		}
+		/// Returns whether this contains no levels.
+		[[nodiscard]] constexpr bool is_empty() const {
+			return num_levels == 0;
+		}
+
+		/// Finds the intersection of two mip ranges.
+		[[nodiscard]] constexpr inline static mip_levels intersection(mip_levels lhs, mip_levels rhs) {
+			std::uint16_t min = std::max(lhs.minimum, rhs.minimum);
+			if (lhs.is_all() && rhs.is_all()) {
+				return mip_levels::all_below(min);
+			}
+			auto last_level = static_cast<std::uint16_t>(std::min(
+				lhs.minimum + static_cast<std::uint32_t>(lhs.num_levels),
+				rhs.minimum + static_cast<std::uint32_t>(rhs.num_levels)
+			));
+			return mip_levels(min, last_level - min);
 		}
 
 		std::uint16_t minimum; ///< Minimum mip level.
@@ -1299,7 +1310,6 @@ namespace lotus::graphics {
 
 		descriptor_range range = uninitialized; ///< The type and number of descriptors.
 		std::size_t register_index; ///< Register index corresponding to the first descriptor.
-	protected:
 	};
 
 	/// An image resource barrier.

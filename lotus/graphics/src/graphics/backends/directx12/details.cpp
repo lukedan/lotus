@@ -19,11 +19,7 @@ namespace lotus::graphics::backends::directx12::_details {
 			auto msg = system::platforms::windows::_details::tstring_to_u8string(
 				err.ErrorMessage(), std::allocator<char8_t>()
 			);
-			std::cerr <<
-				"DirectX error " <<
-				std::hex << hr << ": " <<
-				std::string_view(reinterpret_cast<const char*>(msg.c_str()), msg.size()) <<
-				std::endl;
+			log().error<u8"DirectX error {:x}: {}">(hr, string::to_generic(msg));
 			std::abort();
 		}
 	}
@@ -478,7 +474,10 @@ namespace lotus::graphics::backends::directx12::_details {
 		shader_resource_binding back_to_shader_resource_binding(const D3D12_SHADER_INPUT_BIND_DESC &desc) {
 			shader_resource_binding result = uninitialized;
 			result.first_register = desc.BindPoint;
-			result.register_count = desc.BindCount;
+			result.register_count =
+				desc.BindCount == 0 ?
+				graphics::descriptor_range::unbounded_count :
+				desc.BindCount;
 			result.register_space = desc.Space;
 			result.name           = reinterpret_cast<const char8_t*>(desc.Name);
 

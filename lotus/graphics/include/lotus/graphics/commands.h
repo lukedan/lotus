@@ -143,7 +143,7 @@ namespace lotus::graphics {
 		}
 		/// Inserts a copy operation from a buffer to an image.
 		void copy_buffer_to_image(
-			buffer &from, std::size_t byte_offset, staging_buffer::pitch row_pitch, aab2s region,
+			const buffer &from, std::size_t byte_offset, staging_buffer::pitch row_pitch, aab2s region,
 			image2d &to, subresource_index subresource, cvec2s off
 		) {
 			backend::command_list::copy_buffer_to_image(from, byte_offset, row_pitch, region, to, subresource, off);

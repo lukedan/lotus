@@ -24,7 +24,7 @@ public:
 	/// Loads resources for all passes.
 	void load_resources(
 		lren::assets::manager&, lren::context&,
-		lren::assets::owning_handle<lren::assets::shader> vert_shader,
+		lren::assets::handle<lren::assets::shader> vert_shader,
 		const std::filesystem::path &root, const error_callback&
 	);
 

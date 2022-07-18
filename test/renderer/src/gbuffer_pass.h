@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "shader_types.h"
 
 // base color + metalness: r8g8b8a8_unorm
 // normal: r32g32b32_float
@@ -12,66 +13,13 @@ struct gbuffer {
 	constexpr static gfx::format gloss_format = gfx::format::r8_unorm;
 	constexpr static gfx::format depth_stencil_format = gfx::format::d32_float_s8;
 
-	struct view {
-		gfx::image2d_view base_color_metalness = nullptr;
-		gfx::image2d_view normal = nullptr;
-		gfx::image2d_view gloss = nullptr;
-		gfx::image2d_view depth_stencil = nullptr;
-	};
-
-	gfx::image2d base_color_metalness = nullptr;
-	gfx::image2d normal = nullptr;
-	gfx::image2d gloss = nullptr;
-	gfx::image2d depth_stencil = nullptr;
-
-	[[nodiscard]] inline static gbuffer create(gfx::device &dev, gfx::command_allocator &alloc, gfx::command_queue &q, cvec2s size) {
-		gbuffer result;
-		result.base_color_metalness = dev.create_committed_image2d(
-			size[0], size[1], 1, 1, base_color_metalness_format, gfx::image_tiling::optimal,
-			gfx::image_usage::mask::color_render_target | gfx::image_usage::mask::read_only_texture
-		);
-		dev.set_debug_name(result.base_color_metalness, u8"Base color + Metalness");
-		result.normal = dev.create_committed_image2d(
-			size[0], size[1], 1, 1, normal_format, gfx::image_tiling::optimal,
-			gfx::image_usage::mask::color_render_target | gfx::image_usage::mask::read_only_texture
-		);
-		dev.set_debug_name(result.normal, u8"Normal");
-		result.gloss = dev.create_committed_image2d(
-			size[0], size[1], 1, 1, gloss_format, gfx::image_tiling::optimal,
-			gfx::image_usage::mask::color_render_target | gfx::image_usage::mask::read_only_texture
-		);
-		dev.set_debug_name(result.gloss, u8"Gloss");
-		result.depth_stencil = dev.create_committed_image2d(
-			size[0], size[1], 1, 1, depth_stencil_format, gfx::image_tiling::optimal,
-			gfx::image_usage::mask::depth_stencil_render_target | gfx::image_usage::mask::read_only_texture
-		);
-
-		auto list = dev.create_and_start_command_list(alloc);
-		list.resource_barrier(
-			{
-				gfx::image_barrier::create(gfx::subresource_index::first_color(), result.base_color_metalness, gfx::image_usage::initial, gfx::image_usage::read_only_texture),
-				gfx::image_barrier::create(gfx::subresource_index::first_color(), result.normal, gfx::image_usage::initial, gfx::image_usage::read_only_texture),
-				gfx::image_barrier::create(gfx::subresource_index::first_color(), result.gloss, gfx::image_usage::initial, gfx::image_usage::read_only_texture),
-				gfx::image_barrier::create(gfx::subresource_index::first_depth_stencil(), result.depth_stencil, gfx::image_usage::initial, gfx::image_usage::read_only_texture),
-			},
-			{}
-		);
-		list.finish();
-		auto fence = dev.create_fence(gfx::synchronization_state::unset);
-		q.submit_command_lists({ &list }, &fence);
-		dev.wait_for_fence(fence);
-
-		return result;
+	gbuffer(std::nullptr_t) {
 	}
 
-	[[nodiscard]] view create_view(gfx::device &dev) const {
-		view result;
-		result.base_color_metalness = dev.create_image2d_view_from(base_color_metalness, base_color_metalness_format, gfx::mip_levels::only_highest());
-		result.normal = dev.create_image2d_view_from(normal, normal_format, gfx::mip_levels::only_highest());
-		result.gloss = dev.create_image2d_view_from(gloss, gloss_format, gfx::mip_levels::only_highest());
-		result.depth_stencil = dev.create_image2d_view_from(depth_stencil, depth_stencil_format, gfx::mip_levels::only_highest());
-		return result;
-	}
+	ren::image2d_view base_color_metalness = nullptr;
+	ren::image2d_view normal = nullptr;
+	ren::image2d_view gloss = nullptr;
+	ren::image2d_view depth_stencil = nullptr;
 };
 
 class gbuffer_pass {

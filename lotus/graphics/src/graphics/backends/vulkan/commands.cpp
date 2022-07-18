@@ -46,8 +46,6 @@ namespace lotus::graphics::backends::vulkan {
 		auto color_attachments = bookmark.create_reserved_vector_array<vk::RenderingAttachmentInfo>(
 			access.color_render_targets.size()
 		);
-		vk::RenderingAttachmentInfo depth_attachment;
-		vk::RenderingAttachmentInfo stencil_attachment;
 		for (std::size_t i = 0; i < access.color_render_targets.size(); ++i) {
 			const auto &rt_access = access.color_render_targets[i];
 			color_attachments.emplace_back()
@@ -57,17 +55,35 @@ namespace lotus::graphics::backends::vulkan {
 				.setStoreOp(_details::conversions::to_attachment_store_op(rt_access.store_operation))
 				.setClearValue(_details::conversions::to_clear_value(rt_access.clear_value));
 		}
-		if (buf._depth_stencil_view) {
-			/*depth_attachment.set*/ // TODO
-		}
 
 		vk::RenderingInfo info;
 		info
 			.setRenderArea(vk::Rect2D({ 0, 0 }, _details::conversions::to_extent_2d(buf._size)))
 			.setLayerCount(1)
-			.setColorAttachments(color_attachments)/*
-			.setPDepthAttachment(&depth_attachment)
-			.setPStencilAttachment(&stencil_attachment)*/;
+			.setColorAttachments(color_attachments);
+
+		vk::RenderingAttachmentInfo depth_attachment;
+		vk::RenderingAttachmentInfo stencil_attachment;
+		if (buf._depth_stencil_view) {
+			const auto &depth_access = access.depth_render_target;
+			const auto &stencil_access = access.stencil_render_target;
+			depth_attachment
+				.setImageView(buf._depth_stencil_view)
+				.setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+				.setLoadOp(_details::conversions::to_attachment_load_op(depth_access.load_operation))
+				.setStoreOp(_details::conversions::to_attachment_store_op(depth_access.store_operation))
+				.setClearValue(vk::ClearDepthStencilValue(depth_access.clear_value, stencil_access.clear_value));
+			stencil_attachment
+				.setImageView(buf._depth_stencil_view)
+				.setImageLayout(vk::ImageLayout::eStencilAttachmentOptimal)
+				.setLoadOp(_details::conversions::to_attachment_load_op(stencil_access.load_operation))
+				.setStoreOp(_details::conversions::to_attachment_store_op(stencil_access.store_operation))
+				.setClearValue(vk::ClearDepthStencilValue(depth_access.clear_value, stencil_access.clear_value));
+			info
+				.setPDepthAttachment(&depth_attachment)
+				.setPStencilAttachment(&stencil_attachment);
+		}
+
 		_buffer.beginRendering(info);
 	}
 
@@ -177,7 +193,7 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	void command_list::copy_buffer_to_image(
-		buffer &from, std::size_t byte_offset, staging_buffer_pitch row_pitch, aab2s region,
+		const buffer &from, std::size_t byte_offset, staging_buffer_pitch row_pitch, aab2s region,
 		image2d &to, subresource_index subresource, cvec2s offset
 	) {
 		cvec2s size = region.signed_size();

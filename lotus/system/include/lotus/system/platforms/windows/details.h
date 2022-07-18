@@ -4,9 +4,10 @@
 /// Utility functions for Windows.
 
 #include <string>
-#include <iostream>
 
 #include <Windows.h>
+
+#include "lotus/logging.h"
 
 namespace lotus::system::platforms::windows::_details {
 	/// Aborts if the given value is zero.
@@ -19,7 +20,7 @@ namespace lotus::system::platforms::windows::_details {
 	/// Aborts if the given \p HRESULT does not indicate success.
 	inline void assert_com(HRESULT hr) {
 		if (FAILED(hr)) {
-			std::cerr << "COM error: " << hr << std::endl;
+			log().error<u8"COM error: {}">(hr);
 			std::abort();
 		}
 	}

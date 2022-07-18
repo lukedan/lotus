@@ -3,6 +3,8 @@
 /// \file
 /// Implementation of scene loading and rendering.
 
+#include <unordered_map>
+
 #include "lotus/logging.h"
 #include "lotus/utils/stack_allocator.h"
 
@@ -14,8 +16,8 @@ namespace lotus::renderer {
 		std::uint32_t num_indices,
 		graphics::primitive_topology topology,
 		all_resource_bindings resources,
-		assets::owning_handle<assets::shader> vs,
-		assets::owning_handle<assets::shader> ps,
+		assets::handle<assets::shader> vs,
+		assets::handle<assets::shader> ps,
 		graphics_pipeline_state state,
 		std::uint32_t num_insts,
 		std::u8string_view description
@@ -34,14 +36,39 @@ namespace lotus::renderer {
 	}
 
 	void context::pass::draw_instanced(
-		assets::owning_handle<assets::geometry> geom,
-		assets::owning_handle<assets::material> mat,
+		assets::handle<assets::geometry> geom_asset,
+		assets::handle<assets::material> mat_asset,
+		pass_context &pass_ctx,
 		std::span<const input_buffer_binding> additional_inputs,
+		all_resource_bindings additional_resources,
 		graphics_pipeline_state state,
 		std::uint32_t num_insts,
 		std::u8string_view description
 	) {
-		assert(false); // TODO not implemented
+		const auto &geom = geom_asset.get().value;
+		const auto &mat = mat_asset.get().value;
+		auto &&[vs, inputs] = pass_ctx.get_vertex_shader(*_context, *mat.data, geom);
+		auto ps = pass_ctx.get_pixel_shader(*_context, *mat.data);
+		for (const auto &in : additional_inputs) {
+			inputs.emplace_back(in);
+		}
+		auto resource_bindings = mat.data->create_resource_bindings();
+		resource_bindings.sets.reserve(resource_bindings.sets.size() + additional_resources.sets.size());
+		for (auto &s : additional_resources.sets) {
+			resource_bindings.sets.emplace_back(std::move(s));
+		}
+		resource_bindings.consolidate();
+		_command.commands.emplace_back(
+			description,
+			std::in_place_type<pass_commands::draw_instanced>,
+			num_insts,
+			std::move(inputs), geom.num_vertices,
+			geom.get_index_buffer_binding(), geom.num_indices,
+			geom.topology,
+			std::move(resource_bindings),
+			std::move(vs), std::move(ps),
+			std::move(state)
+		);
 	}
 
 	void context::pass::end() {
@@ -62,8 +89,34 @@ namespace lotus::renderer {
 		return *_list;
 	}
 
+	void context::_execution_context::stage_transition(
+		_details::surface2d &surf, graphics::mip_levels mips, graphics::image_usage usage
+	) {
+		_surface_transitions.emplace_back(surf, mips, usage);
+		for (const auto &ref : surf.array_references) {
+			const auto &img = ref.arr->images[ref.index].image;
+			assert(img._surface == &surf);
+			if (!graphics::mip_levels::intersection(img._mip_levels, mips).is_empty()) {
+				ref.arr->staged_transitions.emplace_back(ref.index);
+			}
+		}
+	}
+
+	void context::_execution_context::stage_all_transitions(_details::descriptor_array &arr) {
+		auto transitions = std::exchange(arr.staged_transitions, {});
+		std::sort(transitions.begin(), transitions.end());
+		transitions.erase(std::unique(transitions.begin(), transitions.end()), transitions.end());
+		auto usage = graphics::to_image_usage(arr.type);
+		assert(usage != graphics::image_usage::num_enumerators);
+		for (auto index : transitions) {
+			const auto &img = arr.images[index];
+			_surface_transitions.emplace_back(*img.image._surface, img.image._mip_levels, usage);
+		}
+	}
+
 	void context::_execution_context::flush_transitions() {
 		std::vector<graphics::image_barrier> image_barriers;
+		std::vector<graphics::buffer_barrier> buffer_barriers;
 
 		{ // handle surface transitions
 			auto surf_transitions = std::exchange(_surface_transitions, {});
@@ -87,12 +140,27 @@ namespace lotus::renderer {
 						it->surface->num_mips :
 						it->mip_levels.minimum + it->mip_levels.num_levels;
 					for (std::uint16_t mip = it->mip_levels.minimum; mip < max_mip; ++mip) {
-						image_barriers.emplace_back(
-							graphics::subresource_index::create_color(mip, 0),
-							it->surface->image,
-							it->surface->current_usages[mip],
-							it->usage
-						);
+						// check if a transition is really necessary
+						graphics::image_usage current_usage = it->surface->current_usages[mip];
+						if (current_usage == it->usage) {
+							if (current_usage != graphics::image_usage::read_write_color_texture) {
+								continue;
+							}
+						}
+
+						graphics::subresource_index sub_index(mip, 0, graphics::image_aspect_mask::none);
+						const auto &fmt_prop = graphics::format_properties::get(it->surface->format);
+						// TODO more intelligent aspect mask?
+						if (fmt_prop.has_color()) {
+							sub_index.aspects |= graphics::image_aspect_mask::color;
+						}
+						if (fmt_prop.depth_bits > 0) {
+							sub_index.aspects |= graphics::image_aspect_mask::depth;
+						}
+						if (fmt_prop.stencil_bits > 0) {
+							sub_index.aspects |= graphics::image_aspect_mask::stencil;
+						}
+						image_barriers.emplace_back(sub_index, it->surface->image, current_usage, it->usage);
 					}
 				}
 				// deduplicate & warn about any conflicts
@@ -147,32 +215,44 @@ namespace lotus::renderer {
 			}
 		}
 
+		{ // handle raw buffer barriers
+			auto buffer_transitions = std::exchange(_raw_buffer_transitions, {});
+			for (auto trans : buffer_transitions) {
+				buffer_barriers.emplace_back(*trans.first, trans.second.first, trans.second.second);
+			}
+		}
+
 		if (image_barriers.size() > 0) {
-			get_command_list().resource_barrier(image_barriers, {});
+			constexpr bool _separate_barriers = false;
+			if constexpr (is_debugging && _separate_barriers) {
+				for (const auto &b : image_barriers) {
+					get_command_list().resource_barrier({ b }, {});
+				}
+				for (const auto &b : buffer_barriers) {
+					get_command_list().resource_barrier({}, { b });
+				}
+			} else {
+				get_command_list().resource_barrier(image_barriers, buffer_barriers);
+			}
 		}
 	}
 
 
-	context context::create(assets::manager &asset_man, graphics::context &ctx, graphics::command_queue &queue) {
-		return context(asset_man, ctx, queue);
+	context context::create(graphics::context &ctx, graphics::device &dev, graphics::command_queue &queue) {
+		return context(ctx, dev, queue);
 	}
 
 	context::~context() {
 		wait_idle();
 	}
 
-	image2d_view context::request_surface2d(std::u8string_view name, cvec2s size, graphics::format fmt) {
+	image2d_view context::request_image2d(
+		std::u8string_view name, cvec2s size, std::uint32_t num_mips, graphics::format fmt,
+		graphics::image_usage::mask usages
+	) {
 		graphics::image_tiling tiling = graphics::image_tiling::optimal;
-		graphics::image_usage::mask usage_mask = 
-			graphics::image_usage::mask::read_only_texture |
-			graphics::image_usage::mask::read_write_color_texture |
-			(
-				graphics::format_properties::get(fmt).has_depth_stencil() ?
-				graphics::image_usage::mask::depth_stencil_render_target :
-				graphics::image_usage::mask::color_render_target
-			);
 		auto *surf = new _details::surface2d(
-			size, 1, fmt, tiling, usage_mask, _resource_index++, std::u8string(name)
+			size, num_mips, fmt, tiling, usages, _resource_index++, name
 		);
 		auto surf_ptr = std::shared_ptr<_details::surface2d>(surf, _details::context_managed_deleter(*this));
 		return image2d_view(std::move(surf_ptr), fmt, graphics::mip_levels::all());
@@ -183,14 +263,55 @@ namespace lotus::renderer {
 		std::uint32_t num_images, std::span<const graphics::format> formats
 	) {
 		auto *chain = new _details::swap_chain(
-			wnd, num_images, { formats.begin(), formats.end() }, std::u8string(name)
+			wnd, num_images, { formats.begin(), formats.end() }, name
 		);
-		auto surf_ptr = std::shared_ptr<_details::swap_chain>(chain, _details::context_managed_deleter(*this));
-		return swap_chain(surf_ptr);
+		auto chain_ptr = std::shared_ptr<_details::swap_chain>(chain, _details::context_managed_deleter(*this));
+		return swap_chain(std::move(chain_ptr));
+	}
+
+	descriptor_array context::request_descriptor_array(
+		std::u8string_view name, graphics::descriptor_type type, std::uint32_t capacity
+	) {
+		auto *arr = new _details::descriptor_array(type, capacity, name);
+		auto arr_ptr = std::shared_ptr<_details::descriptor_array>(arr, _details::context_managed_deleter(*this));
+		return descriptor_array(std::move(arr_ptr));
+	}
+
+	void context::upload_image(const image2d_view &target, const void *data, std::u8string_view description) {
+		cvec2s image_size = target.get_size();
+		std::uint32_t mip_index = target._mip_levels.minimum;
+		image_size[0] >>= mip_index;
+		image_size[1] >>= mip_index;
+
+		const auto &format_props = graphics::format_properties::get(target.get_original_format());
+		std::uint32_t bytes_per_pixel = format_props.bytes_per_pixel();
+
+		auto staging_buffer = _device.create_committed_staging_buffer(
+			image_size[0], image_size[1], target.get_original_format(),
+			graphics::heap_type::upload, graphics::buffer_usage::mask::copy_source
+		);
+
+		// copy to device
+		auto *src = static_cast<const std::byte*>(data);
+		auto *dst = static_cast<std::byte*>(_device.map_buffer(staging_buffer.data, 0, 0));
+		for (std::uint32_t y = 0; y < image_size[1]; ++y) {
+			auto *copy_dst = dst + y * staging_buffer.row_pitch.get_pitch_in_bytes();
+			auto *copy_src = static_cast<const std::byte*>(src) + y * image_size[0];
+			std::memcpy(
+				dst + y * staging_buffer.row_pitch.get_pitch_in_bytes(),
+				src + y * image_size[0] * bytes_per_pixel,
+				image_size[0] * bytes_per_pixel
+			);
+		}
+		_device.unmap_buffer(staging_buffer.data, 0, staging_buffer.total_size);
+
+		_commands.emplace_back(description).value.emplace<context_commands::upload_image>(
+			std::move(staging_buffer), target
+		);
 	}
 
 	void context::run_compute_shader(
-		assets::owning_handle<assets::shader> shader, cvec3<std::uint32_t> num_thread_groups,
+		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_thread_groups,
 		all_resource_bindings bindings, std::u8string_view description
 	) {
 		_commands.emplace_back(description).value.emplace<context_commands::dispatch_compute>(
@@ -209,8 +330,67 @@ namespace lotus::renderer {
 		_commands.emplace_back(description).value.emplace<context_commands::present>(std::move(sc));
 	}
 
-	context::context(assets::manager &asset_man, graphics::context &ctx, graphics::command_queue &queue) :
-		_assets(asset_man), _device(asset_man.get_device()), _context(ctx), _queue(queue),
+	void context::flush() {
+		assert(std::this_thread::get_id() == _thread);
+
+		++_batch_index;
+		auto ectx = _execution_context::create(*this);
+
+		auto cmds = std::exchange(_commands, {});
+		for (const auto &cmd : cmds) {
+			std::visit([&, this](const auto &cmd_val) {
+				_handle_command(ectx, cmd_val);
+			}, cmd.value);
+		}
+		ectx.flush_transitions();
+
+		auto signal_semaphores = {
+			graphics::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)
+		};
+		ectx.submit(_queue, graphics::queue_synchronization(nullptr, {}, signal_semaphores));
+
+		_cleanup();
+	}
+
+	void context::wait_idle() {
+		_device.wait_for_timeline_semaphore(_batch_semaphore, _batch_index);
+		_cleanup();
+	}
+
+	void context::write_image_descriptors(
+		descriptor_array &arr_handle, std::uint32_t first_index, std::span<const image2d_view> imgs
+	) {
+		auto &arr = *arr_handle._array;
+
+		_maybe_initialize_descriptor_array(arr);
+
+		for (std::size_t i = 0; i < imgs.size(); ++i) {
+			std::uint32_t descriptor_index = i + first_index;
+			auto &cur_ref = arr.images[descriptor_index];
+			if (auto *surf = cur_ref.image._surface) {
+				auto old_index = cur_ref.reference_index;
+				surf->array_references[old_index] = surf->array_references.back();
+				surf->array_references.pop_back();
+				auto new_ref = surf->array_references[old_index];
+				new_ref.arr->images[new_ref.index].reference_index = old_index;
+				cur_ref = nullptr;
+				arr.has_descriptor_overwrites = true;
+			}
+			// update recorded image
+			cur_ref.image = imgs[i];
+			auto &new_surf = *cur_ref.image._surface;
+			cur_ref.reference_index = new_surf.array_references.size();
+			auto &new_ref = new_surf.array_references.emplace_back(nullptr);
+			new_ref.arr = &arr;
+			new_ref.index = descriptor_index;
+			// stage the write
+			arr.staged_transitions.emplace_back(descriptor_index);
+			arr.staged_writes.emplace_back(descriptor_index);
+		}
+	}
+
+	context::context(graphics::context &ctx, graphics::device &dev, graphics::command_queue &queue) :
+		_device(dev), _context(ctx), _queue(queue),
 		_cmd_alloc(_device.create_command_allocator()),
 		_descriptor_pool(_device.create_descriptor_pool({
 			graphics::descriptor_range::create(graphics::descriptor_type::acceleration_structure, 1024),
@@ -226,20 +406,28 @@ namespace lotus::renderer {
 		_thread(std::this_thread::get_id()) {
 	}
 
+	void context::_maybe_create_image(_details::surface2d &surf) {
+		if (!surf.image) {
+			// create resource if it's not initialized
+			surf.image = _device.create_committed_image2d(
+				surf.size[0], surf.size[1], 1, surf.num_mips,
+				surf.format, surf.tiling, surf.usages
+			);
+			if constexpr (should_register_debug_names) {
+				_device.set_debug_name(surf.image, surf.name);
+			}
+		}
+	}
+
+	graphics::image2d_view context::_create_image_view(const recorded_resources::image2d_view &view) {
+		_maybe_create_image(*view._surface);
+		return _device.create_image2d_view_from(view._surface->image, view._view_format, view._mip_levels);
+	}
+
 	graphics::image2d_view &context::_request_image_view(
 		_execution_context &ectx, const recorded_resources::image2d_view &view
 	) {
-		if (!view._surface->image) {
-			// create resource if it's not initialized
-			view._surface->image = _device.create_committed_image2d(
-				view._surface->size[0], view._surface->size[1], 1, view._surface->num_mips,
-				view._surface->format, view._surface->tiling, view._surface->usages
-			);
-			if constexpr (register_debug_names) {
-				_device.set_debug_name(view._surface->image, view._surface->name);
-			}
-		}
-		return ectx.create_image2d_view(view._surface->image, view._view_format, view._mip_levels);
+		return ectx.record(_create_image_view(view));
 	}
 
 	graphics::image2d_view &context::_request_image_view(
@@ -309,11 +497,21 @@ namespace lotus::renderer {
 			chain_data.next_image_index = back_buffer.index;
 		}
 
-		return ectx.create_image2d_view(
+		return ectx.record(_device.create_image2d_view_from(
 			chain_data.images[chain_data.next_image_index],
 			chain_data.current_format,
 			graphics::mip_levels::only_highest()
-		);
+		));
+	}
+
+	void context::_maybe_initialize_descriptor_array(_details::descriptor_array &arr) {
+		if (!arr.set) {
+			arr.layout = _device.create_descriptor_set_layout({
+				graphics::descriptor_range_binding::create_unbounded(arr.type, 0)
+			}, graphics::shader_stage::all);
+			arr.set = _device.create_descriptor_set(_descriptor_pool, arr.layout, arr.capacity);
+			arr.images.resize(arr.capacity, nullptr);
+		}
 	}
 
 	void context::_create_descriptor_binding(
@@ -365,11 +563,9 @@ namespace lotus::renderer {
 			graphics::buffer_usage::mask::copy_destination | graphics::buffer_usage::mask::read_only_buffer
 		);
 		ectx.get_command_list().copy_buffer(upload_buf, 0, constant_buf, 0, cbuf.data.size());
-
-		// TODO use barriers provided by the execution context
-		ectx.get_command_list().resource_barrier({}, {
-			graphics::buffer_barrier(constant_buf, graphics::buffer_usage::copy_destination, graphics::buffer_usage::read_only_buffer),
-		});
+		ectx.stage_transition(
+			constant_buf, graphics::buffer_usage::copy_destination, graphics::buffer_usage::read_only_buffer
+		);
 
 		_device.write_descriptor_set_constant_buffers(
 			set, layout, reg,
@@ -392,97 +588,78 @@ namespace lotus::renderer {
 		);
 	}
 
-	std::vector<context::_descriptor_set_info> context::_check_and_create_descriptor_set_bindings(
+	std::pair<graphics::descriptor_set&, graphics::descriptor_set_layout&> context::_use_descriptor_set(
+		_execution_context &ectx, const resource_set_binding::descriptor_bindings &bindings
+	) {
+		std::vector<graphics::descriptor_range_binding> layout_ranges;
+		for (const auto &b : bindings.bindings) {
+			auto type = std::visit([this](const auto &rsrc) {
+				return _get_descriptor_type(rsrc);
+			}, b.resource);
+			layout_ranges.emplace_back(graphics::descriptor_range_binding::create(type, 1, b.register_index));
+		}
+		auto &layout = ectx.record(_device.create_descriptor_set_layout(layout_ranges, graphics::shader_stage::all));
+		auto &set = ectx.record(_device.create_descriptor_set(_descriptor_pool, layout));
+		for (const auto &b : bindings.bindings) {
+			std::visit([&, this](const auto &rsrc) {
+				_create_descriptor_binding(ectx, set, layout, b.register_index, rsrc);
+			}, b.resource);
+		}
+		return { set, layout };
+	}
+
+	std::pair<graphics::descriptor_set&, graphics::descriptor_set_layout&> context::_use_descriptor_set(
+		_execution_context &ectx, const recorded_resources::descriptor_array &arr
+	) {
+		ectx.stage_all_transitions(*arr._array);
+		// write descriptors
+		if (arr._array->has_descriptor_overwrites) {
+			// TODO wait until we've finished using this descriptor
+			arr._array->has_descriptor_overwrites = false;
+		}
+		if (!arr._array->staged_writes.empty()) {
+			auto writes = std::exchange(arr._array->staged_writes, {});
+			std::sort(writes.begin(), writes.end());
+			writes.erase(std::unique(writes.begin(), writes.end()), writes.end());
+			auto write_func = graphics::device::get_write_image_descriptor_function(arr._array->type);
+			assert(write_func);
+			for (auto index : writes) {
+				const auto &img = arr._array->images[index].image;
+				// TODO batch writes
+				graphics::image2d_view *view = nullptr;
+				if (img) {
+					view = &_request_image_view(ectx, img);
+				}
+				std::initializer_list<const graphics::image_view*> views = { view };
+				(_device.*write_func)(arr._array->set, arr._array->layout, index, views);
+			}
+		}
+		return { arr._array->set, arr._array->layout };
+	}
+
+	std::pair<
+		std::vector<context::_descriptor_set_info>, graphics::pipeline_resources&
+	> context::_check_and_create_descriptor_set_bindings(
 		_execution_context &ectx, std::initializer_list<const asset<assets::shader>*> targets,
 		const all_resource_bindings &resources
 	) {
-		std::vector<_descriptor_set_info> result;
+		std::vector<_descriptor_set_info> sets;
+		std::vector<graphics::descriptor_set_layout*> layouts;
 
-		using _iter_t = std::vector<shader_descriptor_bindings::set>::const_iterator;
-		std::vector<std::pair<_iter_t, _iter_t>> iters;
-		for (const auto *t : targets) {
-			iters.emplace_back(t->value.descriptor_bindings.sets.begin(), t->value.descriptor_bindings.sets.end());
-		}
-		for (std::size_t set_index = 0; set_index < resources.sets.size(); ++set_index) {
-			const auto &set_bindings = resources.sets[set_index];
-			_descriptor_set_info *result_set = nullptr;
-			_iter_t prev_iter;
-			for (auto &layout : iters) {
-				while (layout.first != layout.second && layout.first->space < set_bindings.space) {
-					if (set_index > 0 && layout.first->space != resources.sets[set_index - 1].space) {
-						log().error<u8"Missing bindings for register space {}">(layout.first->space);
-					}
-					++layout.first;
-				}
-				if (layout.first == layout.second || layout.first->space > set_bindings.space) {
-					continue;
-				}
-				if (result_set) {
-					if (layout.first->ranges != prev_iter->ranges) {
-						log().error<
-							u8"Conflicting bindings for set {} between shaders in the same pipeline"
-						>(set_bindings.space);
-					}
-					continue;
-				}
+		for (const auto &set : resources.sets) {
+			auto &&[desc_set, layout] = std::visit([&, this](const auto &bindings) {
+				return _use_descriptor_set(ectx, bindings);
+			}, set.bindings);
 
-				result_set = &result.emplace_back(
-					ectx.record(_device.create_descriptor_set(_descriptor_pool, layout.first->layout)),
-					set_bindings.space
-				);
-				prev_iter = layout.first;
-
-				auto binding_it = layout.first->ranges.begin();
-				std::uint32_t next_offset_in_range = 0;
-				for (const auto &binding : set_bindings.bindings) {
-					while (
-						binding_it != layout.first->ranges.end() &&
-						binding_it->get_last_register_index() < binding.register_index
-					) { // we're after this range
-						if (next_offset_in_range < binding_it->range.count) {
-							log().error<u8"Missing bindings for register {} to {} in space {}">(
-								next_offset_in_range + binding_it->register_index,
-								binding_it->get_last_register_index(),
-								set_bindings.space
-							);
-						}
-						++binding_it;
-						next_offset_in_range = 0;
-					}
-					if (
-						binding_it == layout.first->ranges.end() ||
-						binding_it->register_index > binding.register_index
-					) {
-						// the compiler can optimize out unused descriptors
-						/*log().error<u8"Specified inexistant binding for register index {}, space {}">(
-							binding.register_index, set_bindings.space
-						);*/
-						continue;
-					}
-					std::uint32_t offset_in_range = binding.register_index - binding_it->register_index;
-					if (offset_in_range > next_offset_in_range) {
-						log().error<u8"Missing bindings for register {} to {} in space {}">(
-							next_offset_in_range + binding_it->register_index,
-							offset_in_range + binding_it->register_index - 1,
-							set_bindings.space
-						);
-					}
-					next_offset_in_range = offset_in_range + 1;
-
-					std::visit([&, this](const auto &rsrc) {
-						_create_descriptor_binding(
-							ectx, *result_set->set, layout.first->layout, binding.register_index, rsrc
-						);
-					}, binding.resource);
-				}
+			sets.emplace_back(desc_set, set.space);
+			if (set.space >= layouts.size()) {
+				layouts.resize(set.space + 1, &_empty_layout);
 			}
-
-			if (!result_set) {
-				log().error<u8"Specified inexistant bindings for register space {}">(set_bindings.space);
-			}
+			layouts[set.space] = &layout;
 		}
+		auto &rsrc = ectx.record(_device.create_pipeline_resources(layouts));
 
-		return result;
+		return { sets, rsrc };
 	}
 
 	void context::_bind_descriptor_sets(
@@ -523,45 +700,17 @@ namespace lotus::renderer {
 		}
 	}
 
-	graphics::pipeline_resources &context::_create_pipeline_resources(
-		_execution_context &ectx, std::initializer_list<const asset<assets::shader>*> shaders
-	) {
-		std::vector<const shader_descriptor_bindings::set*> layouts;
-		std::vector<const graphics::descriptor_set_layout*> sets;
-
-		for (const auto *shader : shaders) {
-			for (const auto &set : shader->value.descriptor_bindings.sets) {
-				if (set.space >= sets.size()) {
-					sets.resize(set.space + 1);
-					layouts.resize(set.space + 1);
-				}
-				if (sets[set.space] == nullptr) {
-					sets[set.space] = &set.layout;
-					layouts[set.space] = &set;
-				} else {
-					if (set.ranges != layouts[set.space]->ranges) {
-						log().error<u8"Mismatch descriptor set at space {}">(set.space);
-					}
-				}
-			}
-		}
-
-		for (const auto *&s : sets) {
-			if (s == nullptr) {
-				s = &_empty_layout;
-			}
-		}
-
-		return ectx.record(_device.create_pipeline_resources(sets));
-	}
-
 	context::_pass_command_data context::_preprocess_command(
 		_execution_context &ectx,
 		const graphics::frame_buffer_layout &fb_layout,
 		const pass_commands::draw_instanced &cmd
 	) {
 		context::_pass_command_data result = nullptr;
-		result.resources = &_create_pipeline_resources(ectx, { &cmd.vertex_shader.get(), &cmd.pixel_shader.get() });
+		auto &&[sets, rsrc] = _check_and_create_descriptor_set_bindings(
+			ectx, { &cmd.vertex_shader.get(), &cmd.pixel_shader.get() }, cmd.resource_bindings
+		);
+		result.descriptor_sets = std::move(sets);
+		result.resources = &rsrc;
 
 		graphics::shader_set shaders(cmd.vertex_shader.get().value.binary, cmd.pixel_shader.get().value.binary);
 		std::vector<graphics::input_buffer_layout> input_layouts;
@@ -578,10 +727,6 @@ namespace lotus::renderer {
 			cmd.topology,
 			fb_layout
 		));
-
-		result.descriptor_sets = _check_and_create_descriptor_set_bindings(
-			ectx, { &cmd.vertex_shader.get(), &cmd.pixel_shader.get() }, cmd.resource_bindings
-		);
 
 		return result;
 	}
@@ -614,10 +759,28 @@ namespace lotus::renderer {
 		}
 	}
 
+	void context::_handle_command(_execution_context &ectx, const context_commands::upload_image &img) {
+		recorded_resources::image2d_view dest = img.destination;
+		dest._mip_levels.num_levels = 1;
+		_maybe_create_image(*dest._surface);
+
+		cvec2s size = dest._surface->size;
+		std::uint32_t mip_level = dest._mip_levels.minimum;
+		size[0] >>= mip_level;
+		size[1] >>= mip_level;
+		ectx.stage_transition(*dest._surface, dest._mip_levels, graphics::image_usage::copy_destination);
+		ectx.flush_transitions();
+		ectx.get_command_list().copy_buffer_to_image(
+			img.source.data, 0, img.source.row_pitch, aab2s::create_from_min_max(zero, size),
+			dest._surface->image, graphics::subresource_index::create_color(mip_level, 0), zero
+		);
+	}
+
 	void context::_handle_command(_execution_context &ectx, const context_commands::dispatch_compute &cmd) {
 		// create descriptor bindings
-		auto sets = _check_and_create_descriptor_set_bindings(ectx, { &cmd.shader.get() }, cmd.resources);
-		auto &pipeline_resources = _create_pipeline_resources(ectx, { &cmd.shader.get() });
+		auto &&[sets, pipeline_resources] = _check_and_create_descriptor_set_bindings(
+			ectx, { &cmd.shader.get() }, cmd.resources
+		);
 		auto &pipeline = ectx.record(_device.create_compute_pipeline_state(
 			pipeline_resources, cmd.shader.get().value.binary
 		));
@@ -638,20 +801,7 @@ namespace lotus::renderer {
 		// create frame buffer
 		for (const auto &rt : cmd.color_render_targets) {
 			if (std::holds_alternative<recorded_resources::image2d_view>(rt.view)) {
-				auto img = std::get<recorded_resources::image2d_view>(rt.view);
-				// make sure we're only using one mip
-				if (img._mip_levels.num_levels != 1) {
-					if (img._surface->num_mips - img._mip_levels.minimum > 1) {
-						std::uint16_t num_levels =
-							img._mip_levels.is_all() ?
-							img._surface->num_mips - img._mip_levels.minimum :
-							img._mip_levels.num_levels;
-						log().error<u8"More than one ({}) mip specified for render target for texture {}">(
-							num_levels, string::to_generic(img._surface->name)
-						);
-					}
-					img._mip_levels.num_levels = 1;
-				}
+				auto img = std::get<recorded_resources::image2d_view>(rt.view).highest_mip_with_warning();
 				color_rts.emplace_back(&_request_image_view(ectx, img));
 				color_rt_formats.emplace_back(img._view_format);
 				ectx.stage_transition(*img._surface, img._mip_levels, graphics::image_usage::color_render_target);
@@ -670,12 +820,11 @@ namespace lotus::renderer {
 		graphics::image2d_view *depth_stencil_rt = nullptr;
 		if (cmd.depth_stencil_target.view) {
 			assert(cmd.depth_stencil_target.view._surface->size == cmd.render_target_size);
-			depth_stencil_rt = &_request_image_view(ectx, cmd.depth_stencil_target.view);
-			ds_rt_format = cmd.depth_stencil_target.view._view_format;
+			auto img = cmd.depth_stencil_target.view.highest_mip_with_warning();
+			depth_stencil_rt = &_request_image_view(ectx, img);
+			ds_rt_format = img._view_format;
 			ectx.stage_transition(
-				*cmd.depth_stencil_target.view._surface,
-				cmd.depth_stencil_target.view._mip_levels,
-				graphics::image_usage::depth_stencil_render_target
+				*img._surface, img._mip_levels, graphics::image_usage::depth_stencil_render_target
 			);
 		}
 		auto &frame_buffer = ectx.create_frame_buffer(color_rts, depth_stencil_rt, cmd.render_target_size);
@@ -732,35 +881,19 @@ namespace lotus::renderer {
 		std::uint32_t first_batch = _batch_index + 1 - _all_resources.size();
 		std::uint64_t finished_batch = _device.query_timeline_semaphore(_batch_semaphore);
 		while (first_batch <= finished_batch) {
+			const auto &batch = _all_resources.front();
+			for (const auto &surf : batch.surface2d_meta) {
+				for (const auto &array_ref : surf->array_references) {
+					if (array_ref.arr->set) {
+						std::initializer_list<const graphics::image_view*> images = { nullptr };
+						(_device.*_device.get_write_image_descriptor_function(array_ref.arr->type))(
+							array_ref.arr->set, array_ref.arr->layout, array_ref.index, images
+						);
+					}
+				}
+			}
 			_all_resources.pop_front();
 			++first_batch;
 		}
-	}
-
-	void context::flush() {
-		assert(std::this_thread::get_id() == _thread);
-
-		++_batch_index;
-		auto ectx = _execution_context::create(*this);
-
-		auto cmds = std::exchange(_commands, {});
-		for (const auto &cmd : cmds) {
-			std::visit([&, this](const auto &cmd_val) {
-				_handle_command(ectx, cmd_val);
-			}, cmd.value);
-		}
-		ectx.flush_transitions();
-
-		auto signal_semaphores = {
-			graphics::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)
-		};
-		ectx.submit(_queue, graphics::queue_synchronization(nullptr, {}, signal_semaphores));
-
-		_cleanup();
-	}
-
-	void context::wait_idle() {
-		_device.wait_for_timeline_semaphore(_batch_semaphore, _batch_index);
-		_cleanup();
 	}
 }

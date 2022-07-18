@@ -3,18 +3,17 @@
 /// \file
 /// Miscellaneous internal functions and classes used by the Vulkan backend.
 
-#include <iostream>
-
 #include <vulkan/vulkan.hpp>
 #include <spirv_reflect.h>
 
+#include "lotus/logging.h"
 #include "lotus/graphics/common.h"
 
 namespace lotus::graphics::backends::vulkan::_details {
 	/// Asserts that the result is \p vk::Result::eSuccess.
 	inline void assert_vk(vk::Result result) {
 		if (result != vk::Result::eSuccess) {
-			std::cerr << "Vulkan error " << vk::to_string(result) << "\n";
+			log().error<u8"Vulkan error {}">(vk::to_string(result));
 			assert(false);
 		}
 	}
@@ -26,7 +25,7 @@ namespace lotus::graphics::backends::vulkan::_details {
 	/// Asserts that the given result is 
 	inline void assert_spv_reflect(SpvReflectResult result) {
 		if (result != SPV_REFLECT_RESULT_SUCCESS) {
-			std::cerr << "SPIRV-Reflect error " << result;
+			log().error<u8"SPIRV-Reflect error {}">(static_cast<std::underlying_type_t<decltype(result)>>(result));
 			assert(false);
 		}
 	}

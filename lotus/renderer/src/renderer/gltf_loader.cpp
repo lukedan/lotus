@@ -8,11 +8,12 @@
 #include <tiny_gltf.h>
 
 namespace lotus::renderer::gltf {
+	/// Loads a data buffer with the given properties.
 	template <typename T> static assets::handle<assets::buffer> _load_data_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
 		int accessor_index, std::size_t expected_components, graphics::buffer_usage::mask usage_mask
 	) {
-		auto id = assets::identifier::create(path, std::u8string(string::assume_utf8(std::format(
+		auto id = assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 			"buffer{}|{}|{}({})", accessor_index, expected_components, typeid(T).hash_code(), typeid(T).name()
 		))));
 		if (auto res = man.find_buffer(id)) {
@@ -85,6 +86,32 @@ namespace lotus::renderer::gltf {
 
 		return man.create_buffer(std::move(id), std::span(data.begin(), data.end()), usage_mask);
 	}
+	/// Wrapper around \ref _load_data_buffer() that loads an \ref assets::geometry::input_buffer.
+	template <typename T> static assets::geometry::input_buffer _load_input_buffer(
+		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
+		int accessor_index, std::size_t expected_components, graphics::buffer_usage::mask usage_mask
+	) {
+		assets::geometry::input_buffer result = nullptr;
+		result.data = _load_data_buffer<T>(man, path, model, accessor_index, expected_components, usage_mask);
+		result.offset = 0;
+		result.stride = sizeof(T) * expected_components;
+
+		std::uint8_t count[4] = { 0, 0, 0, 0 };
+		for (std::size_t i = 0; i < expected_components; ++i) {
+			count[i] = sizeof(T) * 8;
+		}
+		auto ty = graphics::format_properties::data_type::unknown;
+		if constexpr (std::is_same_v<T, float>) {
+			ty = graphics::format_properties::data_type::floating_point;
+		} else if constexpr (std::is_same_v<T, std::uint32_t>) {
+			ty = graphics::format_properties::data_type::unsigned_int;
+		} else {
+			static_assert(sizeof(T*) == 0, "Unhandled data type");
+		}
+		result.format = graphics::format_properties::find_exact_rgba(count[0], count[1], count[2], count[3], ty);
+
+		return result;
+	}
 	std::vector<instance> context::load(const std::filesystem::path &path) {
 		tinygltf::TinyGLTF loader;
 		tinygltf::Model model;
@@ -120,7 +147,7 @@ namespace lotus::renderer::gltf {
 		auto images = bookmark.create_vector_array<assets::handle<assets::texture2d>>(model.images.size(), nullptr);
 		for (std::size_t i = 0; i < images.size(); ++i) {
 			images[i] = _asset_manager.get_texture2d(
-				assets::identifier::create(path.parent_path() / std::filesystem::path(model.images[i].uri))
+				assets::identifier(path.parent_path() / std::filesystem::path(model.images[i].uri))
 			);
 		}
 
@@ -139,46 +166,72 @@ namespace lotus::renderer::gltf {
 				assets::geometry geom = nullptr;
 				if (auto it = prim.attributes.find("POSITION"); it != prim.attributes.end()) {
 					geom.num_vertices = static_cast<std::uint32_t>(model.accessors[it->second].count);
-					geom.vertex_buffer = _load_data_buffer<float>(
+					geom.vertex_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
 						graphics::buffer_usage::mask::vertex_buffer | graphics::buffer_usage::mask::read_only_buffer
-					).take_ownership();
+					);
 				}
 				if (auto it = prim.attributes.find("NORMAL"); it != prim.attributes.end()) {
-					geom.normal_buffer = _load_data_buffer<float>(
+					geom.normal_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
 						graphics::buffer_usage::mask::vertex_buffer | graphics::buffer_usage::mask::read_only_buffer
-					).take_ownership();
+					);
 				}
 				if (auto it = prim.attributes.find("TANGENT"); it != prim.attributes.end()) {
-					geom.tangent_buffer = _load_data_buffer<float>(
+					geom.tangent_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 4,
 						graphics::buffer_usage::mask::vertex_buffer | graphics::buffer_usage::mask::read_only_buffer
-					).take_ownership();
+					);
 				}
 				if (auto it = prim.attributes.find("TEXCOORD_0"); it != prim.attributes.end()) {
-					geom.uv_buffer = _load_data_buffer<float>(
+					geom.uv_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 2,
 						graphics::buffer_usage::mask::vertex_buffer | graphics::buffer_usage::mask::read_only_buffer
-					).take_ownership();
+					);
 				}
 				if (prim.indices >= 0) {
 					geom.num_indices = static_cast<std::uint32_t>(model.accessors[prim.indices].count);
 					geom.index_buffer = _load_data_buffer<std::uint32_t>(
 						_asset_manager, path, model, prim.indices, 1,
 						graphics::buffer_usage::mask::index_buffer | graphics::buffer_usage::mask::read_only_buffer
-					).take_ownership();
+					);
 				}
 
-				{
+				switch (prim.mode) {
+				case TINYGLTF_MODE_POINTS:
+					geom.topology = graphics::primitive_topology::point_list;
+					break;
+				case TINYGLTF_MODE_LINE:
+					geom.topology = graphics::primitive_topology::line_list;
+					break;
+				case TINYGLTF_MODE_LINE_LOOP: // no support
+					log().error<
+						u8"Line loop topology is not supported, used by mesh {} \"{}\" primitive {}"
+					>(i, mesh.name, j);
+					[[fallthrough]];
+				case TINYGLTF_MODE_LINE_STRIP:
+					geom.topology = graphics::primitive_topology::line_strip;
+					break;
+				case TINYGLTF_MODE_TRIANGLES:
+					geom.topology = graphics::primitive_topology::triangle_list;
+					break;
+				case TINYGLTF_MODE_TRIANGLE_FAN: // no support
+					log().error<
+						u8"Triangle fan topology is not supported, used by mesh {} \"{}\" primitive {}"
+					>(i, mesh.name, j);
+					[[fallthrough]];
+				case TINYGLTF_MODE_TRIANGLE_STRIP:
+					geom.topology = graphics::primitive_topology::triangle_strip;
+					break;
+				default:
+					assert(false); // unhandled
+					break;
+				}
+
+				/*{
 					auto acc_geom = dev.create_bottom_level_acceleration_structure_geometry({ {
-						graphics::vertex_buffer_view(
-							geom.vertex_buffer.get().value.data, graphics::format::r32g32b32_float,
-							0, sizeof(cvec3f), geom.num_vertices
-						),
-						graphics::index_buffer_view(
-							geom.index_buffer.get().value.data, graphics::index_format::uint32, 0, geom.num_indices
-						)
+						geom.vertex_buffer.into_vertex_buffer_view(geom.num_vertices),
+						geom.get_index_buffer_view()
 					} });
 					auto build_sizes = dev.get_bottom_level_acceleration_structure_build_sizes(acc_geom);
 
@@ -195,18 +248,18 @@ namespace lotus::renderer::gltf {
 					auto cmd_list = dev.create_and_start_command_list(cmd_alloc);
 					auto scratch = dev.create_committed_buffer(
 						build_sizes.build_scratch_size,
-						graphics::heap_type::device_only, graphics::buffer_usage::mask::acceleration_structure
+						graphics::heap_type::device_only, graphics::buffer_usage::mask::read_write_buffer
 					);
 					cmd_list.build_acceleration_structure(acc_geom, geom.acceleration_structure, scratch, 0);
 					cmd_list.finish();
 					cmd_queue.submit_command_lists({ &cmd_list }, &fence);
 					dev.wait_for_fence(fence);
 					dev.reset_fence(fence);
-				}
+				}*/
 
 				std::string formatted = std::format("{}@{}|{}", mesh.name, i, j);
 				geom_primitives[j] = _asset_manager.register_geometry(
-					assets::identifier::create(path, std::u8string(string::assume_utf8(formatted))), std::move(geom)
+					assets::identifier(path, std::u8string(string::assume_utf8(formatted))), std::move(geom)
 				);
 			}
 		}
@@ -219,7 +272,7 @@ namespace lotus::renderer::gltf {
 			const auto &mat = model.materials[i];
 
 			// TODO allocator
-			auto mat_data = std::make_unique<material_data>(nullptr);
+			auto mat_data = std::make_unique<material_data>(_asset_manager);
 			mat_data->properties.albedo_multiplier =
 				mat.pbrMetallicRoughness.baseColorFactor.empty() ?
 				cvec4f(1.0f, 1.0f, 1.0f, 1.0f) :
@@ -237,21 +290,21 @@ namespace lotus::renderer::gltf {
 			mat_data->albedo_texture =
 				mat.pbrMetallicRoughness.baseColorTexture.index < 0 ?
 				nullptr :
-				images[mat.pbrMetallicRoughness.baseColorTexture.index].take_ownership();
+				images[mat.pbrMetallicRoughness.baseColorTexture.index];
 			mat_data->normal_texture =
 				mat.normalTexture.index < 0 ?
 				nullptr :
-				images[mat.normalTexture.index].take_ownership();
+				images[mat.normalTexture.index];
 			mat_data->properties_texture =
 				mat.pbrMetallicRoughness.metallicRoughnessTexture.index < 0 ?
 				nullptr :
-				images[mat.pbrMetallicRoughness.metallicRoughnessTexture.index].take_ownership();
+				images[mat.pbrMetallicRoughness.metallicRoughnessTexture.index];
 
 			materials[i] = _asset_manager.register_material(
-				assets::identifier::create(
+				assets::identifier(
 					path, std::u8string(string::assume_utf8(std::format("{}@{}", mat.name, i)))
 				),
-				assets::material::create(std::move(mat_data))
+				assets::material(std::move(mat_data))
 			);
 		}
 
@@ -279,8 +332,8 @@ namespace lotus::renderer::gltf {
 
 				auto &inst = result.emplace_back(nullptr);
 				inst.transform = trans;
-				inst.material = materials[prim.material].take_ownership();
-				inst.geometry = prim_handle.take_ownership();
+				inst.material = materials[prim.material];
+				inst.geometry = prim_handle;
 
 				// create material pipeline
 				auto defines = bookmark.create_vector_array<std::pair<std::u8string_view, std::u8string_view>>();
@@ -291,48 +344,30 @@ namespace lotus::renderer::gltf {
 						log().warn<u8"Unknown alpha mode: {}">(mat.alphaMode);
 					}
 				}
-
-				/*auto input_layouts = bookmark.create_reserved_vector_array<graphics::input_buffer_layout>(4);
-				std::size_t buffer_id = 0;
-				auto input_position = graphics::input_buffer_element::create(
-					u8"POSITION", 0, graphics::format::r32g32b32_float, 0
-				);
-				auto input_uv = graphics::input_buffer_element::create(
-					u8"TEXCOORD", 0, graphics::format::r32g32_float, 0
-				);
-				auto input_normal = graphics::input_buffer_element::create(
-					u8"NORMAL", 0, graphics::format::r32g32b32_float, 0
-				);
-				auto input_tangent = graphics::input_buffer_element::create(
-					u8"TANGENT", 0, graphics::format::r32g32b32a32_float, 0
-				);
-				input_layouts.emplace_back(graphics::input_buffer_layout::create_vertex_buffer<cvec3f>(
-					std::span(&input_position, 1), buffer_id++
-				));
-				if (inst.geometry.get().value.uv_buffer) {
-					input_layouts.emplace_back(graphics::input_buffer_layout::create_vertex_buffer<cvec2f>(
-						std::span(&input_uv, 1), buffer_id++
-					));
-					defines.emplace_back(u8"VERTEX_INPUT_HAS_UV", u8"");
-				}
-				if (inst.geometry.get().value.normal_buffer) {
-					input_layouts.emplace_back(graphics::input_buffer_layout::create_vertex_buffer<cvec3f>(
-						std::span(&input_normal, 1), buffer_id++
-					));
-					defines.emplace_back(u8"VERTEX_INPUT_HAS_NORMAL", u8"");
-				}
-				if (inst.geometry.get().value.tangent_buffer) {
-					input_layouts.emplace_back(graphics::input_buffer_layout::create_vertex_buffer<cvec4f>(
-						std::span(&input_tangent, 1), buffer_id++
-					));
-					defines.emplace_back(u8"VERTEX_INPUT_HAS_TANGENT", u8"");
-				}
-
-				inst.pipeline = mat_context.create_pipeline(
-					_asset_manager, "gltf_material.hlsl", defines, input_layouts
-				);*/
 			}
 		}
+
+		return result;
+	}
+
+
+	all_resource_bindings material_data::create_resource_bindings() const {
+		all_resource_bindings result = nullptr;
+
+		result.sets.emplace_back(manager->get_images(), 0);
+
+		resource_set_binding::descriptor_bindings set1({});
+
+		shader_types::gltf_material mat;
+		mat.properties = properties;
+		mat.assets.albedo_texture     = albedo_texture.get().value.descriptor_index;
+		mat.assets.normal_texture     = normal_texture.get().value.descriptor_index;
+		mat.assets.properties_texture = properties_texture.get().value.descriptor_index;
+		set1.bindings.emplace_back(descriptor_resource::immediate_constant_buffer::create_for(mat), 0);
+
+		set1.bindings.emplace_back(descriptor_resource::sampler(), 2);
+
+		result.sets.emplace_back(set1, 1);
 
 		return result;
 	}

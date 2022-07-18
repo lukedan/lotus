@@ -128,7 +128,10 @@ namespace lotus::graphics::backends::vulkan {
 
 		vk::DescriptorPoolCreateInfo info;
 		info
-			.setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet)
+			.setFlags(
+				vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet |
+				vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind
+			)
 			.setMaxSets(static_cast<std::uint32_t>(max_num_sets))
 			.setPoolSizeCount(static_cast<std::uint32_t>(capacity.size()))
 			.setPoolSizes(ranges);
@@ -144,11 +147,11 @@ namespace lotus::graphics::backends::vulkan {
 		vk::DescriptorSetAllocateInfo info;
 		info
 			.setDescriptorPool(pool._pool.get())
-			.setDescriptorSetCount(1)
 			.setSetLayouts(layout._layout.get());
 		auto sets = _details::unwrap(_device->allocateDescriptorSetsUnique(info));
 		assert(sets.size() == 1);
 		result._set = std::move(sets[0]);
+		result._variable_binding_index = layout._variable_binding_index;
 
 		return result;
 	}
@@ -170,8 +173,24 @@ namespace lotus::graphics::backends::vulkan {
 		auto sets = _details::unwrap(_device->allocateDescriptorSetsUnique(info));
 		assert(sets.size() == 1);
 		result._set = std::move(sets[0]);
+		result._variable_binding_index = layout._variable_binding_index;
 
 		return result;
+	}
+
+	/// Handles both when we're trying to write to a normal descriptor range and when we want to write to a variable
+	/// count descriptor range.
+	static void _set_write_descriptor_binding(
+		vk::WriteDescriptorSet &info, std::size_t first_register, std::size_t variable_index
+	) {
+		if (first_register >= variable_index) {
+			info
+				.setDstBinding(variable_index)
+				.setDstArrayElement(first_register - variable_index);
+		} else {
+			info
+				.setDstBinding(static_cast<std::uint32_t>(first_register));
+		}
 	}
 
 	void device::write_descriptor_set_read_only_images(
@@ -182,16 +201,16 @@ namespace lotus::graphics::backends::vulkan {
 		auto imgs = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
 		for (const auto *img : images) {
 			imgs.emplace_back()
-				.setImageView(static_cast<const _details::image_view*>(img)->_view.get())
+				.setImageView(img ? static_cast<const _details::image_view*>(img)->_view.get() : nullptr)
 				.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 		}
 
 		vk::WriteDescriptorSet info;
 		info
 			.setDstSet(set._set.get())
-			.setDstBinding(static_cast<std::uint32_t>(first_register))
 			.setDescriptorType(vk::DescriptorType::eSampledImage)
 			.setImageInfo(imgs);
+		_set_write_descriptor_binding(info, first_register, set._variable_binding_index);
 		_device->updateDescriptorSets(info, {});
 	}
 
@@ -203,16 +222,16 @@ namespace lotus::graphics::backends::vulkan {
 		auto imgs = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
 		for (const auto *img : images) {
 			imgs.emplace_back()
-				.setImageView(static_cast<const _details::image_view*>(img)->_view.get())
+				.setImageView(img ? static_cast<const _details::image_view*>(img)->_view.get() : nullptr)
 				.setImageLayout(vk::ImageLayout::eGeneral);
 		}
 
 		vk::WriteDescriptorSet info;
 		info
 			.setDstSet(set._set.get())
-			.setDstBinding(static_cast<std::uint32_t>(first_register))
 			.setDescriptorType(vk::DescriptorType::eStorageImage)
 			.setImageInfo(imgs);
+		_set_write_descriptor_binding(info, first_register, set._variable_binding_index);
 		_device->updateDescriptorSets(info, {});
 	}
 
@@ -224,7 +243,7 @@ namespace lotus::graphics::backends::vulkan {
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
-				.setBuffer(static_cast<buffer*>(buf.data)->_buffer)
+				.setBuffer(buf.data ? static_cast<buffer*>(buf.data)->_buffer : nullptr)
 				.setOffset(buf.first * buf.stride)
 				.setRange(buf.count * buf.stride);
 		}
@@ -232,9 +251,9 @@ namespace lotus::graphics::backends::vulkan {
 		vk::WriteDescriptorSet info;
 		info
 			.setDstSet(set._set.get())
-			.setDstBinding(static_cast<std::uint32_t>(first_register))
 			.setDescriptorType(vk::DescriptorType::eStorageBuffer)
 			.setBufferInfo(bufs);
+		_set_write_descriptor_binding(info, first_register, set._variable_binding_index);
 		_device->updateDescriptorSets(info, {});
 	}
 
@@ -246,7 +265,7 @@ namespace lotus::graphics::backends::vulkan {
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
-				.setBuffer(static_cast<buffer*>(buf.data)->_buffer)
+				.setBuffer(buf.data ? static_cast<buffer*>(buf.data)->_buffer : nullptr)
 				.setOffset(buf.offset)
 				.setRange(buf.size);
 		}
@@ -254,9 +273,9 @@ namespace lotus::graphics::backends::vulkan {
 		vk::WriteDescriptorSet info;
 		info
 			.setDstSet(set._set.get())
-			.setDstBinding(static_cast<std::uint32_t>(first_register))
 			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 			.setBufferInfo(bufs);
+		_set_write_descriptor_binding(info, first_register, set._variable_binding_index);
 		_device->updateDescriptorSets(info, {});
 	}
 
@@ -268,15 +287,15 @@ namespace lotus::graphics::backends::vulkan {
 		auto smps = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(samplers.size());
 		for (const auto *smp : samplers) {
 			smps.emplace_back()
-				.setSampler(static_cast<const sampler*>(smp)->_sampler.get());
+				.setSampler(smp ? static_cast<const sampler*>(smp)->_sampler.get() : nullptr);
 		}
 
 		vk::WriteDescriptorSet info;
 		info
 			.setDstSet(set._set.get())
-			.setDstBinding(static_cast<std::uint32_t>(first_register))
 			.setDescriptorType(vk::DescriptorType::eSampler)
 			.setImageInfo(smps);
+		_set_write_descriptor_binding(info, first_register, set._variable_binding_index);
 		_device->updateDescriptorSets(info, {});
 	}
 
@@ -352,7 +371,13 @@ namespace lotus::graphics::backends::vulkan {
 					.setDescriptorCount(65536) // TODO what should I use here?
 					.setBinding(static_cast<std::uint32_t>(rng.register_index));
 				arr.emplace_back(binding);
-				flags_arr.emplace_back(vk::DescriptorBindingFlagBits::eVariableDescriptorCount);
+				flags_arr.emplace_back(
+					vk::DescriptorBindingFlagBits::eVariableDescriptorCount |
+					vk::DescriptorBindingFlagBits::ePartiallyBound |
+					vk::DescriptorBindingFlagBits::eUpdateAfterBind |
+					vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending
+				);
+				result._variable_binding_index = rng.register_index;
 			} else {
 				binding.setDescriptorCount(1);
 				for (std::size_t i = 0; i < rng.range.count; ++i) {
@@ -368,6 +393,7 @@ namespace lotus::graphics::backends::vulkan {
 		vk::DescriptorSetLayoutCreateInfo info;
 		info
 			.setPNext(&variable_info)
+			.setFlags(vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool)
 			.setBindings(arr);
 		// TODO allocator
 		result._layout = _details::unwrap(_device->createDescriptorSetLayoutUnique(info));
@@ -1272,8 +1298,13 @@ namespace lotus::graphics::backends::vulkan {
 			}
 		}
 
+		vk::PhysicalDeviceRobustness2FeaturesEXT robustness_features;
+		robustness_features
+			.setNullDescriptor(true);
+
 		vk::PhysicalDeviceCustomBorderColorFeaturesEXT border_color_features;
 		border_color_features
+			.setPNext(&robustness_features)
 			.setCustomBorderColors(true)
 			.setCustomBorderColorWithoutFormat(true);
 
@@ -1296,6 +1327,14 @@ namespace lotus::graphics::backends::vulkan {
 		vk12_features
 			.setPNext(&vk13_features)
 			.setBufferDeviceAddress(true)
+			.setDescriptorBindingPartiallyBound(true)
+			.setDescriptorBindingUpdateUnusedWhilePending(true)
+			.setDescriptorBindingSampledImageUpdateAfterBind(true)
+			.setDescriptorBindingStorageBufferUpdateAfterBind(true)
+			.setDescriptorBindingStorageImageUpdateAfterBind(true)
+			.setDescriptorBindingStorageTexelBufferUpdateAfterBind(true)
+			.setDescriptorBindingUniformBufferUpdateAfterBind(true)
+			.setDescriptorBindingUniformTexelBufferUpdateAfterBind(true)
 			.setDescriptorBindingVariableDescriptorCount(true)
 			.setRuntimeDescriptorArray(true)
 			.setTimelineSemaphore(true);

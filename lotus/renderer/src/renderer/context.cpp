@@ -403,6 +403,7 @@ namespace lotus::renderer {
 		}, 1024)), // TODO proper numbers
 		_empty_layout(_device.create_descriptor_set_layout({}, graphics::shader_stage::all)),
 		_batch_semaphore(_device.create_timeline_semaphore(0)),
+		_cache(_device),
 		_thread(std::this_thread::get_id()) {
 	}
 
@@ -506,10 +507,8 @@ namespace lotus::renderer {
 
 	void context::_maybe_initialize_descriptor_array(_details::descriptor_array &arr) {
 		if (!arr.set) {
-			arr.layout = _device.create_descriptor_set_layout({
-				graphics::descriptor_range_binding::create_unbounded(arr.type, 0)
-			}, graphics::shader_stage::all);
-			arr.set = _device.create_descriptor_set(_descriptor_pool, arr.layout, arr.capacity);
+			const auto &layout = _cache.get_descriptor_set_layout(arr.get_layout_key());
+			arr.set = _device.create_descriptor_set(_descriptor_pool, layout, arr.capacity);
 			arr.images.resize(arr.capacity, nullptr);
 		}
 	}
@@ -588,29 +587,42 @@ namespace lotus::renderer {
 		);
 	}
 
-	std::pair<graphics::descriptor_set&, graphics::descriptor_set_layout&> context::_use_descriptor_set(
+	std::tuple<
+		cache_keys::descriptor_set_layout,
+		const graphics::descriptor_set_layout&,
+		graphics::descriptor_set&
+	> context::_use_descriptor_set(
 		_execution_context &ectx, const resource_set_binding::descriptor_bindings &bindings
 	) {
-		std::vector<graphics::descriptor_range_binding> layout_ranges;
+		cache_keys::descriptor_set_layout key = nullptr;
 		for (const auto &b : bindings.bindings) {
 			auto type = std::visit([this](const auto &rsrc) {
 				return _get_descriptor_type(rsrc);
 			}, b.resource);
-			layout_ranges.emplace_back(graphics::descriptor_range_binding::create(type, 1, b.register_index));
+			key.ranges.emplace_back(graphics::descriptor_range_binding::create(type, 1, b.register_index));
 		}
-		auto &layout = ectx.record(_device.create_descriptor_set_layout(layout_ranges, graphics::shader_stage::all));
+		key.consolidate();
+
+		auto &layout = _cache.get_descriptor_set_layout(key);
 		auto &set = ectx.record(_device.create_descriptor_set(_descriptor_pool, layout));
 		for (const auto &b : bindings.bindings) {
 			std::visit([&, this](const auto &rsrc) {
 				_create_descriptor_binding(ectx, set, layout, b.register_index, rsrc);
 			}, b.resource);
 		}
-		return { set, layout };
+		return { std::move(key), layout, set };
 	}
 
-	std::pair<graphics::descriptor_set&, graphics::descriptor_set_layout&> context::_use_descriptor_set(
+	std::tuple<
+		cache_keys::descriptor_set_layout,
+		const graphics::descriptor_set_layout&,
+		graphics::descriptor_set&
+	> context::_use_descriptor_set(
 		_execution_context &ectx, const recorded_resources::descriptor_array &arr
 	) {
+		auto key = arr._array->get_layout_key();
+		auto &layout = _cache.get_descriptor_set_layout(key);
+
 		ectx.stage_all_transitions(*arr._array);
 		// write descriptors
 		if (arr._array->has_descriptor_overwrites) {
@@ -631,35 +643,36 @@ namespace lotus::renderer {
 					view = &_request_image_view(ectx, img);
 				}
 				std::initializer_list<const graphics::image_view*> views = { view };
-				(_device.*write_func)(arr._array->set, arr._array->layout, index, views);
+				(_device.*write_func)(arr._array->set, layout, index, views);
 			}
 		}
-		return { arr._array->set, arr._array->layout };
+
+		return { std::move(key), layout, arr._array->set };
 	}
 
-	std::pair<
-		std::vector<context::_descriptor_set_info>, graphics::pipeline_resources&
+	std::tuple<
+		cache_keys::pipeline_resources,
+		const graphics::pipeline_resources&,
+		std::vector<context::_descriptor_set_info>
 	> context::_check_and_create_descriptor_set_bindings(
 		_execution_context &ectx, std::initializer_list<const asset<assets::shader>*> targets,
 		const all_resource_bindings &resources
 	) {
 		std::vector<_descriptor_set_info> sets;
-		std::vector<graphics::descriptor_set_layout*> layouts;
+		cache_keys::pipeline_resources key;
 
 		for (const auto &set : resources.sets) {
-			auto &&[desc_set, layout] = std::visit([&, this](const auto &bindings) {
+			auto &&[layout_key, layout, desc_set] = std::visit([&, this](const auto &bindings) {
 				return _use_descriptor_set(ectx, bindings);
 			}, set.bindings);
 
 			sets.emplace_back(desc_set, set.space);
-			if (set.space >= layouts.size()) {
-				layouts.resize(set.space + 1, &_empty_layout);
-			}
-			layouts[set.space] = &layout;
+			key.sets.emplace_back(std::move(layout_key), set.space);
 		}
-		auto &rsrc = ectx.record(_device.create_pipeline_resources(layouts));
+		key.sort();
+		auto &rsrc = _cache.get_pipeline_resources(key);
 
-		return { sets, rsrc };
+		return { std::move(key), rsrc, sets };
 	}
 
 	void context::_bind_descriptor_sets(
@@ -706,28 +719,29 @@ namespace lotus::renderer {
 		const pass_commands::draw_instanced &cmd
 	) {
 		context::_pass_command_data result = nullptr;
-		auto &&[sets, rsrc] = _check_and_create_descriptor_set_bindings(
+		auto &&[rsrc_key, rsrc, sets] = _check_and_create_descriptor_set_bindings(
 			ectx, { &cmd.vertex_shader.get(), &cmd.pixel_shader.get() }, cmd.resource_bindings
 		);
 		result.descriptor_sets = std::move(sets);
 		result.resources = &rsrc;
 
-		graphics::shader_set shaders(cmd.vertex_shader.get().value.binary, cmd.pixel_shader.get().value.binary);
-		std::vector<graphics::input_buffer_layout> input_layouts;
+		std::vector<cache_keys::graphics_pipeline::input_buffer_layout> input_layouts;
 		for (const auto &input : cmd.inputs) {
-			input_layouts.emplace_back(input.elements, input.stride, input.input_rate, input.buffer_index);
+			input_layouts.emplace_back(input.elements, input.stride, input.buffer_index, input.input_rate);
 		}
-		result.pipeline_state = &ectx.record(_device.create_graphics_pipeline_state(
-			*result.resources,
-			shaders,
-			cmd.state.blend_options,
-			cmd.state.rasterizer_options,
-			cmd.state.depth_stencil_options,
-			input_layouts,
-			cmd.topology,
-			fb_layout
-		));
 
+		cache_keys::graphics_pipeline key = nullptr;
+		key.pipeline_resources      = std::move(rsrc_key);
+		key.input_buffers           = std::move(input_layouts); // TODO;
+		key.color_rt_formats        =
+			{ fb_layout.color_render_target_formats.begin(), fb_layout.color_render_target_formats.end() };
+		key.dpeth_stencil_rt_format = fb_layout.depth_stencil_render_target_format;
+		key.vertex_shader           = cmd.vertex_shader;
+		key.pixel_shader            = cmd.pixel_shader;
+		key.pipeline_state          = cmd.state;
+		key.topology                = cmd.topology;
+
+		result.pipeline_state = &_cache.get_graphics_pipeline_state(key);
 		return result;
 	}
 
@@ -778,7 +792,7 @@ namespace lotus::renderer {
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::dispatch_compute &cmd) {
 		// create descriptor bindings
-		auto &&[sets, pipeline_resources] = _check_and_create_descriptor_set_bindings(
+		auto &&[rsrc_key, pipeline_resources, sets] = _check_and_create_descriptor_set_bindings(
 			ectx, { &cmd.shader.get() }, cmd.resources
 		);
 		auto &pipeline = ectx.record(_device.create_compute_pipeline_state(
@@ -887,7 +901,10 @@ namespace lotus::renderer {
 					if (array_ref.arr->set) {
 						std::initializer_list<const graphics::image_view*> images = { nullptr };
 						(_device.*_device.get_write_image_descriptor_function(array_ref.arr->type))(
-							array_ref.arr->set, array_ref.arr->layout, array_ref.index, images
+							array_ref.arr->set,
+							_cache.get_descriptor_set_layout(array_ref.arr->get_layout_key()),
+							array_ref.index,
+							images
 						);
 					}
 				}

@@ -21,8 +21,9 @@ namespace lotus::graphics::backends::directx12 {
 namespace lotus::graphics::backends::directx12::_details {
 	template <typename T> using com_ptr = Microsoft::WRL::ComPtr<T>; ///< Reference-counted pointer to a COM object.
 
-	/// Aborts if the given \p HRESULT does not indicate success.
-	void assert_dx(HRESULT);
+	/// Aborts if the given \p HRESULT does not indicate success. Specify the \p ID3D12Device parameter to also
+	/// obtain device removal reason if applicable.
+	void assert_dx(HRESULT, ID3D12Device* = nullptr);
 
 	/// Converts generic types into DX12 types.
 	namespace conversions {

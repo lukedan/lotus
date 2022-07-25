@@ -415,7 +415,11 @@ namespace lotus::graphics::backends::directx12 {
 				}
 				_device->CreateShaderResourceView(view->_image.Get(), &desc, current_descriptor);
 			} else {
-				_device->CreateShaderResourceView(nullptr, nullptr, current_descriptor);
+				D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+				desc.Format                        = DXGI_FORMAT_R8G8B8A8_UNORM;
+				desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE2D;
+				desc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				_device->CreateShaderResourceView(nullptr, &desc, current_descriptor);
 			}
 			current_descriptor.ptr += increment;
 		}
@@ -443,7 +447,10 @@ namespace lotus::graphics::backends::directx12 {
 				}
 				_device->CreateUnorderedAccessView(view->_image.Get(), nullptr, &desc, current_descriptor);
 			} else {
-				_device->CreateUnorderedAccessView(nullptr, nullptr, nullptr, current_descriptor);
+				D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
+				desc.Format        = DXGI_FORMAT_R8G8B8A8_UNORM;
+				desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+				_device->CreateUnorderedAccessView(nullptr, nullptr, &desc, current_descriptor);
 			}
 			current_descriptor.ptr += increment;
 		}
@@ -472,7 +479,11 @@ namespace lotus::graphics::backends::directx12 {
 				desc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
 				_device->CreateShaderResourceView(buf_data->_buffer.Get(), &desc, current_descriptor);
 			} else {
-				_device->CreateShaderResourceView(nullptr, nullptr, current_descriptor);
+				D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+				desc.Format                  = DXGI_FORMAT_UNKNOWN;
+				desc.ViewDimension           = D3D12_SRV_DIMENSION_BUFFER;
+				desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				_device->CreateShaderResourceView(nullptr, &desc, current_descriptor);
 			}
 			current_descriptor.ptr += increment;
 		}
@@ -557,7 +568,7 @@ namespace lotus::graphics::backends::directx12 {
 		);
 		_details::assert_dx(_device->CreateCommittedResource(
 			&heap_properties, heap_flags, &desc, states, nullptr, IID_PPV_ARGS(&result._buffer)
-		));
+		), _device.Get());
 		return result;
 	}
 
@@ -575,7 +586,7 @@ namespace lotus::graphics::backends::directx12 {
 		_details::resource_desc::adjust_resource_flags_for_image2d(fmt, all_usages, desc, &heap_flags);
 		_details::assert_dx(_device->CreateCommittedResource(
 			&heap_properties, heap_flags, &desc, states, nullptr, IID_PPV_ARGS(&result._image)
-		));
+		), _device.Get());
 		return result;
 	}
 
@@ -1023,12 +1034,25 @@ obj.pDesc = &shader_config;
 					LPCSTR description,
 					void*
 				) {
-					log().debug<u8"DirectX message: category: {}, severity: {}, id: {}, \"{}\"">(
-						static_cast<std::underlying_type_t<D3D12_MESSAGE_CATEGORY>>(category),
-						static_cast<std::underlying_type_t<D3D12_MESSAGE_SEVERITY>>(severity),
-						static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
-						description
-					);
+					switch (severity) {
+					case D3D12_MESSAGE_SEVERITY_CORRUPTION:
+						[[fallthrough]];
+					case D3D12_MESSAGE_SEVERITY_ERROR:
+						log().error<u8"DirectX message: category: {}, severity: {}, id: {}, \"{}\"">(
+							static_cast<std::underlying_type_t<D3D12_MESSAGE_CATEGORY>>(category),
+							static_cast<std::underlying_type_t<D3D12_MESSAGE_SEVERITY>>(severity),
+							static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
+							description
+						);
+						break;
+					default:
+						log().debug<u8"DirectX message: category: {}, severity: {}, id: {}, \"{}\"">(
+							static_cast<std::underlying_type_t<D3D12_MESSAGE_CATEGORY>>(category),
+							static_cast<std::underlying_type_t<D3D12_MESSAGE_SEVERITY>>(severity),
+							static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
+							description
+						);
+					}
 				},
 				D3D12_MESSAGE_CALLBACK_FLAG_NONE,
 				nullptr,

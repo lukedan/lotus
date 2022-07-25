@@ -13,6 +13,14 @@ namespace lotus::renderer {
 	/// Indicates whether debug names would be registered for resources.
 	constexpr static bool should_register_debug_names = is_debugging;
 
+	/// The type of a descriptor set.
+	enum class descriptor_set_type {
+		normal, ///< A normal descriptor set.
+		/// The last range in this descriptor set can have a variable amount of descriptors, determined at time of
+		/// descriptor set creation.
+		variable_descriptor_count,
+	};
+
 	/// All descriptor bindings of a specific shader, categorized into sets.
 	struct shader_descriptor_bindings {
 		/// All descriptor bindgs in a particular set, sorted by register index.
@@ -90,6 +98,11 @@ namespace lotus::renderer {
 			graphics::depth_stencil_options ds
 		) : blend_options(std::move(b)), rasterizer_options(r), depth_stencil_options(ds) {
 		}
+
+		/// Default equality and inequality.
+		[[nodiscard]] friend bool operator==(
+			const graphics_pipeline_state&, const graphics_pipeline_state&
+		) = default;
 
 		// TODO allocator
 		std::vector<graphics::render_target_blend_options> blend_options; ///< Blending options.

@@ -8,6 +8,7 @@ function(add_lotus_renderer_target BACKEND)
 	target_sources(${PROJ}
 		PUBLIC
 			"include/lotus/renderer/asset_manager.h"
+			"include/lotus/renderer/caching.h"
 			"include/lotus/renderer/common.h"
 			"include/lotus/renderer/context.h"
 			"include/lotus/renderer/g_buffer.h"
@@ -19,10 +20,11 @@ function(add_lotus_renderer_target BACKEND)
 			"include/lotus/renderer/surface.h"
 		PRIVATE
 			"src/renderer/asset_manager.cpp"
-			"src/renderer/resources.cpp"
+			"src/renderer/caching.cpp"
 			"src/renderer/context.cpp"
 			"src/renderer/g_buffer.cpp"
-			"src/renderer/gltf_loader.cpp")
+			"src/renderer/gltf_loader.cpp"
+			"src/renderer/resources.cpp")
 	target_link_libraries(${PROJ} PUBLIC lotus_graphics_${BACKEND} tinygltf)
 endfunction()
 

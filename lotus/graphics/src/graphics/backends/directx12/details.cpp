@@ -13,13 +13,18 @@
 #include "lotus/graphics/backends/directx12/device.h"
 
 namespace lotus::graphics::backends::directx12::_details {
-	void assert_dx(HRESULT hr) {
+	void assert_dx(HRESULT hr, ID3D12Device *dev) {
 		if (FAILED(hr)) {
 			_com_error err(hr);
 			auto msg = system::platforms::windows::_details::tstring_to_u8string(
 				err.ErrorMessage(), std::allocator<char8_t>()
 			);
 			log().error<u8"DirectX error {:x}: {}">(hr, string::to_generic(msg));
+
+			if (dev && hr == DXGI_ERROR_DEVICE_REMOVED) {
+				assert_dx(dev->GetDeviceRemovedReason());
+			}
+
 			std::abort();
 		}
 	}

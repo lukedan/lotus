@@ -27,6 +27,9 @@ namespace lotus::renderer {
 		class manager;
 		template <typename T> struct handle;
 	}
+	namespace cache_keys {
+		struct descriptor_set_layout;
+	}
 
 
 	/// Image binding types.
@@ -231,11 +234,13 @@ namespace lotus::renderer {
 
 			/// Initializes all fields of this structure without creating a descriptor set.
 			descriptor_array(graphics::descriptor_type ty, std::uint32_t cap, std::u8string_view n) :
-				set(nullptr), layout(nullptr), capacity(cap), type(ty), name(n) {
+				set(nullptr), capacity(cap), type(ty), name(n) {
 			}
 
+			/// Returns a key for the layout of this descriptor array.
+			[[nodiscard]] cache_keys::descriptor_set_layout get_layout_key() const;
+
 			graphics::descriptor_set set; ///< The descriptor set.
-			graphics::descriptor_set_layout layout; ///< Layout of this descriptor set.
 			std::uint32_t capacity = 0; ///< The capacity of this array.
 			/// The type of this descriptor array.
 			graphics::descriptor_type type = graphics::descriptor_type::num_enumerators;
@@ -442,6 +447,7 @@ namespace lotus::renderer {
 		/// An owning handle of an asset - \ref asset::ref_count is updated automatically.
 		template <typename T> struct handle {
 			friend manager;
+			friend std::hash<handle<T>>;
 		public:
 			/// Initializes this handle to empty.
 			handle(std::nullptr_t) : _ptr(nullptr) {
@@ -451,6 +457,9 @@ namespace lotus::renderer {
 			[[nodiscard]] const asset<T> &get() const {
 				return *_ptr;
 			}
+
+			/// Default equality and inequality.
+			[[nodiscard]] friend bool operator==(const handle&, const handle&) = default;
 
 			/// Returns whether this handle is valid.
 			[[nodiscard]] bool is_valid() const {
@@ -467,8 +476,21 @@ namespace lotus::renderer {
 
 			std::shared_ptr<asset<T>> _ptr; ///< Pointer to the asset.
 		};
+	}
+}
+namespace std {
+	/// Hash function for \ref lotus::renderer::assets::handle.
+	template <typename T> struct hash<lotus::renderer::assets::handle<T>> {
+		/// Hashes the given object.
+		[[nodiscard]] std::size_t operator()(const lotus::renderer::assets::handle<T> &h) const {
+			return lotus::compute_hash(h._ptr);
+		}
+	};
+}
 
 
+namespace lotus::renderer {
+	namespace assets {
 		/// The type of an asset.
 		enum class type {
 			texture,  ///< A texture.

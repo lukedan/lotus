@@ -389,7 +389,9 @@ namespace lotus::graphics::backends::vulkan {
 		}
 
 		vk::DescriptorSetLayoutBindingFlagsCreateInfo variable_info;
-		variable_info.setBindingFlags(flags_arr);
+		variable_info
+			.setBindingFlags(flags_arr);
+
 		vk::DescriptorSetLayoutCreateInfo info;
 		info
 			.setPNext(&variable_info)
@@ -1365,11 +1367,12 @@ namespace lotus::graphics::backends::vulkan {
 
 	adapter_properties adapter::get_properties() const {
 		adapter_properties result = uninitialized;
-		const auto &&[props, ray_tracing_props, acceleration_structure_props] = _device.getProperties2<
+		const auto objs = _device.getProperties2<
 			vk::PhysicalDeviceProperties2,
 			vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
 			vk::PhysicalDeviceAccelerationStructurePropertiesKHR
-		>().get<
+		>();
+		const auto &&[props, ray_tracing_props, acceleration_structure_props] = objs.get<
 			vk::PhysicalDeviceProperties2,
 			vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
 			vk::PhysicalDeviceAccelerationStructurePropertiesKHR

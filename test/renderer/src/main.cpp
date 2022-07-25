@@ -209,6 +209,8 @@ int main(int argc, char **argv) {
 			continue;
 		}
 
+		auto start = std::chrono::high_resolution_clock::now();
+
 		{
 			cam = cam_params.into_camera();
 
@@ -290,6 +292,10 @@ int main(int argc, char **argv) {
 		rctx.flush();
 
 		++frame_index;
+
+		auto end = std::chrono::high_resolution_clock::now();
+
+		log().debug<"CPU frame: {} ms">(std::chrono::duration<float, std::milli>(end - start).count());
 	}
 
 	return 0;

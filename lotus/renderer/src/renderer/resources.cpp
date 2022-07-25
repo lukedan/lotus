@@ -1,5 +1,7 @@
 #include "lotus/renderer/resources.h"
 
+#include "lotus/renderer/caching.h"
+
 namespace lotus::renderer {
 	namespace recorded_resources {
 		image2d_view::image2d_view(const renderer::image2d_view &view) :
@@ -40,6 +42,14 @@ namespace lotus::renderer {
 				std::pair(image_binding_type::read_write, graphics::descriptor_type::read_write_image),
 			};
 			return table[type];
+		}
+
+
+		cache_keys::descriptor_set_layout descriptor_array::get_layout_key() const {
+			return cache_keys::descriptor_set_layout(
+				{ graphics::descriptor_range_binding::create_unbounded(type, 0), },
+				descriptor_set_type::variable_descriptor_count
+			);
 		}
 	}
 

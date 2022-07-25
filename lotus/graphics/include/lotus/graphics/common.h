@@ -683,6 +683,12 @@ namespace lotus::graphics {
 			return result;
 		}
 
+		/// Default equality and inequality.
+		[[nodiscard]] friend bool operator==(
+			const render_target_blend_options&, const render_target_blend_options&
+		) = default;
+
+
 		bool enabled = false; ///< Whether or not blend is enabled for this render target.
 		
 		/// \ref blend_factor to be multiplied with the output color RGB.
@@ -749,6 +755,9 @@ namespace lotus::graphics {
 			return depth_bias_options(bias, slope_bias, clamp);
 		}
 
+		/// Default equality and inequality.
+		[[nodiscard]] friend bool operator==(const depth_bias_options&, const depth_bias_options&) = default;
+
 		float bias = 0.0f; ///< Uniform depth bias based on the floating-point precision at the triangle.
 		float slope_scaled_bias = 0.0f; ///< Slope (and implicitly texel size) scaled depth bias.
 		/// The value that the resulting bias is clamped to. If this is greater than zero, it specifies the maximum
@@ -779,7 +788,6 @@ namespace std {
 namespace lotus::graphics {
 	/// Options for the rasterizer.
 	struct rasterizer_options {
-	public:
 		/// No initialization.
 		rasterizer_options(std::nullptr_t) : depth_bias(nullptr) {
 		}
@@ -788,12 +796,14 @@ namespace lotus::graphics {
 			depth_bias(db), front_facing(front), culling(cull), is_wireframe(wf) {
 		}
 
+		/// Default equality and inequality.
+		[[nodiscard]] friend bool operator==(const rasterizer_options&, const rasterizer_options&) = default;
+
 		depth_bias_options depth_bias; ///< \ref depth_bias_options.
 		/// Indicates how front-facing triangles are determined.
 		front_facing_mode front_facing = front_facing_mode::clockwise;
 		cull_mode culling = cull_mode::none; ///< The \ref cull_mode.
 		bool is_wireframe = false; ///< Whether or not to render in wireframe mode.
-	protected:
 	};
 }
 namespace std {
@@ -832,6 +842,9 @@ namespace lotus::graphics {
 		) {
 			return stencil_options(cmp, fail, depth_fail, pass);
 		}
+
+		/// Default equality and inequality.
+		[[nodiscard]] friend bool operator==(const stencil_options&, const stencil_options&) = default;
 
 		comparison_function comparison = comparison_function::always; ///< Comparison function for stencil testing.
 		/// The operation to perform when stencil testing fails.
@@ -888,6 +901,9 @@ namespace lotus::graphics {
 			);
 		}
 
+		/// Default equality and inequality.
+		[[nodiscard]] friend bool operator==(const depth_stencil_options&, const depth_stencil_options&) = default;
+
 		bool enable_depth_testing = false; ///< Whether depth testing is enabled.
 		bool write_depth = false; ///< Whether to write depth values.
 		/// Comparison function used for depth testing.
@@ -922,25 +938,44 @@ namespace std {
 namespace lotus::graphics {
 	/// An element used for vertex/instance input.
 	struct input_buffer_element {
-		/// No initialization.
-		input_buffer_element(uninitialized_t) {
+		/// Initializes this element to empty.
+		input_buffer_element(std::nullptr_t) {
 		}
 		/// Initializes all fields of this struct.
 		constexpr input_buffer_element(const char8_t *sname, std::uint32_t sindex, format fmt, std::size_t off) :
 			semantic_name(sname), semantic_index(sindex), element_format(fmt), byte_offset(off) {
 		}
 
-		const char8_t *semantic_name;
-		std::uint32_t semantic_index;
+		/// Default equality and inequality.
+		[[nodiscard]] friend bool operator==(const input_buffer_element&, const input_buffer_element&) = default;
 
-		format element_format; ///< The format of this element.
-		std::size_t byte_offset; ///< Byte offset of this element in a vertex.
+		const char8_t *semantic_name = nullptr;
+		std::uint32_t semantic_index = 0;
+
+		format element_format = format::none; ///< The format of this element.
+		std::size_t byte_offset = 0; ///< Byte offset of this element in a vertex.
 	};
+}
+namespace std {
+	/// Hash for \ref lotus::graphics::input_buffer_element.
+	template <> struct hash<lotus::graphics::input_buffer_element> {
+		/// Hashes the given object.
+		[[nodiscard]] constexpr size_t operator()(const lotus::graphics::input_buffer_element &elem) const {
+			return lotus::hash_combine({
+				lotus::compute_hash(std::u8string_view(elem.semantic_name)),
+				lotus::compute_hash(elem.semantic_index),
+				lotus::compute_hash(elem.element_format),
+				lotus::compute_hash(elem.byte_offset),
+			});
+		}
+	};
+}
 
+namespace lotus::graphics {
 	/// Information about an input (vertex/instance) buffer.
 	struct input_buffer_layout {
-		/// No initialization.
-		input_buffer_layout(uninitialized_t) {
+		/// Initializes this layout to empty.
+		input_buffer_layout(std::nullptr_t) {
 		}
 		/// Initializes all fields of this struct.
 		constexpr input_buffer_layout(
@@ -980,9 +1015,9 @@ namespace lotus::graphics {
 		}
 
 		std::span<const input_buffer_element> elements; ///< Elements in this vertex buffer.
-		std::size_t stride; ///< The size of one vertex.
-		std::size_t buffer_index; ///< Index of the vertex buffer.
-		input_buffer_rate input_rate; ///< Specifies how the buffer data is used.
+		std::size_t stride = 0; ///< The size of one vertex.
+		std::size_t buffer_index = 0; ///< Index of the vertex buffer.
+		input_buffer_rate input_rate = input_buffer_rate::per_vertex; ///< Specifies how the buffer data is used.
 	};
 
 
@@ -1306,6 +1341,39 @@ namespace lotus::graphics {
 		/// Returns the register index of the last binding in this range.
 		[[nodiscard]] constexpr std::size_t get_last_register_index() const {
 			return register_index + range.count - 1;
+		}
+
+		/// Given an array of descriptor range bindings that has been sorted based on \ref register_index, merges all
+		/// neighboring ranges that contain the same type of registers. If it detects overlapping ranges, the
+		/// callback (if supplied) will be called, in which the caller can modify the overlapping ranges.
+		///
+		/// \return Iterator past the last valid element after merging.
+		template <
+			typename It, typename OverlapCallback
+		> [[nodiscard]] inline static It merge_sorted_descriptor_ranges(
+			It begin, It end, OverlapCallback &&callback = nullptr
+		) {
+			It last = begin;
+			for (It cur = begin; cur != end; ++cur) {
+				if (last != begin) {
+					It prev = last - 1;
+					std::size_t last_index = prev->get_last_register_index();
+					if constexpr (!std::is_same_v<std::decay_t<OverlapCallback>, std::nullptr_t>) {
+						if (last_index >= cur->register_index) {
+							callback(prev, cur);
+						}
+					}
+					if (prev->range.type == cur->range.type && last_index + 1 >= cur->register_index) {
+						// merge!
+						prev->range.count = cur->get_last_register_index() + 1 - prev->register_index;
+						continue;
+					}
+				}
+				// if it can't be merged, add the new range to the array
+				*last = *cur;
+				++last;
+			}
+			return last;
 		}
 
 		descriptor_range range = uninitialized; ///< The type and number of descriptors.

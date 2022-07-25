@@ -215,6 +215,21 @@ namespace lotus::renderer {
 				return handle<T>(std::move(ptr));
 			}
 
+			/// Assembles the subid of the shader.
+			[[nodiscard]] std::u8string _assemble_shader_subid(
+				graphics::shader_stage,
+				std::u8string_view entry_point,
+				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+			);
+			/// Compiles a shader from the given source without checking if it has already been registered.
+			[[nodiscard]] handle<shader> _do_compile_shader_from_source(
+				identifier,
+				std::span<const std::byte> code,
+				graphics::shader_stage,
+				std::u8string_view entry_point,
+				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+			);
+
 			/// Allocates a descriptor index.
 			[[nodiscard]] std::uint32_t _allocate_descriptor_index() {
 				if (_texture2d_descriptor_index_alloc.size() == 1) {

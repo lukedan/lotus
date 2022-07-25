@@ -12,6 +12,7 @@
 #include "lotus/containers/pool.h"
 #include "lotus/system/window.h"
 #include "lotus/graphics/context.h"
+#include "caching.h"
 #include "resources.h"
 
 namespace lotus::renderer {
@@ -318,8 +319,8 @@ namespace lotus::renderer {
 			_pass_command_data(std::nullptr_t) {
 			}
 
-			graphics::pipeline_resources *resources = nullptr; ///< Pipeline resources.
-			graphics::graphics_pipeline_state *pipeline_state = nullptr; ///< Pipeline state.
+			const graphics::pipeline_resources *resources = nullptr; ///< Pipeline resources.
+			const graphics::graphics_pipeline_state *pipeline_state = nullptr; ///< Pipeline state.
 			std::vector<_descriptor_set_info> descriptor_sets; ///< Descriptor sets.
 		};
 		/// Contains information about a layout transition operation.
@@ -491,6 +492,8 @@ namespace lotus::renderer {
 		graphics::descriptor_set_layout _empty_layout; ///< Empty descriptor set layout.
 		graphics::timeline_semaphore _batch_semaphore; ///< A semaphore that is signaled after each batch.
 
+		context_cache _cache; ///< Cached objects.
+
 		std::thread::id _thread; ///< \ref flush() can only be called from the thread that created this object.
 
 		std::vector<context_command> _commands; ///< Recorded commands.
@@ -576,17 +579,23 @@ namespace lotus::renderer {
 		);
 
 		/// Creates a new descriptor set from the given bindings.
-		[[nodiscard]] std::pair<
-			graphics::descriptor_set&, graphics::descriptor_set_layout&
+		[[nodiscard]] std::tuple<
+			cache_keys::descriptor_set_layout,
+			const graphics::descriptor_set_layout&,
+			graphics::descriptor_set&
 		> _use_descriptor_set(_execution_context&, const resource_set_binding::descriptor_bindings&);
 		/// Returns the descriptor set of the given bindless descriptor array, and flushes all pending operations.
-		[[nodiscard]] std::pair<
-			graphics::descriptor_set&, graphics::descriptor_set_layout&
+		[[nodiscard]] std::tuple<
+			cache_keys::descriptor_set_layout,
+			const graphics::descriptor_set_layout&,
+			graphics::descriptor_set&
 		> _use_descriptor_set(_execution_context&, const recorded_resources::descriptor_array&);
 
 		/// Checks and creates a descriptor set for the given resources.
-		[[nodiscard]] std::pair<
-			std::vector<_descriptor_set_info>, graphics::pipeline_resources&
+		[[nodiscard]] std::tuple<
+			cache_keys::pipeline_resources,
+			const graphics::pipeline_resources&,
+			std::vector<context::_descriptor_set_info>
 		> _check_and_create_descriptor_set_bindings(
 			_execution_context&,
 			std::initializer_list<const asset<assets::shader>*>,

@@ -150,6 +150,60 @@ namespace lotus::renderer::assets {
 		std::u8string_view entry_point,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 	) {
+		identifier id(id_path);
+		id.subpath = _assemble_shader_subid(stage, entry_point, defines);
+
+		if (auto it = _shaders.find(id); it != _shaders.end()) {
+			if (auto ptr = it->second.lock()) {
+				return handle<shader>(std::move(ptr));
+			}
+		}
+
+		return _do_compile_shader_from_source(std::move(id), code, stage, entry_point, defines);
+	}
+
+	handle<shader> manager::compile_shader_in_filesystem(
+		const std::filesystem::path &path,
+		graphics::shader_stage stage,
+		std::u8string_view entry_point,
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+	) {
+		identifier id(path);
+		id.subpath = _assemble_shader_subid(stage, entry_point, defines);
+
+		if (auto it = _shaders.find(id); it != _shaders.end()) {
+			if (auto ptr = it->second.lock()) {
+				return handle<shader>(std::move(ptr));
+			}
+		}
+
+		auto [binary, size] = load_binary_file(path.string().c_str());
+		return _do_compile_shader_from_source(
+			std::move(id), { static_cast<const std::byte*>(binary.get()), size },
+			stage, entry_point, defines
+		);
+	}
+
+	manager::manager(
+		context &ctx, graphics::device &dev, graphics::command_queue &queue,
+		std::filesystem::path shader_lib_path, graphics::shader_utility *shader_utils
+	) :
+		_device(dev), _cmd_queue(queue), _shader_utilities(shader_utils),
+		_context(ctx),
+		_cmd_alloc(_device.create_command_allocator()),
+		_fence(dev.create_fence(graphics::synchronization_state::unset)),
+		_texture2d_descriptors(ctx.request_descriptor_array(
+			u8"Texture assets", graphics::descriptor_type::read_only_image, 1024
+		)),
+		_texture2d_descriptor_index_alloc({ 0 }),
+		_shader_library_path(std::move(shader_lib_path)) {
+	}
+
+	std::u8string manager::_assemble_shader_subid(
+		graphics::shader_stage stage,
+		std::u8string_view entry_point,
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+	) {
 		static constexpr enum_mapping<graphics::shader_stage, std::u8string_view> _shader_stage_names{
 			std::pair(graphics::shader_stage::all,                   u8"ALL"),
 			std::pair(graphics::shader_stage::vertex_shader,         u8"vs"),
@@ -164,27 +218,27 @@ namespace lotus::renderer::assets {
 			std::pair(graphics::shader_stage::miss_shader,           u8"miss"),
 		};
 
-		identifier id(id_path);
-		{
-			std::u8string subid = std::u8string(_shader_stage_names[stage]) + u8"|" + std::u8string(entry_point);
-			std::vector<std::pair<std::u8string_view, std::u8string_view>> sorted_defines(defines.begin(), defines.end());
-			std::sort(sorted_defines.begin(), sorted_defines.end());
-			for (const auto &[def, val] : sorted_defines) {
-				subid += u8"|";
-				if (!val.empty()) {
-					subid += std::u8string(def) + u8"=" + std::u8string(val);
-				} else {
-					subid += std::u8string(def);
-				}
+		std::u8string subid = std::u8string(_shader_stage_names[stage]) + u8"|" + std::u8string(entry_point);
+		std::vector<std::pair<std::u8string_view, std::u8string_view>> sorted_defines(defines.begin(), defines.end());
+		std::sort(sorted_defines.begin(), sorted_defines.end());
+		for (const auto &[def, val] : sorted_defines) {
+			subid += u8"|";
+			if (!val.empty()) {
+				subid += std::u8string(def) + u8"=" + std::u8string(val);
+			} else {
+				subid += std::u8string(def);
 			}
-			id.subpath = std::move(subid);
 		}
+		return subid;
+	}
 
-		if (auto it = _shaders.find(id); it != _shaders.end()) {
-			if (auto ptr = it->second.lock()) {
-				return handle<shader>(std::move(ptr));
-			}
-		}
+	handle<shader> manager::_do_compile_shader_from_source(
+		identifier id,
+		std::span<const std::byte> code,
+		graphics::shader_stage stage,
+		std::u8string_view entry_point,
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+	) {
 		if (!_shader_utilities) {
 			return nullptr;
 		}
@@ -205,32 +259,5 @@ namespace lotus::renderer::assets {
 			shader_descriptor_bindings::collect_from(res.reflection);
 		res.descriptor_bindings.create_layouts(get_device());
 		return _register_asset(std::move(id), std::move(res), _shaders);
-	}
-
-	handle<shader> manager::compile_shader_in_filesystem(
-		const std::filesystem::path &path,
-		graphics::shader_stage stage,
-		std::u8string_view entry_point,
-		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
-	) {
-		auto [binary, size] = load_binary_file(path.string().c_str());
-		return compile_shader_from_source(
-			path, { static_cast<const std::byte*>(binary.get()), size }, stage, entry_point, defines
-		);
-	}
-
-	manager::manager(
-		context &ctx, graphics::device &dev, graphics::command_queue &queue,
-		std::filesystem::path shader_lib_path, graphics::shader_utility *shader_utils
-	) :
-		_device(dev), _cmd_queue(queue), _shader_utilities(shader_utils),
-		_context(ctx),
-		_cmd_alloc(_device.create_command_allocator()),
-		_fence(dev.create_fence(graphics::synchronization_state::unset)),
-		_texture2d_descriptors(ctx.request_descriptor_array(
-			u8"Texture assets", graphics::descriptor_type::read_only_image, 1024
-		)),
-		_texture2d_descriptor_index_alloc({ 0 }),
-		_shader_library_path(std::move(shader_lib_path)) {
 	}
 }

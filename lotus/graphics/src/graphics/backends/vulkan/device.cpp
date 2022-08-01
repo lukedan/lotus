@@ -185,8 +185,8 @@ namespace lotus::graphics::backends::vulkan {
 	) {
 		if (first_register >= variable_index) {
 			info
-				.setDstBinding(variable_index)
-				.setDstArrayElement(first_register - variable_index);
+				.setDstBinding(static_cast<std::uint32_t>(variable_index))
+				.setDstArrayElement(static_cast<std::uint32_t>(first_register - variable_index));
 		} else {
 			info
 				.setDstBinding(static_cast<std::uint32_t>(first_register));
@@ -265,7 +265,7 @@ namespace lotus::graphics::backends::vulkan {
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
-				.setBuffer(buf.data ? static_cast<buffer*>(buf.data)->_buffer : nullptr)
+				.setBuffer(buf.data ? static_cast<const buffer*>(buf.data)->_buffer : nullptr)
 				.setOffset(buf.offset)
 				.setRange(buf.size);
 		}
@@ -630,13 +630,13 @@ namespace lotus::graphics::backends::vulkan {
 		return result;
 	}
 
-	device_heap device::create_device_heap(std::size_t size, heap_type /*type*/) {
-		device_heap result;
+	memory_block device::allocate_memory(std::size_t size, memory_type_index mem_id) {
+		memory_block result;
 
 		vk::MemoryAllocateInfo info;
 		info
 			.setAllocationSize(size)
-			.setMemoryTypeIndex(0);
+			.setMemoryTypeIndex(static_cast<std::uint32_t>(mem_id));
 		// TODO allocator
 		result._memory = _details::unwrap(_device->allocateMemoryUnique(info));
 
@@ -644,7 +644,7 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	buffer device::create_committed_buffer(
-		std::size_t size, heap_type type, buffer_usage::mask allowed_usage
+		std::size_t size, memory_type_index mem_id, buffer_usage::mask allowed_usage
 	) {
 		buffer result = nullptr;
 		result._device = _device.get();
@@ -674,7 +674,7 @@ namespace lotus::graphics::backends::vulkan {
 		info
 			.setPNext(&flags_info)
 			.setAllocationSize(req.size)
-			.setMemoryTypeIndex(_find_memory_type_index(req.memoryTypeBits, type));
+			.setMemoryTypeIndex(static_cast<std::uint32_t>(mem_id));
 		// TODO allocator
 		result._memory = _details::unwrap(_device->allocateMemory(info));
 		_details::assert_vk(_device->bindBufferMemory(result._buffer, result._memory, 0));
@@ -713,7 +713,11 @@ namespace lotus::graphics::backends::vulkan {
 		info
 			.setPNext(&dedicated_info)
 			.setAllocationSize(_device->getImageMemoryRequirements(result._image).size)
-			.setMemoryTypeIndex(_find_memory_type_index(req.memoryTypeBits, heap_type::device_only));
+			.setMemoryTypeIndex(_find_memory_type_index(
+				req.memoryTypeBits,
+				vk::MemoryPropertyFlagBits::eDeviceLocal, vk::MemoryPropertyFlags(),
+				vk::MemoryPropertyFlags(), vk::MemoryPropertyFlags()
+			));
 		// TODO allocator
 		result._memory = _details::unwrap(_device->allocateMemory(info));
 		_details::assert_vk(_device->bindImageMemory(result._image, result._memory, 0));
@@ -722,7 +726,7 @@ namespace lotus::graphics::backends::vulkan {
 	}
 
 	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_staging_buffer(
-		std::size_t width, std::size_t height, format fmt, heap_type committed_heap_type,
+		std::size_t width, std::size_t height, format fmt, memory_type_index mem_id,
 		buffer_usage::mask allowed_usage
 	) {
 		vk::SubresourceLayout layout;
@@ -753,7 +757,7 @@ namespace lotus::graphics::backends::vulkan {
 			layout = _device->getImageSubresourceLayout(img.get(), subresource);
 		}
 
-		buffer result_buf = create_committed_buffer(layout.size, committed_heap_type, allowed_usage);
+		buffer result_buf = create_committed_buffer(layout.size, mem_id, allowed_usage);
 		staging_buffer_pitch result_pitch = uninitialized;
 		result_pitch._pixels = static_cast<std::uint32_t>(width);
 		result_pitch._bytes = static_cast<std::uint32_t>(width * format_properties::get(fmt).bytes_per_pixel());
@@ -1156,24 +1160,6 @@ namespace lotus::graphics::backends::vulkan {
 		return result;
 	}
 
-	std::uint32_t device::_find_memory_type_index(std::uint32_t requirements, heap_type ty) const {
-		vk::MemoryPropertyFlags req_on, req_off, opt_on, opt_off;
-		switch (ty) {
-		case heap_type::device_only:
-			req_on = vk::MemoryPropertyFlagBits::eDeviceLocal;
-			opt_off = vk::MemoryPropertyFlagBits::eHostVisible;
-			break;
-		case heap_type::upload:
-			req_on = vk::MemoryPropertyFlagBits::eHostVisible;
-			break;
-		case heap_type::readback:
-			req_on = vk::MemoryPropertyFlagBits::eHostVisible;
-			opt_on = vk::MemoryPropertyFlagBits::eHostCached;
-			break;
-		}
-		return _find_memory_type_index(requirements, req_on, req_off, opt_on, opt_off);
-	}
-
 	std::uint32_t device::_find_memory_type_index(
 		std::uint32_t requirements,
 		vk::MemoryPropertyFlags required_on, vk::MemoryPropertyFlags required_off,
@@ -1361,6 +1347,17 @@ namespace lotus::graphics::backends::vulkan {
 			vk::PhysicalDeviceRayTracingPipelinePropertiesKHR
 		>();
 		result._raytracing_properties = all_props.get<vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
+
+		// collect memory types
+		// TODO allocator
+		result._memory_properties_list.reserve(result._memory_properties.memoryTypeCount);
+		for (std::uint32_t i = 0; i < result._memory_properties.memoryTypeCount; ++i) {
+			const auto &type = result._memory_properties.memoryTypes[i];
+			result._memory_properties_list.emplace_back(
+				static_cast<memory_type_index>(i),
+				_details::conversions::back_to_memory_properties(type.propertyFlags)
+			);
+		}
 
 		return result;
 	}

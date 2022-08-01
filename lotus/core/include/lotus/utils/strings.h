@@ -9,11 +9,11 @@
 /// String utilities.
 namespace lotus::string {
 	/// Assumes that the given \p string_view contains UTF-8 text and converts it into a \p std::u8string_view.
-	[[nodiscard]] inline constexpr std::u8string_view assume_utf8(std::string_view str) {
+	[[nodiscard]] inline std::u8string_view assume_utf8(std::string_view str) {
 		return std::u8string_view(reinterpret_cast<const char8_t*>(str.data()), str.size());
 	}
 	/// Converts a UTF-8 string view to a generic string.
-	[[nodiscard]] inline constexpr std::string_view to_generic(std::u8string_view str) {
+	[[nodiscard]] inline std::string_view to_generic(std::u8string_view str) {
 		return std::string_view(reinterpret_cast<const char*>(str.data()), str.size());
 	}
 

@@ -14,7 +14,7 @@ namespace lotus::graphics::backends::vulkan {
 
 
 	/// Contains a \p vk::UniqueDeviceMemory.
-	class device_heap {
+	class memory_block {
 		friend device;
 	protected:
 	private:

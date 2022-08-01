@@ -114,11 +114,15 @@ namespace lotus::graphics::backends::directx12 {
 		/// Fills out a \ref shader_binary object.
 		[[nodiscard]] shader_binary load_shader(std::span<const std::byte>);
 
+		/// Returns the three default memory types supported by DirectX12.
+		[[nodiscard]] std::span<
+			const std::pair<memory_type_index, memory_properties>
+		> enumerate_memory_types() const;
 		/// Calls \p ID3D12Device::CreateHeap().
-		[[nodiscard]] device_heap create_device_heap(std::size_t size, heap_type);
+		[[nodiscard]] memory_block allocate_memory(std::size_t size, memory_type_index);
 
 		/// Calls \p ID3D12Device::CreateCommittedResource().
-		[[nodiscard]] buffer create_committed_buffer(std::size_t size, heap_type, buffer_usage::mask);
+		[[nodiscard]] buffer create_committed_buffer(std::size_t size, memory_type_index, buffer_usage::mask);
 		/// Calls \p ID3D12Device::CreateCommittedResource().
 		[[nodiscard]] image2d create_committed_image2d(
 			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
@@ -127,7 +131,7 @@ namespace lotus::graphics::backends::directx12 {
 		/// Computes the layout of the image using \p ID3D12Device::GetCopyableFootprints(), then creates a buffer
 		/// that can hold it.
 		[[nodiscard]] std::tuple<buffer, staging_buffer_pitch, std::size_t> create_committed_staging_buffer(
-			std::size_t width, std::size_t height, format, heap_type, buffer_usage::mask allowed_usage
+			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage::mask allowed_usage
 		);
 
 		/// Calls \p ID3D12Resource::Map().

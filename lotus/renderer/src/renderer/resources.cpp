@@ -12,7 +12,7 @@ namespace lotus::renderer {
 			image2d_view result = *this;
 			if (result._mip_levels.num_levels != 1) {
 				if (result._surface->num_mips - result._mip_levels.minimum > 1) {
-					std::uint16_t num_levels =
+					auto num_levels =
 						result._mip_levels.is_all() ?
 						result._surface->num_mips - result._mip_levels.minimum :
 						result._mip_levels.num_levels;

@@ -9,6 +9,9 @@ namespace lotus {
 		result.memory = ptr;
 		result.current = ptr;
 		result.end = static_cast<std::byte*>(ptr) + sz;
+		if constexpr (should_poison_freed_memory) {
+			memory::poison(result.memory, sz);
+		}
 		return result;
 	}
 
@@ -71,10 +74,7 @@ namespace lotus {
 		while (_top_page.memory != mark.page) {
 			_return_page();
 		}
-		_top_page.current = mark.current;
-		if constexpr (poison_freed_memory) {
-			_top_page.poison_after(_top_page.current);
-		}
+		_top_page.lower_current(mark.current);
 	}
 
 	void stack_allocator::free_unused_pages() {
@@ -100,9 +100,6 @@ namespace lotus {
 	void stack_allocator::_return_page() {
 		_page_ref new_top = _top_page.header->previous;
 		_top_page.reset(_page_header::create(_free_pages, _top_page.header->free_page));
-		if constexpr (poison_freed_memory) {
-			_top_page.poison_after(_top_page.current);
-		}
 		_free_pages = _top_page;
 		_top_page = new_top;
 	}

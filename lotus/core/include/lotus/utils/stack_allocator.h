@@ -23,7 +23,7 @@ namespace lotus {
 		struct _bookmark;
 	public:
 		/// Whether or not to poision memory that has been freed.
-		constexpr static bool poison_freed_memory = is_debugging;
+		constexpr static bool should_poison_freed_memory = is_debugging;
 		/// Allocator type for a stack allocator.
 		class allocator {
 		public:
@@ -226,15 +226,31 @@ namespace lotus {
 
 			/// Calls the destructor of \ref header, then empties this page and re-allocate the header.
 			void reset(_page_header new_header) {
+				void *old_current = current;
 				header->~_page_header();
 				current = memory;
 				header = new (allocate<_page_header>()) _page_header(new_header);
+				maybe_poison_range(current, old_current);
 			}
 
-			/// Poisons all bytes in the page after the given pointer.
-			void poison_after(void *ptr) {
+			/// Lowers the `current' pointer and poisons the freed range if necessary.
+			void lower_current(void *new_current) {
+				assert(new_current >= memory && new_current <= current);
+				void *old_current = std::exchange(current, new_current);
+				maybe_poison_range(current, old_current);
+			}
+			/// Poisons all bytes in the page between the two pointers, or after the given pointer if the end is not
+			/// specified. This is only done if \ref should_poison_freed_memory is \p true.
+			void maybe_poison_range(void *ptr, void *custom_end = nullptr) {
 				assert(ptr >= memory && ptr <= end);
-				memory::poison(ptr, static_cast<std::byte*>(end) - static_cast<std::byte*>(ptr));
+				if (custom_end) {
+					assert(custom_end >= ptr && custom_end <= end);
+				} else {
+					custom_end = end;
+				}
+				if constexpr (should_poison_freed_memory) {
+					memory::poison(ptr, static_cast<std::byte*>(end) - static_cast<std::byte*>(ptr));
+				}
 			}
 
 			/// Tests if this reference is empty.

@@ -226,7 +226,9 @@ namespace lotus::renderer {
 		};
 
 		/// Creates a new context object.
-		[[nodiscard]] static context create(graphics::context&, graphics::device&, graphics::command_queue&);
+		[[nodiscard]] static context create(
+			graphics::context&, const graphics::adapter_properties&, graphics::device&, graphics::command_queue&
+		);
 		/// Disposes of all resources.
 		~context();
 
@@ -294,6 +296,16 @@ namespace lotus::renderer {
 			write_image_descriptors(arr, first_index, { imgs.begin(), imgs.end() });
 		}
 		// TODO buffer descriptors
+
+
+		/// Returns \ref _device_memory_index.
+		[[nodiscard]] graphics::memory_type_index HACK_device_memory_type_index() const {
+			return _device_memory_index;
+		}
+		/// Returns \ref _upload_memory_index.
+		[[nodiscard]] graphics::memory_type_index HACK_upload_memory_type_index() const {
+			return _upload_memory_index;
+		}
 	private:
 		/// Indicates a descriptor set bind point.
 		enum class _bind_point {
@@ -386,6 +398,8 @@ namespace lotus::renderer {
 					return images.emplace_back(std::move(obj));
 				} else if constexpr (std::is_same_v<T, graphics::image2d_view>) {
 					return image_views.emplace_back(std::move(obj));
+				} else if constexpr (std::is_same_v<T, graphics::buffer>) {
+					return buffers.emplace_back(std::move(obj));
 				} else if constexpr (std::is_same_v<T, graphics::command_list>) {
 					return command_lists.emplace_back(std::move(obj));
 				} else if constexpr (std::is_same_v<T, graphics::sampler>) {
@@ -403,6 +417,9 @@ namespace lotus::renderer {
 		/// Stores temporary objects used when executing commands.
 		struct _execution_context {
 		public:
+			/// 1MB for immediate constant buffers.
+			constexpr static std::size_t immediate_constant_buffer_cache_size = 1024 * 1024;
+
 			/// Creates a new execution context for the given context.
 			[[nodiscard]] inline static _execution_context create(context&);
 			/// No move construction.
@@ -417,6 +434,8 @@ namespace lotus::renderer {
 			/// \return Whether a command list has been submitted. If not, an empty submission will have been
 			///         performed with the given synchronization requirements.
 			bool submit(graphics::command_queue &q, graphics::queue_synchronization sync) {
+				flush_immediate_constant_buffers();
+
 				if (!_list) {
 					q.submit_command_lists({}, std::move(sync));
 					return false;
@@ -434,13 +453,15 @@ namespace lotus::renderer {
 			}
 			/// Creates a new buffer with the given parameters.
 			[[nodiscard]] graphics::buffer &create_buffer(
-				std::size_t size, graphics::heap_type heap, graphics::buffer_usage::mask usage
+				std::size_t size, graphics::memory_type_index mem_type, graphics::buffer_usage::mask usage
 			) {
-				return _resources.buffers.emplace_back(_ctx._device.create_committed_buffer(size, heap, usage));
+				return _resources.buffers.emplace_back(_ctx._device.create_committed_buffer(size, mem_type, usage));
 			}
 			/// Creates a frame buffer with the given parameters.
 			[[nodiscard]] graphics::frame_buffer &create_frame_buffer(
-				std::span<const graphics::image2d_view *const> color_rts, const graphics::image2d_view *ds_rt, cvec2s size
+				std::span<const graphics::image2d_view *const> color_rts,
+				const graphics::image2d_view *ds_rt,
+				cvec2s size
 			) {
 				return _resources.frame_buffers.emplace_back(
 					_ctx._device.create_frame_buffer(color_rts, ds_rt, size)
@@ -464,9 +485,17 @@ namespace lotus::renderer {
 			void stage_all_transitions(_details::descriptor_array&);
 			/// Flushes all staged surface transition operations.
 			void flush_transitions();
+
+			/// Stages the given immediate constant buffer.
+			[[nodiscard]] graphics::constant_buffer_view stage_immediate_constant_buffer(std::span<const std::byte>);
+			/// Flushes all staged immediate constant buffers.
+			void flush_immediate_constant_buffers();
 		private:
 			/// Initializes this context.
-			_execution_context(context &ctx, _batch_resources &rsrc) : _ctx(ctx), _resources(rsrc) {
+			_execution_context(context &ctx, _batch_resources &rsrc) :
+				_ctx(ctx), _resources(rsrc),
+				_immediate_constant_device_buffer(nullptr),
+				_immediate_constant_upload_buffer(nullptr) {
 			}
 
 			context &_ctx; ///< The associated context.
@@ -481,16 +510,34 @@ namespace lotus::renderer {
 			std::unordered_map<
 				graphics::buffer*, std::pair<graphics::buffer_usage, graphics::buffer_usage>
 			> _raw_buffer_transitions;
+
+			/// Amount used in \ref _immediate_constant_device_buffer.
+			std::size_t _immediate_constant_buffer_used = 0;
+			/// Buffer containing all immediate constant buffers, located on the device memory.
+			graphics::buffer _immediate_constant_device_buffer;
+			/// Upload buffer for \ref _immediate_constant_device_buffer.
+			graphics::buffer _immediate_constant_upload_buffer;
+			/// Mapped pointer for \ref _immediate_constant_upload_buffer.
+			std::byte *_immediate_constant_upload_buffer_ptr = nullptr;
 		};
 
 		graphics::context &_context;     ///< Associated graphics context.
 		graphics::device &_device;       ///< Associated device.
 		graphics::command_queue &_queue; ///< Associated command queue.
 
-		graphics::command_allocator _cmd_alloc;     ///< Command allocator.
+		graphics::command_allocator _cmd_alloc; ///< Command allocator.
+		/// Command allocator for all command lists that are recorded and submitted immediately.
+		graphics::command_allocator _transient_cmd_alloc;
 		graphics::descriptor_pool _descriptor_pool; ///< Descriptor pool to allocate descriptors out of.
 		graphics::descriptor_set_layout _empty_layout; ///< Empty descriptor set layout.
 		graphics::timeline_semaphore _batch_semaphore; ///< A semaphore that is signaled after each batch.
+
+		graphics::adapter_properties _adapter_properties; ///< Adapter properties.
+
+		/// Index of a memory type suitable for uploading to the device.
+		graphics::memory_type_index _upload_memory_index = graphics::memory_type_index::invalid;
+		/// Index of a memory type best for resources that are resident on the device.
+		graphics::memory_type_index _device_memory_index = graphics::memory_type_index::invalid;
 
 		context_cache _cache; ///< Cached objects.
 
@@ -505,7 +552,9 @@ namespace lotus::renderer {
 		std::uint64_t _resource_index = 0; ///< Counter used to uniquely identify resources.
 
 		/// Initializes all fields of the context.
-		context(graphics::context&, graphics::device&, graphics::command_queue&);
+		context(
+			graphics::context&, const graphics::adapter_properties&, graphics::device&, graphics::command_queue&
+		);
 
 		/// Creates the backing image for the given \ref _details::surface2d if it hasn't been created.
 		void _maybe_create_image(_details::surface2d&);
@@ -597,9 +646,7 @@ namespace lotus::renderer {
 			const graphics::pipeline_resources&,
 			std::vector<context::_descriptor_set_info>
 		> _check_and_create_descriptor_set_bindings(
-			_execution_context&,
-			std::initializer_list<const asset<assets::shader>*>,
-			const all_resource_bindings&
+			_execution_context&, const all_resource_bindings&
 		);
 		/// Binds the given descriptor sets.
 		void _bind_descriptor_sets(
@@ -651,7 +698,7 @@ namespace lotus::renderer {
 			_deferred_delete_resources.swap_chain_meta.emplace_back(chain);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a descriptor array.
-		void _deferred_delete(_details::descriptor_array *arr) {
+		void _deferred_delete(_details::descriptor_array*) {
 			// TODO
 		}
 	};

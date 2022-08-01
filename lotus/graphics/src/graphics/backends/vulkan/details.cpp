@@ -457,6 +457,23 @@ namespace lotus::graphics::backends::vulkan::_details {
 			return format::none;
 		}
 
+		memory_properties back_to_memory_properties(vk::MemoryPropertyFlags mask) {
+			constexpr static std::pair<vk::MemoryPropertyFlags, memory_properties> table[]{
+				std::pair(vk::MemoryPropertyFlagBits::eDeviceLocal, memory_properties::device_local),
+				std::pair(vk::MemoryPropertyFlagBits::eHostVisible, memory_properties::host_visible),
+				std::pair(vk::MemoryPropertyFlagBits::eHostCached,  memory_properties::host_cached),
+			};
+			memory_properties result = memory_properties::none;
+			for (auto [myval, vkval] : table) {
+				if ((mask & myval) == myval) {
+					result |= vkval;
+					mask &= ~myval;
+				}
+			}
+			/*assert(!mask);*/ // TODO we don't have all corresponding bits (and probably won't have)
+			return result;
+		}
+
 		shader_resource_binding back_to_shader_resource_binding(const SpvReflectDescriptorBinding &binding) {
 			shader_resource_binding result = uninitialized;
 			result.first_register = binding.binding;

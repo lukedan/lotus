@@ -67,11 +67,9 @@ namespace lotus::memory {
 	}
 
 	/// Poisons the given block of memory.
-	inline void poison(void *memory, std::size_t size) {
-		if constexpr (is_debugging) {
-			std::memset(memory, 0xCD, size);
-		}
-	}
+	void poison(void *memory, std::size_t size);
+	/// Un-poisons the given block of memory.
+	void unpoison(void *memory, std::size_t size);
 
 
 	/// A RAII memory block.

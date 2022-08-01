@@ -78,16 +78,19 @@ namespace lotus {
 	private:
 		union {
 			T _value; ///< Value.
-			std::array<std::byte, sizeof(T)> _bytes; ///< Bytes of the object.
 		};
-		static_assert(std::is_trivially_destructible_v<decltype(_bytes)>, "Byte array not trivially destructible?");
 		[[no_unique_address]] debug_value<bool> _is_initialized; ///< Whether \ref _value is a valid object.
 
 		/// Poisons this object if debugging.
 		void _maybe_poison_storage() {
 			if constexpr (is_debugging) {
-				new (&_bytes) std::array<std::byte, sizeof(T)>();
-				memory::poison(&_bytes, sizeof(_bytes));
+				memory::poison(&_value, sizeof(_value));
+			}
+		}
+		/// Unpoisons this object if debugging.
+		void _maybe_unpoison_storage() {
+			if constexpr (is_debugging) {
+				memory::unpoison(&_value, sizeof(_value));
 			}
 		}
 	};

@@ -23,7 +23,7 @@ public:
 	[[nodiscard]] static project load(const nlohmann::json&, const error_callback&);
 	/// Loads resources for all passes.
 	void load_resources(
-		lren::assets::manager&, lren::context&,
+		lren::assets::manager&,
 		lren::assets::handle<lren::assets::shader> vert_shader,
 		const std::filesystem::path &root, const error_callback&
 	);

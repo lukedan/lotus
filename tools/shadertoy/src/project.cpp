@@ -40,7 +40,7 @@ project project::load(const nlohmann::json &val, const error_callback &on_error)
 }
 
 void project::load_resources(
-	lren::assets::manager &man, lren::context &ctx,
+	lren::assets::manager &man,
 	lren::assets::handle<lren::assets::shader> vert_shader,
 	const std::filesystem::path &root, const error_callback &on_error
 ) {

@@ -587,16 +587,33 @@ namespace lotus {
 
 
 namespace lotus::graphics {
-	/// The type of a heap.
-	enum class heap_type : std::uint8_t {
-		device_only, ///< A heap that can only be accessed from the device.
-		/// A heap used for uploading data to the device. Heaps of this type cannot be written to by the device.
-		upload,
-		readback, ///< A heap used for transferring data back to the CPU.
-
-		num_enumerators ///< The total numbers of enumerators.
+	/// Opaque type that holds the index of a type of memory. This can hold backend-specific, potentially
+	/// runtime-generated values.
+	enum class memory_type_index : std::uint8_t {
+		invalid = 0xFF, ///< Invalid value.
 	};
 
+	/// Properties of a memory block.
+	enum class memory_properties : std::uint8_t {
+		none = 0, ///< Empty properties.
+
+		device_local = 1 << 0, ///< The memory is located near the graphics device.
+		host_visible = 1 << 1, ///< The memory can be mapped and written to / read from by the host.
+		host_cached  = 1 << 2, ///< Host reads of the memory is cached.
+
+		num_enumerators = 3, ///< Number of enumerators.
+	};
+}
+namespace lotus {
+	/// Enable bitwise operations for \ref graphics::image_aspect_mask.
+	template <> struct enable_enum_bitwise_operators<graphics::memory_properties> : public std::true_type {
+	};
+	/// Enable \ref is_empty for \ref graphics::image_aspect_mask.
+	template <> struct enable_enum_is_empty<graphics::memory_properties> : public std::true_type {
+	};
+}
+
+namespace lotus::graphics {
 	/// The status of a swap chain.
 	enum class swap_chain_status {
 		ok,          ///< The swap chain is functioning properly.
@@ -1450,25 +1467,17 @@ namespace lotus::graphics {
 	};
 	/// A view into a constant buffer.
 	struct constant_buffer_view {
-	public:
 		/// No initialization.
 		constant_buffer_view(uninitialized_t) {
 		}
-		/// Creates a new view with the given values.
-		[[nodiscard]] constexpr inline static constant_buffer_view create(
-			buffer &b, std::size_t off, std::size_t sz
-		) {
-			return constant_buffer_view(b, off, sz);
-		}
-
-		buffer *data; ///< Data for the buffer.
-		std::size_t offset; ///< Offset to the range to be used as constants.
-		std::size_t size; ///< Size of the range in bytes.
-	protected:
 		/// Initializes all fields of this struct.
-		constexpr constant_buffer_view(buffer &b, std::size_t off, std::size_t sz) :
+		constexpr constant_buffer_view(const buffer &b, std::size_t off, std::size_t sz) :
 			data(&b), offset(off), size(sz) {
 		}
+
+		const buffer *data; ///< Data for the buffer.
+		std::size_t offset; ///< Offset to the range to be used as constants.
+		std::size_t size; ///< Size of the range in bytes.
 	};
 
 

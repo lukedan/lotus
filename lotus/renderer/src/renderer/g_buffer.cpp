@@ -42,18 +42,26 @@ namespace lotus::renderer::g_buffer {
 		};
 		std::vector<input_buffer_binding> inputs;
 		if (geom.vertex_buffer.data) {
-			inputs.emplace_back(geom.vertex_buffer.into_input_buffer_binding(u8"POSITION", 0, inputs.size()));
+			inputs.emplace_back(geom.vertex_buffer.into_input_buffer_binding(
+				u8"POSITION", 0, static_cast<std::uint32_t>(inputs.size())
+			));
 		}
 		if (geom.uv_buffer.data) {
-			inputs.emplace_back(geom.uv_buffer.into_input_buffer_binding(u8"TEXCOORD", 0, inputs.size()));
+			inputs.emplace_back(geom.uv_buffer.into_input_buffer_binding(
+				u8"TEXCOORD", 0, static_cast<std::uint32_t>(inputs.size())
+			));
 			defines.emplace_back(u8"VERTEX_INPUT_HAS_UV", u8"");
 		}
 		if (geom.normal_buffer.data) {
-			inputs.emplace_back(geom.normal_buffer.into_input_buffer_binding(u8"NORMAL", 0, inputs.size()));
+			inputs.emplace_back(geom.normal_buffer.into_input_buffer_binding(
+				u8"NORMAL", 0, static_cast<std::uint32_t>(inputs.size())
+			));
 			defines.emplace_back(u8"VERTEX_INPUT_HAS_NORMAL", u8"");
 		}
 		if (geom.tangent_buffer.data) {
-			inputs.emplace_back(geom.tangent_buffer.into_input_buffer_binding(u8"TANGENT", 0, inputs.size()));
+			inputs.emplace_back(geom.tangent_buffer.into_input_buffer_binding(
+				u8"TANGENT", 0, static_cast<std::uint32_t>(inputs.size())
+			));
 			defines.emplace_back(u8"VERTEX_INPUT_HAS_TANGENT", u8"");
 		}
 		auto shader = _man.compile_shader_in_filesystem(

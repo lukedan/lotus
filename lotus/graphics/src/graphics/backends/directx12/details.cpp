@@ -245,15 +245,6 @@ namespace lotus::graphics::backends::directx12::_details {
 			return table[st];
 		}
 
-		D3D12_HEAP_TYPE to_heap_type(heap_type ty) {
-			constexpr static enum_mapping<heap_type, D3D12_HEAP_TYPE> table{
-				std::pair(heap_type::device_only, D3D12_HEAP_TYPE_DEFAULT ),
-				std::pair(heap_type::upload,      D3D12_HEAP_TYPE_UPLOAD  ),
-				std::pair(heap_type::readback,    D3D12_HEAP_TYPE_READBACK),
-			};
-			return table[ty];
-		}
-
 		D3D12_TEXTURE_ADDRESS_MODE to_texture_address_mode(sampler_address_mode mode) {
 			constexpr static enum_mapping<sampler_address_mode, D3D12_TEXTURE_ADDRESS_MODE> table{
 				std::pair(sampler_address_mode::repeat, D3D12_TEXTURE_ADDRESS_MODE_WRAP  ),
@@ -525,13 +516,9 @@ namespace lotus::graphics::backends::directx12::_details {
 	}
 
 
-	D3D12_HEAP_PROPERTIES heap_type_to_properties(heap_type type) {
+	D3D12_HEAP_PROPERTIES default_heap_properties(D3D12_HEAP_TYPE type) {
 		D3D12_HEAP_PROPERTIES result = {};
-		result.Type                 = conversions::to_heap_type(type);
-		result.CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-		result.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-		result.CreationNodeMask     = 0;
-		result.VisibleNodeMask      = 0;
+		result.Type = type;
 		return result;
 	}
 
@@ -594,10 +581,10 @@ namespace lotus::graphics::backends::directx12::_details {
 		}
 
 		void adjust_resource_flags_for_buffer(
-			heap_type type, buffer_usage::mask all_usages,
+			D3D12_HEAP_TYPE type, buffer_usage::mask all_usages,
 			D3D12_RESOURCE_DESC &desc, D3D12_RESOURCE_STATES &states, D3D12_HEAP_FLAGS *heap_flags
 		) {
-			if (type == heap_type::device_only) {
+			if (type == D3D12_HEAP_TYPE_DEFAULT) {
 				if (!is_empty(all_usages & buffer_usage::mask::acceleration_structure)) {
 					assert(all_usages == buffer_usage::mask::acceleration_structure);
 					states = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
@@ -607,7 +594,7 @@ namespace lotus::graphics::backends::directx12::_details {
 						*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;	
 					}
 				}
-			} else if (type == heap_type::upload) {
+			} else if (type == D3D12_HEAP_TYPE_UPLOAD) {
 				states = D3D12_RESOURCE_STATE_GENERIC_READ;
 				desc.Flags &= ~D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 			}

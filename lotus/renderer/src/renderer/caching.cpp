@@ -35,8 +35,8 @@ namespace lotus::renderer {
 		const graphics::input_buffer_layout &layout
 	) :
 		elements(layout.elements.begin(), layout.elements.end()),
-		stride(layout.stride),
-		buffer_index(layout.buffer_index),
+		stride(static_cast<std::uint32_t>(layout.stride)),
+		buffer_index(static_cast<std::uint32_t>(layout.buffer_index)),
 		input_rate(layout.input_rate) {
 	}
 }

@@ -117,16 +117,16 @@ namespace lotus::renderer::assets {
 		buffer buf = nullptr;
 
 		buf.data        = _device.create_committed_buffer(
-			data.size(), graphics::heap_type::device_only,
+			data.size(), _context.HACK_device_memory_type_index(),
 			usages | graphics::buffer_usage::mask::copy_destination
 		);
-		buf.byte_size   = data.size();
+		buf.byte_size   = static_cast<std::uint32_t>(data.size());
 		buf.byte_stride = stride;
 		buf.usages      = usages;
 
 		// staging buffer
 		auto upload_buf = _device.create_committed_buffer(
-			data.size(), graphics::heap_type::upload, graphics::buffer_usage::mask::copy_source
+			data.size(), _context.HACK_upload_memory_type_index(), graphics::buffer_usage::mask::copy_source
 		);
 		void *ptr = _device.map_buffer(upload_buf, 0, 0);
 		std::memcpy(ptr, data.data(), data.size());

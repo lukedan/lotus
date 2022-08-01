@@ -355,7 +355,7 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	descriptor_set device::create_descriptor_set(
-		descriptor_pool &pool, const descriptor_set_layout &layout, std::size_t dynamic_count
+		descriptor_pool&, const descriptor_set_layout &layout, std::size_t dynamic_count
 	) {
 		// check that we do have unbounded ranges
 		if constexpr (is_debugging) {
@@ -541,12 +541,21 @@ namespace lotus::graphics::backends::directx12 {
 		return result;
 	}
 
-	device_heap device::create_device_heap(std::size_t size, heap_type type) {
-		device_heap result;
+	static std::pair<memory_type_index, memory_properties> _default_memory_types[]{
+		std::pair(static_cast<memory_type_index>(D3D12_HEAP_TYPE_DEFAULT),  memory_properties::device_local),
+		std::pair(static_cast<memory_type_index>(D3D12_HEAP_TYPE_UPLOAD),   memory_properties::host_visible),
+		std::pair(static_cast<memory_type_index>(D3D12_HEAP_TYPE_READBACK), memory_properties::host_visible | memory_properties::host_cached),
+	};
+	std::span<const std::pair<memory_type_index, memory_properties>> device::enumerate_memory_types() const {
+		return _default_memory_types;
+	}
+
+	memory_block device::allocate_memory(std::size_t size, memory_type_index memid) {
+		memory_block result;
 		D3D12_HEAP_DESC desc = {};
-		desc.SizeInBytes = size;
-		desc.Properties  = _details::heap_type_to_properties(type);
-		if (type == heap_type::device_only) {
+		desc.SizeInBytes     = size;
+		desc.Properties.Type = static_cast<D3D12_HEAP_TYPE>(memid);
+		if (desc.Properties.Type == D3D12_HEAP_TYPE_DEFAULT) {
 			desc.Flags = D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES | D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;
 		} else {
 			desc.Flags = D3D12_HEAP_FLAG_DENY_RT_DS_TEXTURES;
@@ -556,15 +565,16 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	buffer device::create_committed_buffer(
-		std::size_t size, heap_type type, buffer_usage::mask all_usages
+		std::size_t size, memory_type_index mem_id, buffer_usage::mask all_usages
 	) {
 		buffer result = nullptr;
-		D3D12_HEAP_PROPERTIES heap_properties = _details::heap_type_to_properties(type);
+		auto heap_type = static_cast<D3D12_HEAP_TYPE>(mem_id);
+		D3D12_HEAP_PROPERTIES heap_properties = _details::default_heap_properties(heap_type);
 		D3D12_RESOURCE_DESC desc = _details::resource_desc::for_buffer(size);
 		D3D12_RESOURCE_STATES states = D3D12_RESOURCE_STATE_COMMON;
 		D3D12_HEAP_FLAGS heap_flags = D3D12_HEAP_FLAG_NONE;
 		_details::resource_desc::adjust_resource_flags_for_buffer(
-			type, all_usages, desc, states, &heap_flags
+			heap_type, all_usages, desc, states, &heap_flags
 		);
 		_details::assert_dx(_device->CreateCommittedResource(
 			&heap_properties, heap_flags, &desc, states, nullptr, IID_PPV_ARGS(&result._buffer)
@@ -577,7 +587,7 @@ namespace lotus::graphics::backends::directx12 {
 		format fmt, image_tiling tiling, image_usage::mask all_usages
 	) {
 		image2d result = nullptr;
-		D3D12_HEAP_PROPERTIES heap_properties = _details::heap_type_to_properties(heap_type::device_only);
+		D3D12_HEAP_PROPERTIES heap_properties = _details::default_heap_properties(D3D12_HEAP_TYPE_DEFAULT);
 		D3D12_RESOURCE_DESC desc = _details::resource_desc::for_image2d(
 			width, height, array_slices, mip_levels, fmt, tiling
 		);
@@ -591,7 +601,7 @@ namespace lotus::graphics::backends::directx12 {
 	}
 
 	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_staging_buffer(
-		std::size_t width, std::size_t height, format fmt, heap_type type,
+		std::size_t width, std::size_t height, format fmt, memory_type_index mem_id,
 		buffer_usage::mask allowed_usage
 	) {
 		D3D12_RESOURCE_DESC image_desc = _details::resource_desc::for_image2d(
@@ -602,7 +612,7 @@ namespace lotus::graphics::backends::directx12 {
 		_device->GetCopyableFootprints(&image_desc, 0, 1, 0, &footprint, nullptr, nullptr, &total_bytes);
 		assert(footprint.Offset == 0); // assume we always start immediatly - no reason not to
 
-		buffer result = create_committed_buffer(static_cast<std::size_t>(total_bytes), type, allowed_usage);
+		buffer result = create_committed_buffer(static_cast<std::size_t>(total_bytes), mem_id, allowed_usage);
 		staging_buffer_pitch result_pitch = uninitialized;
 		result_pitch._pitch = footprint.Footprint.RowPitch;
 		return std::make_tuple(std::move(result), result_pitch, total_bytes);
@@ -923,9 +933,9 @@ namespace lotus::graphics::backends::directx12 {
 		shader_config.MaxPayloadSizeInBytes   = static_cast<UINT>(max_payload_size);
 		shader_config.MaxAttributeSizeInBytes = static_cast<UINT>(max_attribute_size);
 		{
-auto &obj = subobjects.emplace_back();
-obj.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
-obj.pDesc = &shader_config;
+			auto &obj = subobjects.emplace_back();
+			obj.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
+			obj.pDesc = &shader_config;
 		}
 		D3D12_RAYTRACING_PIPELINE_CONFIG pipeline_config = {};
 		pipeline_config.MaxTraceRecursionDepth = static_cast<UINT>(max_recursion);

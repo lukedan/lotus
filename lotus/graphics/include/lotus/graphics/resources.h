@@ -11,16 +11,16 @@ namespace lotus::graphics {
 
 
 	/// A large block of memory that buffers and images can be allocated out of.
-	class device_heap : public backend::device_heap {
+	class memory_block : public backend::memory_block {
 		friend device;
 	public:
 		/// No copy construction.
-		device_heap(const device_heap&) = delete;
+		memory_block(const memory_block&) = delete;
 		/// No copy assignment.
-		device_heap &operator=(const device_heap&) = delete;
+		memory_block &operator=(const memory_block&) = delete;
 	protected:
 		/// Initializes the base class.
-		device_heap(backend::device_heap base) : backend::device_heap(std::move(base)) {
+		memory_block(backend::memory_block base) : backend::memory_block(std::move(base)) {
 		}
 	};
 

@@ -36,8 +36,8 @@ int main(int argc, char **argv) {
 	sys::application app(u8"test");
 	auto wnd = app.create_window();
 
-	auto shader_util = gfx::shader_utility::create();
 	auto gctx = gfx::context::create();
+	auto shader_util = gfx::shader_utility::create();
 	gfx::device gdev = nullptr;
 	gfx::adapter_properties dev_prop = uninitialized;
 	gctx.enumerate_adapters([&](gfx::adapter adap) {
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
 	auto cmd_queue = gdev.create_command_queue();
 	auto cmd_alloc = gdev.create_command_allocator();
 
-	auto rctx = ren::context::create(gctx, gdev, cmd_queue);
+	auto rctx = ren::context::create(gctx, dev_prop, gdev, cmd_queue);
 	auto asset_man = ren::assets::manager::create(rctx, gdev, cmd_queue, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_util);
 
 	// model & resources

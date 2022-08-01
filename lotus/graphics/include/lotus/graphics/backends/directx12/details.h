@@ -58,8 +58,6 @@ namespace lotus::graphics::backends::directx12::_details {
 		[[nodiscard]] D3D12_RESOURCE_STATES to_resource_states(image_usage);
 		/// Converts a \ref buffer_usage to a \p D3D12_RESOURCE_STATES.
 		[[nodiscard]] D3D12_RESOURCE_STATES to_resource_states(buffer_usage);
-		/// Converts a \ref heap_type to a \p D3D12_HEAP_TYPE.
-		[[nodiscard]] D3D12_HEAP_TYPE to_heap_type(heap_type);
 		/// Converts a \ref sampler_address_mode to a \p D3D12_TEXTURE_ADDRESS_MODE.
 		[[nodiscard]] D3D12_TEXTURE_ADDRESS_MODE to_texture_address_mode(sampler_address_mode);
 		/// Converts a \ref comparison_function to a \p D3D12_COMPARISON_FUNC.
@@ -384,8 +382,9 @@ namespace lotus::graphics::backends::directx12::_details {
 	};
 
 
-	/// Convenience function used for obtaining a \p D3D12_HEAP_PROPERTIES from a \ref heap_type.
-	[[nodiscard]] D3D12_HEAP_PROPERTIES heap_type_to_properties(heap_type);
+	/// Convenience function that returns a default \p D3D12_HEAP_PROPERTIES corresponding to the given
+	/// \p D3D12_HEAP_TYPE.
+	[[nodiscard]] D3D12_HEAP_PROPERTIES default_heap_properties(D3D12_HEAP_TYPE);
 
 	/// Computes the index of the given subresource.
 	[[nodiscard]] UINT compute_subresource_index(const subresource_index&, ID3D12Resource*);
@@ -401,7 +400,7 @@ namespace lotus::graphics::backends::directx12::_details {
 		[[nodiscard]] D3D12_RESOURCE_DESC for_buffer(std::size_t size);
 		/// Adjusts various flags of buffer properties.
 		void adjust_resource_flags_for_buffer(
-			heap_type, buffer_usage::mask,
+			D3D12_HEAP_TYPE, buffer_usage::mask,
 			D3D12_RESOURCE_DESC&, D3D12_RESOURCE_STATES&, D3D12_HEAP_FLAGS* = nullptr
 		);
 

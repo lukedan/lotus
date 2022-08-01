@@ -275,18 +275,25 @@ namespace lotus::graphics {
 			return backend::device::create_compute_pipeline_state(resources, compute_shader);
 		}
 
+		/// Enumerates available memory types. The returned span will not be moved as long as the device is still
+		/// valid.
+		///
+		/// \return The list of memory types, ordered by their performance.
+		[[nodiscard]] std::span<
+			const std::pair<memory_type_index, memory_properties>
+		> enumerate_memory_types() const {
+			return backend::device::enumerate_memory_types();
+		}
 		/// Creates a \ref device_heap.
-		[[nodiscard]] device_heap create_device_heap(std::size_t size, heap_type type) {
-			return backend::device::create_device_heap(size, type);
+		[[nodiscard]] memory_block allocate_memory(std::size_t size, memory_type_index mem_type) {
+			return backend::device::allocate_memory(size, mem_type);
 		}
 
 		/// Creates a \ref buffer with a dedicated memory allocation.
 		[[nodiscard]] buffer create_committed_buffer(
-			std::size_t size, heap_type committed_heap_type, buffer_usage::mask allowed_usage
+			std::size_t size, memory_type_index mem_type, buffer_usage::mask allowed_usage
 		) {
-			return backend::device::create_committed_buffer(
-				size, committed_heap_type, allowed_usage
-			);
+			return backend::device::create_committed_buffer(size, mem_type, allowed_usage);
 		}
 		/// Creates a \ref image2d with a dedicated memory allocation. This image can only be created on the GPU.
 		[[nodiscard]] image2d create_committed_image2d(
@@ -303,12 +310,12 @@ namespace lotus::graphics {
 		/// 
 		/// \return The buffer and its layout properties.
 		[[nodiscard]] staging_buffer create_committed_staging_buffer(
-			std::size_t width, std::size_t height, format fmt, heap_type committed_heap_type,
+			std::size_t width, std::size_t height, format fmt, memory_type_index mem_type,
 			buffer_usage::mask allowed_usage
 		) {
 			staging_buffer result = nullptr;
 			auto [buf, pitch, size] = backend::device::create_committed_staging_buffer(
-				width, height, fmt, committed_heap_type, allowed_usage
+				width, height, fmt, mem_type, allowed_usage
 			);
 			result.data = std::move(buf);
 			result.row_pitch = pitch;

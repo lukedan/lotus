@@ -135,7 +135,7 @@ namespace lotus::renderer {
 				std::size_t first_barrier = image_barriers.size();
 				auto *surf = it->surface;
 				for (auto first = it; it != surf_transitions.end() && it->surface == first->surface; ++it) {
-					std::uint16_t max_mip =
+					auto max_mip =
 						it->mip_levels.is_all() ?
 						it->surface->num_mips :
 						it->mip_levels.minimum + it->mip_levels.num_levels;
@@ -237,9 +237,81 @@ namespace lotus::renderer {
 		}
 	}
 
+	graphics::constant_buffer_view context::_execution_context::stage_immediate_constant_buffer(
+		std::span<const std::byte> data
+	) {
+		if (_immediate_constant_buffer_used + data.size() > immediate_constant_buffer_cache_size) {
+			flush_immediate_constant_buffers();
+		}
 
-	context context::create(graphics::context &ctx, graphics::device &dev, graphics::command_queue &queue) {
-		return context(ctx, dev, queue);
+		if (!_immediate_constant_device_buffer) {
+			_immediate_constant_device_buffer = _ctx._device.create_committed_buffer(
+				immediate_constant_buffer_cache_size,
+				_ctx._device_memory_index,
+				graphics::buffer_usage::mask::copy_destination | graphics::buffer_usage::mask::read_only_buffer
+			);
+			_immediate_constant_upload_buffer = _ctx._device.create_committed_buffer(
+				immediate_constant_buffer_cache_size,
+				_ctx._upload_memory_index,
+				graphics::buffer_usage::mask::copy_source
+			);
+			_immediate_constant_upload_buffer_ptr = static_cast<std::byte*>(
+				_ctx._device.map_buffer(_immediate_constant_upload_buffer, 0, 0)
+			);
+		}
+
+		graphics::constant_buffer_view result(
+			_immediate_constant_device_buffer, _immediate_constant_buffer_used, data.size()
+		);
+
+		assert(_immediate_constant_buffer_used + data.size() <= immediate_constant_buffer_cache_size);
+		std::memcpy(
+			_immediate_constant_upload_buffer_ptr + _immediate_constant_buffer_used, data.data(), data.size()
+		);
+		_immediate_constant_buffer_used = memory::align_size(
+			_immediate_constant_buffer_used + data.size(), _ctx._adapter_properties.constant_buffer_alignment
+		);
+
+		return result;
+	}
+
+	void context::_execution_context::flush_immediate_constant_buffers() {
+		if (!_immediate_constant_upload_buffer) {
+			return;
+		}
+		_ctx._device.unmap_buffer(_immediate_constant_upload_buffer, 0, _immediate_constant_buffer_used);
+
+		// TODO we need to immediately submit the command list because other commands have already been recorded
+		auto &cmd_list = _resources.record(_ctx._device.create_and_start_command_list(_ctx._transient_cmd_alloc));
+		cmd_list.copy_buffer(
+			_immediate_constant_upload_buffer, 0,
+			_immediate_constant_device_buffer, 0,
+			_immediate_constant_buffer_used
+		);
+		cmd_list.resource_barrier({}, {
+			graphics::buffer_barrier(
+				_immediate_constant_device_buffer,
+				graphics::buffer_usage::copy_destination,
+				graphics::buffer_usage::read_only_buffer
+			),
+		});
+		cmd_list.finish();
+		_ctx._queue.submit_command_lists({ &cmd_list }, nullptr);
+
+		_resources.record(std::exchange(_immediate_constant_device_buffer, nullptr));
+		_resources.record(std::exchange(_immediate_constant_upload_buffer, nullptr));
+		_immediate_constant_upload_buffer = 0;
+		_immediate_constant_upload_buffer_ptr = nullptr;
+	}
+
+
+	context context::create(
+		graphics::context &ctx,
+		const graphics::adapter_properties &adap_prop,
+		graphics::device &dev,
+		graphics::command_queue &queue
+	) {
+		return context(ctx, adap_prop, dev, queue);
 	}
 
 	context::~context() {
@@ -288,15 +360,13 @@ namespace lotus::renderer {
 
 		auto staging_buffer = _device.create_committed_staging_buffer(
 			image_size[0], image_size[1], target.get_original_format(),
-			graphics::heap_type::upload, graphics::buffer_usage::mask::copy_source
+			_upload_memory_index, graphics::buffer_usage::mask::copy_source
 		);
 
 		// copy to device
 		auto *src = static_cast<const std::byte*>(data);
 		auto *dst = static_cast<std::byte*>(_device.map_buffer(staging_buffer.data, 0, 0));
 		for (std::uint32_t y = 0; y < image_size[1]; ++y) {
-			auto *copy_dst = dst + y * staging_buffer.row_pitch.get_pitch_in_bytes();
-			auto *copy_src = static_cast<const std::byte*>(src) + y * image_size[0];
 			std::memcpy(
 				dst + y * staging_buffer.row_pitch.get_pitch_in_bytes(),
 				src + y * image_size[0] * bytes_per_pixel,
@@ -365,7 +435,7 @@ namespace lotus::renderer {
 		_maybe_initialize_descriptor_array(arr);
 
 		for (std::size_t i = 0; i < imgs.size(); ++i) {
-			std::uint32_t descriptor_index = i + first_index;
+			auto descriptor_index = static_cast<std::uint32_t>(i + first_index);
 			auto &cur_ref = arr.images[descriptor_index];
 			if (auto *surf = cur_ref.image._surface) {
 				auto old_index = cur_ref.reference_index;
@@ -379,7 +449,7 @@ namespace lotus::renderer {
 			// update recorded image
 			cur_ref.image = imgs[i];
 			auto &new_surf = *cur_ref.image._surface;
-			cur_ref.reference_index = new_surf.array_references.size();
+			cur_ref.reference_index = static_cast<std::uint32_t>(new_surf.array_references.size());
 			auto &new_ref = new_surf.array_references.emplace_back(nullptr);
 			new_ref.arr = &arr;
 			new_ref.index = descriptor_index;
@@ -389,9 +459,15 @@ namespace lotus::renderer {
 		}
 	}
 
-	context::context(graphics::context &ctx, graphics::device &dev, graphics::command_queue &queue) :
+	context::context(
+		graphics::context &ctx,
+		const graphics::adapter_properties &adap_prop,
+		graphics::device &dev,
+		graphics::command_queue &queue
+	) :
 		_device(dev), _context(ctx), _queue(queue),
 		_cmd_alloc(_device.create_command_allocator()),
+		_transient_cmd_alloc(_device.create_command_allocator()),
 		_descriptor_pool(_device.create_descriptor_pool({
 			graphics::descriptor_range::create(graphics::descriptor_type::acceleration_structure, 1024),
 			graphics::descriptor_range::create(graphics::descriptor_type::constant_buffer, 1024),
@@ -403,8 +479,25 @@ namespace lotus::renderer {
 		}, 1024)), // TODO proper numbers
 		_empty_layout(_device.create_descriptor_set_layout({}, graphics::shader_stage::all)),
 		_batch_semaphore(_device.create_timeline_semaphore(0)),
+		_adapter_properties(adap_prop),
 		_cache(_device),
 		_thread(std::this_thread::get_id()) {
+
+		const auto &memory_types = _device.enumerate_memory_types();
+		for (const auto &type : memory_types) {
+			if (
+				_device_memory_index == graphics::memory_type_index::invalid &&
+				!is_empty(type.second & graphics::memory_properties::device_local)
+			) {
+				_device_memory_index = type.first;
+			}
+			if (
+				_upload_memory_index == graphics::memory_type_index::invalid &&
+				!is_empty(type.second & graphics::memory_properties::host_visible)
+			) {
+				_upload_memory_index = type.first;
+			}
+		}
 	}
 
 	void context::_maybe_create_image(_details::surface2d &surf) {
@@ -495,7 +588,7 @@ namespace lotus::renderer {
 				}
 				assert(back_buffer.status == graphics::swap_chain_status::ok);
 			}
-			chain_data.next_image_index = back_buffer.index;
+			chain_data.next_image_index = static_cast<std::uint32_t>(back_buffer.index);
 		}
 
 		return ectx.record(_device.create_image2d_view_from(
@@ -548,27 +641,8 @@ namespace lotus::renderer {
 		const graphics::descriptor_set_layout &layout, std::uint32_t reg,
 		const descriptor_resource::immediate_constant_buffer &cbuf
 	) {
-		auto &upload_buf = ectx.create_buffer(
-			cbuf.data.size(), graphics::heap_type::upload, graphics::buffer_usage::mask::copy_source
-		);
-		{ // upload
-			void *ptr = _device.map_buffer(upload_buf, 0, 0);
-			std::memcpy(ptr, cbuf.data.data(), cbuf.data.size());
-			_device.unmap_buffer(upload_buf, 0, cbuf.data.size());
-		}
-
-		auto &constant_buf = ectx.create_buffer(
-			cbuf.data.size(), graphics::heap_type::device_only,
-			graphics::buffer_usage::mask::copy_destination | graphics::buffer_usage::mask::read_only_buffer
-		);
-		ectx.get_command_list().copy_buffer(upload_buf, 0, constant_buf, 0, cbuf.data.size());
-		ectx.stage_transition(
-			constant_buf, graphics::buffer_usage::copy_destination, graphics::buffer_usage::read_only_buffer
-		);
-
 		_device.write_descriptor_set_constant_buffers(
-			set, layout, reg,
-			{ graphics::constant_buffer_view::create(constant_buf, 0, cbuf.data.size()) }
+			set, layout, reg, { ectx.stage_immediate_constant_buffer(cbuf.data), }
 		);
 	}
 
@@ -655,8 +729,7 @@ namespace lotus::renderer {
 		const graphics::pipeline_resources&,
 		std::vector<context::_descriptor_set_info>
 	> context::_check_and_create_descriptor_set_bindings(
-		_execution_context &ectx, std::initializer_list<const asset<assets::shader>*> targets,
-		const all_resource_bindings &resources
+		_execution_context &ectx, const all_resource_bindings &resources
 	) {
 		std::vector<_descriptor_set_info> sets;
 		cache_keys::pipeline_resources key;
@@ -719,9 +792,7 @@ namespace lotus::renderer {
 		const pass_commands::draw_instanced &cmd
 	) {
 		context::_pass_command_data result = nullptr;
-		auto &&[rsrc_key, rsrc, sets] = _check_and_create_descriptor_set_bindings(
-			ectx, { &cmd.vertex_shader.get(), &cmd.pixel_shader.get() }, cmd.resource_bindings
-		);
+		auto &&[rsrc_key, rsrc, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resource_bindings);
 		result.descriptor_sets = std::move(sets);
 		result.resources = &rsrc;
 
@@ -779,7 +850,7 @@ namespace lotus::renderer {
 		_maybe_create_image(*dest._surface);
 
 		cvec2s size = dest._surface->size;
-		std::uint32_t mip_level = dest._mip_levels.minimum;
+		auto mip_level = dest._mip_levels.minimum;
 		size[0] >>= mip_level;
 		size[1] >>= mip_level;
 		ectx.stage_transition(*dest._surface, dest._mip_levels, graphics::image_usage::copy_destination);
@@ -792,9 +863,7 @@ namespace lotus::renderer {
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::dispatch_compute &cmd) {
 		// create descriptor bindings
-		auto &&[rsrc_key, pipeline_resources, sets] = _check_and_create_descriptor_set_bindings(
-			ectx, { &cmd.shader.get() }, cmd.resources
-		);
+		auto &&[rsrc_key, pipeline_resources, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resources);
 		auto &pipeline = ectx.record(_device.create_compute_pipeline_state(
 			pipeline_resources, cmd.shader.get().value.binary
 		));
@@ -892,7 +961,7 @@ namespace lotus::renderer {
 	}
 
 	void context::_cleanup() {
-		std::uint32_t first_batch = _batch_index + 1 - _all_resources.size();
+		auto first_batch = static_cast<std::uint32_t>(_batch_index + 1 - _all_resources.size());
 		std::uint64_t finished_batch = _device.query_timeline_semaphore(_batch_semaphore);
 		while (first_batch <= finished_batch) {
 			const auto &batch = _all_resources.front();

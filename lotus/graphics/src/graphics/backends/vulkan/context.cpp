@@ -33,6 +33,7 @@ namespace lotus::graphics::backends::vulkan {
 		vk::ApplicationInfo app_info;
 		app_info
 			.setApiVersion(VK_API_VERSION_1_3)
+			.setPApplicationName("Lotus")
 			.setPEngineName("Lotus");
 		vk::InstanceCreateInfo create_info;
 		create_info

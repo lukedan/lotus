@@ -36,5 +36,10 @@ target_sources(lotus_core
 		"src/logging.cpp"
 		"src/memory.cpp")
 
-find_package(mimalloc CONFIG REQUIRED)
-target_link_libraries(lotus_core PUBLIC mimalloc)
+if("${LOTUS_USE_ALLOCATOR}" STREQUAL "mimalloc")
+	find_package(mimalloc CONFIG REQUIRED)
+	target_link_libraries(lotus_core PUBLIC mimalloc)
+	target_compile_definitions(lotus_core PUBLIC LOTUS_USE_MIMALLOC)
+elseif(NOT "${LOTUS_USE_ALLOCATOR}" STREQUAL "default")
+	message(FATAL_ERROR "Unknown allocator: ${LOTUS_USE_ALLOCATOR}")
+endif()

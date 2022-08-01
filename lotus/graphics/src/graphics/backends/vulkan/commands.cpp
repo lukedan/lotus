@@ -72,13 +72,17 @@ namespace lotus::graphics::backends::vulkan {
 				.setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
 				.setLoadOp(_details::conversions::to_attachment_load_op(depth_access.load_operation))
 				.setStoreOp(_details::conversions::to_attachment_store_op(depth_access.store_operation))
-				.setClearValue(vk::ClearDepthStencilValue(depth_access.clear_value, stencil_access.clear_value));
+				.setClearValue(vk::ClearDepthStencilValue(
+					static_cast<float>(depth_access.clear_value), stencil_access.clear_value
+				));
 			stencil_attachment
 				.setImageView(buf._depth_stencil_view)
 				.setImageLayout(vk::ImageLayout::eStencilAttachmentOptimal)
 				.setLoadOp(_details::conversions::to_attachment_load_op(stencil_access.load_operation))
 				.setStoreOp(_details::conversions::to_attachment_store_op(stencil_access.store_operation))
-				.setClearValue(vk::ClearDepthStencilValue(depth_access.clear_value, stencil_access.clear_value));
+				.setClearValue(vk::ClearDepthStencilValue(
+					static_cast<float>(depth_access.clear_value), stencil_access.clear_value
+				));
 			info
 				.setPDepthAttachment(&depth_attachment)
 				.setPStencilAttachment(&stencil_attachment);

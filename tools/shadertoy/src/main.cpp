@@ -27,6 +27,7 @@ int main(int argc, char **argv) {
 	auto gctx = lgfx::context::create();
 	auto shader_utils = lgfx::shader_utility::create();
 	lgfx::device gdev = nullptr;
+	lgfx::adapter_properties gdev_props = uninitialized;
 	gctx.enumerate_adapters([&](lgfx::adapter adap) {
 		auto properties = adap.get_properties();
 		if (!properties.is_discrete) {
@@ -34,11 +35,12 @@ int main(int argc, char **argv) {
 		}
 		lotus::log().info<"Selected device: {}">(lotus::string::to_generic(properties.name));
 		gdev = adap.create_device();
+		gdev_props = properties;
 		return false;
 	});
 	lgfx::command_queue cmd_queue = gdev.create_command_queue();
 
-	auto rctx = lren::context::create(gctx, gdev, cmd_queue);
+	auto rctx = lren::context::create(gctx, gdev_props, gdev, cmd_queue);
 	auto ass_man = lren::assets::manager::create(rctx, gdev, cmd_queue, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_utils);
 
 	// swap chain
@@ -169,7 +171,7 @@ int main(int argc, char **argv) {
 				}
 			}
 			proj = project::load(proj_json, error_callback);
-			proj.load_resources(ass_man, rctx, vert_shader, proj_path.parent_path(), error_callback);
+			proj.load_resources(ass_man, vert_shader, proj_path.parent_path(), error_callback);
 			pass_order = proj.get_pass_order(error_callback);
 		}
 

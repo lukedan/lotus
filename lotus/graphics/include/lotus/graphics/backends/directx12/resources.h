@@ -13,7 +13,7 @@ namespace lotus::graphics::backends::directx12 {
 
 
 	/// A \p ID3D12Heap1.
-	class device_heap {
+	class memory_block {
 		friend device;
 	protected:
 	private:

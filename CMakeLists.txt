@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.15)
-project(lotus CXX)
+project(lotus C CXX)
 
 cmake_policy(SET CMP0092 NEW) # don't add /W3 for MSVC
+
+
+set(
+	LOTUS_USE_ALLOCATOR "default" CACHE STRING
+	"What allocator to use. Available values are \"default\" and \"mimalloc\".")
 
 
 set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)

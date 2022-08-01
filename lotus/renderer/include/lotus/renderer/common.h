@@ -11,7 +11,7 @@
 
 namespace lotus::renderer {
 	/// Indicates whether debug names would be registered for resources.
-	constexpr static bool should_register_debug_names = is_debugging;
+	constexpr static bool should_register_debug_names = true;
 
 	/// The type of a descriptor set.
 	enum class descriptor_set_type {

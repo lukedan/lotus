@@ -108,6 +108,8 @@ namespace lotus::graphics::backends::vulkan::_details {
 
 		/// Converts a \p vk::Format back to a \ref format.
 		[[nodiscard]] format back_to_format(vk::Format);
+		/// Converts a \p vk::MemoryPropertyFlagBits to a \ref memory_properties.
+		[[nodiscard]] memory_properties back_to_memory_properties(vk::MemoryPropertyFlags);
 
 		/// Converts a \p SpvReflectDescriptorBinding back to a \ref shader_resource_binding.
 		[[nodiscard]] shader_resource_binding back_to_shader_resource_binding(const SpvReflectDescriptorBinding&);

@@ -122,13 +122,19 @@ namespace lotus::graphics::backends::vulkan {
 			const pipeline_resources&, const shader_binary&
 		);
 
+		/// Returns the list of cached memory properties.
+		[[nodiscard]] std::span<
+			const std::pair<memory_type_index, memory_properties>
+		> enumerate_memory_types() const {
+			return _memory_properties_list;
+		}
 		/// Calls \p vk::UniqueDevice::allocateMemoryUnique().
-		[[nodiscard]] device_heap create_device_heap(std::size_t size, heap_type);
+		[[nodiscard]] memory_block allocate_memory(std::size_t size, memory_type_index);
 
 		/// Calls \p vk::UniqueDevice::createBuffer() to create the buffer, then calls
 		/// \p vk::UniqueDevice::allocateMemory() to allocate memory for it.
 		[[nodiscard]] buffer create_committed_buffer(
-			std::size_t size, heap_type, buffer_usage::mask allowed_usage
+			std::size_t size, memory_type_index, buffer_usage::mask allowed_usage
 		);
 		/// Calls \p vk::UniqueDevice::createImage() to create the image, then calls
 		/// \p vk::UniqueDevice::allocateMemory() to allocate memory for it.
@@ -139,8 +145,7 @@ namespace lotus::graphics::backends::vulkan {
 		/// Obtains the layout of the buffer by creating a dummy image object, then calls
 		/// \ref create_committed_buffer() to create the buffer.
 		[[nodiscard]] std::tuple<buffer, staging_buffer_pitch, std::size_t> create_committed_staging_buffer(
-			std::size_t width, std::size_t height, format, heap_type,
-			buffer_usage::mask allowed_usage
+			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage::mask allowed_usage
 		);
 
 		/// Calls \ref _map_memory().
@@ -241,11 +246,13 @@ namespace lotus::graphics::backends::vulkan {
 		std::uint32_t _compute_queue_family_index; ///< Compute-only command queue family index.
 		vk::PhysicalDeviceLimits _device_limits; ///< Device limits.
 		vk::PhysicalDeviceMemoryProperties _memory_properties; ///< Memory properties.
+		/// List of memory properties.
+		std::vector<std::pair<memory_type_index, memory_properties>> _memory_properties_list;
 		vk::PhysicalDeviceRayTracingPipelinePropertiesKHR _raytracing_properties; ///< Raytracing properties.
 		const vk::DispatchLoaderDynamic *_dispatch_loader; ///< The dispatch loader.
 
 		/// Finds the best memory type fit for the given requirements and \ref heap_type.
-		[[nodiscard]] std::uint32_t _find_memory_type_index(std::uint32_t requirements, heap_type) const;
+		[[nodiscard]] std::uint32_t _find_memory_type_index(std::uint32_t requirements, memory_properties) const;
 		/// Finds the best memory type fit for the given requirements and memory flags.
 		[[nodiscard]] std::uint32_t _find_memory_type_index(
 			std::uint32_t requirements,

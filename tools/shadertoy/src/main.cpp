@@ -6,8 +6,8 @@
 #include <lotus/utils/misc.h>
 #include <lotus/system/application.h>
 #include <lotus/system/window.h>
-#include <lotus/graphics/context.h>
-#include <lotus/graphics/device.h>
+#include <lotus/gpu/context.h>
+#include <lotus/gpu/device.h>
 #include <lotus/renderer/context.h>
 #include <lotus/renderer/asset_manager.h>
 
@@ -24,11 +24,11 @@ int main(int argc, char **argv) {
 	lsys::application app(u8"Shadertoy");
 	lsys::window wnd = app.create_window();
 
-	auto gctx = lgfx::context::create(lgfx::context_options::enable_validation);
-	auto shader_utils = lgfx::shader_utility::create();
-	lgfx::device gdev = nullptr;
-	lgfx::adapter_properties gdev_props = uninitialized;
-	gctx.enumerate_adapters([&](lgfx::adapter adap) {
+	auto gctx = lgpu::context::create(lgpu::context_options::enable_validation);
+	auto shader_utils = lgpu::shader_utility::create();
+	lgpu::device gdev = nullptr;
+	lgpu::adapter_properties gdev_props = uninitialized;
+	gctx.enumerate_adapters([&](lgpu::adapter adap) {
 		auto properties = adap.get_properties();
 		if (!properties.is_discrete) {
 			return true;
@@ -38,39 +38,39 @@ int main(int argc, char **argv) {
 		gdev_props = properties;
 		return false;
 	});
-	lgfx::command_queue cmd_queue = gdev.create_command_queue();
+	lgpu::command_queue cmd_queue = gdev.create_command_queue();
 
 	auto rctx = lren::context::create(gctx, gdev_props, gdev, cmd_queue);
 	auto ass_man = lren::assets::manager::create(rctx, gdev, cmd_queue, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_utils);
 
 	// swap chain
 	auto swapchain = rctx.request_swap_chain(
-		u8"Swap chain", wnd, 3, { lgfx::format::r8g8b8a8_srgb, lgfx::format::b8g8r8a8_srgb }
+		u8"Swap chain", wnd, 3, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb }
 	);
 
 	bool reload = true;
 
 	// generic vertex shader
 	auto vert_shader = ass_man.compile_shader_in_filesystem(
-		"shaders/vertex.hlsl", lgfx::shader_stage::vertex_shader, u8"main_vs"
+		"shaders/vertex.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs"
 	);
 
 	auto nearest_sampler = gdev.create_sampler(
-		lgfx::filtering::nearest, lgfx::filtering::nearest, lgfx::filtering::nearest,
+		lgpu::filtering::nearest, lgpu::filtering::nearest, lgpu::filtering::nearest,
 		0.0f, 0.0f, 0.0f, 1.0f,
-		lgfx::sampler_address_mode::repeat, lgfx::sampler_address_mode::repeat, lgfx::sampler_address_mode::repeat,
+		lgpu::sampler_address_mode::repeat, lgpu::sampler_address_mode::repeat, lgpu::sampler_address_mode::repeat,
 		lotus::linear_rgba_f(0.0f, 0.0f, 0.0f, 0.0f), std::nullopt
 	);
 	auto linear_sampler = gdev.create_sampler(
-		lgfx::filtering::linear, lgfx::filtering::linear, lgfx::filtering::nearest,
+		lgpu::filtering::linear, lgpu::filtering::linear, lgpu::filtering::nearest,
 		0.0f, 0.0f, 0.0f, 1.0f,
-		lgfx::sampler_address_mode::repeat, lgfx::sampler_address_mode::repeat, lgfx::sampler_address_mode::repeat,
+		lgpu::sampler_address_mode::repeat, lgpu::sampler_address_mode::repeat, lgpu::sampler_address_mode::repeat,
 		lotus::linear_rgba_f(0.0f, 0.0f, 0.0f, 0.0f), std::nullopt
 	);
 
 	// blit pass
 	auto blit_pix_shader = ass_man.compile_shader_in_filesystem(
-		"shaders/blit.hlsl", lgfx::shader_stage::pixel_shader, u8"main_ps"
+		"shaders/blit.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps"
 	);
 
 	lotus::cvec2s window_size = zero;
@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
 					format_utf8<u8"Pass \"{}\" output #{} \"{}\" frame {}">(
 						lstr::to_generic(p.first), out_i, lstr::to_generic(out.name), frame_index
 					), window_size, 1, pass::output_image_format,
-					lgfx::image_usage::mask::color_render_target | lgfx::image_usage::mask::read_only_texture
+					lgpu::image_usage::mask::color_render_target | lgpu::image_usage::mask::read_only_texture
 				);
 			}
 		}
@@ -201,20 +201,20 @@ int main(int argc, char **argv) {
 				std::vector<lren::surface2d_color> color_surfaces;
 				lren::graphics_pipeline_state state(
 					{},
-					lgfx::rasterizer_options(
-						lgfx::depth_bias_options::disabled(),
-						lgfx::front_facing_mode::clockwise,
-						lgfx::cull_mode::none,
+					lgpu::rasterizer_options(
+						lgpu::depth_bias_options::disabled(),
+						lgpu::front_facing_mode::clockwise,
+						lgpu::cull_mode::none,
 						false
 					),
-					lgfx::depth_stencil_options::all_disabled()
+					lgpu::depth_stencil_options::all_disabled()
 				);
 				for (auto &out : pit->second.targets) {
 					color_surfaces.emplace_back(
 						out.current_frame,
-						lgfx::color_render_target_access::create_clear(lotus::cvec4d(1.0, 0.0, 0.0, 0.0))
+						lgpu::color_render_target_access::create_clear(lotus::cvec4d(1.0, 0.0, 0.0, 0.0))
 					);
-					state.blend_options.emplace_back(lgfx::render_target_blend_options::disabled());
+					state.blend_options.emplace_back(lgpu::render_target_blend_options::disabled());
 				}
 				lren::all_resource_bindings resource_bindings = nullptr;
 				resource_bindings.sets = {
@@ -224,7 +224,7 @@ int main(int argc, char **argv) {
 						),
 						lren::resource_binding(
 							lren::descriptor_resource::sampler(
-								lgfx::filtering::nearest, lgfx::filtering::nearest, lgfx::filtering::nearest
+								lgpu::filtering::nearest, lgpu::filtering::nearest, lgpu::filtering::nearest
 							), 1
 						),
 						lren::resource_binding(
@@ -254,7 +254,7 @@ int main(int argc, char **argv) {
 
 				auto pass = rctx.begin_pass(std::move(color_surfaces), nullptr, window_size, pit->first);
 				pass.draw_instanced(
-					{}, 3, nullptr, 0, lgfx::primitive_topology::triangle_list, std::move(resource_bindings),
+					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list, std::move(resource_bindings),
 					vert_shader, pit->second.shader, state, 1, pit->first
 				);
 				pass.end();
@@ -263,14 +263,14 @@ int main(int argc, char **argv) {
 
 		if (auto *main_out = proj.find_target(proj.main_pass, error_callback)) {
 			lren::graphics_pipeline_state state(
-				{ lgfx::render_target_blend_options::disabled() },
-				lgfx::rasterizer_options(
-					lgfx::depth_bias_options::disabled(),
-					lgfx::front_facing_mode::clockwise,
-					lgfx::cull_mode::none,
+				{ lgpu::render_target_blend_options::disabled() },
+				lgpu::rasterizer_options(
+					lgpu::depth_bias_options::disabled(),
+					lgpu::front_facing_mode::clockwise,
+					lgpu::cull_mode::none,
 					false
 				),
-				lgfx::depth_stencil_options::all_disabled()
+				lgpu::depth_stencil_options::all_disabled()
 			);
 			lren::all_resource_bindings resource_bindings = nullptr;
 			resource_bindings.sets = {
@@ -280,7 +280,7 @@ int main(int argc, char **argv) {
 					),
 					lren::resource_binding(
 						lren::descriptor_resource::sampler(
-							lgfx::filtering::nearest, lgfx::filtering::nearest, lgfx::filtering::nearest
+							lgpu::filtering::nearest, lgpu::filtering::nearest, lgpu::filtering::nearest
 						), 1
 					),
 				}, 0)
@@ -289,13 +289,13 @@ int main(int argc, char **argv) {
 			auto pass = rctx.begin_pass(
 				{
 					lren::surface2d_color(
-						swapchain, lgfx::color_render_target_access::create_clear(lotus::cvec4d(1.0, 0.0, 0.0, 0.0))
+						swapchain, lgpu::color_render_target_access::create_clear(lotus::cvec4d(1.0, 0.0, 0.0, 0.0))
 					)
 				},
 				nullptr, window_size, u8"Main blit pass"
 			);
 			pass.draw_instanced(
-				{}, 3, nullptr, 0, lgfx::primitive_topology::triangle_list, resource_bindings,
+				{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list, resource_bindings,
 				vert_shader, blit_pix_shader, state, 1, u8"Main blit pass"
 			);
 			pass.end();

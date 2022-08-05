@@ -10,13 +10,13 @@ namespace lotus::renderer::g_buffer {
 	struct view {
 	public:
 		/// Format of \ref albedo_glossiness.
-		constexpr static graphics::format albedo_glossiness_format = graphics::format::r8g8b8a8_unorm;
+		constexpr static gpu::format albedo_glossiness_format = gpu::format::r8g8b8a8_unorm;
 		/// Format of \ref normal.
-		constexpr static graphics::format normal_format            = graphics::format::r16g16b16a16_snorm;
+		constexpr static gpu::format normal_format            = gpu::format::r16g16b16a16_snorm;
 		/// Format of \ref metalness.
-		constexpr static graphics::format metalness_format         = graphics::format::r8_unorm;
+		constexpr static gpu::format metalness_format         = gpu::format::r8_unorm;
 		/// Format of \ref depth_stencil.
-		constexpr static graphics::format depth_stencil_format     = graphics::format::d24_unorm_s8;
+		constexpr static gpu::format depth_stencil_format     = gpu::format::d24_unorm_s8;
 
 		/// Initializes this storage to empty.
 		view(std::nullptr_t) :

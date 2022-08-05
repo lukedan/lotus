@@ -36,5 +36,5 @@ public:
 
 	std::map<std::u8string, pass, std::less<void>> passes; ///< Passes and their names.
 	std::u8string main_pass; ///< Main pass.
-	lgfx::image2d_view empty_image; ///< Invalid image.
+	lgpu::image2d_view empty_image; ///< Invalid image.
 };

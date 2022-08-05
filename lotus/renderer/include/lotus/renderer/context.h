@@ -11,7 +11,7 @@
 #include "lotus/containers/intrusive_linked_list.h"
 #include "lotus/containers/pool.h"
 #include "lotus/system/window.h"
-#include "lotus/graphics/context.h"
+#include "lotus/gpu/context.h"
 #include "caching.h"
 #include "resources.h"
 
@@ -43,7 +43,7 @@ namespace lotus::renderer {
 				std::uint32_t num_instances,
 				std::vector<input_buffer_binding> in, std::uint32_t num_verts,
 				index_buffer_binding indices, std::uint32_t num_indices,
-				graphics::primitive_topology t,
+				gpu::primitive_topology t,
 				all_resource_bindings resources,
 				assets::handle<assets::shader> vs,
 				assets::handle<assets::shader> ps,
@@ -67,7 +67,7 @@ namespace lotus::renderer {
 			std::uint32_t vertex_count   = 0; ///< Number of vertices.
 			std::uint32_t index_count    = 0; ///< Number of indices.
 			/// Primitive topology.
-			graphics::primitive_topology topology = graphics::primitive_topology::point_list;
+			gpu::primitive_topology topology = gpu::primitive_topology::point_list;
 		};
 	}
 	/// A union of all pass command types.
@@ -91,11 +91,11 @@ namespace lotus::renderer {
 		/// Uploads contents from the given staging buffer to the highest visible mip of the target image.
 		struct upload_image {
 			/// Initializes all fields of this struct.
-			upload_image(graphics::staging_buffer src, recorded_resources::image2d_view dst) :
+			upload_image(gpu::staging_buffer src, recorded_resources::image2d_view dst) :
 				source(std::move(src)), destination(dst) {
 			}
 
-			graphics::staging_buffer source; ///< Image data.
+			gpu::staging_buffer source; ///< Image data.
 			recorded_resources::image2d_view destination; ///< Image to upload to.
 		};
 
@@ -185,7 +185,7 @@ namespace lotus::renderer {
 				std::uint32_t num_verts,
 				index_buffer_binding,
 				std::uint32_t num_indices,
-				graphics::primitive_topology,
+				gpu::primitive_topology,
 				all_resource_bindings,
 				assets::handle<assets::shader> vs,
 				assets::handle<assets::shader> ps,
@@ -227,30 +227,30 @@ namespace lotus::renderer {
 
 		/// Creates a new context object.
 		[[nodiscard]] static context create(
-			graphics::context&, const graphics::adapter_properties&, graphics::device&, graphics::command_queue&
+			gpu::context&, const gpu::adapter_properties&, gpu::device&, gpu::command_queue&
 		);
 		/// Disposes of all resources.
 		~context();
 
 		/// Creates a 2D image with the given properties.
 		[[nodiscard]] image2d_view request_image2d(
-			std::u8string_view name, cvec2s size, std::uint32_t num_mips, graphics::format, graphics::image_usage::mask
+			std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format, gpu::image_usage::mask
 		);
 		/// Creates a swap chain with the given properties.
 		[[nodiscard]] swap_chain request_swap_chain(
 			std::u8string_view name, system::window&,
-			std::uint32_t num_images, std::span<const graphics::format> formats
+			std::uint32_t num_images, std::span<const gpu::format> formats
 		);
 		/// \overload
 		[[nodiscard]] swap_chain request_swap_chain(
 			std::u8string_view name, system::window &wnd,
-			std::uint32_t num_images, std::initializer_list<graphics::format> formats
+			std::uint32_t num_images, std::initializer_list<gpu::format> formats
 		) {
 			return request_swap_chain(name, wnd, num_images, std::span{ formats.begin(), formats.end() });
 		}
 		/// Creates a descriptor array with the given properties.
 		[[nodiscard]] descriptor_array request_descriptor_array(
-			std::u8string_view name, graphics::descriptor_type, std::uint32_t capacity
+			std::u8string_view name, gpu::descriptor_type, std::uint32_t capacity
 		);
 
 
@@ -299,11 +299,11 @@ namespace lotus::renderer {
 
 
 		/// Returns \ref _device_memory_index.
-		[[nodiscard]] graphics::memory_type_index HACK_device_memory_type_index() const {
+		[[nodiscard]] gpu::memory_type_index HACK_device_memory_type_index() const {
 			return _device_memory_index;
 		}
 		/// Returns \ref _upload_memory_index.
-		[[nodiscard]] graphics::memory_type_index HACK_upload_memory_type_index() const {
+		[[nodiscard]] gpu::memory_type_index HACK_upload_memory_type_index() const {
 			return _upload_memory_index;
 		}
 	private:
@@ -319,10 +319,10 @@ namespace lotus::renderer {
 			_descriptor_set_info(std::nullptr_t) {
 			}
 			/// Initializes all fields of this struct.
-			_descriptor_set_info(graphics::descriptor_set &se, std::uint32_t s) : set(&se), space(s) {
+			_descriptor_set_info(gpu::descriptor_set &se, std::uint32_t s) : set(&se), space(s) {
 			}
 
-			graphics::descriptor_set *set = nullptr; ///< The descriptor set.
+			gpu::descriptor_set *set = nullptr; ///< The descriptor set.
 			std::uint32_t space = 0; ///< Register space of this descriptor set.
 		};
 		/// Cached data used by a single pass command.
@@ -331,23 +331,23 @@ namespace lotus::renderer {
 			_pass_command_data(std::nullptr_t) {
 			}
 
-			const graphics::pipeline_resources *resources = nullptr; ///< Pipeline resources.
-			const graphics::graphics_pipeline_state *pipeline_state = nullptr; ///< Pipeline state.
+			const gpu::pipeline_resources *resources = nullptr; ///< Pipeline resources.
+			const gpu::graphics_pipeline_state *pipeline_state = nullptr; ///< Pipeline state.
 			std::vector<_descriptor_set_info> descriptor_sets; ///< Descriptor sets.
 		};
 		/// Contains information about a layout transition operation.
 		struct _surface2d_transition_info {
 			/// Initializes this structure to empty.
-			_surface2d_transition_info(std::nullptr_t) : mip_levels(graphics::mip_levels::all()) {
+			_surface2d_transition_info(std::nullptr_t) : mip_levels(gpu::mip_levels::all()) {
 			}
 			/// Initializes all fields of this struct.
-			_surface2d_transition_info(_details::surface2d &surf, graphics::mip_levels mips, graphics::image_usage u) :
+			_surface2d_transition_info(_details::surface2d &surf, gpu::mip_levels mips, gpu::image_usage u) :
 				surface(&surf), mip_levels(mips), usage(u) {
 			}
 
 			_details::surface2d *surface = nullptr; ///< The surface to transition.
-			graphics::mip_levels mip_levels; ///< Mip levels to transition.
-			graphics::image_usage usage = graphics::image_usage::num_enumerators; ///< Usage to transition to.
+			gpu::mip_levels mip_levels; ///< Mip levels to transition.
+			gpu::image_usage usage = gpu::image_usage::num_enumerators; ///< Usage to transition to.
 		};
 		// TODO convert this into "generic image transition"
 		/// Contains information about a layout transition operation.
@@ -356,57 +356,57 @@ namespace lotus::renderer {
 			_swap_chain_transition_info(std::nullptr_t) {
 			}
 			/// Initializes all fields of this struct.
-			_swap_chain_transition_info(_details::swap_chain &c, graphics::image_usage u) : chain(&c), usage(u) {
+			_swap_chain_transition_info(_details::swap_chain &c, gpu::image_usage u) : chain(&c), usage(u) {
 			}
 
 			_details::swap_chain *chain = nullptr; ///< The swap chain to transition.
-			graphics::image_usage usage = graphics::image_usage::num_enumerators; ///< Usage to transition to.
+			gpu::image_usage usage = gpu::image_usage::num_enumerators; ///< Usage to transition to.
 		};
 
 		/// Transient resources used by a batch.
 		struct _batch_resources {
-			std::deque<graphics::descriptor_set>          descriptor_sets;        ///< Descriptor sets.
-			std::deque<graphics::descriptor_set_layout>   descriptor_set_layouts; ///< Descriptor set layouts.
-			std::deque<graphics::pipeline_resources>      pipeline_resources;     ///< Pipeline resources.
-			std::deque<graphics::compute_pipeline_state>  compute_pipelines;      ///< Compute pipeline states.
-			std::deque<graphics::graphics_pipeline_state> graphics_pipelines;     ///< Graphics pipeline states.
-			std::deque<graphics::image2d>                 images;                 ///< Images.
-			std::deque<graphics::image2d_view>            image_views;            ///< Image views.
-			std::deque<graphics::buffer>                  buffers;                ///< Constant buffers.
-			std::deque<graphics::command_list>            command_lists;          ///< Command lists.
-			std::deque<graphics::frame_buffer>            frame_buffers;          ///< Frame buffers.
-			std::deque<graphics::sampler>                 samplers;               ///< Samplers.
-			std::deque<graphics::swap_chain>              swap_chains;            ///< Swap chains.
-			std::deque<graphics::fence>                   fences;                 ///< Fences.
+			std::deque<gpu::descriptor_set>          descriptor_sets;        ///< Descriptor sets.
+			std::deque<gpu::descriptor_set_layout>   descriptor_set_layouts; ///< Descriptor set layouts.
+			std::deque<gpu::pipeline_resources>      pipeline_resources;     ///< Pipeline resources.
+			std::deque<gpu::compute_pipeline_state>  compute_pipelines;      ///< Compute pipeline states.
+			std::deque<gpu::graphics_pipeline_state> graphics_pipelines;     ///< Graphics pipeline states.
+			std::deque<gpu::image2d>                 images;                 ///< Images.
+			std::deque<gpu::image2d_view>            image_views;            ///< Image views.
+			std::deque<gpu::buffer>                  buffers;                ///< Constant buffers.
+			std::deque<gpu::command_list>            command_lists;          ///< Command lists.
+			std::deque<gpu::frame_buffer>            frame_buffers;          ///< Frame buffers.
+			std::deque<gpu::sampler>                 samplers;               ///< Samplers.
+			std::deque<gpu::swap_chain>              swap_chains;            ///< Swap chains.
+			std::deque<gpu::fence>                   fences;                 ///< Fences.
 
 			std::vector<std::unique_ptr<_details::surface2d>>  surface2d_meta;    ///< Images to be disposed next frame.
 			std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain to be disposed next frame.
 
 			/// Registers the given object as a resource.
 			template <typename T> T &record(T &&obj) {
-				if constexpr (std::is_same_v<T, graphics::descriptor_set>) {
+				if constexpr (std::is_same_v<T, gpu::descriptor_set>) {
 					return descriptor_sets.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::descriptor_set_layout>) {
+				} else if constexpr (std::is_same_v<T, gpu::descriptor_set_layout>) {
 					return descriptor_set_layouts.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::pipeline_resources>) {
+				} else if constexpr (std::is_same_v<T, gpu::pipeline_resources>) {
 					return pipeline_resources.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::compute_pipeline_state>) {
+				} else if constexpr (std::is_same_v<T, gpu::compute_pipeline_state>) {
 					return compute_pipelines.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::graphics_pipeline_state>) {
+				} else if constexpr (std::is_same_v<T, gpu::graphics_pipeline_state>) {
 					return graphics_pipelines.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::image2d>) {
+				} else if constexpr (std::is_same_v<T, gpu::image2d>) {
 					return images.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::image2d_view>) {
+				} else if constexpr (std::is_same_v<T, gpu::image2d_view>) {
 					return image_views.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::buffer>) {
+				} else if constexpr (std::is_same_v<T, gpu::buffer>) {
 					return buffers.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::command_list>) {
+				} else if constexpr (std::is_same_v<T, gpu::command_list>) {
 					return command_lists.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::sampler>) {
+				} else if constexpr (std::is_same_v<T, gpu::sampler>) {
 					return samplers.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::swap_chain>) {
+				} else if constexpr (std::is_same_v<T, gpu::swap_chain>) {
 					return swap_chains.emplace_back(std::move(obj));
-				} else if constexpr (std::is_same_v<T, graphics::fence>) {
+				} else if constexpr (std::is_same_v<T, gpu::fence>) {
 					return fences.emplace_back(std::move(obj));
 				} else {
 					static_assert(sizeof(T*) == 0, "Unhandled resource type");
@@ -428,12 +428,12 @@ namespace lotus::renderer {
 			_execution_context &operator=(const _execution_context&) = delete;
 
 			/// Creates the command list if necessary, and returns the current command list.
-			[[nodiscard]] graphics::command_list &get_command_list();
+			[[nodiscard]] gpu::command_list &get_command_list();
 			/// Submits the current command list.
 			///
 			/// \return Whether a command list has been submitted. If not, an empty submission will have been
 			///         performed with the given synchronization requirements.
-			bool submit(graphics::command_queue &q, graphics::queue_synchronization sync) {
+			bool submit(gpu::command_queue &q, gpu::queue_synchronization sync) {
 				flush_immediate_constant_buffers();
 
 				if (!_list) {
@@ -452,15 +452,15 @@ namespace lotus::renderer {
 				return _resources.record(std::move(obj));
 			}
 			/// Creates a new buffer with the given parameters.
-			[[nodiscard]] graphics::buffer &create_buffer(
-				std::size_t size, graphics::memory_type_index mem_type, graphics::buffer_usage::mask usage
+			[[nodiscard]] gpu::buffer &create_buffer(
+				std::size_t size, gpu::memory_type_index mem_type, gpu::buffer_usage::mask usage
 			) {
 				return _resources.buffers.emplace_back(_ctx._device.create_committed_buffer(size, mem_type, usage));
 			}
 			/// Creates a frame buffer with the given parameters.
-			[[nodiscard]] graphics::frame_buffer &create_frame_buffer(
-				std::span<const graphics::image2d_view *const> color_rts,
-				const graphics::image2d_view *ds_rt,
+			[[nodiscard]] gpu::frame_buffer &create_frame_buffer(
+				std::span<const gpu::image2d_view *const> color_rts,
+				const gpu::image2d_view *ds_rt,
 				cvec2s size
 			) {
 				return _resources.frame_buffers.emplace_back(
@@ -469,15 +469,15 @@ namespace lotus::renderer {
 			}
 
 			/// Stages a surface transition operation, and notifies any descriptor arrays affected.
-			void stage_transition(_details::surface2d&, graphics::mip_levels, graphics::image_usage);
+			void stage_transition(_details::surface2d&, gpu::mip_levels, gpu::image_usage);
 			/// Stages a swap chain transition operation.
-			void stage_transition(_details::swap_chain &chain, graphics::image_usage usage) {
+			void stage_transition(_details::swap_chain &chain, gpu::image_usage usage) {
 				_swap_chain_transitions.emplace_back(chain, usage);
 			}
 			/// Stages a raw buffer transition operation. No state tracking is performed for such operations; this is
 			/// only intended to be used internally when the usage of a buffer is known.
-			void stage_transition(graphics::buffer &buf, graphics::buffer_usage from, graphics::buffer_usage to) {
-				std::pair<graphics::buffer_usage, graphics::buffer_usage> usage(from, to);
+			void stage_transition(gpu::buffer &buf, gpu::buffer_usage from, gpu::buffer_usage to) {
+				std::pair<gpu::buffer_usage, gpu::buffer_usage> usage(from, to);
 				auto [it, inserted] = _raw_buffer_transitions.emplace(&buf, usage);
 				assert(inserted || it->second == usage);
 			}
@@ -487,7 +487,7 @@ namespace lotus::renderer {
 			void flush_transitions();
 
 			/// Stages the given immediate constant buffer.
-			[[nodiscard]] graphics::constant_buffer_view stage_immediate_constant_buffer(std::span<const std::byte>);
+			[[nodiscard]] gpu::constant_buffer_view stage_immediate_constant_buffer(std::span<const std::byte>);
 			/// Flushes all staged immediate constant buffers.
 			void flush_immediate_constant_buffers();
 		private:
@@ -500,7 +500,7 @@ namespace lotus::renderer {
 
 			context &_ctx; ///< The associated context.
 			_batch_resources &_resources; ///< Internal resources.
-			graphics::command_list *_list = nullptr; ///< Current command list.
+			gpu::command_list *_list = nullptr; ///< Current command list.
 
 			/// Staged image transition operations.
 			std::vector<_surface2d_transition_info> _surface_transitions;
@@ -508,36 +508,36 @@ namespace lotus::renderer {
 			std::vector<_swap_chain_transition_info> _swap_chain_transitions;
 			/// Staged raw buffer transition operations.
 			std::unordered_map<
-				graphics::buffer*, std::pair<graphics::buffer_usage, graphics::buffer_usage>
+				gpu::buffer*, std::pair<gpu::buffer_usage, gpu::buffer_usage>
 			> _raw_buffer_transitions;
 
 			/// Amount used in \ref _immediate_constant_device_buffer.
 			std::size_t _immediate_constant_buffer_used = 0;
 			/// Buffer containing all immediate constant buffers, located on the device memory.
-			graphics::buffer _immediate_constant_device_buffer;
+			gpu::buffer _immediate_constant_device_buffer;
 			/// Upload buffer for \ref _immediate_constant_device_buffer.
-			graphics::buffer _immediate_constant_upload_buffer;
+			gpu::buffer _immediate_constant_upload_buffer;
 			/// Mapped pointer for \ref _immediate_constant_upload_buffer.
 			std::byte *_immediate_constant_upload_buffer_ptr = nullptr;
 		};
 
-		graphics::context &_context;     ///< Associated graphics context.
-		graphics::device &_device;       ///< Associated device.
-		graphics::command_queue &_queue; ///< Associated command queue.
+		gpu::context &_context;     ///< Associated graphics context.
+		gpu::device &_device;       ///< Associated device.
+		gpu::command_queue &_queue; ///< Associated command queue.
 
-		graphics::command_allocator _cmd_alloc; ///< Command allocator.
+		gpu::command_allocator _cmd_alloc; ///< Command allocator.
 		/// Command allocator for all command lists that are recorded and submitted immediately.
-		graphics::command_allocator _transient_cmd_alloc;
-		graphics::descriptor_pool _descriptor_pool; ///< Descriptor pool to allocate descriptors out of.
-		graphics::descriptor_set_layout _empty_layout; ///< Empty descriptor set layout.
-		graphics::timeline_semaphore _batch_semaphore; ///< A semaphore that is signaled after each batch.
+		gpu::command_allocator _transient_cmd_alloc;
+		gpu::descriptor_pool _descriptor_pool; ///< Descriptor pool to allocate descriptors out of.
+		gpu::descriptor_set_layout _empty_layout; ///< Empty descriptor set layout.
+		gpu::timeline_semaphore _batch_semaphore; ///< A semaphore that is signaled after each batch.
 
-		graphics::adapter_properties _adapter_properties; ///< Adapter properties.
+		gpu::adapter_properties _adapter_properties; ///< Adapter properties.
 
 		/// Index of a memory type suitable for uploading to the device.
-		graphics::memory_type_index _upload_memory_index = graphics::memory_type_index::invalid;
+		gpu::memory_type_index _upload_memory_index = gpu::memory_type_index::invalid;
 		/// Index of a memory type best for resources that are resident on the device.
-		graphics::memory_type_index _device_memory_index = graphics::memory_type_index::invalid;
+		gpu::memory_type_index _device_memory_index = gpu::memory_type_index::invalid;
 
 		context_cache _cache; ///< Cached objects.
 
@@ -553,22 +553,22 @@ namespace lotus::renderer {
 
 		/// Initializes all fields of the context.
 		context(
-			graphics::context&, const graphics::adapter_properties&, graphics::device&, graphics::command_queue&
+			gpu::context&, const gpu::adapter_properties&, gpu::device&, gpu::command_queue&
 		);
 
 		/// Creates the backing image for the given \ref _details::surface2d if it hasn't been created.
 		void _maybe_create_image(_details::surface2d&);
-		/// Creates an \ref graphics::image2d_view, without recording it anywhere, and returns the object itself.
+		/// Creates an \ref gpu::image2d_view, without recording it anywhere, and returns the object itself.
 		/// This function is used when we need to keep the view between render commands and flushes.
-		[[nodiscard]] graphics::image2d_view _create_image_view(const recorded_resources::image2d_view&);
+		[[nodiscard]] gpu::image2d_view _create_image_view(const recorded_resources::image2d_view&);
 
-		/// Creates or finds a \ref graphics::image2d_view from the given \ref renderer::image2d_view, allocating
+		/// Creates or finds a \ref gpu::image2d_view from the given \ref renderer::image2d_view, allocating
 		/// storage for then image if necessary.
-		[[nodiscard]] graphics::image2d_view &_request_image_view(
+		[[nodiscard]] gpu::image2d_view &_request_image_view(
 			_execution_context&, const recorded_resources::image2d_view&
 		);
-		/// Creates or finds a \ref graphics::image2d_view from the next image in the given \ref swap_chain.
-		[[nodiscard]] graphics::image2d_view &_request_image_view(
+		/// Creates or finds a \ref gpu::image2d_view from the next image in the given \ref swap_chain.
+		[[nodiscard]] gpu::image2d_view &_request_image_view(
 			_execution_context&, const recorded_resources::swap_chain&
 		);
 
@@ -576,87 +576,87 @@ namespace lotus::renderer {
 		void _maybe_initialize_descriptor_array(_details::descriptor_array&);
 
 		/// Returns the descriptor type of an image binding.
-		[[nodiscard]] graphics::descriptor_type _get_descriptor_type(const descriptor_resource::image2d &img) const {
+		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::image2d &img) const {
 			switch (img.binding_type) {
 			case image_binding_type::read_only:
-				return graphics::descriptor_type::read_only_image;
+				return gpu::descriptor_type::read_only_image;
 			case image_binding_type::read_write:
-				return graphics::descriptor_type::read_write_image;
+				return gpu::descriptor_type::read_write_image;
 			}
-			return graphics::descriptor_type::num_enumerators;
+			return gpu::descriptor_type::num_enumerators;
 		}
 		/// Returns the descriptor type of a swap chain.
-		[[nodiscard]] graphics::descriptor_type _get_descriptor_type(
+		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(
 			const descriptor_resource::swap_chain_image&
 		) const {
-			return graphics::descriptor_type::read_write_image;
+			return gpu::descriptor_type::read_write_image;
 		}
-		/// Returns \ref graphics::descriptor_type::constant_buffer.
-		[[nodiscard]] graphics::descriptor_type _get_descriptor_type(
+		/// Returns \ref gpu::descriptor_type::constant_buffer.
+		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(
 			const descriptor_resource::immediate_constant_buffer&
 		) const {
-			return graphics::descriptor_type::constant_buffer;
+			return gpu::descriptor_type::constant_buffer;
 		}
-		/// Returns \ref graphics::descriptor_type::sampler.
-		[[nodiscard]] graphics::descriptor_type _get_descriptor_type(const descriptor_resource::sampler&) const {
-			return graphics::descriptor_type::sampler;
+		/// Returns \ref gpu::descriptor_type::sampler.
+		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::sampler&) const {
+			return gpu::descriptor_type::sampler;
 		}
 
 		/// Creates a descriptor binding for an image.
 		void _create_descriptor_binding(
-			_execution_context&, graphics::descriptor_set&,
-			const graphics::descriptor_set_layout&, std::uint32_t reg,
+			_execution_context&, gpu::descriptor_set&,
+			const gpu::descriptor_set_layout&, std::uint32_t reg,
 			const descriptor_resource::image2d&
 		);
 		/// Creates a descriptor binding for an image.
 		void _create_descriptor_binding(
-			_execution_context&, graphics::descriptor_set&,
-			const graphics::descriptor_set_layout&, std::uint32_t reg,
+			_execution_context&, gpu::descriptor_set&,
+			const gpu::descriptor_set_layout&, std::uint32_t reg,
 			const descriptor_resource::swap_chain_image&
 		);
 		/// Creates a descriptor binding for an immediate constant buffer.
 		void _create_descriptor_binding(
-			_execution_context&, graphics::descriptor_set&,
-			const graphics::descriptor_set_layout&, std::uint32_t reg,
+			_execution_context&, gpu::descriptor_set&,
+			const gpu::descriptor_set_layout&, std::uint32_t reg,
 			const descriptor_resource::immediate_constant_buffer&
 		);
 		/// Creates a descriptor binding for a sampler.
 		void _create_descriptor_binding(
-			_execution_context&, graphics::descriptor_set&,
-			const graphics::descriptor_set_layout&, std::uint32_t reg,
+			_execution_context&, gpu::descriptor_set&,
+			const gpu::descriptor_set_layout&, std::uint32_t reg,
 			const descriptor_resource::sampler&
 		);
 
 		/// Creates a new descriptor set from the given bindings.
 		[[nodiscard]] std::tuple<
 			cache_keys::descriptor_set_layout,
-			const graphics::descriptor_set_layout&,
-			graphics::descriptor_set&
+			const gpu::descriptor_set_layout&,
+			gpu::descriptor_set&
 		> _use_descriptor_set(_execution_context&, const resource_set_binding::descriptor_bindings&);
 		/// Returns the descriptor set of the given bindless descriptor array, and flushes all pending operations.
 		[[nodiscard]] std::tuple<
 			cache_keys::descriptor_set_layout,
-			const graphics::descriptor_set_layout&,
-			graphics::descriptor_set&
+			const gpu::descriptor_set_layout&,
+			gpu::descriptor_set&
 		> _use_descriptor_set(_execution_context&, const recorded_resources::descriptor_array&);
 
 		/// Checks and creates a descriptor set for the given resources.
 		[[nodiscard]] std::tuple<
 			cache_keys::pipeline_resources,
-			const graphics::pipeline_resources&,
+			const gpu::pipeline_resources&,
 			std::vector<context::_descriptor_set_info>
 		> _check_and_create_descriptor_set_bindings(
 			_execution_context&, const all_resource_bindings&
 		);
 		/// Binds the given descriptor sets.
 		void _bind_descriptor_sets(
-			_execution_context&, const graphics::pipeline_resources&,
+			_execution_context&, const gpu::pipeline_resources&,
 			std::vector<_descriptor_set_info>, _bind_point
 		);
 
 		/// Preprocesses the given instanced draw command.
 		[[nodiscard]] _pass_command_data _preprocess_command(
-			_execution_context&, const graphics::frame_buffer_layout&, const pass_commands::draw_instanced&
+			_execution_context&, const gpu::frame_buffer_layout&, const pass_commands::draw_instanced&
 		);
 
 		/// Handles a instanced draw command.

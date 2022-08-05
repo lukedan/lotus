@@ -1,6 +1,6 @@
 #pragma once
 
 using namespace lotus;
-namespace sys = lotus::system;
-namespace gfx = lotus::graphics;
+namespace lsys = lotus::system;
+namespace lgpu = lotus::gpu;
 namespace ren = lotus::renderer;

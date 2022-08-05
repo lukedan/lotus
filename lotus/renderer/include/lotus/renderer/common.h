@@ -4,10 +4,10 @@
 /// Material context.
 
 #include "lotus/utils/stack_allocator.h"
-#include "lotus/graphics/descriptors.h"
-#include "lotus/graphics/device.h"
-#include "lotus/graphics/frame_buffer.h"
-#include "lotus/graphics/resources.h"
+#include "lotus/gpu/descriptors.h"
+#include "lotus/gpu/device.h"
+#include "lotus/gpu/frame_buffer.h"
+#include "lotus/gpu/resources.h"
 
 namespace lotus::renderer {
 	/// Indicates whether debug names would be registered for resources.
@@ -26,23 +26,23 @@ namespace lotus::renderer {
 		/// All descriptor bindgs in a particular set, sorted by register index.
 		struct set {
 			/// Descriptor ranges in this space sorted by register index.
-			std::vector<graphics::descriptor_range_binding> ranges; // TODO allocator?
-			graphics::descriptor_set_layout layout = nullptr; ///< Descriptor set layout of this set.
+			std::vector<gpu::descriptor_range_binding> ranges; // TODO allocator?
+			gpu::descriptor_set_layout layout = nullptr; ///< Descriptor set layout of this set.
 			std::uint32_t space; ///< The space that all descriptors are in.
 		};
 
-		/// Collects bindings from the given \ref graphics::shader_reflection object.
+		/// Collects bindings from the given \ref gpu::shader_reflection object.
 		[[nodiscard]] inline static shader_descriptor_bindings collect_from(
-			const graphics::shader_reflection &refl
+			const gpu::shader_reflection &refl
 		) {
 			// descriptor set index and range binding
-			using _range = std::pair<std::uint32_t, graphics::descriptor_range_binding>;
+			using _range = std::pair<std::uint32_t, gpu::descriptor_range_binding>;
 			std::vector<_range> bindings;
-			refl.enumerate_resource_bindings([&bindings](const graphics::shader_resource_binding &binding) {
+			refl.enumerate_resource_bindings([&bindings](const gpu::shader_resource_binding &binding) {
 				assert(binding.register_count > 0);
 				bindings.emplace_back(
 					static_cast<std::uint32_t>(binding.register_space),
-					graphics::descriptor_range_binding::create(
+					gpu::descriptor_range_binding::create(
 						binding.type, binding.register_count, binding.first_register
 					)
 				);
@@ -65,7 +65,7 @@ namespace lotus::renderer {
 					!ranges.empty() &&
 					ranges.back().range.type == range.second.range.type &&
 					ranges.back().get_last_register_index() + 1 == range.second.register_index &&
-					range.second.range.count != graphics::descriptor_range::unbounded_count;
+					range.second.range.count != gpu::descriptor_range::unbounded_count;
 				if (merge) { // merge into the last range
 					ranges.back().range.count += range.second.range.count;
 				} else {
@@ -76,9 +76,9 @@ namespace lotus::renderer {
 		}
 
 		/// Creates \ref set::layout for all the descriptor sets.
-		void create_layouts(graphics::device &dev) {
+		void create_layouts(gpu::device &dev) {
 			for (auto &s : sets) {
-				s.layout = dev.create_descriptor_set_layout(s.ranges, graphics::shader_stage::all);
+				s.layout = dev.create_descriptor_set_layout(s.ranges, gpu::shader_stage::all);
 			}
 		}
 
@@ -93,9 +93,9 @@ namespace lotus::renderer {
 		}
 		/// Initializes all fields of this struct.
 		graphics_pipeline_state(
-			std::vector<graphics::render_target_blend_options> b,
-			graphics::rasterizer_options r,
-			graphics::depth_stencil_options ds
+			std::vector<gpu::render_target_blend_options> b,
+			gpu::rasterizer_options r,
+			gpu::depth_stencil_options ds
 		) : blend_options(std::move(b)), rasterizer_options(r), depth_stencil_options(ds) {
 		}
 
@@ -105,13 +105,13 @@ namespace lotus::renderer {
 		) = default;
 
 		// TODO allocator
-		std::vector<graphics::render_target_blend_options> blend_options; ///< Blending options.
-		graphics::rasterizer_options rasterizer_options; ///< Rasterizer options.
-		graphics::depth_stencil_options depth_stencil_options; ///< Depth stencil options.
+		std::vector<gpu::render_target_blend_options> blend_options; ///< Blending options.
+		gpu::rasterizer_options rasterizer_options; ///< Rasterizer options.
+		gpu::depth_stencil_options depth_stencil_options; ///< Depth stencil options.
 	};
 }
 namespace std {
-	/// Hash function for \ref lotus::renderer::graphics::pipeline_state.
+	/// Hash function for \ref lotus::renderer::gpu::pipeline_state.
 	template <> struct hash<lotus::renderer::graphics_pipeline_state> {
 		/// Hashes the given state object.
 		constexpr size_t operator()(const lotus::renderer::graphics_pipeline_state &state) const {

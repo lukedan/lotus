@@ -13,7 +13,7 @@ namespace lotus::renderer::gltf {
 	/// Loads a data buffer with the given properties.
 	template <typename T> static assets::handle<assets::buffer> _load_data_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::size_t expected_components, graphics::buffer_usage::mask usage_mask
+		int accessor_index, std::size_t expected_components, gpu::buffer_usage::mask usage_mask
 	) {
 		auto id = assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 			"buffer{}|{}|{}({})", accessor_index, expected_components, typeid(T).hash_code(), typeid(T).name()
@@ -91,7 +91,7 @@ namespace lotus::renderer::gltf {
 	/// Wrapper around \ref _load_data_buffer() that loads an \ref assets::geometry::input_buffer.
 	template <typename T> static assets::geometry::input_buffer _load_input_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::size_t expected_components, graphics::buffer_usage::mask usage_mask
+		int accessor_index, std::size_t expected_components, gpu::buffer_usage::mask usage_mask
 	) {
 		assets::geometry::input_buffer result = nullptr;
 		result.data = _load_data_buffer<T>(man, path, model, accessor_index, expected_components, usage_mask);
@@ -102,15 +102,15 @@ namespace lotus::renderer::gltf {
 		for (std::size_t i = 0; i < expected_components; ++i) {
 			count[i] = sizeof(T) * 8;
 		}
-		auto ty = graphics::format_properties::data_type::unknown;
+		auto ty = gpu::format_properties::data_type::unknown;
 		if constexpr (std::is_same_v<T, float>) {
-			ty = graphics::format_properties::data_type::floating_point;
+			ty = gpu::format_properties::data_type::floating_point;
 		} else if constexpr (std::is_same_v<T, std::uint32_t>) {
-			ty = graphics::format_properties::data_type::unsigned_int;
+			ty = gpu::format_properties::data_type::unsigned_int;
 		} else {
 			static_assert(sizeof(T*) == 0, "Unhandled data type");
 		}
-		result.format = graphics::format_properties::find_exact_rgba(count[0], count[1], count[2], count[3], ty);
+		result.format = gpu::format_properties::find_exact_rgba(count[0], count[1], count[2], count[3], ty);
 
 		return result;
 	}
@@ -170,41 +170,41 @@ namespace lotus::renderer::gltf {
 					geom.num_vertices = static_cast<std::uint32_t>(model.accessors[it->second].count);
 					geom.vertex_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
-						graphics::buffer_usage::mask::vertex_buffer | graphics::buffer_usage::mask::read_only_buffer
+						gpu::buffer_usage::mask::vertex_buffer | gpu::buffer_usage::mask::read_only_buffer
 					);
 				}
 				if (auto it = prim.attributes.find("NORMAL"); it != prim.attributes.end()) {
 					geom.normal_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
-						graphics::buffer_usage::mask::vertex_buffer | graphics::buffer_usage::mask::read_only_buffer
+						gpu::buffer_usage::mask::vertex_buffer | gpu::buffer_usage::mask::read_only_buffer
 					);
 				}
 				if (auto it = prim.attributes.find("TANGENT"); it != prim.attributes.end()) {
 					geom.tangent_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 4,
-						graphics::buffer_usage::mask::vertex_buffer | graphics::buffer_usage::mask::read_only_buffer
+						gpu::buffer_usage::mask::vertex_buffer | gpu::buffer_usage::mask::read_only_buffer
 					);
 				}
 				if (auto it = prim.attributes.find("TEXCOORD_0"); it != prim.attributes.end()) {
 					geom.uv_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 2,
-						graphics::buffer_usage::mask::vertex_buffer | graphics::buffer_usage::mask::read_only_buffer
+						gpu::buffer_usage::mask::vertex_buffer | gpu::buffer_usage::mask::read_only_buffer
 					);
 				}
 				if (prim.indices >= 0) {
 					geom.num_indices = static_cast<std::uint32_t>(model.accessors[prim.indices].count);
 					geom.index_buffer = _load_data_buffer<std::uint32_t>(
 						_asset_manager, path, model, prim.indices, 1,
-						graphics::buffer_usage::mask::index_buffer | graphics::buffer_usage::mask::read_only_buffer
+						gpu::buffer_usage::mask::index_buffer | gpu::buffer_usage::mask::read_only_buffer
 					);
 				}
 
 				switch (prim.mode) {
 				case TINYGLTF_MODE_POINTS:
-					geom.topology = graphics::primitive_topology::point_list;
+					geom.topology = gpu::primitive_topology::point_list;
 					break;
 				case TINYGLTF_MODE_LINE:
-					geom.topology = graphics::primitive_topology::line_list;
+					geom.topology = gpu::primitive_topology::line_list;
 					break;
 				case TINYGLTF_MODE_LINE_LOOP: // no support
 					log().error<
@@ -212,10 +212,10 @@ namespace lotus::renderer::gltf {
 					>(i, mesh.name, j);
 					[[fallthrough]];
 				case TINYGLTF_MODE_LINE_STRIP:
-					geom.topology = graphics::primitive_topology::line_strip;
+					geom.topology = gpu::primitive_topology::line_strip;
 					break;
 				case TINYGLTF_MODE_TRIANGLES:
-					geom.topology = graphics::primitive_topology::triangle_list;
+					geom.topology = gpu::primitive_topology::triangle_list;
 					break;
 				case TINYGLTF_MODE_TRIANGLE_FAN: // no support
 					log().error<
@@ -223,7 +223,7 @@ namespace lotus::renderer::gltf {
 					>(i, mesh.name, j);
 					[[fallthrough]];
 				case TINYGLTF_MODE_TRIANGLE_STRIP:
-					geom.topology = graphics::primitive_topology::triangle_strip;
+					geom.topology = gpu::primitive_topology::triangle_strip;
 					break;
 				default:
 					assert(false); // unhandled
@@ -240,7 +240,7 @@ namespace lotus::renderer::gltf {
 					// allocate bvh
 					geom.acceleration_structure_buffer = dev.create_committed_buffer(
 						build_sizes.acceleration_structure_size,
-						graphics::heap_type::device_only, graphics::buffer_usage::mask::acceleration_structure
+						gpu::heap_type::device_only, gpu::buffer_usage::mask::acceleration_structure
 					);
 					geom.acceleration_structure = dev.create_bottom_level_acceleration_structure(
 						geom.acceleration_structure_buffer, 0, build_sizes.acceleration_structure_size
@@ -250,7 +250,7 @@ namespace lotus::renderer::gltf {
 					auto cmd_list = dev.create_and_start_command_list(cmd_alloc);
 					auto scratch = dev.create_committed_buffer(
 						build_sizes.build_scratch_size,
-						graphics::heap_type::device_only, graphics::buffer_usage::mask::read_write_buffer
+						gpu::heap_type::device_only, gpu::buffer_usage::mask::read_write_buffer
 					);
 					cmd_list.build_acceleration_structure(acc_geom, geom.acceleration_structure, scratch, 0);
 					cmd_list.finish();

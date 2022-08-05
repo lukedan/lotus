@@ -36,10 +36,10 @@ namespace lotus::renderer {
 
 
 	namespace _details {
-		graphics::descriptor_type to_descriptor_type(image_binding_type type) {
-			constexpr static enum_mapping<image_binding_type, graphics::descriptor_type> table{
-				std::pair(image_binding_type::read_only,  graphics::descriptor_type::read_only_image ),
-				std::pair(image_binding_type::read_write, graphics::descriptor_type::read_write_image),
+		gpu::descriptor_type to_descriptor_type(image_binding_type type) {
+			constexpr static enum_mapping<image_binding_type, gpu::descriptor_type> table{
+				std::pair(image_binding_type::read_only,  gpu::descriptor_type::read_only_image ),
+				std::pair(image_binding_type::read_write, gpu::descriptor_type::read_write_image),
 			};
 			return table[type];
 		}
@@ -47,7 +47,7 @@ namespace lotus::renderer {
 
 		cache_keys::descriptor_set_layout descriptor_array::get_layout_key() const {
 			return cache_keys::descriptor_set_layout(
-				{ graphics::descriptor_range_binding::create_unbounded(type, 0), },
+				{ gpu::descriptor_range_binding::create_unbounded(type, 0), },
 				descriptor_set_type::variable_descriptor_count
 			);
 		}

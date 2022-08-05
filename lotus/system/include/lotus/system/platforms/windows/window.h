@@ -7,7 +7,7 @@
 
 #include "lotus/math/vector.h"
 
-namespace lotus::graphics::backends::directx12 {
+namespace lotus::gpu::backends::directx12 {
 	class context;
 }
 namespace lotus::system::platforms::windows {
@@ -15,7 +15,7 @@ namespace lotus::system::platforms::windows {
 
 	/// Window implementation on Windows.
 	class window {
-		friend graphics::backends::directx12::context;
+		friend gpu::backends::directx12::context;
 		friend application;
 		friend LRESULT CALLBACK _window_proc(HWND, UINT, WPARAM, LPARAM);
 	public:

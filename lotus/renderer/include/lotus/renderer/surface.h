@@ -5,7 +5,7 @@
 
 #include <variant>
 
-#include "lotus/graphics/resources.h"
+#include "lotus/gpu/resources.h"
 #include "context.h"
 
 namespace lotus::renderer {/*
@@ -39,7 +39,7 @@ namespace lotus::renderer {/*
 		}
 
 		/// Returns the view of this surface.
-		[[nodiscard]] const graphics::image2d_view &get_view() const {
+		[[nodiscard]] const gpu::image2d_view &get_view() const {
 			return _get_view_data().view;
 		}
 		/// Returns the current size of this surface.
@@ -47,16 +47,16 @@ namespace lotus::renderer {/*
 			return _get_surface_data().current_size;
 		}
 		/// Returns the format that this surface is viewed as.
-		[[nodiscard]] graphics::format get_view_format() const {
+		[[nodiscard]] gpu::format get_view_format() const {
 			return _get_view_data().view_format;
 		}
 		/// Returns the original format of this surface.
-		[[nodiscard]] graphics::format get_original_format() const {
+		[[nodiscard]] gpu::format get_original_format() const {
 			return _get_surface_data().pixel_format;
 		}
 
 		/// Returns a new view into the same surface with the given format.
-		[[nodiscard]] surface2d_view view_as(graphics::format) const;
+		[[nodiscard]] surface2d_view view_as(gpu::format) const;
 
 		/// Destroys this view and resets this object to empty.
 		void reset() {
@@ -87,20 +87,20 @@ namespace lotus::renderer {/*
 		/// Initializes the render target to empty.
 		color_render_target(std::nullptr_t) :
 			surface(nullptr),
-			load_operation(graphics::pass_load_operation::discard),
-			store_operation(graphics::pass_store_operation::discard) {
+			load_operation(gpu::pass_load_operation::discard),
+			store_operation(gpu::pass_store_operation::discard) {
 		}
 		/// Creates a custom render target description.
 		[[nodiscard]] inline static color_render_target create_custom(
 			surface2d &surf, clear_value_type clear,
-			graphics::pass_load_operation load_op, graphics::pass_store_operation store_op
+			gpu::pass_load_operation load_op, gpu::pass_store_operation store_op
 		) {
 			return color_render_target(surf, clear, load_op, store_op);
 		}
 		/// Creates a render target description that reads from the surface and then writes to it.
 		[[nodiscard]] inline static color_render_target create_read_write(surface2d &s) {
 			return color_render_target(
-				s, uninitialized, graphics::pass_load_operation::preserve, graphics::pass_store_operation::preserve
+				s, uninitialized, gpu::pass_load_operation::preserve, gpu::pass_store_operation::preserve
 			);
 		}
 		/// Creates a render target description that clears the surface and then writes to it.
@@ -108,29 +108,29 @@ namespace lotus::renderer {/*
 			assert(!std::holds_alternative<uninitialized_t>(clear));
 			// verify that the clear value is of the correct type
 			bool is_floating_point =
-				graphics::format_properties::get(s.pixel_format).type ==
-				graphics::format_properties::data_type::floating_point;
+				gpu::format_properties::get(s.pixel_format).type ==
+				gpu::format_properties::data_type::floating_point;
 			assert(is_floating_point == std::holds_alternative<cvec4f>(clear));
 			return color_render_target(
-				s, clear, graphics::pass_load_operation::clear, graphics::pass_store_operation::preserve
+				s, clear, gpu::pass_load_operation::clear, gpu::pass_store_operation::preserve
 			);
 		}
 		/// Creates a render target description that writes to it with no regard to its previous content.
 		[[nodiscard]] inline static color_render_target create_clear_write(surface2d &s) {
 			return color_render_target(
-				s, uninitialized, graphics::pass_load_operation::discard, graphics::pass_store_operation::preserve
+				s, uninitialized, gpu::pass_load_operation::discard, gpu::pass_store_operation::preserve
 			);
 		}
 
 		surface2d *surface; ///< The surface.
 		clear_value_type clear_value; ///< Clear value.
-		graphics::pass_load_operation  load_operation;  ///< Pass load operation.
-		graphics::pass_store_operation store_operation; ///< Pass store operation.
+		gpu::pass_load_operation  load_operation;  ///< Pass load operation.
+		gpu::pass_store_operation store_operation; ///< Pass store operation.
 	private:
 		/// Initializes all fields of this struct.
 		color_render_target(
 			surface2d &surf, clear_value_type clear,
-			graphics::pass_load_operation load_op, graphics::pass_store_operation store_op
+			gpu::pass_load_operation load_op, gpu::pass_store_operation store_op
 		) : surface(&surf), clear_value(clear), load_operation(load_op), store_operation(store_op) {
 		}
 	};
@@ -140,16 +140,16 @@ namespace lotus::renderer {/*
 		/// Initializes this struct to refer to an empty depth-stencil render target.
 		depth_stencil_render_target(std::nullptr_t) :
 			surface(nullptr),
-			depth_load_operation(graphics::pass_load_operation::discard),
-			depth_store_operation(graphics::pass_store_operation::discard),
-			stencil_load_operation(graphics::pass_load_operation::discard),
-			stencil_store_operation(graphics::pass_store_operation::discard) {
+			depth_load_operation(gpu::pass_load_operation::discard),
+			depth_store_operation(gpu::pass_store_operation::discard),
+			stencil_load_operation(gpu::pass_load_operation::discard),
+			stencil_store_operation(gpu::pass_store_operation::discard) {
 		}
 		/// Creates a depth-stencil render target description using the given parameters.
 		[[nodiscard]] inline static depth_stencil_render_target create_custom(
 			surface2d &surf, float dclear, std::uint8_t sclear,
-			graphics::pass_load_operation dload, graphics::pass_store_operation dstore,
-			graphics::pass_load_operation sload, graphics::pass_store_operation sstore
+			gpu::pass_load_operation dload, gpu::pass_store_operation dstore,
+			gpu::pass_load_operation sload, gpu::pass_store_operation sstore
 		) {
 			return depth_stencil_render_target(surf, dclear, sclear, dload, dstore, sload, sstore);
 		}
@@ -157,16 +157,16 @@ namespace lotus::renderer {/*
 		surface2d *surface; ///< The surface.
 		float        depth_clear;   ///< Depth clear value.
 		std::uint8_t stencil_clear; ///< Stencil clear value.
-		graphics::pass_load_operation  depth_load_operation;    ///< Depth load operation.
-		graphics::pass_store_operation depth_store_operation;   ///< Depth store operation.
-		graphics::pass_load_operation  stencil_load_operation;  ///< Stencil load operation.
-		graphics::pass_store_operation stencil_store_operation; ///< Stencil store operation.
+		gpu::pass_load_operation  depth_load_operation;    ///< Depth load operation.
+		gpu::pass_store_operation depth_store_operation;   ///< Depth store operation.
+		gpu::pass_load_operation  stencil_load_operation;  ///< Stencil load operation.
+		gpu::pass_store_operation stencil_store_operation; ///< Stencil store operation.
 	private:
 		/// Initializes all fields of this struct.
 		depth_stencil_render_target(
 			surface2d &surf, float dclear, std::uint8_t sclear,
-			graphics::pass_load_operation dload, graphics::pass_store_operation dstore,
-			graphics::pass_load_operation sload, graphics::pass_store_operation sstore
+			gpu::pass_load_operation dload, gpu::pass_store_operation dstore,
+			gpu::pass_load_operation sload, gpu::pass_store_operation sstore
 		) :
 			surface(&surf), depth_clear(dclear), stencil_clear(sclear),
 			depth_load_operation(dload), depth_store_operation(dstore),

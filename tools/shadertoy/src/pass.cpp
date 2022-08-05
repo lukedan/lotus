@@ -168,7 +168,7 @@ void pass::load_shader(
 		std::vector<std::byte> full_code(data1, data1 + pixel_shader_prefix.size());
 		full_code.insert(full_code.end(), data2, data2 + size);
 		shader = man.compile_shader_from_source(
-			abs_shader_path, full_code, lgfx::shader_stage::pixel_shader, entry_point, defines
+			abs_shader_path, full_code, lgpu::shader_stage::pixel_shader, entry_point, defines
 		);
 	} else {
 		return;
@@ -187,7 +187,7 @@ void pass::load_shader(
 
 	// find the number of outputs
 	std::size_t num_outputs = 0;
-	reflection.enumerate_output_variables([&](const lgfx::shader_output_variable &var) {
+	reflection.enumerate_output_variables([&](const lgpu::shader_output_variable &var) {
 		if (var.semantic_name == u8"SV_TARGET") {
 			++num_outputs;
 		}
@@ -206,7 +206,7 @@ void pass::load_shader(
 	targets.resize(num_outputs, nullptr);
 
 	// check that all resources are bound in space 0
-	reflection.enumerate_resource_bindings([&](const lgfx::shader_resource_binding &b) {
+	reflection.enumerate_resource_bindings([&](const lgpu::shader_resource_binding &b) {
 		if (b.register_space != 0) {
 			if (b.name != u8"globals" && b.name != u8"nearest_sampler" && b.name != u8"linear_sampler") {
 				on_error(format_utf8<u8"Resource binding must be in register space 0: {}">(lstr::to_generic(b.name)));

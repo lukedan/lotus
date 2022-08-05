@@ -6,9 +6,9 @@
 #include <tiny_gltf.h>
 
 #include <lotus/math/vector.h>
-#include <lotus/graphics/context.h>
-#include <lotus/graphics/commands.h>
-#include <lotus/graphics/descriptors.h>
+#include <lotus/gpu/context.h>
+#include <lotus/gpu/commands.h>
+#include <lotus/gpu/descriptors.h>
 #include <lotus/system/window.h>
 #include <lotus/system/application.h>
 #include <lotus/utils/camera.h>
@@ -30,19 +30,19 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	std::cout << "Backend: " << std::string_view(reinterpret_cast<const char*>(gfx::backend_name.data()), gfx::backend_name.size()) << "\n";
+	std::cout << "Backend: " << std::string_view(reinterpret_cast<const char*>(lgpu::backend_name.data()), lgpu::backend_name.size()) << "\n";
 	std::cout << "Working dir: " << std::filesystem::current_path() << "\n";
 
-	sys::application app(u8"test");
+	lsys::application app(u8"test");
 	auto wnd = app.create_window();
 
-	auto gctx_options = gfx::context_options::enable_validation;
-	/*auto gctx_options = gfx::context_options::none;*/
-	auto gctx = gfx::context::create(gctx_options);
-	auto shader_util = gfx::shader_utility::create();
-	gfx::device gdev = nullptr;
-	gfx::adapter_properties dev_prop = uninitialized;
-	gctx.enumerate_adapters([&](gfx::adapter adap) {
+	/*auto gctx_options = lgpu::context_options::enable_validation;*/
+	auto gctx_options = lgpu::context_options::none;
+	auto gctx = lgpu::context::create(gctx_options);
+	auto shader_util = lgpu::shader_utility::create();
+	lgpu::device gdev = nullptr;
+	lgpu::adapter_properties dev_prop = uninitialized;
+	gctx.enumerate_adapters([&](lgpu::adapter adap) {
 		dev_prop = adap.get_properties();
 		std::cerr << "Device name: " << reinterpret_cast<const char*>(dev_prop.name.c_str()) << "\n";
 		if (dev_prop.is_discrete) {
@@ -71,22 +71,22 @@ int main(int argc, char **argv) {
 	std::vector<composite_pass::output_resources> comp_output;*/
 
 	// raytracing buffers
-	/*gfx::image2d raytrace_buffer = nullptr;
-	gfx::image2d_view raytrace_buffer_view = nullptr;
+	/*lgpu::image2d raytrace_buffer = nullptr;
+	lgpu::image2d_view raytrace_buffer_view = nullptr;
 	raytrace_pass::input_resources rt_input;
 
 	raytrace_resolve_pass::input_resources rt_resolve_input;
 	std::vector<raytrace_resolve_pass::output_resources> rt_resolve_output;*/
 
 	auto blit_vs = asset_man.compile_shader_in_filesystem(
-		asset_man.get_shader_library_path() / "fullscreen_quad_vs.hlsl", gfx::shader_stage::vertex_shader, u8"main_vs", {}
+		asset_man.get_shader_library_path() / "fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs", {}
 	);
 	auto blit_ps = asset_man.compile_shader_in_filesystem(
-		asset_man.get_shader_library_path() / "blit_ps.hlsl", gfx::shader_stage::pixel_shader, u8"main_ps", {}
+		asset_man.get_shader_library_path() / "blit_ps.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps", {}
 	);
 
 	auto swap_chain = rctx.request_swap_chain(
-		u8"Main swap chain", wnd, 2, { gfx::format::r8g8b8a8_srgb, gfx::format::b8g8r8a8_srgb }
+		u8"Main swap chain", wnd, 2, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb }
 	);
 	std::size_t frame_index = 0;
 
@@ -108,13 +108,13 @@ int main(int argc, char **argv) {
 	cvec2i prev_mouse = zero;
 	cvec2s window_size = zero;
 
-	auto on_resize = [&](sys::window&, sys::window_events::resize &info) {
+	auto on_resize = [&](lsys::window&, lsys::window_events::resize &info) {
 		window_size = info.new_size;
 		frame_index = 0;
 		swap_chain.resize(info.new_size);
 		cam_params.aspect_ratio = info.new_size[0] / static_cast<float>(info.new_size[1]);
 	};
-	auto on_mouse_move = [&](sys::window&, sys::window_events::mouse::move &move) {
+	auto on_mouse_move = [&](lsys::window&, lsys::window_events::mouse::move &move) {
 		cvec2f offset = (move.new_position - prev_mouse).into<float>();
 		offset[0] = -offset[0];
 		if (is_rotating) {
@@ -138,29 +138,29 @@ int main(int argc, char **argv) {
 		}
 		prev_mouse = move.new_position;
 	};
-	auto on_mouse_down = [&](sys::window &wnd, sys::window_events::mouse::button_down &down) {
+	auto on_mouse_down = [&](lsys::window &wnd, lsys::window_events::mouse::button_down &down) {
 		switch (down.button) {
-		case sys::mouse_button::primary:
+		case lsys::mouse_button::primary:
 			is_rotating = true;
 			break;
-		case sys::mouse_button::secondary:
+		case lsys::mouse_button::secondary:
 			is_zooming = true;
 			break;
-		case sys::mouse_button::middle:
+		case lsys::mouse_button::middle:
 			is_moving = true;
 			break;
 		}
 		wnd.acquire_mouse_capture();
 	};
-	auto on_mouse_up = [&](sys::window &wnd, sys::window_events::mouse::button_up &up) {
+	auto on_mouse_up = [&](lsys::window &wnd, lsys::window_events::mouse::button_up &up) {
 		switch (up.button) {
-		case sys::mouse_button::primary:
+		case lsys::mouse_button::primary:
 			is_rotating = false;
 			break;
-		case sys::mouse_button::secondary:
+		case lsys::mouse_button::secondary:
 			is_zooming = false;
 			break;
-		case sys::mouse_button::middle:
+		case lsys::mouse_button::middle:
 			is_moving = false;
 			break;
 		}
@@ -168,37 +168,37 @@ int main(int argc, char **argv) {
 			wnd.release_mouse_capture();
 		}
 	};
-	auto on_capture_broken = [&](sys::window&) {
+	auto on_capture_broken = [&](lsys::window&) {
 		is_rotating = is_zooming = is_moving = false;
 	};
 
 	auto size_node = wnd.on_resize.create_linked_node(
-		[&](sys::window &wnd, sys::window_events::resize &info) {
+		[&](lsys::window &wnd, lsys::window_events::resize &info) {
 			on_resize(wnd, info);
 		}
 	);
 	auto mouse_move_node = wnd.on_mouse_move.create_linked_node(
-		[&](sys::window &wnd, sys::window_events::mouse::move &move) {
+		[&](lsys::window &wnd, lsys::window_events::mouse::move &move) {
 			on_mouse_move(wnd, move);
 		}
 	);
 	auto mouse_down_node = wnd.on_mouse_button_down.create_linked_node(
-		[&](sys::window &wnd, sys::window_events::mouse::button_down &down) {
+		[&](lsys::window &wnd, lsys::window_events::mouse::button_down &down) {
 			on_mouse_down(wnd, down);
 		}
 	);
 	auto mouse_up_node = wnd.on_mouse_button_up.create_linked_node(
-		[&](sys::window &wnd, sys::window_events::mouse::button_up &up) {
+		[&](lsys::window &wnd, lsys::window_events::mouse::button_up &up) {
 			on_mouse_up(wnd, up);
 		}
 	);
 	auto capture_broken_node = wnd.on_capture_broken.create_linked_node(
-		[&](sys::window &wnd) {
+		[&](lsys::window &wnd) {
 			on_capture_broken(wnd);
 		}
 	);
 	auto quit_node = wnd.on_close_request.create_linked_node(
-		[&](sys::window&, sys::window_events::close_request &req) {
+		[&](lsys::window&, lsys::window_events::close_request &req) {
 			req.should_close = true;
 			app.quit();
 		}
@@ -206,7 +206,7 @@ int main(int argc, char **argv) {
 
 
 	wnd.show_and_activate();
-	while (app.process_message_nonblocking() != sys::message_type::quit) {
+	while (app.process_message_nonblocking() != lsys::message_type::quit) {
 		if (window_size == zero) {
 			continue;
 		}
@@ -263,18 +263,18 @@ int main(int argc, char **argv) {
 				auto pass = rctx.begin_pass({
 					ren::surface2d_color(
 						swap_chain,
-						gfx::color_render_target_access::create_clear(cvec4d(0.0f, 0.0f, 0.0f, 0.0f))
+						lgpu::color_render_target_access::create_clear(cvec4d(0.0f, 0.0f, 0.0f, 0.0f))
 					)
 				}, nullptr, window_size, u8"Final blit");
 				ren::graphics_pipeline_state state(
 					{
-						gfx::render_target_blend_options::disabled()
+						lgpu::render_target_blend_options::disabled()
 					},
 					nullptr,
 					nullptr
 				);
 				pass.draw_instanced(
-					{}, 3, nullptr, 0, gfx::primitive_topology::triangle_list,
+					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list,
 					ren::all_resource_bindings::from_unsorted({
 						ren::resource_set_binding::create({
 							ren::resource_binding(ren::descriptor_resource::image2d(

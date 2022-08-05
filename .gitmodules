@@ -4,15 +4,12 @@
 [submodule "thirdparty/tinygltf"]
 	path = thirdparty/tinygltf
 	url = https://github.com/syoyo/tinygltf.git
-[submodule "thirdparty/glTF-Sample-Models"]
-	path = thirdparty/glTF-Sample-Models
-	url = https://github.com/KhronosGroup/glTF-Sample-Models.git
-[submodule "thirdparty/DirectX-Headers"]
-	path = lotus/graphics/thirdparty/DirectX-Headers
-	url = https://github.com/microsoft/DirectX-Headers.git
 [submodule "tools/shadertoy/thirdparty/stb"]
 	path = tools/shadertoy/thirdparty/stb
 	url = https://github.com/nothings/stb.git
-[submodule "lotus/graphics/thirdparty/SPIRV-Reflect"]
-	path = lotus/graphics/thirdparty/SPIRV-Reflect
+[submodule "lotus/gpu/thirdparty/SPIRV-Reflect"]
+	path = lotus/gpu/thirdparty/SPIRV-Reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect.git
+[submodule "lotus/gpu/thirdparty/DirectX-Headers"]
+	path = lotus/gpu/thirdparty/DirectX-Headers
+	url = https://github.com/microsoft/DirectX-Headers.git

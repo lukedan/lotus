@@ -11,7 +11,7 @@
 namespace lotus {
 	namespace system {
 	}
-	namespace graphics {
+	namespace gpu {
 	}
 	namespace renderer {
 	}
@@ -20,7 +20,7 @@ namespace lotus {
 }
 
 namespace lsys = lotus::system;
-namespace lgfx = lotus::graphics;
+namespace lgpu = lotus::gpu;
 namespace lren = lotus::renderer;
 namespace lstr = lotus::string;
 

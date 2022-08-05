@@ -22,9 +22,9 @@ public:
 	using error_callback = lotus::static_function<void(std::u8string_view)>;
 
 	/// Format of loaded input images.
-	constexpr static lgfx::format input_image_format = lgfx::format::r8g8b8a8_unorm;
+	constexpr static lgpu::format input_image_format = lgpu::format::r8g8b8a8_unorm;
 	/// Format of output images.
-	constexpr static lgfx::format output_image_format = lgfx::format::r32g32b32a32_float;
+	constexpr static lgpu::format output_image_format = lgpu::format::r32g32b32a32_float;
 
 	/// Code added before every shader.
 	constexpr static std::u8string_view pixel_shader_prefix = u8R"(

@@ -8,9 +8,9 @@
 #include "lotus/logging.h"
 #include "lotus/utils/misc.h"
 #include "lotus/utils/strings.h"
-#include "lotus/graphics/device.h"
-#include "lotus/graphics/commands.h"
-#include "lotus/graphics/context.h"
+#include "lotus/gpu/device.h"
+#include "lotus/gpu/commands.h"
+#include "lotus/gpu/context.h"
 #include "lotus/renderer/resources.h"
 
 namespace lotus::renderer::assets {
@@ -18,8 +18,8 @@ namespace lotus::renderer::assets {
 		const char8_t *semantic, std::uint32_t semantic_index, std::uint32_t binding_index
 	) const {
 		return input_buffer_binding(
-			binding_index, data, offset, stride, graphics::input_buffer_rate::per_vertex,
-			{ graphics::input_buffer_element(semantic, semantic_index, format, 0) }
+			binding_index, data, offset, stride, gpu::input_buffer_rate::per_vertex,
+			{ gpu::input_buffer_element(semantic, semantic_index, format, 0) }
 		);
 	}
 
@@ -54,23 +54,23 @@ namespace lotus::renderer::assets {
 			int width = 0;
 			int height = 0;
 			int original_channels = 0;
-			auto type = graphics::format_properties::data_type::unknown;
+			auto type = gpu::format_properties::data_type::unknown;
 			auto *stbi_mem = static_cast<const stbi_uc*>(image_mem.get());
 			if (stbi_is_hdr_from_memory(stbi_mem, static_cast<int>(image_size))) {
-				type = graphics::format_properties::data_type::floating_point;
+				type = gpu::format_properties::data_type::floating_point;
 				bytes_per_channel = 4;
 				loaded = stbi_loadf_from_memory(
 					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 0
 				);
 			} else if (stbi_is_16_bit_from_memory(stbi_mem, static_cast<int>(image_size))) {
-				type = graphics::format_properties::data_type::unsigned_norm;
+				type = gpu::format_properties::data_type::unsigned_norm;
 				bytes_per_channel = 2;
 				loaded = stbi_load_16_from_memory(
 					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
 				);
 				original_channels = 4; // TODO support 1 and 2 channel images
 			} else {
-				type = graphics::format_properties::data_type::unsigned_norm;
+				type = gpu::format_properties::data_type::unsigned_norm;
 				bytes_per_channel = 1;
 				loaded = stbi_load_from_memory(
 					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
@@ -84,19 +84,19 @@ namespace lotus::renderer::assets {
 				bits_per_channel_4[i] = bytes_per_channel * 8;
 			}
 
-			auto pixel_format = graphics::format_properties::find_exact_rgba(
+			auto pixel_format = gpu::format_properties::find_exact_rgba(
 				bits_per_channel_4[0], bits_per_channel_4[1], bits_per_channel_4[2], bits_per_channel_4[3], type
 			);
-			if (pixel_format == graphics::format::none) {
+			if (pixel_format == gpu::format::none) {
 				log().error<u8"Failed to find appropriate pixel format for bytes per channel {}, type {}">(
 					bytes_per_channel,
-					static_cast<std::underlying_type_t<graphics::format_properties::data_type>>(type)
+					static_cast<std::underlying_type_t<gpu::format_properties::data_type>>(type)
 				);
 			}
 			// TODO mips
 			tex.image = _context.request_image2d(
 				id.path.u8string(), cvec2s(width, height), 1, pixel_format,
-				graphics::image_usage::mask::copy_destination | graphics::image_usage::mask::read_only_texture
+				gpu::image_usage::mask::copy_destination | gpu::image_usage::mask::read_only_texture
 			);
 			tex.highest_mip_loaded = 0;
 		}
@@ -112,13 +112,13 @@ namespace lotus::renderer::assets {
 	}
 
 	handle<buffer> manager::create_buffer(
-		identifier id, std::span<const std::byte> data, std::uint32_t stride, graphics::buffer_usage::mask usages
+		identifier id, std::span<const std::byte> data, std::uint32_t stride, gpu::buffer_usage::mask usages
 	) {
 		buffer buf = nullptr;
 
 		buf.data        = _device.create_committed_buffer(
 			data.size(), _context.HACK_device_memory_type_index(),
-			usages | graphics::buffer_usage::mask::copy_destination
+			usages | gpu::buffer_usage::mask::copy_destination
 		);
 		buf.byte_size   = static_cast<std::uint32_t>(data.size());
 		buf.byte_stride = stride;
@@ -126,7 +126,7 @@ namespace lotus::renderer::assets {
 
 		// staging buffer
 		auto upload_buf = _device.create_committed_buffer(
-			data.size(), _context.HACK_upload_memory_type_index(), graphics::buffer_usage::mask::copy_source
+			data.size(), _context.HACK_upload_memory_type_index(), gpu::buffer_usage::mask::copy_source
 		);
 		void *ptr = _device.map_buffer(upload_buf, 0, 0);
 		std::memcpy(ptr, data.data(), data.size());
@@ -146,7 +146,7 @@ namespace lotus::renderer::assets {
 	handle<shader> manager::compile_shader_from_source(
 		const std::filesystem::path &id_path,
 		std::span<const std::byte> code,
-		graphics::shader_stage stage,
+		gpu::shader_stage stage,
 		std::u8string_view entry_point,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 	) {
@@ -164,7 +164,7 @@ namespace lotus::renderer::assets {
 
 	handle<shader> manager::compile_shader_in_filesystem(
 		const std::filesystem::path &path,
-		graphics::shader_stage stage,
+		gpu::shader_stage stage,
 		std::u8string_view entry_point,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 	) {
@@ -185,37 +185,37 @@ namespace lotus::renderer::assets {
 	}
 
 	manager::manager(
-		context &ctx, graphics::device &dev, graphics::command_queue &queue,
-		std::filesystem::path shader_lib_path, graphics::shader_utility *shader_utils
+		context &ctx, gpu::device &dev, gpu::command_queue &queue,
+		std::filesystem::path shader_lib_path, gpu::shader_utility *shader_utils
 	) :
 		_device(dev), _cmd_queue(queue), _shader_utilities(shader_utils),
 		_context(ctx),
 		_cmd_alloc(_device.create_command_allocator()),
-		_fence(dev.create_fence(graphics::synchronization_state::unset)),
+		_fence(dev.create_fence(gpu::synchronization_state::unset)),
 		_texture2d_descriptors(ctx.request_descriptor_array(
-			u8"Texture assets", graphics::descriptor_type::read_only_image, 1024
+			u8"Texture assets", gpu::descriptor_type::read_only_image, 1024
 		)),
 		_texture2d_descriptor_index_alloc({ 0 }),
 		_shader_library_path(std::move(shader_lib_path)) {
 	}
 
 	std::u8string manager::_assemble_shader_subid(
-		graphics::shader_stage stage,
+		gpu::shader_stage stage,
 		std::u8string_view entry_point,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 	) {
-		static constexpr enum_mapping<graphics::shader_stage, std::u8string_view> _shader_stage_names{
-			std::pair(graphics::shader_stage::all,                   u8"ALL"),
-			std::pair(graphics::shader_stage::vertex_shader,         u8"vs"),
-			std::pair(graphics::shader_stage::geometry_shader,       u8"gs"),
-			std::pair(graphics::shader_stage::pixel_shader,          u8"ps"),
-			std::pair(graphics::shader_stage::compute_shader,        u8"cs"),
-			std::pair(graphics::shader_stage::callable_shader,       u8"callable"),
-			std::pair(graphics::shader_stage::ray_generation_shader, u8"raygen"),
-			std::pair(graphics::shader_stage::intersection_shader,   u8"intersect"),
-			std::pair(graphics::shader_stage::any_hit_shader,        u8"anyhit"),
-			std::pair(graphics::shader_stage::closest_hit_shader,    u8"closesthit"),
-			std::pair(graphics::shader_stage::miss_shader,           u8"miss"),
+		static constexpr enum_mapping<gpu::shader_stage, std::u8string_view> _shader_stage_names{
+			std::pair(gpu::shader_stage::all,                   u8"ALL"),
+			std::pair(gpu::shader_stage::vertex_shader,         u8"vs"),
+			std::pair(gpu::shader_stage::geometry_shader,       u8"gs"),
+			std::pair(gpu::shader_stage::pixel_shader,          u8"ps"),
+			std::pair(gpu::shader_stage::compute_shader,        u8"cs"),
+			std::pair(gpu::shader_stage::callable_shader,       u8"callable"),
+			std::pair(gpu::shader_stage::ray_generation_shader, u8"raygen"),
+			std::pair(gpu::shader_stage::intersection_shader,   u8"intersect"),
+			std::pair(gpu::shader_stage::any_hit_shader,        u8"anyhit"),
+			std::pair(gpu::shader_stage::closest_hit_shader,    u8"closesthit"),
+			std::pair(gpu::shader_stage::miss_shader,           u8"miss"),
 		};
 
 		std::u8string subid = std::u8string(_shader_stage_names[stage]) + u8"|" + std::u8string(entry_point);
@@ -235,7 +235,7 @@ namespace lotus::renderer::assets {
 	handle<shader> manager::_do_compile_shader_from_source(
 		identifier id,
 		std::span<const std::byte> code,
-		graphics::shader_stage stage,
+		gpu::shader_stage stage,
 		std::u8string_view entry_point,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 	) {

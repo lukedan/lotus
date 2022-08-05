@@ -25,12 +25,12 @@ function(add_lotus_renderer_target BACKEND)
 			"src/renderer/g_buffer.cpp"
 			"src/renderer/gltf_loader.cpp"
 			"src/renderer/resources.cpp")
-	target_link_libraries(${PROJ} PUBLIC lotus_graphics_${BACKEND} tinygltf)
+	target_link_libraries(${PROJ} PUBLIC lotus_gpu_${BACKEND} tinygltf)
 endfunction()
 
-if(${LOTUS_GRAPHICS_HAS_DIRECTX12})
+if(${LOTUS_GPU_HAS_DIRECTX12})
 	add_lotus_renderer_target(directx12)
 endif()
-if(${LOTUS_GRAPHICS_HAS_VULKAN})
+if(${LOTUS_GPU_HAS_VULKAN})
 	add_lotus_renderer_target(vulkan)
 endif()

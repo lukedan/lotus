@@ -8,8 +8,8 @@ namespace lotus::renderer {
 		std::sort(
 			ranges.begin(), ranges.end(),
 			[](
-				const graphics::descriptor_range_binding &lhs,
-				const graphics::descriptor_range_binding &rhs
+				const gpu::descriptor_range_binding &lhs,
+				const gpu::descriptor_range_binding &rhs
 			) {
 				return lhs.register_index < rhs.register_index;
 			}
@@ -17,7 +17,7 @@ namespace lotus::renderer {
 		// merge ranges
 		using _it = decltype(ranges)::iterator;
 		ranges.erase(
-			graphics::descriptor_range_binding::merge_sorted_descriptor_ranges(
+			gpu::descriptor_range_binding::merge_sorted_descriptor_ranges(
 				ranges.begin(), ranges.end(),
 				[](_it prev, _it next) {
 					log().error<u8"Detected overlapping descriptor ranges [{}, {}] and [{}, {}]">(
@@ -32,7 +32,7 @@ namespace lotus::renderer {
 
 
 	cache_keys::graphics_pipeline::input_buffer_layout::input_buffer_layout(
-		const graphics::input_buffer_layout &layout
+		const gpu::input_buffer_layout &layout
 	) :
 		elements(layout.elements.begin(), layout.elements.end()),
 		stride(static_cast<std::uint32_t>(layout.stride)),
@@ -106,22 +106,22 @@ namespace std {
 
 
 namespace lotus::renderer {
-	const graphics::descriptor_set_layout &context_cache::get_descriptor_set_layout(
+	const gpu::descriptor_set_layout &context_cache::get_descriptor_set_layout(
 		const cache_keys::descriptor_set_layout &key
 	) {
 		auto [it, inserted] = _layouts.try_emplace(key, nullptr);
 		if (inserted) {
-			it->second = _device.create_descriptor_set_layout(key.ranges, graphics::shader_stage::all);
+			it->second = _device.create_descriptor_set_layout(key.ranges, gpu::shader_stage::all);
 		}
 		return it->second;
 	}
 
-	const graphics::pipeline_resources &context_cache::get_pipeline_resources(
+	const gpu::pipeline_resources &context_cache::get_pipeline_resources(
 		const cache_keys::pipeline_resources &key
 	) {
 		auto [it, inserted] = _pipeline_resources.try_emplace(key, nullptr);
 		if (inserted) {
-			std::vector<const graphics::descriptor_set_layout*> layouts(
+			std::vector<const gpu::descriptor_set_layout*> layouts(
 				key.sets.empty() ? 0 : key.sets.back().space + 1
 			);
 			for (const auto &set : it->first.sets) {
@@ -132,7 +132,7 @@ namespace lotus::renderer {
 		return it->second;
 	}
 
-	const graphics::graphics_pipeline_state &context_cache::get_graphics_pipeline_state(
+	const gpu::graphics_pipeline_state &context_cache::get_graphics_pipeline_state(
 		const cache_keys::graphics_pipeline &key
 	) {
 		auto [it, inserted] = _graphics_pipelines.try_emplace(key, nullptr);
@@ -141,12 +141,12 @@ namespace lotus::renderer {
 			const auto &pipeline_rsrc = get_pipeline_resources(it->first.pipeline_resources);
 
 			// gather shaders
-			graphics::shader_set set = nullptr;
+			gpu::shader_set set = nullptr;
 			set.vertex_shader = &key.vertex_shader.get().value.binary;
 			set.pixel_shader  = &key.pixel_shader.get().value.binary;
 
 			// gather input buffers
-			std::vector<graphics::input_buffer_layout> input_buffers;
+			std::vector<gpu::input_buffer_layout> input_buffers;
 			input_buffers.reserve(it->first.input_buffers.size());
 			for (const auto &buf : it->first.input_buffers) {
 				auto &gfxbuf = input_buffers.emplace_back(nullptr);
@@ -157,7 +157,7 @@ namespace lotus::renderer {
 			}
 
 			// fb layout
-			graphics::frame_buffer_layout layout(it->first.color_rt_formats, it->first.dpeth_stencil_rt_format);
+			gpu::frame_buffer_layout layout(it->first.color_rt_formats, it->first.dpeth_stencil_rt_format);
 
 			it->second = _device.create_graphics_pipeline_state(
 				pipeline_rsrc,

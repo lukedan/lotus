@@ -12,10 +12,10 @@
 
 #include "lotus/logging.h"
 #include "lotus/containers/maybe_uninitialized.h"
-#include "lotus/graphics/common.h"
-#include "lotus/graphics/commands.h"
-#include "lotus/graphics/device.h"
-#include "lotus/graphics/resources.h"
+#include "lotus/gpu/common.h"
+#include "lotus/gpu/commands.h"
+#include "lotus/gpu/device.h"
+#include "lotus/gpu/resources.h"
 #include "common.h"
 #include "context.h"
 
@@ -32,10 +32,10 @@ namespace lotus::renderer {
 			/// Creates a new instance.
 			[[nodiscard]] inline static manager create(
 				context &ctx,
-				graphics::device &dev,
-				graphics::command_queue &cmd_queue,
+				gpu::device &dev,
+				gpu::command_queue &cmd_queue,
 				std::filesystem::path shader_lib_path = {},
-				graphics::shader_utility *shader_utils = nullptr
+				gpu::shader_utility *shader_utils = nullptr
 			) {
 				return manager(ctx, dev, cmd_queue, std::move(shader_lib_path), shader_utils);
 			}
@@ -54,12 +54,12 @@ namespace lotus::renderer {
 			}
 			/// Creates a buffer with the given contents and usage mask.
 			[[nodiscard]] handle<buffer> create_buffer(
-				identifier, std::span<const std::byte>, std::uint32_t byte_stride, graphics::buffer_usage::mask
+				identifier, std::span<const std::byte>, std::uint32_t byte_stride, gpu::buffer_usage::mask
 			);
 			/// \overload
 			template <typename T> [[nodiscard]] std::enable_if_t<
 				std::is_trivially_copyable_v<std::decay_t<T>>, handle<buffer>
-			> create_buffer(identifier id, std::span<T> contents, graphics::buffer_usage::mask usages) {
+			> create_buffer(identifier id, std::span<T> contents, gpu::buffer_usage::mask usages) {
 				return create_buffer(
 					std::move(id),
 					std::span<const std::byte>(
@@ -76,7 +76,7 @@ namespace lotus::renderer {
 			[[nodiscard]] handle<shader> compile_shader_from_source(
 				const std::filesystem::path &id_path,
 				std::span<const std::byte>,
-				graphics::shader_stage,
+				gpu::shader_stage,
 				std::u8string_view entry_point,
 				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines = {}
 			);
@@ -84,7 +84,7 @@ namespace lotus::renderer {
 			[[nodiscard]] handle<shader> compile_shader_from_source(
 				const std::filesystem::path &id_path,
 				std::span<const std::byte> code,
-				graphics::shader_stage stage,
+				gpu::shader_stage stage,
 				std::u8string_view entry_point,
 				std::initializer_list<const std::pair<std::u8string_view, std::u8string_view>> defines
 			) {
@@ -96,7 +96,7 @@ namespace lotus::renderer {
 			[[nodiscard]] handle<shader> compile_shader_from_source(
 				const std::filesystem::path &id_path,
 				std::span<const std::byte> code,
-				graphics::shader_stage stage,
+				gpu::shader_stage stage,
 				std::u8string_view entry_point,
 				std::span<const std::pair<std::u8string, std::u8string>> defines
 			) {
@@ -109,14 +109,14 @@ namespace lotus::renderer {
 			/// Similar to \ref compile_shader_from_source(), but loads the shader source code from the file system.
 			[[nodiscard]] handle<shader> compile_shader_in_filesystem(
 				const std::filesystem::path &path,
-				graphics::shader_stage,
+				gpu::shader_stage,
 				std::u8string_view entry_point,
 				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines = {}
 			);
 			/// \overload
 			[[nodiscard]] handle<shader> compile_shader_in_filesystem(
 				const std::filesystem::path &path,
-				graphics::shader_stage stage,
+				gpu::shader_stage stage,
 				std::u8string_view entry_point,
 				std::initializer_list<const std::pair<std::u8string_view, std::u8string_view>> defines
 			) {
@@ -125,7 +125,7 @@ namespace lotus::renderer {
 			/// \overload
 			[[nodiscard]] handle<shader> compile_shader_in_filesystem(
 				const std::filesystem::path &path,
-				graphics::shader_stage stage,
+				gpu::shader_stage stage,
 				std::u8string_view entry_point,
 				std::span<const std::pair<std::u8string, std::u8string>> defines
 			) {
@@ -163,19 +163,19 @@ namespace lotus::renderer {
 			}
 
 			/// Returns the device associated with this asset manager.
-			[[nodiscard]] graphics::device &get_device() const {
+			[[nodiscard]] gpu::device &get_device() const {
 				return _device;
 			}
 			/// Returns the command queue used for copying assets to the GPU.
-			[[nodiscard]] graphics::command_queue &get_command_queue() const {
+			[[nodiscard]] gpu::command_queue &get_command_queue() const {
 				return _cmd_queue;
 			}
 			/// Returns the command allocator used for copying assets to the GPU.
-			[[nodiscard]] graphics::command_allocator &get_command_allocator() {
+			[[nodiscard]] gpu::command_allocator &get_command_allocator() {
 				return _cmd_alloc;
 			}
 			/// Returns the fence used for synchronizing resource upload.
-			[[nodiscard]] graphics::fence &get_fence() {
+			[[nodiscard]] gpu::fence &get_fence() {
 				return _fence;
 			}
 			/// Returns the path that contains shader files.
@@ -199,7 +199,7 @@ namespace lotus::renderer {
 			using _material_map = _map<material>;  ///< Material map.
 
 			/// Initializes this manager.
-			manager(context&, graphics::device&, graphics::command_queue&, std::filesystem::path, graphics::shader_utility*);
+			manager(context&, gpu::device&, gpu::command_queue&, std::filesystem::path, gpu::shader_utility*);
 
 			/// Generic interface for registering an asset.
 			template <typename T> handle<T> _register_asset(
@@ -217,7 +217,7 @@ namespace lotus::renderer {
 
 			/// Assembles the subid of the shader.
 			[[nodiscard]] std::u8string _assemble_shader_subid(
-				graphics::shader_stage,
+				gpu::shader_stage,
 				std::u8string_view entry_point,
 				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 			);
@@ -225,7 +225,7 @@ namespace lotus::renderer {
 			[[nodiscard]] handle<shader> _do_compile_shader_from_source(
 				identifier,
 				std::span<const std::byte> code,
-				graphics::shader_stage,
+				gpu::shader_stage,
 				std::u8string_view entry_point,
 				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 			);
@@ -250,14 +250,14 @@ namespace lotus::renderer {
 			_shader_map   _shaders;    ///< All loaded shaders.
 			_material_map _materials;  ///< All loaded materials.
 
-			graphics::device &_device; ///< Device that all assets are loaded onto.
-			graphics::command_queue &_cmd_queue; ///< Command queue for texture and buffer copies.
-			graphics::shader_utility *_shader_utilities; ///< Used for compiling shaders.
+			gpu::device &_device; ///< Device that all assets are loaded onto.
+			gpu::command_queue &_cmd_queue; ///< Command queue for texture and buffer copies.
+			gpu::shader_utility *_shader_utilities; ///< Used for compiling shaders.
 
 			context &_context; ///< Associated context.
 
-			graphics::command_allocator _cmd_alloc; ///< Command allocator for texture and buffer copies.
-			graphics::fence _fence; ///< Fence used for synchronization.
+			gpu::command_allocator _cmd_alloc; ///< Command allocator for texture and buffer copies.
+			gpu::fence _fence; ///< Fence used for synchronization.
 
 			descriptor_array _texture2d_descriptors; ///< Bindless descriptor array of all textures.
 			std::vector<std::uint32_t> _texture2d_descriptor_index_alloc; ///< Used to allocate descriptor indices.

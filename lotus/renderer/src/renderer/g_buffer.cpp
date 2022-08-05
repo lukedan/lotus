@@ -9,24 +9,24 @@
 namespace lotus::renderer::g_buffer {
 	view view::create(context &ctx, cvec2s size) {
 		view result = nullptr;
-		result.albedo_glossiness = ctx.request_image2d(u8"GBuffer Albedo-glossiness", size, 1, albedo_glossiness_format, graphics::image_usage::mask::color_render_target | graphics::image_usage::mask::read_only_texture);
-		result.normal            = ctx.request_image2d(u8"GBuffer Normal",            size, 1, normal_format,            graphics::image_usage::mask::color_render_target | graphics::image_usage::mask::read_only_texture);
-		result.metalness         = ctx.request_image2d(u8"GBuffer Metalness",         size, 1, metalness_format,         graphics::image_usage::mask::color_render_target | graphics::image_usage::mask::read_only_texture);
-		result.depth_stencil     = ctx.request_image2d(u8"GBuffer Depth-stencil",     size, 1, depth_stencil_format,     graphics::image_usage::mask::depth_stencil_render_target | graphics::image_usage::mask::read_only_texture);
+		result.albedo_glossiness = ctx.request_image2d(u8"GBuffer Albedo-glossiness", size, 1, albedo_glossiness_format, gpu::image_usage::mask::color_render_target | gpu::image_usage::mask::read_only_texture);
+		result.normal            = ctx.request_image2d(u8"GBuffer Normal",            size, 1, normal_format,            gpu::image_usage::mask::color_render_target | gpu::image_usage::mask::read_only_texture);
+		result.metalness         = ctx.request_image2d(u8"GBuffer Metalness",         size, 1, metalness_format,         gpu::image_usage::mask::color_render_target | gpu::image_usage::mask::read_only_texture);
+		result.depth_stencil     = ctx.request_image2d(u8"GBuffer Depth-stencil",     size, 1, depth_stencil_format,     gpu::image_usage::mask::depth_stencil_render_target | gpu::image_usage::mask::read_only_texture);
 		return result;
 	}
 
 	context::pass view::begin_pass(context &ctx) {
 		return ctx.begin_pass(
 			{
-				surface2d_color(albedo_glossiness, graphics::color_render_target_access::create_discard_then_write()),
-				surface2d_color(normal,            graphics::color_render_target_access::create_discard_then_write()),
-				surface2d_color(metalness,         graphics::color_render_target_access::create_discard_then_write()),
+				surface2d_color(albedo_glossiness, gpu::color_render_target_access::create_discard_then_write()),
+				surface2d_color(normal,            gpu::color_render_target_access::create_discard_then_write()),
+				surface2d_color(metalness,         gpu::color_render_target_access::create_discard_then_write()),
 			},
 			surface2d_depth_stencil(
 				depth_stencil,
-				graphics::depth_render_target_access::create_clear(0.0f),
-				graphics::stencil_render_target_access::create_clear(0)
+				gpu::depth_render_target_access::create_clear(0.0f),
+				gpu::stencil_render_target_access::create_clear(0)
 			),
 			depth_stencil.get_size(),
 			u8"G-Buffer pass"
@@ -66,7 +66,7 @@ namespace lotus::renderer::g_buffer {
 		}
 		auto shader = _man.compile_shader_in_filesystem(
 			_man.get_shader_library_path() / "standard_vertex_shader.hlsl",
-			graphics::shader_stage::vertex_shader,
+			gpu::shader_stage::vertex_shader,
 			u8"main_vs",
 			defines
 		);
@@ -78,7 +78,7 @@ namespace lotus::renderer::g_buffer {
 	) {
 		return _man.compile_shader_in_filesystem(
 			_man.get_shader_library_path() / "gbuffer_pixel_shader.hlsl",
-			graphics::shader_stage::pixel_shader,
+			gpu::shader_stage::pixel_shader,
 			u8"main_ps",
 			{ { u8"LOTUS_MATERIAL_INCLUDE", mat_ctx.get_material_include() } }
 		);
@@ -92,12 +92,12 @@ namespace lotus::renderer::g_buffer {
 		for (const auto &inst : instances) {
 			graphics_pipeline_state state(
 				{
-					graphics::render_target_blend_options::disabled(),
-					graphics::render_target_blend_options::disabled(),
-					graphics::render_target_blend_options::disabled(),
+					gpu::render_target_blend_options::disabled(),
+					gpu::render_target_blend_options::disabled(),
+					gpu::render_target_blend_options::disabled(),
 				},
-				graphics::rasterizer_options(graphics::depth_bias_options::disabled(), graphics::front_facing_mode::clockwise, graphics::cull_mode::cull_front, false),
-				graphics::depth_stencil_options(true, true, graphics::comparison_function::greater, false, 0, 0, graphics::stencil_options::always_pass_no_op(), graphics::stencil_options::always_pass_no_op())
+				gpu::rasterizer_options(gpu::depth_bias_options::disabled(), gpu::front_facing_mode::clockwise, gpu::cull_mode::cull_front, false),
+				gpu::depth_stencil_options(true, true, gpu::comparison_function::greater, false, 0, 0, gpu::stencil_options::always_pass_no_op(), gpu::stencil_options::always_pass_no_op())
 			);
 			shader_types::instance_data instance;
 			instance.transform = inst.transform;

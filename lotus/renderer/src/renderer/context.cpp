@@ -14,7 +14,7 @@ namespace lotus::renderer {
 		std::uint32_t num_verts,
 		index_buffer_binding indices,
 		std::uint32_t num_indices,
-		graphics::primitive_topology topology,
+		gpu::primitive_topology topology,
 		all_resource_bindings resources,
 		assets::handle<assets::shader> vs,
 		assets::handle<assets::shader> ps,
@@ -82,7 +82,7 @@ namespace lotus::renderer {
 		return _execution_context(ctx, resources);
 	}
 
-	graphics::command_list &context::_execution_context::get_command_list() {
+	gpu::command_list &context::_execution_context::get_command_list() {
 		if (!_list) {
 			_list = &record(_ctx._device.create_and_start_command_list(_ctx._cmd_alloc));
 		}
@@ -90,13 +90,13 @@ namespace lotus::renderer {
 	}
 
 	void context::_execution_context::stage_transition(
-		_details::surface2d &surf, graphics::mip_levels mips, graphics::image_usage usage
+		_details::surface2d &surf, gpu::mip_levels mips, gpu::image_usage usage
 	) {
 		_surface_transitions.emplace_back(surf, mips, usage);
 		for (const auto &ref : surf.array_references) {
 			const auto &img = ref.arr->images[ref.index].image;
 			assert(img._surface == &surf);
-			if (!graphics::mip_levels::intersection(img._mip_levels, mips).is_empty()) {
+			if (!gpu::mip_levels::intersection(img._mip_levels, mips).is_empty()) {
 				ref.arr->staged_transitions.emplace_back(ref.index);
 			}
 		}
@@ -106,8 +106,8 @@ namespace lotus::renderer {
 		auto transitions = std::exchange(arr.staged_transitions, {});
 		std::sort(transitions.begin(), transitions.end());
 		transitions.erase(std::unique(transitions.begin(), transitions.end()), transitions.end());
-		auto usage = graphics::to_image_usage(arr.type);
-		assert(usage != graphics::image_usage::num_enumerators);
+		auto usage = gpu::to_image_usage(arr.type);
+		assert(usage != gpu::image_usage::num_enumerators);
 		for (auto index : transitions) {
 			const auto &img = arr.images[index];
 			_surface_transitions.emplace_back(*img.image._surface, img.image._mip_levels, usage);
@@ -115,8 +115,8 @@ namespace lotus::renderer {
 	}
 
 	void context::_execution_context::flush_transitions() {
-		std::vector<graphics::image_barrier> image_barriers;
-		std::vector<graphics::buffer_barrier> buffer_barriers;
+		std::vector<gpu::image_barrier> image_barriers;
+		std::vector<gpu::buffer_barrier> buffer_barriers;
 
 		{ // handle surface transitions
 			auto surf_transitions = std::exchange(_surface_transitions, {});
@@ -141,24 +141,24 @@ namespace lotus::renderer {
 						it->mip_levels.minimum + it->mip_levels.num_levels;
 					for (std::uint16_t mip = it->mip_levels.minimum; mip < max_mip; ++mip) {
 						// check if a transition is really necessary
-						graphics::image_usage current_usage = it->surface->current_usages[mip];
+						gpu::image_usage current_usage = it->surface->current_usages[mip];
 						if (current_usage == it->usage) {
-							if (current_usage != graphics::image_usage::read_write_color_texture) {
+							if (current_usage != gpu::image_usage::read_write_color_texture) {
 								continue;
 							}
 						}
 
-						graphics::subresource_index sub_index(mip, 0, graphics::image_aspect_mask::none);
-						const auto &fmt_prop = graphics::format_properties::get(it->surface->format);
+						gpu::subresource_index sub_index(mip, 0, gpu::image_aspect_mask::none);
+						const auto &fmt_prop = gpu::format_properties::get(it->surface->format);
 						// TODO more intelligent aspect mask?
 						if (fmt_prop.has_color()) {
-							sub_index.aspects |= graphics::image_aspect_mask::color;
+							sub_index.aspects |= gpu::image_aspect_mask::color;
 						}
 						if (fmt_prop.depth_bits > 0) {
-							sub_index.aspects |= graphics::image_aspect_mask::depth;
+							sub_index.aspects |= gpu::image_aspect_mask::depth;
 						}
 						if (fmt_prop.stencil_bits > 0) {
-							sub_index.aspects |= graphics::image_aspect_mask::stencil;
+							sub_index.aspects |= gpu::image_aspect_mask::stencil;
 						}
 						image_barriers.emplace_back(sub_index, it->surface->image, current_usage, it->usage);
 					}
@@ -166,7 +166,7 @@ namespace lotus::renderer {
 				// deduplicate & warn about any conflicts
 				std::sort(
 					image_barriers.begin() + first_barrier, image_barriers.end(),
-					[](const graphics::image_barrier &lhs, const graphics::image_barrier &rhs) {
+					[](const gpu::image_barrier &lhs, const gpu::image_barrier &rhs) {
 						if (lhs.subresource.aspects == rhs.subresource.aspects) {
 							if (lhs.subresource.array_slice == rhs.subresource.array_slice) {
 								return lhs.subresource.mip_level < rhs.subresource.mip_level;
@@ -206,7 +206,7 @@ namespace lotus::renderer {
 			// TODO check for conflicts
 			for (const auto &trans : swap_chain_transitions) {
 				image_barriers.emplace_back(
-					graphics::subresource_index::first_color(),
+					gpu::subresource_index::first_color(),
 					trans.chain->images[trans.chain->next_image_index],
 					trans.chain->current_usages[trans.chain->next_image_index],
 					trans.usage
@@ -237,7 +237,7 @@ namespace lotus::renderer {
 		}
 	}
 
-	graphics::constant_buffer_view context::_execution_context::stage_immediate_constant_buffer(
+	gpu::constant_buffer_view context::_execution_context::stage_immediate_constant_buffer(
 		std::span<const std::byte> data
 	) {
 		if (_immediate_constant_buffer_used + data.size() > immediate_constant_buffer_cache_size) {
@@ -248,19 +248,19 @@ namespace lotus::renderer {
 			_immediate_constant_device_buffer = _ctx._device.create_committed_buffer(
 				immediate_constant_buffer_cache_size,
 				_ctx._device_memory_index,
-				graphics::buffer_usage::mask::copy_destination | graphics::buffer_usage::mask::read_only_buffer
+				gpu::buffer_usage::mask::copy_destination | gpu::buffer_usage::mask::read_only_buffer
 			);
 			_immediate_constant_upload_buffer = _ctx._device.create_committed_buffer(
 				immediate_constant_buffer_cache_size,
 				_ctx._upload_memory_index,
-				graphics::buffer_usage::mask::copy_source
+				gpu::buffer_usage::mask::copy_source
 			);
 			_immediate_constant_upload_buffer_ptr = static_cast<std::byte*>(
 				_ctx._device.map_buffer(_immediate_constant_upload_buffer, 0, 0)
 			);
 		}
 
-		graphics::constant_buffer_view result(
+		gpu::constant_buffer_view result(
 			_immediate_constant_device_buffer, _immediate_constant_buffer_used, data.size()
 		);
 
@@ -289,10 +289,10 @@ namespace lotus::renderer {
 			_immediate_constant_buffer_used
 		);
 		cmd_list.resource_barrier({}, {
-			graphics::buffer_barrier(
+			gpu::buffer_barrier(
 				_immediate_constant_device_buffer,
-				graphics::buffer_usage::copy_destination,
-				graphics::buffer_usage::read_only_buffer
+				gpu::buffer_usage::copy_destination,
+				gpu::buffer_usage::read_only_buffer
 			),
 		});
 		cmd_list.finish();
@@ -306,10 +306,10 @@ namespace lotus::renderer {
 
 
 	context context::create(
-		graphics::context &ctx,
-		const graphics::adapter_properties &adap_prop,
-		graphics::device &dev,
-		graphics::command_queue &queue
+		gpu::context &ctx,
+		const gpu::adapter_properties &adap_prop,
+		gpu::device &dev,
+		gpu::command_queue &queue
 	) {
 		return context(ctx, adap_prop, dev, queue);
 	}
@@ -319,20 +319,20 @@ namespace lotus::renderer {
 	}
 
 	image2d_view context::request_image2d(
-		std::u8string_view name, cvec2s size, std::uint32_t num_mips, graphics::format fmt,
-		graphics::image_usage::mask usages
+		std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format fmt,
+		gpu::image_usage::mask usages
 	) {
-		graphics::image_tiling tiling = graphics::image_tiling::optimal;
+		gpu::image_tiling tiling = gpu::image_tiling::optimal;
 		auto *surf = new _details::surface2d(
 			size, num_mips, fmt, tiling, usages, _resource_index++, name
 		);
 		auto surf_ptr = std::shared_ptr<_details::surface2d>(surf, _details::context_managed_deleter(*this));
-		return image2d_view(std::move(surf_ptr), fmt, graphics::mip_levels::all());
+		return image2d_view(std::move(surf_ptr), fmt, gpu::mip_levels::all());
 	}
 
 	swap_chain context::request_swap_chain(
 		std::u8string_view name, system::window &wnd,
-		std::uint32_t num_images, std::span<const graphics::format> formats
+		std::uint32_t num_images, std::span<const gpu::format> formats
 	) {
 		auto *chain = new _details::swap_chain(
 			wnd, num_images, { formats.begin(), formats.end() }, name
@@ -342,7 +342,7 @@ namespace lotus::renderer {
 	}
 
 	descriptor_array context::request_descriptor_array(
-		std::u8string_view name, graphics::descriptor_type type, std::uint32_t capacity
+		std::u8string_view name, gpu::descriptor_type type, std::uint32_t capacity
 	) {
 		auto *arr = new _details::descriptor_array(type, capacity, name);
 		auto arr_ptr = std::shared_ptr<_details::descriptor_array>(arr, _details::context_managed_deleter(*this));
@@ -355,12 +355,12 @@ namespace lotus::renderer {
 		image_size[0] >>= mip_index;
 		image_size[1] >>= mip_index;
 
-		const auto &format_props = graphics::format_properties::get(target.get_original_format());
+		const auto &format_props = gpu::format_properties::get(target.get_original_format());
 		std::uint32_t bytes_per_pixel = format_props.bytes_per_pixel();
 
 		auto staging_buffer = _device.create_committed_staging_buffer(
 			image_size[0], image_size[1], target.get_original_format(),
-			_upload_memory_index, graphics::buffer_usage::mask::copy_source
+			_upload_memory_index, gpu::buffer_usage::mask::copy_source
 		);
 
 		// copy to device
@@ -415,9 +415,9 @@ namespace lotus::renderer {
 		ectx.flush_transitions();
 
 		auto signal_semaphores = {
-			graphics::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)
+			gpu::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)
 		};
-		ectx.submit(_queue, graphics::queue_synchronization(nullptr, {}, signal_semaphores));
+		ectx.submit(_queue, gpu::queue_synchronization(nullptr, {}, signal_semaphores));
 
 		_cleanup();
 	}
@@ -460,24 +460,24 @@ namespace lotus::renderer {
 	}
 
 	context::context(
-		graphics::context &ctx,
-		const graphics::adapter_properties &adap_prop,
-		graphics::device &dev,
-		graphics::command_queue &queue
+		gpu::context &ctx,
+		const gpu::adapter_properties &adap_prop,
+		gpu::device &dev,
+		gpu::command_queue &queue
 	) :
 		_device(dev), _context(ctx), _queue(queue),
 		_cmd_alloc(_device.create_command_allocator()),
 		_transient_cmd_alloc(_device.create_command_allocator()),
 		_descriptor_pool(_device.create_descriptor_pool({
-			graphics::descriptor_range::create(graphics::descriptor_type::acceleration_structure, 1024),
-			graphics::descriptor_range::create(graphics::descriptor_type::constant_buffer, 1024),
-			graphics::descriptor_range::create(graphics::descriptor_type::read_only_buffer, 1024),
-			graphics::descriptor_range::create(graphics::descriptor_type::read_only_image, 1024),
-			graphics::descriptor_range::create(graphics::descriptor_type::read_write_buffer, 1024),
-			graphics::descriptor_range::create(graphics::descriptor_type::read_write_image, 1024),
-			graphics::descriptor_range::create(graphics::descriptor_type::sampler, 1024),
+			gpu::descriptor_range::create(gpu::descriptor_type::acceleration_structure, 1024),
+			gpu::descriptor_range::create(gpu::descriptor_type::constant_buffer, 1024),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_only_buffer, 1024),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_only_image, 1024),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_write_buffer, 1024),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_write_image, 1024),
+			gpu::descriptor_range::create(gpu::descriptor_type::sampler, 1024),
 		}, 1024)), // TODO proper numbers
-		_empty_layout(_device.create_descriptor_set_layout({}, graphics::shader_stage::all)),
+		_empty_layout(_device.create_descriptor_set_layout({}, gpu::shader_stage::all)),
 		_batch_semaphore(_device.create_timeline_semaphore(0)),
 		_adapter_properties(adap_prop),
 		_cache(_device),
@@ -486,14 +486,14 @@ namespace lotus::renderer {
 		const auto &memory_types = _device.enumerate_memory_types();
 		for (const auto &type : memory_types) {
 			if (
-				_device_memory_index == graphics::memory_type_index::invalid &&
-				!is_empty(type.second & graphics::memory_properties::device_local)
+				_device_memory_index == gpu::memory_type_index::invalid &&
+				!is_empty(type.second & gpu::memory_properties::device_local)
 			) {
 				_device_memory_index = type.first;
 			}
 			if (
-				_upload_memory_index == graphics::memory_type_index::invalid &&
-				!is_empty(type.second & graphics::memory_properties::host_visible)
+				_upload_memory_index == gpu::memory_type_index::invalid &&
+				!is_empty(type.second & gpu::memory_properties::host_visible)
 			) {
 				_upload_memory_index = type.first;
 			}
@@ -513,24 +513,24 @@ namespace lotus::renderer {
 		}
 	}
 
-	graphics::image2d_view context::_create_image_view(const recorded_resources::image2d_view &view) {
+	gpu::image2d_view context::_create_image_view(const recorded_resources::image2d_view &view) {
 		_maybe_create_image(*view._surface);
 		return _device.create_image2d_view_from(view._surface->image, view._view_format, view._mip_levels);
 	}
 
-	graphics::image2d_view &context::_request_image_view(
+	gpu::image2d_view &context::_request_image_view(
 		_execution_context &ectx, const recorded_resources::image2d_view &view
 	) {
 		return ectx.record(_create_image_view(view));
 	}
 
-	graphics::image2d_view &context::_request_image_view(
+	gpu::image2d_view &context::_request_image_view(
 		_execution_context &ectx, const recorded_resources::swap_chain &chain
 	) {
 		auto &chain_data = *chain._swap_chain;
 
 		if (chain_data.next_image_index == _details::swap_chain::invalid_image_index) {
-			graphics::back_buffer_info back_buffer = nullptr;
+			gpu::back_buffer_info back_buffer = nullptr;
 			if (chain_data.chain) {
 				back_buffer = _device.acquire_back_buffer(chain_data.chain);
 				// wait until the buffer becomes available
@@ -540,17 +540,17 @@ namespace lotus::renderer {
 					_device.reset_fence(*back_buffer.on_presented);
 				}
 			}
-			if (chain_data.desired_size != chain_data.current_size || back_buffer.status != graphics::swap_chain_status::ok) {
+			if (chain_data.desired_size != chain_data.current_size || back_buffer.status != gpu::swap_chain_status::ok) {
 				// wait until everything's done
 				{
-					auto fence = _device.create_fence(graphics::synchronization_state::unset);
+					auto fence = _device.create_fence(gpu::synchronization_state::unset);
 					ectx.submit(_queue, &fence);
 					_device.wait_for_fence(fence);
 				}
 				chain_data.images.clear();
 				// create or resize the swap chain
 				chain_data.current_size = chain_data.desired_size;
-				if (chain_data.chain && back_buffer.status == graphics::swap_chain_status::ok) {
+				if (chain_data.chain && back_buffer.status == gpu::swap_chain_status::ok) {
 					_device.resize_swap_chain_buffers(
 						chain_data.chain, chain_data.current_size
 					);
@@ -567,8 +567,8 @@ namespace lotus::renderer {
 				for (std::size_t i = 0; i < chain_data.num_images; ++i) {
 					chain_data.images.emplace_back(chain_data.chain.get_image(i));
 				}
-				chain_data.current_usages = std::vector<graphics::image_usage>(
-					chain_data.num_images, graphics::image_usage::initial
+				chain_data.current_usages = std::vector<gpu::image_usage>(
+					chain_data.num_images, gpu::image_usage::initial
 				);
 				// update fences
 				for (auto &fence : chain_data.fences) {
@@ -576,7 +576,7 @@ namespace lotus::renderer {
 				}
 				chain_data.fences.clear();
 				for (std::size_t i = 0; i < chain_data.num_images; ++i) {
-					chain_data.fences.emplace_back(_device.create_fence(graphics::synchronization_state::unset));
+					chain_data.fences.emplace_back(_device.create_fence(gpu::synchronization_state::unset));
 				}
 				chain_data.chain.update_synchronization_primitives(chain_data.fences);
 				// re-acquire back buffer
@@ -586,7 +586,7 @@ namespace lotus::renderer {
 					_device.wait_for_fence(*back_buffer.on_presented);
 					_device.reset_fence(*back_buffer.on_presented);
 				}
-				assert(back_buffer.status == graphics::swap_chain_status::ok);
+				assert(back_buffer.status == gpu::swap_chain_status::ok);
 			}
 			chain_data.next_image_index = static_cast<std::uint32_t>(back_buffer.index);
 		}
@@ -594,7 +594,7 @@ namespace lotus::renderer {
 		return ectx.record(_device.create_image2d_view_from(
 			chain_data.images[chain_data.next_image_index],
 			chain_data.current_format,
-			graphics::mip_levels::only_highest()
+			gpu::mip_levels::only_highest()
 		));
 	}
 
@@ -607,38 +607,38 @@ namespace lotus::renderer {
 	}
 
 	void context::_create_descriptor_binding(
-		_execution_context &ectx, graphics::descriptor_set &set,
-		const graphics::descriptor_set_layout &layout, std::uint32_t reg,
+		_execution_context &ectx, gpu::descriptor_set &set,
+		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
 		const descriptor_resource::image2d &img
 	) {
 		auto &img_view = _request_image_view(ectx, img.view);
-		graphics::image_usage target_usage = uninitialized;
+		gpu::image_usage target_usage = uninitialized;
 		switch (img.binding_type) {
 		case image_binding_type::read_only:
 			_device.write_descriptor_set_read_only_images(set, layout, reg, { &img_view });
-			target_usage = graphics::image_usage::read_only_texture;
+			target_usage = gpu::image_usage::read_only_texture;
 			break;
 		case image_binding_type::read_write:
 			_device.write_descriptor_set_read_write_images(set, layout, reg, { &img_view });
-			target_usage = graphics::image_usage::read_write_color_texture;
+			target_usage = gpu::image_usage::read_write_color_texture;
 			break;
 		}
 		ectx.stage_transition(*img.view._surface, img.view._mip_levels, target_usage);
 	}
 
 	void context::_create_descriptor_binding(
-		_execution_context &ectx, graphics::descriptor_set &set,
-		const graphics::descriptor_set_layout &layout, std::uint32_t reg,
+		_execution_context &ectx, gpu::descriptor_set &set,
+		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
 		const descriptor_resource::swap_chain_image &chain
 	) {
 		auto &img_view = _request_image_view(ectx, chain.image);
 		_device.write_descriptor_set_read_write_images(set, layout, reg, { &img_view });
-		ectx.stage_transition(*chain.image._swap_chain, graphics::image_usage::read_write_color_texture);
+		ectx.stage_transition(*chain.image._swap_chain, gpu::image_usage::read_write_color_texture);
 	}
 
 	void context::_create_descriptor_binding(
-		_execution_context &ectx, graphics::descriptor_set &set,
-		const graphics::descriptor_set_layout &layout, std::uint32_t reg,
+		_execution_context &ectx, gpu::descriptor_set &set,
+		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
 		const descriptor_resource::immediate_constant_buffer &cbuf
 	) {
 		_device.write_descriptor_set_constant_buffers(
@@ -647,8 +647,8 @@ namespace lotus::renderer {
 	}
 
 	void context::_create_descriptor_binding(
-		_execution_context &ectx, graphics::descriptor_set &set,
-		const graphics::descriptor_set_layout &layout, std::uint32_t reg,
+		_execution_context &ectx, gpu::descriptor_set &set,
+		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
 		const descriptor_resource::sampler &samp
 	) {
 		auto &gfx_samp = ectx.record(_device.create_sampler(
@@ -663,8 +663,8 @@ namespace lotus::renderer {
 
 	std::tuple<
 		cache_keys::descriptor_set_layout,
-		const graphics::descriptor_set_layout&,
-		graphics::descriptor_set&
+		const gpu::descriptor_set_layout&,
+		gpu::descriptor_set&
 	> context::_use_descriptor_set(
 		_execution_context &ectx, const resource_set_binding::descriptor_bindings &bindings
 	) {
@@ -673,7 +673,7 @@ namespace lotus::renderer {
 			auto type = std::visit([this](const auto &rsrc) {
 				return _get_descriptor_type(rsrc);
 			}, b.resource);
-			key.ranges.emplace_back(graphics::descriptor_range_binding::create(type, 1, b.register_index));
+			key.ranges.emplace_back(gpu::descriptor_range_binding::create(type, 1, b.register_index));
 		}
 		key.consolidate();
 
@@ -689,8 +689,8 @@ namespace lotus::renderer {
 
 	std::tuple<
 		cache_keys::descriptor_set_layout,
-		const graphics::descriptor_set_layout&,
-		graphics::descriptor_set&
+		const gpu::descriptor_set_layout&,
+		gpu::descriptor_set&
 	> context::_use_descriptor_set(
 		_execution_context &ectx, const recorded_resources::descriptor_array &arr
 	) {
@@ -707,16 +707,16 @@ namespace lotus::renderer {
 			auto writes = std::exchange(arr._array->staged_writes, {});
 			std::sort(writes.begin(), writes.end());
 			writes.erase(std::unique(writes.begin(), writes.end()), writes.end());
-			auto write_func = graphics::device::get_write_image_descriptor_function(arr._array->type);
+			auto write_func = gpu::device::get_write_image_descriptor_function(arr._array->type);
 			assert(write_func);
 			for (auto index : writes) {
 				const auto &img = arr._array->images[index].image;
 				// TODO batch writes
-				graphics::image2d_view *view = nullptr;
+				gpu::image2d_view *view = nullptr;
 				if (img) {
 					view = &_request_image_view(ectx, img);
 				}
-				std::initializer_list<const graphics::image_view*> views = { view };
+				std::initializer_list<const gpu::image_view*> views = { view };
 				(_device.*write_func)(arr._array->set, layout, index, views);
 			}
 		}
@@ -726,7 +726,7 @@ namespace lotus::renderer {
 
 	std::tuple<
 		cache_keys::pipeline_resources,
-		const graphics::pipeline_resources&,
+		const gpu::pipeline_resources&,
 		std::vector<context::_descriptor_set_info>
 	> context::_check_and_create_descriptor_set_bindings(
 		_execution_context &ectx, const all_resource_bindings &resources
@@ -749,7 +749,7 @@ namespace lotus::renderer {
 	}
 
 	void context::_bind_descriptor_sets(
-		_execution_context &ectx, const graphics::pipeline_resources &rsrc,
+		_execution_context &ectx, const gpu::pipeline_resources &rsrc,
 		std::vector<_descriptor_set_info> sets, _bind_point pt
 	) {
 		// organize descriptor sets by register space
@@ -759,7 +759,7 @@ namespace lotus::renderer {
 				return lhs.space < rhs.space;
 			}
 		);
-		std::vector<graphics::descriptor_set*> set_ptrs;
+		std::vector<gpu::descriptor_set*> set_ptrs;
 		for (const auto &s : sets) {
 			set_ptrs.emplace_back(s.set);
 		}
@@ -788,7 +788,7 @@ namespace lotus::renderer {
 
 	context::_pass_command_data context::_preprocess_command(
 		_execution_context &ectx,
-		const graphics::frame_buffer_layout &fb_layout,
+		const gpu::frame_buffer_layout &fb_layout,
 		const pass_commands::draw_instanced &cmd
 	) {
 		context::_pass_command_data result = nullptr;
@@ -819,13 +819,13 @@ namespace lotus::renderer {
 	void context::_handle_pass_command(
 		_execution_context &ectx, _pass_command_data data, const pass_commands::draw_instanced &cmd
 	) {
-		std::vector<graphics::vertex_buffer> bufs;
+		std::vector<gpu::vertex_buffer> bufs;
 		for (const auto &input : cmd.inputs) {
 			if (input.buffer_index >= bufs.size()) {
 				bufs.resize(input.buffer_index + 1, nullptr);
 			}
 			bufs[input.buffer_index] =
-				graphics::vertex_buffer(input.buffer.get().value.data, input.offset, input.stride);
+				gpu::vertex_buffer(input.buffer.get().value.data, input.offset, input.stride);
 		}
 
 		auto &cmd_list = ectx.get_command_list();
@@ -853,11 +853,11 @@ namespace lotus::renderer {
 		auto mip_level = dest._mip_levels.minimum;
 		size[0] >>= mip_level;
 		size[1] >>= mip_level;
-		ectx.stage_transition(*dest._surface, dest._mip_levels, graphics::image_usage::copy_destination);
+		ectx.stage_transition(*dest._surface, dest._mip_levels, gpu::image_usage::copy_destination);
 		ectx.flush_transitions();
 		ectx.get_command_list().copy_buffer_to_image(
 			img.source.data, 0, img.source.row_pitch, aab2s::create_from_min_max(zero, size),
-			dest._surface->image, graphics::subresource_index::create_color(mip_level, 0), zero
+			dest._surface->image, gpu::subresource_index::create_color(mip_level, 0), zero
 		);
 	}
 
@@ -876,10 +876,10 @@ namespace lotus::renderer {
 	}
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::render_pass &cmd) {
-		std::vector<graphics::color_render_target_access> color_rt_access;
-		std::vector<graphics::image2d_view*> color_rts;
-		std::vector<graphics::format> color_rt_formats;
-		graphics::format ds_rt_format = graphics::format::none;
+		std::vector<gpu::color_render_target_access> color_rt_access;
+		std::vector<gpu::image2d_view*> color_rts;
+		std::vector<gpu::format> color_rt_formats;
+		gpu::format ds_rt_format = gpu::format::none;
 
 		// create frame buffer
 		for (const auto &rt : cmd.color_render_targets) {
@@ -887,38 +887,38 @@ namespace lotus::renderer {
 				auto img = std::get<recorded_resources::image2d_view>(rt.view).highest_mip_with_warning();
 				color_rts.emplace_back(&_request_image_view(ectx, img));
 				color_rt_formats.emplace_back(img._view_format);
-				ectx.stage_transition(*img._surface, img._mip_levels, graphics::image_usage::color_render_target);
+				ectx.stage_transition(*img._surface, img._mip_levels, gpu::image_usage::color_render_target);
 				assert(img._surface->size == cmd.render_target_size);
 			} else if (std::holds_alternative<recorded_resources::swap_chain>(rt.view)) {
 				auto &chain = std::get<recorded_resources::swap_chain>(rt.view);
 				color_rts.emplace_back(&_request_image_view(ectx, chain));
 				color_rt_formats.emplace_back(chain._swap_chain->current_format);
-				ectx.stage_transition(*chain._swap_chain, graphics::image_usage::color_render_target);
+				ectx.stage_transition(*chain._swap_chain, gpu::image_usage::color_render_target);
 				assert(chain._swap_chain->current_size == cmd.render_target_size);
 			} else {
 				assert(false); // unhandled
 			}
 			color_rt_access.emplace_back(rt.access);
 		}
-		graphics::image2d_view *depth_stencil_rt = nullptr;
+		gpu::image2d_view *depth_stencil_rt = nullptr;
 		if (cmd.depth_stencil_target.view) {
 			assert(cmd.depth_stencil_target.view._surface->size == cmd.render_target_size);
 			auto img = cmd.depth_stencil_target.view.highest_mip_with_warning();
 			depth_stencil_rt = &_request_image_view(ectx, img);
 			ds_rt_format = img._view_format;
 			ectx.stage_transition(
-				*img._surface, img._mip_levels, graphics::image_usage::depth_stencil_render_target
+				*img._surface, img._mip_levels, gpu::image_usage::depth_stencil_render_target
 			);
 		}
 		auto &frame_buffer = ectx.create_frame_buffer(color_rts, depth_stencil_rt, cmd.render_target_size);
 
 		// frame buffer access
-		graphics::frame_buffer_access access = nullptr;
+		gpu::frame_buffer_access access = nullptr;
 		access.color_render_targets  = color_rt_access;
 		access.depth_render_target   = cmd.depth_stencil_target.depth_access;
 		access.stencil_render_target = cmd.depth_stencil_target.stencil_access;
 
-		graphics::frame_buffer_layout fb_layout(color_rt_formats, ds_rt_format);
+		gpu::frame_buffer_layout fb_layout(color_rt_formats, ds_rt_format);
 
 		// preprocess all commands in the pass and transition resources
 		std::vector<_pass_command_data> data;
@@ -931,7 +931,7 @@ namespace lotus::renderer {
 
 		auto &cmd_list = ectx.get_command_list();
 		cmd_list.begin_pass(frame_buffer, access);
-		cmd_list.set_viewports({ graphics::viewport::create(
+		cmd_list.set_viewports({ gpu::viewport::create(
 			aab2f::create_from_min_max(zero, cmd.render_target_size.into<float>()), 0.0f, 1.0f
 		) });
 		cmd_list.set_scissor_rectangles({ aab2i::create_from_min_max(zero, cmd.render_target_size.into<int>()) });
@@ -948,11 +948,11 @@ namespace lotus::renderer {
 	void context::_handle_command(_execution_context &ectx, const context_commands::present &cmd) {
 		// if we haven't written anything to the swap chain, just don't present
 		if (cmd.target._swap_chain->chain) {
-			ectx.stage_transition(*cmd.target._swap_chain, graphics::image_usage::present);
+			ectx.stage_transition(*cmd.target._swap_chain, gpu::image_usage::present);
 			ectx.flush_transitions();
 
 			ectx.submit(_queue, nullptr);
-			if (_queue.present(cmd.target._swap_chain->chain) != graphics::swap_chain_status::ok) {
+			if (_queue.present(cmd.target._swap_chain->chain) != gpu::swap_chain_status::ok) {
 				// TODO?
 			}
 		}
@@ -968,7 +968,7 @@ namespace lotus::renderer {
 			for (const auto &surf : batch.surface2d_meta) {
 				for (const auto &array_ref : surf->array_references) {
 					if (array_ref.arr->set) {
-						std::initializer_list<const graphics::image_view*> images = { nullptr };
+						std::initializer_list<const gpu::image_view*> images = { nullptr };
 						(_device.*_device.get_write_image_descriptor_function(array_ref.arr->type))(
 							array_ref.arr->set,
 							_cache.get_descriptor_set_layout(array_ref.arr->get_layout_key()),

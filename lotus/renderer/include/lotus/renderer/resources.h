@@ -4,10 +4,10 @@
 
 #include "lotus/logging.h"
 #include "lotus/system/window.h"
-#include "lotus/graphics/descriptors.h"
-#include "lotus/graphics/frame_buffer.h"
-#include "lotus/graphics/pipeline.h"
-#include "lotus/graphics/resources.h"
+#include "lotus/gpu/descriptors.h"
+#include "lotus/gpu/frame_buffer.h"
+#include "lotus/gpu/pipeline.h"
+#include "lotus/gpu/resources.h"
 #include "common.h"
 
 namespace lotus::renderer {
@@ -48,7 +48,7 @@ namespace lotus::renderer {
 			friend context;
 		public:
 			/// Initializes this struct to empty.
-			image2d_view(std::nullptr_t) : _mip_levels(graphics::mip_levels::all()) {
+			image2d_view(std::nullptr_t) : _mip_levels(gpu::mip_levels::all()) {
 			}
 			/// Conversion from a non-recorded \ref renderer::image2d_view.
 			image2d_view(const renderer::image2d_view&);
@@ -67,8 +67,8 @@ namespace lotus::renderer {
 			}
 		private:
 			_details::surface2d *_surface = nullptr; ///< The surface.
-			graphics::format _view_format = graphics::format::none; ///< The format of this surface.
-			graphics::mip_levels _mip_levels; ///< Mip levels.
+			gpu::format _view_format = gpu::format::none; ///< The format of this surface.
+			gpu::mip_levels _mip_levels; ///< Mip levels.
 		};
 
 		/// \ref renderer::swap_chain.
@@ -117,7 +117,7 @@ namespace lotus::renderer {
 
 
 		/// Returns the descriptor type that corresponds to the image binding.
-		[[nodiscard]] graphics::descriptor_type to_descriptor_type(image_binding_type);
+		[[nodiscard]] gpu::descriptor_type to_descriptor_type(image_binding_type);
 
 
 		/// A 2D surface managed by a context.
@@ -137,27 +137,27 @@ namespace lotus::renderer {
 			surface2d(
 				cvec2s sz,
 				std::uint32_t mips,
-				graphics::format fmt,
-				graphics::image_tiling tiling,
-				graphics::image_usage::mask usages,
+				gpu::format fmt,
+				gpu::image_tiling tiling,
+				gpu::image_usage::mask usages,
 				std::uint64_t i,
 				std::u8string_view n
 			) :
-				image(nullptr), current_usages(mips, graphics::image_usage::initial),
+				image(nullptr), current_usages(mips, gpu::image_usage::initial),
 				size(sz), num_mips(mips), format(fmt), tiling(tiling), usages(usages),
 				id(i), name(n) {
 			}
 
-			graphics::image2d image; ///< Image for the surface.
+			gpu::image2d image; ///< Image for the surface.
 			
-			std::vector<graphics::image_usage> current_usages; ///< Current usage of each mip of the surface.
+			std::vector<gpu::image_usage> current_usages; ///< Current usage of each mip of the surface.
 
 			cvec2s size; ///< The size of this surface.
 			std::uint32_t num_mips = 0; ///< Number of mips.
-			graphics::format format = graphics::format::none; ///< Original pixel format.
+			gpu::format format = gpu::format::none; ///< Original pixel format.
 			// TODO are these necessary?
-			graphics::image_tiling tiling = graphics::image_tiling::optimal; ///< Tiling of this image.
-			graphics::image_usage::mask usages = graphics::image_usage::mask::none; ///< Possible usages.
+			gpu::image_tiling tiling = gpu::image_tiling::optimal; ///< Tiling of this image.
+			gpu::image_usage::mask usages = gpu::image_usage::mask::none; ///< Possible usages.
 
 			std::vector<descriptor_array_reference> array_references; ///< References in descriptor arrays.
 
@@ -169,17 +169,17 @@ namespace lotus::renderer {
 		/// A buffer.
 		struct buffer {
 			/// Initializes this buffer to empty.
-			buffer(std::uint32_t sz, graphics::buffer_usage::mask usg, std::u8string_view n) :
+			buffer(std::uint32_t sz, gpu::buffer_usage::mask usg, std::u8string_view n) :
 				data(nullptr), size(sz), usages(usg), name(n) {
 			}
 
-			graphics::buffer data; ///< The buffer.
+			gpu::buffer data; ///< The buffer.
 
 			/// Current usage of this buffer.
-			graphics::buffer_usage current_usage = graphics::buffer_usage::read_only_buffer;
+			gpu::buffer_usage current_usage = gpu::buffer_usage::read_only_buffer;
 
 			std::uint32_t size; ///< The size of this buffer.
-			graphics::buffer_usage::mask usages = graphics::buffer_usage::mask::none; ///< Possible usages.
+			gpu::buffer_usage::mask usages = gpu::buffer_usage::mask::none; ///< Possible usages.
 
 			// TODO make this debug only?
 			std::u8string name; ///< Name of this buffer.
@@ -193,27 +193,27 @@ namespace lotus::renderer {
 
 			/// Initializes all fields of this structure without creating a swap chain.
 			swap_chain(
-				system::window &wnd, std::uint32_t imgs, std::vector<graphics::format> fmts, std::u8string_view n
+				system::window &wnd, std::uint32_t imgs, std::vector<gpu::format> fmts, std::u8string_view n
 			) :
-				chain(nullptr), current_size(zero), desired_size(zero), current_format(graphics::format::none),
+				chain(nullptr), current_size(zero), desired_size(zero), current_format(gpu::format::none),
 				next_image_index(invalid_image_index), window(wnd), num_images(imgs),
 				expected_formats(std::move(fmts)), name(n) {
 			}
 
-			graphics::swap_chain chain; ///< The swap chain.
-			std::vector<graphics::fence> fences; ///< Synchronization primitives for each back buffer.
-			std::vector<graphics::image2d> images; ///< Images in this swap chain.
-			std::vector<graphics::image_usage> current_usages; ///< Current usages of all back buffers.
+			gpu::swap_chain chain; ///< The swap chain.
+			std::vector<gpu::fence> fences; ///< Synchronization primitives for each back buffer.
+			std::vector<gpu::image2d> images; ///< Images in this swap chain.
+			std::vector<gpu::image_usage> current_usages; ///< Current usages of all back buffers.
 
 			cvec2s current_size; ///< Current size of swap chain images.
 			cvec2s desired_size; ///< Desired size of swap chain images.
-			graphics::format current_format; ///< Format of the swap chain images.
+			gpu::format current_format; ///< Format of the swap chain images.
 
 			std::uint32_t next_image_index = 0; ///< Index of the next image.
 
 			system::window &window; ///< The window that owns this swap chain.
 			std::uint32_t num_images; ///< Number of images in the swap chain.
-			std::vector<graphics::format> expected_formats; ///< Expected swap chain formats.
+			std::vector<gpu::format> expected_formats; ///< Expected swap chain formats.
 
 			// TODO make this debug only?
 			std::u8string name; ///< Name of this swap chain.
@@ -233,17 +233,17 @@ namespace lotus::renderer {
 			};
 
 			/// Initializes all fields of this structure without creating a descriptor set.
-			descriptor_array(graphics::descriptor_type ty, std::uint32_t cap, std::u8string_view n) :
+			descriptor_array(gpu::descriptor_type ty, std::uint32_t cap, std::u8string_view n) :
 				set(nullptr), capacity(cap), type(ty), name(n) {
 			}
 
 			/// Returns a key for the layout of this descriptor array.
 			[[nodiscard]] cache_keys::descriptor_set_layout get_layout_key() const;
 
-			graphics::descriptor_set set; ///< The descriptor set.
+			gpu::descriptor_set set; ///< The descriptor set.
 			std::uint32_t capacity = 0; ///< The capacity of this array.
 			/// The type of this descriptor array.
-			graphics::descriptor_type type = graphics::descriptor_type::num_enumerators;
+			gpu::descriptor_type type = gpu::descriptor_type::num_enumerators;
 
 			std::vector<image_reference> images; ///< Contents of this descriptor array.
 
@@ -310,11 +310,11 @@ namespace lotus::renderer {
 		friend recorded_resources::image2d_view;
 	public:
 		/// Initializes this view to empty.
-		image2d_view(std::nullptr_t) : _mip_levels(graphics::mip_levels::all()) {
+		image2d_view(std::nullptr_t) : _mip_levels(gpu::mip_levels::all()) {
 		}
 
 		/// Creates another view of the image in another format.
-		[[nodiscard]] image2d_view view_as(graphics::format fmt) const {
+		[[nodiscard]] image2d_view view_as(gpu::format fmt) const {
 			return image2d_view(_surface, fmt, _mip_levels);
 		}
 
@@ -323,11 +323,11 @@ namespace lotus::renderer {
 			return _surface->size;
 		}
 		/// Returns the format that this image is viewed as.
-		[[nodiscard]] graphics::format get_viewed_as_format() const {
+		[[nodiscard]] gpu::format get_viewed_as_format() const {
 			return _view_format;
 		}
 		/// Returns the original format of this image.
-		[[nodiscard]] graphics::format get_original_format() const {
+		[[nodiscard]] gpu::format get_original_format() const {
 			return _surface->format;
 		}
 
@@ -341,14 +341,14 @@ namespace lotus::renderer {
 		}
 	private:
 		/// Initializes all fields of this struct.
-		image2d_view(std::shared_ptr<_details::surface2d> surf, graphics::format fmt, graphics::mip_levels mips) :
+		image2d_view(std::shared_ptr<_details::surface2d> surf, gpu::format fmt, gpu::mip_levels mips) :
 			_surface(std::move(surf)), _view_format(fmt), _mip_levels(mips) {
 		}
 
 		std::shared_ptr<_details::surface2d> _surface; ///< The surface that this is a view of.
 		/// The format to view as; may be different from the original format of the surface.
-		graphics::format _view_format = graphics::format::none;
-		graphics::mip_levels _mip_levels; ///< Mip levels that are included in this view.
+		gpu::format _view_format = gpu::format::none;
+		gpu::mip_levels _mip_levels; ///< Mip levels that are included in this view.
 	};
 
 	/// A reference of a swap chain.
@@ -518,12 +518,12 @@ namespace lotus::renderer {
 			buffer(std::nullptr_t) : data(nullptr) {
 			}
 
-			graphics::buffer data; ///< The buffer.
+			gpu::buffer data; ///< The buffer.
 
 			std::uint32_t byte_size = 0; ///< The size of this buffer in bytes.
 			/// The size of an element in the buffer in bytes. Zero indicates an unstructured buffer.
 			std::uint32_t byte_stride = 0;
-			graphics::buffer_usage::mask usages = graphics::buffer_usage::mask::none; ///< Allowed usages.
+			gpu::buffer_usage::mask usages = gpu::buffer_usage::mask::none; ///< Allowed usages.
 		};
 		/// A loaded shader.
 		struct shader {
@@ -531,8 +531,8 @@ namespace lotus::renderer {
 			shader(std::nullptr_t) : binary(nullptr), reflection(nullptr) {
 			}
 
-			graphics::shader_binary binary; ///< Shader binary.
-			graphics::shader_reflection reflection; ///< Reflection data.
+			gpu::shader_binary binary; ///< Shader binary.
+			gpu::shader_reflection reflection; ///< Reflection data.
 
 			shader_descriptor_bindings descriptor_bindings; ///< Descriptor bindings of this shader.
 		};
@@ -568,9 +568,9 @@ namespace lotus::renderer {
 				input_buffer(std::nullptr_t) : data(nullptr) {
 				}
 
-				/// Creates a \ref graphics::vertex_buffer_view from this buffer.
-				[[nodiscard]] graphics::vertex_buffer_view into_vertex_buffer_view(std::uint32_t num_verts) const {
-					return graphics::vertex_buffer_view(data.get().value.data, format, offset, stride, num_verts);
+				/// Creates a \ref gpu::vertex_buffer_view from this buffer.
+				[[nodiscard]] gpu::vertex_buffer_view into_vertex_buffer_view(std::uint32_t num_verts) const {
+					return gpu::vertex_buffer_view(data.get().value.data, format, offset, stride, num_verts);
 				}
 				/// Creates a \ref input_buffer_binding from this buffer.
 				[[nodiscard]] input_buffer_binding into_input_buffer_binding(
@@ -580,7 +580,7 @@ namespace lotus::renderer {
 				handle<buffer> data; ///< Data of this input buffer.
 				std::uint32_t offset = 0; ///< Offset of the first element in bytes.
 				std::uint32_t stride = 0; ///< Stride between consecutive buffer elements in bytes.
-				graphics::format format = graphics::format::none; ///< Format of an element.
+				gpu::format format = gpu::format::none; ///< Format of an element.
 			};
 
 			/// Initializes this geometry to empty.
@@ -589,9 +589,9 @@ namespace lotus::renderer {
 				index_buffer(nullptr), acceleration_structure_buffer(nullptr), acceleration_structure(nullptr) {
 			}
 
-			/// Returns a \ref graphics::index_buffer_view for the index buffer of this geometry.
-			[[nodiscard]] graphics::index_buffer_view get_index_buffer_view() const {
-				return graphics::index_buffer_view(
+			/// Returns a \ref gpu::index_buffer_view for the index buffer of this geometry.
+			[[nodiscard]] gpu::index_buffer_view get_index_buffer_view() const {
+				return gpu::index_buffer_view(
 					index_buffer.get().value.data, index_format, 0, num_indices
 				);
 			}
@@ -606,13 +606,13 @@ namespace lotus::renderer {
 
 			handle<buffer> index_buffer; ///< The index buffer.
 			std::uint32_t num_indices  = 0; ///< Total number of indices.
-			graphics::index_format index_format = graphics::index_format::uint32; ///< Format of indices.
+			gpu::index_format index_format = gpu::index_format::uint32; ///< Format of indices.
 
 			/// Primitive topology.
-			graphics::primitive_topology topology = graphics::primitive_topology::point_list;
+			gpu::primitive_topology topology = gpu::primitive_topology::point_list;
 
-			graphics::buffer acceleration_structure_buffer; ///< Buffer for acceleration structure.
-			graphics::bottom_level_acceleration_structure acceleration_structure; ///< Acceleration structure.
+			gpu::buffer acceleration_structure_buffer; ///< Buffer for acceleration structure.
+			gpu::bottom_level_acceleration_structure acceleration_structure; ///< Acceleration structure.
 		};
 	}
 
@@ -624,17 +624,17 @@ namespace lotus::renderer {
 			view(std::in_place_type<recorded_resources::image2d_view>, nullptr), access(nullptr) {
 		}
 		/// Initializes all fields of this struct.
-		surface2d_color(recorded_resources::image2d_view v, graphics::color_render_target_access acc) :
+		surface2d_color(recorded_resources::image2d_view v, gpu::color_render_target_access acc) :
 			view(std::in_place_type<recorded_resources::image2d_view>, v), access(acc) {
 		}
 		/// Initializes all fields of this struct.
-		surface2d_color(recorded_resources::swap_chain v, graphics::color_render_target_access acc) :
+		surface2d_color(recorded_resources::swap_chain v, gpu::color_render_target_access acc) :
 			view(std::in_place_type<recorded_resources::swap_chain>, v), access(acc) {
 		}
 
 		/// The underlying image.
 		std::variant<recorded_resources::image2d_view, recorded_resources::swap_chain> view;
-		graphics::color_render_target_access access; ///< Usage of this surface in a render pass.
+		gpu::color_render_target_access access; ///< Usage of this surface in a render pass.
 	};
 	/// Reference to a 2D depth-stencil image that can be rendered to.
 	struct surface2d_depth_stencil {
@@ -644,17 +644,17 @@ namespace lotus::renderer {
 		/// Initializes all fields of this struct.
 		surface2d_depth_stencil(
 			recorded_resources::image2d_view v,
-			graphics::depth_render_target_access d,
-			graphics::stencil_render_target_access s = nullptr
+			gpu::depth_render_target_access d,
+			gpu::stencil_render_target_access s = nullptr
 		) : view(std::move(v)), depth_access(d), stencil_access(s) {
 		}
 
 		recorded_resources::image2d_view view; ///< The underlying image.
-		graphics::depth_render_target_access depth_access; ///< Usage of the depth values in a render pass.
-		graphics::stencil_render_target_access stencil_access; ///< Usage of the stencil values in a render pass.
+		gpu::depth_render_target_access depth_access; ///< Usage of the depth values in a render pass.
+		gpu::stencil_render_target_access stencil_access; ///< Usage of the stencil values in a render pass.
 	};
 
-	/// An input buffer binding. Largely similar to \ref graphics::input_buffer_layout.
+	/// An input buffer binding. Largely similar to \ref gpu::input_buffer_layout.
 	struct input_buffer_binding {
 		/// Initializes this buffer to empty.
 		input_buffer_binding(std::nullptr_t) : buffer(nullptr) {
@@ -663,14 +663,14 @@ namespace lotus::renderer {
 		input_buffer_binding(
 			std::uint32_t index,
 			assets::handle<assets::buffer> buf, std::uint32_t off, std::uint32_t str,
-			graphics::input_buffer_rate rate, std::vector<graphics::input_buffer_element> elems
+			gpu::input_buffer_rate rate, std::vector<gpu::input_buffer_element> elems
 		) :
 			elements(std::move(elems)), buffer(std::move(buf)), stride(str), offset(off),
 			buffer_index(index), input_rate(rate) {
 		}
 		/// Creates a buffer corresponding to the given input.
 		[[nodiscard]] inline static input_buffer_binding create(
-			assets::handle<assets::buffer> buf, std::uint32_t off, graphics::input_buffer_layout layout
+			assets::handle<assets::buffer> buf, std::uint32_t off, gpu::input_buffer_layout layout
 		) {
 			return input_buffer_binding(
 				static_cast<std::uint32_t>(layout.buffer_index), std::move(buf),
@@ -679,13 +679,13 @@ namespace lotus::renderer {
 			);
 		}
 
-		std::vector<graphics::input_buffer_element> elements; ///< Elements in this vertex buffer.
+		std::vector<gpu::input_buffer_element> elements; ///< Elements in this vertex buffer.
 		assets::handle<assets::buffer> buffer; ///< The buffer.
 		std::uint32_t stride = 0; ///< The size of one vertex.
 		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer.
 		std::uint32_t buffer_index = 0; ///< Binding index for this input buffer.
 		/// Specifies how the buffer data is used.
-		graphics::input_buffer_rate input_rate = graphics::input_buffer_rate::per_vertex;
+		gpu::input_buffer_rate input_rate = gpu::input_buffer_rate::per_vertex;
 	};
 	/// An index buffer binding.
 	struct index_buffer_binding {
@@ -694,13 +694,13 @@ namespace lotus::renderer {
 		}
 		/// Initializes all fields of this struct.
 		index_buffer_binding(
-			assets::handle<assets::buffer> buf, std::uint32_t off, graphics::index_format fmt
+			assets::handle<assets::buffer> buf, std::uint32_t off, gpu::index_format fmt
 		) : buffer(std::move(buf)), offset(off), format(fmt) {
 		}
 
 		assets::handle<assets::buffer> buffer; ///< The index buffer.
 		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer where indices start.
-		graphics::index_format format = graphics::index_format::uint32; ///< Format of indices.
+		gpu::index_format format = gpu::index_format::uint32; ///< Format of indices.
 	};
 
 	namespace descriptor_resource {
@@ -755,16 +755,16 @@ namespace lotus::renderer {
 			}
 			/// Initializes all fields of this struct.
 			sampler(
-				graphics::filtering min = graphics::filtering::linear,
-				graphics::filtering mag = graphics::filtering::linear,
-				graphics::filtering mip = graphics::filtering::linear,
+				gpu::filtering min = gpu::filtering::linear,
+				gpu::filtering mag = gpu::filtering::linear,
+				gpu::filtering mip = gpu::filtering::linear,
 				float lod_bias = 0.0f, float minlod = 0.0f, float maxlod = std::numeric_limits<float>::max(),
 				std::optional<float> max_aniso = std::nullopt,
-				graphics::sampler_address_mode addr_u = graphics::sampler_address_mode::repeat,
-				graphics::sampler_address_mode addr_v = graphics::sampler_address_mode::repeat,
-				graphics::sampler_address_mode addr_w = graphics::sampler_address_mode::repeat,
+				gpu::sampler_address_mode addr_u = gpu::sampler_address_mode::repeat,
+				gpu::sampler_address_mode addr_v = gpu::sampler_address_mode::repeat,
+				gpu::sampler_address_mode addr_w = gpu::sampler_address_mode::repeat,
 				linear_rgba_f border = zero,
-				std::optional<graphics::comparison_function> comp = std::nullopt
+				std::optional<gpu::comparison_function> comp = std::nullopt
 			) :
 				minification(min), magnification(mag), mipmapping(mip),
 				mip_lod_bias(lod_bias), min_lod(minlod), max_lod(maxlod), max_anisotropy(max_aniso),
@@ -772,18 +772,18 @@ namespace lotus::renderer {
 				border_color(border), comparison(comp) {
 			}
 
-			graphics::filtering minification  = graphics::filtering::nearest;
-			graphics::filtering magnification = graphics::filtering::nearest;
-			graphics::filtering mipmapping    = graphics::filtering::nearest;
+			gpu::filtering minification  = gpu::filtering::nearest;
+			gpu::filtering magnification = gpu::filtering::nearest;
+			gpu::filtering mipmapping    = gpu::filtering::nearest;
 			float mip_lod_bias = 0.0f;
 			float min_lod      = 0.0f;
 			float max_lod      = 0.0f;
 			std::optional<float> max_anisotropy;
-			graphics::sampler_address_mode addressing_u = graphics::sampler_address_mode::repeat;
-			graphics::sampler_address_mode addressing_v = graphics::sampler_address_mode::repeat;
-			graphics::sampler_address_mode addressing_w = graphics::sampler_address_mode::repeat;
+			gpu::sampler_address_mode addressing_u = gpu::sampler_address_mode::repeat;
+			gpu::sampler_address_mode addressing_v = gpu::sampler_address_mode::repeat;
+			gpu::sampler_address_mode addressing_w = gpu::sampler_address_mode::repeat;
 			linear_rgba_f border_color = zero;
-			std::optional<graphics::comparison_function> comparison;
+			std::optional<gpu::comparison_function> comparison;
 		};
 
 

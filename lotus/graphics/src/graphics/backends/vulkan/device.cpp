@@ -903,7 +903,7 @@ namespace lotus::graphics::backends::vulkan {
 	void device::set_debug_name(image &img, const char8_t *name) {
 		vk::DebugMarkerObjectNameInfoEXT info;
 		info
-			.setObjectType(vk::DebugReportObjectTypeEXT::eBuffer)
+			.setObjectType(vk::DebugReportObjectTypeEXT::eImage)
 			.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkImage>(
 				static_cast<_details::image&>(img)._image
 			)))

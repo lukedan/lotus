@@ -21,7 +21,7 @@ namespace lotus::graphics::backends::directx12 {
 	class context {
 	protected:
 		/// Initializes the DXGI factory.
-		[[nodiscard]] static context create();
+		[[nodiscard]] static context create(context_options);
 
 		/// Enumerates the list of adapters using \p IDXGIFactory6::EnumAdapterByGpuPreference().
 		template <typename Callback> void enumerate_adapters(Callback &&cb) {

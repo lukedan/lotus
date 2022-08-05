@@ -36,7 +36,9 @@ int main(int argc, char **argv) {
 	sys::application app(u8"test");
 	auto wnd = app.create_window();
 
-	auto gctx = gfx::context::create();
+	auto gctx_options = gfx::context_options::enable_validation;
+	/*auto gctx_options = gfx::context_options::none;*/
+	auto gctx = gfx::context::create(gctx_options);
 	auto shader_util = gfx::shader_utility::create();
 	gfx::device gdev = nullptr;
 	gfx::adapter_properties dev_prop = uninitialized;
@@ -217,7 +219,7 @@ int main(int argc, char **argv) {
 			auto gbuffer = ren::g_buffer::view::create(rctx, window_size);
 			{
 				auto pass = gbuffer.begin_pass(rctx);
-				ren::g_buffer::render_instances(pass, asset_man, instances, cam.projection_view_matrix);
+				ren::g_buffer::render_instances(pass, asset_man, instances, cam.view_matrix, cam.projection_matrix);
 				pass.end();
 			}
 
@@ -276,7 +278,7 @@ int main(int argc, char **argv) {
 					ren::all_resource_bindings::from_unsorted({
 						ren::resource_set_binding::create({
 							ren::resource_binding(ren::descriptor_resource::image2d(
-								gbuffer.albedo_glossiness, ren::image_binding_type::read_only
+								gbuffer.normal, ren::image_binding_type::read_only
 							), 0),
 							ren::resource_binding(ren::descriptor_resource::sampler(), 1),
 						}, 0)

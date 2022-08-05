@@ -3,26 +3,17 @@
 
 #include "types.hlsli"
 
-struct vs_input {
-	float3 position : POSITION;
-#ifdef VERTEX_INPUT_HAS_UV
-	float2 uv       : TEXCOORD;
-#endif
-#ifdef VERTEX_INPUT_HAS_NORMAL
-	float3 normal   : NORMAL;
-#endif
-#ifdef VERTEX_INPUT_HAS_TANGENT
-	float3 tangent  : TANGENT;
-#endif
-};
-
 struct material_output {
 	float3 albedo;
-	float3 normal;
-	float3 tangent;
-	float3 bitangent;
 	float  glossiness;
 	float  metalness;
+
+	float3 normal_ts;
 };
+
+float3 evaluate_normal_mikkt(float3 normal_ts, float3 normal_ws, float3 tangent_ws, float bitangent_sign) {
+	float3 bitangent_ws = bitangent_sign * cross(normal_ws, tangent_ws);
+	return normalize(mul(transpose(float3x3(tangent_ws, bitangent_ws, normal_ws)), normal_ts));
+}
 
 #endif

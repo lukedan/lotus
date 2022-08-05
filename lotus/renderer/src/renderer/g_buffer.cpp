@@ -86,7 +86,7 @@ namespace lotus::renderer::g_buffer {
 
 
 	void render_instances(
-		context::pass &pass, assets::manager &man, std::span<const instance> instances, mat44f transform
+		context::pass &pass, assets::manager &man, std::span<const instance> instances, mat44f view, mat44f projection
 	) {
 		pass_context pass_ctx(man);
 		for (const auto &inst : instances) {
@@ -100,7 +100,8 @@ namespace lotus::renderer::g_buffer {
 				graphics::depth_stencil_options(true, true, graphics::comparison_function::greater, false, 0, 0, graphics::stencil_options::always_pass_no_op(), graphics::stencil_options::always_pass_no_op())
 			);
 			shader_types::instance_data instance;
-			instance.transform = transform * inst.transform;
+			instance.transform = inst.transform;
+			instance.view_projection = projection * view;
 			resource_set_binding::descriptor_bindings bindings({
 				resource_binding(descriptor_resource::immediate_constant_buffer::create_for(instance), 1),
 			});

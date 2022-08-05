@@ -19,10 +19,12 @@ namespace lotus::graphics::backends::vulkan {
 		}
 	}
 
-	context context::create() {
-		std::array enabled_layers = {
-			"VK_LAYER_KHRONOS_validation"
-		};
+	context context::create(context_options opt) {
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto enabled_layers = bookmark.create_vector_array<const char*>();
+		if (!is_empty(opt & context_options::enable_validation)) {
+			enabled_layers.emplace_back("VK_LAYER_KHRONOS_validation");
+		}
 		std::array enabled_extensions = {
 			VK_KHR_SURFACE_EXTENSION_NAME,
 			VK_EXT_DEBUG_REPORT_EXTENSION_NAME,

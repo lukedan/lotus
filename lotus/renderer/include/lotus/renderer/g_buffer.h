@@ -54,5 +54,5 @@ namespace lotus::renderer::g_buffer {
 	};
 
 	/// Renders the given instances in the given pass.
-	void render_instances(context::pass&, assets::manager&, std::span<const instance>, mat44f transform);
+	void render_instances(context::pass&, assets::manager&, std::span<const instance>, mat44f view, mat44f projection);
 }

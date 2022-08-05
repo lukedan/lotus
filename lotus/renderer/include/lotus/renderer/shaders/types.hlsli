@@ -3,6 +3,7 @@
 
 struct instance_data {
 	float4x4 transform;
+	float4x4 view_projection;
 };
 
 struct gltf_material_properties {

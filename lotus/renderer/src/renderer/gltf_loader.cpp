@@ -7,6 +7,8 @@
 
 #include <tiny_gltf.h>
 
+#include <lotus/math/quaternion.h>
+
 namespace lotus::renderer::gltf {
 	/// Loads a data buffer with the given properties.
 	template <typename T> static assets::handle<assets::buffer> _load_data_buffer(
@@ -158,8 +160,8 @@ namespace lotus::renderer::gltf {
 		for (std::size_t i = 0; i < model.meshes.size(); ++i) {
 			const auto &mesh = model.meshes[i];
 			auto &geom_primitives = geometries.emplace_back(
-				bookmark.create_vector_array<assets::handle<assets::geometry>>(mesh.primitives.size(), nullptr
-			));
+				bookmark.create_vector_array<assets::handle<assets::geometry>>(mesh.primitives.size(), nullptr)
+			);
 			for (std::size_t j = 0; j < mesh.primitives.size(); ++j) {
 				const auto &prim = mesh.primitives[j];
 
@@ -290,15 +292,15 @@ namespace lotus::renderer::gltf {
 			mat_data->albedo_texture =
 				mat.pbrMetallicRoughness.baseColorTexture.index < 0 ?
 				nullptr :
-				images[mat.pbrMetallicRoughness.baseColorTexture.index];
+				images[model.textures[mat.pbrMetallicRoughness.baseColorTexture.index].source];
 			mat_data->normal_texture =
 				mat.normalTexture.index < 0 ?
 				nullptr :
-				images[mat.normalTexture.index];
+				images[model.textures[mat.normalTexture.index].source];
 			mat_data->properties_texture =
 				mat.pbrMetallicRoughness.metallicRoughnessTexture.index < 0 ?
 				nullptr :
-				images[mat.pbrMetallicRoughness.metallicRoughnessTexture.index];
+				images[model.textures[mat.pbrMetallicRoughness.metallicRoughnessTexture.index].source];
 
 			materials[i] = _asset_manager.register_material(
 				assets::identifier(
@@ -310,12 +312,35 @@ namespace lotus::renderer::gltf {
 
 		// load nodes
 		std::vector<instance> result;
-		for (std::size_t i = 0; i < model.nodes.size(); ++i) {
-			const auto &node = model.nodes[i];
+		std::vector<std::pair<int, mat44f>> stack;
+		for (const auto &node : model.scenes[model.defaultScene].nodes) {
+			stack.emplace_back(node, mat44f::identity());
+		}
+		while (!stack.empty()) {
+			auto [node_id, transform] = stack.back();
+			stack.pop_back();
+			const auto &node = model.nodes[node_id];
 
 			mat44f trans = uninitialized;
 			if (node.matrix.empty()) {
-				trans = mat44f::identity();
+				auto scale =
+					node.scale.empty() ?
+					mat33f::identity() :
+					mat33f::diagonal(node.scale[0], node.scale[1], node.scale[2]);
+				auto rotation =
+					node.rotation.empty() ?
+					mat33f::identity() :
+					quat::unsafe_normalize(quatf::from_wxyz(
+						node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]
+					)).into_matrix();
+				auto translation =
+					node.translation.empty() ?
+					cvec3f(zero) :
+					cvec3f(node.translation[0], node.translation[1], node.translation[2]);
+				trans = matf::concat_rows(
+					matf::concat_columns(rotation * scale, translation),
+					rvec4f(0.0f, 0.0f, 0.0f, 1.0f)
+				);
 			} else {
 				assert(node.matrix.size() == 16);
 				for (std::size_t row = 0; row < 4; ++row) {
@@ -324,26 +349,35 @@ namespace lotus::renderer::gltf {
 					}
 				}
 			}
+			trans = transform * trans;
 
-			for (std::size_t j = 0; j < geometries[node.mesh].size(); ++j) {
-				const auto &prim_handle = geometries[node.mesh][j];
-				const auto &prim = model.meshes[i].primitives[j];
-				const auto &mat = model.materials[prim.material];
+			if (node.mesh >= 0) {
+				for (std::size_t j = 0; j < geometries[node.mesh].size(); ++j) {
+					const auto &prim_handle = geometries[node.mesh][j];
+					const auto &prim = model.meshes[node.mesh].primitives[j];
+					const auto &mat = model.materials[prim.material];
 
-				auto &inst = result.emplace_back(nullptr);
-				inst.transform = trans;
-				inst.material = materials[prim.material];
-				inst.geometry = prim_handle;
+					auto &inst = result.emplace_back(nullptr);
+					inst.transform = trans;
+					inst.material = materials[prim.material];
+					inst.geometry = prim_handle;
 
-				// create material pipeline
-				auto defines = bookmark.create_vector_array<std::pair<std::u8string_view, std::u8string_view>>();
-				if (mat.alphaMode == "MASK") {
-					defines.emplace_back(u8"ALPHA_MASK", u8"");
-				} else {
-					if (mat.alphaMode != "OPAQUE") {
-						log().warn<u8"Unknown alpha mode: {}">(mat.alphaMode);
+					// create material pipeline
+					auto defines = bookmark.create_vector_array<std::pair<std::u8string_view, std::u8string_view>>();
+					if (mat.alphaMode == "MASK") {
+						defines.emplace_back(u8"ALPHA_MASK", u8"");
+					} else {
+						if (mat.alphaMode != "OPAQUE") {
+							log().warn<u8"Unknown alpha mode: {}">(mat.alphaMode);
+						}
 					}
 				}
+			}
+
+			log().debug<u8"Object {} children:">(node.name);
+			for (auto child : node.children) {
+				log().debug<u8"  {}">(model.nodes[child].name);
+				stack.emplace_back(child, trans);
 			}
 		}
 
@@ -360,9 +394,9 @@ namespace lotus::renderer::gltf {
 
 		shader_types::gltf_material mat;
 		mat.properties = properties;
-		mat.assets.albedo_texture     = albedo_texture.get().value.descriptor_index;
-		mat.assets.normal_texture     = normal_texture.get().value.descriptor_index;
-		mat.assets.properties_texture = properties_texture.get().value.descriptor_index;
+		mat.assets.albedo_texture     = albedo_texture ? albedo_texture.get().value.descriptor_index : 0;
+		mat.assets.normal_texture     = normal_texture ? normal_texture.get().value.descriptor_index : 0;
+		mat.assets.properties_texture = properties_texture ? properties_texture.get().value.descriptor_index : 0;
 		set1.bindings.emplace_back(descriptor_resource::immediate_constant_buffer::create_for(mat), 0);
 
 		set1.bindings.emplace_back(descriptor_resource::sampler(), 2);

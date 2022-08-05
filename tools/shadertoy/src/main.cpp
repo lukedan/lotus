@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 	lsys::application app(u8"Shadertoy");
 	lsys::window wnd = app.create_window();
 
-	auto gctx = lgfx::context::create();
+	auto gctx = lgfx::context::create(lgfx::context_options::enable_validation);
 	auto shader_utils = lgfx::shader_utility::create();
 	lgfx::device gdev = nullptr;
 	lgfx::adapter_properties gdev_props = uninitialized;

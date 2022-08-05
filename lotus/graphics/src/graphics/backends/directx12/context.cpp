@@ -11,23 +11,16 @@
 #include "lotus/utils/stack_allocator.h"
 
 namespace lotus::graphics::backends::directx12 {
-	context context::create() {
+	context context::create(context_options opts) {
 		context result;
 		_details::assert_dx(CreateDXGIFactory1(IID_PPV_ARGS(&result._dxgi_factory)));
-		if constexpr (is_debugging)
-		{ // enable debug layer
+		if (!is_empty(opts & context_options::enable_validation)) { // enable debug layer
 			_details::com_ptr<ID3D12Debug1> debug;
 			_details::assert_dx(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)));
 			debug->EnableDebugLayer();
 			debug->SetEnableGPUBasedValidation(true);
 			debug->SetEnableSynchronizedCommandQueueValidation(true);
 		}
-		/*{ // allow unsigned shaders to run
-			const IID features[] = { D3D12ExperimentalShaderModels };
-			void *structs[] = { nullptr };
-			UINT sizes[] = { 0 };
-			_details::assert_dx(D3D12EnableExperimentalFeatures(1, features, structs, sizes));
-		}*/
 		return result;
 	}
 

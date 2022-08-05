@@ -21,8 +21,8 @@ namespace lotus::graphics {
 		/// No default construction.
 		context() = delete;
 		/// Creates a new context object.
-		[[nodiscard]] inline static context create() {
-			return backend::context::create();
+		[[nodiscard]] inline static context create(context_options opt) {
+			return backend::context::create(opt);
 		}
 		/// No copy construction.
 		context(const context&) = delete;

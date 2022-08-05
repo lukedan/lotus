@@ -57,7 +57,7 @@ namespace lotus {
 		constexpr matrix &operator=(const matrix&) = default;
 
 		/// Returns an identity matrix.
-		[[nodiscard]] inline static consteval matrix identity() {
+		[[nodiscard]] inline static constexpr matrix identity() {
 			matrix result = zero;
 			for (std::size_t i = 0; i < std::min(Rows, Cols); ++i) {
 				result(i, i) = static_cast<T>(1);

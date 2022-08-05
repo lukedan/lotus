@@ -28,7 +28,7 @@ namespace lotus::graphics::backends::vulkan {
 		~context();
 	protected:
 		/// Calls \p vk::createInstanceUnique().
-		[[nodiscard]] static context create();
+		[[nodiscard]] static context create(context_options);
 
 		/// Calls \p vk::Instance::enumeratePhysicalDevices().
 		template <typename Callback> void enumerate_adapters(Callback &&cb) {

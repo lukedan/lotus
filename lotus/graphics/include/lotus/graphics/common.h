@@ -46,6 +46,24 @@ namespace lotus::graphics {
 	};
 
 
+	/// Options for context creation.
+	enum class context_options : std::uint8_t {
+		none = 0, ///< None.
+		enable_validation = 1 << 0, ///< Enables all validation.
+
+		num_enumerators = 1 ///< Total number of enumerators.
+	};
+}
+namespace lotus {
+	/// Enable bitwise operations for \ref graphics::context_options.
+	template <> struct enable_enum_bitwise_operators<graphics::context_options> : public std::true_type {
+	};
+	/// Enable \ref is_empty for \ref graphics::context_options.
+	template <> struct enable_enum_is_empty<graphics::context_options> : public std::true_type {
+	};
+}
+
+namespace lotus::graphics {
 	/// The format of a pixel.
 	enum class format {
 		none, ///< No specific type.

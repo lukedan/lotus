@@ -26,6 +26,10 @@ namespace lotus::renderer {
 		}
 
 
+		buffer::buffer(const renderer::buffer &buf) : _buffer(buf._buffer.get()) {
+		}
+
+
 		swap_chain::swap_chain(const renderer::swap_chain &c) : _swap_chain(c._swap_chain.get()) {
 		}
 

@@ -60,7 +60,11 @@ int main(int argc, char **argv) {
 
 	// model & resources
 	auto gltf_ctx = ren::gltf::context::create(asset_man);
-	auto instances = gltf_ctx.load(argv[1]);
+	std::vector<ren::instance> instances;
+	for (int i = 1; i < argc; ++i) {
+		auto loaded_instances = gltf_ctx.load(argv[i]);
+		instances.insert(instances.end(), loaded_instances.begin(), loaded_instances.end());
+	}
 
 	/*composite_pass comp_pass(dev);*/
 

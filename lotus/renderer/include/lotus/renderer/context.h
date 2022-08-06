@@ -236,6 +236,10 @@ namespace lotus::renderer {
 		[[nodiscard]] image2d_view request_image2d(
 			std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format, gpu::image_usage::mask
 		);
+		/// Creates a buffer with the given size.
+		[[nodiscard]] buffer request_buffer(
+			std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage::mask
+		);
 		/// Creates a swap chain with the given properties.
 		[[nodiscard]] swap_chain request_swap_chain(
 			std::u8string_view name, system::window&,
@@ -379,8 +383,9 @@ namespace lotus::renderer {
 			std::deque<gpu::swap_chain>              swap_chains;            ///< Swap chains.
 			std::deque<gpu::fence>                   fences;                 ///< Fences.
 
-			std::vector<std::unique_ptr<_details::surface2d>>  surface2d_meta;    ///< Images to be disposed next frame.
+			std::vector<std::unique_ptr<_details::surface2d>>  surface2d_meta;  ///< Images to be disposed next frame.
 			std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain to be disposed next frame.
+			std::vector<std::unique_ptr<_details::buffer>>     buffer_meta;     ///< Buffers to be disposed next frame.
 
 			/// Registers the given object as a resource.
 			template <typename T> T &record(T &&obj) {
@@ -683,16 +688,23 @@ namespace lotus::renderer {
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a surface.
 		void _deferred_delete(_details::surface2d *surf) {
 			if (surf->image) {
-				_deferred_delete_resources.images.emplace_back(std::move(surf->image));
+				_deferred_delete_resources.record(std::move(surf->image));
 			}
 			_deferred_delete_resources.surface2d_meta.emplace_back(surf);
+		}
+		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a buffer.
+		void _deferred_delete(_details::buffer *buf) {
+			if (buf->data) {
+				_deferred_delete_resources.record(std::move(buf->data));
+			}
+			_deferred_delete_resources.buffer_meta.emplace_back(buf);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a swap chain.
 		void _deferred_delete(_details::swap_chain *chain) {
 			if (chain->chain) {
 				_deferred_delete_resources.swap_chains.emplace_back(std::move(chain->chain));
 				for (auto &fence : chain->fences) {
-					_deferred_delete_resources.fences.emplace_back(std::move(fence));
+					_deferred_delete_resources.record(std::move(fence));
 				}
 			}
 			_deferred_delete_resources.swap_chain_meta.emplace_back(chain);

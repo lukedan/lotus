@@ -136,10 +136,6 @@ namespace lotus::renderer {
 				return compile_shader_in_filesystem(path, stage, entry_point, def_views);
 			}
 
-			/// Registers a texture asset.
-			handle<texture2d> register_texture2d(identifier id, texture2d tex) {
-				return _register_asset(std::move(id), std::move(tex), _textures);
-			}
 			/// Registers a buffer asset.
 			handle<buffer> register_buffer(identifier id, buffer buf) {
 				return _register_asset(std::move(id), std::move(buf), _buffers);
@@ -160,6 +156,10 @@ namespace lotus::renderer {
 			/// Returns the descriptor array with descriptors of all loaded images.
 			[[nodiscard]] recorded_resources::descriptor_array get_images() {
 				return _texture2d_descriptors;
+			}
+			/// Returns a handle for the texture that indicates an invalid texture.
+			[[nodiscard]] const handle<texture2d> &get_invalid_texture() const {
+				return _invalid_texture;
 			}
 
 			/// Returns the device associated with this asset manager.
@@ -202,9 +202,7 @@ namespace lotus::renderer {
 			manager(context&, gpu::device&, gpu::command_queue&, std::filesystem::path, gpu::shader_utility*);
 
 			/// Generic interface for registering an asset.
-			template <typename T> handle<T> _register_asset(
-				identifier id, T value, _map<T> &mp
-			) {
+			template <typename T> handle<T> _register_asset(identifier id, T value, _map<T> &mp) {
 				auto *asset_ptr = new asset<T>(std::move(value));
 				auto ptr = std::shared_ptr<asset<T>>(asset_ptr);
 				auto [it, inserted] = mp.emplace(std::move(id), ptr);
@@ -260,6 +258,7 @@ namespace lotus::renderer {
 			gpu::fence _fence; ///< Fence used for synchronization.
 
 			descriptor_array _texture2d_descriptors; ///< Bindless descriptor array of all textures.
+			handle<texture2d> _invalid_texture; ///< Index of a texture indicating "invalid texture".
 			std::vector<std::uint32_t> _texture2d_descriptor_index_alloc; ///< Used to allocate descriptor indices.
 
 			std::filesystem::path _shader_library_path; ///< Path containing all shaders.

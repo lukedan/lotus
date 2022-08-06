@@ -37,7 +37,7 @@ namespace lotus::renderer::gltf {
 		std::vector<T> data(buffer_elements);
 
 		auto *data_raw = reinterpret_cast<const std::byte*>(
-			model.buffers[buffer_view.buffer].data.data() + buffer_view.byteOffset
+			model.buffers[buffer_view.buffer].data.data() + buffer_view.byteOffset + accessor.byteOffset
 		);
 		for (int i = 0; i < accessor.count; ++i) {
 			auto *current_raw = data_raw + stride * i;
@@ -68,10 +68,24 @@ namespace lotus::renderer::gltf {
 						}
 					}
 					break;
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+					{
+						assert(std::is_integral_v<T>);
+						auto *current = reinterpret_cast<const std::uint32_t*>(current_raw);
+						target[j] = static_cast<T>(current[j]);
+					}
+					break;
 				case TINYGLTF_COMPONENT_TYPE_FLOAT:
 					{
 						assert(std::is_floating_point_v<T>);
 						auto *current = reinterpret_cast<const float*>(current_raw);
+						target[j] = static_cast<T>(current[j]);
+					}
+					break;
+				case TINYGLTF_COMPONENT_TYPE_DOUBLE:
+					{
+						assert(std::is_floating_point_v<T>);
+						auto *current = reinterpret_cast<const double*>(current_raw);
 						target[j] = static_cast<T>(current[j]);
 					}
 					break;
@@ -394,9 +408,9 @@ namespace lotus::renderer::gltf {
 
 		shader_types::gltf_material mat;
 		mat.properties = properties;
-		mat.assets.albedo_texture     = albedo_texture ? albedo_texture.get().value.descriptor_index : 0;
-		mat.assets.normal_texture     = normal_texture ? normal_texture.get().value.descriptor_index : 0;
-		mat.assets.properties_texture = properties_texture ? properties_texture.get().value.descriptor_index : 0;
+		mat.assets.albedo_texture     = albedo_texture     ? albedo_texture.get().value.descriptor_index     : manager->get_invalid_texture().get().value.descriptor_index;
+		mat.assets.normal_texture     = normal_texture     ? normal_texture.get().value.descriptor_index     : manager->get_invalid_texture().get().value.descriptor_index;
+		mat.assets.properties_texture = properties_texture ? properties_texture.get().value.descriptor_index : manager->get_invalid_texture().get().value.descriptor_index;
 		set1.bindings.emplace_back(descriptor_resource::immediate_constant_buffer::create_for(mat), 0);
 
 		set1.bindings.emplace_back(descriptor_resource::sampler(), 2);

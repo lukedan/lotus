@@ -16,10 +16,12 @@ namespace lotus::renderer {
 	struct index_buffer_binding;
 	struct all_resource_bindings;
 	class image2d_view;
+	class buffer;
 	class swap_chain;
 	class descriptor_array;
 	namespace _details {
 		struct surface2d;
+		struct buffer;
 		struct swap_chain;
 		struct descriptor_array;
 	}
@@ -69,6 +71,28 @@ namespace lotus::renderer {
 			_details::surface2d *_surface = nullptr; ///< The surface.
 			gpu::format _view_format = gpu::format::none; ///< The format of this surface.
 			gpu::mip_levels _mip_levels; ///< Mip levels.
+		};
+
+		/// \ref renderer::buffer.
+		class buffer {
+			friend context;
+		public:
+			/// Initializes this struct to empty.
+			buffer(std::nullptr_t) {
+			}
+			/// Conversion from a non-recorded \ref renderer::buffer.
+			buffer(const renderer::buffer&);
+
+			/// Returns whether this object holds a valid buffer.
+			[[nodiscard]] bool is_valid() const {
+				return _buffer;
+			}
+			/// \overload
+			[[nodiscard]] explicit operator bool() const {
+				return is_valid();
+			}
+		private:
+			_details::buffer *_buffer = nullptr; ///< The buffer.
 		};
 
 		/// \ref renderer::swap_chain.
@@ -349,6 +373,36 @@ namespace lotus::renderer {
 		/// The format to view as; may be different from the original format of the surface.
 		gpu::format _view_format = gpu::format::none;
 		gpu::mip_levels _mip_levels; ///< Mip levels that are included in this view.
+	};
+
+	/// A reference of a buffer.
+	class buffer {
+		friend context;
+		friend recorded_resources::buffer;
+	public:
+		/// Initializes the view to empty.
+		buffer(std::nullptr_t) {
+		}
+
+		/// Returns the size of this buffer.
+		[[nodiscard]] std::uint32_t get_size_in_bytes() const {
+			return _buffer->size;
+		}
+
+		/// Returns whether this object holds a valid buffer.
+		[[nodiscard]] bool is_valid() const {
+			return _buffer.get();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
+		}
+	private:
+		/// Initializes all fields of this struct.
+		buffer(std::shared_ptr<_details::buffer> buf) : _buffer(std::move(buf)) {
+		}
+
+		std::shared_ptr<_details::buffer> _buffer; ///< The referenced buffer.
 	};
 
 	/// A reference of a swap chain.

@@ -107,8 +107,7 @@ namespace lotus::renderer::assets {
 
 		tex.descriptor_index = _allocate_descriptor_index();
 		_context.write_image_descriptors(_texture2d_descriptors, tex.descriptor_index, { tex.image });
-
-		return _register_asset(std::move(id), std::move(tex), _textures);
+		return _register_asset(id, std::move(tex), _textures);
 	}
 
 	handle<buffer> manager::create_buffer(
@@ -195,8 +194,33 @@ namespace lotus::renderer::assets {
 		_texture2d_descriptors(ctx.request_descriptor_array(
 			u8"Texture assets", gpu::descriptor_type::read_only_image, 1024
 		)),
+		_invalid_texture(nullptr),
 		_texture2d_descriptor_index_alloc({ 0 }),
 		_shader_library_path(std::move(shader_lib_path)) {
+
+		{ // create "invalid" texture
+			constexpr cvec2s size = cvec2s(128, 128);
+			{
+				texture2d tex = nullptr;
+				tex.image = _context.request_image2d(
+					u8"Invalid", size, 1, gpu::format::b8g8r8a8_unorm,
+					gpu::image_usage::mask::copy_destination | gpu::image_usage::mask::read_only_texture
+				);
+				tex.descriptor_index = _allocate_descriptor_index();
+				tex.highest_mip_loaded = 0;
+				_context.write_image_descriptors(_texture2d_descriptors, tex.descriptor_index, { tex.image });
+				_invalid_texture = _register_asset(assets::identifier({}, u8"invalid"), std::move(tex), _textures);
+			}
+
+			using _pixel = cvec4<std::uint8_t>;
+			std::vector<_pixel> tex_data(size[0] * size[1], zero);
+			for (std::size_t y = 0; y < size[1]; ++y) {
+				for (std::size_t x = 0; x < size[0]; ++x) {
+					tex_data[y * size[1] + x] = (x ^ y) & 1 ? _pixel(255, 0, 255, 255) : _pixel(0, 255, 0, 255);
+				}
+			}
+			_context.upload_image(_invalid_texture.get().value.image, tex_data.data(), u8"Invalid");
+		}
 	}
 
 	std::u8string manager::_assemble_shader_subid(

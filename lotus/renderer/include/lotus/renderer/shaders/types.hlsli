@@ -1,5 +1,5 @@
-#ifndef LOTUS_SHADER_TYPES_HLSLI
-#define LOTUS_SHADER_TYPES_HLSLI
+#ifndef LOTUS_RENDERER_TYPES_HLSLI
+#define LOTUS_RENDERER_TYPES_HLSLI
 
 struct instance_data {
 	float4x4 transform;

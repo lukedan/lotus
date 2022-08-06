@@ -330,6 +330,14 @@ namespace lotus::renderer {
 		return image2d_view(std::move(surf_ptr), fmt, gpu::mip_levels::all());
 	}
 
+	buffer context::request_buffer(
+		std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage::mask usages
+	) {
+		auto *buf = new _details::buffer(size_bytes, usages, name);
+		auto buf_ptr = std::shared_ptr<_details::buffer>(buf, _details::context_managed_deleter(*this));
+		return buffer(std::move(buf_ptr));
+	}
+
 	swap_chain context::request_swap_chain(
 		std::u8string_view name, system::window &wnd,
 		std::uint32_t num_images, std::span<const gpu::format> formats

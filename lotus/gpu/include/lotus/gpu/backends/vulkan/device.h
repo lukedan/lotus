@@ -241,15 +241,21 @@ namespace lotus::gpu::backends::vulkan {
 	private:
 		vk::UniqueDevice _device; ///< The device.
 		vk::PhysicalDevice _physical_device; ///< The physical device.
+
+		// TODO custom queues
 		// queue indices
 		std::uint32_t _graphics_compute_queue_family_index; ///< Graphics and compute command queue family index.
 		std::uint32_t _compute_queue_family_index; ///< Compute-only command queue family index.
+
 		vk::PhysicalDeviceLimits _device_limits; ///< Device limits.
 		vk::PhysicalDeviceMemoryProperties _memory_properties; ///< Memory properties.
+		vk::PhysicalDeviceRayTracingPipelinePropertiesKHR _raytracing_properties; ///< Raytracing properties.
 		/// List of memory properties.
 		std::vector<std::pair<memory_type_index, memory_properties>> _memory_properties_list;
-		vk::PhysicalDeviceRayTracingPipelinePropertiesKHR _raytracing_properties; ///< Raytracing properties.
+
+		context_options _options = context_options::none; ///< Context options.
 		const vk::DispatchLoaderDynamic *_dispatch_loader; ///< The dispatch loader.
+
 
 		/// Finds the best memory type fit for the given requirements and \ref heap_type.
 		[[nodiscard]] std::uint32_t _find_memory_type_index(std::uint32_t requirements, memory_properties) const;
@@ -282,10 +288,11 @@ namespace lotus::gpu::backends::vulkan {
 	private:
 		vk::PhysicalDevice _device; ///< The physical device.
 		const vk::DispatchLoaderDynamic *_dispatch_loader; ///< Dispatch loader.
+		context_options _options = context_options::none; ///< Context options.
 
 		/// Initializes all fields of the struct.
-		adapter(vk::PhysicalDevice dev, const vk::DispatchLoaderDynamic &dispatch) :
-			_device(dev), _dispatch_loader(&dispatch) {
+		adapter(vk::PhysicalDevice dev, context_options opt, const vk::DispatchLoaderDynamic &dispatch) :
+			_device(dev), _dispatch_loader(&dispatch), _options(opt) {
 		}
 	};
 }

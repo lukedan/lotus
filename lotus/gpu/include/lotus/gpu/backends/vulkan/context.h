@@ -36,7 +36,7 @@ namespace lotus::gpu::backends::vulkan {
 			auto allocator = bookmark.create_std_allocator<vk::PhysicalDevice>();
 			auto physical_devices = _details::unwrap(_instance->enumeratePhysicalDevices(allocator));
 			for (const auto &dev : physical_devices) {
-				adapter adap(dev, _dispatch_loader);
+				adapter adap(dev, _options, _dispatch_loader);
 				if (!cb(adap)) {
 					break;
 				}
@@ -50,11 +50,12 @@ namespace lotus::gpu::backends::vulkan {
 		);
 	private:
 		/// Initializes the context.
-		explicit context(vk::UniqueInstance);
+		explicit context(vk::UniqueInstance, context_options);
 
 		vk::UniqueInstance _instance; ///< The vulkan instance.
 		vk::DispatchLoaderDynamic _dispatch_loader; ///< Function pointer for extensions.
 		vk::DebugReportCallbackEXT _debug_callback; ///< The debug callback.
+		context_options _options = context_options::none; ///< Context options.
 	};
 
 	/// Shader utilities using SPIRV-Reflect.

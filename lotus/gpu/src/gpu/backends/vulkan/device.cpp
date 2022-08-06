@@ -892,23 +892,27 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void device::set_debug_name(buffer &buf, const char8_t *name) {
-		vk::DebugMarkerObjectNameInfoEXT info;
-		info
-			.setObjectType(vk::DebugReportObjectTypeEXT::eBuffer)
-			.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkBuffer>(buf._buffer)))
-			.setPObjectName(reinterpret_cast<const char*>(name));
-		_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
+		if (!is_empty(_options & context_options::enable_validation)) {
+			vk::DebugMarkerObjectNameInfoEXT info;
+			info
+				.setObjectType(vk::DebugReportObjectTypeEXT::eBuffer)
+				.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkBuffer>(buf._buffer)))
+				.setPObjectName(reinterpret_cast<const char*>(name));
+			_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
+		}
 	}
 
 	void device::set_debug_name(image &img, const char8_t *name) {
-		vk::DebugMarkerObjectNameInfoEXT info;
-		info
-			.setObjectType(vk::DebugReportObjectTypeEXT::eImage)
-			.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkImage>(
-				static_cast<_details::image&>(img)._image
-			)))
-			.setPObjectName(reinterpret_cast<const char*>(name));
-		_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
+		if (!is_empty(_options & context_options::enable_validation)) {
+			vk::DebugMarkerObjectNameInfoEXT info;
+			info
+				.setObjectType(vk::DebugReportObjectTypeEXT::eImage)
+				.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkImage>(
+					static_cast<_details::image&>(img)._image
+				)))
+				.setPObjectName(reinterpret_cast<const char*>(name));
+			_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
+		}
 	}
 
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
@@ -1227,6 +1231,7 @@ namespace lotus::gpu::backends::vulkan {
 		device result = nullptr;
 
 		result._physical_device = _device;
+		result._options         = _options;
 		result._dispatch_loader = _dispatch_loader;
 
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
@@ -1258,16 +1263,18 @@ namespace lotus::gpu::backends::vulkan {
 			.setQueueCount(1)
 			.setQueuePriorities(priority);
 
-		std::array extensions{
+		std::vector<const char*> extensions{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
-			VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
-			/*VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+			VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 			VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-			VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,*/
+			VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 			/*VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
+		if (!is_empty(_options & context_options::enable_validation)) {
+			extensions.emplace_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
+		}
 
 		auto extension_allocator = bookmark.create_std_allocator<vk::ExtensionProperties>();
 		auto available_extensions = _details::unwrap(_device.enumerateDeviceExtensionProperties(

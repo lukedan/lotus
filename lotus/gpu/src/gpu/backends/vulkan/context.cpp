@@ -43,10 +43,10 @@ namespace lotus::gpu::backends::vulkan {
 			.setPEnabledLayerNames(enabled_layers)
 			.setPEnabledExtensionNames(enabled_extensions);
 		// TODO allocator
-		return context(_details::unwrap(vk::createInstanceUnique(create_info)));
+		return context(_details::unwrap(vk::createInstanceUnique(create_info)), opt);
 	}
 
-	context::context(vk::UniqueInstance inst) : _instance(std::move(inst)) {
+	context::context(vk::UniqueInstance inst, context_options opt) : _instance(std::move(inst)), _options(opt) {
 		_dispatch_loader.init(_instance.get(), vkGetInstanceProcAddr);
 
 		vk::DebugReportCallbackCreateInfoEXT debug_callback_info;

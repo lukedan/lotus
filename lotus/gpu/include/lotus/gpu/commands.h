@@ -132,7 +132,7 @@ namespace lotus::gpu {
 		}
 
 		/// Inserts a copy operation between the two buffers.
-		void copy_buffer(buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size) {
+		void copy_buffer(const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size) {
 			backend::command_list::copy_buffer(from, off1, to, off2, size);
 		}
 		/// Inserts a copy operation between the two subresources.

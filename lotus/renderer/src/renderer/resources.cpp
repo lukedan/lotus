@@ -58,6 +58,18 @@ namespace lotus::renderer {
 	}
 
 
+	namespace assets {
+		input_buffer_binding geometry::input_buffer::into_input_buffer_binding(
+			const char8_t *semantic, std::uint32_t semantic_index, std::uint32_t binding_index
+		) const {
+			return input_buffer_binding(
+				binding_index, data.get().value.data, offset, stride, gpu::input_buffer_rate::per_vertex,
+				{ gpu::input_buffer_element(semantic, semantic_index, format, 0) }
+			);
+		}
+	}
+
+
 	void swap_chain::resize(cvec2s sz) {
 		_swap_chain->desired_size = sz;
 	}

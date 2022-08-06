@@ -133,9 +133,6 @@ namespace lotus::renderer::gltf {
 		tinygltf::Model model;
 
 		auto &dev = _asset_manager.get_device();
-		auto &cmd_alloc = _asset_manager.get_command_allocator();
-		auto &cmd_queue = _asset_manager.get_command_queue();
-		auto &fence = _asset_manager.get_fence();
 
 		loader.SetImageLoader(
 			[](
@@ -162,9 +159,14 @@ namespace lotus::renderer::gltf {
 		// load images
 		auto images = bookmark.create_vector_array<assets::handle<assets::texture2d>>(model.images.size(), nullptr);
 		for (std::size_t i = 0; i < images.size(); ++i) {
-			images[i] = _asset_manager.get_texture2d(
-				assets::identifier(path.parent_path() / std::filesystem::path(model.images[i].uri))
-			);
+			constexpr bool _debug_disable_images = false;
+			if constexpr (_debug_disable_images) {
+				images[i] = _asset_manager.get_invalid_texture();
+			} else {
+				images[i] = _asset_manager.get_texture2d(
+					assets::identifier(path.parent_path() / std::filesystem::path(model.images[i].uri))
+				);
+			}
 		}
 
 		// load geometries

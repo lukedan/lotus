@@ -99,6 +99,19 @@ namespace lotus::renderer {
 			recorded_resources::image2d_view destination; ///< Image to upload to.
 		};
 
+		/// Uploads contents from the given staging buffer to the target buffer.
+		struct upload_buffer {
+			/// Initializes all fields of this struct.
+			upload_buffer(gpu::buffer buf, recorded_resources::buffer dst, std::uint32_t off, std::uint32_t sz) :
+				source(std::move(buf)), destination(dst), offset(off), size(sz) {
+			}
+
+			gpu::buffer source; ///< Buffer data.
+			recorded_resources::buffer destination; ///< Buffer to upload to.
+			std::uint32_t offset = 0; ///< Offset of the region to upload to in the destination buffer.
+			std::uint32_t size   = 0; ///< Size of the region to upload.
+		};
+
 		/// Compute shader dispatch.
 		struct dispatch_compute {
 			/// Initializes all fields of this struct.
@@ -154,6 +167,7 @@ namespace lotus::renderer {
 		std::variant<
 			context_commands::invalid,
 			context_commands::upload_image,
+			context_commands::upload_buffer,
 			context_commands::dispatch_compute,
 			context_commands::render_pass,
 			context_commands::present
@@ -262,6 +276,11 @@ namespace lotus::renderer {
 		/// image uploading is deferred. The pixels format of the input data is assumed to be the same as the
 		/// image (i.e. direct memcpy can be used), and the rows are assumed to be tightly packed.
 		void upload_image(const image2d_view &target, const void *data, std::u8string_view description);
+		/// Uploads buffer data to the GPU.
+		void upload_buffer(
+			const buffer &target, std::span<const std::byte> data, std::uint32_t offset,
+			std::u8string_view descriptorion
+		);
 
 		/// Runs a compute shader.
 		void run_compute_shader(
@@ -352,6 +371,18 @@ namespace lotus::renderer {
 			_details::surface2d *surface = nullptr; ///< The surface to transition.
 			gpu::mip_levels mip_levels; ///< Mip levels to transition.
 			gpu::image_usage usage = gpu::image_usage::num_enumerators; ///< Usage to transition to.
+		};
+		/// Contains information about a buffer transition operation.
+		struct _buffer_transition_info {
+			/// Initializes this structure to empty.
+			_buffer_transition_info(std::nullptr_t) {
+			}
+			/// Initializes all fields of this struct.
+			_buffer_transition_info(_details::buffer &buf, gpu::buffer_usage usg) : buffer(&buf), usage(usg) {
+			}
+
+			_details::buffer *buffer = nullptr; ///< The buffer to transition.
+			gpu::buffer_usage usage = gpu::buffer_usage::num_enumerators; ///< Usage to transition to.
 		};
 		// TODO convert this into "generic image transition"
 		/// Contains information about a layout transition operation.
@@ -475,6 +506,8 @@ namespace lotus::renderer {
 
 			/// Stages a surface transition operation, and notifies any descriptor arrays affected.
 			void stage_transition(_details::surface2d&, gpu::mip_levels, gpu::image_usage);
+			/// Stages a buffer transition operation.
+			void stage_transition(_details::buffer&, gpu::buffer_usage);
 			/// Stages a swap chain transition operation.
 			void stage_transition(_details::swap_chain &chain, gpu::image_usage usage) {
 				_swap_chain_transitions.emplace_back(chain, usage);
@@ -509,6 +542,8 @@ namespace lotus::renderer {
 
 			/// Staged image transition operations.
 			std::vector<_surface2d_transition_info> _surface_transitions;
+			/// Staged buffer transition operations.
+			std::vector<_buffer_transition_info> _buffer_transitions;
 			/// Staged swap chain transition operations.
 			std::vector<_swap_chain_transition_info> _swap_chain_transitions;
 			/// Staged raw buffer transition operations.
@@ -563,10 +598,12 @@ namespace lotus::renderer {
 
 		/// Creates the backing image for the given \ref _details::surface2d if it hasn't been created.
 		void _maybe_create_image(_details::surface2d&);
+		/// Creates the backing buffer for the given \ref _details::buffer if it hasn't been created.
+		void _maybe_create_buffer(_details::buffer&);
+
 		/// Creates an \ref gpu::image2d_view, without recording it anywhere, and returns the object itself.
 		/// This function is used when we need to keep the view between render commands and flushes.
 		[[nodiscard]] gpu::image2d_view _create_image_view(const recorded_resources::image2d_view&);
-
 		/// Creates or finds a \ref gpu::image2d_view from the given \ref renderer::image2d_view, allocating
 		/// storage for then image if necessary.
 		[[nodiscard]] gpu::image2d_view &_request_image_view(
@@ -675,6 +712,8 @@ namespace lotus::renderer {
 		}
 		/// Handles an image upload command.
 		void _handle_command(_execution_context&, const context_commands::upload_image&);
+		/// Handles a buffer upload command.
+		void _handle_command(_execution_context&, const context_commands::upload_buffer&);
 		/// Handles a dispatch compute command.
 		void _handle_command(_execution_context&, const context_commands::dispatch_compute&);
 		/// Handles a begin pass command.

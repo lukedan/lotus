@@ -102,6 +102,10 @@ namespace lotus::renderer {
 		}
 	}
 
+	void context::_execution_context::stage_transition(_details::buffer &buf, gpu::buffer_usage usg) {
+		_buffer_transitions.emplace_back(buf, usg);
+	}
+
 	void context::_execution_context::stage_all_transitions(_details::descriptor_array &arr) {
 		auto transitions = std::exchange(arr.staged_transitions, {});
 		std::sort(transitions.begin(), transitions.end());
@@ -215,6 +219,35 @@ namespace lotus::renderer {
 			}
 		}
 
+		{ // handle buffer transitions
+			auto buffer_transitions = std::exchange(_buffer_transitions, {});
+			std::sort(
+				buffer_transitions.begin(), buffer_transitions.end(),
+				[](const _buffer_transition_info &lhs, const _buffer_transition_info &rhs) {
+					return lhs.buffer->id < rhs.buffer->id;
+				}
+			);
+
+			_details::buffer *prev = nullptr;
+			for (const auto &trans : buffer_transitions) {
+				if (trans.buffer == prev) {
+					log().error<u8"Multiple transitions staged for buffer {}">(
+						string::to_generic(trans.buffer->name)
+					);
+					continue;
+				}
+				prev = trans.buffer;
+				if (
+					trans.usage == trans.buffer->current_usage &&
+					trans.usage != gpu::buffer_usage::read_write_buffer
+				) {
+					continue;
+				}
+				buffer_barriers.emplace_back(trans.buffer->data, trans.buffer->current_usage, trans.usage);
+				trans.buffer->current_usage = trans.usage;
+			}
+		}
+
 		{ // handle raw buffer barriers
 			auto buffer_transitions = std::exchange(_raw_buffer_transitions, {});
 			for (auto trans : buffer_transitions) {
@@ -222,7 +255,7 @@ namespace lotus::renderer {
 			}
 		}
 
-		if (image_barriers.size() > 0) {
+		if (image_barriers.size() > 0 || buffer_barriers.size() > 0) {
 			constexpr bool _separate_barriers = false;
 			if constexpr (is_debugging && _separate_barriers) {
 				for (const auto &b : image_barriers) {
@@ -333,7 +366,7 @@ namespace lotus::renderer {
 	buffer context::request_buffer(
 		std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage::mask usages
 	) {
-		auto *buf = new _details::buffer(size_bytes, usages, name);
+		auto *buf = new _details::buffer(size_bytes, usages, _resource_index++, name);
 		auto buf_ptr = std::shared_ptr<_details::buffer>(buf, _details::context_managed_deleter(*this));
 		return buffer(std::move(buf_ptr));
 	}
@@ -385,6 +418,23 @@ namespace lotus::renderer {
 
 		_commands.emplace_back(description).value.emplace<context_commands::upload_image>(
 			std::move(staging_buffer), target
+		);
+	}
+
+	void context::upload_buffer(
+		const buffer &target, std::span<const std::byte> data, std::uint32_t offset,
+		std::u8string_view description
+	) {
+		auto staging_buffer = _device.create_committed_buffer(
+			data.size(), _upload_memory_index, gpu::buffer_usage::mask::copy_source
+		);
+
+		auto *dst = static_cast<std::byte*>(_device.map_buffer(staging_buffer, 0, 0));
+		std::memcpy(dst, data.data(), data.size());
+		_device.unmap_buffer(staging_buffer, 0, data.size());
+
+		_commands.emplace_back(description).value.emplace<context_commands::upload_buffer>(
+			std::move(staging_buffer), target, offset, static_cast<std::uint32_t>(data.size())
 		);
 	}
 
@@ -521,6 +571,15 @@ namespace lotus::renderer {
 		}
 	}
 
+	void context::_maybe_create_buffer(_details::buffer &buf) {
+		if (!buf.data) {
+			buf.data = _device.create_committed_buffer(buf.size, _device_memory_index, buf.usages);
+			if constexpr (should_register_debug_names) {
+				_device.set_debug_name(buf.data, buf.name);
+			}
+		}
+	}
+
 	gpu::image2d_view context::_create_image_view(const recorded_resources::image2d_view &view) {
 		_maybe_create_image(*view._surface);
 		return _device.create_image2d_view_from(view._surface->image, view._view_format, view._mip_levels);
@@ -555,6 +614,8 @@ namespace lotus::renderer {
 					ectx.submit(_queue, &fence);
 					_device.wait_for_fence(fence);
 				}
+				// clean up any references to the old swap chain images
+				_cleanup();
 				chain_data.images.clear();
 				// create or resize the swap chain
 				chain_data.current_size = chain_data.desired_size;
@@ -832,28 +893,31 @@ namespace lotus::renderer {
 			if (input.buffer_index >= bufs.size()) {
 				bufs.resize(input.buffer_index + 1, nullptr);
 			}
-			bufs[input.buffer_index] =
-				gpu::vertex_buffer(input.buffer.get().value.data, input.offset, input.stride);
+			bufs[input.buffer_index] = gpu::vertex_buffer(input.data._buffer->data, input.offset, input.stride);
+			ectx.stage_transition(*input.data._buffer, gpu::buffer_usage::vertex_buffer);
 		}
 
 		auto &cmd_list = ectx.get_command_list();
 		cmd_list.bind_pipeline_state(*data.pipeline_state);
 		_bind_descriptor_sets(ectx, *data.resources, std::move(data.descriptor_sets), _bind_point::graphics);
 		cmd_list.bind_vertex_buffers(0, bufs);
-		if (cmd.index_buffer.buffer) {
+		if (cmd.index_buffer.data) {
 			cmd_list.bind_index_buffer(
-				cmd.index_buffer.buffer.get().value.data,
+				cmd.index_buffer.data._buffer->data,
 				cmd.index_buffer.offset,
 				cmd.index_buffer.format
 			);
+			ectx.stage_transition(*cmd.index_buffer.data._buffer, gpu::buffer_usage::index_buffer);
+			ectx.flush_transitions();
 			cmd_list.draw_indexed_instanced(0, cmd.index_count, 0, 0, cmd.instance_count);
 		} else {
+			ectx.flush_transitions();
 			cmd_list.draw_instanced(0, cmd.vertex_count, 0, cmd.instance_count);
 		}
 	}
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::upload_image &img) {
-		recorded_resources::image2d_view dest = img.destination;
+		auto dest = img.destination;
 		dest._mip_levels.num_levels = 1;
 		_maybe_create_image(*dest._surface);
 
@@ -867,6 +931,15 @@ namespace lotus::renderer {
 			img.source.data, 0, img.source.row_pitch, aab2s::create_from_min_max(zero, size),
 			dest._surface->image, gpu::subresource_index::create_color(mip_level, 0), zero
 		);
+	}
+
+	void context::_handle_command(_execution_context &ectx, const context_commands::upload_buffer &buf) {
+		auto dest = buf.destination;
+		_maybe_create_buffer(*dest._buffer);
+
+		ectx.stage_transition(*dest._buffer, gpu::buffer_usage::copy_destination);
+		ectx.flush_transitions();
+		ectx.get_command_list().copy_buffer(buf.source, 0, dest._buffer->data, buf.offset, buf.size);
 	}
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::dispatch_compute &cmd) {

@@ -171,7 +171,9 @@ namespace lotus::gpu::backends::vulkan {
 		_buffer.setScissor(0, scissors);
 	}
 
-	void command_list::copy_buffer(buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size) {
+	void command_list::copy_buffer(
+		const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size
+	) {
 		vk::BufferCopy copy;
 		copy
 			.setSrcOffset(off1)

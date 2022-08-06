@@ -223,7 +223,9 @@ namespace lotus::gpu::backends::directx12 {
 		_list->RSSetScissorRects(static_cast<UINT>(vec.size()), vec.data());
 	}
 
-	void command_list::copy_buffer(buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size) {
+	void command_list::copy_buffer(
+		const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size
+	) {
 		_list->CopyBufferRegion(
 			to._buffer.Get(), static_cast<UINT64>(off2),
 			from._buffer.Get(), static_cast<UINT64>(off1),

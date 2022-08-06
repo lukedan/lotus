@@ -78,7 +78,7 @@ namespace lotus::gpu::backends::vulkan {
 		void set_scissor_rectangles(std::span<const aab2i>);
 
 		/// Calls \p vk::CommandBuffer::copyBuffer().
-		void copy_buffer(buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size);
+		void copy_buffer(const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size);
 		/// Calls \p vk::CommandBuffer::copyImage().
 		void copy_image2d(
 			image2d &from, subresource_index sub1, aab2s region, image2d &to, subresource_index sub2, cvec2s off

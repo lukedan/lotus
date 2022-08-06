@@ -193,8 +193,8 @@ namespace lotus::renderer {
 		/// A buffer.
 		struct buffer {
 			/// Initializes this buffer to empty.
-			buffer(std::uint32_t sz, gpu::buffer_usage::mask usg, std::u8string_view n) :
-				data(nullptr), size(sz), usages(usg), name(n) {
+			buffer(std::uint32_t sz, gpu::buffer_usage::mask usg, std::uint64_t i, std::u8string_view n) :
+				data(nullptr), size(sz), usages(usg), id(i), name(n) {
 			}
 
 			gpu::buffer data; ///< The buffer.
@@ -205,6 +205,7 @@ namespace lotus::renderer {
 			std::uint32_t size; ///< The size of this buffer.
 			gpu::buffer_usage::mask usages = gpu::buffer_usage::mask::none; ///< Possible usages.
 
+			std::uint64_t id = 0; ///< Used to uniquely identify this buffer.
 			// TODO make this debug only?
 			std::u8string name; ///< Name of this buffer.
 		};
@@ -483,6 +484,57 @@ namespace lotus::renderer {
 		};
 	}
 
+
+	/// An input buffer binding. Largely similar to \ref gpu::input_buffer_layout.
+	struct input_buffer_binding {
+		/// Initializes this buffer to empty.
+		input_buffer_binding(std::nullptr_t) : data(nullptr) {
+		}
+		/// Initializes all fields of this struct.
+		input_buffer_binding(
+			std::uint32_t index,
+			recorded_resources::buffer d, std::uint32_t off, std::uint32_t str,
+			gpu::input_buffer_rate rate, std::vector<gpu::input_buffer_element> elems
+		) :
+			elements(std::move(elems)), data(d), stride(str), offset(off),
+			buffer_index(index), input_rate(rate) {
+		}
+		/// Creates a buffer corresponding to the given input.
+		[[nodiscard]] inline static input_buffer_binding create(
+			recorded_resources::buffer buf, std::uint32_t off, gpu::input_buffer_layout layout
+		) {
+			return input_buffer_binding(
+				static_cast<std::uint32_t>(layout.buffer_index),
+				buf, off, static_cast<std::uint32_t>(layout.stride),
+				layout.input_rate, { layout.elements.begin(), layout.elements.end() }
+			);
+		}
+
+		std::vector<gpu::input_buffer_element> elements; ///< Elements in this vertex buffer.
+		recorded_resources::buffer data; ///< The buffer.
+		std::uint32_t stride = 0; ///< The size of one vertex.
+		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer.
+		std::uint32_t buffer_index = 0; ///< Binding index for this input buffer.
+		/// Specifies how the buffer data is used.
+		gpu::input_buffer_rate input_rate = gpu::input_buffer_rate::per_vertex;
+	};
+	/// An index buffer binding.
+	struct index_buffer_binding {
+		/// Initializes this binding to empty.
+		index_buffer_binding(std::nullptr_t) : data(nullptr) {
+		}
+		/// Initializes all fields of this struct.
+		index_buffer_binding(
+			recorded_resources::buffer buf, std::uint32_t off, gpu::index_format fmt
+		) : data(buf), offset(off), format(fmt) {
+		}
+
+		recorded_resources::buffer data; ///< The index buffer.
+		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer where indices start.
+		gpu::index_format format = gpu::index_format::uint32; ///< Format of indices.
+	};
+
+
 	/// An asset.
 	template <typename T> class asset {
 		friend assets::manager;
@@ -572,12 +624,9 @@ namespace lotus::renderer {
 			buffer(std::nullptr_t) : data(nullptr) {
 			}
 
-			gpu::buffer data; ///< The buffer.
-
-			std::uint32_t byte_size = 0; ///< The size of this buffer in bytes.
+			renderer::buffer data; ///< The buffer.
 			/// The size of an element in the buffer in bytes. Zero indicates an unstructured buffer.
 			std::uint32_t byte_stride = 0;
-			gpu::buffer_usage::mask usages = gpu::buffer_usage::mask::none; ///< Allowed usages.
 		};
 		/// A loaded shader.
 		struct shader {
@@ -622,10 +671,10 @@ namespace lotus::renderer {
 				input_buffer(std::nullptr_t) : data(nullptr) {
 				}
 
-				/// Creates a \ref gpu::vertex_buffer_view from this buffer.
-				[[nodiscard]] gpu::vertex_buffer_view into_vertex_buffer_view(std::uint32_t num_verts) const {
-					return gpu::vertex_buffer_view(data.get().value.data, format, offset, stride, num_verts);
-				}
+				/*/// Creates a \ref gpu::vertex_buffer_view from this buffer.
+				[[nodiscard]] vertex_buffer_view into_vertex_buffer_view(std::uint32_t num_verts) const {
+					return vertex_buffer_view(data.get().value.data, format, offset, stride, num_verts);
+				}*/
 				/// Creates a \ref input_buffer_binding from this buffer.
 				[[nodiscard]] input_buffer_binding into_input_buffer_binding(
 					const char8_t *semantic, std::uint32_t semantic_index, std::uint32_t binding_index
@@ -644,13 +693,9 @@ namespace lotus::renderer {
 			}
 
 			/// Returns a \ref gpu::index_buffer_view for the index buffer of this geometry.
-			[[nodiscard]] gpu::index_buffer_view get_index_buffer_view() const {
-				return gpu::index_buffer_view(
-					index_buffer.get().value.data, index_format, 0, num_indices
-				);
+			[[nodiscard]] index_buffer_binding get_index_buffer_binding() const {
+				return index_buffer_binding(index_buffer.get().value.data, 0, index_format);
 			}
-			/// Returns a \ref index_buffer_binding for the index buffer of this geometry.
-			[[nodiscard]] index_buffer_binding get_index_buffer_binding() const;
 
 			input_buffer vertex_buffer;  ///< Vertex buffer.
 			input_buffer uv_buffer;      ///< UV buffer.
@@ -706,55 +751,6 @@ namespace lotus::renderer {
 		recorded_resources::image2d_view view; ///< The underlying image.
 		gpu::depth_render_target_access depth_access; ///< Usage of the depth values in a render pass.
 		gpu::stencil_render_target_access stencil_access; ///< Usage of the stencil values in a render pass.
-	};
-
-	/// An input buffer binding. Largely similar to \ref gpu::input_buffer_layout.
-	struct input_buffer_binding {
-		/// Initializes this buffer to empty.
-		input_buffer_binding(std::nullptr_t) : buffer(nullptr) {
-		}
-		/// Initializes all fields of this struct.
-		input_buffer_binding(
-			std::uint32_t index,
-			assets::handle<assets::buffer> buf, std::uint32_t off, std::uint32_t str,
-			gpu::input_buffer_rate rate, std::vector<gpu::input_buffer_element> elems
-		) :
-			elements(std::move(elems)), buffer(std::move(buf)), stride(str), offset(off),
-			buffer_index(index), input_rate(rate) {
-		}
-		/// Creates a buffer corresponding to the given input.
-		[[nodiscard]] inline static input_buffer_binding create(
-			assets::handle<assets::buffer> buf, std::uint32_t off, gpu::input_buffer_layout layout
-		) {
-			return input_buffer_binding(
-				static_cast<std::uint32_t>(layout.buffer_index), std::move(buf),
-				off, static_cast<std::uint32_t>(layout.stride),
-				layout.input_rate, { layout.elements.begin(), layout.elements.end() }
-			);
-		}
-
-		std::vector<gpu::input_buffer_element> elements; ///< Elements in this vertex buffer.
-		assets::handle<assets::buffer> buffer; ///< The buffer.
-		std::uint32_t stride = 0; ///< The size of one vertex.
-		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer.
-		std::uint32_t buffer_index = 0; ///< Binding index for this input buffer.
-		/// Specifies how the buffer data is used.
-		gpu::input_buffer_rate input_rate = gpu::input_buffer_rate::per_vertex;
-	};
-	/// An index buffer binding.
-	struct index_buffer_binding {
-		/// Initializes this binding to empty.
-		index_buffer_binding(std::nullptr_t) : buffer(nullptr) {
-		}
-		/// Initializes all fields of this struct.
-		index_buffer_binding(
-			assets::handle<assets::buffer> buf, std::uint32_t off, gpu::index_format fmt
-		) : buffer(std::move(buf)), offset(off), format(fmt) {
-		}
-
-		assets::handle<assets::buffer> buffer; ///< The index buffer.
-		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer where indices start.
-		gpu::index_format format = gpu::index_format::uint32; ///< Format of indices.
 	};
 
 	namespace descriptor_resource {

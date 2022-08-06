@@ -33,11 +33,10 @@ namespace lotus::renderer {
 			[[nodiscard]] inline static manager create(
 				context &ctx,
 				gpu::device &dev,
-				gpu::command_queue &cmd_queue,
 				std::filesystem::path shader_lib_path = {},
 				gpu::shader_utility *shader_utils = nullptr
 			) {
-				return manager(ctx, dev, cmd_queue, std::move(shader_lib_path), shader_utils);
+				return manager(ctx, dev, std::move(shader_lib_path), shader_utils);
 			}
 
 			/// Retrieves a texture with the given ID, loading it if necessary.
@@ -166,18 +165,6 @@ namespace lotus::renderer {
 			[[nodiscard]] gpu::device &get_device() const {
 				return _device;
 			}
-			/// Returns the command queue used for copying assets to the GPU.
-			[[nodiscard]] gpu::command_queue &get_command_queue() const {
-				return _cmd_queue;
-			}
-			/// Returns the command allocator used for copying assets to the GPU.
-			[[nodiscard]] gpu::command_allocator &get_command_allocator() {
-				return _cmd_alloc;
-			}
-			/// Returns the fence used for synchronizing resource upload.
-			[[nodiscard]] gpu::fence &get_fence() {
-				return _fence;
-			}
 			/// Returns the path that contains shader files.
 			[[nodiscard]] const std::filesystem::path &get_shader_library_path() const {
 				return _shader_library_path;
@@ -199,7 +186,7 @@ namespace lotus::renderer {
 			using _material_map = _map<material>;  ///< Material map.
 
 			/// Initializes this manager.
-			manager(context&, gpu::device&, gpu::command_queue&, std::filesystem::path, gpu::shader_utility*);
+			manager(context&, gpu::device&, std::filesystem::path, gpu::shader_utility*);
 
 			/// Generic interface for registering an asset.
 			template <typename T> handle<T> _register_asset(identifier id, T value, _map<T> &mp) {
@@ -249,13 +236,9 @@ namespace lotus::renderer {
 			_material_map _materials;  ///< All loaded materials.
 
 			gpu::device &_device; ///< Device that all assets are loaded onto.
-			gpu::command_queue &_cmd_queue; ///< Command queue for texture and buffer copies.
 			gpu::shader_utility *_shader_utilities; ///< Used for compiling shaders.
 
 			context &_context; ///< Associated context.
-
-			gpu::command_allocator _cmd_alloc; ///< Command allocator for texture and buffer copies.
-			gpu::fence _fence; ///< Fence used for synchronization.
 
 			descriptor_array _texture2d_descriptors; ///< Bindless descriptor array of all textures.
 			handle<texture2d> _invalid_texture; ///< Index of a texture indicating "invalid texture".

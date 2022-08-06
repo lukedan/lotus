@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 	lgpu::command_queue cmd_queue = gdev.create_command_queue();
 
 	auto rctx = lren::context::create(gctx, gdev_props, gdev, cmd_queue);
-	auto ass_man = lren::assets::manager::create(rctx, gdev, cmd_queue, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_utils);
+	auto ass_man = lren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_utils);
 
 	// swap chain
 	auto swapchain = rctx.request_swap_chain(

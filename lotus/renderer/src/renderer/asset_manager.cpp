@@ -14,21 +14,6 @@
 #include "lotus/renderer/resources.h"
 
 namespace lotus::renderer::assets {
-	input_buffer_binding geometry::input_buffer::into_input_buffer_binding(
-		const char8_t *semantic, std::uint32_t semantic_index, std::uint32_t binding_index
-	) const {
-		return input_buffer_binding(
-			binding_index, data, offset, stride, gpu::input_buffer_rate::per_vertex,
-			{ gpu::input_buffer_element(semantic, semantic_index, format, 0) }
-		);
-	}
-
-
-	index_buffer_binding geometry::get_index_buffer_binding() const {
-		return index_buffer_binding(index_buffer, 0, index_format);
-	}
-
-
 	[[nodiscard]] handle<texture2d> manager::get_texture2d(const identifier &id) {
 		if (auto it = _textures.find(id); it != _textures.end()) {
 			if (auto ptr = it->second.lock()) {
@@ -114,31 +99,11 @@ namespace lotus::renderer::assets {
 		identifier id, std::span<const std::byte> data, std::uint32_t stride, gpu::buffer_usage::mask usages
 	) {
 		buffer buf = nullptr;
-
-		buf.data        = _device.create_committed_buffer(
-			data.size(), _context.HACK_device_memory_type_index(),
-			usages | gpu::buffer_usage::mask::copy_destination
+		buf.data        = _context.request_buffer(
+			id.path.u8string() + id.subpath, data.size(), usages | gpu::buffer_usage::mask::copy_destination
 		);
-		buf.byte_size   = static_cast<std::uint32_t>(data.size());
 		buf.byte_stride = stride;
-		buf.usages      = usages;
-
-		// staging buffer
-		auto upload_buf = _device.create_committed_buffer(
-			data.size(), _context.HACK_upload_memory_type_index(), gpu::buffer_usage::mask::copy_source
-		);
-		void *ptr = _device.map_buffer(upload_buf, 0, 0);
-		std::memcpy(ptr, data.data(), data.size());
-		_device.unmap_buffer(upload_buf, 0, data.size());
-
-		auto cmd_list = _device.create_and_start_command_list(_cmd_alloc);
-		cmd_list.copy_buffer(upload_buf, 0, buf.data, 0, data.size());
-		// TODO any state transitions?
-		cmd_list.finish();
-		_cmd_queue.submit_command_lists({ &cmd_list }, &_fence);
-		_device.wait_for_fence(_fence);
-		_device.reset_fence(_fence);
-
+		_context.upload_buffer(buf.data, data, 0, u8"Load buffer asset");
 		return _register_asset(std::move(id), std::move(buf), _buffers);
 	}
 
@@ -184,13 +149,10 @@ namespace lotus::renderer::assets {
 	}
 
 	manager::manager(
-		context &ctx, gpu::device &dev, gpu::command_queue &queue,
+		context &ctx, gpu::device &dev,
 		std::filesystem::path shader_lib_path, gpu::shader_utility *shader_utils
 	) :
-		_device(dev), _cmd_queue(queue), _shader_utilities(shader_utils),
-		_context(ctx),
-		_cmd_alloc(_device.create_command_allocator()),
-		_fence(dev.create_fence(gpu::synchronization_state::unset)),
+		_device(dev), _shader_utilities(shader_utils), _context(ctx),
 		_texture2d_descriptors(ctx.request_descriptor_array(
 			u8"Texture assets", gpu::descriptor_type::read_only_image, 1024
 		)),

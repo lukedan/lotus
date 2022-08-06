@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
 	auto cmd_alloc = gdev.create_command_allocator();
 
 	auto rctx = ren::context::create(gctx, dev_prop, gdev, cmd_queue);
-	auto asset_man = ren::assets::manager::create(rctx, gdev, cmd_queue, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_util);
+	auto asset_man = ren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_util);
 
 	// model & resources
 	auto gltf_ctx = ren::gltf::context::create(asset_man);

@@ -477,7 +477,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		shader_resource_binding back_to_shader_resource_binding(const SpvReflectDescriptorBinding &binding) {
 			shader_resource_binding result = uninitialized;
 			result.first_register = binding.binding;
-			result.register_count = binding.count;
+			result.register_count = binding.count == 0 ? descriptor_range::unbounded_count : binding.count;
 			result.register_space = binding.set;
 			result.name           = reinterpret_cast<const char8_t*>(binding.name);
 

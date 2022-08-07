@@ -142,7 +142,7 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 }
 
 void pass::load_input_images(
-	lren::assets::manager &man, const std::filesystem::path &root, const error_callback &on_error
+	lren::assets::manager &man, const std::filesystem::path &root, const error_callback&
 ) {
 	for (auto &in : inputs) {
 		if (std::holds_alternative<input::image>(in.value)) {
@@ -179,7 +179,7 @@ void pass::load_shader(
 	// find binding register for all inputs
 	for (auto &in : inputs) {
 		if (auto binding = reflection.find_resource_binding_by_name(in.binding_name)) {
-			in.register_index = binding->first_register;
+			in.register_index = static_cast<std::uint32_t>(binding->first_register);
 		} else {
 			on_error(format_utf8<u8"Input {} not found">(lotus::string::to_generic(in.binding_name)));
 		}

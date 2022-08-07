@@ -20,7 +20,7 @@ namespace lotus {
 	/// A quaternion.
 	template <typename T, quaternion_kind Kind = quaternion_kind::arbitrary> struct quaternion {
 		friend quat;
-		friend quaternion<T, quaternion_kind::arbitrary>;
+		template <typename, quaternion_kind> friend struct quaternion;
 	public:
 		using value_type = T; ///< Value type.
 		constexpr static quaternion_kind kind = Kind; ///< Whether this quaternion is a unit quaternion.
@@ -229,6 +229,17 @@ namespace lotus {
 		}
 
 
+		// conversion
+		/// Conversion to another floating-point data type.
+		template <typename U> [[nodiscard]] constexpr std::enable_if_t<
+			std::is_floating_point_v<U>, quaternion<U, Kind>
+		> into() const {
+			return quaternion<U, Kind>(
+				static_cast<U>(_w), static_cast<U>(_x), static_cast<U>(_y), static_cast<U>(_z)
+			);
+		}
+
+
 		// properties
 		/// Returns the squared magnitude of this quaternion.
 		[[nodiscard]] constexpr T squared_magnitude() const {
@@ -303,7 +314,7 @@ namespace lotus {
 			}
 			return result;
 		}
-	protected:
+	private:
 		T
 			_w, ///< The cosine of half the rotation angle.
 			_x, ///< Rotation axis X times the sine of half the rotation angle.

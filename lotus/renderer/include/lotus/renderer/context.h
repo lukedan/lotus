@@ -319,16 +319,6 @@ namespace lotus::renderer {
 			write_image_descriptors(arr, first_index, { imgs.begin(), imgs.end() });
 		}
 		// TODO buffer descriptors
-
-
-		/// Returns \ref _device_memory_index.
-		[[nodiscard]] gpu::memory_type_index HACK_device_memory_type_index() const {
-			return _device_memory_index;
-		}
-		/// Returns \ref _upload_memory_index.
-		[[nodiscard]] gpu::memory_type_index HACK_upload_memory_type_index() const {
-			return _upload_memory_index;
-		}
 	private:
 		/// Indicates a descriptor set bind point.
 		enum class _bind_point {

@@ -110,7 +110,7 @@ namespace lotus::renderer::gltf {
 		assets::geometry::input_buffer result = nullptr;
 		result.data = _load_data_buffer<T>(man, path, model, accessor_index, expected_components, usage_mask);
 		result.offset = 0;
-		result.stride = sizeof(T) * expected_components;
+		result.stride = static_cast<std::uint32_t>(sizeof(T) * expected_components);
 
 		std::uint8_t count[4] = { 0, 0, 0, 0 };
 		for (std::size_t i = 0; i < expected_components; ++i) {
@@ -131,8 +131,6 @@ namespace lotus::renderer::gltf {
 	std::vector<instance> context::load(const std::filesystem::path &path) {
 		tinygltf::TinyGLTF loader;
 		tinygltf::Model model;
-
-		auto &dev = _asset_manager.get_device();
 
 		loader.SetImageLoader(
 			[](
@@ -342,17 +340,17 @@ namespace lotus::renderer::gltf {
 				auto scale =
 					node.scale.empty() ?
 					mat33f::identity() :
-					mat33f::diagonal(node.scale[0], node.scale[1], node.scale[2]);
+					mat33d::diagonal(node.scale[0], node.scale[1], node.scale[2]).into<float>();
 				auto rotation =
 					node.rotation.empty() ?
 					mat33f::identity() :
-					quat::unsafe_normalize(quatf::from_wxyz(
+					quat::unsafe_normalize(quatd::from_wxyz(
 						node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]
-					)).into_matrix();
+					).into<float>()).into_matrix();
 				auto translation =
 					node.translation.empty() ?
 					cvec3f(zero) :
-					cvec3f(node.translation[0], node.translation[1], node.translation[2]);
+					cvec3d(node.translation[0], node.translation[1], node.translation[2]).into<float>();
 				trans = matf::concat_rows(
 					matf::concat_columns(rotation * scale, translation),
 					rvec4f(0.0f, 0.0f, 0.0f, 1.0f)

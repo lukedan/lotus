@@ -94,11 +94,6 @@ int main(int argc, char **argv) {
 	);
 	std::size_t frame_index = 0;
 
-	auto recreate_buffers = [&](cvec2s size) {
-		frame_index = 0;
-	};
-
-
 	auto cam_params = camera_parameters<float>::create_look_at(cvec3f(0.0f, 100.0f, 0.0f), cvec3f(500.0f, 100.0f, 0.0f));
 	{
 		auto size = wnd.get_size();
@@ -114,7 +109,6 @@ int main(int argc, char **argv) {
 
 	auto on_resize = [&](lsys::window&, lsys::window_events::resize &info) {
 		window_size = info.new_size;
-		frame_index = 0;
 		swap_chain.resize(info.new_size);
 		cam_params.aspect_ratio = info.new_size[0] / static_cast<float>(info.new_size[1]);
 	};
@@ -301,7 +295,7 @@ int main(int argc, char **argv) {
 
 		auto end = std::chrono::high_resolution_clock::now();
 
-		log().debug<"CPU frame: {} ms">(std::chrono::duration<float, std::milli>(end - start).count());
+		log().debug<"CPU frame {}: {} ms">(frame_index, std::chrono::duration<float, std::milli>(end - start).count());
 	}
 
 	return 0;

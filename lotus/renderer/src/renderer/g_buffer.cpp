@@ -35,7 +35,7 @@ namespace lotus::renderer::g_buffer {
 
 
 	std::pair<assets::handle<assets::shader>, std::vector<input_buffer_binding>> pass_context::get_vertex_shader(
-		context &ctx, const assets::material::context_data &mat_ctx, const assets::geometry &geom
+		context&, const assets::material::context_data &mat_ctx, const assets::geometry &geom
 	) {
 		std::vector<std::pair<std::u8string_view, std::u8string_view>> defines = {
 			{ u8"LOTUS_MATERIAL_INCLUDE", mat_ctx.get_material_include() },
@@ -74,7 +74,7 @@ namespace lotus::renderer::g_buffer {
 	}
 
 	assets::handle<assets::shader> pass_context::get_pixel_shader(
-		context &ctx, const assets::material::context_data &mat_ctx
+		context&, const assets::material::context_data &mat_ctx
 	) {
 		return _man.compile_shader_in_filesystem(
 			_man.get_shader_library_path() / "gbuffer_pixel_shader.hlsl",

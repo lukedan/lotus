@@ -54,7 +54,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Returns whether this object holds a valid swap chain.
 		[[nodiscard]] bool is_valid() const {
-			return _swapchain.get();
+			return !!_swapchain;
 		}
 	private:
 		/// Synchronization primitives that will be notified when a frame has finished presenting.

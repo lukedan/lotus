@@ -1,5 +1,5 @@
-set(LOTUS_GPU_USE_DIRECTX12 YES CACHE STRING "Whether to generate target for the DirectX 12 backend.")
-set(LOTUS_GPU_USE_VULKAN YES CACHE STRING "Whether to generate target for the Vulkan backend.")
+set(LOTUS_GPU_USE_DIRECTX12 YES CACHE BOOL "Whether to generate target for the DirectX 12 backend.")
+set(LOTUS_GPU_USE_VULKAN YES CACHE BOOL "Whether to generate target for the Vulkan backend.")
 
 set(LOTUS_GPU_VULKAN_USE_SYSTEM_DXC NO CACHE STRING "Whether to use system DXC for vulkan instead of the one bundled in Vulkan SDK.")
 
@@ -20,9 +20,9 @@ set(LOTUS_GPU_COMMON_SOURCES
 	"src/gpu/backends/common/dxc.cpp")
 
 # DirectX 12
-set(LOTUS_GPU_HAS_DIRECTX12 NO CACHE INTERNAL "Whether the DirectX12 backend is available." FORCE)
+set(LOTUS_GPU_HAS_DIRECTX12 NO CACHE INTERNAL "Whether the DirectX12 backend is available.")
 if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
-	set(LOTUS_GPU_HAS_DIRECTX12 YES CACHE INTERNAL "Whether the DirectX12 backend is available." FORCE)
+	set(LOTUS_GPU_HAS_DIRECTX12 YES CACHE INTERNAL "Whether the DirectX12 backend is available.")
 
 	add_library(lotus_gpu_directx12 STATIC)
 	configure_lotus_module(lotus_gpu_directx12)
@@ -67,9 +67,9 @@ if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 endif()
 
 # Vulkan
-set(LOTUS_GPU_HAS_VULKAN YES CACHE INTERNAL "Whether the Vulkan backend is available." FORCE)
+set(LOTUS_GPU_HAS_VULKAN NO CACHE INTERNAL "Whether the Vulkan backend is available.")
 if(LOTUS_GPU_USE_VULKAN)
-	set(LOTUS_GPU_HAS_VULKAN YES CACHE INTERNAL "Whether the Vulkan backend is available." FORCE)
+	set(LOTUS_GPU_HAS_VULKAN YES CACHE INTERNAL "Whether the Vulkan backend is available.")
 
 	find_package(Vulkan REQUIRED)
 	# SPIRV-Reflect
@@ -124,13 +124,13 @@ if(LOTUS_GPU_USE_VULKAN)
 	if(LOTUS_GPU_VULKAN_USE_SYSTEM_DXC)
 		target_link_libraries(lotus_gpu_vulkan PUBLIC dxcompiler)
 	else()
-		cmake_path(GET Vulkan_LIBRARY PARENT_PATH LOTUS_VULKAN_LIBRARY_PATH)
-		find_file(
-			LOTUS_VULKAN_DXC_LIBRARY
-			NAMES dxcompiler.lib libdxcompiler.a libdxcompiler.so
-			PATHS "${LOTUS_VULKAN_LIBRARY_PATH}"
+		set(VULKAN_SDK_PATH "${Vulkan_LIBRARY}/../../")
+		find_library(LOTUS_GPU_VULKAN_DXC_LIBRARY
+			dxcompiler
+			PATHS "${VULKAN_SDK_PATH}/Lib/"
+			REQUIRED
 			NO_DEFAULT_PATH)
-		target_link_libraries(lotus_gpu_vulkan PUBLIC "${LOTUS_VULKAN_DXC_LIBRARY}")
+		target_link_libraries(lotus_gpu_vulkan PUBLIC "${LOTUS_GPU_VULKAN_DXC_LIBRARY}")
 	endif()
 endif()
 

@@ -100,7 +100,9 @@ namespace lotus::renderer::assets {
 	) {
 		buffer buf = nullptr;
 		buf.data        = _context.request_buffer(
-			id.path.u8string() + id.subpath, data.size(), usages | gpu::buffer_usage::mask::copy_destination
+			id.path.u8string() + id.subpath,
+			static_cast<std::uint32_t>(data.size()),
+			usages | gpu::buffer_usage::mask::copy_destination
 		);
 		buf.byte_stride = stride;
 		_context.upload_buffer(buf.data, data, 0, u8"Load buffer asset");
@@ -174,11 +176,11 @@ namespace lotus::renderer::assets {
 				_invalid_texture = _register_asset(assets::identifier({}, u8"invalid"), std::move(tex), _textures);
 			}
 
-			using _pixel = cvec4<std::uint8_t>;
-			std::vector<_pixel> tex_data(size[0] * size[1], zero);
+			std::vector<linear_rgba_u8> tex_data(size[0] * size[1], zero);
 			for (std::size_t y = 0; y < size[1]; ++y) {
 				for (std::size_t x = 0; x < size[0]; ++x) {
-					tex_data[y * size[1] + x] = (x ^ y) & 1 ? _pixel(255, 0, 255, 255) : _pixel(0, 255, 0, 255);
+					tex_data[y * size[1] + x] =
+						(x ^ y) & 1 ? linear_rgba_u8(255, 0, 255, 255) : linear_rgba_u8(0, 255, 0, 255);
 				}
 			}
 			_context.upload_image(_invalid_texture.get().value.image, tex_data.data(), u8"Invalid");

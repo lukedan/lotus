@@ -47,7 +47,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	context::context(vk::UniqueInstance inst, context_options opt) : _instance(std::move(inst)), _options(opt) {
-		_dispatch_loader.init(_instance.get(), vkGetInstanceProcAddr);
+		_dispatch_loader.init(static_cast<VkInstance>(_instance.get()), vkGetInstanceProcAddr);
 
 		vk::DebugReportCallbackCreateInfoEXT debug_callback_info;
 		debug_callback_info

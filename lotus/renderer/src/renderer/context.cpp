@@ -882,7 +882,7 @@ namespace lotus::renderer {
 
 		cache_keys::graphics_pipeline key = nullptr;
 		key.pipeline_resources      = std::move(rsrc_key);
-		key.input_buffers           = std::move(input_layouts); // TODO
+		key.input_buffers           = std::move(input_layouts);
 		key.color_rt_formats        =
 			{ fb_layout.color_render_target_formats.begin(), fb_layout.color_render_target_formats.end() };
 		key.dpeth_stencil_rt_format = fb_layout.depth_stencil_render_target_format;

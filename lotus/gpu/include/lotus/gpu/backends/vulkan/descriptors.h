@@ -34,7 +34,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Checks if this layout is valid.
 		[[nodiscard]] bool is_valid() const {
-			return _layout.get();
+			return !!_layout.get();
 		}
 	private:
 		vk::UniqueDescriptorSetLayout _layout; ///< The descriptor set layout.

@@ -53,7 +53,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Returns whether \ref _buffer is empty.
 		[[nodiscard]] bool is_valid() const {
-			return _buffer;
+			return !!_buffer;
 		}
 	protected:
 		/// Creates an empty object.
@@ -132,7 +132,7 @@ namespace lotus::gpu::backends::vulkan {
 
 			/// Returns whether this refers to a valid image object.
 			[[nodiscard]] bool is_valid() const {
-				return _image;
+				return !!_image;
 			}
 		private:
 			/// The device. If this \p nullptr, it means that the image is not owned by this object and does not need

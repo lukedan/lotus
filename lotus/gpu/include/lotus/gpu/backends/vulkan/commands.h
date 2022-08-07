@@ -139,7 +139,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Checks that this object holds a valid command list.
 		[[nodiscard]] bool is_valid() const {
-			return _buffer;
+			return !!_buffer;
 		}
 	private:
 		vk::CommandBuffer _buffer; ///< The command buffer.

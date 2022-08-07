@@ -91,7 +91,7 @@ public:
 
 		std::u8string binding_name; ///< Name of the texture that this is bound to.
 		value_type value; ///< The value of this input.
-		std::optional<std::size_t> register_index; ///< Register index of the binding.
+		std::optional<std::uint32_t> register_index; ///< Register index of the binding.
 	};
 	/// A set of pass output resources.
 	struct target {

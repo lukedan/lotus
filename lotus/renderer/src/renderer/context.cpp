@@ -224,8 +224,14 @@ namespace lotus::renderer {
 			std::sort(
 				buffer_transitions.begin(), buffer_transitions.end(),
 				[](const _buffer_transition_info &lhs, const _buffer_transition_info &rhs) {
+					if (lhs.buffer == rhs.buffer) {
+						return lhs.usage < rhs.usage;
+					}
 					return lhs.buffer->id < rhs.buffer->id;
 				}
+			);
+			buffer_transitions.erase(
+				std::unique(buffer_transitions.begin(), buffer_transitions.end()), buffer_transitions.end()
 			);
 
 			_details::buffer *prev = nullptr;
@@ -868,11 +874,15 @@ namespace lotus::renderer {
 		std::vector<cache_keys::graphics_pipeline::input_buffer_layout> input_layouts;
 		for (const auto &input : cmd.inputs) {
 			input_layouts.emplace_back(input.elements, input.stride, input.buffer_index, input.input_rate);
+			ectx.stage_transition(*input.data._buffer, gpu::buffer_usage::vertex_buffer);
+		}
+		if (cmd.index_buffer.data) {
+			ectx.stage_transition(*cmd.index_buffer.data._buffer, gpu::buffer_usage::index_buffer);
 		}
 
 		cache_keys::graphics_pipeline key = nullptr;
 		key.pipeline_resources      = std::move(rsrc_key);
-		key.input_buffers           = std::move(input_layouts); // TODO;
+		key.input_buffers           = std::move(input_layouts); // TODO
 		key.color_rt_formats        =
 			{ fb_layout.color_render_target_formats.begin(), fb_layout.color_render_target_formats.end() };
 		key.dpeth_stencil_rt_format = fb_layout.depth_stencil_render_target_format;
@@ -894,7 +904,6 @@ namespace lotus::renderer {
 				bufs.resize(input.buffer_index + 1, nullptr);
 			}
 			bufs[input.buffer_index] = gpu::vertex_buffer(input.data._buffer->data, input.offset, input.stride);
-			ectx.stage_transition(*input.data._buffer, gpu::buffer_usage::vertex_buffer);
 		}
 
 		auto &cmd_list = ectx.get_command_list();
@@ -907,11 +916,8 @@ namespace lotus::renderer {
 				cmd.index_buffer.offset,
 				cmd.index_buffer.format
 			);
-			ectx.stage_transition(*cmd.index_buffer.data._buffer, gpu::buffer_usage::index_buffer);
-			ectx.flush_transitions();
 			cmd_list.draw_indexed_instanced(0, cmd.index_count, 0, 0, cmd.instance_count);
 		} else {
-			ectx.flush_transitions();
 			cmd_list.draw_instanced(0, cmd.vertex_count, 0, cmd.instance_count);
 		}
 	}

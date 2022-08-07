@@ -514,8 +514,8 @@ namespace lotus::gpu {
 			return static_cast<Number>(_value);
 		}
 
-		/// Equality.
-		[[nodiscard]] friend constexpr bool operator==(buffer_usage, buffer_usage) = default;
+		/// Default comparisons.
+		[[nodiscard]] friend constexpr std::strong_ordering operator<=>(buffer_usage, buffer_usage) = default;
 
 		/// Converts the value into a bit in the mask.
 		[[nodiscard]] constexpr mask as_mask() const {

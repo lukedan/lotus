@@ -381,6 +381,11 @@ namespace lotus::renderer {
 			_buffer_transition_info(_details::buffer &buf, gpu::buffer_usage usg) : buffer(&buf), usage(usg) {
 			}
 
+			/// Default equality and inequality comparisons.
+			[[nodiscard]] friend bool operator==(
+				const _buffer_transition_info&, const _buffer_transition_info&
+			) = default;
+
 			_details::buffer *buffer = nullptr; ///< The buffer to transition.
 			gpu::buffer_usage usage = gpu::buffer_usage::num_enumerators; ///< Usage to transition to.
 		};

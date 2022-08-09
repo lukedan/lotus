@@ -9,6 +9,10 @@
 #include "lotus/gpu/commands.h"
 #include "lotus/gpu/backends/directx12/descriptors.h"
 
+#ifdef USE_PIX
+#	include "WinPixEventRuntime/pix3.h"
+#endif
+
 namespace lotus::gpu::backends::directx12 {
 	void command_allocator::reset(device&) {
 		_details::assert_dx(_allocator->Reset());
@@ -312,6 +316,24 @@ namespace lotus::gpu::backends::directx12 {
 
 	void command_list::end_pass() {
 		_list->EndRenderPass();
+	}
+
+	void command_list::insert_marker(const char8_t *name, linear_rgba_u8 color) {
+#ifdef USE_PIX
+		PIXSetMarker(_list.Get(), PIX_COLOR(color.r, color.g, color.b), "%s", reinterpret_cast<PCSTR>(name));
+#endif
+	}
+
+	void command_list::begin_marker_scope(const char8_t *name, linear_rgba_u8 color) {
+#ifdef USE_PIX
+		PIXBeginEvent(_list.Get(), PIX_COLOR(color.r, color.g, color.b), "%s", reinterpret_cast<PCSTR>(name));
+#endif
+	}
+
+	void command_list::end_marker_scope() {
+#ifdef USE_PIX
+		PIXEndEvent(_list.Get());
+#endif
 	}
 
 	void command_list::finish() {

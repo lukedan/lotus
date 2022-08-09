@@ -108,6 +108,14 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Calls \p vk::CommandBuffer::endRendering().
 		void end_pass();
+
+		/// Calls \p vk::CommandBuffer::debugMarkerInsertEXT().
+		void insert_marker(const char8_t*, linear_rgba_u8);
+		/// Calls \p vk::CommandBuffer::debugMarkerBeginEXT().
+		void begin_marker_scope(const char8_t*, linear_rgba_u8);
+		/// Calls \p vk::CommandBuffer::debugMarkerEndEXT().
+		void end_marker_scope();
+
 		/// Calls \p vk::CommandBuffer::end().
 		void finish();
 

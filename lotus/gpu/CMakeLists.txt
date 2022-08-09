@@ -1,7 +1,9 @@
-set(LOTUS_GPU_USE_DIRECTX12 YES CACHE BOOL "Whether to generate target for the DirectX 12 backend.")
-set(LOTUS_GPU_USE_VULKAN YES CACHE BOOL "Whether to generate target for the Vulkan backend.")
+option(LOTUS_GPU_USE_DIRECTX12 "Whether to generate target for the DirectX 12 backend." YES)
+option(LOTUS_GPU_USE_VULKAN "Whether to generate target for the Vulkan backend." YES)
 
-set(LOTUS_GPU_VULKAN_USE_SYSTEM_DXC NO CACHE STRING "Whether to use system DXC for vulkan instead of the one bundled in Vulkan SDK.")
+option(LOTUS_GPU_DIRECTX12_USE_PIX "Whether to use the PIX API if it's available." YES)
+
+option(LOTUS_GPU_VULKAN_USE_SYSTEM_DXC "Whether to use system DXC for vulkan instead of the one bundled in Vulkan SDK." NO)
 
 set(LOTUS_GPU_COMMON_HEADERS
 	"include/lotus/gpu/backends/common/dxc.h"
@@ -64,6 +66,28 @@ if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 	target_compile_definitions(lotus_gpu_directx12
 		PUBLIC
 			"LOTUS_GPU_BACKEND_INCLUDE=<lotus/gpu/backends/directx12.h>")
+
+	# WinPixEventRuntime support
+	if(LOTUS_GPU_DIRECTX12_USE_PIX)
+		set(PIX_EVENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/WinPixEventRuntime/")
+		if(EXISTS "${PIX_EVENT_DIR}")
+			add_library(lotus_gpu_directx12_pix_event SHARED IMPORTED)
+			target_include_directories(lotus_gpu_directx12_pix_event
+				INTERFACE "${PIX_EVENT_DIR}/Include/")
+			target_compile_definitions(lotus_gpu_directx12_pix_event INTERFACE USE_PIX)
+			set_target_properties(lotus_gpu_directx12_pix_event
+				PROPERTIES
+					IMPORTED_IMPLIB "${PIX_EVENT_DIR}/bin/x64/WinPixEventRuntime.lib"
+					IMPORTED_LOCATION "${PIX_EVENT_DIR}/bin/x64/WinPixEventRuntime.dll")
+
+			target_link_libraries(lotus_gpu_directx12 PRIVATE lotus_gpu_directx12_pix_event)
+		else()
+			message(WARNING
+				"Pix event runtime not found. Please follow the instructions on "
+				"https://devblogs.microsoft.com/pix/winpixeventruntime/, and place the extracted files in "
+				"lotus/gpu/thirdparty/WinPixEventRuntime.")
+		endif()
+	endif()
 endif()
 
 # Vulkan

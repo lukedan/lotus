@@ -285,6 +285,34 @@ namespace lotus::gpu::backends::vulkan {
 		_buffer.endRendering();
 	}
 
+	void command_list::insert_marker(const char8_t *name, linear_rgba_u8 color) {
+		if (!is_empty(_device->_options & context_options::enable_validation)) {
+			auto color_f = color.into<float>();
+			vk::DebugMarkerMarkerInfoEXT info;
+			info
+				.setPMarkerName(reinterpret_cast<const char*>(name))
+				.setColor({ color_f.r, color_f.g, color_f.b, color_f.a });
+			_buffer.debugMarkerInsertEXT(info, *_device->_dispatch_loader);
+		}
+	}
+
+	void command_list::begin_marker_scope(const char8_t *name, linear_rgba_u8 color) {
+		if (!is_empty(_device->_options & context_options::enable_validation)) {
+			auto color_f = color.into<float>();
+			vk::DebugMarkerMarkerInfoEXT info;
+			info
+				.setPMarkerName(reinterpret_cast<const char*>(name))
+				.setColor({ color_f.r, color_f.g, color_f.b, color_f.a });
+			_buffer.debugMarkerBeginEXT(info, *_device->_dispatch_loader);
+		}
+	}
+
+	void command_list::end_marker_scope() {
+		if (!is_empty(_device->_options & context_options::enable_validation)) {
+			_buffer.debugMarkerEndEXT(*_device->_dispatch_loader);
+		}
+	}
+
 	void command_list::finish() {
 		_details::assert_vk(_buffer.end());
 	}

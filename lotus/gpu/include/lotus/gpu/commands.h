@@ -186,6 +186,20 @@ namespace lotus::gpu {
 		void end_pass() {
 			backend::command_list::end_pass();
 		}
+
+		/// Inserts a marker in the command list.
+		void insert_marker(const char8_t *name, linear_rgba_u8 color) {
+			backend::command_list::insert_marker(name, color);
+		}
+		/// Starts a scoped marker in the command list.
+		void begin_marker_scope(const char8_t *name, linear_rgba_u8 color) {
+			backend::command_list::begin_marker_scope(name, color);
+		}
+		/// Ends the current marker scope in the command list.
+		void end_marker_scope() {
+			backend::command_list::end_marker_scope();
+		}
+
 		/// Finishes recording to this command list.
 		void finish() {
 			backend::command_list::finish();

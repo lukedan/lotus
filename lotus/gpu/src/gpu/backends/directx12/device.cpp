@@ -1062,6 +1062,7 @@ namespace lotus::gpu::backends::directx12 {
 							static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
 							description
 						);
+						break;
 					}
 				},
 				D3D12_MESSAGE_CALLBACK_FLAG_NONE,

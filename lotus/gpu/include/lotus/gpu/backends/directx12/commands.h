@@ -98,6 +98,14 @@ namespace lotus::gpu::backends::directx12 {
 
 		/// Calls \p ID3D12GraphicsCommandList4::EndRenderPass().
 		void end_pass();
+
+		/// Calls \p PIXSetMarker().
+		void insert_marker(const char8_t*, linear_rgba_u8);
+		/// Calls \p PIXBeginEvent().
+		void begin_marker_scope(const char8_t*, linear_rgba_u8);
+		/// Calls \p PIXEndEvent().
+		void end_marker_scope();
+
 		/// Calls \p ID3D12GraphicsCommandList::Close().
 		void finish();
 

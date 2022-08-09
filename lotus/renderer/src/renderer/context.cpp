@@ -262,6 +262,8 @@ namespace lotus::renderer {
 		}
 
 		if (image_barriers.size() > 0 || buffer_barriers.size() > 0) {
+			get_command_list().insert_marker(u8"Flush transitions", linear_rgba_u8(0, 0, 255, 255));
+
 			constexpr bool _separate_barriers = false;
 			if constexpr (is_debugging && _separate_barriers) {
 				for (const auto &b : image_barriers) {
@@ -318,24 +320,32 @@ namespace lotus::renderer {
 		if (!_immediate_constant_upload_buffer) {
 			return;
 		}
+
 		_ctx._device.unmap_buffer(_immediate_constant_upload_buffer, 0, _immediate_constant_buffer_used);
 
-		// TODO we need to immediately submit the command list because other commands have already been recorded
-		auto &cmd_list = _resources.record(_ctx._device.create_and_start_command_list(_ctx._transient_cmd_alloc));
-		cmd_list.copy_buffer(
-			_immediate_constant_upload_buffer, 0,
-			_immediate_constant_device_buffer, 0,
-			_immediate_constant_buffer_used
-		);
-		cmd_list.resource_barrier({}, {
-			gpu::buffer_barrier(
-				_immediate_constant_device_buffer,
-				gpu::buffer_usage::copy_destination,
-				gpu::buffer_usage::read_only_buffer
-			),
-		});
-		cmd_list.finish();
-		_ctx._queue.submit_command_lists({ &cmd_list }, nullptr);
+		{
+			// we need to immediately submit the command list because other commands have already been recorded that
+			// use these constant buffers
+			// alternatively, we can scan all commands for immediate constant buffers
+			auto &cmd_list = _resources.record(
+				_ctx._device.create_and_start_command_list(_ctx._transient_cmd_alloc)
+			);
+			cmd_list.insert_marker(u8"Flush immediate constant buffers", linear_rgba_u8(255, 255, 0, 255));
+			cmd_list.copy_buffer(
+				_immediate_constant_upload_buffer, 0,
+				_immediate_constant_device_buffer, 0,
+				_immediate_constant_buffer_used
+			);
+			cmd_list.resource_barrier({}, {
+				gpu::buffer_barrier(
+					_immediate_constant_device_buffer,
+					gpu::buffer_usage::copy_destination,
+					gpu::buffer_usage::read_only_buffer
+				),
+			});
+			cmd_list.finish();
+			_ctx._queue.submit_command_lists({ &cmd_list }, nullptr);
+		}
 
 		_resources.record(std::exchange(_immediate_constant_device_buffer, nullptr));
 		_resources.record(std::exchange(_immediate_constant_upload_buffer, nullptr));

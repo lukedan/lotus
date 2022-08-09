@@ -1035,7 +1035,7 @@ namespace lotus::gpu::backends::directx12 {
 		_details::com_ptr<ID3D12InfoQueue1> info_queue;
 		HRESULT res = result->QueryInterface(IID_PPV_ARGS(&info_queue));
 		if (res == S_OK) {
-			DWORD dummy;
+			DWORD dummy = 0;
 			_details::assert_dx(info_queue->RegisterMessageCallback(
 				[](
 					D3D12_MESSAGE_CATEGORY category,

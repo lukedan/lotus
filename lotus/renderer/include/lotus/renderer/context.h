@@ -628,6 +628,18 @@ namespace lotus::renderer {
 		) const {
 			return gpu::descriptor_type::read_write_image;
 		}
+		/// Returns the descriptor type of a buffer binding.
+		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(
+			const descriptor_resource::buffer &buf
+		) const {
+			switch (buf.binding_type) {
+			case buffer_binding_type::read_only:
+				return gpu::descriptor_type::read_only_buffer;
+			case buffer_binding_type::read_write:
+				return gpu::descriptor_type::read_write_buffer;
+			}
+			return gpu::descriptor_type::num_enumerators;
+		}
 		/// Returns \ref gpu::descriptor_type::constant_buffer.
 		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(
 			const descriptor_resource::immediate_constant_buffer&
@@ -650,6 +662,12 @@ namespace lotus::renderer {
 			_execution_context&, gpu::descriptor_set&,
 			const gpu::descriptor_set_layout&, std::uint32_t reg,
 			const descriptor_resource::swap_chain_image&
+		);
+		/// Creates a descriptor binding for a buffer.
+		void _create_descriptor_binding(
+			_execution_context&, gpu::descriptor_set&,
+			const gpu::descriptor_set_layout&, std::uint32_t reg,
+			const descriptor_resource::buffer&
 		);
 		/// Creates a descriptor binding for an immediate constant buffer.
 		void _create_descriptor_binding(

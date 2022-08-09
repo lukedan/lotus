@@ -96,7 +96,7 @@ namespace lotus::renderer::assets {
 	}
 
 	handle<buffer> manager::create_buffer(
-		identifier id, std::span<const std::byte> data, std::uint32_t stride, gpu::buffer_usage::mask usages
+		identifier id, std::span<const std::byte> data, gpu::buffer_usage::mask usages
 	) {
 		buffer buf = nullptr;
 		buf.data        = _context.request_buffer(
@@ -104,7 +104,6 @@ namespace lotus::renderer::assets {
 			static_cast<std::uint32_t>(data.size()),
 			usages | gpu::buffer_usage::mask::copy_destination
 		);
-		buf.byte_stride = stride;
 		_context.upload_buffer(buf.data, data, 0, u8"Load buffer asset");
 		return _register_asset(std::move(id), std::move(buf), _buffers);
 	}

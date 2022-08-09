@@ -41,6 +41,13 @@ namespace lotus::renderer {
 
 		num_enumerators ///< Number of enumerators.
 	};
+	/// Buffer binding types.
+	enum class buffer_binding_type {
+		read_only,  ///< Read-only buffer.
+		read_write, ///< Read-write buffer.
+
+		num_enumerators ///< Number of enumerators.
+	};
 
 	/// Recorded resources. These objects don't hold ownership of the underlying objects, but otherwise they're
 	/// exactly the same.
@@ -625,8 +632,6 @@ namespace lotus::renderer {
 			}
 
 			renderer::buffer data; ///< The buffer.
-			/// The size of an element in the buffer in bytes. Zero indicates an unstructured buffer.
-			std::uint32_t byte_stride = 0;
 		};
 		/// A loaded shader.
 		struct shader {
@@ -756,7 +761,6 @@ namespace lotus::renderer {
 	namespace descriptor_resource {
 		/// A 2D image.
 		struct image2d {
-		public:
 			/// Initializes all fields of this struct.
 			image2d(recorded_resources::image2d_view v, image_binding_type type) : view(v), binding_type(type) {
 			}
@@ -770,8 +774,7 @@ namespace lotus::renderer {
 			}
 
 			recorded_resources::image2d_view view; ///< A view of the image.
-			/// Whether this resource is bound as writable.
-			image_binding_type binding_type = image_binding_type::read_only;
+			image_binding_type binding_type = image_binding_type::read_only; ///< Usage of the bound image.
 		};
 		/// The next image in a swap chain.
 		struct swap_chain_image {
@@ -780,6 +783,36 @@ namespace lotus::renderer {
 			}
 
 			recorded_resources::swap_chain image; ///< The swap chain.
+		};
+		/// A buffer.
+		struct buffer {
+			/// Initializes all fields of this struct.
+			buffer(
+				recorded_resources::buffer d,
+				buffer_binding_type t,
+				std::uint32_t first,
+				std::uint32_t str,
+				std::uint32_t c
+			) : data(d), binding_type(t), first_element(first), stride(str), count(c) {
+			}
+			/// Creates a read-only buffer binding.
+			[[nodiscard]] inline static buffer create_read_only(
+				recorded_resources::buffer buf, std::uint32_t first, std::uint32_t str, std::uint32_t c
+			) {
+				return buffer(buf, buffer_binding_type::read_only, first, str, c);
+			}
+			/// Creates a read-write buffer binding.
+			[[nodiscard]] inline static buffer create_read_write(
+				recorded_resources::buffer buf, std::uint32_t first, std::uint32_t str, std::uint32_t c
+			) {
+				return buffer(buf, buffer_binding_type::read_write, first, str, c);
+			}
+
+			recorded_resources::buffer data; ///< Buffer data.
+			buffer_binding_type binding_type = buffer_binding_type::read_only; ///< Usage of the bound buffer.
+			std::uint32_t first_element = 0; ///< Index of the first visible element.
+			std::uint32_t stride        = 0; ///< Byte offset between two consecutive elements.
+			std::uint32_t count         = 0; ///< Number of visible elements.
 		};
 		/// Constant buffer with data that will be copied to VRAM when a command list is executed.
 		struct immediate_constant_buffer {
@@ -838,7 +871,7 @@ namespace lotus::renderer {
 
 
 		/// A union of all possible resource types.
-		using value = std::variant<image2d, swap_chain_image, immediate_constant_buffer, sampler>;
+		using value = std::variant<image2d, swap_chain_image, buffer, immediate_constant_buffer, sampler>;
 	}
 
 	/// The binding of a single resource.

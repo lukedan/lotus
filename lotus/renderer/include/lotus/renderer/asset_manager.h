@@ -53,7 +53,7 @@ namespace lotus::renderer {
 			}
 			/// Creates a buffer with the given contents and usage mask.
 			[[nodiscard]] handle<buffer> create_buffer(
-				identifier, std::span<const std::byte>, std::uint32_t byte_stride, gpu::buffer_usage::mask
+				identifier, std::span<const std::byte>, gpu::buffer_usage::mask
 			);
 			/// \overload
 			template <typename T> [[nodiscard]] std::enable_if_t<
@@ -65,7 +65,6 @@ namespace lotus::renderer {
 						static_cast<const std::byte*>(static_cast<const void*>(contents.data())),
 						contents.size() * sizeof(T)
 					),
-					sizeof(T),
 					usages
 				);
 			}

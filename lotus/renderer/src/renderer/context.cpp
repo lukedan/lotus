@@ -724,6 +724,27 @@ namespace lotus::renderer {
 	void context::_create_descriptor_binding(
 		_execution_context &ectx, gpu::descriptor_set &set,
 		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
+		const descriptor_resource::buffer &buf
+	) {
+		_maybe_create_buffer(*buf.data._buffer);
+		switch (buf.binding_type) {
+		case buffer_binding_type::read_only:
+			_device.write_descriptor_set_read_only_structured_buffers(
+				set, layout, reg, { gpu::structured_buffer_view::create(
+					buf.data._buffer->data, buf.first_element, buf.count, buf.stride
+				) }
+			);
+			ectx.stage_transition(*buf.data._buffer, gpu::buffer_usage::read_only_buffer);
+			break;
+		case buffer_binding_type::read_write:
+			assert(false); // TODO
+			break;
+		}
+	}
+
+	void context::_create_descriptor_binding(
+		_execution_context &ectx, gpu::descriptor_set &set,
+		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
 		const descriptor_resource::immediate_constant_buffer &cbuf
 	) {
 		_device.write_descriptor_set_constant_buffers(

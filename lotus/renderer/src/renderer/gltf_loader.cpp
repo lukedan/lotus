@@ -8,6 +8,7 @@
 #include <tiny_gltf.h>
 
 #include <lotus/math/quaternion.h>
+#include <lotus/renderer/mipmap.h>
 
 namespace lotus::renderer::gltf {
 	/// Loads a data buffer with the given properties.
@@ -164,6 +165,7 @@ namespace lotus::renderer::gltf {
 				images[i] = _asset_manager.get_texture2d(
 					assets::identifier(path.parent_path() / std::filesystem::path(model.images[i].uri))
 				);
+				_mip_generator.generate_all(images[i].get().value.image);
 			}
 		}
 
@@ -413,7 +415,7 @@ namespace lotus::renderer::gltf {
 		mat.assets.properties_texture = properties_texture ? properties_texture.get().value.descriptor_index : manager->get_invalid_texture().get().value.descriptor_index;
 		set1.bindings.emplace_back(descriptor_resource::immediate_constant_buffer::create_for(mat), 0);
 
-		set1.bindings.emplace_back(descriptor_resource::sampler(), 2);
+		set1.bindings.emplace_back(descriptor_resource::sampler(), 3);
 
 		result.sets.emplace_back(set1, 1);
 

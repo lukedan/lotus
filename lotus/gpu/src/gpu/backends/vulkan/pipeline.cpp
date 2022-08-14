@@ -30,4 +30,9 @@ namespace lotus::gpu::backends::vulkan {
 		_details::assert_spv_reflect(_reflection.EnumerateOutputVariables(&count, nullptr));
 		return count;
 	}
+
+	cvec3s shader_reflection::get_thread_group_size() const {
+		const auto &size = _reflection.GetShaderModule().entry_points[0].local_size; // TODO entry point index
+		return cvec3s(size.x, size.y, size.z);
+	}
 }

@@ -12,6 +12,7 @@
 #include "lotus/gpu/commands.h"
 #include "lotus/gpu/context.h"
 #include "lotus/renderer/resources.h"
+#include "lotus/renderer/mipmap.h"
 
 namespace lotus::renderer::assets {
 	[[nodiscard]] handle<texture2d> manager::get_texture2d(const identifier &id) {
@@ -79,9 +80,12 @@ namespace lotus::renderer::assets {
 				);
 			}
 			// TODO mips
+			cvec2s size(width, height);
 			tex.image = _context.request_image2d(
-				id.path.u8string(), cvec2s(width, height), 1, pixel_format,
-				gpu::image_usage::mask::copy_destination | gpu::image_usage::mask::read_only_texture
+				id.path.u8string(), size, mipmap::get_levels(size.into<std::uint32_t>()), pixel_format,
+				gpu::image_usage::mask::copy_destination |
+				gpu::image_usage::mask::read_write_color_texture |
+				gpu::image_usage::mask::read_only_texture
 			);
 			tex.highest_mip_loaded = 0;
 		}

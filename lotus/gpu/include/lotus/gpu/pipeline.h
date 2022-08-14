@@ -57,6 +57,7 @@ namespace lotus::gpu {
 				}
 			);
 		}
+
 		/// Returns the number of output variables.
 		[[nodiscard]] std::size_t get_output_variable_count() const {
 			return backend::shader_reflection::get_output_variable_count();
@@ -76,6 +77,11 @@ namespace lotus::gpu {
 					}
 				}
 			);
+		}
+
+		/// Returns the thread group size of this shader if it's a compute shader.
+		[[nodiscard]] cvec3s get_thread_group_size() const {
+			return backend::shader_reflection::get_thread_group_size();
 		}
 	protected:
 		/// Initializes the base object.

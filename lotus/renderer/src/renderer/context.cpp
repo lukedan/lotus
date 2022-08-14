@@ -139,10 +139,7 @@ namespace lotus::renderer {
 				std::size_t first_barrier = image_barriers.size();
 				auto *surf = it->surface;
 				for (auto first = it; it != surf_transitions.end() && it->surface == first->surface; ++it) {
-					auto max_mip =
-						it->mip_levels.is_all() ?
-						it->surface->num_mips :
-						it->mip_levels.minimum + it->mip_levels.num_levels;
+					auto max_mip = std::min<std::uint16_t>(it->surface->num_mips, it->mip_levels.maximum);
 					for (std::uint16_t mip = it->mip_levels.minimum; mip < max_mip; ++mip) {
 						// check if a transition is really necessary
 						gpu::image_usage current_usage = it->surface->current_usages[mip];
@@ -463,6 +460,17 @@ namespace lotus::renderer {
 		);
 	}
 
+	void context::run_compute_shader_with_thread_dimensions(
+		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_threads, all_resource_bindings bindings,
+		std::u8string_view description
+	) {
+		auto thread_group_size = shader.get().value.reflection.get_thread_group_size().into<std::uint32_t>();
+		cvec3u32 groups = matu32::memberwise_divide(
+			num_threads + thread_group_size - cvec3u32(1, 1, 1), thread_group_size
+		);
+		context::run_compute_shader(std::move(shader), groups, std::move(bindings), description);
+	}
+
 	context::pass context::begin_pass(
 		std::vector<surface2d_color> color_rts, surface2d_depth_stencil ds_rt, cvec2s sz,
 		std::u8string_view description
@@ -737,7 +745,12 @@ namespace lotus::renderer {
 			ectx.stage_transition(*buf.data._buffer, gpu::buffer_usage::read_only_buffer);
 			break;
 		case buffer_binding_type::read_write:
-			assert(false); // TODO
+			_device.write_descriptor_set_read_write_structured_buffers(
+				set, layout, reg, { gpu::structured_buffer_view::create(
+					buf.data._buffer->data, buf.first_element, buf.count, buf.stride
+				) }
+			);
+			ectx.stage_transition(*buf.data._buffer, gpu::buffer_usage::read_write_buffer);
 			break;
 		}
 	}
@@ -955,7 +968,7 @@ namespace lotus::renderer {
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::upload_image &img) {
 		auto dest = img.destination;
-		dest._mip_levels.num_levels = 1;
+		dest._mip_levels = gpu::mip_levels::only(dest._mip_levels.minimum);
 		_maybe_create_image(*dest._surface);
 
 		cvec2s size = dest._surface->size;

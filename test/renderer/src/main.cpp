@@ -274,12 +274,12 @@ int main(int argc, char **argv) {
 				pass.draw_instanced(
 					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list,
 					ren::all_resource_bindings::from_unsorted({
-						ren::resource_set_binding::create({
+						ren::resource_set_binding::descriptor_bindings({
 							ren::resource_binding(ren::descriptor_resource::image2d(
 								gbuffer.normal, ren::image_binding_type::read_only
 							), 0),
 							ren::resource_binding(ren::descriptor_resource::sampler(), 1),
-						}, 0)
+						}).at_space(0),
 					}),
 					blit_vs, blit_ps, state, 1, u8"Final blit"
 				);

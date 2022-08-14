@@ -28,11 +28,12 @@ Texture2D<float4> material_textures[] : register(t0, space0);
 
 ConstantBuffer<gltf_material> material : register(b0, space1);
 ConstantBuffer<instance_data> instance : register(b1, space1);
-SamplerState linear_sampler            : register(s2, space1);
+ConstantBuffer<view_data> view         : register(b2, space1);
+SamplerState linear_sampler            : register(s3, space1);
 
 vs_output transform_geometry(vs_input input) {
 	vs_output result = (vs_output)0;
-	result.position = mul(instance.view_projection, mul(instance.transform, float4(input.position, 1.0f)));
+	result.position = mul(view.projection_view, mul(instance.transform, float4(input.position, 1.0f)));
 #ifdef VERTEX_INPUT_HAS_UV
 	result.uv = input.uv;
 #else

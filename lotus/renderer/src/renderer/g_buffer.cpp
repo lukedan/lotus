@@ -101,9 +101,13 @@ namespace lotus::renderer::g_buffer {
 			);
 			shader_types::instance_data instance;
 			instance.transform = inst.transform;
-			instance.view_projection = projection * view;
+			shader_types::view_data view_data;
+			view_data.view = view;
+			view_data.projection = projection;
+			view_data.projection_view = projection * view;
 			resource_set_binding::descriptor_bindings bindings({
 				resource_binding(descriptor_resource::immediate_constant_buffer::create_for(instance), 1),
+				resource_binding(descriptor_resource::immediate_constant_buffer::create_for(view_data), 2),
 			});
 			all_resource_bindings additional_resources = nullptr;
 			additional_resources.sets.emplace_back(bindings, 1);

@@ -71,6 +71,11 @@ namespace lotus::gpu::backends::vulkan {
 			std::size_t first_register, std::span<const structured_buffer_view>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
+		void write_descriptor_set_read_write_structured_buffers(
+			descriptor_set&, const descriptor_set_layout&,
+			std::size_t first_register, std::span<const structured_buffer_view>
+		);
+		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_constant_buffers(
 			descriptor_set&, const descriptor_set_layout&,
 			std::size_t first_register, std::span<const constant_buffer_view>

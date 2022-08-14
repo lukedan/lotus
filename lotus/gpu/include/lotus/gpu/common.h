@@ -7,6 +7,7 @@
 #include <array>
 #include <compare>
 #include <string_view>
+#include <optional>
 #include <span>
 #include <variant>
 
@@ -1190,8 +1191,8 @@ namespace lotus::gpu {
 	/// Describes a range of mip levels.
 	struct mip_levels {
 	public:
-		/// Use this for \ref num_levels to indicate that all levels below \ref minimum can be used.
-		constexpr static std::uint16_t all_mip_levels = 0;
+		/// Use this for \ref maximum to indicate that all levels below \ref minimum can be used.
+		constexpr static std::uint16_t all_mip_levels = std::numeric_limits<std::uint16_t>::max();
 
 		/// No initialization.
 		mip_levels(uninitialized_t) {
@@ -1210,44 +1211,47 @@ namespace lotus::gpu {
 		}
 		/// Indicates that only the given layer can be used.
 		[[nodiscard]] constexpr inline static mip_levels only(std::uint16_t layer) {
-			return mip_levels(layer, 1);
+			return mip_levels(layer, layer + 1);
 		}
 		/// Indicates that only the highest layer can be used.
 		[[nodiscard]] constexpr inline static mip_levels only_highest() {
-			return mip_levels(0, 1);
+			return only(0);
 		}
 		/// Creates an object indicating that mip levels in the given range can be used.
 		[[nodiscard]] constexpr inline static mip_levels create(std::uint16_t min, std::uint16_t num) {
-			return mip_levels(min, num);
+			return mip_levels(min, min + num);
+		}
+
+		/// Returns the number of mip levels contained, or \p std::nullopt if this contains all mips below a certain
+		/// level.
+		[[nodiscard]] std::optional<std::uint16_t> get_num_levels() const {
+			if (maximum == all_mip_levels) {
+				return std::nullopt;
+			}
+			return maximum - minimum;
 		}
 
 		/// Returns whether this struct represents all mip levels about the specified one.
 		[[nodiscard]] constexpr bool is_all() const {
-			return num_levels == all_mip_levels;
+			return maximum == all_mip_levels;
 		}
 		/// Returns whether this contains no levels.
 		[[nodiscard]] constexpr bool is_empty() const {
-			return num_levels == 0;
+			return minimum >= maximum;
 		}
 
 		/// Finds the intersection of two mip ranges.
 		[[nodiscard]] constexpr inline static mip_levels intersection(mip_levels lhs, mip_levels rhs) {
 			std::uint16_t min = std::max(lhs.minimum, rhs.minimum);
-			if (lhs.is_all() && rhs.is_all()) {
-				return mip_levels::all_below(min);
-			}
-			auto last_level = static_cast<std::uint16_t>(std::min(
-				lhs.minimum + static_cast<std::uint32_t>(lhs.num_levels),
-				rhs.minimum + static_cast<std::uint32_t>(rhs.num_levels)
-			));
-			return mip_levels(min, last_level - min);
+			std::uint16_t max = std::min(lhs.maximum, rhs.maximum);
+			return mip_levels(min, max);
 		}
 
-		std::uint16_t minimum; ///< Minimum mip level.
-		std::uint16_t num_levels; ///< Number of mip levels.
+		std::uint16_t minimum; ///< Minimum (inclusive) mip level.
+		std::uint16_t maximum; ///< Maximum (exclusive) mip level.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr mip_levels(std::uint16_t min, std::uint16_t num) : minimum(min), num_levels(num) {
+		constexpr mip_levels(std::uint16_t min, std::uint16_t max) : minimum(min), maximum(max) {
 		}
 	};
 

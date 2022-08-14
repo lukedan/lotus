@@ -21,4 +21,10 @@ namespace lotus::gpu::backends::directx12 {
 		_details::assert_dx(_reflection->GetDesc(&desc));
 		return desc.OutputParameters;
 	}
+
+	cvec3s shader_reflection::get_thread_group_size() const {
+		UINT x, y, z;
+		_reflection->GetThreadGroupSize(&x, &y, &z);
+		return cvec3s(x, y, z);
+	}
 }

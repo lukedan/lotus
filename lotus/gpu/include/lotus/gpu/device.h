@@ -147,6 +147,24 @@ namespace lotus::gpu {
 				set, layout, first_register, { buffers.begin(), buffers.end() }
 			);
 		}
+		/// Updates the descriptors in the set with the given read-write structured buffers.
+		void write_descriptor_set_read_write_structured_buffers(
+			descriptor_set &set, const descriptor_set_layout &layout,
+			std::size_t first_register, std::span<const structured_buffer_view> buffers
+		) {
+			backend::device::write_descriptor_set_read_write_structured_buffers(
+				set, layout, first_register, buffers
+			);
+		}
+		/// \overload
+		void write_descriptor_set_read_write_structured_buffers(
+			descriptor_set &set, const descriptor_set_layout &layout,
+			std::size_t first_register, std::initializer_list<structured_buffer_view> buffers
+		) {
+			write_descriptor_set_read_write_structured_buffers(
+				set, layout, first_register, { buffers.begin(), buffers.end() }
+			);
+		}
 		/// Updates the descriptors in the set with the given constant buffers.
 		void write_descriptor_set_constant_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,

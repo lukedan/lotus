@@ -168,6 +168,11 @@ namespace lotus::renderer {
 			[[nodiscard]] const std::filesystem::path &get_shader_library_path() const {
 				return _shader_library_path;
 			}
+
+			/// Returns the \ref context this manager is associated with.
+			[[nodiscard]] context &get_context() const {
+				return _context;
+			}
 		private:
 			/// Hashes an \ref identifier.
 			struct _id_hash {

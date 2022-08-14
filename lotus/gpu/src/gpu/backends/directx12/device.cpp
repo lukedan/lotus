@@ -489,6 +489,38 @@ namespace lotus::gpu::backends::directx12 {
 		}
 	}
 
+	void device::write_descriptor_set_read_write_structured_buffers(
+		descriptor_set &set, const descriptor_set_layout &layout,
+		std::size_t first_register, std::span<const structured_buffer_view> buffers
+	) {
+		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, first_register, buffers.size());
+		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor =
+			set._shader_resource_descriptors.get_cpu(static_cast<_details::descriptor_range::index_t>(
+				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
+			));
+		for (const auto &buf : buffers) {
+			if (buf.data) {
+				auto *buf_data = static_cast<const buffer*>(buf.data);
+				D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
+				desc.Format                      = DXGI_FORMAT_UNKNOWN;
+				desc.ViewDimension               = D3D12_UAV_DIMENSION_BUFFER;
+				desc.Buffer.FirstElement         = static_cast<UINT64>(buf.first);
+				desc.Buffer.NumElements          = static_cast<UINT>(buf.count);
+				desc.Buffer.StructureByteStride  = static_cast<UINT>(buf.stride);
+				desc.Buffer.CounterOffsetInBytes = 0;
+				desc.Buffer.Flags                = D3D12_BUFFER_UAV_FLAG_NONE;
+				_device->CreateUnorderedAccessView(buf_data->_buffer.Get(), nullptr, &desc, current_descriptor);
+			} else {
+				D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
+				desc.Format        = DXGI_FORMAT_UNKNOWN;
+				desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+				_device->CreateUnorderedAccessView(nullptr, nullptr, &desc, current_descriptor);
+			}
+			current_descriptor.ptr += increment;
+		}
+	}
+
 	void device::write_descriptor_set_constant_buffers(
 		descriptor_set &set, const descriptor_set_layout &layout,
 		std::size_t first_register, std::span<const constant_buffer_view> buffers
@@ -653,13 +685,13 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	image2d_view device::create_image2d_view_from(const image2d &img, format fmt, mip_levels mip) {
+		auto mips = mip.get_num_levels();
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 		srv_desc.Format                        = _details::conversions::to_format(fmt);
 		srv_desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srv_desc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srv_desc.Texture2D.MostDetailedMip     = static_cast<UINT>(mip.minimum);
-		srv_desc.Texture2D.MipLevels           =
-			static_cast<UINT>(mip.num_levels == mip_levels::all_mip_levels ? -1 : mip.num_levels);
+		srv_desc.Texture2D.MipLevels           = mips ? static_cast<UINT>(mips.value()) : static_cast<UINT>(-1);
 		srv_desc.Texture2D.PlaneSlice          = 0;
 		srv_desc.Texture2D.ResourceMinLODClamp = 0.0f;
 

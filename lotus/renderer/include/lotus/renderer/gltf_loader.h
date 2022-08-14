@@ -6,6 +6,7 @@
 #include "asset_manager.h"
 #include "context.h"
 #include "shader_types.h"
+#include "mipmap.h"
 
 namespace lotus::renderer::gltf {
 	/// GLTF context.
@@ -20,12 +21,14 @@ namespace lotus::renderer::gltf {
 		[[nodiscard]] std::vector<instance> load(const std::filesystem::path&);
 	private:
 		/// Initializes \ref _asset_manager and creates input resource layout.
-		explicit context(assets::manager &asset_man) : _asset_manager(asset_man) {
+		explicit context(assets::manager &asset_man) :
+			_asset_manager(asset_man), _mip_generator(mipmap::generator::create(asset_man)) {
 		}
 
 		assets::manager &_asset_manager; ///< Associated asset manager.
 		assets::handle<assets::shader> _vertex_shader = nullptr; ///< Vertex shader.
 		assets::handle<assets::shader> _pixel_shader = nullptr; ///< Pixel shader.
+		mipmap::generator _mip_generator; ///< Mipmap generator.
 	};
 
 	/// GLTF material parameters.

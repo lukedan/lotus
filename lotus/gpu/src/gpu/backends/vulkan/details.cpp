@@ -371,13 +371,12 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::ImageSubresourceRange to_image_subresource_range(const mip_levels &mip, vk::ImageAspectFlags aspects) {
+			auto mip_levels = mip.get_num_levels();
 			vk::ImageSubresourceRange result;
 			result
 				.setAspectMask(aspects)
 				.setBaseMipLevel(mip.minimum)
-				.setLevelCount(
-					mip.num_levels == mip_levels::all_mip_levels ? VK_REMAINING_MIP_LEVELS : mip.num_levels
-				)
+				.setLevelCount(mip_levels ? static_cast<std::uint32_t>(mip_levels.value()) : VK_REMAINING_MIP_LEVELS)
 				.setBaseArrayLayer(0)
 				.setLayerCount(1);
 			return result;

@@ -44,6 +44,7 @@ namespace lotus::gpu::backends::vulkan {
 				}
 			}
 		}
+
 		/// Queries the number of output variables using \p spv_reflect::ShaderModuleEnumerateOutputVariables().
 		[[nodiscard]] std::size_t get_output_variable_count() const;
 		/// Enumerates over all output varibles using \p spv_reflect::ShaderModuleEnumerateOutputVariables().
@@ -60,6 +61,9 @@ namespace lotus::gpu::backends::vulkan {
 				}
 			}
 		}
+
+		/// Returns the thread group size.
+		[[nodiscard]] cvec3s get_thread_group_size() const;
 	private:
 		spv_reflect::ShaderModule _reflection; ///< Reflection data.
 	};

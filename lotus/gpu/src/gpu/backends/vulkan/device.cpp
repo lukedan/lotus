@@ -257,6 +257,29 @@ namespace lotus::gpu::backends::vulkan {
 		_device->updateDescriptorSets(info, {});
 	}
 
+	void device::write_descriptor_set_read_write_structured_buffers(
+		descriptor_set &set, const descriptor_set_layout&,
+		std::size_t first_register, std::span<const structured_buffer_view> buffers
+	) {
+		// this is literally the same as read-only structured buffers
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
+		for (const auto &buf : buffers) {
+			bufs.emplace_back()
+				.setBuffer(buf.data ? static_cast<buffer*>(buf.data)->_buffer : nullptr)
+				.setOffset(buf.first * buf.stride)
+				.setRange(buf.count * buf.stride);
+		}
+
+		vk::WriteDescriptorSet info;
+		info
+			.setDstSet(set._set.get())
+			.setDescriptorType(vk::DescriptorType::eStorageBuffer)
+			.setBufferInfo(bufs);
+		_set_write_descriptor_binding(info, first_register, set._variable_binding_index);
+		_device->updateDescriptorSets(info, {});
+	}
+
 	void device::write_descriptor_set_constant_buffers(
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const constant_buffer_view> buffers
@@ -619,9 +642,21 @@ namespace lotus::gpu::backends::vulkan {
 		compute_pipeline_state result = nullptr;
 
 		vk::ComputePipelineCreateInfo info;
+		const char *entry_point = nullptr;
+		// TODO this is bad
+		for (std::uint32_t i = 0; i < cs._reflection.GetEntryPointCount(); ++i) {
+			if (
+				static_cast<std::uint32_t>(cs._reflection.GetEntryPointShaderStage(i)) ==
+				static_cast<std::uint32_t>(SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT)
+			) {
+				entry_point = cs._reflection.GetEntryPointName(i);
+				break;
+			}
+		}
 		info.stage
 			.setStage(vk::ShaderStageFlagBits::eCompute)
-			.setModule(cs._module.get());
+			.setModule(cs._module.get())
+			.setPName(entry_point);
 		info
 			.setLayout(rsrc._layout.get());
 		// TODO allocator

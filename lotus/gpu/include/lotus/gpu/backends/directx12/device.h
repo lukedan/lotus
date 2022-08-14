@@ -95,11 +95,16 @@ namespace lotus::gpu::backends::directx12 {
 		void write_descriptor_set_read_only_images(
 			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view *const>
 		);
+		/// Calls \p ID3D12Device::CreateUnorderedAccessView().
 		void write_descriptor_set_read_write_images(
 			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view *const>
 		);
 		/// Calls \p ID3D12Device::CreateShaderResourceView().
 		void write_descriptor_set_read_only_structured_buffers(
+			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const structured_buffer_view>
+		);
+		/// Calls \p ID3D12Device::CreateUnorderedAccessView().
+		void write_descriptor_set_read_write_structured_buffers(
 			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const structured_buffer_view>
 		);
 		/// Calls \p ID3D12Device::CreateConstantBufferView().

@@ -349,6 +349,14 @@ namespace lotus::renderer {
 		[[nodiscard]] image2d_view view_as(gpu::format fmt) const {
 			return image2d_view(_surface, fmt, _mip_levels);
 		}
+		/// Creates another view of the given mip levels of this image.
+		[[nodiscard]] image2d_view view_mips(gpu::mip_levels mips) const {
+			return image2d_view(_surface, _view_format, mips);
+		}
+		/// Creates another view of the given mip levels of this image in another format.
+		[[nodiscard]] image2d_view view_mips_as(gpu::format fmt, gpu::mip_levels mips) const {
+			return image2d_view(_surface, fmt, mips);
+		}
 
 		/// Returns the size of the top mip of this image.
 		[[nodiscard]] cvec2s get_size() const {
@@ -361,6 +369,15 @@ namespace lotus::renderer {
 		/// Returns the original format of this image.
 		[[nodiscard]] gpu::format get_original_format() const {
 			return _surface->format;
+		}
+
+		/// Returns the number of mip levels allocated for this texture.
+		[[nodiscard]] std::uint32_t get_num_mip_levels() const {
+			return _surface->num_mips;
+		}
+		/// Returns the mip levels that are visible for this image view.
+		[[nodiscard]] const gpu::mip_levels &get_viewed_mip_levels() const {
+			return _mip_levels;
 		}
 
 		/// Returns whether this object holds a valid image view.
@@ -898,6 +915,11 @@ namespace lotus::renderer {
 						return lhs.register_index < rhs.register_index;
 					}
 				);
+			}
+
+			/// Converts this object into a \ref resource_set_binding object at the given register space.
+			[[nodiscard]] resource_set_binding at_space(std::uint32_t s) && {
+				return resource_set_binding(std::move(*this), s);
 			}
 
 			std::vector<resource_binding> bindings; ///< All resource bindings.

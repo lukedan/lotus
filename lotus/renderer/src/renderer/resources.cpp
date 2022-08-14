@@ -10,17 +10,16 @@ namespace lotus::renderer {
 
 		image2d_view image2d_view::highest_mip_with_warning() const {
 			image2d_view result = *this;
-			if (result._mip_levels.num_levels != 1) {
+			if (result._mip_levels.get_num_levels() != 1) {
 				if (result._surface->num_mips - result._mip_levels.minimum > 1) {
 					auto num_levels =
-						result._mip_levels.is_all() ?
-						result._surface->num_mips - result._mip_levels.minimum :
-						result._mip_levels.num_levels;
+						std::min<std::uint32_t>(result._surface->num_mips, result._mip_levels.maximum) -
+						result._mip_levels.minimum;
 					log().error<u8"More than one ({}) mip specified for render target for texture {}">(
 						num_levels, string::to_generic(result._surface->name)
 					);
 				}
-				result._mip_levels.num_levels = 1;
+				result._mip_levels = gpu::mip_levels::only(result._mip_levels.minimum);
 			}
 			return result;
 		}

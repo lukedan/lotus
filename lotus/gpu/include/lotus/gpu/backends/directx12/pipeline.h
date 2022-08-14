@@ -25,7 +25,7 @@ namespace lotus::gpu::backends::directx12 {
 		shader_reflection(std::nullptr_t) {
 		}
 
-		/// Returns the result of ID3D12ShaderReflection::GetResourceBindingDescByName().
+		/// Returns the result of \p ID3D12ShaderReflection::GetResourceBindingDescByName().
 		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const;
 		/// Enumerates over all resource bindings using \p ID3D12ShaderReflection::GetResourceBindingDesc().
 		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) const {
@@ -39,6 +39,7 @@ namespace lotus::gpu::backends::directx12 {
 				}
 			}
 		}
+
 		/// Returns the number of output variables.
 		[[nodiscard]] std::size_t get_output_variable_count() const;
 		/// Enumerates over all output variables using \p ID3D12ShaderReflection::GetOutputParameterDesc().
@@ -52,6 +53,9 @@ namespace lotus::gpu::backends::directx12 {
 				}
 			}
 		}
+
+		/// Returns the result of \p ID3D12ShaderReflection::GetThreadGroupSize().
+		[[nodiscard]] cvec3s get_thread_group_size() const;
 	private:
 		_details::com_ptr<ID3D12ShaderReflection> _reflection; ///< Shader reflection object.
 	};

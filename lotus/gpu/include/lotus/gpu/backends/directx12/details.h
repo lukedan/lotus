@@ -62,6 +62,8 @@ namespace lotus::gpu::backends::directx12::_details {
 		[[nodiscard]] D3D12_TEXTURE_ADDRESS_MODE to_texture_address_mode(sampler_address_mode);
 		/// Converts a \ref comparison_function to a \p D3D12_COMPARISON_FUNC.
 		[[nodiscard]] D3D12_COMPARISON_FUNC to_comparison_function(comparison_function);
+		/// Converts a \ref shader_stage to a \p D3D12_SHADER_VERSION_TYPE.
+		[[nodiscard]] D3D12_SHADER_VERSION_TYPE to_shader_version_type(shader_stage);
 
 		// bitmask conversions
 		/// Converts a \ref channel_mask to a \p D3D12_COLOR_WRITE_ENABLE.

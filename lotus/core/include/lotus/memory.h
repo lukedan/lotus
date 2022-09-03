@@ -57,9 +57,13 @@ namespace lotus::memory {
 		num_heaps ///< The total number of memory heaps.
 	};
 
-	/// Aligns the given size.
-	[[nodiscard]] inline constexpr std::size_t align_size(std::size_t size, std::size_t align) {
-		return align * ((size + align - 1) / align);
+	/// Finds the smallest value larger than or equal to the input that satifies the alignment.
+	[[nodiscard]] inline constexpr std::size_t align_up(std::size_t value, std::size_t align) {
+		return align * ((value + align - 1) / align);
+	}
+	/// Finds the largest value smaller than or equal to the input that satifies the alignment.
+	[[nodiscard]] inline constexpr std::size_t align_down(std::size_t value, std::size_t align) {
+		return value - (value % align);
 	}
 	/// Checks that the given pointer is aligned.
 	[[nodiscard]] inline bool is_aligned(void *ptr, std::size_t align) {

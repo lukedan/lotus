@@ -1194,9 +1194,6 @@ namespace lotus::gpu {
 		/// Use this for \ref maximum to indicate that all levels below \ref minimum can be used.
 		constexpr static std::uint16_t all_mip_levels = std::numeric_limits<std::uint16_t>::max();
 
-		/// No initialization.
-		mip_levels(uninitialized_t) {
-		}
 		/// Returns zero mip levels.
 		[[nodiscard]] constexpr inline static mip_levels empty() {
 			return mip_levels(0, 0);
@@ -1224,11 +1221,11 @@ namespace lotus::gpu {
 
 		/// Returns the number of mip levels contained, or \p std::nullopt if this contains all mips below a certain
 		/// level.
-		[[nodiscard]] std::optional<std::uint16_t> get_num_levels() const {
+		[[nodiscard]] constexpr std::optional<std::uint16_t> get_num_levels() const {
 			if (maximum == all_mip_levels) {
 				return std::nullopt;
 			}
-			return maximum - minimum;
+			return static_cast<std::uint16_t>(maximum - minimum);
 		}
 
 		/// Returns whether this struct represents all mip levels about the specified one.

@@ -89,8 +89,8 @@ namespace lotus::gpu::backends::directx12 {
 
 		/// Calls \p IDxcUtils::CreateReflection().
 		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte>);
-		/// Creates a reflection object for the compiled shader.
-		[[nodiscard]] shader_reflection load_shader_reflection(compilation_result&);
+		/// Calls \p IDxcUtils::CreateReflection().
+		[[nodiscard]] shader_library_reflection load_shader_library_reflection(std::span<const std::byte>);
 	private:
 		backends::common::dxc_compiler _compiler = nullptr; ///< Interface to the DXC compiler.
 	};

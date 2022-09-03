@@ -139,7 +139,9 @@ namespace lotus::renderer {
 				std::size_t first_barrier = image_barriers.size();
 				auto *surf = it->surface;
 				for (auto first = it; it != surf_transitions.end() && it->surface == first->surface; ++it) {
-					auto max_mip = std::min<std::uint16_t>(it->surface->num_mips, it->mip_levels.maximum);
+					auto max_mip = std::min(
+						static_cast<std::uint16_t>(it->surface->num_mips), it->mip_levels.maximum
+					);
 					for (std::uint16_t mip = it->mip_levels.minimum; mip < max_mip; ++mip) {
 						// check if a transition is really necessary
 						gpu::image_usage current_usage = it->surface->current_usages[mip];
@@ -306,7 +308,7 @@ namespace lotus::renderer {
 		std::memcpy(
 			_immediate_constant_upload_buffer_ptr + _immediate_constant_buffer_used, data.data(), data.size()
 		);
-		_immediate_constant_buffer_used = memory::align_size(
+		_immediate_constant_buffer_used = memory::align_up(
 			_immediate_constant_buffer_used + data.size(), _ctx._adapter_properties.constant_buffer_alignment
 		);
 

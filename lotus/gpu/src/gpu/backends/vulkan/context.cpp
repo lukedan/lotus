@@ -177,13 +177,16 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	shader_reflection shader_utility::load_shader_reflection(std::span<const std::byte> code) {
-		shader_reflection result = nullptr;
-		result._reflection = spv_reflect::ShaderModule(code.size(), code.data());
-		_details::assert_spv_reflect(result._reflection.GetResult());
-		return result;
+		auto reflection = std::make_shared<spv_reflect::ShaderModule>(code.size(), code.data()); // TODO allocator
+		_details::assert_spv_reflect(reflection->GetResult());
+		assert(reflection->GetEntryPointCount() == 1);
+		return shader_reflection(std::move(reflection), 0);
 	}
 
-	shader_reflection shader_utility::load_shader_reflection(compilation_result &res) {
-		return load_shader_reflection(res.get_compiled_binary());
+	shader_library_reflection shader_utility::load_shader_library_reflection(std::span<const std::byte> code) {
+		shader_library_reflection result = nullptr;
+		result._reflection = std::make_shared<spv_reflect::ShaderModule>(code.size(), code.data()); // TODO allocator
+		_details::assert_spv_reflect(result._reflection->GetResult());
+		return result;
 	}
 }

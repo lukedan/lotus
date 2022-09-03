@@ -16,24 +16,28 @@ namespace lotus::gpu::backends::directx12 {
 	class graphics_pipeline_state;
 	class raytracing_pipeline_state;
 	class shader_utility;
+	class shader_library_reflection;
 
-	/// Contains a \p ID3D12ShaderReflection.
+	/// Contains a \p ID3D12ShaderReflection or a \p ID3D12FunctionReflection.
 	class shader_reflection {
 		friend shader_utility;
+		friend shader_library_reflection;
 	protected:
 		/// Initializes an empty reflection object.
 		shader_reflection(std::nullptr_t) {
 		}
 
-		/// Returns the result of \p ID3D12ShaderReflection::GetResourceBindingDescByName().
+		/// Returns the result of \p ID3D12ShaderReflection::GetResourceBindingDescByName() or
+		/// \p ID3D12FunctionReflection::GetResourceBindingDescByName().
 		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const;
 		/// Enumerates over all resource bindings using \p ID3D12ShaderReflection::GetResourceBindingDesc().
 		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) const {
-			D3D12_SHADER_DESC shader_desc = {};
-			_details::assert_dx(_reflection->GetDesc(&shader_desc));
-			for (UINT i = 0; i < shader_desc.BoundResources; ++i) {
+			UINT count = _get_resource_binding_count();
+			for (UINT i = 0; i < count; ++i) {
 				D3D12_SHADER_INPUT_BIND_DESC desc = {};
-				_details::assert_dx(_reflection->GetResourceBindingDesc(i, &desc));
+				std::visit([&](const auto &refl) {
+					_details::assert_dx(refl->GetResourceBindingDesc(i, &desc));
+				}, _reflection);
 				if (!cb(_details::conversions::back_to_shader_resource_binding(desc))) {
 					break;
 				}
@@ -45,20 +49,88 @@ namespace lotus::gpu::backends::directx12 {
 		/// Enumerates over all output variables using \p ID3D12ShaderReflection::GetOutputParameterDesc().
 		template <typename Callback> void enumerate_output_variables(Callback &&cb) const {
 			std::size_t count = get_output_variable_count();
-			for (UINT i = 0; i < count; ++i) {
-				D3D12_SIGNATURE_PARAMETER_DESC desc = {};
-				_details::assert_dx(_reflection->GetOutputParameterDesc(i, &desc));
-				if (!cb(_details::conversions::back_to_shader_output_variable(desc))) {
-					break;
+			if (std::holds_alternative<_shader_refl_ptr>(_reflection)) {
+				const auto &refl = std::get<_shader_refl_ptr>(_reflection);
+				for (UINT i = 0; i < count; ++i) {
+					D3D12_SIGNATURE_PARAMETER_DESC desc = {};
+					_details::assert_dx(refl->GetOutputParameterDesc(i, &desc));
+					if (!cb(_details::conversions::back_to_shader_output_variable(desc))) {
+						break;
+					}
 				}
 			}
 		}
 
 		/// Returns the result of \p ID3D12ShaderReflection::GetThreadGroupSize().
 		[[nodiscard]] cvec3s get_thread_group_size() const;
+
+		/// Returns whether this holds a valid object.
+		[[nodiscard]] bool is_valid() const {
+			return std::visit([](const auto &refl) {
+				return refl != nullptr;
+			}, _reflection);
+		}
 	private:
-		_details::com_ptr<ID3D12ShaderReflection> _reflection; ///< Shader reflection object.
+		/// Shared pointer to a \p ID3D12ShaderReflection.
+		using _shader_refl_ptr = _details::com_ptr<ID3D12ShaderReflection>;
+		/// Raw pointer to a \p ID3D12FunctionReflection.
+		using _function_refl_ptr = ID3D12FunctionReflection*;
+		/// Union of possible shader reflection types.
+		using _union = std::variant<_shader_refl_ptr, _function_refl_ptr>;
+
+		_union _reflection; ///< Shader reflection object.
+
+		/// Initializes this object with a shader reflection object.
+		explicit shader_reflection(_shader_refl_ptr ptr) :
+			_reflection(std::in_place_type<_shader_refl_ptr>, std::move(ptr)) {
+		}
+		/// Initializes this object with a function reflection object.
+		explicit shader_reflection(_function_refl_ptr ptr) :
+			_reflection(std::in_place_type<_function_refl_ptr>, ptr) {
+		}
+
+		/// Calls the given callback with either a \p D3D12_SHADER_DESC or a \p D3D12_FUNCTION_DESC, depending on
+		/// which type is currently held by this reflection obejct.
+		template <typename Cb> auto _visit_desc(Cb &&cb) const {
+			if (std::holds_alternative<_shader_refl_ptr>(_reflection)) {
+				D3D12_SHADER_DESC desc = {};
+				_details::assert_dx(std::get<_shader_refl_ptr>(_reflection)->GetDesc(&desc));
+				return cb(desc);
+			} else {
+				D3D12_FUNCTION_DESC desc = {};
+				_details::assert_dx(std::get<_function_refl_ptr>(_reflection)->GetDesc(&desc));
+				return cb(desc);
+			}
+		}
+		/// Returns the number of resource bindings.
+		[[nodiscard]] UINT _get_resource_binding_count() const;
 	};
+
+	/// Contains a \p ID3D12LibraryReflection.
+	class shader_library_reflection {
+		friend shader_utility;
+	protected:
+		/// Initializes an empty reflection object.
+		shader_library_reflection(std::nullptr_t) {
+		}
+
+		/// Enumerates over all shaders using \p ID3D12LibraryReflection::GetFunctionByIndex().
+		template <typename Callback> void enumerate_shaders(Callback &&cb) const {
+			D3D12_LIBRARY_DESC desc = {};
+			_details::assert_dx(_reflection->GetDesc());
+			for (UINT i = 0; i < desc.FunctionCount; ++i) {
+				auto *refl = _reflection->GetFunctionByIndex(static_cast<INT>(i));
+				if (!cb(shader_reflection(refl))) {
+					break;
+				}
+			}
+		}
+		/// Finds the shader that matches the given entry point and stage using \ref enumerate_shaders().
+		[[nodiscard]] shader_reflection find_shader(std::u8string_view, shader_stage) const;
+	private:
+		_details::com_ptr<ID3D12LibraryReflection> _reflection; ///< Shader library reflection object.
+	};
+
 
 	/// Contains a \p D3D12_SHADER_BYTECODE.
 	class shader_binary {

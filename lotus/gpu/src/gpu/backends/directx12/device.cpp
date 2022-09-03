@@ -537,7 +537,7 @@ namespace lotus::gpu::backends::directx12 {
 				D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
 				desc.BufferLocation = buf_data->_buffer->GetGPUVirtualAddress() + buf.offset;
 				desc.SizeInBytes    =
-					static_cast<UINT>(memory::align_size(buf.size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT));
+					static_cast<UINT>(memory::align_up(buf.size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT));
 				_device->CreateConstantBufferView(&desc, current_descriptor);
 			} else {
 				_device->CreateConstantBufferView(nullptr, current_descriptor);

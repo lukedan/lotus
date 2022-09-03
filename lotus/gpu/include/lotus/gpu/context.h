@@ -114,9 +114,9 @@ namespace lotus::gpu {
 		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte> data) {
 			return backend::shader_utility::load_shader_reflection(data);
 		}
-		/// Loads shader reflection from the given compiled shader.
-		[[nodiscard]] shader_reflection load_shader_reflection(compilation_result &res) {
-			return backend::shader_utility::load_shader_reflection(res);
+		/// Loads shader library reflection from the given data.
+		[[nodiscard]] shader_library_reflection load_shader_library_reflection(std::span<const std::byte> data) {
+			return backend::shader_utility::load_shader_library_reflection(data);
 		}
 		// TODO more options
 		/// Compiles the given shader.

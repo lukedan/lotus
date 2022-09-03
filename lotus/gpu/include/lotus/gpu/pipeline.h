@@ -8,10 +8,12 @@
 namespace lotus::gpu {
 	class device;
 	class shader_utility;
+	class shader_library_reflection;
 
 	/// Shader reflection.
 	class shader_reflection : public backend::shader_reflection {
 		friend shader_utility;
+		friend shader_library_reflection;
 	public:
 		/// Creates an empty object.
 		shader_reflection(std::nullptr_t) : backend::shader_reflection(nullptr) {
@@ -19,15 +21,19 @@ namespace lotus::gpu {
 		/// Move constructor.
 		shader_reflection(shader_reflection &&src) : backend::shader_reflection(std::move(src)) {
 		}
-		/// No copy construction.
-		shader_reflection(const shader_reflection&) = delete;
+		/// Copy constructor.
+		shader_reflection(const shader_reflection &src) : backend::shader_reflection(src) {
+		}
 		/// Move assignment.
 		shader_reflection &operator=(shader_reflection &&src) {
 			backend::shader_reflection::operator=(std::move(src));
 			return *this;
 		}
-		/// No copy assignment.
-		shader_reflection &operator=(const shader_reflection&) = delete;
+		/// Copy assignment.
+		shader_reflection &operator=(const shader_reflection &src) {
+			backend::shader_reflection::operator=(src);
+			return *this;
+		}
 
 		/// Finds the binding with the specified name.
 		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(
@@ -83,11 +89,58 @@ namespace lotus::gpu {
 		[[nodiscard]] cvec3s get_thread_group_size() const {
 			return backend::shader_reflection::get_thread_group_size();
 		}
+
+		/// Returns whether this object contains a valid handle.
+		[[nodiscard]] bool is_valid() const {
+			return backend::shader_reflection::is_valid();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
+		}
 	protected:
 		/// Initializes the base object.
 		shader_reflection(backend::shader_reflection &&base) : backend::shader_reflection(std::move(base)) {
 		}
 	};
+
+	/// Reflection of a set of shaders compiled into a single binary.
+	class shader_library_reflection : public backend::shader_library_reflection {
+		friend shader_utility;
+	public:
+		/// Initializes this object to empty.
+		shader_library_reflection(std::nullptr_t) : backend::shader_library_reflection(nullptr) {
+		}
+		shader_library_reflection(shader_library_reflection &&src) :
+			backend::shader_library_reflection(std::move(src)) {
+		}
+
+		/// Enumerates all shaders in this library.
+		template <typename Callback> void enumerate_shaders(Callback &&cb) const {
+			backend::shader_library_reflection::enumerate_shaders(
+				[&](const shader_reflection &refl) {
+					using _result_t = std::invoke_result_t<Callback&&, const shader_reflection&>;
+					if constexpr (std::is_same_v<_result_t, bool>) {
+						return cb(refl);
+					} else {
+						static_assert(std::is_same_v<_result_t, void>, "Callback must return bool or nothing");
+						cb(refl);
+						return true;
+					}
+				}
+			);
+		}
+		/// Finds a shader that matches the given entry name and stage. If none is found, returns an empty object.
+		[[nodiscard]] shader_reflection find_shader(std::u8string_view entry, shader_stage stage) const {
+			return backend::shader_library_reflection::find_shader(entry, stage);
+		}
+	protected:
+		/// Initializes the base object.
+		shader_library_reflection(backend::shader_library_reflection &&base) :
+			backend::shader_library_reflection(std::move(base)) {
+		}
+	};
+
 
 	/// Shader binary that contains one or more shaders.
 	class shader_binary : public backend::shader_binary {

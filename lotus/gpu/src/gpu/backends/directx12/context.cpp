@@ -92,7 +92,7 @@ namespace lotus::gpu::backends::directx12 {
 		return shader_utility();
 	}
 
-	shader_reflection shader_utility::load_shader_reflection(std::span<const std::byte> data) {
+	template <typename Ptr> static void _do_load_shader_reflection(std::span<const std::byte> data, Ptr &ptr) {
 		// create container reflection
 		_details::com_ptr<IDxcBlob> blob;
 		{
@@ -106,28 +106,19 @@ namespace lotus::gpu::backends::directx12 {
 		_details::assert_dx(container_reflection->Load(blob.Get()));
 
 		UINT32 part_index;
-		_details::com_ptr<IDxcBlob> reflection_blob;
-		_details::assert_dx(container_reflection->FindFirstPartKind(DXC_PART_REFLECTION_DATA, &part_index));
-		_details::assert_dx(container_reflection->GetPartContent(part_index, &reflection_blob));
+		_details::assert_dx(container_reflection->FindFirstPartKind(DXC_PART_DXIL, &part_index));
 
-		shader_reflection result = nullptr;
-		DxcBuffer buf;
-		buf.Encoding = DXC_CP_ACP;
-		buf.Ptr      = reflection_blob->GetBufferPointer();
-		buf.Size     = reflection_blob->GetBufferSize();
-		_details::assert_dx(_compiler.get_utils().CreateReflection(&buf, IID_PPV_ARGS(&result._reflection)));
-		return result;
+		_details::assert_dx(container_reflection->GetPartReflection(part_index, IID_PPV_ARGS(&ptr)));
+	}
+	shader_reflection shader_utility::load_shader_reflection(std::span<const std::byte> data) {
+		shader_reflection::_shader_refl_ptr result = nullptr;
+		_do_load_shader_reflection(data, result);
+		return shader_reflection(std::move(result));
 	}
 
-	shader_reflection shader_utility::load_shader_reflection(compilation_result &compiled) {
-		shader_reflection result = nullptr;
-		_details::com_ptr<IDxcBlob> refl;
-		_details::assert_dx(compiled.get_result().GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&refl), nullptr));
-		DxcBuffer buffer;
-		buffer.Encoding = DXC_CP_ACP;
-		buffer.Ptr      = refl->GetBufferPointer();
-		buffer.Size     = refl->GetBufferSize();
-		_details::assert_dx(_compiler.get_utils().CreateReflection(&buffer, IID_PPV_ARGS(&result._reflection)));
+	shader_library_reflection shader_utility::load_shader_library_reflection(std::span<const std::byte> data) {
+		shader_library_reflection result = nullptr;
+		_do_load_shader_reflection(data, result._reflection);
 		return result;
 	}
 }

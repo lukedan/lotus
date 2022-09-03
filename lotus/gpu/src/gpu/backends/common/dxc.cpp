@@ -93,6 +93,7 @@ namespace lotus::gpu::backends::common {
 			L"-E", entry_wstr.c_str(),
 			L"-T", profile.c_str(),
 			L"-Zi",
+			L"-Qembed_debug",
 		});
 		for (const auto &inc : includes) {
 			args.insert(args.end(), { L"-I", inc.c_str() });
@@ -105,8 +106,8 @@ namespace lotus::gpu::backends::common {
 		}
 
 		DxcBuffer buffer;
-		buffer.Ptr = code.data();
-		buffer.Size = code.size();
+		buffer.Ptr      = code.data();
+		buffer.Size     = code.size();
 		buffer.Encoding = DXC_CP_UTF8;
 		compilation_result result;
 		_details::assert_dx(get_compiler().Compile(

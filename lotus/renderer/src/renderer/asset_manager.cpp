@@ -244,8 +244,9 @@ namespace lotus::renderer::assets {
 		}
 
 		shader res = nullptr;
-		res.binary              = _device.load_shader(result.get_compiled_binary());
-		res.reflection          = _shader_utilities->load_shader_reflection(result);
+		auto binary = result.get_compiled_binary();
+		res.binary              = _device.load_shader(binary);
+		res.reflection          = _shader_utilities->load_shader_reflection(binary);
 		res.descriptor_bindings =
 			shader_descriptor_bindings::collect_from(res.reflection);
 		res.descriptor_bindings.create_layouts(get_device());

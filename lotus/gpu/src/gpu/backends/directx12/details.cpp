@@ -269,6 +269,23 @@ namespace lotus::gpu::backends::directx12::_details {
 			return table[mode];
 		}
 
+		D3D12_SHADER_VERSION_TYPE to_shader_version_type(shader_stage stage) {
+			constexpr static enum_mapping<shader_stage, D3D12_SHADER_VERSION_TYPE> table{
+				std::pair(shader_stage::all,                   D3D12_SHVER_LIBRARY),
+				std::pair(shader_stage::vertex_shader,         D3D12_SHVER_VERTEX_SHADER),
+				std::pair(shader_stage::geometry_shader,       D3D12_SHVER_GEOMETRY_SHADER),
+				std::pair(shader_stage::pixel_shader,          D3D12_SHVER_PIXEL_SHADER),
+				std::pair(shader_stage::compute_shader,        D3D12_SHVER_COMPUTE_SHADER),
+				std::pair(shader_stage::callable_shader,       D3D12_SHVER_CALLABLE_SHADER),
+				std::pair(shader_stage::ray_generation_shader, D3D12_SHVER_RAY_GENERATION_SHADER),
+				std::pair(shader_stage::intersection_shader,   D3D12_SHVER_INTERSECTION_SHADER),
+				std::pair(shader_stage::any_hit_shader,        D3D12_SHVER_ANY_HIT_SHADER),
+				std::pair(shader_stage::closest_hit_shader,    D3D12_SHVER_CLOSEST_HIT_SHADER),
+				std::pair(shader_stage::miss_shader,           D3D12_SHVER_MISS_SHADER),
+			};
+			return table[stage];
+		}
+
 
 		D3D12_COLOR_WRITE_ENABLE to_color_write_mask(channel_mask mask) {
 			constexpr static std::pair<channel_mask, D3D12_COLOR_WRITE_ENABLE> table[]{
@@ -568,7 +585,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			D3D12_RESOURCE_DESC desc = {};
 			desc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
 			desc.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-			desc.Width              = memory::align_size(size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+			desc.Width              = memory::align_up(size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 			desc.Height             = 1;
 			desc.DepthOrArraySize   = 1;
 			desc.MipLevels          = 1;

@@ -90,8 +90,8 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Creates a new \p spv_reflect::ShaderModule object from the given code.
 		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte>);
-		/// Unlike DirectX 12, this is just an overload of the other function.
-		[[nodiscard]] shader_reflection load_shader_reflection(compilation_result&);
+		/// Creates a new \p spv_reflect::ShaderModule object from the given code.
+		[[nodiscard]] shader_library_reflection load_shader_library_reflection(std::span<const std::byte>);
 
 		/// Compiles the given shader using the currently selected compiler.
 		[[nodiscard]] compilation_result compile_shader(

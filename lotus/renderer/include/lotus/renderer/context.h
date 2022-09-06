@@ -134,10 +134,19 @@ namespace lotus::renderer {
 		/// Builds a bottom level acceleration structure.
 		struct build_blas {
 			/// Initializes all fields of this struct.
-			explicit build_blas(blas t) : target(std::move(t)) {
+			explicit build_blas(recorded_resources::blas t) : target(std::move(t)) {
 			}
 
 			recorded_resources::blas target; ///< The BLAS to build.
+		};
+
+		/// Builds a top level acceleration structure.
+		struct build_tlas {
+			/// Initializes all fields of this struct.
+			explicit build_tlas(recorded_resources::tlas t) : target(std::move(t)) {
+			}
+
+			recorded_resources::tlas target; ///< The TLAS to build.
 		};
 
 		/// Executes a render pass.
@@ -181,6 +190,7 @@ namespace lotus::renderer {
 			context_commands::upload_buffer,
 			context_commands::dispatch_compute,
 			context_commands::build_blas,
+			context_commands::build_tlas,
 			context_commands::render_pass,
 			context_commands::present
 		> value; ///< The value of this command.
@@ -283,13 +293,20 @@ namespace lotus::renderer {
 			std::u8string_view name, gpu::descriptor_type, std::uint32_t capacity
 		);
 		/// Creates a bottom-level acceleration structure for the given input geometry.
-		[[nodiscard]] blas request_blas(std::u8string_view name, std::span<const geometry_buffers_view> geometries);
+		[[nodiscard]] blas request_blas(std::u8string_view name, std::span<const geometry_buffers_view>);
 		/// \overload
 		[[nodiscard]] blas request_blas(
 			std::u8string_view name, std::initializer_list<const geometry_buffers_view> geometries
 		) {
 			return request_blas(name, { geometries.begin(), geometries.end() });
 		}
+		/// Creates a top-level acceleration structure for the given input instances.
+		[[nodiscard]] tlas request_tlas(std::u8string_view name, std::span<const gpu::instance_description>);
+
+		/// Returns the description of a specific BLAS instance.
+		[[nodiscard]] gpu::instance_description get_blas_instance_description(
+			const blas&, lotus::mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset
+		);
 
 
 		/// Uploads image data to the GPU. This function immediately creates and fills the staging buffer, but actual
@@ -304,6 +321,8 @@ namespace lotus::renderer {
 
 		/// Builds the given \ref blas.
 		void build_blas(blas&, std::u8string_view description);
+		/// Builds the given \ref tlas.
+		void build_tlas(tlas&, std::u8string_view description);
 
 		/// Runs a compute shader.
 		void run_compute_shader(
@@ -635,6 +654,9 @@ namespace lotus::renderer {
 		/// Initializes the given \ref _details::descriptor_array if necessary.
 		void _maybe_initialize_descriptor_array(_details::descriptor_array&);
 
+		/// Initializes the given \ref _details::blas if necessary.
+		void _maybe_initialize_blas(_details::blas&);
+
 		/// Returns the descriptor type of an image binding.
 		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::image2d &img) const {
 			switch (img.binding_type) {
@@ -754,6 +776,8 @@ namespace lotus::renderer {
 		void _handle_command(_execution_context&, const context_commands::dispatch_compute&);
 		/// Handles a BLAS build command.
 		void _handle_command(_execution_context&, const context_commands::build_blas&);
+		/// Handles a TLAS build command.
+		void _handle_command(_execution_context&, const context_commands::build_tlas&);
 		/// Handles a begin pass command.
 		void _handle_command(_execution_context&, const context_commands::render_pass&);
 		/// Handles a present command.
@@ -792,6 +816,10 @@ namespace lotus::renderer {
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a BLAS.
 		void _deferred_delete(_details::blas*) {
+			// TODO
+		}
+		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a TLAS.
+		void _deferred_delete(_details::tlas*) {
 			// TODO
 		}
 	};

@@ -35,6 +35,7 @@ namespace lotus::renderer {
 		friend assets::manager;
 	public:
 		T value; ///< The asset object.
+		void *user_data = nullptr; ///< User data.
 
 		/// Retrieves the ID of this asset.
 		[[nodiscard]] const assets::identifier &get_id() const {
@@ -58,6 +59,11 @@ namespace lotus::renderer {
 		public:
 			/// Initializes this handle to empty.
 			handle(std::nullptr_t) : _ptr(nullptr) {
+			}
+
+			/// Returns a reference to the user data.
+			[[nodiscard]] void *&user_data() const {
+				return _ptr->user_data;
 			}
 
 			/// Returns the asset.

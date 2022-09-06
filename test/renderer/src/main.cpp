@@ -57,12 +57,16 @@ int main(int argc, char **argv) {
 
 	auto rctx = ren::context::create(gctx, dev_prop, gdev, cmd_queue);
 	auto asset_man = ren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_util);
+	auto mip_gen = ren::mipmap::generator::create(asset_man);
+	ren::gltf::context gltf_ctx(asset_man);
 
 	// model & resources
-	ren::gltf::context gltf_ctx(asset_man);
-	std::vector<ren::instance> instances;
-	std::vector<ren::blas> blases;
-	auto mip_gen = ren::mipmap::generator::create(asset_man);
+	struct {
+		std::vector<ren::instance> instances;
+		std::vector<gpu::instance_description> tlas_instances;
+		std::vector<ren::blas> blases;
+	} scene;
+
 	for (int i = 1; i < argc; ++i) {
 		gltf_ctx.load(
 			argv[i],
@@ -70,17 +74,26 @@ int main(int argc, char **argv) {
 				mip_gen.generate_all(tex.get().value.image);
 			},
 			[&](ren::assets::handle<ren::assets::geometry> geom) {
-				auto &blas = blases.emplace_back(rctx.request_blas(
+				geom.user_data() = reinterpret_cast<void*>(scene.blases.size());
+				auto &blas = scene.blases.emplace_back(rctx.request_blas(
 					geom.get().get_id().subpath, { geom.get().value.get_geometry_buffers_view() }
 				));
 				rctx.build_blas(blas, u8"Build BLAS");
 			},
 			nullptr,
 			[&](ren::instance inst) {
-				instances.emplace_back(std::move(inst));
+				if (inst.geometry) {
+					auto index = reinterpret_cast<std::uintptr_t>(inst.geometry.user_data());
+					scene.tlas_instances.emplace_back(rctx.get_blas_instance_description(
+						scene.blases[index], inst.transform, 0, 0xFF, 0
+					));
+				}
+				scene.instances.emplace_back(std::move(inst));
 			}
 		);
 	}
+	auto tlas = rctx.request_tlas(u8"TLAS", scene.tlas_instances);
+	rctx.build_tlas(tlas, u8"Build TLAS");
 
 	/*composite_pass comp_pass(dev);*/
 
@@ -233,7 +246,7 @@ int main(int argc, char **argv) {
 			auto gbuffer = ren::g_buffer::view::create(rctx, window_size);
 			{
 				auto pass = gbuffer.begin_pass(rctx);
-				ren::g_buffer::render_instances(pass, asset_man, instances, cam.view_matrix, cam.projection_matrix);
+				ren::g_buffer::render_instances(pass, asset_man, scene.instances, cam.view_matrix, cam.projection_matrix);
 				pass.end();
 			}
 

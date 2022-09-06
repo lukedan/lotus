@@ -448,9 +448,22 @@ namespace lotus::renderer {
 		/// A top-level acceleration structure.
 		struct tlas {
 		public:
-			gpu::top_level_acceleration_structure handle; ///< The acceleration structure.
+			/// Initializes this structure.
+			tlas(std::vector<gpu::instance_description> in, std::u8string_view n) :
+				handle(nullptr), memory(nullptr), input_data(nullptr), build_sizes(uninitialized),
+				input(std::move(in)), name(n) {
+			}
 
-			std::vector<std::shared_ptr<blas>> references; ///< References to bottom level acceleration structures.
+			// these are populated when we actually build the BVH
+			gpu::top_level_acceleration_structure handle; ///< The acceleration structure.
+			gpu::buffer memory; ///< Memory for this acceleration structure.
+			gpu::buffer input_data; ///< Input BLAS's uploaded to the GPU. This may be freed manually.
+			/// Memory requirements for the acceleration structure.
+			gpu::acceleration_structure_build_sizes build_sizes;
+
+			std::vector<gpu::instance_description> input; ///< Input data.
+
+			// TODO BLAS references
 
 			std::u8string name; ///< Name of this object.
 		};
@@ -691,6 +704,10 @@ namespace lotus::renderer {
 			return is_valid();
 		}
 	private:
+		/// Initializes this acceleration structure.
+		explicit tlas(std::shared_ptr<_details::tlas> t) : _tlas(std::move(t)) {
+		}
+
 		std::shared_ptr<_details::tlas> _tlas; ///< The acceleration structure.
 	};
 }

@@ -411,6 +411,21 @@ namespace lotus::renderer {
 		return blas(std::move(ptr));
 	}
 
+	tlas context::request_tlas(std::u8string_view name, std::span<const gpu::instance_description> instances) {
+		auto *tlas_ptr = new _details::tlas(std::vector(instances.begin(), instances.end()), name);
+		auto ptr = std::shared_ptr<_details::tlas>(tlas_ptr, _details::context_managed_deleter(*this));
+		return tlas(std::move(ptr));
+	}
+
+	gpu::instance_description context::get_blas_instance_description(
+		const blas &b, lotus::mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset
+	) {
+		_maybe_initialize_blas(*b._blas);
+		return _device.get_bottom_level_acceleration_structure_description(
+			b._blas->handle, trans, id, mask, hit_group_offset
+		);
+	}
+
 	void context::upload_image(const image2d_view &target, const void *data, std::u8string_view description) {
 		cvec2s image_size = target.get_size();
 		std::uint32_t mip_index = target._mip_levels.minimum;
@@ -461,6 +476,10 @@ namespace lotus::renderer {
 
 	void context::build_blas(blas &b, std::u8string_view description) {
 		_commands.emplace_back(description).value.emplace<context_commands::build_blas>(b);
+	}
+
+	void context::build_tlas(tlas &t, std::u8string_view description) {
+		_commands.emplace_back(description).value.emplace<context_commands::build_tlas>(t);
 	}
 
 	void context::run_compute_shader(
@@ -708,6 +727,38 @@ namespace lotus::renderer {
 			const auto &layout = _cache.get_descriptor_set_layout(arr.get_layout_key());
 			arr.set = _device.create_descriptor_set(_descriptor_pool, layout, arr.capacity);
 			arr.images.resize(arr.capacity, nullptr);
+		}
+	}
+
+	void context::_maybe_initialize_blas(_details::blas &b) {
+		if (!b.handle) {
+			std::vector<std::pair<gpu::vertex_buffer_view, gpu::index_buffer_view>> input_geom;
+			for (const auto &geom : b.input) {
+				_maybe_create_buffer(*geom.vertex_data._buffer);
+				if (geom.index_data._buffer) {
+					_maybe_create_buffer(*geom.index_data._buffer);
+				}
+				input_geom.emplace_back(
+					gpu::vertex_buffer_view(
+						geom.vertex_data._buffer->data,
+						geom.vertex_format, geom.vertex_offset, geom.vertex_stride, geom.vertex_count
+					),
+					geom.index_data ? gpu::index_buffer_view(
+						geom.index_data._buffer->data,
+						geom.index_format, geom.index_offset, geom.index_count
+					) : nullptr
+				);
+			}
+			b.geometry    = _device.create_bottom_level_acceleration_structure_geometry(input_geom);
+			b.build_sizes = _device.get_bottom_level_acceleration_structure_build_sizes(b.geometry);
+			b.memory      = _device.create_committed_buffer(
+				b.build_sizes.acceleration_structure_size,
+				_device_memory_index,
+				gpu::buffer_usage::mask::acceleration_structure
+			);
+			b.handle      = _device.create_bottom_level_acceleration_structure(
+				b.memory, 0, b.build_sizes.acceleration_structure_size
+			);
 		}
 	}
 
@@ -1020,44 +1071,67 @@ namespace lotus::renderer {
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::build_blas &cmd) {
 		auto *blas_ptr = cmd.target._blas;
-		if (!blas_ptr->handle) {
-			std::vector<std::pair<gpu::vertex_buffer_view, gpu::index_buffer_view>> input_geom;
-			for (const auto &geom : blas_ptr->input) {
-				_maybe_create_buffer(*geom.vertex_data._buffer);
-				ectx.stage_transition(*geom.vertex_data._buffer, gpu::buffer_usage::read_only_buffer);
-				if (geom.index_data._buffer) {
-					_maybe_create_buffer(*geom.index_data._buffer);
-					ectx.stage_transition(*geom.index_data._buffer, gpu::buffer_usage::read_only_buffer);
-				}
-				ectx.flush_transitions();
-				input_geom.emplace_back(
-					gpu::vertex_buffer_view(
-						geom.vertex_data._buffer->data,
-						geom.vertex_format, geom.vertex_offset, geom.vertex_stride, geom.vertex_count
-					),
-					geom.index_data ? gpu::index_buffer_view(
-						geom.index_data._buffer->data,
-						geom.index_format, geom.index_offset, geom.index_count
-					) : nullptr
-				);
-			}
-			blas_ptr->geometry = _device.create_bottom_level_acceleration_structure_geometry(input_geom);
+		_maybe_initialize_blas(*blas_ptr);
 
-			blas_ptr->build_sizes = _device.get_bottom_level_acceleration_structure_build_sizes(blas_ptr->geometry);
-			blas_ptr->memory = _device.create_committed_buffer(
-				blas_ptr->build_sizes.acceleration_structure_size,
-				_device_memory_index,
-				gpu::buffer_usage::mask::acceleration_structure
-			);
-			blas_ptr->handle = _device.create_bottom_level_acceleration_structure(
-				blas_ptr->memory, 0, blas_ptr->build_sizes.acceleration_structure_size
-			);
+		// handle transitions
+		for (const auto &geom : blas_ptr->input) {
+			ectx.stage_transition(*geom.vertex_data._buffer, gpu::buffer_usage::read_only_buffer);
+			if (geom.index_data._buffer) {
+				ectx.stage_transition(*geom.index_data._buffer, gpu::buffer_usage::read_only_buffer);
+			}
 		}
-		auto &buf = ectx.create_buffer(
-			blas_ptr->build_sizes.acceleration_structure_size,
+		ectx.flush_transitions();
+
+		auto &scratch = ectx.create_buffer(
+			blas_ptr->build_sizes.build_scratch_size,
 			_device_memory_index, gpu::buffer_usage::mask::read_write_buffer
 		);
-		ectx.get_command_list().build_acceleration_structure(blas_ptr->geometry, blas_ptr->handle, buf, 0);
+		ectx.get_command_list().build_acceleration_structure(blas_ptr->geometry, blas_ptr->handle, scratch, 0);
+	}
+
+	void context::_handle_command(_execution_context &ectx, const context_commands::build_tlas &cmd) {
+		auto *tlas_ptr = cmd.target._tlas;
+
+		// initialize all data
+		if (!tlas_ptr->handle) {
+			std::size_t input_size = sizeof(gpu::instance_description) * tlas_ptr->input.size();
+			{ // upload data
+				auto &upload_buf = ectx.create_buffer(
+					input_size, _upload_memory_index, gpu::buffer_usage::mask::copy_source
+				);
+				void *ptr = _device.map_buffer(upload_buf, 0, 0);
+				std::memcpy(ptr, tlas_ptr->input.data(), input_size);
+				_device.unmap_buffer(upload_buf, 0, input_size);
+				ectx.get_command_list().copy_buffer(upload_buf, 0, tlas_ptr->input_data, 0, input_size);
+				ectx.stage_transition(
+					tlas_ptr->input_data, gpu::buffer_usage::copy_source, gpu::buffer_usage::read_only_buffer
+				);
+				ectx.flush_transitions();
+			}
+
+			tlas_ptr->input_data  = _device.create_committed_buffer(
+				input_size, _device_memory_index,
+				gpu::buffer_usage::mask::copy_destination | gpu::buffer_usage::mask::read_only_buffer
+			);
+			tlas_ptr->build_sizes = _device.get_top_level_acceleration_structure_build_sizes(
+				tlas_ptr->input_data, 0, tlas_ptr->input.size()
+			);
+			tlas_ptr->memory      = _device.create_committed_buffer(
+				tlas_ptr->build_sizes.acceleration_structure_size, _device_memory_index,
+				gpu::buffer_usage::mask::acceleration_structure
+			);
+			tlas_ptr->handle      = _device.create_top_level_acceleration_structure(
+				tlas_ptr->memory, 0, tlas_ptr->build_sizes.acceleration_structure_size
+			);
+		}
+
+		auto &scratch = ectx.create_buffer(
+			tlas_ptr->build_sizes.build_scratch_size,
+			_device_memory_index, gpu::buffer_usage::mask::read_write_buffer
+		);
+		ectx.get_command_list().build_acceleration_structure(
+			tlas_ptr->input_data, 0, tlas_ptr->input.size(), tlas_ptr->handle, scratch, 0
+		);
 	}
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::render_pass &cmd) {

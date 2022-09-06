@@ -12,23 +12,20 @@ namespace lotus::renderer::gltf {
 	/// GLTF context.
 	class context {
 	public:
-		/// Creates a new context.
-		[[nodiscard]] inline static context create(assets::manager &asset_man) {
-			return context(asset_man);
+		/// Initializes \ref _asset_manager.
+		explicit context(assets::manager &asset_man) : _asset_manager(asset_man) {
 		}
 
 		/// Loads the given GLTF file.
-		[[nodiscard]] std::vector<instance> load(const std::filesystem::path&);
+		void load(
+			const std::filesystem::path&,
+			static_function<void(assets::handle<assets::texture2d>)> image_loaded_callback,
+			static_function<void(assets::handle<assets::geometry>)> geometry_loaded_callback,
+			static_function<void(assets::handle<assets::material>)> material_loaded_callback,
+			static_function<void(instance)> instance_loaded_callback
+		);
 	private:
-		/// Initializes \ref _asset_manager and creates input resource layout.
-		explicit context(assets::manager &asset_man) :
-			_asset_manager(asset_man), _mip_generator(mipmap::generator::create(asset_man)) {
-		}
-
 		assets::manager &_asset_manager; ///< Associated asset manager.
-		assets::handle<assets::shader> _vertex_shader = nullptr; ///< Vertex shader.
-		assets::handle<assets::shader> _pixel_shader = nullptr; ///< Pixel shader.
-		mipmap::generator _mip_generator; ///< Mipmap generator.
 	};
 
 	/// GLTF material parameters.

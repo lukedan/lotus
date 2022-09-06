@@ -15,6 +15,10 @@ namespace lotus::gpu::backends::vulkan {
 	class bottom_level_acceleration_structure_geometry {
 		friend command_list;
 		friend device;
+	protected:
+		/// Initializes this object to empty.
+		bottom_level_acceleration_structure_geometry(std::nullptr_t) {
+		}
 	private:
 		// TODO allocator
 		std::vector<vk::AccelerationStructureGeometryKHR> _geometries; ///< The list of geometries.
@@ -42,6 +46,11 @@ namespace lotus::gpu::backends::vulkan {
 		/// Creates an empty acceleration structure.
 		bottom_level_acceleration_structure(std::nullptr_t) {
 		}
+
+		/// Returns whether \ref _acceleration_structure is a valid handle.
+		[[nodiscard]] bool is_valid() const {
+			return _acceleration_structure.get();
+		}
 	private:
 		/// The acceleration structure.
 		vk::UniqueHandle<vk::AccelerationStructureKHR, vk::DispatchLoaderDynamic> _acceleration_structure;
@@ -54,6 +63,11 @@ namespace lotus::gpu::backends::vulkan {
 	protected:
 		/// Creates an empty acceleration structure.
 		top_level_acceleration_structure(std::nullptr_t) {
+		}
+
+		/// Returns whether \ref _acceleration_structure is a valid handle.
+		[[nodiscard]] bool is_valid() const {
+			return _acceleration_structure.get();
 		}
 	private:
 		/// The acceleration structure.

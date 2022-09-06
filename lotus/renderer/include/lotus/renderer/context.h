@@ -14,6 +14,8 @@
 #include "lotus/gpu/context.h"
 #include "caching.h"
 #include "resources.h"
+#include "resource_bindings.h"
+#include "assets.h"
 
 namespace lotus::renderer {
 	/// Provides information about a pass's shader and input buffer layout.
@@ -129,6 +131,15 @@ namespace lotus::renderer {
 			cvec3<std::uint32_t> num_thread_groups = uninitialized; ///< Number of thread groups.
 		};
 
+		/// Builds a bottom level acceleration structure.
+		struct build_blas {
+			/// Initializes all fields of this struct.
+			explicit build_blas(blas t) : target(std::move(t)) {
+			}
+
+			recorded_resources::blas target; ///< The BLAS to build.
+		};
+
 		/// Executes a render pass.
 		struct render_pass {
 			/// Initializes the render target.
@@ -169,6 +180,7 @@ namespace lotus::renderer {
 			context_commands::upload_image,
 			context_commands::upload_buffer,
 			context_commands::dispatch_compute,
+			context_commands::build_blas,
 			context_commands::render_pass,
 			context_commands::present
 		> value; ///< The value of this command.
@@ -270,6 +282,14 @@ namespace lotus::renderer {
 		[[nodiscard]] descriptor_array request_descriptor_array(
 			std::u8string_view name, gpu::descriptor_type, std::uint32_t capacity
 		);
+		/// Creates a bottom-level acceleration structure for the given input geometry.
+		[[nodiscard]] blas request_blas(std::u8string_view name, std::span<const geometry_buffers_view> geometries);
+		/// \overload
+		[[nodiscard]] blas request_blas(
+			std::u8string_view name, std::initializer_list<const geometry_buffers_view> geometries
+		) {
+			return request_blas(name, { geometries.begin(), geometries.end() });
+		}
 
 
 		/// Uploads image data to the GPU. This function immediately creates and fills the staging buffer, but actual
@@ -281,6 +301,9 @@ namespace lotus::renderer {
 			const buffer &target, std::span<const std::byte> data, std::uint32_t offset,
 			std::u8string_view descriptorion
 		);
+
+		/// Builds the given \ref blas.
+		void build_blas(blas&, std::u8string_view description);
 
 		/// Runs a compute shader.
 		void run_compute_shader(
@@ -729,6 +752,8 @@ namespace lotus::renderer {
 		void _handle_command(_execution_context&, const context_commands::upload_buffer&);
 		/// Handles a dispatch compute command.
 		void _handle_command(_execution_context&, const context_commands::dispatch_compute&);
+		/// Handles a BLAS build command.
+		void _handle_command(_execution_context&, const context_commands::build_blas&);
 		/// Handles a begin pass command.
 		void _handle_command(_execution_context&, const context_commands::render_pass&);
 		/// Handles a present command.
@@ -763,6 +788,10 @@ namespace lotus::renderer {
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a descriptor array.
 		void _deferred_delete(_details::descriptor_array*) {
+			// TODO
+		}
+		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a BLAS.
+		void _deferred_delete(_details::blas*) {
 			// TODO
 		}
 	};

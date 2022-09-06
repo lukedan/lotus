@@ -114,7 +114,6 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	private:
 		vk::UniqueShaderModule _module; ///< The shader module.
-		// TODO get rid of this
 		spv_reflect::ShaderModule _reflection; ///< Reflection data.
 	};
 

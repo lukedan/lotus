@@ -8,12 +8,14 @@ function(add_lotus_renderer_target BACKEND)
 	target_sources(${PROJ}
 		PUBLIC
 			"include/lotus/renderer/asset_manager.h"
+			"include/lotus/renderer/assets.h"
 			"include/lotus/renderer/caching.h"
 			"include/lotus/renderer/common.h"
 			"include/lotus/renderer/context.h"
 			"include/lotus/renderer/g_buffer.h"
 			"include/lotus/renderer/gltf_loader.h"
 			"include/lotus/renderer/mipmap.h"
+			"include/lotus/renderer/resource_bindings.h"
 			"include/lotus/renderer/resources.h"
 			"include/lotus/renderer/shader_types.h"
 			"include/lotus/renderer/shader_types_impl.h"
@@ -26,6 +28,7 @@ function(add_lotus_renderer_target BACKEND)
 			"src/renderer/g_buffer.cpp"
 			"src/renderer/gltf_loader.cpp"
 			"src/renderer/mipmap.cpp"
+			"src/renderer/resource_bindings.cpp"
 			"src/renderer/resources.cpp")
 	target_link_libraries(${PROJ} PUBLIC lotus_gpu_${BACKEND} tinygltf)
 endfunction()

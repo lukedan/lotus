@@ -9,6 +9,7 @@
 #include <lotus/gpu/descriptors.h>
 #include "common.h"
 #include "resources.h"
+#include "assets.h"
 
 namespace lotus::renderer {
 	/// Types that are used as keys for caching objects.

@@ -15,6 +15,10 @@ namespace lotus::gpu {
 		public backend::bottom_level_acceleration_structure_geometry {
 		friend device;
 	public:
+		/// Initializes this object to empty.
+		bottom_level_acceleration_structure_geometry(std::nullptr_t) :
+			backend::bottom_level_acceleration_structure_geometry(nullptr) {
+		}
 		/// Move construction.
 		bottom_level_acceleration_structure_geometry(bottom_level_acceleration_structure_geometry &&src) :
 			backend::bottom_level_acceleration_structure_geometry(std::move(src)) {
@@ -75,6 +79,15 @@ namespace lotus::gpu {
 		}
 		/// No copy construction.
 		bottom_level_acceleration_structure &operator=(const bottom_level_acceleration_structure&) = delete;
+
+		/// Returns whether this object is valid.
+		[[nodiscard]] bool is_valid() const {
+			return backend::bottom_level_acceleration_structure::is_valid();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
+		}
 	protected:
 		/// Initializes the base object.
 		bottom_level_acceleration_structure(backend::bottom_level_acceleration_structure &&src) :
@@ -102,6 +115,15 @@ namespace lotus::gpu {
 		}
 		/// No copy assignment.
 		top_level_acceleration_structure &operator=(const top_level_acceleration_structure&) = delete;
+
+		/// Returns whether this object is valid.
+		[[nodiscard]] bool is_valid() const {
+			return backend::top_level_acceleration_structure::is_valid();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
+		}
 	protected:
 		/// Initializes the base object.
 		top_level_acceleration_structure(backend::top_level_acceleration_structure &&src) :

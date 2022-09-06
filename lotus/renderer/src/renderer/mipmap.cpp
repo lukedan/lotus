@@ -20,9 +20,10 @@ namespace lotus::renderer::mipmap {
 
 	void generator::generate_all(image2d_view img) {
 		auto mips = gpu::mip_levels::intersection(
-			gpu::mip_levels::create(0, img.get_num_mip_levels()), img.get_viewed_mip_levels()
+			gpu::mip_levels::create(0, static_cast<std::uint16_t>(img.get_num_mip_levels())),
+			img.get_viewed_mip_levels()
 		);
-		for (std::uint32_t i = mips.minimum + 1; i < mips.maximum; ++i) {
+		for (std::uint16_t i = mips.minimum + 1; i < mips.maximum; ++i) {
 			cvec3u32 size(img.get_size()[0] >> 1, img.get_size()[1] >> 1, 1);
 
 			auto rsrc = all_resource_bindings::from_unsorted({

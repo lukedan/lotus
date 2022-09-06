@@ -1690,7 +1690,7 @@ namespace lotus::gpu {
 		}
 
 		const buffer *data = nullptr; ///< Data of the index buffer.
-		index_format element_format = index_format::uint16; ///< Index format.
+		index_format element_format = index_format::num_enumerators; ///< Index format.
 		std::size_t offset = 0; ///< Offset in bytes to the first index.
 		std::size_t count  = 0; ///< The number of indices.
 	};
@@ -1698,7 +1698,7 @@ namespace lotus::gpu {
 	struct shader_record_view {
 	public:
 		/// Initializes this view to empty.
-		constexpr shader_record_view(std::nullptr_t) : data(nullptr) {
+		constexpr shader_record_view(std::nullptr_t) {
 		}
 		/// Creates a new object from the given arguments.
 		[[nodiscard]] inline static constexpr shader_record_view create(
@@ -1707,10 +1707,10 @@ namespace lotus::gpu {
 			return shader_record_view(d, off, c, str);
 		}
 
-		buffer *data; ///< Data of the shader records.
-		std::size_t offset; ///< Offset of the first entry in bytes.
-		std::size_t count; ///< Size of the buffer in elements.
-		std::size_t stride; ///< Stride of an element.
+		buffer *data = nullptr; ///< Data of the shader records.
+		std::size_t offset = 0; ///< Offset of the first entry in bytes.
+		std::size_t count  = 0; ///< Size of the buffer in elements.
+		std::size_t stride = 0; ///< Stride of an element.
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr shader_record_view(buffer &d, std::size_t off, std::size_t c, std::size_t str) :
@@ -1739,8 +1739,8 @@ namespace lotus::gpu {
 			return hit_shader_group(closest_hit, no_shader);
 		}
 
-		std::size_t closest_hit_shader_index; ///< Index of the closest hit shader.
-		std::size_t any_hit_shader_index; ///< Index of the any hit shader.
+		std::size_t closest_hit_shader_index = 0; ///< Index of the closest hit shader.
+		std::size_t any_hit_shader_index     = 0; ///< Index of the any hit shader.
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr hit_shader_group(std::size_t closest_hit, std::size_t any_hit) :

@@ -59,11 +59,27 @@ int main(int argc, char **argv) {
 	auto asset_man = ren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_util);
 
 	// model & resources
-	auto gltf_ctx = ren::gltf::context::create(asset_man);
+	ren::gltf::context gltf_ctx(asset_man);
 	std::vector<ren::instance> instances;
+	std::vector<ren::blas> blases;
+	auto mip_gen = ren::mipmap::generator::create(asset_man);
 	for (int i = 1; i < argc; ++i) {
-		auto loaded_instances = gltf_ctx.load(argv[i]);
-		instances.insert(instances.end(), loaded_instances.begin(), loaded_instances.end());
+		gltf_ctx.load(
+			argv[i],
+			[&](ren::assets::handle<ren::assets::texture2d> tex) {
+				mip_gen.generate_all(tex.get().value.image);
+			},
+			[&](ren::assets::handle<ren::assets::geometry> geom) {
+				auto &blas = blases.emplace_back(rctx.request_blas(
+					geom.get().get_id().subpath, { geom.get().value.get_geometry_buffers_view() }
+				));
+				rctx.build_blas(blas, u8"Build BLAS");
+			},
+			nullptr,
+			[&](ren::instance inst) {
+				instances.emplace_back(std::move(inst));
+			}
+		);
 	}
 
 	/*composite_pass comp_pass(dev);*/

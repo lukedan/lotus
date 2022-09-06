@@ -142,7 +142,7 @@ namespace lotus::gpu {
 	};
 
 
-	/// Shader binary that contains one or more shaders.
+	/// Shader binary that contains one shader, or a collection of raytracing shaders.
 	class shader_binary : public backend::shader_binary {
 		friend device;
 	public:

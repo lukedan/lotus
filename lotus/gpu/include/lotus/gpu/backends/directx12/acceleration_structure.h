@@ -19,6 +19,10 @@ namespace lotus::gpu::backends::directx12 {
 	class bottom_level_acceleration_structure_geometry {
 		friend command_list;
 		friend device;
+	protected:
+		/// Initializes this object to empty.
+		bottom_level_acceleration_structure_geometry(std::nullptr_t) {
+		}
 	private:
 		/// Ready-to-use structure pointing to \ref _geometries.
 		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS _inputs;
@@ -46,6 +50,11 @@ namespace lotus::gpu::backends::directx12 {
 		/// Creates an empty acceleration structure.
 		bottom_level_acceleration_structure(std::nullptr_t) {
 		}
+
+		/// Tests if \ref _buffer is valid.
+		[[nodiscard]] bool is_valid() const {
+			return _buffer != nullptr;
+		}
 	private:
 		_details::com_ptr<ID3D12Resource> _buffer; ///< The buffer.
 		std::size_t _offset; ///< Offset in bytes from the beginning of the buffer.
@@ -58,6 +67,11 @@ namespace lotus::gpu::backends::directx12 {
 	protected:
 		/// Creates an empty acceleration structure.
 		top_level_acceleration_structure(std::nullptr_t) {
+		}
+
+		/// Tests if \ref _buffer is valid.
+		[[nodiscard]] bool is_valid() const {
+			return _buffer != nullptr;
 		}
 	private:
 		_details::com_ptr<ID3D12Resource> _buffer; ///< The buffer.

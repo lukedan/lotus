@@ -468,21 +468,13 @@ namespace lotus::gpu::backends::vulkan {
 		std::array<vk::PipelineShaderStageCreateInfo, 5> stages;
 		auto add_shader = [&](const shader_binary *s, vk::ShaderStageFlagBits stage) {
 			if (s) {
-				const char *entry_point = nullptr;
-				// TODO this is bad
-				for (std::uint32_t i = 0; i < s->_reflection.GetEntryPointCount(); ++i) {
-					if (
-						static_cast<std::uint32_t>(s->_reflection.GetEntryPointShaderStage(i)) ==
-						static_cast<std::uint32_t>(stage)
-					) {
-						entry_point = s->_reflection.GetEntryPointName(i);
-						break;
-					}
-				}
+				auto spv_stage = static_cast<SpvReflectShaderStageFlagBits>(stage);
+				assert(s->_reflection.GetEntryPointCount() == 1);
+				assert(s->_reflection.GetShaderStage() == spv_stage);
 				stages[count]
 					.setStage(stage)
 					.setModule(s->_module.get())
-					.setPName(entry_point);
+					.setPName(s->_reflection.GetEntryPointName());
 				++count;
 			}
 		};
@@ -642,21 +634,12 @@ namespace lotus::gpu::backends::vulkan {
 		compute_pipeline_state result = nullptr;
 
 		vk::ComputePipelineCreateInfo info;
-		const char *entry_point = nullptr;
-		// TODO this is bad
-		for (std::uint32_t i = 0; i < cs._reflection.GetEntryPointCount(); ++i) {
-			if (
-				static_cast<std::uint32_t>(cs._reflection.GetEntryPointShaderStage(i)) ==
-				static_cast<std::uint32_t>(SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT)
-			) {
-				entry_point = cs._reflection.GetEntryPointName(i);
-				break;
-			}
-		}
+		assert(cs._reflection.GetEntryPointCount() == 1);
+		assert(cs._reflection.GetShaderStage() == SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT);
 		info.stage
 			.setStage(vk::ShaderStageFlagBits::eCompute)
 			.setModule(cs._module.get())
-			.setPName(entry_point);
+			.setPName(cs._reflection.GetEntryPointName());
 		info
 			.setLayout(rsrc._layout.get());
 		// TODO allocator
@@ -953,7 +936,7 @@ namespace lotus::gpu::backends::vulkan {
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
 		std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
 	) {
-		bottom_level_acceleration_structure_geometry result;
+		bottom_level_acceleration_structure_geometry result = nullptr;
 		result._geometries.reserve(data.size());
 		result._pimitive_counts.reserve(data.size());
 		for (const auto &[vert, index] : data) {

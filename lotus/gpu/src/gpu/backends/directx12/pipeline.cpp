@@ -46,7 +46,7 @@ namespace lotus::gpu::backends::directx12 {
 
 
 	shader_reflection shader_library_reflection::find_shader(std::u8string_view name, shader_stage stage) const {
-		auto version = _details::conversions::to_shader_version_type(stage);
+		auto version = static_cast<UINT>(_details::conversions::to_shader_version_type(stage));
 		D3D12_LIBRARY_DESC desc = {};
 		_details::assert_dx(_reflection->GetDesc(&desc));
 		for (UINT i = 0; i < desc.FunctionCount; ++i) {

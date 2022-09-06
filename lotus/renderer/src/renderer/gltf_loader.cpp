@@ -129,7 +129,13 @@ namespace lotus::renderer::gltf {
 
 		return result;
 	}
-	std::vector<instance> context::load(const std::filesystem::path &path) {
+	void context::load(
+		const std::filesystem::path &path,
+		static_function<void(assets::handle<assets::texture2d>)> image_loaded_callback,
+		static_function<void(assets::handle<assets::geometry>)> geometry_loaded_callback,
+		static_function<void(assets::handle<assets::material>)> material_loaded_callback,
+		static_function<void(instance)> instance_loaded_callback
+	) {
 		tinygltf::TinyGLTF loader;
 		tinygltf::Model model;
 
@@ -138,7 +144,7 @@ namespace lotus::renderer::gltf {
 				tinygltf::Image*, int, std::string*, std::string*,
 				int, int, const unsigned char*, int, void*
 			) -> bool {
-				return true; // defer image loading
+				return true; // don't load image binary using tinygltf
 			},
 			nullptr
 		);
@@ -150,7 +156,7 @@ namespace lotus::renderer::gltf {
 			log().error<u8"Failed to load GLTF ASCII {}, errors: {}, warnings: {}">(
 				path.string(), err, warn
 			);
-			return {};
+			return;
 		}
 
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
@@ -165,7 +171,9 @@ namespace lotus::renderer::gltf {
 				images[i] = _asset_manager.get_texture2d(
 					assets::identifier(path.parent_path() / std::filesystem::path(model.images[i].uri))
 				);
-				_mip_generator.generate_all(images[i].get().value.image);
+				if (image_loaded_callback) {
+					image_loaded_callback(images[i]);
+				}
 			}
 		}
 
@@ -208,11 +216,13 @@ namespace lotus::renderer::gltf {
 					);
 				}
 				if (prim.indices >= 0) {
-					geom.num_indices = static_cast<std::uint32_t>(model.accessors[prim.indices].count);
 					geom.index_buffer = _load_data_buffer<std::uint32_t>(
 						_asset_manager, path, model, prim.indices, 1,
 						gpu::buffer_usage::mask::index_buffer | gpu::buffer_usage::mask::read_only_buffer
 					);
+					geom.index_format = gpu::index_format::uint32;
+					geom.index_offset = 0;
+					geom.num_indices = static_cast<std::uint32_t>(model.accessors[prim.indices].count);
 				}
 
 				switch (prim.mode) {
@@ -246,39 +256,13 @@ namespace lotus::renderer::gltf {
 					break;
 				}
 
-				/*{
-					auto acc_geom = dev.create_bottom_level_acceleration_structure_geometry({ {
-						geom.vertex_buffer.into_vertex_buffer_view(geom.num_vertices),
-						geom.get_index_buffer_view()
-					} });
-					auto build_sizes = dev.get_bottom_level_acceleration_structure_build_sizes(acc_geom);
-
-					// allocate bvh
-					geom.acceleration_structure_buffer = dev.create_committed_buffer(
-						build_sizes.acceleration_structure_size,
-						gpu::heap_type::device_only, gpu::buffer_usage::mask::acceleration_structure
-					);
-					geom.acceleration_structure = dev.create_bottom_level_acceleration_structure(
-						geom.acceleration_structure_buffer, 0, build_sizes.acceleration_structure_size
-					);
-					
-					// build bvh
-					auto cmd_list = dev.create_and_start_command_list(cmd_alloc);
-					auto scratch = dev.create_committed_buffer(
-						build_sizes.build_scratch_size,
-						gpu::heap_type::device_only, gpu::buffer_usage::mask::read_write_buffer
-					);
-					cmd_list.build_acceleration_structure(acc_geom, geom.acceleration_structure, scratch, 0);
-					cmd_list.finish();
-					cmd_queue.submit_command_lists({ &cmd_list }, &fence);
-					dev.wait_for_fence(fence);
-					dev.reset_fence(fence);
-				}*/
-
 				std::string formatted = std::format("{}@{}|{}", mesh.name, i, j);
 				geom_primitives[j] = _asset_manager.register_geometry(
 					assets::identifier(path, std::u8string(string::assume_utf8(formatted))), std::move(geom)
 				);
+				if (geometry_loaded_callback) {
+					geometry_loaded_callback(geom_primitives[j]);
+				}
 			}
 		}
 
@@ -324,80 +308,66 @@ namespace lotus::renderer::gltf {
 				),
 				assets::material(std::move(mat_data))
 			);
+			if (material_loaded_callback) {
+				material_loaded_callback(materials[i]);
+			}
 		}
 
 		// load nodes
-		std::vector<instance> result;
-		std::vector<std::pair<int, mat44f>> stack;
-		for (const auto &node : model.scenes[model.defaultScene].nodes) {
-			stack.emplace_back(node, mat44f::identity());
-		}
-		while (!stack.empty()) {
-			auto [node_id, transform] = stack.back();
-			stack.pop_back();
-			const auto &node = model.nodes[node_id];
-
-			mat44f trans = uninitialized;
-			if (node.matrix.empty()) {
-				auto scale =
-					node.scale.empty() ?
-					mat33f::identity() :
-					mat33d::diagonal(node.scale[0], node.scale[1], node.scale[2]).into<float>();
-				auto rotation =
-					node.rotation.empty() ?
-					mat33f::identity() :
-					quat::unsafe_normalize(quatd::from_wxyz(
-						node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]
-					).into<float>()).into_matrix();
-				auto translation =
-					node.translation.empty() ?
-					cvec3f(zero) :
-					cvec3d(node.translation[0], node.translation[1], node.translation[2]).into<float>();
-				trans = matf::concat_rows(
-					matf::concat_columns(rotation * scale, translation),
-					rvec4f(0.0f, 0.0f, 0.0f, 1.0f)
-				);
-			} else {
-				assert(node.matrix.size() == 16);
-				for (std::size_t row = 0; row < 4; ++row) {
-					for (std::size_t col = 0; col < 4; ++col) {
-						trans(row, col) = static_cast<float>(node.matrix[row * 4 + col]);
-					}
-				}
+		if (instance_loaded_callback) {
+			std::vector<std::pair<int, mat44f>> stack;
+			for (const auto &node : model.scenes[model.defaultScene].nodes) {
+				stack.emplace_back(node, mat44f::identity());
 			}
-			trans = transform * trans;
+			while (!stack.empty()) {
+				auto [node_id, transform] = stack.back();
+				stack.pop_back();
+				const auto &node = model.nodes[node_id];
 
-			if (node.mesh >= 0) {
-				for (std::size_t j = 0; j < geometries[node.mesh].size(); ++j) {
-					const auto &prim_handle = geometries[node.mesh][j];
-					const auto &prim = model.meshes[node.mesh].primitives[j];
-					const auto &mat = model.materials[prim.material];
-
-					auto &inst = result.emplace_back(nullptr);
-					inst.transform = trans;
-					inst.material = materials[prim.material];
-					inst.geometry = prim_handle;
-
-					// create material pipeline
-					auto defines = bookmark.create_vector_array<std::pair<std::u8string_view, std::u8string_view>>();
-					if (mat.alphaMode == "MASK") {
-						defines.emplace_back(u8"ALPHA_MASK", u8"");
-					} else {
-						if (mat.alphaMode != "OPAQUE") {
-							log().warn<u8"Unknown alpha mode: {}">(mat.alphaMode);
+				mat44f trans = uninitialized;
+				if (node.matrix.empty()) {
+					auto scale =
+						node.scale.empty() ?
+						mat33f::identity() :
+						mat33d::diagonal(node.scale[0], node.scale[1], node.scale[2]).into<float>();
+					auto rotation =
+						node.rotation.empty() ?
+						mat33f::identity() :
+						quat::unsafe_normalize(quatd::from_wxyz(
+							node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]
+						).into<float>()).into_matrix();
+					auto translation =
+						node.translation.empty() ?
+						cvec3f(zero) :
+						cvec3d(node.translation[0], node.translation[1], node.translation[2]).into<float>();
+					trans = matf::concat_rows(
+						matf::concat_columns(rotation * scale, translation),
+						rvec4f(0.0f, 0.0f, 0.0f, 1.0f)
+					);
+				} else {
+					assert(node.matrix.size() == 16);
+					for (std::size_t row = 0; row < 4; ++row) {
+						for (std::size_t col = 0; col < 4; ++col) {
+							trans(row, col) = static_cast<float>(node.matrix[row * 4 + col]);
 						}
 					}
 				}
-			}
+				trans = transform * trans;
 
-			log().debug<u8"Object {} children:">(node.name);
-			for (auto child : node.children) {
-				log().debug<u8"  {}">(model.nodes[child].name);
-				stack.emplace_back(child, trans);
+				if (node.mesh >= 0) {
+					for (std::size_t j = 0; j < geometries[node.mesh].size(); ++j) {
+						const auto &prim_handle = geometries[node.mesh][j];
+						const auto &prim = model.meshes[node.mesh].primitives[j];
+
+						instance inst = nullptr;
+						inst.transform = trans;
+						inst.material = materials[prim.material];
+						inst.geometry = prim_handle;
+						instance_loaded_callback(inst);
+					}
+				}
 			}
 		}
-
-		return result;
 	}
 
 

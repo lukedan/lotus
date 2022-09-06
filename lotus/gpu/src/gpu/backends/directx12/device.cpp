@@ -803,7 +803,7 @@ namespace lotus::gpu::backends::directx12 {
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
 		std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
 	) {
-		bottom_level_acceleration_structure_geometry result;
+		bottom_level_acceleration_structure_geometry result = nullptr;
 
 		result._geometries.reserve(data.size());
 		for (const auto &[vert, idx] : data) {

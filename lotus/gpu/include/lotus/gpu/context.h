@@ -144,11 +144,47 @@ namespace lotus::gpu {
 			std::span<const std::pair<std::u8string, std::u8string>> defines
 		) {
 			auto bookmark = stack_allocator::for_this_thread().bookmark();
-			auto defs = bookmark.create_reserved_vector_array<std::pair<std::u8string_view, std::u8string_view>>(defines.size());
+			auto defs = bookmark.create_reserved_vector_array<
+				std::pair<std::u8string_view, std::u8string_view>
+			>(defines.size());
 			for (const auto &def : defines) {
 				defs.emplace_back(def.first, def.second);
 			}
 			return compile_shader(code_utf8, stage, entry, include_paths, defs);
+		}
+
+		/// Compiles the given raytracing shader library.
+		[[nodiscard]] compilation_result compile_shader_library(
+			std::span<const std::byte> code_utf8,
+			std::span<const std::filesystem::path> include_paths,
+			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+		) {
+			return backend::shader_utility::compile_shader_library(code_utf8, include_paths, defines);
+		}
+		/// \overload
+		[[nodiscard]] compilation_result compile_shader_library(
+			std::span<const std::byte> code_utf8,
+			std::initializer_list<std::filesystem::path> include_paths,
+			std::initializer_list<std::pair<std::u8string_view, std::u8string_view>> defines
+		) {
+			return compile_shader_library(
+				code_utf8, { include_paths.begin(), include_paths.end() }, defines
+			);
+		}
+		/// \overload
+		[[nodiscard]] compilation_result compile_shader_library(
+			std::span<const std::byte> code_utf8,
+			std::span<const std::filesystem::path> include_paths,
+			std::span<const std::pair<std::u8string, std::u8string>> defines
+		) {
+			auto bookmark = stack_allocator::for_this_thread().bookmark();
+			auto defs = bookmark.create_reserved_vector_array<
+				std::pair<std::u8string_view, std::u8string_view>
+			>(defines.size());
+			for (const auto &def : defines) {
+				defs.emplace_back(def.first, def.second);
+			}
+			return compile_shader_library(code_utf8, include_paths, defs);
 		}
 	protected:
 		/// Initializes the base object.

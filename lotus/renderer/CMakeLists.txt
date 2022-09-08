@@ -20,7 +20,6 @@ function(add_lotus_renderer_target BACKEND)
 			"include/lotus/renderer/shader_types.h"
 			"include/lotus/renderer/shader_types_impl.h"
 			"include/lotus/renderer/shader_types_include_wrapper.h"
-			"include/lotus/renderer/surface.h"
 		PRIVATE
 			"src/renderer/asset_manager.cpp"
 			"src/renderer/caching.cpp"

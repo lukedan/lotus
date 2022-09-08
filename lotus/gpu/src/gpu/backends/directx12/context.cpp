@@ -92,6 +92,25 @@ namespace lotus::gpu::backends::directx12 {
 		return shader_utility();
 	}
 
+	/// Additional arguments supplied to the compiler.
+	static const LPCWSTR _additional_args[] = { L"-Ges", L"-Zi", L"-Zpr", L"-no-legacy-cbuf-layout" };
+	shader_utility::compilation_result shader_utility::compile_shader(
+		std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry,
+		std::span<const std::filesystem::path> include_paths,
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+	) {
+		return _compiler.compile_shader(code_utf8, stage, entry, include_paths, defines, _additional_args);
+	}
+
+	shader_utility::compilation_result shader_utility::compile_shader_library(
+		std::span<const std::byte> code_utf8,
+		std::span<const std::filesystem::path> include_paths,
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+	) {
+		return _compiler.compile_shader_library(code_utf8, include_paths, defines, _additional_args);
+	}
+
+	/// Loads reflection from the DXIL in the supplied container.
 	template <typename Ptr> static void _do_load_shader_reflection(std::span<const std::byte> data, Ptr &ptr) {
 		// create container reflection
 		_details::com_ptr<IDxcBlob> blob;

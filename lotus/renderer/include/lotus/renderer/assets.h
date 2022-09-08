@@ -128,8 +128,15 @@ namespace lotus::renderer::assets {
 
 		gpu::shader_binary binary; ///< Shader binary.
 		gpu::shader_reflection reflection; ///< Reflection data.
+	};
+	/// A collection of raytracing shaders.
+	struct shader_library {
+		/// Initializes this object to empty.
+		shader_library(std::nullptr_t) : binary(nullptr), reflection(nullptr) {
+		}
 
-		shader_descriptor_bindings descriptor_bindings; ///< Descriptor bindings of this shader.
+		gpu::shader_binary binary; ///< Shader binary.
+		gpu::shader_library_reflection reflection; ///< Reflectino data.
 	};
 	/// A material.
 	struct material {

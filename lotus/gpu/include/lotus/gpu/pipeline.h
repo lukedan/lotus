@@ -111,8 +111,14 @@ namespace lotus::gpu {
 		/// Initializes this object to empty.
 		shader_library_reflection(std::nullptr_t) : backend::shader_library_reflection(nullptr) {
 		}
+		/// Move constructor.
 		shader_library_reflection(shader_library_reflection &&src) :
 			backend::shader_library_reflection(std::move(src)) {
+		}
+		/// Move assignment.
+		shader_library_reflection &operator=(shader_library_reflection &&src) {
+			backend::shader_library_reflection::operator=(std::move(src));
+			return *this;
 		}
 
 		/// Enumerates all shaders in this library.

@@ -95,6 +95,8 @@ int main(int argc, char **argv) {
 	auto tlas = rctx.request_tlas(u8"TLAS", scene.tlas_instances);
 	rctx.build_tlas(tlas, u8"Build TLAS");
 
+	auto rt_shader = asset_man.compile_shader_library_in_filesystem("src/shaders/raytracing.hlsl", {});
+
 	/*composite_pass comp_pass(dev);*/
 
 	/*raytrace_pass rt_pass(dev, model_resources, dev_prop);

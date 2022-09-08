@@ -95,30 +95,16 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Compiles the given shader using the currently selected compiler.
 		[[nodiscard]] compilation_result compile_shader(
-			std::span<const std::byte> code, shader_stage stage, std::u8string_view entry,
+			std::span<const std::byte> code, shader_stage, std::u8string_view entry,
 			std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
-		) {
-			auto bookmark = stack_allocator::for_this_thread().bookmark();
-			auto extra_args = bookmark.create_vector_array<LPCWSTR>();
-			extra_args.insert(
-				extra_args.end(),
-				{
-					L"-Ges",
-					L"-Zi",
-					L"-Zpr",
-					L"-spirv",
-					L"-fspv-reflect",
-					L"-fspv-target-env=vulkan1.2",
-					L"-fvk-use-dx-layout",
-					L"-no-legacy-cbuf-layout"
-				}
-			);
-			if (stage == shader_stage::vertex_shader || stage == shader_stage::geometry_shader) {
-				extra_args.emplace_back(L"-fvk-invert-y");
-			}
-			return _compiler.compile_shader(code, stage, entry, include_paths, defines, extra_args);
-		}
+		);
+		/// Compiles the given shader library using the currently selected compiler.
+		[[nodiscard]] compilation_result compile_shader_library(
+			std::span<const std::byte> code,
+			std::span<const std::filesystem::path> include_paths,
+			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+		);
 	private:
 		backends::common::dxc_compiler _compiler = nullptr; ///< The compiler.
 	};

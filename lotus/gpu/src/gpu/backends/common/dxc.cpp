@@ -48,12 +48,12 @@ namespace lotus::gpu::backends::common {
 			std::pair(shader_stage::geometry_shader,       "gs" ),
 			std::pair(shader_stage::pixel_shader,          "ps" ),
 			std::pair(shader_stage::compute_shader,        "cs" ),
-			std::pair(shader_stage::callable_shader,       "lib"),
-			std::pair(shader_stage::ray_generation_shader, "lib"),
-			std::pair(shader_stage::intersection_shader,   "lib"),
-			std::pair(shader_stage::any_hit_shader,        "lib"),
-			std::pair(shader_stage::closest_hit_shader,    "lib"),
-			std::pair(shader_stage::miss_shader,           "lib"),
+			std::pair(shader_stage::callable_shader,       "INVALID"),
+			std::pair(shader_stage::ray_generation_shader, "INVALID"),
+			std::pair(shader_stage::intersection_shader,   "INVALID"),
+			std::pair(shader_stage::any_hit_shader,        "INVALID"),
+			std::pair(shader_stage::closest_hit_shader,    "INVALID"),
+			std::pair(shader_stage::miss_shader,           "INVALID"),
 		};
 		using _wstring = stack_allocator::string_type<WCHAR>;
 
@@ -69,52 +69,31 @@ namespace lotus::gpu::backends::common {
 		profile_ascii[fmt_result.size] = L'\0';
 		auto profile = _u8string_to_wstring(bookmark, reinterpret_cast<const char8_t*>(profile_ascii));
 
-		auto includes = bookmark.create_reserved_vector_array<_wstring>(include_paths.size());
-		for (const auto &p : include_paths) {
-			includes.emplace_back(bookmark.create_string<WCHAR>(p.wstring())); // TODO allocator?
-		}
-
-		auto defs = bookmark.create_reserved_vector_array<_wstring>(defines.size());
-		for (const auto &def : defines) {
-			auto str = bookmark.create_string();
-			if (def.second.empty()) {
-				std::format_to(std::back_inserter(str), "-D{}", string::to_generic(def.first));
-			} else {
-				std::format_to(
-					std::back_inserter(str), "-D{}={}",
-					string::to_generic(def.first), string::to_generic(def.second)
-				);
+		return _do_compile_shader(
+			code, include_paths, defines, extra_args,
+			{
+				L"-E", entry_wstr.c_str(),
+				L"-T", profile.c_str(),
+				L"-Zi",
+				L"-Qembed_debug",
 			}
-			defs.emplace_back(_u8string_to_wstring(bookmark, string::assume_utf8(str)));
-		}
+		);
+	}
 
-		auto args = bookmark.create_vector_array<LPCWSTR>();
-		args.insert(args.end(), {
-			L"-E", entry_wstr.c_str(),
-			L"-T", profile.c_str(),
-			L"-Zi",
-			L"-Qembed_debug",
-		});
-		for (const auto &inc : includes) {
-			args.insert(args.end(), { L"-I", inc.c_str() });
-		}
-		for (const auto arg : extra_args) {
-			args.emplace_back(arg);
-		}
-		for (const auto &def : defs) {
-			args.emplace_back(def.c_str());
-		}
-
-		DxcBuffer buffer;
-		buffer.Ptr      = code.data();
-		buffer.Size     = code.size();
-		buffer.Encoding = DXC_CP_UTF8;
-		compilation_result result;
-		_details::assert_dx(get_compiler().Compile(
-			&buffer, args.data(), static_cast<UINT32>(args.size()),
-			&get_include_handler(), IID_PPV_ARGS(&result._result)
-		));
-		return result;
+	dxc_compiler::compilation_result dxc_compiler::compile_shader_library(
+		std::span<const std::byte> code,
+		std::span<const std::filesystem::path> include_paths,
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
+		std::span<const LPCWSTR> args
+	) {
+		return _do_compile_shader(
+			code, include_paths, defines, args,
+			{
+				L"-T", L"lib_6_3",
+				L"-Zi",
+				L"-Qembed_debug",
+			}
+		);
 	}
 
 	IDxcUtils &dxc_compiler::get_utils() {
@@ -136,5 +115,58 @@ namespace lotus::gpu::backends::common {
 			_details::assert_dx(get_utils().CreateDefaultIncludeHandler(&_dxc_include_handler));
 		}
 		return *_dxc_include_handler;
+	}
+
+	dxc_compiler::compilation_result dxc_compiler::_do_compile_shader(
+		std::span<const std::byte> code,
+		std::span<const std::filesystem::path> include_paths,
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
+		std::span<const LPCWSTR> extra_args,
+		std::initializer_list<LPCWSTR> extra_args_2
+	) {
+		using _wstring = stack_allocator::string_type<WCHAR>;
+
+		auto bookmark = stack_allocator::for_this_thread().bookmark();
+
+		auto includes = bookmark.create_reserved_vector_array<_wstring>(include_paths.size());
+		for (const auto &p : include_paths) {
+			includes.emplace_back(bookmark.create_string<WCHAR>(p.wstring())); // TODO allocator?
+		}
+
+		auto defs = bookmark.create_reserved_vector_array<_wstring>(defines.size());
+		for (const auto &def : defines) {
+			auto str = bookmark.create_string();
+			if (def.second.empty()) {
+				std::format_to(std::back_inserter(str), "-D{}", string::to_generic(def.first));
+			} else {
+				std::format_to(
+					std::back_inserter(str), "-D{}={}",
+					string::to_generic(def.first), string::to_generic(def.second)
+				);
+			}
+			defs.emplace_back(_u8string_to_wstring(bookmark, string::assume_utf8(str)));
+		}
+
+		auto args = bookmark.create_vector_array<LPCWSTR>(extra_args_2.begin(), extra_args_2.end());
+		for (const auto &inc : includes) {
+			args.insert(args.end(), { L"-I", inc.c_str() });
+		}
+		for (const auto arg : extra_args) {
+			args.emplace_back(arg);
+		}
+		for (const auto &def : defs) {
+			args.emplace_back(def.c_str());
+		}
+
+		DxcBuffer buffer;
+		buffer.Ptr      = code.data();
+		buffer.Size     = code.size();
+		buffer.Encoding = DXC_CP_UTF8;
+		compilation_result result;
+		_details::assert_dx(get_compiler().Compile(
+			&buffer, args.data(), static_cast<UINT32>(args.size()),
+			&get_include_handler(), IID_PPV_ARGS(&result._result)
+		));
+		return result;
 	}
 }

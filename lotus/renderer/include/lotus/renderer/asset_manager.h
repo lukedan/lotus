@@ -134,6 +134,20 @@ namespace lotus::renderer {
 				return compile_shader_in_filesystem(path, stage, entry_point, def_views);
 			}
 
+			/// Compiles and loads the given shader library. \ref identifier::subpath contains `lib' and then
+			/// optionally a list of defines, separated by `|'.
+			[[nodiscard]] handle<shader_library> compile_shader_library_from_source(
+				const std::filesystem::path &id_path,
+				std::span<const std::byte> code,
+				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines = {}
+			);
+			/// Similar to \ref compile_shader_library_from_source(), but loads the shader source code from the file
+			/// system.
+			[[nodiscard]] handle<shader_library> compile_shader_library_in_filesystem(
+				const std::filesystem::path &path,
+				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines = {}
+			);
+
 			/// Registers a buffer asset.
 			handle<buffer> register_buffer(identifier id, buffer buf) {
 				return _register_asset(std::move(id), std::move(buf), _buffers);
@@ -183,11 +197,12 @@ namespace lotus::renderer {
 			};
 			///< A map containing a specific type of assets.
 			template <typename T> using _map = std::unordered_map<identifier, std::weak_ptr<asset<T>>, _id_hash>;
-			using _texture_map  = _map<texture2d>; ///< Texture map.
-			using _buffer_map   = _map<buffer>;    ///< Buffer map.
-			using _geometry_map = _map<geometry>;  ///< Geometry map.
-			using _shader_map   = _map<shader>;    ///< Shader map.
-			using _material_map = _map<material>;  ///< Material map.
+			using _texture_map        = _map<texture2d>;      ///< Texture map.
+			using _buffer_map         = _map<buffer>;         ///< Buffer map.
+			using _geometry_map       = _map<geometry>;       ///< Geometry map.
+			using _shader_map         = _map<shader>;         ///< Shader map.
+			using _shader_library_map = _map<shader_library>; ///< Shader library map.
+			using _material_map       = _map<material>;       ///< Material map.
 
 			/// Initializes this manager.
 			manager(context&, gpu::device&, std::filesystem::path, gpu::shader_utility*);
@@ -210,12 +225,22 @@ namespace lotus::renderer {
 				std::u8string_view entry_point,
 				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 			);
+			/// Assembles the subid of the shader library.
+			[[nodiscard]] std::u8string _assemble_shader_library_subid(
+				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+			);
 			/// Compiles a shader from the given source without checking if it has already been registered.
 			[[nodiscard]] handle<shader> _do_compile_shader_from_source(
 				identifier,
 				std::span<const std::byte> code,
 				gpu::shader_stage,
 				std::u8string_view entry_point,
+				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+			);
+			/// Compiles a shader library from the given source without checking if it has already been registered.
+			[[nodiscard]] handle<shader_library> _do_compile_shader_library_from_source(
+				identifier,
+				std::span<const std::byte> code,
 				std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 			);
 
@@ -233,11 +258,12 @@ namespace lotus::renderer {
 				_texture2d_descriptor_index_alloc.emplace_back(id);
 			}
 
-			_texture_map  _textures;   ///< All loaded textures.
-			_buffer_map   _buffers;    ///< All loaded buffers.
-			_geometry_map _geometries; ///< All loaded geometries.
-			_shader_map   _shaders;    ///< All loaded shaders.
-			_material_map _materials;  ///< All loaded materials.
+			_texture_map        _textures;         ///< All loaded textures.
+			_buffer_map         _buffers;          ///< All loaded buffers.
+			_geometry_map       _geometries;       ///< All loaded geometries.
+			_shader_map         _shaders;          ///< All loaded shaders.
+			_shader_library_map _shader_libraries; ///< All loaded shader libraries.
+			_material_map       _materials;        ///< All loaded materials.
 
 			gpu::device &_device; ///< Device that all assets are loaded onto.
 			gpu::shader_utility *_shader_utilities; ///< Used for compiling shaders.

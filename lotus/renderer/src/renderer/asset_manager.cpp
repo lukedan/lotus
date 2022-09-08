@@ -153,6 +153,42 @@ namespace lotus::renderer::assets {
 		);
 	}
 
+	handle<shader_library> manager::compile_shader_library_from_source(
+		const std::filesystem::path &path,
+		std::span<const std::byte> code,
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+	) {
+		identifier id(path);
+		id.subpath = _assemble_shader_library_subid(defines);
+
+		if (auto it = _shader_libraries.find(id); it != _shader_libraries.end()) {
+			if (auto ptr = it->second.lock()) {
+				return handle<shader_library>(std::move(ptr));
+			}
+		}
+
+		return _do_compile_shader_library_from_source(std::move(id), code, defines);
+	}
+
+	handle<shader_library> manager::compile_shader_library_in_filesystem(
+		const std::filesystem::path &path,
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+	) {
+		identifier id(path);
+		id.subpath = _assemble_shader_library_subid(defines);
+
+		if (auto it = _shader_libraries.find(id); it != _shader_libraries.end()) {
+			if (auto ptr = it->second.lock()) {
+				return handle<shader_library>(std::move(ptr));
+			}
+		}
+
+		auto [binary, size] = load_binary_file(path.string().c_str());
+		return _do_compile_shader_library_from_source(
+			std::move(id), { static_cast<const std::byte*>(binary.get()), size }, defines
+		);
+	}
+
 	manager::manager(
 		context &ctx, gpu::device &dev,
 		std::filesystem::path shader_lib_path, gpu::shader_utility *shader_utils
@@ -201,15 +237,32 @@ namespace lotus::renderer::assets {
 			std::pair(gpu::shader_stage::geometry_shader,       u8"gs"),
 			std::pair(gpu::shader_stage::pixel_shader,          u8"ps"),
 			std::pair(gpu::shader_stage::compute_shader,        u8"cs"),
-			std::pair(gpu::shader_stage::callable_shader,       u8"callable"),
-			std::pair(gpu::shader_stage::ray_generation_shader, u8"raygen"),
-			std::pair(gpu::shader_stage::intersection_shader,   u8"intersect"),
-			std::pair(gpu::shader_stage::any_hit_shader,        u8"anyhit"),
-			std::pair(gpu::shader_stage::closest_hit_shader,    u8"closesthit"),
-			std::pair(gpu::shader_stage::miss_shader,           u8"miss"),
+			std::pair(gpu::shader_stage::callable_shader,       u8"CALLABLE"),
+			std::pair(gpu::shader_stage::ray_generation_shader, u8"RAYGEN"),
+			std::pair(gpu::shader_stage::intersection_shader,   u8"INTERSECT"),
+			std::pair(gpu::shader_stage::any_hit_shader,        u8"ANYHIT"),
+			std::pair(gpu::shader_stage::closest_hit_shader,    u8"CLOSESTHIT"),
+			std::pair(gpu::shader_stage::miss_shader,           u8"MISS"),
 		};
 
 		std::u8string subid = std::u8string(_shader_stage_names[stage]) + u8"|" + std::u8string(entry_point);
+		std::vector<std::pair<std::u8string_view, std::u8string_view>> sorted_defines(defines.begin(), defines.end());
+		std::sort(sorted_defines.begin(), sorted_defines.end());
+		for (const auto &[def, val] : sorted_defines) {
+			subid += u8"|";
+			if (!val.empty()) {
+				subid += std::u8string(def) + u8"=" + std::u8string(val);
+			} else {
+				subid += std::u8string(def);
+			}
+		}
+		return subid;
+	}
+
+	std::u8string manager::_assemble_shader_library_subid(
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+	) {
+		std::u8string subid = u8"lib";
 		std::vector<std::pair<std::u8string_view, std::u8string_view>> sorted_defines(defines.begin(), defines.end());
 		std::sort(sorted_defines.begin(), sorted_defines.end());
 		for (const auto &[def, val] : sorted_defines) {
@@ -247,9 +300,31 @@ namespace lotus::renderer::assets {
 		auto binary = result.get_compiled_binary();
 		res.binary              = _device.load_shader(binary);
 		res.reflection          = _shader_utilities->load_shader_reflection(binary);
-		res.descriptor_bindings =
-			shader_descriptor_bindings::collect_from(res.reflection);
-		res.descriptor_bindings.create_layouts(get_device());
 		return _register_asset(std::move(id), std::move(res), _shaders);
+	}
+
+	handle<shader_library> manager::_do_compile_shader_library_from_source(
+		identifier id,
+		std::span<const std::byte> code,
+		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
+	) {
+		if (!_shader_utilities) {
+			return nullptr;
+		}
+
+		auto paths = { id.path.parent_path() }; // TODO hack to make sure the shader can include files in the same directory
+		auto result = _shader_utilities->compile_shader_library(code, paths, defines);
+		if (!result.succeeded()) {
+			log().error<u8"Failed to compile shader {}: {}">(
+				id.path.string(), string::to_generic(result.get_compiler_output())
+			);
+			return nullptr;
+		}
+
+		shader_library res = nullptr;
+		auto binary = result.get_compiled_binary();
+		res.binary              = _device.load_shader(binary);
+		res.reflection          = _shader_utilities->load_shader_library_reflection(binary);
+		return _register_asset(std::move(id), std::move(res), _shader_libraries);
 	}
 }

@@ -380,9 +380,9 @@ namespace lotus::renderer::gltf {
 
 		shader_types::gltf_material mat;
 		mat.properties = properties;
-		mat.assets.albedo_texture     = albedo_texture     ? albedo_texture.get().value.descriptor_index     : manager->get_invalid_texture().get().value.descriptor_index;
-		mat.assets.normal_texture     = normal_texture     ? normal_texture.get().value.descriptor_index     : manager->get_invalid_texture().get().value.descriptor_index;
-		mat.assets.properties_texture = properties_texture ? properties_texture.get().value.descriptor_index : manager->get_invalid_texture().get().value.descriptor_index;
+		mat.assets.albedo_texture     = albedo_texture     ? albedo_texture->descriptor_index     : manager->get_invalid_texture()->descriptor_index;
+		mat.assets.normal_texture     = normal_texture     ? normal_texture->descriptor_index     : manager->get_invalid_texture()->descriptor_index;
+		mat.assets.properties_texture = properties_texture ? properties_texture->descriptor_index : manager->get_invalid_texture()->descriptor_index;
 		set1.bindings.emplace_back(descriptor_resource::immediate_constant_buffer::create_for(mat), 0);
 
 		set1.bindings.emplace_back(descriptor_resource::sampler(), 3);

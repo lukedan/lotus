@@ -222,7 +222,7 @@ namespace lotus::renderer::assets {
 						(x ^ y) & 1 ? linear_rgba_u8(255, 0, 255, 255) : linear_rgba_u8(0, 255, 0, 255);
 				}
 			}
-			_context.upload_image(_invalid_texture.get().value.image, tex_data.data(), u8"Invalid");
+			_context.upload_image(_invalid_texture->image, tex_data.data(), u8"Invalid");
 		}
 	}
 

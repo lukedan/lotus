@@ -1117,7 +1117,7 @@ namespace lotus::gpu::backends::vulkan {
 	raytracing_pipeline_state device::create_raytracing_pipeline_state(
 		std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
 		std::span<const shader_function> general_shaders, std::size_t max_recursion_depth, std::size_t, std::size_t,
-		pipeline_resources &rsrc
+		const pipeline_resources &rsrc
 	) {
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
 

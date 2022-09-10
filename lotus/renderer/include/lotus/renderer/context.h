@@ -120,7 +120,7 @@ namespace lotus::renderer {
 			dispatch_compute(
 				all_resource_bindings rsrc,
 				assets::handle<assets::shader> compute_shader,
-				cvec3<std::uint32_t> numgroups
+				cvec3u32 numgroups
 			) : resources(std::move(rsrc)),
 				shader(std::move(compute_shader)),
 				num_thread_groups(numgroups) {
@@ -128,7 +128,21 @@ namespace lotus::renderer {
 
 			all_resource_bindings resources; ///< All resource bindings.
 			assets::handle<assets::shader> shader; ///< The shader.
-			cvec3<std::uint32_t> num_thread_groups = uninitialized; ///< Number of thread groups.
+			cvec3u32 num_thread_groups = uninitialized; ///< Number of thread groups.
+		};
+
+		/// Executes a render pass.
+		struct render_pass {
+			/// Initializes the render target.
+			render_pass(std::vector<surface2d_color> color_rts, surface2d_depth_stencil ds_rt, cvec2s sz) :
+				color_render_targets(std::move(color_rts)), depth_stencil_target(std::move(ds_rt)),
+				render_target_size(sz) {
+			}
+
+			std::vector<surface2d_color> color_render_targets; ///< Color render targets.
+			surface2d_depth_stencil depth_stencil_target; ///< Depth stencil render target.
+			cvec2s render_target_size; ///< The size of the render target.
+			std::vector<pass_command> commands; ///< Commands within this pass.
 		};
 
 		/// Builds a bottom level acceleration structure.
@@ -149,18 +163,50 @@ namespace lotus::renderer {
 			recorded_resources::tlas target; ///< The TLAS to build.
 		};
 
-		/// Executes a render pass.
-		struct render_pass {
-			/// Initializes the render target.
-			render_pass(std::vector<surface2d_color> color_rts, surface2d_depth_stencil ds_rt, cvec2s sz) :
-				color_render_targets(std::move(color_rts)), depth_stencil_target(std::move(ds_rt)),
-				render_target_size(sz) {
+		/// Generates and traces rays.
+		struct trace_rays {
+			/// Initializes all fields of this struct.
+			trace_rays(
+				all_resource_bindings b,
+				std::vector<shader_function> hg_shaders,
+				std::vector<gpu::hit_shader_group> groups,
+				std::vector<shader_function> gen_shaders,
+				std::uint32_t rg_group_idx,
+				std::vector<std::uint32_t> miss_group_idx,
+				std::vector<std::uint32_t> hit_group_idx,
+				std::uint32_t rec_depth,
+				std::uint32_t payload_size,
+				std::uint32_t attr_size,
+				cvec3u32 threads
+			) :
+				resource_bindings(std::move(b)),
+				hit_group_shaders(std::move(hg_shaders)),
+				hit_groups(std::move(groups)),
+				general_shaders(std::move(gen_shaders)),
+				raygen_shader_group_index(rg_group_idx),
+				miss_group_indices(std::move(miss_group_idx)),
+				hit_group_indices(std::move(hit_group_idx)),
+				max_recursion_depth(rec_depth),
+				max_payload_size(payload_size),
+				max_attribute_size(attr_size),
+				num_threads(threads) {
 			}
 
-			std::vector<surface2d_color> color_render_targets; ///< Color render targets.
-			surface2d_depth_stencil depth_stencil_target; ///< Depth stencil render target.
-			cvec2s render_target_size; ///< The size of the render target.
-			std::vector<pass_command> commands; ///< Commands within this pass.
+			all_resource_bindings resource_bindings; ///< All resource bindings.
+			
+			std::vector<shader_function> hit_group_shaders; ///< Ray tracing shaders.
+			std::vector<gpu::hit_shader_group> hit_groups;  ///< Hit groups.
+			std::vector<shader_function> general_shaders;   ///< General callable shaders.
+
+			std::uint32_t raygen_shader_group_index = 0; ///< Index of the ray generation shader group.
+			std::vector<std::uint32_t> miss_group_indices; ///< Indices of the miss shader groups.
+			std::vector<std::uint32_t> hit_group_indices;  ///< Indices of the hit shader groups.
+
+			std::uint32_t max_recursion_depth = 0; ///< Maximum recursion depth for the rays.
+			std::uint32_t max_payload_size = 0;    ///< Maximum payload size.
+			std::uint32_t max_attribute_size = 0;  ///< Maximum attribute size.
+
+			cvec3u32 num_threads; ///< Number of threads to spawn.
 		};
 
 		/// Presents the given swap chain.
@@ -189,9 +235,10 @@ namespace lotus::renderer {
 			context_commands::upload_image,
 			context_commands::upload_buffer,
 			context_commands::dispatch_compute,
+			context_commands::render_pass,
 			context_commands::build_blas,
 			context_commands::build_tlas,
-			context_commands::render_pass,
+			context_commands::trace_rays,
 			context_commands::present
 		> value; ///< The value of this command.
 		/// Debug description of this command.
@@ -324,6 +371,22 @@ namespace lotus::renderer {
 		/// Builds the given \ref tlas.
 		void build_tlas(tlas&, std::u8string_view description);
 
+		/// Generates and traces rays.
+		void trace_rays(
+			std::span<const shader_function> hit_group_shaders,
+			std::span<const gpu::hit_shader_group>,
+			std::span<const shader_function> general_shaders,
+			std::uint32_t raygen_shader_index,
+			std::span<const std::uint32_t> miss_shader_indices,
+			std::span<const std::uint32_t> shader_groups,
+			std::uint32_t max_recursion_depth,
+			std::uint32_t max_payload_size,
+			std::uint32_t max_attribute_size,
+			cvec3u32 num_threads,
+			all_resource_bindings,
+			std::u8string_view description
+		);
+
 		/// Runs a compute shader.
 		void run_compute_shader(
 			assets::handle<assets::shader>, cvec3<std::uint32_t> num_thread_groups, all_resource_bindings,
@@ -364,8 +427,9 @@ namespace lotus::renderer {
 	private:
 		/// Indicates a descriptor set bind point.
 		enum class _bind_point {
-			graphics, ///< The descriptor sets are used for graphics operations.
-			compute,  ///< The descriptor sets are used for compute operations.
+			graphics,   ///< The descriptor sets are used for graphics operations.
+			compute,    ///< The descriptor sets are used for compute operations.
+			raytracing, ///< The descriptor sets are used for ray tracing operations.
 		};
 
 		/// A descriptor set and its register space.
@@ -437,19 +501,20 @@ namespace lotus::renderer {
 
 		/// Transient resources used by a batch.
 		struct _batch_resources {
-			std::deque<gpu::descriptor_set>          descriptor_sets;        ///< Descriptor sets.
-			std::deque<gpu::descriptor_set_layout>   descriptor_set_layouts; ///< Descriptor set layouts.
-			std::deque<gpu::pipeline_resources>      pipeline_resources;     ///< Pipeline resources.
-			std::deque<gpu::compute_pipeline_state>  compute_pipelines;      ///< Compute pipeline states.
-			std::deque<gpu::graphics_pipeline_state> graphics_pipelines;     ///< Graphics pipeline states.
-			std::deque<gpu::image2d>                 images;                 ///< Images.
-			std::deque<gpu::image2d_view>            image_views;            ///< Image views.
-			std::deque<gpu::buffer>                  buffers;                ///< Constant buffers.
-			std::deque<gpu::command_list>            command_lists;          ///< Command lists.
-			std::deque<gpu::frame_buffer>            frame_buffers;          ///< Frame buffers.
-			std::deque<gpu::sampler>                 samplers;               ///< Samplers.
-			std::deque<gpu::swap_chain>              swap_chains;            ///< Swap chains.
-			std::deque<gpu::fence>                   fences;                 ///< Fences.
+			std::deque<gpu::descriptor_set>            descriptor_sets;        ///< Descriptor sets.
+			std::deque<gpu::descriptor_set_layout>     descriptor_set_layouts; ///< Descriptor set layouts.
+			std::deque<gpu::pipeline_resources>        pipeline_resources;     ///< Pipeline resources.
+			std::deque<gpu::compute_pipeline_state>    compute_pipelines;      ///< Compute pipeline states.
+			std::deque<gpu::graphics_pipeline_state>   graphics_pipelines;     ///< Graphics pipeline states.
+			std::deque<gpu::raytracing_pipeline_state> raytracing_pipelines;   ///< Raytracing pipeline states.
+			std::deque<gpu::image2d>                   images;                 ///< Images.
+			std::deque<gpu::image2d_view>              image_views;            ///< Image views.
+			std::deque<gpu::buffer>                    buffers;                ///< Constant buffers.
+			std::deque<gpu::command_list>              command_lists;          ///< Command lists.
+			std::deque<gpu::frame_buffer>              frame_buffers;          ///< Frame buffers.
+			std::deque<gpu::sampler>                   samplers;               ///< Samplers.
+			std::deque<gpu::swap_chain>                swap_chains;            ///< Swap chains.
+			std::deque<gpu::fence>                     fences;                 ///< Fences.
 
 			std::vector<std::unique_ptr<_details::surface2d>>  surface2d_meta;  ///< Images to be disposed next frame.
 			std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain to be disposed next frame.
@@ -467,6 +532,8 @@ namespace lotus::renderer {
 					return compute_pipelines.emplace_back(std::move(obj));
 				} else if constexpr (std::is_same_v<T, gpu::graphics_pipeline_state>) {
 					return graphics_pipelines.emplace_back(std::move(obj));
+				} else if constexpr (std::is_same_v<T, gpu::raytracing_pipeline_state>) {
+					return raytracing_pipelines.emplace_back(std::move(obj));
 				} else if constexpr (std::is_same_v<T, gpu::image2d>) {
 					return images.emplace_back(std::move(obj));
 				} else if constexpr (std::is_same_v<T, gpu::image2d_view>) {
@@ -561,8 +628,27 @@ namespace lotus::renderer {
 			/// Flushes all staged surface transition operations.
 			void flush_transitions();
 
-			/// Stages the given immediate constant buffer.
-			[[nodiscard]] gpu::constant_buffer_view stage_immediate_constant_buffer(std::span<const std::byte>);
+			/// Allocates space for an immediate constant buffer.
+			///
+			/// \return A reference to the allocated region, and a pointer to the buffer data. The caller should
+			///         immediately copy over the buffer's data.
+			[[nodiscard]] std::pair<
+				gpu::constant_buffer_view, void*
+			> stage_immediate_constant_buffer(memory::size_alignment);
+			/// Allocates an immediate constant buffer and copies the data over.
+			///
+			/// \param data Buffer data.
+			/// \param alignment Alignment of the buffer, or zero to use the default alignment.
+			[[nodiscard]] gpu::constant_buffer_view stage_immediate_constant_buffer(
+				std::span<const std::byte> data, std::size_t alignment = 0
+			) {
+				if (alignment == 0) {
+					alignment = _ctx._adapter_properties.constant_buffer_alignment;
+				}
+				auto [res, dst] = stage_immediate_constant_buffer(memory::size_alignment(data.size(), alignment));
+				std::memcpy(dst, data.data(), data.size());
+				return res;
+			}
 			/// Flushes all staged immediate constant buffers.
 			void flush_immediate_constant_buffers();
 		private:
@@ -774,12 +860,14 @@ namespace lotus::renderer {
 		void _handle_command(_execution_context&, const context_commands::upload_buffer&);
 		/// Handles a dispatch compute command.
 		void _handle_command(_execution_context&, const context_commands::dispatch_compute&);
+		/// Handles a begin pass command.
+		void _handle_command(_execution_context&, const context_commands::render_pass&);
 		/// Handles a BLAS build command.
 		void _handle_command(_execution_context&, const context_commands::build_blas&);
 		/// Handles a TLAS build command.
 		void _handle_command(_execution_context&, const context_commands::build_tlas&);
-		/// Handles a begin pass command.
-		void _handle_command(_execution_context&, const context_commands::render_pass&);
+		/// Handles a ray trace command.
+		void _handle_command(_execution_context&, const context_commands::trace_rays&);
 		/// Handles a present command.
 		void _handle_command(_execution_context&, const context_commands::present&);
 

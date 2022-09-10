@@ -216,6 +216,7 @@ namespace lotus::renderer {
 					assert(it->second.lock() == nullptr);
 				}
 				ptr->_id = &it->first;
+				ptr->_uid = ++_uid_alloc;
 				return handle<T>(std::move(ptr));
 			}
 
@@ -257,6 +258,8 @@ namespace lotus::renderer {
 			void _free_descriptor_index(std::uint32_t id) {
 				_texture2d_descriptor_index_alloc.emplace_back(id);
 			}
+
+			assets::unique_id_t _uid_alloc = 0; ///< Unique ID allocation.
 
 			_texture_map        _textures;         ///< All loaded textures.
 			_buffer_map         _buffers;          ///< All loaded buffers.

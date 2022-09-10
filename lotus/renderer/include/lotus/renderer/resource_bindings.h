@@ -4,6 +4,7 @@
 /// Shader resource bindings.
 
 #include "resources.h"
+#include "assets.h"
 
 namespace lotus::renderer {
 	/// Reference to a 2D color image that can be rendered to.
@@ -221,5 +222,21 @@ namespace lotus::renderer {
 		void consolidate();
 
 		std::vector<resource_set_binding> sets; ///< Sets of resource bindings.
+	};
+
+
+	/// References a function in a shader library.
+	struct shader_function {
+		/// Initializes this object to empty.
+		shader_function(std::nullptr_t) : shader_library(nullptr) {
+		}
+		/// Initializes all fields of this struct.
+		shader_function(assets::handle<assets::shader_library> lib, const char8_t *entry, gpu::shader_stage s) :
+			shader_library(std::move(lib)), entry_point(entry), stage(s) {
+		}
+
+		assets::handle<assets::shader_library> shader_library; ///< The shader library.
+		const char8_t *entry_point = nullptr; ///< Entry point.
+		gpu::shader_stage stage = gpu::shader_stage::all; ///< Shader stage of the entry point.
 	};
 }

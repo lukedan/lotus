@@ -241,7 +241,7 @@ namespace lotus::gpu::backends::vulkan {
 			std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
 			std::span<const shader_function> general_shaders,
 			std::size_t max_recursion_depth, std::size_t max_payload_size, std::size_t max_attribute_size,
-			pipeline_resources &rsrc
+			const pipeline_resources &rsrc
 		);
 	private:
 		vk::UniqueDevice _device; ///< The device.

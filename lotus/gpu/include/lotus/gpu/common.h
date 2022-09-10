@@ -1609,11 +1609,11 @@ namespace lotus::gpu {
 		shader_function(std::nullptr_t) : code(nullptr), entry_point(nullptr) {
 		}
 		/// Initializes all fields of this struct.
-		shader_function(shader_binary *c, const char8_t *entry, shader_stage s) :
-			code(c), entry_point(entry), stage(s) {
+		shader_function(const shader_binary &c, const char8_t *entry, shader_stage s) :
+			code(&c), entry_point(entry), stage(s) {
 		}
 
-		shader_binary *code; ///< Binary shader code.
+		const shader_binary *code; ///< Binary shader code.
 		const char8_t *entry_point; ///< Entry point.
 		shader_stage stage; ///< Shader stage.
 	};
@@ -1700,22 +1700,15 @@ namespace lotus::gpu {
 		/// Initializes this view to empty.
 		constexpr shader_record_view(std::nullptr_t) {
 		}
-		/// Creates a new object from the given arguments.
-		[[nodiscard]] inline static constexpr shader_record_view create(
-			buffer &d, std::size_t off, std::size_t c, std::size_t str
-		) {
-			return shader_record_view(d, off, c, str);
+		/// Initializes all fields of this struct.
+		constexpr shader_record_view(const buffer &d, std::size_t off, std::size_t c, std::size_t str) :
+			data(&d), offset(off), count(c), stride(str) {
 		}
 
-		buffer *data = nullptr; ///< Data of the shader records.
+		const buffer *data = nullptr; ///< Data of the shader records.
 		std::size_t offset = 0; ///< Offset of the first entry in bytes.
 		std::size_t count  = 0; ///< Size of the buffer in elements.
 		std::size_t stride = 0; ///< Stride of an element.
-	protected:
-		/// Initializes all fields of this struct.
-		constexpr shader_record_view(buffer &d, std::size_t off, std::size_t c, std::size_t str) :
-			data(&d), offset(off), count(c), stride(str) {
-		}
 	};
 
 	/// A group of shaders responsible for handling ray intersections.

@@ -277,10 +277,11 @@ namespace lotus::renderer {
 		}
 	}
 
-	gpu::constant_buffer_view context::_execution_context::stage_immediate_constant_buffer(
-		std::span<const std::byte> data
-	) {
-		if (_immediate_constant_buffer_used + data.size() > immediate_constant_buffer_cache_size) {
+	std::pair<
+		gpu::constant_buffer_view, void*
+	> context::_execution_context::stage_immediate_constant_buffer(memory::size_alignment size_align) {
+		_immediate_constant_buffer_used = memory::align_up(_immediate_constant_buffer_used, size_align.alignment);
+		if (_immediate_constant_buffer_used + size_align.size > immediate_constant_buffer_cache_size) {
 			flush_immediate_constant_buffers();
 		}
 
@@ -301,18 +302,14 @@ namespace lotus::renderer {
 		}
 
 		gpu::constant_buffer_view result(
-			_immediate_constant_device_buffer, _immediate_constant_buffer_used, data.size()
+			_immediate_constant_device_buffer, _immediate_constant_buffer_used, size_align.size
 		);
 
-		assert(_immediate_constant_buffer_used + data.size() <= immediate_constant_buffer_cache_size);
-		std::memcpy(
-			_immediate_constant_upload_buffer_ptr + _immediate_constant_buffer_used, data.data(), data.size()
-		);
-		_immediate_constant_buffer_used = memory::align_up(
-			_immediate_constant_buffer_used + data.size(), _ctx._adapter_properties.constant_buffer_alignment
-		);
+		assert(_immediate_constant_buffer_used + size_align.size <= immediate_constant_buffer_cache_size);
+		void *data_addr = _immediate_constant_upload_buffer_ptr + _immediate_constant_buffer_used;
+		_immediate_constant_buffer_used += size_align.size;
 
-		return result;
+		return { result, data_addr };
 	}
 
 	void context::_execution_context::flush_immediate_constant_buffers() {
@@ -482,6 +479,35 @@ namespace lotus::renderer {
 		_commands.emplace_back(description).value.emplace<context_commands::build_tlas>(t);
 	}
 
+	void context::trace_rays(
+		std::span<const shader_function> hit_group_shaders,
+		std::span<const gpu::hit_shader_group> hit_groups,
+		std::span<const shader_function> general_shaders,
+		std::uint32_t raygen_shader_index,
+		std::span<const std::uint32_t> miss_shader_indices,
+		std::span<const std::uint32_t> shader_groups,
+		std::uint32_t max_recursion_depth,
+		std::uint32_t max_payload_size,
+		std::uint32_t max_attribute_size,
+		cvec3u32 num_threads,
+		all_resource_bindings bindings,
+		std::u8string_view description
+	) {
+		_commands.emplace_back(description).value.emplace<context_commands::trace_rays>(
+			std::move(bindings),
+			std::vector(hit_group_shaders.begin(), hit_group_shaders.end()),
+			std::vector(hit_groups.begin(), hit_groups.end()),
+			std::vector(general_shaders.begin(), general_shaders.begin()),
+			raygen_shader_index,
+			std::vector(miss_shader_indices.begin(), miss_shader_indices.end()),
+			std::vector(shader_groups.begin(), shader_groups.end()),
+			max_recursion_depth,
+			max_payload_size,
+			max_attribute_size,
+			num_threads
+		);
+	}
+
 	void context::run_compute_shader(
 		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_thread_groups,
 		all_resource_bindings bindings, std::u8string_view description
@@ -495,7 +521,7 @@ namespace lotus::renderer {
 		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_threads, all_resource_bindings bindings,
 		std::u8string_view description
 	) {
-		auto thread_group_size = shader.get().value.reflection.get_thread_group_size().into<std::uint32_t>();
+		auto thread_group_size = shader->reflection.get_thread_group_size().into<std::uint32_t>();
 		cvec3u32 groups = matu32::memberwise_divide(
 			num_threads + thread_group_size - cvec3u32(1, 1, 1), thread_group_size
 		);
@@ -962,6 +988,10 @@ namespace lotus::renderer {
 					rsrc, sets[i].space, { set_ptrs.begin() + i, set_ptrs.begin() + end }
 				);
 				break;
+			case _bind_point::raytracing:
+				ectx.get_command_list().bind_ray_tracing_descriptor_sets(
+					rsrc, sets[i].space, { set_ptrs.begin() + i, set_ptrs.begin() + end }
+				);
 			}
 
 			i = end;
@@ -1059,7 +1089,7 @@ namespace lotus::renderer {
 		// create descriptor bindings
 		auto &&[rsrc_key, pipeline_resources, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resources);
 		auto &pipeline = ectx.record(_device.create_compute_pipeline_state(
-			pipeline_resources, cmd.shader.get().value.binary
+			pipeline_resources, cmd.shader->binary
 		));
 		ectx.flush_transitions();
 
@@ -1067,71 +1097,6 @@ namespace lotus::renderer {
 		cmd_list.bind_pipeline_state(pipeline);
 		_bind_descriptor_sets(ectx, pipeline_resources, std::move(sets), _bind_point::compute);
 		cmd_list.run_compute_shader(cmd.num_thread_groups[0], cmd.num_thread_groups[1], cmd.num_thread_groups[2]);
-	}
-
-	void context::_handle_command(_execution_context &ectx, const context_commands::build_blas &cmd) {
-		auto *blas_ptr = cmd.target._blas;
-		_maybe_initialize_blas(*blas_ptr);
-
-		// handle transitions
-		for (const auto &geom : blas_ptr->input) {
-			ectx.stage_transition(*geom.vertex_data._buffer, gpu::buffer_usage::read_only_buffer);
-			if (geom.index_data._buffer) {
-				ectx.stage_transition(*geom.index_data._buffer, gpu::buffer_usage::read_only_buffer);
-			}
-		}
-		ectx.flush_transitions();
-
-		auto &scratch = ectx.create_buffer(
-			blas_ptr->build_sizes.build_scratch_size,
-			_device_memory_index, gpu::buffer_usage::mask::read_write_buffer
-		);
-		ectx.get_command_list().build_acceleration_structure(blas_ptr->geometry, blas_ptr->handle, scratch, 0);
-	}
-
-	void context::_handle_command(_execution_context &ectx, const context_commands::build_tlas &cmd) {
-		auto *tlas_ptr = cmd.target._tlas;
-
-		// initialize all data
-		if (!tlas_ptr->handle) {
-			std::size_t input_size = sizeof(gpu::instance_description) * tlas_ptr->input.size();
-			{ // upload data
-				auto &upload_buf = ectx.create_buffer(
-					input_size, _upload_memory_index, gpu::buffer_usage::mask::copy_source
-				);
-				void *ptr = _device.map_buffer(upload_buf, 0, 0);
-				std::memcpy(ptr, tlas_ptr->input.data(), input_size);
-				_device.unmap_buffer(upload_buf, 0, input_size);
-				ectx.get_command_list().copy_buffer(upload_buf, 0, tlas_ptr->input_data, 0, input_size);
-				ectx.stage_transition(
-					tlas_ptr->input_data, gpu::buffer_usage::copy_source, gpu::buffer_usage::read_only_buffer
-				);
-				ectx.flush_transitions();
-			}
-
-			tlas_ptr->input_data  = _device.create_committed_buffer(
-				input_size, _device_memory_index,
-				gpu::buffer_usage::mask::copy_destination | gpu::buffer_usage::mask::read_only_buffer
-			);
-			tlas_ptr->build_sizes = _device.get_top_level_acceleration_structure_build_sizes(
-				tlas_ptr->input_data, 0, tlas_ptr->input.size()
-			);
-			tlas_ptr->memory      = _device.create_committed_buffer(
-				tlas_ptr->build_sizes.acceleration_structure_size, _device_memory_index,
-				gpu::buffer_usage::mask::acceleration_structure
-			);
-			tlas_ptr->handle      = _device.create_top_level_acceleration_structure(
-				tlas_ptr->memory, 0, tlas_ptr->build_sizes.acceleration_structure_size
-			);
-		}
-
-		auto &scratch = ectx.create_buffer(
-			tlas_ptr->build_sizes.build_scratch_size,
-			_device_memory_index, gpu::buffer_usage::mask::read_write_buffer
-		);
-		ectx.get_command_list().build_acceleration_structure(
-			tlas_ptr->input_data, 0, tlas_ptr->input.size(), tlas_ptr->handle, scratch, 0
-		);
 	}
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::render_pass &cmd) {
@@ -1202,6 +1167,137 @@ namespace lotus::renderer {
 		}
 
 		cmd_list.end_pass();
+	}
+
+	void context::_handle_command(_execution_context &ectx, const context_commands::build_blas &cmd) {
+		auto *blas_ptr = cmd.target._blas;
+		_maybe_initialize_blas(*blas_ptr);
+
+		// handle transitions
+		for (const auto &geom : blas_ptr->input) {
+			ectx.stage_transition(*geom.vertex_data._buffer, gpu::buffer_usage::read_only_buffer);
+			if (geom.index_data._buffer) {
+				ectx.stage_transition(*geom.index_data._buffer, gpu::buffer_usage::read_only_buffer);
+			}
+		}
+		ectx.flush_transitions();
+
+		auto &scratch = ectx.create_buffer(
+			blas_ptr->build_sizes.build_scratch_size,
+			_device_memory_index, gpu::buffer_usage::mask::read_write_buffer
+		);
+		ectx.get_command_list().build_acceleration_structure(blas_ptr->geometry, blas_ptr->handle, scratch, 0);
+	}
+
+	void context::_handle_command(_execution_context &ectx, const context_commands::build_tlas &cmd) {
+		auto *tlas_ptr = cmd.target._tlas;
+
+		// initialize all data
+		if (!tlas_ptr->handle) {
+			std::size_t input_size = sizeof(gpu::instance_description) * tlas_ptr->input.size();
+			{ // upload data
+				auto &upload_buf = ectx.create_buffer(
+					input_size, _upload_memory_index, gpu::buffer_usage::mask::copy_source
+				);
+				void *ptr = _device.map_buffer(upload_buf, 0, 0);
+				std::memcpy(ptr, tlas_ptr->input.data(), input_size);
+				_device.unmap_buffer(upload_buf, 0, input_size);
+				ectx.get_command_list().copy_buffer(upload_buf, 0, tlas_ptr->input_data, 0, input_size);
+				ectx.stage_transition(
+					tlas_ptr->input_data, gpu::buffer_usage::copy_source, gpu::buffer_usage::read_only_buffer
+				);
+				ectx.flush_transitions();
+			}
+
+			tlas_ptr->input_data  = _device.create_committed_buffer(
+				input_size, _device_memory_index,
+				gpu::buffer_usage::mask::copy_destination | gpu::buffer_usage::mask::read_only_buffer
+			);
+			tlas_ptr->build_sizes = _device.get_top_level_acceleration_structure_build_sizes(
+				tlas_ptr->input_data, 0, tlas_ptr->input.size()
+			);
+			tlas_ptr->memory      = _device.create_committed_buffer(
+				tlas_ptr->build_sizes.acceleration_structure_size, _device_memory_index,
+				gpu::buffer_usage::mask::acceleration_structure
+			);
+			tlas_ptr->handle      = _device.create_top_level_acceleration_structure(
+				tlas_ptr->memory, 0, tlas_ptr->build_sizes.acceleration_structure_size
+			);
+		}
+
+		auto &scratch = ectx.create_buffer(
+			tlas_ptr->build_sizes.build_scratch_size,
+			_device_memory_index, gpu::buffer_usage::mask::read_write_buffer
+		);
+		ectx.get_command_list().build_acceleration_structure(
+			tlas_ptr->input_data, 0, tlas_ptr->input.size(), tlas_ptr->handle, scratch, 0
+		);
+	}
+
+	void context::_handle_command(_execution_context &ectx, const context_commands::trace_rays &cmd) {
+		auto &&[rsrc_key, rsrc, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resource_bindings);
+		std::vector<gpu::shader_function> hg_shaders;
+		hg_shaders.reserve(cmd.hit_group_shaders.size());
+		for (const auto &s : cmd.hit_group_shaders) {
+			hg_shaders.emplace_back(s.shader_library->binary, s.entry_point, s.stage);
+		}
+		std::vector<gpu::shader_function> gen_shaders;
+		gen_shaders.reserve(cmd.general_shaders.size());
+		for (const auto &s : cmd.general_shaders) {
+			gen_shaders.emplace_back(s.shader_library->binary, s.entry_point, s.stage);
+		}
+		auto &state = ectx.record(_device.create_raytracing_pipeline_state(
+			hg_shaders, cmd.hit_groups, gen_shaders,
+			cmd.max_recursion_depth, cmd.max_payload_size, cmd.max_attribute_size, rsrc
+		));
+
+		// create shader group buffers
+		std::size_t record_size = memory::align_up(
+			_adapter_properties.shader_group_handle_size,
+			_adapter_properties.shader_group_handle_alignment
+		);
+
+		auto [raygen_cbuf, raygen_data] = ectx.stage_immediate_constant_buffer(memory::size_alignment(
+			record_size, _adapter_properties.shader_group_handle_table_alignment
+		));
+		{
+			auto rec = _device.get_shader_group_handle(state, cmd.raygen_shader_group_index);
+			std::memcpy(raygen_data, rec.data().data(), rec.data().size());
+		}
+
+		auto [miss_cbuf, miss_data] = ectx.stage_immediate_constant_buffer(memory::size_alignment(
+			record_size * cmd.miss_group_indices.size(), _adapter_properties.shader_group_handle_table_alignment
+		));
+		{
+			auto *ptr = static_cast<std::byte*>(miss_data);
+			for (const auto &id : cmd.miss_group_indices) {
+				auto rec = _device.get_shader_group_handle(state, id);
+				std::memcpy(ptr, rec.data().data(), rec.data().size());
+				ptr += record_size;
+			}
+		}
+
+		auto [hit_cbuf, hit_data] = ectx.stage_immediate_constant_buffer(memory::size_alignment(
+			record_size * cmd.hit_group_indices.size(), _adapter_properties.shader_group_handle_table_alignment
+		));
+		{
+			auto *ptr = static_cast<std::byte*>(hit_data);
+			for (const auto &id : cmd.hit_group_indices) {
+				auto rec = _device.get_shader_group_handle(state, id);
+				std::memcpy(ptr, rec.data().data(), rec.data().size());
+				ptr += record_size;
+			}
+		}
+
+		ectx.flush_transitions();
+		ectx.get_command_list().bind_pipeline_state(state);
+		_bind_descriptor_sets(ectx, rsrc, sets, _bind_point::raytracing);
+		ectx.get_command_list().trace_rays(
+			raygen_cbuf,
+			gpu::shader_record_view(*miss_cbuf.data, miss_cbuf.offset, cmd.miss_group_indices.size(), record_size),
+			gpu::shader_record_view(*hit_cbuf.data, hit_cbuf.offset, cmd.hit_group_indices.size(), record_size),
+			cmd.num_threads[0], cmd.num_threads[1], cmd.num_threads[2]
+		);
 	}
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::present &cmd) {

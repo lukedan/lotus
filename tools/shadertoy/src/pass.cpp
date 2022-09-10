@@ -174,7 +174,7 @@ void pass::load_shader(
 		return;
 	}
 
-	auto &reflection = shader.get().value.reflection;
+	auto &reflection = shader->reflection;
 
 	// find binding register for all inputs
 	for (auto &in : inputs) {

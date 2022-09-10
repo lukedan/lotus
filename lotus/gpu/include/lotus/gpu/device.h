@@ -522,7 +522,7 @@ namespace lotus::gpu {
 			std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
 			std::span<const shader_function> general_shaders,
 			std::size_t max_recursion_depth, std::size_t max_payload_size, std::size_t max_attribute_size,
-			pipeline_resources &rsrc
+			const pipeline_resources &rsrc
 		) {
 			return backend::device::create_raytracing_pipeline_state(
 				hit_group_shaders, hit_groups, general_shaders,
@@ -535,7 +535,7 @@ namespace lotus::gpu {
 			std::initializer_list<hit_shader_group> hit_groups,
 			std::initializer_list<shader_function> general_shaders,
 			std::size_t max_recursion_depth, std::size_t max_payload_size, std::size_t max_attribute_size,
-			pipeline_resources &rsrc
+			const pipeline_resources &rsrc
 		) {
 			return create_raytracing_pipeline_state(
 				{ hit_group_shaders.begin(), hit_group_shaders.end() }, { hit_groups.begin(), hit_groups.end() },

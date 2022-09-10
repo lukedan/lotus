@@ -237,7 +237,7 @@ namespace lotus::gpu::backends::directx12 {
 			std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group>,
 			std::span<const shader_function> general_shaders,
 			std::size_t max_recursion, std::size_t max_payload_size, std::size_t max_attribute_size,
-			pipeline_resources&
+			const pipeline_resources&
 		);
 	private:
 		_details::com_ptr<ID3D12Device8> _device; ///< Pointer to the device.

@@ -142,8 +142,8 @@ namespace lotus::renderer {
 
 			// gather shaders
 			gpu::shader_set set = nullptr;
-			set.vertex_shader = &key.vertex_shader.get().value.binary;
-			set.pixel_shader  = &key.pixel_shader.get().value.binary;
+			set.vertex_shader = &key.vertex_shader->binary;
+			set.pixel_shader  = &key.pixel_shader->binary;
 
 			// gather input buffers
 			std::vector<gpu::input_buffer_layout> input_buffers;

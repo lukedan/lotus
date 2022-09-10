@@ -28,6 +28,10 @@ namespace lotus::renderer {
 			std::filesystem::path path; ///< Path to the asset.
 			std::u8string subpath; ///< Additional identification of the asset within the file.
 		};
+
+		/// Type of the ID used to uniquely identify assets. Two assets may have the same identifier due to reloading
+		/// etc. but will not have the same unique ID. Valid unique ID's are nonzero.
+		using unique_id_t = std::uint32_t;
 	}
 
 	/// An asset.
@@ -37,6 +41,11 @@ namespace lotus::renderer {
 		T value; ///< The asset object.
 		void *user_data = nullptr; ///< User data.
 
+		/// Returns the ID that uniquely identifies this object.
+		[[nodiscard]] assets::unique_id_t get_unique_id() const {
+			assert(_uid != 0);
+			return _uid;
+		}
 		/// Retrieves the ID of this asset.
 		[[nodiscard]] const assets::identifier &get_id() const {
 			return *_id;
@@ -48,6 +57,7 @@ namespace lotus::renderer {
 
 		/// ID of this asset. This will point to the key stored in the \p std::unordered_map.
 		const assets::identifier *_id = nullptr;
+		assets::unique_id_t _uid = 0; ///< Unique ID to each asset. 
 	};
 
 
@@ -69,6 +79,15 @@ namespace lotus::renderer {
 			/// Returns the asset.
 			[[nodiscard]] const asset<T> &get() const {
 				return *_ptr;
+			}
+
+			/// Returns the value of this asset.
+			[[nodiscard]] const T &get_value() const {
+				return _ptr->value;
+			}
+			/// \overload
+			[[nodiscard]] const T *operator->() const {
+				return &get_value();
 			}
 
 			/// Default equality and inequality.
@@ -96,7 +115,7 @@ namespace std {
 	template <typename T> struct hash<lotus::renderer::assets::handle<T>> {
 		/// Hashes the given object.
 		[[nodiscard]] std::size_t operator()(const lotus::renderer::assets::handle<T> &h) const {
-			return lotus::compute_hash(h._ptr);
+			return lotus::compute_hash(h.get().get_unique_id());
 		}
 	};
 }
@@ -192,17 +211,17 @@ namespace lotus::renderer::assets {
 
 		/// Returns a \ref index_buffer_binding for the index buffer of this geometry.
 		[[nodiscard]] index_buffer_binding get_index_buffer_binding() const {
-			return index_buffer_binding(index_buffer.get().value.data, 0, index_format);
+			return index_buffer_binding(index_buffer->data, 0, index_format);
 		}
 		/// Returns a \ref geometry_buffers_view for this geometry.
 		[[nodiscard]] geometry_buffers_view get_geometry_buffers_view() const {
 			return geometry_buffers_view(
-				vertex_buffer.data.get().value.data,
+				vertex_buffer.data->data,
 				vertex_buffer.format,
 				vertex_buffer.offset,
 				vertex_buffer.stride,
 				num_vertices,
-				index_buffer ? index_buffer.get().value.data : nullptr,
+				index_buffer ? index_buffer->data : nullptr,
 				index_format,
 				index_offset,
 				num_indices

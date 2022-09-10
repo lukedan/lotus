@@ -939,7 +939,7 @@ namespace lotus::gpu::backends::directx12 {
 		std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
 		std::span<const shader_function> general_shaders,
 		std::size_t max_recursion, std::size_t max_payload_size, std::size_t max_attribute_size,
-		pipeline_resources &rsrc
+		const pipeline_resources &rsrc
 	) {
 		raytracing_pipeline_state result = nullptr;
 

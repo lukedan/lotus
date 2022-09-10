@@ -71,12 +71,12 @@ int main(int argc, char **argv) {
 		gltf_ctx.load(
 			argv[i],
 			[&](ren::assets::handle<ren::assets::texture2d> tex) {
-				mip_gen.generate_all(tex.get().value.image);
+				mip_gen.generate_all(tex->image);
 			},
 			[&](ren::assets::handle<ren::assets::geometry> geom) {
 				geom.user_data() = reinterpret_cast<void*>(scene.blases.size());
 				auto &blas = scene.blases.emplace_back(rctx.request_blas(
-					geom.get().get_id().subpath, { geom.get().value.get_geometry_buffers_view() }
+					geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }
 				));
 				rctx.build_blas(blas, u8"Build BLAS");
 			},

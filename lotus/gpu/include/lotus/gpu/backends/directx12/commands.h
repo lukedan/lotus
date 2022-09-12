@@ -141,7 +141,7 @@ namespace lotus::gpu::backends::directx12 {
 			return _list;
 		}
 	private:
-		_details::com_ptr<ID3D12GraphicsCommandList4> _list; ///< The command list.
+		_details::com_ptr<ID3D12GraphicsCommandList7> _list; ///< The command list.
 		std::array<ID3D12DescriptorHeap*, 2> _descriptor_heaps; ///< Descriptor heaps.
 	};
 

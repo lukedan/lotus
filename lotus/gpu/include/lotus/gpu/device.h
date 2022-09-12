@@ -309,18 +309,18 @@ namespace lotus::gpu {
 
 		/// Creates a \ref buffer with a dedicated memory allocation.
 		[[nodiscard]] buffer create_committed_buffer(
-			std::size_t size, memory_type_index mem_type, buffer_usage::mask allowed_usage
+			std::size_t size, memory_type_index mem_type, buffer_usage_mask allowed_usages
 		) {
-			return backend::device::create_committed_buffer(size, mem_type, allowed_usage);
+			return backend::device::create_committed_buffer(size, mem_type, allowed_usages);
 		}
 		/// Creates a \ref image2d with a dedicated memory allocation. This image can only be created on the GPU.
 		[[nodiscard]] image2d create_committed_image2d(
 			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format fmt, image_tiling tiling, image_usage::mask allowed_usage
+			format fmt, image_tiling tiling, image_usage_mask allowed_usages
 		) {
 			return backend::device::create_committed_image2d(
 				width, height, array_slices, mip_levels,
-				fmt, tiling, allowed_usage
+				fmt, tiling, allowed_usages
 			);
 		}
 		/// Creates a buffer that can be used to upload/download image data to/from the GPU. The image data is
@@ -329,11 +329,11 @@ namespace lotus::gpu {
 		/// \return The buffer and its layout properties.
 		[[nodiscard]] staging_buffer create_committed_staging_buffer(
 			std::size_t width, std::size_t height, format fmt, memory_type_index mem_type,
-			buffer_usage::mask allowed_usage
+			buffer_usage_mask allowed_usages
 		) {
 			staging_buffer result = nullptr;
 			auto [buf, pitch, size] = backend::device::create_committed_staging_buffer(
-				width, height, fmt, mem_type, allowed_usage
+				width, height, fmt, mem_type, allowed_usages
 			);
 			result.data = std::move(buf);
 			result.row_pitch = pitch;

@@ -7,13 +7,13 @@ struct ps_output {
 	float  metalness         : SV_Target2;
 };
 
-ps_output material_to_gbuffer(vs_output input, material_output material) {
+ps_output material_to_gbuffer(vs_output input, material::basic_properties mat) {
 	ps_output result = (ps_output)0;
-	result.albedo_glossiness = float4(material.albedo, material.glossiness);
-	result.normal            = evaluate_normal_mikkt(
-		material.normal_ts, input.normal, input.tangent, input.bitangent_sign
+	result.albedo_glossiness = float4(mat.albedo, mat.glossiness);
+	result.normal            = material::evaluate_normal_mikkt(
+		mat.normal_ts, input.normal, input.tangent, input.bitangent_sign
 	);
-	result.metalness         = material.metalness;
+	result.metalness         = mat.metalness;
 	return result;
 }
 

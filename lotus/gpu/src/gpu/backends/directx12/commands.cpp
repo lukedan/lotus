@@ -84,38 +84,50 @@ namespace lotus::gpu::backends::directx12 {
 		std::span<const image_barrier> images, std::span<const buffer_barrier> buffers
 	) {
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
-		auto resources = bookmark.create_reserved_vector_array<D3D12_RESOURCE_BARRIER>(
-			images.size() + buffers.size()
-		);
-		for (const auto &img : images) {
-			D3D12_RESOURCE_STATES from_state = _details::conversions::to_resource_states(img.from_state);
-			D3D12_RESOURCE_STATES to_state   = _details::conversions::to_resource_states(img.to_state);
-			if (from_state == to_state) {
-				continue;
+		auto groups = bookmark.create_vector_array<D3D12_BARRIER_GROUP>();
+
+		auto tex_barriers = bookmark.create_reserved_vector_array<D3D12_TEXTURE_BARRIER>(images.size());
+		if (!images.empty()) {
+			for (const auto &img : images) {
+				auto &barrier = tex_barriers.emplace_back();
+				barrier.SyncBefore   = _details::conversions::to_barrier_sync(img.from_point);
+				barrier.SyncAfter    = _details::conversions::to_barrier_sync(img.to_point);
+				barrier.AccessBefore = _details::conversions::to_barrier_access(img.from_access);
+				barrier.AccessAfter  = _details::conversions::to_barrier_access(img.to_access);
+				barrier.LayoutBefore = _details::conversions::to_barrier_layout(img.from_layout);
+				barrier.LayoutAfter  = _details::conversions::to_barrier_layout(img.to_layout);
+				barrier.pResource    = static_cast<_details::image*>(img.target)->_image.Get();
+				barrier.Subresources = _details::conversions::to_barrier_subresource_range(img.subresources);
 			}
-			auto &barrier = resources.emplace_back();
-			barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			barrier.Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.Transition.pResource   = static_cast<_details::image*>(img.target)->_image.Get();
-			barrier.Transition.Subresource = _details::compute_subresource_index(
-				img.subresource, static_cast<_details::image*>(img.target)->_image.Get()
-			);
-			barrier.Transition.StateBefore = from_state;
-			barrier.Transition.StateAfter  = to_state;
+			auto &group = groups.emplace_back();
+			group.Type             = D3D12_BARRIER_TYPE_TEXTURE;
+			group.NumBarriers      = static_cast<UINT32>(tex_barriers.size());
+			group.pTextureBarriers = tex_barriers.data();
 		}
-		for (const auto &buf : buffers) {
-			auto &barrier = resources.emplace_back();
-			barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			barrier.Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.Transition.pResource   = static_cast<buffer*>(buf.target)->_buffer.Get();
-			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			barrier.Transition.StateBefore = _details::conversions::to_resource_states(buf.from_state);
-			barrier.Transition.StateAfter  = _details::conversions::to_resource_states(buf.to_state);
+
+		auto buf_barriers = bookmark.create_reserved_vector_array<D3D12_BUFFER_BARRIER>(buffers.size());
+		if (!buffers.empty()) {
+			for (const auto &buf : buffers) {
+				auto &barrier = buf_barriers.emplace_back();
+				barrier.SyncBefore   = _details::conversions::to_barrier_sync(buf.from_point);
+				barrier.SyncAfter    = _details::conversions::to_barrier_sync(buf.to_point);
+				barrier.AccessBefore = _details::conversions::to_barrier_access(buf.from_access);
+				barrier.AccessAfter  = _details::conversions::to_barrier_access(buf.to_access);
+				barrier.pResource    = static_cast<buffer*>(buf.target)->_buffer.Get();
+				barrier.Offset       = 0;
+				barrier.Size         = UINT64_MAX;
+			}
+			auto &group = groups.emplace_back();
+			group.Type            = D3D12_BARRIER_TYPE_BUFFER;
+			group.NumBarriers     = static_cast<UINT32>(buf_barriers.size());
+			group.pBufferBarriers = buf_barriers.data();
 		}
-		if (resources.empty()) {
+
+		if (groups.empty()) {
 			return;
 		}
-		_list->ResourceBarrier(static_cast<UINT>(resources.size()), resources.data());
+
+		_list->Barrier(static_cast<UINT>(groups.size()), groups.data());
 	}
 
 	void command_list::bind_pipeline_state(const graphics_pipeline_state &state) {

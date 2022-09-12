@@ -54,10 +54,18 @@ namespace lotus::gpu::backends::directx12::_details {
 		[[nodiscard]] D3D12_RENDER_PASS_ENDING_ACCESS_TYPE to_render_pass_ending_access_type(pass_store_operation);
 		/// Converts a \ref descriptor_type to a \p D3D12_DESCRIPTOR_RANGE_TYPE.
 		[[nodiscard]] D3D12_DESCRIPTOR_RANGE_TYPE to_descriptor_range_type(descriptor_type);
-		/// Converts a \ref image_usage to a \p D3D12_RESOURCE_STATES.
-		[[nodiscard]] D3D12_RESOURCE_STATES to_resource_states(image_usage);
-		/// Converts a \ref buffer_usage to a \p D3D12_RESOURCE_STATES.
-		[[nodiscard]] D3D12_RESOURCE_STATES to_resource_states(buffer_usage);
+		/// Converts a \ref synchronization_point_mask to a \p D3D12_BARRIER_SYNC.
+		[[nodiscard]] D3D12_BARRIER_SYNC to_barrier_sync(synchronization_point_mask);
+		/// Converts a \ref image_usage_mask to a \p D3D12_RESOURCE_FLAGS.
+		[[nodiscard]] D3D12_RESOURCE_FLAGS to_resource_flags(image_usage_mask);
+		/// Converts a \ref buffer_usage_mask to a \p D3D12_RESOURCE_FLAGS.
+		[[nodiscard]] D3D12_RESOURCE_FLAGS to_resource_flags(buffer_usage_mask);
+		/// Converts a \ref image_access_mask to a \p D3D12_BARRIER_ACCESS.
+		[[nodiscard]] D3D12_BARRIER_ACCESS to_barrier_access(image_access_mask);
+		/// Converts a \ref buffer_access_mask to a \p D3D12_BARRIER_ACCESS.
+		[[nodiscard]] D3D12_BARRIER_ACCESS to_barrier_access(buffer_access_mask);
+		/// Converts a \ref image_layout to a \p D3D12_BARRIER_LAYOUT.
+		[[nodiscard]] D3D12_BARRIER_LAYOUT to_barrier_layout(image_layout);
 		/// Converts a \ref sampler_address_mode to a \p D3D12_TEXTURE_ADDRESS_MODE.
 		[[nodiscard]] D3D12_TEXTURE_ADDRESS_MODE to_texture_address_mode(sampler_address_mode);
 		/// Converts a \ref comparison_function to a \p D3D12_COMPARISON_FUNC.
@@ -104,6 +112,9 @@ namespace lotus::gpu::backends::directx12::_details {
 		[[nodiscard]] D3D12_RENDER_PASS_DEPTH_STENCIL_DESC to_render_pass_depth_stencil_description(
 			const depth_stencil_pass_options&
 		);
+
+		/// Converts a \ref subresource_range to a \p D3D12_BARRIER_SUBRESOURCE_RANGE.
+		[[nodiscard]] D3D12_BARRIER_SUBRESOURCE_RANGE to_barrier_subresource_range(const subresource_range&);
 
 
 		/// Converts a \p D3D12_SHADER_INPUT_BIND_DESC back to a \ref shader_resource_binding.
@@ -399,21 +410,16 @@ namespace lotus::gpu::backends::directx12::_details {
 	/// Used to create \p D3D12_RESOURCE_DESC objects for various types of resources.
 	namespace resource_desc {
 		/// Description for a buffer with the specified size.
-		[[nodiscard]] D3D12_RESOURCE_DESC for_buffer(std::size_t size);
+		[[nodiscard]] D3D12_RESOURCE_DESC1 for_buffer(std::size_t size, buffer_usage_mask);
 		/// Adjusts various flags of buffer properties.
-		void adjust_resource_flags_for_buffer(
-			D3D12_HEAP_TYPE, buffer_usage::mask,
-			D3D12_RESOURCE_DESC&, D3D12_RESOURCE_STATES&, D3D12_HEAP_FLAGS* = nullptr
-		);
+		void adjust_resource_flags_for_buffer(D3D12_HEAP_TYPE, buffer_usage_mask, D3D12_HEAP_FLAGS* = nullptr);
 
 		/// Description for a 2D image.
-		[[nodiscard]] D3D12_RESOURCE_DESC for_image2d(
+		[[nodiscard]] D3D12_RESOURCE_DESC1 for_image2d(
 			std::size_t width, std::size_t height, std::size_t array_slices,
-			std::size_t mip_levels, format, image_tiling
+			std::size_t mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Adjusts various flags of 2D image properties.
-		void adjust_resource_flags_for_image2d(
-			format, image_usage::mask, D3D12_RESOURCE_DESC&, D3D12_HEAP_FLAGS* = nullptr
-		);
+		void adjust_resource_flags_for_image2d(format, image_usage_mask, D3D12_HEAP_FLAGS* = nullptr);
 	}
 }

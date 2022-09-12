@@ -122,7 +122,7 @@ namespace lotus::renderer {
 		auto [it, inserted] = _pipeline_resources.try_emplace(key, nullptr);
 		if (inserted) {
 			std::vector<const gpu::descriptor_set_layout*> layouts(
-				key.sets.empty() ? 0 : key.sets.back().space + 1
+				key.sets.empty() ? 0 : key.sets.back().space + 1, &_empty_layout
 			);
 			for (const auto &set : it->first.sets) {
 				layouts[set.space] = &get_descriptor_set_layout(set.layout);

@@ -652,30 +652,33 @@ namespace lotus {
 	};
 
 
-	// typedefs
-	template <typename T> using mat22 = matrix<2, 2, T>; ///< 2x2 matrices.
-	using mat22f = matrix<2, 2, float>;  ///< 2x2 matrices of \p float.
-	using mat22d = matrix<2, 2, double>; ///< 2x2 matrices of \p double.
+	/// Shorthand for various matrix types.
+	namespace matrix_types {
+		template <typename T> using mat22 = matrix<2, 2, T>; ///< 2x2 matrices.
+		using mat22f = matrix<2, 2, float>;  ///< 2x2 matrices of \p float.
+		using mat22d = matrix<2, 2, double>; ///< 2x2 matrices of \p double.
 
-	template <typename T> using mat23 = matrix<2, 3, T>; ///< 2x3 matrices.
-	using mat23f = matrix<2, 3, float>;  ///< 2x2 matrices of \p float.
-	using mat23d = matrix<2, 3, double>; ///< 2x2 matrices of \p double.
+		template <typename T> using mat23 = matrix<2, 3, T>; ///< 2x3 matrices.
+		using mat23f = matrix<2, 3, float>;  ///< 2x2 matrices of \p float.
+		using mat23d = matrix<2, 3, double>; ///< 2x2 matrices of \p double.
 
-	template <typename T> using mat33 = matrix<3, 3, T>; ///< 3x3 matrices.
-	using mat33f = matrix<3, 3, float>;  ///< 2x2 matrices of \p float.
-	using mat33d = matrix<3, 3, double>; ///< 2x2 matrices of \p double.
+		template <typename T> using mat33 = matrix<3, 3, T>; ///< 3x3 matrices.
+		using mat33f = matrix<3, 3, float>;  ///< 2x2 matrices of \p float.
+		using mat33d = matrix<3, 3, double>; ///< 2x2 matrices of \p double.
 
-	template <typename T> using mat34 = matrix<3, 4, T>; ///< 3x4 matrices.
-	using mat34f = matrix<3, 4, float>;  ///< 2x2 matrices of \p float.
-	using mat34d = matrix<3, 4, double>; ///< 2x2 matrices of \p double.
+		template <typename T> using mat34 = matrix<3, 4, T>; ///< 3x4 matrices.
+		using mat34f = matrix<3, 4, float>;  ///< 2x2 matrices of \p float.
+		using mat34d = matrix<3, 4, double>; ///< 2x2 matrices of \p double.
 
-	template <typename T> using mat44 = matrix<4, 4, T>; ///< 4x4 matrices.
-	using mat44f = matrix<4, 4, float>;  ///< 2x2 matrices of \p float.
-	using mat44d = matrix<4, 4, double>; ///< 2x2 matrices of \p double.
+		template <typename T> using mat44 = matrix<4, 4, T>; ///< 4x4 matrices.
+		using mat44f = matrix<4, 4, float>;  ///< 2x2 matrices of \p float.
+		using mat44d = matrix<4, 4, double>; ///< 2x2 matrices of \p double.
 
-	using matf   = mat<float>;         ///< Utilities for matrices of \p float.
-	using matd   = mat<double>;        ///< Utilities for matrices of \p double.
-	using matu32 = mat<std::uint32_t>; ///< Utilities for matrices of \p std::uint32_t.
+		using matf   = mat<float>;         ///< Utilities for matrices of \p float.
+		using matd   = mat<double>;        ///< Utilities for matrices of \p double.
+		using matu32 = mat<std::uint32_t>; ///< Utilities for matrices of \p std::uint32_t.
+	}
+	using namespace matrix_types;
 
 
 	// implementations

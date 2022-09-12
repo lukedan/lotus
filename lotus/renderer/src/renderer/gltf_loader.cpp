@@ -14,7 +14,7 @@ namespace lotus::renderer::gltf {
 	/// Loads a data buffer with the given properties.
 	template <typename T> static assets::handle<assets::buffer> _load_data_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::size_t expected_components, gpu::buffer_usage::mask usage_mask
+		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask
 	) {
 		auto id = assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 			"buffer{}|{}|{}({})", accessor_index, expected_components, typeid(T).hash_code(), typeid(T).name()
@@ -106,7 +106,7 @@ namespace lotus::renderer::gltf {
 	/// Wrapper around \ref _load_data_buffer() that loads an \ref assets::geometry::input_buffer.
 	template <typename T> static assets::geometry::input_buffer _load_input_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::size_t expected_components, gpu::buffer_usage::mask usage_mask
+		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask
 	) {
 		assets::geometry::input_buffer result = nullptr;
 		result.data = _load_data_buffer<T>(man, path, model, accessor_index, expected_components, usage_mask);
@@ -194,31 +194,31 @@ namespace lotus::renderer::gltf {
 					geom.num_vertices = static_cast<std::uint32_t>(model.accessors[it->second].count);
 					geom.vertex_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
-						gpu::buffer_usage::mask::vertex_buffer | gpu::buffer_usage::mask::read_only_buffer
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
 					);
 				}
 				if (auto it = prim.attributes.find("NORMAL"); it != prim.attributes.end()) {
 					geom.normal_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
-						gpu::buffer_usage::mask::vertex_buffer | gpu::buffer_usage::mask::read_only_buffer
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
 					);
 				}
 				if (auto it = prim.attributes.find("TANGENT"); it != prim.attributes.end()) {
 					geom.tangent_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 4,
-						gpu::buffer_usage::mask::vertex_buffer | gpu::buffer_usage::mask::read_only_buffer
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
 					);
 				}
 				if (auto it = prim.attributes.find("TEXCOORD_0"); it != prim.attributes.end()) {
 					geom.uv_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 2,
-						gpu::buffer_usage::mask::vertex_buffer | gpu::buffer_usage::mask::read_only_buffer
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
 					);
 				}
 				if (prim.indices >= 0) {
 					geom.index_buffer = _load_data_buffer<std::uint32_t>(
 						_asset_manager, path, model, prim.indices, 1,
-						gpu::buffer_usage::mask::index_buffer | gpu::buffer_usage::mask::read_only_buffer
+						gpu::buffer_usage_mask::index_buffer | gpu::buffer_usage_mask::shader_read_only
 					);
 					geom.index_format = gpu::index_format::uint32;
 					geom.index_offset = 0;
@@ -365,6 +365,10 @@ namespace lotus::renderer::gltf {
 						inst.geometry = prim_handle;
 						instance_loaded_callback(inst);
 					}
+				}
+
+				for (auto child : node.children) {
+					stack.emplace_back(child, trans);
 				}
 			}
 		}

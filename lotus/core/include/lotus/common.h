@@ -139,6 +139,40 @@ namespace lotus {
 		const std::array<std::pair<Enum, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
 	};
 
+	/// Stores a mapping from consecutive bits to mapped values, with additional checking.
+	template <
+		typename BitMask, typename Value,
+		std::size_t NumEnumerators = static_cast<std::size_t>(BitMask::num_enumerators)
+	> class bit_mask_mapping {
+	public:
+		/// Initializes the mapping.
+		template <typename ...Args> constexpr bit_mask_mapping(Args &&...args) :
+			_mapping{ { std::forward<Args>(args)... } } {
+			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for bit mask mapping.");
+			for (std::size_t i = 0; i < NumEnumerators; ++i) {
+				assert(_mapping[i].first == static_cast<BitMask>(1 << i));
+			}
+		}
+
+		/// Returns the bitwise or of all values corresponding to all bits in the given bit mask.
+		[[nodiscard]] constexpr Value get_union(BitMask m) const {
+			using _src_ty = std::underlying_type_t<BitMask>;
+			using _dst_ty = std::underlying_type_t<Value>;
+
+			auto value = static_cast<_src_ty>(m);
+			auto result = static_cast<_dst_ty>(0);
+			while (value != 0) {
+				int bit = std::countr_zero(value);
+				assert(bit < NumEnumerators);
+				result |= static_cast<_dst_ty>(_mapping[bit].second);
+				value ^= static_cast<_src_ty>(1ull << bit);
+			}
+			return static_cast<Value>(result);
+		}
+	protected:
+		const std::array<std::pair<BitMask, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
+	};
+
 
 	/// Used to obtain certain attributes of member pointers.
 	template <typename> struct member_pointer_type_traits;

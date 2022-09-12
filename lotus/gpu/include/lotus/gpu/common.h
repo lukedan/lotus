@@ -470,137 +470,152 @@ namespace lotus::gpu {
 		num_enumerators ///< The total number of enumerators.
 	};
 
-	/// The usage/state of a buffer resource.
-	struct buffer_usage {
-		/// Values indicating a single usage.
-		enum values {
-			index_buffer,           ///< Used as an index buffer.
-			vertex_buffer,          ///< Used as a vertex buffer.
-			read_only_buffer,       ///< Used as a read-only uniform buffer.
-			read_write_buffer,      ///< Used as a read-write buffer.
-			copy_source,            ///< Source for copy operations.
-			copy_destination,       ///< Target for copy operations.
-			acceleration_structure, ///< Acceleration structure.
+	
+	/// The layout of an image.
+	enum class image_layout {
+		undefined,                ///< Cannot be used with any operation. Default initial state.
+		general,                  ///< Can be used with any operation.
+		copy_source,              ///< Can be used as the source of a copy operation.
+		copy_destination,         ///< Can be used as the destination of a copy operation.
+		present,                  ///< Can be used for presenting.
+		color_render_target,      ///< Can be used as a color render target.
+		depth_stencil_read_only,  ///< Can be used as a read-only depth-stencil render target.
+		depth_stencil_read_write, ///< Can be used as a read-write depth-stencil render target.
+		shader_read_only,         ///< Can be used for unordered read operations in shaders.
+		shader_read_write,        ///< Can be used for unordered read/write operations in shaders.
 
-			num_enumerators ///< The total number of enumerators.
-		};
-		/// Used for specifying multiple usages. These values correspond directly to those in \ref values.
-		enum class mask : std::uint8_t {
-			none = 0, ///< No usage.
+		num_enumerators ///< The total number of enumerators.
+	};
 
-			index_buffer           = 1 << values::index_buffer,
-			vertex_buffer          = 1 << values::vertex_buffer,
-			read_only_buffer       = 1 << values::read_only_buffer,
-			read_write_buffer      = 1 << values::read_write_buffer,
-			copy_source            = 1 << values::copy_source,
-			copy_destination       = 1 << values::copy_destination,
-			acceleration_structure = 1 << values::acceleration_structure,
-		};
+	/// Points in the GPU pipeline where synchronization would happen.
+	enum class synchronization_point_mask : std::uint32_t {
+		none                         = 0,       ///< No synchronization.
+		all                          = 1 << 0,  ///< Any operation.
+		all_graphics                 = 1 << 1,  ///< Any graphics-related operation.
+		vertex_input                 = 1 << 2,  ///< Vertex input stage where vertex and index buffers are consumed.
+		vertex_shader                = 1 << 3,  ///< All vertex related shader stages.
+		pixel_shader                 = 1 << 4,  ///< Pixel shader stage.
+		depth_stencil_read_write     = 1 << 5,  ///< Depth stencil read/write operations, such as depth testing.
+		render_target_read_write     = 1 << 6,  ///< Render target read/write operations.
+		compute_shader               = 1 << 7,  ///< Compute shader execution.
+		raytracing                   = 1 << 8,  ///< Raytracing operations.
+		copy                         = 1 << 9,  ///< Copy operations.
+		acceleration_structure_build = 1 << 10, ///< Acceleration structure build operations.
+		acceleration_structure_copy  = 1 << 11, ///< Acceleration structure copy operations.
+		cpu_access                   = 1 << 12, ///< CPU access.
 
-		/// No initialization.
-		buffer_usage(uninitialized_t) {
-		}
-		/// Initializes \ref _value.
-		constexpr buffer_usage(values val) : _value(val) {
-		}
-
-		/// Allow explicit conversion to integers.
-		template <
-			typename Number, std::enable_if_t<std::is_integral_v<Number>, int> = 0
-		> constexpr explicit operator Number() const {
-			static_assert(
-				std::numeric_limits<Number>::max() >= values::num_enumerators,
-				"Potential invalid conversion to raw number"
-			);
-			return static_cast<Number>(_value);
-		}
-
-		/// Default comparisons.
-		[[nodiscard]] friend constexpr std::strong_ordering operator<=>(buffer_usage, buffer_usage) = default;
-
-		/// Converts the value into a bit in the mask.
-		[[nodiscard]] constexpr mask as_mask() const {
-			return static_cast<mask>(1 << _value);
-		}
-	protected:
-		values _value; ///< The value.
+		num_enumerators = 13 ///< Number of valid bits.
 	};
 }
 namespace lotus {
-	/// Enable bitwise operations for \ref gpu::buffer_usage::mask.
-	template <> struct enable_enum_bitwise_operators<gpu::buffer_usage::mask> : public std::true_type {
+	/// Enable bitwise operations for \ref gpu::synchronization_point_mask.
+	template <> struct enable_enum_bitwise_operators<gpu::synchronization_point_mask> : public std::true_type {
 	};
-	/// Enable \ref is_empty for \ref gpu::buffer_usage::mask.
-	template <> struct enable_enum_is_empty<gpu::buffer_usage::mask> : public std::true_type {
+	/// Enable \ref is_empty for \ref gpu::synchronization_point_mask.
+	template <> struct enable_enum_is_empty<gpu::synchronization_point_mask> : public std::true_type {
 	};
 }
 
 namespace lotus::gpu {
-	/// The usage/state of an image resource.
-	struct image_usage {
-	public:
-		/// Values indicating a single usage.
-		enum values {
-			color_render_target,         ///< The image can be used as a color render target.
-			depth_stencil_render_target, ///< The image can be used as a depth-stencil render target.
-			read_only_texture,           ///< A color/depth-stencil texture that can be read in shaders.
-			read_write_color_texture,    ///< A color texture that can be written to.
-			present,                     ///< State indicating that the image has been used for presenting.
-			copy_source,                 ///< Source for copy operations.
-			copy_destination,            ///< Destination for copy operations.
+	/// Mask of all potential image usages.
+	enum class image_usage_mask : std::uint32_t {
+		none                        = 0,      ///< No usage.
+		copy_source                 = 1 << 0, ///< The image can be used as a source of copy operations.
+		copy_destination            = 1 << 1, ///< The image can be used as a destination of copy operations.
+		shader_read_only            = 1 << 2, ///< Allow read-only access from shaders.
+		shader_read_write           = 1 << 3, ///< Allow read-write access from shaders.
+		color_render_target         = 1 << 4, ///< Allow read-write color render target access.
+		depth_stencil_render_target = 1 << 5, ///< Allow read-write depth-stencil render target access.
 
-			initial, ///< Special value indicating that this image is just created.
-
-			num_enumerators ///< The total number of enumerators.
-		};
-		/// Used for specifying multiple usages. These values correspond directly to those in \ref values.
-		enum class mask : std::uint8_t {
-			none = 0, ///< No usage.
-
-			color_render_target         = 1 << values::color_render_target,
-			depth_stencil_render_target = 1 << values::depth_stencil_render_target,
-			read_only_texture           = 1 << values::read_only_texture,
-			read_write_color_texture    = 1 << values::read_write_color_texture,
-			present                     = 1 << values::present,
-			copy_source                 = 1 << values::copy_source,
-			copy_destination            = 1 << values::copy_destination,
-		};
-
-		/// No initialization.
-		image_usage(uninitialized_t) {
-		}
-		/// Initializes \ref _value.
-		constexpr image_usage(values val) : _value(val) {
-		}
-
-		/// Allow explicit conversion to integers.
-		template <
-			typename Number, std::enable_if_t<std::is_integral_v<Number>, int> = 0
-		> constexpr explicit operator Number() const {
-			static_assert(
-				std::numeric_limits<Number>::max() >= values::num_enumerators,
-				"Potential invalid conversion to raw number"
-			);
-			return static_cast<Number>(_value);
-		}
-
-		/// Equality.
-		[[nodiscard]] friend constexpr bool operator==(image_usage, image_usage) = default;
-
-		/// Converts the value into a bit in the mask.
-		[[nodiscard]] constexpr mask as_mask() const {
-			return static_cast<mask>(1 << _value);
-		}
-	protected:
-		values _value; ///< The value.
+		num_enumerators = 6 ///< Number of valid bits.
 	};
 }
 namespace lotus {
-	/// Enable bitwise operations for \ref gpu::image_usage::mask.
-	template <> struct enable_enum_bitwise_operators<gpu::image_usage::mask> : public std::true_type {
+	/// Enable bitwise operations for \ref gpu::image_usage_mask.
+	template <> struct enable_enum_bitwise_operators<gpu::image_usage_mask> : public std::true_type {
 	};
-	/// Enable \ref is_empty for \ref gpu::image_usage::mask.
-	template <> struct enable_enum_is_empty<gpu::image_usage::mask> : public std::true_type {
+	/// Enable \ref is_empty for \ref gpu::image_usage_mask.
+	template <> struct enable_enum_is_empty<gpu::image_usage_mask> : public std::true_type {
+	};
+}
+
+namespace lotus::gpu {
+	/// Mask of all potential buffer usages.
+	enum class buffer_usage_mask : std::uint32_t {
+		none                               = 0,      ///< No usage.
+		copy_source                        = 1 << 0, ///< The buffer can be used as the source of copy operations.
+		copy_destination                   = 1 << 1, ///< The buffer can be used as the target of copy operations.
+		shader_read_only                   = 1 << 2, ///< Allow read-only access from shaders.
+		shader_read_write                  = 1 << 3, ///< Allow read-write access from shaders.
+		index_buffer                       = 1 << 4, ///< Allow usage as index buffer.
+		vertex_buffer                      = 1 << 5, ///< Allow usage as vertex buffer.
+		/// Allow usage as input to acceleration structure build operations.
+		acceleration_structure_build_input = 1 << 6,
+		acceleration_structure             = 1 << 7, ///< Allow usage as acceleration structures.
+		shader_record_table                = 1 << 8, ///< Allow usage as shader record tables.
+
+		num_enumerators = 9 ///< Number of valid bits.
+	};
+}
+namespace lotus {
+	/// Enable bitwise operations for \ref gpu::buffer_usage_mask.
+	template <> struct enable_enum_bitwise_operators<gpu::buffer_usage_mask> : public std::true_type {
+	};
+	/// Enable \ref is_empty for \ref gpu::buffer_usage_mask.
+	template <> struct enable_enum_is_empty<gpu::buffer_usage_mask> : public std::true_type {
+	};
+}
+
+namespace lotus::gpu {
+	/// Specifies how an image is accessed.
+	enum class image_access_mask : std::uint32_t {
+		none                     = 0,      ///< No access.
+		copy_source              = 1 << 0, ///< The image is used as a source of a copy operation.
+		copy_destination         = 1 << 1, ///< The image is used as a destination of a copy operation.
+		color_render_target      = 1 << 2, ///< The image is used as a read-write color render target.
+		depth_stencil_read_only  = 1 << 3, ///< The image is used as a read-only depth-stencil render target.
+		depth_stencil_read_write = 1 << 4, ///< The image is used as a read-write depth-stencil render target.
+		shader_read_only         = 1 << 5, ///< The image is used as a read-only shader resource.
+		shader_read_write        = 1 << 6, ///< The image is used as a read-write shader resource.
+
+		num_enumerators = 7 ///< Number of valid bits.
+	};
+}
+namespace lotus {
+	/// Enable bitwise operations for \ref gpu::image_access_mask.
+	template <> struct enable_enum_bitwise_operators<gpu::image_access_mask> : public std::true_type {
+	};
+	/// Enable \ref is_empty for \ref gpu::image_access_mask.
+	template <> struct enable_enum_is_empty<gpu::image_access_mask> : public std::true_type {
+	};
+}
+
+namespace lotus::gpu {
+	/// Specifies how a buffer is accessed.
+	enum class buffer_access_mask : std::uint32_t {
+		none                               = 0,       ///< No access.
+		copy_source                        = 1 << 0,  ///< The buffer is used as a source of a copy operation.
+		copy_destination                   = 1 << 1,  ///< The buffer is used as a target of a copy operation.
+		vertex_buffer                      = 1 << 2,  ///< The buffer is used as a vertex buffer.
+		index_buffer                       = 1 << 3,  ///< The buffer is used as an index buffer.
+		constant_buffer                    = 1 << 4,  ///< The buffer is used as a constant buffer.
+		shader_read_only                   = 1 << 5,  ///< The buffer is used as a read-only buffer.
+		shader_read_write                  = 1 << 6,  ///< The buffer is used as a read-write buffer.
+		acceleration_structure_build_input = 1 << 7,  ///< The buffer is read as acceleration structure build input.
+		acceleration_structure_read        = 1 << 8,  ///< The buffer is read as an acceleration structure.
+		acceleration_structure_write       = 1 << 9,  ///< The buffer is written to as an acceleration structure.
+		cpu_read                           = 1 << 10, ///< The buffer is read from the CPU.
+		cpu_write                          = 1 << 11, ///< The buffer is written to from the CPU.
+
+		num_enumerators = 12 ///< Number of valid bits.
+	};
+}
+namespace lotus {
+	/// Enable bitwise operations for \ref gpu::buffer_access_mask.
+	template <> struct enable_enum_bitwise_operators<gpu::buffer_access_mask> : public std::true_type {
+	};
+	/// Enable \ref is_empty for \ref gpu::buffer_access_mask.
+	template <> struct enable_enum_is_empty<gpu::buffer_access_mask> : public std::true_type {
 	};
 }
 
@@ -641,16 +656,28 @@ namespace lotus::gpu {
 	};
 
 
-	/// Converts the given \ref descriptor_type to a \ref image_usage. Returns \ref image_usage::num_enumerators
+	/// Converts the given \ref descriptor_type to a \ref image_access_mask. Returns \ref image_access_mask::none
 	/// for invalid descriptor types.
-	[[nodiscard]] constexpr image_usage to_image_usage(descriptor_type ty) {
+	[[nodiscard]] constexpr image_access_mask to_image_access_mask(descriptor_type ty) {
 		switch (ty) {
 		case descriptor_type::read_only_image:
-			return image_usage::read_only_texture;
+			return image_access_mask::shader_read_only;
 		case descriptor_type::read_write_image:
-			return image_usage::read_write_color_texture;
+			return image_access_mask::shader_read_write;
 		default:
-			return image_usage::num_enumerators;
+			return image_access_mask::none;
+		}
+	}
+	/// Converts the given \ref descriptor_type to a \ref image_layout. Returns \ref image_layout::undefined for
+	/// invalid descriptor types.
+	[[nodiscard]] constexpr image_layout to_image_layout(descriptor_type ty) {
+		switch (ty) {
+		case descriptor_type::read_only_image:
+			return image_layout::shader_read_only;
+		case descriptor_type::read_write_image:
+			return image_layout::shader_read_write;
+		default:
+			return image_layout::undefined;
 		}
 	}
 
@@ -1151,7 +1178,7 @@ namespace lotus::gpu {
 		subresource_index(uninitialized_t) {
 		}
 		/// Initializes all members of this struct.
-		constexpr subresource_index(std::uint16_t mip, std::uint16_t arr, image_aspect_mask asp) :
+		constexpr subresource_index(std::uint16_t mip, std::uint32_t arr, image_aspect_mask asp) :
 			mip_level(mip), array_slice(arr), aspects(asp) {
 		}
 		/// Creates an index pointing to the color aspect of the first subresource.
@@ -1167,26 +1194,82 @@ namespace lotus::gpu {
 			return subresource_index(0, 0, image_aspect_mask::depth | image_aspect_mask::stencil);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
-		[[nodiscard]] constexpr inline static subresource_index create_color(std::uint16_t mip, std::uint16_t arr) {
+		[[nodiscard]] constexpr inline static subresource_index create_color(std::uint16_t mip, std::uint32_t arr) {
 			return subresource_index(mip, arr, image_aspect_mask::color);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
-		[[nodiscard]] constexpr inline static subresource_index create_depth(std::uint16_t mip, std::uint16_t arr) {
+		[[nodiscard]] constexpr inline static subresource_index create_depth(std::uint16_t mip, std::uint32_t arr) {
 			return subresource_index(mip, arr, image_aspect_mask::depth);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
 		[[nodiscard]] constexpr inline static subresource_index create_stencil(
-			std::uint16_t mip, std::uint16_t arr
+			std::uint16_t mip, std::uint32_t arr
 		) {
 			return subresource_index(mip, arr, image_aspect_mask::stencil);
 		}
 
 		std::uint16_t mip_level; ///< Mip level.
-		std::uint16_t array_slice; ///< Array slice.
+		std::uint32_t array_slice; ///< Array slice.
 		image_aspect_mask aspects; ///< The aspects of the subresource.
 
 		/// Default equality and inequality comparison.
 		[[nodiscard]] friend bool operator==(const subresource_index&, const subresource_index&) = default;
+	};
+	/// Describes a range of subresources.
+	struct subresource_range {
+	public:
+		/// No initialization.
+		subresource_range(uninitialized_t) {
+		}
+		/// Initializes all fields of this struct.
+		constexpr subresource_range(
+			std::uint16_t first_mip, std::uint16_t num_mips,
+			std::uint32_t first_arr, std::uint32_t num_arrs,
+			image_aspect_mask asp
+		) :
+			first_mip_level(first_mip), num_mip_levels(num_mips),
+			first_array_slice(first_arr), num_array_slices(num_arrs),
+			aspects(asp) {
+		}
+		/// Creates an index pointing to the color aspect of the first subresource.
+		[[nodiscard]] constexpr inline static subresource_range first_color() {
+			return subresource_range(0, 1, 0, 1, image_aspect_mask::color);
+		}
+		/// Creates an index pointing to the depth aspect of the first subresource.
+		[[nodiscard]] constexpr inline static subresource_range first_depth() {
+			return subresource_range(0, 1, 0, 1, image_aspect_mask::depth);
+		}
+		/// Creates an index pointing to the depth and stencil aspect of the first subresource.
+		[[nodiscard]] constexpr inline static subresource_range first_depth_stencil() {
+			return subresource_range(0, 1, 0, 1, image_aspect_mask::depth | image_aspect_mask::stencil);
+		}
+		/// Creates an index pointing to the color aspect of the specified subresource.
+		[[nodiscard]] constexpr inline static subresource_range create_color(
+			std::uint16_t first_mip, std::uint16_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
+		) {
+			return subresource_range(first_mip, num_mips, first_arr, num_arrs, image_aspect_mask::color);
+		}
+		/// Creates an index pointing to the color aspect of the specified subresource.
+		[[nodiscard]] constexpr inline static subresource_range create_depth(
+			std::uint16_t first_mip, std::uint16_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
+		) {
+			return subresource_range(first_mip, num_mips, first_arr, num_arrs, image_aspect_mask::depth);
+		}
+		/// Creates an index pointing to the color aspect of the specified subresource.
+		[[nodiscard]] constexpr inline static subresource_range create_stencil(
+			std::uint16_t first_mip, std::uint16_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
+		) {
+			return subresource_range(first_mip, num_mips, first_arr, num_arrs, image_aspect_mask::stencil);
+		}
+
+		std::uint16_t first_mip_level; ///< First mip level.
+		std::uint16_t num_mip_levels;  ///< Number of mip levels.
+		std::uint32_t first_array_slice; ///< First array slice.
+		std::uint32_t num_array_slices;  ///< Number of array slices.
+		image_aspect_mask aspects; ///< The aspects of the subresource.
+
+		/// Default equality and inequality comparison.
+		[[nodiscard]] friend bool operator==(const subresource_range&, const subresource_range&) = default;
 	};
 	/// Describes a range of mip levels.
 	struct mip_levels {
@@ -1422,14 +1505,24 @@ namespace lotus::gpu {
 		image_barrier(uninitialized_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr image_barrier(subresource_index sub, image &i, image_usage from, image_usage to) :
-			subresource(sub), target(&i), from_state(from), to_state(to) {
+		constexpr image_barrier(
+			subresource_range sub, image &i,
+			synchronization_point_mask fp, image_access_mask fa, image_layout fl,
+			synchronization_point_mask tp, image_access_mask ta, image_layout tl
+		) :
+			target(&i), subresources(sub),
+			from_point(fp), from_access(fa), from_layout(fl),
+			to_point(tp), to_access(ta), to_layout(tl) {
 		}
 
-		subresource_index subresource = uninitialized; ///< Subresource.
 		image *target; ///< Target image.
-		image_usage from_state = uninitialized; ///< State to transition from.
-		image_usage to_state   = uninitialized; ///< State to transition to.
+		subresource_range subresources = uninitialized; ///< Subresources.
+		synchronization_point_mask from_point;  ///< Where this resource is used in the previous operation.
+		image_access_mask          from_access; ///< How this resource is used in the previous operation.
+		image_layout               from_layout; ///< Layout of the resource in the previous operation.
+		synchronization_point_mask to_point;    ///< Where this resource will be used in the next operation.
+		image_access_mask          to_access;   ///< How this resource will be used in the next operation.
+		image_layout               to_layout;   ///< Layout of the resource in the next operation.
 	};
 	/// A buffer resource barrier.
 	struct buffer_barrier {
@@ -1437,14 +1530,18 @@ namespace lotus::gpu {
 		buffer_barrier(uninitialized_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr buffer_barrier(buffer &b, buffer_usage from, buffer_usage to) :
-			target(&b), from_state(from), to_state(to) {
+		constexpr buffer_barrier(
+			buffer &b,
+			synchronization_point_mask fp, buffer_access_mask fa,
+			synchronization_point_mask tp, buffer_access_mask ta
+		) : target(&b), from_point(fp), from_access(fa), to_point(tp), to_access(ta) {
 		}
 
 		buffer *target; ///< Target buffer.
-		// TODO subresource
-		buffer_usage from_state = uninitialized; ///< State to transition from.
-		buffer_usage to_state   = uninitialized; ///< State to transition to.
+		synchronization_point_mask from_point;  ///< Where this resource is used in the previous operation.
+		buffer_access_mask         from_access; ///< How this resource is used in the previous operation.
+		synchronization_point_mask to_point;    ///< Where this resource will be used in the next operation.
+		buffer_access_mask         to_access;   ///< How this resource will be used in the next operation.
 	};
 
 	/// Information about a vertex buffer.
@@ -1723,9 +1820,9 @@ namespace lotus::gpu {
 		/// Creates a group with no associated shaders.
 		constexpr hit_shader_group(std::nullptr_t) : closest_hit_shader_index(no_shader), any_hit_shader_index(no_shader) {
 		}
-		/// Creates a new object from the given parameters.
-		[[nodiscard]] inline static constexpr hit_shader_group create(std::size_t closest_hit, std::size_t any_hit) {
-			return hit_shader_group(closest_hit, any_hit);
+		/// Initializes all fields of this struct.
+		constexpr hit_shader_group(std::size_t closest_hit, std::size_t any_hit) :
+			closest_hit_shader_index(closest_hit), any_hit_shader_index(any_hit) {
 		}
 		/// Creates a shader group with only a closest hit shader.
 		[[nodiscard]] inline static constexpr hit_shader_group create_closest_hit(std::size_t closest_hit) {
@@ -1734,10 +1831,5 @@ namespace lotus::gpu {
 
 		std::size_t closest_hit_shader_index = 0; ///< Index of the closest hit shader.
 		std::size_t any_hit_shader_index     = 0; ///< Index of the any hit shader.
-	protected:
-		/// Initializes all fields of this struct.
-		constexpr hit_shader_group(std::size_t closest_hit, std::size_t any_hit) :
-			closest_hit_shader_index(closest_hit), any_hit_shader_index(any_hit) {
-		}
 	};
 }

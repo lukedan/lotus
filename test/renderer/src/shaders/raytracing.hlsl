@@ -1,51 +1,24 @@
+#include "types.hlsli"
 #include "pcg32.hlsl"
 #include "brdf.hlsl"
 
-Texture2D<float4> textures[] : register(t0);
+/*Texture2D<float4> textures[] : register(t0);*/
 
-struct material_data {
-	float4 base_color;
-
-	float normal_scale;
-	float metalness;
-	float roughness;
-	float alpha_cutoff;
-
-	uint base_color_index;
-	uint normal_index;
-	uint metallic_roughness_index;
-	bool is_metallic_roughness;
-};
-struct global_data {
-	float3 camera_position;
-	float t_min;
-	float3 top_left;
-	float t_max;
-	float3 right;
-	float padding;
-	float3 down;
-	uint frame_index;
-};
 RaytracingAccelerationStructure rtas      : register(t0, space1);
 ConstantBuffer<global_data> globals       : register(b1, space1);
 RWTexture2D<float4> output                : register(u2, space1);
 
-struct vertex {
+/*struct vertex {
 	float3 position;
 	float3 normal;
 	float2 uv;
 	float4 tangent;
-};
-struct instance_data {
-	uint first_index;
-	uint first_vertex;
-	uint material_index;
-};
-StructuredBuffer<material_data> materials : register(t3, space1);
+};*/
+/*StructuredBuffer<material_data> materials : register(t3, space1);
 StructuredBuffer<vertex> vertices         : register(t4, space1);
 StructuredBuffer<uint> indices            : register(t5, space1);
 StructuredBuffer<instance_data> instances : register(t6, space1);
-SamplerState image_sampler                : register(s7, space1);
+SamplerState image_sampler                : register(s7, space1);*/
 
 
 float rd(uint sequence, uint index) {
@@ -63,7 +36,7 @@ void main_miss(inout ray_payload payload) {
 	// do nothing
 }
 
-struct hit_triangle {
+/*struct hit_triangle {
 	vertex verts[3];
 };
 hit_triangle get_hit_triangle_indexed_object_space() {
@@ -143,16 +116,16 @@ void handle_anyhit(inout ray_payload payload, float2 barycentrics, hit_triangle 
 			IgnoreHit();
 		}
 	}
-}
+}*/
 
 [shader("anyhit")]
 void main_anyhit_indexed(inout ray_payload payload, BuiltInTriangleIntersectionAttributes attr) {
-	handle_anyhit(payload, attr.barycentrics, get_hit_triangle_indexed_object_space());
+	/*handle_anyhit(payload, attr.barycentrics, get_hit_triangle_indexed_object_space());*/
 }
 
 [shader("anyhit")]
 void main_anyhit_unindexed(inout ray_payload payload, BuiltInTriangleIntersectionAttributes attr) {
-	handle_anyhit(payload, attr.barycentrics, get_hit_triangle_unindexed_object_space());
+	/*handle_anyhit(payload, attr.barycentrics, get_hit_triangle_unindexed_object_space());*/
 }
 
 float3 square_to_unit_hemisphere_y_cosine(float2 xi) {
@@ -161,7 +134,7 @@ float3 square_to_unit_hemisphere_y_cosine(float2 xi) {
 	return float3(xz.x, sqrt(1.0f - xi.y), xz.y);
 }
 
-void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_triangle tri) {
+/*void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_triangle tri) {
 	++payload.bounces;
 	if (payload.bounces >= 19) {
 		payload.light = (float3)0.0f;
@@ -322,16 +295,18 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	}
 
 	payload.light = total_light;
-}
+}*/
 
 [shader("closesthit")]
 void main_closesthit_indexed(inout ray_payload payload, BuiltInTriangleIntersectionAttributes attr) {
-	handle_closest_hit(payload, attr.barycentrics, get_hit_triangle_indexed_object_space());
+	/*handle_closest_hit(payload, attr.barycentrics, get_hit_triangle_indexed_object_space());*/
+	payload.light = RayTCurrent() / 50.0f;
 }
 
 [shader("closesthit")]
 void main_closesthit_unindexed(inout ray_payload payload, BuiltInTriangleIntersectionAttributes attr) {
-	handle_closest_hit(payload, attr.barycentrics, get_hit_triangle_unindexed_object_space());
+	/*handle_closest_hit(payload, attr.barycentrics, get_hit_triangle_unindexed_object_space());*/
+	payload.light = RayTCurrent() / 50.0f;
 }
 
 [shader("raygeneration")]
@@ -355,9 +330,10 @@ void main_raygen() {
 
 	TraceRay(rtas, 0, 0xFF, 0, 1, 0, ray, payload);
 
-	if (globals.frame_index == 0) {
+	/*if (globals.frame_index == 0) {
 		output[DispatchRaysIndex().xy].rgb = payload.light;
 	} else {
 		output[DispatchRaysIndex().xy].rgb += payload.light;
-	}
+	}*/
+	output[DispatchRaysIndex().xy].rgb = payload.light;
 }

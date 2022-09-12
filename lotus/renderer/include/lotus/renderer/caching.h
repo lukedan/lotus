@@ -146,9 +146,9 @@ namespace lotus::renderer {
 	/// A cache for objects used in a context.
 	class context_cache {
 	public:
-
 		/// Initializes the pipeline cache.
-		explicit context_cache(gpu::device &dev) : _device(dev) {
+		explicit context_cache(gpu::device &dev) :
+			_device(dev), _empty_layout(dev.create_descriptor_set_layout({}, gpu::shader_stage::all)) {
 		}
 
 		/// Creates or retrieves a descriptor set layout matching the given key.
@@ -165,6 +165,7 @@ namespace lotus::renderer {
 		);
 	private:
 		gpu::device &_device; ///< The device used by this cache.
+		gpu::descriptor_set_layout _empty_layout; ///< An empty descriptor set layout.
 
 		/// Cached descriptor layouts.
 		std::unordered_map<cache_keys::descriptor_set_layout, gpu::descriptor_set_layout> _layouts;

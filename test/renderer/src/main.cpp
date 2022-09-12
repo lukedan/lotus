@@ -24,6 +24,12 @@
 #include "raytrace_pass.h"
 #include "rt_resolve_pass.h"*/
 
+#include <lotus/renderer/shader_types_include_wrapper.h>
+namespace shader_types {
+#include "shaders/types.hlsli"
+}
+#include <lotus/renderer/shader_types_include_wrapper.h>
+
 int main(int argc, char **argv) {
 	if (argc < 2) {
 		std::cout << "No model file specified\n";
@@ -44,9 +50,9 @@ int main(int argc, char **argv) {
 	lgpu::adapter_properties dev_prop = uninitialized;
 	gctx.enumerate_adapters([&](lgpu::adapter adap) {
 		dev_prop = adap.get_properties();
-		std::cerr << "Device name: " << reinterpret_cast<const char*>(dev_prop.name.c_str()) << "\n";
+		log().debug<u8"Device name: {}">(lstr::to_generic(dev_prop.name));
 		if (dev_prop.is_discrete) {
-			std::cerr << "  Selected\n";
+			log().debug<u8"Selected">();
 			gdev = adap.create_device();
 			return false;
 		}
@@ -55,25 +61,25 @@ int main(int argc, char **argv) {
 	auto cmd_queue = gdev.create_command_queue();
 	auto cmd_alloc = gdev.create_command_allocator();
 
-	auto rctx = ren::context::create(gctx, dev_prop, gdev, cmd_queue);
-	auto asset_man = ren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_util);
-	auto mip_gen = ren::mipmap::generator::create(asset_man);
-	ren::gltf::context gltf_ctx(asset_man);
+	auto rctx = lren::context::create(gctx, dev_prop, gdev, cmd_queue);
+	auto asset_man = lren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_util);
+	auto mip_gen = lren::mipmap::generator::create(asset_man);
+	lren::gltf::context gltf_ctx(asset_man);
 
 	// model & resources
 	struct {
-		std::vector<ren::instance> instances;
-		std::vector<gpu::instance_description> tlas_instances;
-		std::vector<ren::blas> blases;
+		std::vector<lren::instance> instances;
+		std::vector<lren::blas_reference> tlas_instances;
+		std::vector<lren::blas> blases;
 	} scene;
 
 	for (int i = 1; i < argc; ++i) {
 		gltf_ctx.load(
 			argv[i],
-			[&](ren::assets::handle<ren::assets::texture2d> tex) {
+			[&](lren::assets::handle<lren::assets::texture2d> tex) {
 				mip_gen.generate_all(tex->image);
 			},
-			[&](ren::assets::handle<ren::assets::geometry> geom) {
+			[&](lren::assets::handle<lren::assets::geometry> geom) {
 				geom.user_data() = reinterpret_cast<void*>(scene.blases.size());
 				auto &blas = scene.blases.emplace_back(rctx.request_blas(
 					geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }
@@ -81,12 +87,12 @@ int main(int argc, char **argv) {
 				rctx.build_blas(blas, u8"Build BLAS");
 			},
 			nullptr,
-			[&](ren::instance inst) {
+			[&](lren::instance inst) {
 				if (inst.geometry) {
 					auto index = reinterpret_cast<std::uintptr_t>(inst.geometry.user_data());
-					scene.tlas_instances.emplace_back(rctx.get_blas_instance_description(
-						scene.blases[index], inst.transform, 0, 0xFF, 0
-					));
+					scene.tlas_instances.emplace_back(
+						scene.blases[index], inst.transform, index, 0xFF, 0
+					);
 				}
 				scene.instances.emplace_back(std::move(inst));
 			}
@@ -125,10 +131,10 @@ int main(int argc, char **argv) {
 	);
 	std::size_t frame_index = 0;
 
-	auto cam_params = camera_parameters<float>::create_look_at(cvec3f(0.0f, 100.0f, 0.0f), cvec3f(500.0f, 100.0f, 0.0f));
+	auto cam_params = lotus::camera_parameters<float>::create_look_at(cvec3f(0.0f, 10.0f, 0.0f), cvec3f(50.0f, 10.0f, 0.0f));
 	{
 		auto size = wnd.get_size();
-		cam_params.far_plane = 10000.0f;
+		cam_params.far_plane = 4000.0f;
 		cam_params.aspect_ratio = size[0] / static_cast<float>(size[1]);
 	}
 	auto cam = cam_params.into_camera();
@@ -245,11 +251,61 @@ int main(int argc, char **argv) {
 		{
 			cam = cam_params.into_camera();
 
-			auto gbuffer = ren::g_buffer::view::create(rctx, window_size);
+			auto gbuffer = lren::g_buffer::view::create(rctx, window_size);
 			{
 				auto pass = gbuffer.begin_pass(rctx);
-				ren::g_buffer::render_instances(pass, asset_man, scene.instances, cam.view_matrix, cam.projection_matrix);
+				lren::g_buffer::render_instances(pass, asset_man, scene.instances, cam.view_matrix, cam.projection_matrix);
 				pass.end();
+			}
+
+			auto rt_result = rctx.request_image2d(
+				u8"Raytracing result", window_size, 1, lgpu::format::r32g32b32a32_float,
+				lgpu::image_usage_mask::shader_read_only | lgpu::image_usage_mask::shader_read_write
+			);
+			{
+				float tan_half_fovy = tan(cam_params.fov_y_radians * 0.5);
+				auto right_half = cam.unit_right * tan_half_fovy * cam_params.aspect_ratio;
+				auto up_half = cam.unit_up * tan_half_fovy;
+
+				shader_types::global_data data;
+				data.camera_position = cam_params.position;
+				data.t_min           = 0.1f;
+				data.top_left        = cam.unit_forward - right_half + up_half;
+				data.t_max           = 1000.0f;
+				data.right           = right_half / (window_size[0] * 0.5f);
+				data.down            = -up_half / (window_size[1] * 0.5f);
+				data.frame_index     = frame_index;
+
+				auto resources = lren::all_resource_bindings::from_unsorted(
+					{
+						lren::resource_set_binding::descriptor_bindings({
+							lren::resource_binding(lren::descriptor_resource::tlas(tlas), 0),
+							lren::resource_binding(lren::descriptor_resource::immediate_constant_buffer::create_for(data), 1),
+							lren::resource_binding(lren::descriptor_resource::image2d::create_read_write(rt_result), 2),
+						}).at_space(1),
+					}
+				);
+				rctx.trace_rays(
+					{
+						lren::shader_function(rt_shader, u8"main_anyhit_indexed", lgpu::shader_stage::any_hit_shader),
+						lren::shader_function(rt_shader, u8"main_anyhit_unindexed", lgpu::shader_stage::any_hit_shader),
+						lren::shader_function(rt_shader, u8"main_closesthit_indexed", lgpu::shader_stage::closest_hit_shader),
+						lren::shader_function(rt_shader, u8"main_closesthit_unindexed", lgpu::shader_stage::closest_hit_shader),
+					},
+					{
+						lgpu::hit_shader_group(2, 0),
+						lgpu::hit_shader_group(3, 1),
+					},
+					{
+						lren::shader_function(rt_shader, u8"main_raygen", lgpu::shader_stage::ray_generation_shader),
+						lren::shader_function(rt_shader, u8"main_miss", lgpu::shader_stage::miss_shader),
+					},
+					2, { 3 }, { 0, 1 },
+					20, 32, 32,
+					cvec3u32(window_size[0], window_size[1], 1),
+					std::move(resources),
+					u8"Trace rays"
+				);
 			}
 
 			/*{
@@ -290,12 +346,12 @@ int main(int argc, char **argv) {
 
 			{
 				auto pass = rctx.begin_pass({
-					ren::surface2d_color(
+					lren::surface2d_color(
 						swap_chain,
 						lgpu::color_render_target_access::create_clear(cvec4d(0.0f, 0.0f, 0.0f, 0.0f))
 					)
 				}, nullptr, window_size, u8"Final blit");
-				ren::graphics_pipeline_state state(
+				lren::graphics_pipeline_state state(
 					{
 						lgpu::render_target_blend_options::disabled()
 					},
@@ -304,12 +360,12 @@ int main(int argc, char **argv) {
 				);
 				pass.draw_instanced(
 					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list,
-					ren::all_resource_bindings::from_unsorted({
-						ren::resource_set_binding::descriptor_bindings({
-							ren::resource_binding(ren::descriptor_resource::image2d(
-								gbuffer.normal, ren::image_binding_type::read_only
+					lren::all_resource_bindings::from_unsorted({
+						lren::resource_set_binding::descriptor_bindings({
+							lren::resource_binding(lren::descriptor_resource::image2d(
+								rt_result, lren::image_binding_type::read_only
 							), 0),
-							ren::resource_binding(ren::descriptor_resource::sampler(), 1),
+							lren::resource_binding(lren::descriptor_resource::sampler(), 1),
 						}).at_space(0),
 					}),
 					blit_vs, blit_ps, state, 1, u8"Final blit"

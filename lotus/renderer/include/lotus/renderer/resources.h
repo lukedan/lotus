@@ -281,6 +281,55 @@ namespace lotus::renderer {
 		/// Returns the descriptor type that corresponds to the image binding.
 		[[nodiscard]] gpu::descriptor_type to_descriptor_type(image_binding_type);
 
+		/// Indicates how an image is accessed.
+		struct image_access {
+			/// No initialization.
+			image_access(uninitialized_t) {
+			}
+			/// Initializes all fields of this struct.
+			constexpr image_access(
+				gpu::synchronization_point_mask sp, gpu::image_access_mask m, gpu::image_layout l
+			) : sync_points(sp), access(m), layout(l) {
+			}
+			/// Returns an object that corresponds to the initial state of a resource.
+			[[nodiscard]] constexpr inline static image_access initial() {
+				return image_access(
+					gpu::synchronization_point_mask::none, gpu::image_access_mask::none, gpu::image_layout::undefined
+				);
+			}
+
+			/// Default comparisons.
+			[[nodiscard]] friend std::strong_ordering operator<=>(
+				const image_access&, const image_access&
+			) = default;
+
+			gpu::synchronization_point_mask sync_points; ///< Where this resource is accessed.
+			gpu::image_access_mask access; ///< How this resource is accessed.
+			gpu::image_layout layout; ///< Layout of this image.
+		};
+		/// Indicates how a buffer is accessed.
+		struct buffer_access {
+			/// No initialization.
+			buffer_access(uninitialized_t) {
+			}
+			/// Initializes all fields of this struct.
+			constexpr buffer_access(gpu::synchronization_point_mask sp, gpu::buffer_access_mask m) :
+				sync_points(sp), access(m) {
+			}
+			/// Returns an object that corresponds to the initial state of a resource.
+			[[nodiscard]] constexpr inline static buffer_access initial() {
+				return buffer_access(gpu::synchronization_point_mask::none, gpu::buffer_access_mask::none);
+			}
+
+			/// Default comparisons.
+			[[nodiscard]] friend std::strong_ordering operator<=>(
+				const buffer_access&, const buffer_access&
+			) = default;
+
+			gpu::synchronization_point_mask sync_points; ///< Where this resource is accessed.
+			gpu::buffer_access_mask access; ///< How this resource is accessed.
+		};
+
 
 		/// A 2D surface managed by a context.
 		struct surface2d {
@@ -301,25 +350,25 @@ namespace lotus::renderer {
 				std::uint32_t mips,
 				gpu::format fmt,
 				gpu::image_tiling tiling,
-				gpu::image_usage::mask usages,
+				gpu::image_usage_mask usages,
 				std::uint64_t i,
 				std::u8string_view n
 			) :
-				image(nullptr), current_usages(mips, gpu::image_usage::initial),
+				image(nullptr), current_usages(mips, image_access::initial()),
 				size(sz), num_mips(mips), format(fmt), tiling(tiling), usages(usages),
 				id(i), name(n) {
 			}
 
 			gpu::image2d image; ///< Image for the surface.
 			
-			std::vector<gpu::image_usage> current_usages; ///< Current usage of each mip of the surface.
+			std::vector<image_access> current_usages; ///< Current usage of each mip of the surface.
 
 			cvec2s size; ///< The size of this surface.
 			std::uint32_t num_mips = 0; ///< Number of mips.
 			gpu::format format = gpu::format::none; ///< Original pixel format.
 			// TODO are these necessary?
 			gpu::image_tiling tiling = gpu::image_tiling::optimal; ///< Tiling of this image.
-			gpu::image_usage::mask usages = gpu::image_usage::mask::none; ///< Possible usages.
+			gpu::image_usage_mask usages = gpu::image_usage_mask::none; ///< Possible usages.
 
 			std::vector<descriptor_array_reference> array_references; ///< References in descriptor arrays.
 
@@ -331,17 +380,17 @@ namespace lotus::renderer {
 		/// A buffer.
 		struct buffer {
 			/// Initializes this buffer to empty.
-			buffer(std::uint32_t sz, gpu::buffer_usage::mask usg, std::uint64_t i, std::u8string_view n) :
-				data(nullptr), size(sz), usages(usg), id(i), name(n) {
+			buffer(std::uint32_t sz, gpu::buffer_usage_mask usg, std::uint64_t i, std::u8string_view n) :
+				data(nullptr), access(buffer_access::initial()), size(sz), usages(usg), id(i), name(n) {
 			}
 
 			gpu::buffer data; ///< The buffer.
 
 			/// Current usage of this buffer.
-			gpu::buffer_usage current_usage = gpu::buffer_usage::read_only_buffer;
+			buffer_access access;
 
 			std::uint32_t size; ///< The size of this buffer.
-			gpu::buffer_usage::mask usages = gpu::buffer_usage::mask::none; ///< Possible usages.
+			gpu::buffer_usage_mask usages = gpu::buffer_usage_mask::none; ///< Possible usages.
 
 			std::uint64_t id = 0; ///< Used to uniquely identify this buffer.
 			// TODO make this debug only?
@@ -366,7 +415,7 @@ namespace lotus::renderer {
 			gpu::swap_chain chain; ///< The swap chain.
 			std::vector<gpu::fence> fences; ///< Synchronization primitives for each back buffer.
 			std::vector<gpu::image2d> images; ///< Images in this swap chain.
-			std::vector<gpu::image_usage> current_usages; ///< Current usages of all back buffers.
+			std::vector<image_access> current_usages; ///< Current usages of all back buffers.
 
 			cvec2s current_size; ///< Current size of swap chain images.
 			cvec2s desired_size; ///< Desired size of swap chain images.
@@ -426,13 +475,13 @@ namespace lotus::renderer {
 		public:
 			/// Initializes this structure.
 			blas(std::vector<geometry_buffers_view> in, std::u8string_view n) :
-				handle(nullptr), memory(nullptr), geometry(nullptr), build_sizes(uninitialized),
+				handle(nullptr), geometry(nullptr), build_sizes(uninitialized),
 				input(std::move(in)), name(n) {
 			}
 
 			// these are populated when we actually build the BVH
 			gpu::bottom_level_acceleration_structure handle; ///< The acceleration structure.
-			gpu::buffer memory; ///< Memory for this acceleration structure.
+			std::shared_ptr<buffer> memory; ///< Memory for this acceleration structure.
 			/// Geometry for this acceleration structure.
 			gpu::bottom_level_acceleration_structure_geometry geometry;
 			/// Memory requirements for the acceleration structure.
@@ -449,21 +498,26 @@ namespace lotus::renderer {
 		struct tlas {
 		public:
 			/// Initializes this structure.
-			tlas(std::vector<gpu::instance_description> in, std::u8string_view n) :
-				handle(nullptr), memory(nullptr), input_data(nullptr), build_sizes(uninitialized),
-				input(std::move(in)), name(n) {
+			tlas(
+				std::vector<gpu::instance_description> in,
+				std::vector<std::shared_ptr<blas>> refs,
+				std::u8string_view n
+			) :
+				handle(nullptr), input_data(nullptr), build_sizes(uninitialized),
+				input(std::move(in)), input_references(std::move(refs)), name(n) {
 			}
 
 			// these are populated when we actually build the BVH
 			gpu::top_level_acceleration_structure handle; ///< The acceleration structure.
-			gpu::buffer memory; ///< Memory for this acceleration structure.
-			gpu::buffer input_data; ///< Input BLAS's uploaded to the GPU. This may be freed manually.
+			std::shared_ptr<buffer> memory; ///< Memory for this acceleration structure.
+			/// Input BLAS's uploaded to the GPU. This may be freed manually, after which no rebuilding/refitting can
+			/// be performed.
+			gpu::buffer input_data;
 			/// Memory requirements for the acceleration structure.
 			gpu::acceleration_structure_build_sizes build_sizes;
 
 			std::vector<gpu::instance_description> input; ///< Input data.
-
-			// TODO BLAS references
+			std::vector<std::shared_ptr<blas>> input_references; ///< References to all input BLAS's.
 
 			std::u8string name; ///< Name of this object.
 		};
@@ -709,5 +763,25 @@ namespace lotus::renderer {
 		}
 
 		std::shared_ptr<_details::tlas> _tlas; ///< The acceleration structure.
+	};
+
+
+	/// Describes a reference to a BLAS from a TLAS. Corresponds to the parameters of
+	/// \ref gpu::device::get_bottom_level_acceleration_structure_description().
+	struct blas_reference {
+		/// Initializes this reference to empty.
+		blas_reference(std::nullptr_t) : acceleration_structure(nullptr) {
+		}
+		/// Initializes all fields of this struct.
+		blas_reference(blas as, mat44f trans, std::uint32_t as_id, std::uint8_t as_mask, std::uint32_t hg_offset) :
+			acceleration_structure(std::move(as)), transform(trans),
+			id(as_id), mask(as_mask), hit_group_offset(hg_offset) {
+		}
+
+		blas acceleration_structure; ///< The acceleration structure.
+		mat44f transform = uninitialized; ///< Transform of this instance.
+		std::uint32_t id = 0; ///< ID of this instance.
+		std::uint8_t mask = 0; ///< Ray mask.
+		std::uint32_t hit_group_offset = 0; ///< Offset in the hit group.
 	};
 }

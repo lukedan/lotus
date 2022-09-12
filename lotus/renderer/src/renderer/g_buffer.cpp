@@ -9,10 +9,10 @@
 namespace lotus::renderer::g_buffer {
 	view view::create(context &ctx, cvec2s size) {
 		view result = nullptr;
-		result.albedo_glossiness = ctx.request_image2d(u8"GBuffer Albedo-glossiness", size, 1, albedo_glossiness_format, gpu::image_usage::mask::color_render_target | gpu::image_usage::mask::read_only_texture);
-		result.normal            = ctx.request_image2d(u8"GBuffer Normal",            size, 1, normal_format,            gpu::image_usage::mask::color_render_target | gpu::image_usage::mask::read_only_texture);
-		result.metalness         = ctx.request_image2d(u8"GBuffer Metalness",         size, 1, metalness_format,         gpu::image_usage::mask::color_render_target | gpu::image_usage::mask::read_only_texture);
-		result.depth_stencil     = ctx.request_image2d(u8"GBuffer Depth-stencil",     size, 1, depth_stencil_format,     gpu::image_usage::mask::depth_stencil_render_target | gpu::image_usage::mask::read_only_texture);
+		result.albedo_glossiness = ctx.request_image2d(u8"GBuffer Albedo-glossiness", size, 1, albedo_glossiness_format, gpu::image_usage_mask::color_render_target | gpu::image_usage_mask::shader_read_only);
+		result.normal            = ctx.request_image2d(u8"GBuffer Normal",            size, 1, normal_format,            gpu::image_usage_mask::color_render_target | gpu::image_usage_mask::shader_read_only);
+		result.metalness         = ctx.request_image2d(u8"GBuffer Metalness",         size, 1, metalness_format,         gpu::image_usage_mask::color_render_target | gpu::image_usage_mask::shader_read_only);
+		result.depth_stencil     = ctx.request_image2d(u8"GBuffer Depth-stencil",     size, 1, depth_stencil_format,     gpu::image_usage_mask::depth_stencil_render_target | gpu::image_usage_mask::shader_read_only);
 		return result;
 	}
 

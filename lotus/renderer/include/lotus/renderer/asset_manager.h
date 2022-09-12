@@ -53,12 +53,12 @@ namespace lotus::renderer {
 			}
 			/// Creates a buffer with the given contents and usage mask.
 			[[nodiscard]] handle<buffer> create_buffer(
-				identifier, std::span<const std::byte>, gpu::buffer_usage::mask
+				identifier, std::span<const std::byte>, gpu::buffer_usage_mask
 			);
 			/// \overload
 			template <typename T> [[nodiscard]] std::enable_if_t<
 				std::is_trivially_copyable_v<std::decay_t<T>>, handle<buffer>
-			> create_buffer(identifier id, std::span<T> contents, gpu::buffer_usage::mask usages) {
+			> create_buffer(identifier id, std::span<T> contents, gpu::buffer_usage_mask usages) {
 				return create_buffer(
 					std::move(id),
 					std::span<const std::byte>(

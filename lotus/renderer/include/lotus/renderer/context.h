@@ -317,11 +317,11 @@ namespace lotus::renderer {
 
 		/// Creates a 2D image with the given properties.
 		[[nodiscard]] image2d_view request_image2d(
-			std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format, gpu::image_usage::mask
+			std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask
 		);
 		/// Creates a buffer with the given size.
 		[[nodiscard]] buffer request_buffer(
-			std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage::mask
+			std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask
 		);
 		/// Creates a swap chain with the given properties.
 		[[nodiscard]] swap_chain request_swap_chain(
@@ -348,12 +348,7 @@ namespace lotus::renderer {
 			return request_blas(name, { geometries.begin(), geometries.end() });
 		}
 		/// Creates a top-level acceleration structure for the given input instances.
-		[[nodiscard]] tlas request_tlas(std::u8string_view name, std::span<const gpu::instance_description>);
-
-		/// Returns the description of a specific BLAS instance.
-		[[nodiscard]] gpu::instance_description get_blas_instance_description(
-			const blas&, lotus::mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset
-		);
+		[[nodiscard]] tlas request_tlas(std::u8string_view name, std::span<const blas_reference>);
 
 
 		/// Uploads image data to the GPU. This function immediately creates and fills the staging buffer, but actual
@@ -386,6 +381,36 @@ namespace lotus::renderer {
 			all_resource_bindings,
 			std::u8string_view description
 		);
+		/// \overload
+		void trace_rays(
+			std::initializer_list<const shader_function> hit_group_shaders,
+			std::initializer_list<const gpu::hit_shader_group> hit_groups,
+			std::initializer_list<const shader_function> general_shaders,
+			std::uint32_t raygen_shader_index,
+			std::initializer_list<const std::uint32_t> miss_shader_indices,
+			std::initializer_list<const std::uint32_t> shader_groups,
+			std::uint32_t max_recursion_depth,
+			std::uint32_t max_payload_size,
+			std::uint32_t max_attribute_size,
+			cvec3u32 num_threads,
+			all_resource_bindings resources,
+			std::u8string_view description
+		) {
+			trace_rays(
+				{ hit_group_shaders.begin(), hit_group_shaders.end() },
+				{ hit_groups.begin(), hit_groups.end() },
+				{ general_shaders.begin(), general_shaders.end() },
+				raygen_shader_index,
+				{ miss_shader_indices.begin(), miss_shader_indices.end() },
+				{ shader_groups.begin(), shader_groups.end() },
+				max_recursion_depth,
+				max_payload_size,
+				max_attribute_size,
+				num_threads,
+				std::move(resources),
+				description
+			);
+		}
 
 		/// Runs a compute shader.
 		void run_compute_shader(
@@ -460,13 +485,13 @@ namespace lotus::renderer {
 			_surface2d_transition_info(std::nullptr_t) : mip_levels(gpu::mip_levels::all()) {
 			}
 			/// Initializes all fields of this struct.
-			_surface2d_transition_info(_details::surface2d &surf, gpu::mip_levels mips, gpu::image_usage u) :
-				surface(&surf), mip_levels(mips), usage(u) {
+			_surface2d_transition_info(_details::surface2d &surf, gpu::mip_levels mips, _details::image_access acc) :
+				surface(&surf), mip_levels(mips), access(acc) {
 			}
 
 			_details::surface2d *surface = nullptr; ///< The surface to transition.
 			gpu::mip_levels mip_levels; ///< Mip levels to transition.
-			gpu::image_usage usage = gpu::image_usage::num_enumerators; ///< Usage to transition to.
+			_details::image_access access = uninitialized; ///< Access to transition to.
 		};
 		/// Contains information about a buffer transition operation.
 		struct _buffer_transition_info {
@@ -474,7 +499,7 @@ namespace lotus::renderer {
 			_buffer_transition_info(std::nullptr_t) {
 			}
 			/// Initializes all fields of this struct.
-			_buffer_transition_info(_details::buffer &buf, gpu::buffer_usage usg) : buffer(&buf), usage(usg) {
+			_buffer_transition_info(_details::buffer &buf, _details::buffer_access acc) : buffer(&buf), access(acc) {
 			}
 
 			/// Default equality and inequality comparisons.
@@ -483,7 +508,7 @@ namespace lotus::renderer {
 			) = default;
 
 			_details::buffer *buffer = nullptr; ///< The buffer to transition.
-			gpu::buffer_usage usage = gpu::buffer_usage::num_enumerators; ///< Usage to transition to.
+			_details::buffer_access access = uninitialized; ///< Access to transition to.
 		};
 		// TODO convert this into "generic image transition"
 		/// Contains information about a layout transition operation.
@@ -492,11 +517,12 @@ namespace lotus::renderer {
 			_swap_chain_transition_info(std::nullptr_t) {
 			}
 			/// Initializes all fields of this struct.
-			_swap_chain_transition_info(_details::swap_chain &c, gpu::image_usage u) : chain(&c), usage(u) {
+			_swap_chain_transition_info(_details::swap_chain &c, _details::image_access acc) :
+				chain(&c), access(acc) {
 			}
 
 			_details::swap_chain *chain = nullptr; ///< The swap chain to transition.
-			gpu::image_usage usage = gpu::image_usage::num_enumerators; ///< Usage to transition to.
+			_details::image_access access = uninitialized; ///< Access to transition to.
 		};
 
 		/// Transient resources used by a batch.
@@ -593,7 +619,7 @@ namespace lotus::renderer {
 			}
 			/// Creates a new buffer with the given parameters.
 			[[nodiscard]] gpu::buffer &create_buffer(
-				std::size_t size, gpu::memory_type_index mem_type, gpu::buffer_usage::mask usage
+				std::size_t size, gpu::memory_type_index mem_type, gpu::buffer_usage_mask usage
 			) {
 				return _resources.buffers.emplace_back(_ctx._device.create_committed_buffer(size, mem_type, usage));
 			}
@@ -609,17 +635,17 @@ namespace lotus::renderer {
 			}
 
 			/// Stages a surface transition operation, and notifies any descriptor arrays affected.
-			void stage_transition(_details::surface2d&, gpu::mip_levels, gpu::image_usage);
+			void stage_transition(_details::surface2d&, gpu::mip_levels, _details::image_access);
 			/// Stages a buffer transition operation.
-			void stage_transition(_details::buffer&, gpu::buffer_usage);
+			void stage_transition(_details::buffer&, _details::buffer_access);
 			/// Stages a swap chain transition operation.
-			void stage_transition(_details::swap_chain &chain, gpu::image_usage usage) {
+			void stage_transition(_details::swap_chain &chain, _details::image_access usage) {
 				_swap_chain_transitions.emplace_back(chain, usage);
 			}
 			/// Stages a raw buffer transition operation. No state tracking is performed for such operations; this is
 			/// only intended to be used internally when the usage of a buffer is known.
-			void stage_transition(gpu::buffer &buf, gpu::buffer_usage from, gpu::buffer_usage to) {
-				std::pair<gpu::buffer_usage, gpu::buffer_usage> usage(from, to);
+			void stage_transition(gpu::buffer &buf, _details::buffer_access from, _details::buffer_access to) {
+				std::pair<_details::buffer_access, _details::buffer_access> usage(from, to);
 				auto [it, inserted] = _raw_buffer_transitions.emplace(&buf, usage);
 				assert(inserted || it->second == usage);
 			}
@@ -671,7 +697,7 @@ namespace lotus::renderer {
 			std::vector<_swap_chain_transition_info> _swap_chain_transitions;
 			/// Staged raw buffer transition operations.
 			std::unordered_map<
-				gpu::buffer*, std::pair<gpu::buffer_usage, gpu::buffer_usage>
+				gpu::buffer*, std::pair<_details::buffer_access, _details::buffer_access>
 			> _raw_buffer_transitions;
 
 			/// Amount used in \ref _immediate_constant_device_buffer.
@@ -692,7 +718,6 @@ namespace lotus::renderer {
 		/// Command allocator for all command lists that are recorded and submitted immediately.
 		gpu::command_allocator _transient_cmd_alloc;
 		gpu::descriptor_pool _descriptor_pool; ///< Descriptor pool to allocate descriptors out of.
-		gpu::descriptor_set_layout _empty_layout; ///< Empty descriptor set layout.
 		gpu::timeline_semaphore _batch_semaphore; ///< A semaphore that is signaled after each batch.
 
 		gpu::adapter_properties _adapter_properties; ///< Adapter properties.
@@ -742,6 +767,8 @@ namespace lotus::renderer {
 
 		/// Initializes the given \ref _details::blas if necessary.
 		void _maybe_initialize_blas(_details::blas&);
+		/// Initializes the given \ref _details::tlas if necessary.
+		void _maybe_initialize_tlas(_execution_context&, _details::tlas&);
 
 		/// Returns the descriptor type of an image binding.
 		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::image2d &img) const {
@@ -777,6 +804,10 @@ namespace lotus::renderer {
 		) const {
 			return gpu::descriptor_type::constant_buffer;
 		}
+		/// Returns \ref gpu::descriptor_type::acceleration_structure.
+		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::tlas&) const {
+			return gpu::descriptor_type::acceleration_structure;
+		}
 		/// Returns \ref gpu::descriptor_type::sampler.
 		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::sampler&) const {
 			return gpu::descriptor_type::sampler;
@@ -805,6 +836,12 @@ namespace lotus::renderer {
 			_execution_context&, gpu::descriptor_set&,
 			const gpu::descriptor_set_layout&, std::uint32_t reg,
 			const descriptor_resource::immediate_constant_buffer&
+		);
+		/// Creates a descriptor binding for an acceleration structure.
+		void _create_descriptor_binding(
+			_execution_context&, gpu::descriptor_set&,
+			const gpu::descriptor_set_layout&, std::uint32_t reg,
+			const descriptor_resource::tlas&
 		);
 		/// Creates a descriptor binding for a sampler.
 		void _create_descriptor_binding(
@@ -852,12 +889,12 @@ namespace lotus::renderer {
 
 		/// Handles an invalid command by asserting.
 		void _handle_command(_execution_context&, const context_commands::invalid&) {
-			assert(false);
+			std::abort();
 		}
 		/// Handles an image upload command.
-		void _handle_command(_execution_context&, const context_commands::upload_image&);
+		void _handle_command(_execution_context&, context_commands::upload_image&);
 		/// Handles a buffer upload command.
-		void _handle_command(_execution_context&, const context_commands::upload_buffer&);
+		void _handle_command(_execution_context&, context_commands::upload_buffer&);
 		/// Handles a dispatch compute command.
 		void _handle_command(_execution_context&, const context_commands::dispatch_compute&);
 		/// Handles a begin pass command.

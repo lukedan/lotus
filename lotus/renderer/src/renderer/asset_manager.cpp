@@ -83,9 +83,9 @@ namespace lotus::renderer::assets {
 			cvec2s size(width, height);
 			tex.image = _context.request_image2d(
 				id.path.u8string(), size, mipmap::get_levels(size.into<std::uint32_t>()), pixel_format,
-				gpu::image_usage::mask::copy_destination |
-				gpu::image_usage::mask::read_write_color_texture |
-				gpu::image_usage::mask::read_only_texture
+				gpu::image_usage_mask::copy_destination |
+				gpu::image_usage_mask::shader_read_write |
+				gpu::image_usage_mask::shader_read_only
 			);
 			tex.highest_mip_loaded = 0;
 		}
@@ -100,13 +100,13 @@ namespace lotus::renderer::assets {
 	}
 
 	handle<buffer> manager::create_buffer(
-		identifier id, std::span<const std::byte> data, gpu::buffer_usage::mask usages
+		identifier id, std::span<const std::byte> data, gpu::buffer_usage_mask usages
 	) {
 		buffer buf = nullptr;
 		buf.data        = _context.request_buffer(
 			id.path.u8string() + id.subpath,
 			static_cast<std::uint32_t>(data.size()),
-			usages | gpu::buffer_usage::mask::copy_destination
+			usages | gpu::buffer_usage_mask::copy_destination
 		);
 		_context.upload_buffer(buf.data, data, 0, u8"Load buffer asset");
 		return _register_asset(std::move(id), std::move(buf), _buffers);
@@ -207,7 +207,7 @@ namespace lotus::renderer::assets {
 				texture2d tex = nullptr;
 				tex.image = _context.request_image2d(
 					u8"Invalid", size, 1, gpu::format::b8g8r8a8_unorm,
-					gpu::image_usage::mask::copy_destination | gpu::image_usage::mask::read_only_texture
+					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only
 				);
 				tex.descriptor_index = _allocate_descriptor_index();
 				tex.highest_mip_loaded = 0;
@@ -289,11 +289,18 @@ namespace lotus::renderer::assets {
 
 		auto paths = { id.path.parent_path() }; // TODO hack to make sure the shader can include files in the same directory
 		auto result = _shader_utilities->compile_shader(code, stage, entry_point, paths, defines);
+		auto output = result.get_compiler_output();
 		if (!result.succeeded()) {
-			log().error<u8"Failed to compile shader {}: {}">(
-				id.path.string(), string::to_generic(result.get_compiler_output())
-			);
+			log().error<u8"Failed to compile shader {} ({}):">(id.path.string(), string::to_generic(id.subpath));
+			log().error<u8"{}">(string::to_generic(output));
 			return nullptr;
+		} else {
+			if (!output.empty()) {
+				log().debug<u8"Shader compiler output for {} ({}):">(
+					id.path.string(), string::to_generic(id.subpath)
+				);
+				log().debug<u8"{}">(string::to_generic(output));
+			}
 		}
 
 		shader res = nullptr;
@@ -314,11 +321,18 @@ namespace lotus::renderer::assets {
 
 		auto paths = { id.path.parent_path() }; // TODO hack to make sure the shader can include files in the same directory
 		auto result = _shader_utilities->compile_shader_library(code, paths, defines);
+		auto output = result.get_compiler_output();
 		if (!result.succeeded()) {
-			log().error<u8"Failed to compile shader {}: {}">(
-				id.path.string(), string::to_generic(result.get_compiler_output())
-			);
+			log().error<u8"Failed to compile shader {} ({}):">(id.path.string(), string::to_generic(id.subpath));
+			log().error<u8"{}">(string::to_generic(output));
 			return nullptr;
+		} else {
+			if (!output.empty()) {
+				log().debug<u8"Shader compiler output for {} ({}):">(
+					id.path.string(), string::to_generic(id.subpath)
+				);
+				log().debug<u8"{}">(string::to_generic(output));
+			}
 		}
 
 		shader_library res = nullptr;

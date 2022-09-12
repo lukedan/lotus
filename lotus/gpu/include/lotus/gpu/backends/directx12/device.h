@@ -126,17 +126,17 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p ID3D12Device::CreateHeap().
 		[[nodiscard]] memory_block allocate_memory(std::size_t size, memory_type_index);
 
-		/// Calls \p ID3D12Device::CreateCommittedResource().
-		[[nodiscard]] buffer create_committed_buffer(std::size_t size, memory_type_index, buffer_usage::mask);
-		/// Calls \p ID3D12Device::CreateCommittedResource().
+		/// Calls \p ID3D12Device::CreateCommittedResource3().
+		[[nodiscard]] buffer create_committed_buffer(std::size_t size, memory_type_index, buffer_usage_mask);
+		/// Calls \p ID3D12Device::CreateCommittedResource3().
 		[[nodiscard]] image2d create_committed_image2d(
 			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format, image_tiling, image_usage::mask
+			format, image_tiling, image_usage_mask
 		);
 		/// Computes the layout of the image using \p ID3D12Device::GetCopyableFootprints(), then creates a buffer
 		/// that can hold it.
 		[[nodiscard]] std::tuple<buffer, staging_buffer_pitch, std::size_t> create_committed_staging_buffer(
-			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage::mask allowed_usage
+			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage_mask
 		);
 
 		/// Calls \p ID3D12Resource::Map().
@@ -240,7 +240,7 @@ namespace lotus::gpu::backends::directx12 {
 			const pipeline_resources&
 		);
 	private:
-		_details::com_ptr<ID3D12Device8> _device; ///< Pointer to the device.
+		_details::com_ptr<ID3D12Device10> _device; ///< Pointer to the device.
 		/// Heap used for allocating color descriptors.
 		_details::descriptor_heap<1, 8> _rtv_descriptors = nullptr;
 		/// Heap used for allocating depth-stencil descriptors.
@@ -251,7 +251,7 @@ namespace lotus::gpu::backends::directx12 {
 		_details::descriptor_heap<1, 4> _sampler_descriptors = nullptr;
 
 		/// Initializes this device.
-		explicit device(_details::com_ptr<ID3D12Device8>);
+		explicit device(_details::com_ptr<ID3D12Device10>);
 
 		/// Calls \p ID3D12Object::SetPrivateData() to set the debug name of the given object.
 		void _set_debug_name(ID3D12Object&, const char8_t*);

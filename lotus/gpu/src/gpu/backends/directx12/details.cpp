@@ -218,31 +218,104 @@ namespace lotus::gpu::backends::directx12::_details {
 			return table[ty];
 		}
 
-		D3D12_RESOURCE_STATES to_resource_states(image_usage st) {
-			constexpr static enum_mapping<image_usage, D3D12_RESOURCE_STATES> table{
-				std::pair(image_usage::color_render_target,         D3D12_RESOURCE_STATE_RENDER_TARGET                                                         ),
-				std::pair(image_usage::depth_stencil_render_target, D3D12_RESOURCE_STATE_DEPTH_WRITE                                                           ),
-				std::pair(image_usage::read_only_texture,           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
-				std::pair(image_usage::read_write_color_texture,    D3D12_RESOURCE_STATE_UNORDERED_ACCESS                                                      ),
-				std::pair(image_usage::present,                     D3D12_RESOURCE_STATE_PRESENT                                                               ),
-				std::pair(image_usage::copy_source,                 D3D12_RESOURCE_STATE_COPY_SOURCE                                                           ),
-				std::pair(image_usage::copy_destination,            D3D12_RESOURCE_STATE_COPY_DEST                                                             ),
-				std::pair(image_usage::initial,                     D3D12_RESOURCE_STATE_COMMON                                                                ),
+		D3D12_BARRIER_SYNC to_barrier_sync(synchronization_point_mask mask) {
+			constexpr static bit_mask_mapping<synchronization_point_mask, D3D12_BARRIER_SYNC> table{
+				std::pair(synchronization_point_mask::all,                          D3D12_BARRIER_SYNC_ALL                                    ),
+				std::pair(synchronization_point_mask::all_graphics,                 D3D12_BARRIER_SYNC_DRAW                                   ),
+				std::pair(synchronization_point_mask::vertex_input,                 D3D12_BARRIER_SYNC_INPUT_ASSEMBLER                        ),
+				std::pair(synchronization_point_mask::vertex_shader,                D3D12_BARRIER_SYNC_VERTEX_SHADING                         ),
+				std::pair(synchronization_point_mask::pixel_shader,                 D3D12_BARRIER_SYNC_PIXEL_SHADING                          ),
+				std::pair(synchronization_point_mask::depth_stencil_read_write,     D3D12_BARRIER_SYNC_DEPTH_STENCIL                          ),
+				std::pair(synchronization_point_mask::render_target_read_write,     D3D12_BARRIER_SYNC_RENDER_TARGET                          ),
+				std::pair(synchronization_point_mask::compute_shader,               D3D12_BARRIER_SYNC_COMPUTE_SHADING                        ),
+				std::pair(synchronization_point_mask::raytracing,                   D3D12_BARRIER_SYNC_RAYTRACING                             ),
+				std::pair(synchronization_point_mask::copy,                         D3D12_BARRIER_SYNC_COPY                                   ),
+				std::pair(synchronization_point_mask::acceleration_structure_build, D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE),
+				std::pair(synchronization_point_mask::acceleration_structure_copy,  D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE ),
+				std::pair(synchronization_point_mask::cpu_access,                   D3D12_BARRIER_SYNC_NONE                                   ),
 			};
-			return table[st];
+			return table.get_union(mask);
 		}
 
-		D3D12_RESOURCE_STATES to_resource_states(buffer_usage st) {
-			constexpr static enum_mapping<buffer_usage, D3D12_RESOURCE_STATES> table{
-				std::pair(buffer_usage::index_buffer,           D3D12_RESOURCE_STATE_INDEX_BUFFER                                                                                                            ),
-				std::pair(buffer_usage::vertex_buffer,          D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER                                                                                              ),
-				std::pair(buffer_usage::read_only_buffer,       D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
-				std::pair(buffer_usage::read_write_buffer,      D3D12_RESOURCE_STATE_UNORDERED_ACCESS                                                                                                        ),
-				std::pair(buffer_usage::copy_source,            D3D12_RESOURCE_STATE_COPY_SOURCE                                                                                                             ),
-				std::pair(buffer_usage::copy_destination,       D3D12_RESOURCE_STATE_COPY_DEST                                                                                                               ),
-				std::pair(buffer_usage::acceleration_structure, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE                                                                                       ),
+		D3D12_RESOURCE_FLAGS to_resource_flags(image_usage_mask mask) {
+			constexpr static bit_mask_mapping<image_usage_mask, D3D12_RESOURCE_FLAGS> table{
+				std::pair(image_usage_mask::copy_source,                 D3D12_RESOURCE_FLAG_NONE                  ),
+				std::pair(image_usage_mask::copy_destination,            D3D12_RESOURCE_FLAG_NONE                  ),
+				std::pair(image_usage_mask::shader_read_only,            D3D12_RESOURCE_FLAG_NONE                  ),
+				std::pair(image_usage_mask::shader_read_write,           D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
+				std::pair(image_usage_mask::color_render_target,         D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET   ),
+				std::pair(image_usage_mask::depth_stencil_render_target, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL   ),
 			};
-			return table[st];
+			return table.get_union(mask);
+		}
+
+		D3D12_RESOURCE_FLAGS to_resource_flags(buffer_usage_mask mask) {
+			constexpr static bit_mask_mapping<buffer_usage_mask, D3D12_RESOURCE_FLAGS> table{
+				std::pair(buffer_usage_mask::copy_source,                        D3D12_RESOURCE_FLAG_NONE                             ),
+				std::pair(buffer_usage_mask::copy_destination,                   D3D12_RESOURCE_FLAG_NONE                             ),
+				std::pair(buffer_usage_mask::shader_read_only,                   D3D12_RESOURCE_FLAG_NONE                             ),
+				std::pair(buffer_usage_mask::shader_read_write,                  D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS           ),
+				std::pair(buffer_usage_mask::index_buffer,                       D3D12_RESOURCE_FLAG_NONE                             ),
+				std::pair(buffer_usage_mask::vertex_buffer,                      D3D12_RESOURCE_FLAG_NONE                             ),
+				std::pair(buffer_usage_mask::acceleration_structure_build_input, D3D12_RESOURCE_FLAG_NONE                             ),
+				std::pair(buffer_usage_mask::acceleration_structure,             D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE),
+				std::pair(buffer_usage_mask::shader_record_table,                D3D12_RESOURCE_FLAG_NONE                             ),
+			};
+			return table.get_union(mask);
+		}
+
+		D3D12_BARRIER_ACCESS to_barrier_access(image_access_mask mask) {
+			constexpr static bit_mask_mapping<image_access_mask, D3D12_BARRIER_ACCESS> table{
+				std::pair(image_access_mask::copy_source,              D3D12_BARRIER_ACCESS_COPY_SOURCE        ),
+				std::pair(image_access_mask::copy_destination,         D3D12_BARRIER_ACCESS_COPY_DEST          ),
+				std::pair(image_access_mask::color_render_target,      D3D12_BARRIER_ACCESS_RENDER_TARGET      ),
+				std::pair(image_access_mask::depth_stencil_read_only,  D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ ),
+				std::pair(image_access_mask::depth_stencil_read_write, D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE),
+				std::pair(image_access_mask::shader_read_only,         D3D12_BARRIER_ACCESS_SHADER_RESOURCE    ),
+				std::pair(image_access_mask::shader_read_write,        D3D12_BARRIER_ACCESS_UNORDERED_ACCESS   ),
+			};
+			if (mask == image_access_mask::none) {
+				return D3D12_BARRIER_ACCESS_NO_ACCESS; // not zero!
+			}
+			return table.get_union(mask);
+		}
+
+		D3D12_BARRIER_ACCESS to_barrier_access(buffer_access_mask mask) {
+			constexpr static bit_mask_mapping<buffer_access_mask, D3D12_BARRIER_ACCESS> table{
+				std::pair(buffer_access_mask::copy_source,                        D3D12_BARRIER_ACCESS_COPY_SOURCE                            ),
+				std::pair(buffer_access_mask::copy_destination,                   D3D12_BARRIER_ACCESS_COPY_DEST                              ),
+				std::pair(buffer_access_mask::vertex_buffer,                      D3D12_BARRIER_ACCESS_VERTEX_BUFFER                          ),
+				std::pair(buffer_access_mask::index_buffer,                       D3D12_BARRIER_ACCESS_INDEX_BUFFER                           ),
+				std::pair(buffer_access_mask::constant_buffer,                    D3D12_BARRIER_ACCESS_CONSTANT_BUFFER                        ),
+				std::pair(buffer_access_mask::shader_read_only,                   D3D12_BARRIER_ACCESS_SHADER_RESOURCE                        ),
+				std::pair(buffer_access_mask::shader_read_write,                  D3D12_BARRIER_ACCESS_UNORDERED_ACCESS                       ),
+				std::pair(buffer_access_mask::acceleration_structure_build_input, D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ ),
+				std::pair(buffer_access_mask::acceleration_structure_read,        D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ ),
+				std::pair(buffer_access_mask::acceleration_structure_write,       D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE),
+				std::pair(buffer_access_mask::cpu_read,                           D3D12_BARRIER_ACCESS_COMMON                                 ),
+				std::pair(buffer_access_mask::cpu_write,                          D3D12_BARRIER_ACCESS_COMMON                                 ),
+			};
+			mask &= ~(buffer_access_mask::cpu_read | buffer_access_mask::cpu_write);
+			if (mask == buffer_access_mask::none) {
+				return D3D12_BARRIER_ACCESS_NO_ACCESS; // not zero!
+			}
+			return table.get_union(mask);
+		}
+
+		D3D12_BARRIER_LAYOUT to_barrier_layout(image_layout layout) {
+			constexpr static enum_mapping<image_layout, D3D12_BARRIER_LAYOUT> table{
+				std::pair(image_layout::undefined,                D3D12_BARRIER_LAYOUT_UNDEFINED          ),
+				std::pair(image_layout::general,                  D3D12_BARRIER_LAYOUT_COMMON             ),
+				std::pair(image_layout::copy_source,              D3D12_BARRIER_LAYOUT_COPY_SOURCE        ),
+				std::pair(image_layout::copy_destination,         D3D12_BARRIER_LAYOUT_COPY_DEST          ),
+				std::pair(image_layout::present,                  D3D12_BARRIER_LAYOUT_PRESENT            ),
+				std::pair(image_layout::color_render_target,      D3D12_BARRIER_LAYOUT_RENDER_TARGET      ),
+				std::pair(image_layout::depth_stencil_read_only,  D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ ),
+				std::pair(image_layout::depth_stencil_read_write, D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE),
+				std::pair(image_layout::shader_read_only,         D3D12_BARRIER_LAYOUT_SHADER_RESOURCE    ),
+				std::pair(image_layout::shader_read_write,        D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS   ),
+			};
+			return table[layout];
 		}
 
 		D3D12_TEXTURE_ADDRESS_MODE to_texture_address_mode(sampler_address_mode mode) {
@@ -271,38 +344,30 @@ namespace lotus::gpu::backends::directx12::_details {
 
 		D3D12_SHADER_VERSION_TYPE to_shader_version_type(shader_stage stage) {
 			constexpr static enum_mapping<shader_stage, D3D12_SHADER_VERSION_TYPE> table{
-				std::pair(shader_stage::all,                   D3D12_SHVER_LIBRARY),
-				std::pair(shader_stage::vertex_shader,         D3D12_SHVER_VERTEX_SHADER),
-				std::pair(shader_stage::geometry_shader,       D3D12_SHVER_GEOMETRY_SHADER),
-				std::pair(shader_stage::pixel_shader,          D3D12_SHVER_PIXEL_SHADER),
-				std::pair(shader_stage::compute_shader,        D3D12_SHVER_COMPUTE_SHADER),
-				std::pair(shader_stage::callable_shader,       D3D12_SHVER_CALLABLE_SHADER),
+				std::pair(shader_stage::all,                   D3D12_SHVER_LIBRARY              ),
+				std::pair(shader_stage::vertex_shader,         D3D12_SHVER_VERTEX_SHADER        ),
+				std::pair(shader_stage::geometry_shader,       D3D12_SHVER_GEOMETRY_SHADER      ),
+				std::pair(shader_stage::pixel_shader,          D3D12_SHVER_PIXEL_SHADER         ),
+				std::pair(shader_stage::compute_shader,        D3D12_SHVER_COMPUTE_SHADER       ),
+				std::pair(shader_stage::callable_shader,       D3D12_SHVER_CALLABLE_SHADER      ),
 				std::pair(shader_stage::ray_generation_shader, D3D12_SHVER_RAY_GENERATION_SHADER),
-				std::pair(shader_stage::intersection_shader,   D3D12_SHVER_INTERSECTION_SHADER),
-				std::pair(shader_stage::any_hit_shader,        D3D12_SHVER_ANY_HIT_SHADER),
-				std::pair(shader_stage::closest_hit_shader,    D3D12_SHVER_CLOSEST_HIT_SHADER),
-				std::pair(shader_stage::miss_shader,           D3D12_SHVER_MISS_SHADER),
+				std::pair(shader_stage::intersection_shader,   D3D12_SHVER_INTERSECTION_SHADER  ),
+				std::pair(shader_stage::any_hit_shader,        D3D12_SHVER_ANY_HIT_SHADER       ),
+				std::pair(shader_stage::closest_hit_shader,    D3D12_SHVER_CLOSEST_HIT_SHADER   ),
+				std::pair(shader_stage::miss_shader,           D3D12_SHVER_MISS_SHADER          ),
 			};
 			return table[stage];
 		}
 
 
 		D3D12_COLOR_WRITE_ENABLE to_color_write_mask(channel_mask mask) {
-			constexpr static std::pair<channel_mask, D3D12_COLOR_WRITE_ENABLE> table[]{
-				{ channel_mask::red,   D3D12_COLOR_WRITE_ENABLE_RED   },
-				{ channel_mask::green, D3D12_COLOR_WRITE_ENABLE_GREEN },
-				{ channel_mask::blue,  D3D12_COLOR_WRITE_ENABLE_BLUE  },
-				{ channel_mask::alpha, D3D12_COLOR_WRITE_ENABLE_ALPHA },
+			constexpr static bit_mask_mapping<channel_mask, D3D12_COLOR_WRITE_ENABLE> table{
+				std::pair(channel_mask::red,   D3D12_COLOR_WRITE_ENABLE_RED  ),
+				std::pair(channel_mask::green, D3D12_COLOR_WRITE_ENABLE_GREEN),
+				std::pair(channel_mask::blue,  D3D12_COLOR_WRITE_ENABLE_BLUE ),
+				std::pair(channel_mask::alpha, D3D12_COLOR_WRITE_ENABLE_ALPHA),
 			};
-			std::uint8_t result = 0;
-			for (auto [myval, dxval] : table) {
-				if ((mask & myval) == myval) {
-					result |= dxval;
-					mask &= ~myval;
-				}
-			}
-			assert(mask == channel_mask::none); // make sure we've exhausted all bits
-			return static_cast<D3D12_COLOR_WRITE_ENABLE>(result);
+			return table.get_union(mask);
 		}
 
 		D3D12_SHADER_VISIBILITY to_shader_visibility(shader_stage stage) {
@@ -483,6 +548,30 @@ namespace lotus::gpu::backends::directx12::_details {
 			return result;
 		}
 
+		D3D12_BARRIER_SUBRESOURCE_RANGE to_barrier_subresource_range(const subresource_range &r) {
+			D3D12_BARRIER_SUBRESOURCE_RANGE range = {};
+			range.IndexOrFirstMipLevel = r.first_mip_level;
+			range.NumMipLevels         = r.num_mip_levels;
+			range.FirstArraySlice      = r.first_array_slice;
+			range.NumArraySlices       = r.num_array_slices;
+			if (!is_empty(r.aspects & image_aspect_mask::color)) {
+				assert(r.aspects == image_aspect_mask::color);
+				range.FirstPlane = 0;
+				range.NumPlanes  = 1;
+			} else {
+				if (r.aspects == image_aspect_mask::depth) {
+					range.FirstPlane = 0;
+					range.NumPlanes  = 1;
+				} else if (r.aspects == (image_aspect_mask::depth | image_aspect_mask::stencil)) {
+					range.FirstPlane = 0;
+					range.NumPlanes  = 2;
+				} else {
+					assert(false); // not implemented
+				}
+			}
+			return range;
+		}
+
 
 		shader_resource_binding back_to_shader_resource_binding(const D3D12_SHADER_INPUT_BIND_DESC &desc) {
 			shader_resource_binding result = uninitialized;
@@ -572,7 +661,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			for (std::size_t i = 0; i < std::max<std::size_t>(1024, index + 1); ++i) {
 				auto &str = _names.emplace_back(L"_R");
 				for (std::size_t id = _names.size(); id > 0; id /= 10) {
-					str.push_back(L'0' + id % 10);
+					str.push_back(L'0' + (id % 10));
 				}
 			}
 		}
@@ -581,8 +670,8 @@ namespace lotus::gpu::backends::directx12::_details {
 
 
 	namespace resource_desc {
-		D3D12_RESOURCE_DESC for_buffer(std::size_t size) {
-			D3D12_RESOURCE_DESC desc = {};
+		D3D12_RESOURCE_DESC1 for_buffer(std::size_t size, buffer_usage_mask usages) {
+			D3D12_RESOURCE_DESC1 desc = {};
 			desc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
 			desc.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 			desc.Width              = memory::align_up(size, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
@@ -593,35 +682,25 @@ namespace lotus::gpu::backends::directx12::_details {
 			desc.SampleDesc.Count   = 1;
 			desc.SampleDesc.Quality = 0;
 			desc.Layout             = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-			desc.Flags              = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+			desc.Flags              = conversions::to_resource_flags(usages);
 			return desc;
 		}
 
 		void adjust_resource_flags_for_buffer(
-			D3D12_HEAP_TYPE type, buffer_usage::mask all_usages,
-			D3D12_RESOURCE_DESC &desc, D3D12_RESOURCE_STATES &states, D3D12_HEAP_FLAGS *heap_flags
+			D3D12_HEAP_TYPE type, buffer_usage_mask usages, D3D12_HEAP_FLAGS *heap_flags
 		) {
-			if (type == D3D12_HEAP_TYPE_DEFAULT) {
-				if (!is_empty(all_usages & buffer_usage::mask::acceleration_structure)) {
-					assert(all_usages == buffer_usage::mask::acceleration_structure);
-					states = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
-				} else if (!is_empty(all_usages & buffer_usage::mask::read_write_buffer)) {
-					desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-					if (heap_flags) {
-						*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;	
-					}
+			if (heap_flags && type == D3D12_HEAP_TYPE_DEFAULT) {
+				if (!is_empty(usages & buffer_usage_mask::shader_read_write)) {
+					*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;	
 				}
-			} else if (type == D3D12_HEAP_TYPE_UPLOAD) {
-				states = D3D12_RESOURCE_STATE_GENERIC_READ;
-				desc.Flags &= ~D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 			}
 		}
 
-		D3D12_RESOURCE_DESC for_image2d(
+		D3D12_RESOURCE_DESC1 for_image2d(
 			std::size_t width, std::size_t height, std::size_t array_slices,
-			std::size_t mip_levels, format fmt, image_tiling tiling
+			std::size_t mip_levels, format fmt, image_tiling tiling, image_usage_mask all_usages
 		) {
-			D3D12_RESOURCE_DESC desc = {};
+			D3D12_RESOURCE_DESC1 desc = {};
 			desc.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 			desc.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 			desc.Width              = static_cast<UINT64>(width);
@@ -632,24 +711,17 @@ namespace lotus::gpu::backends::directx12::_details {
 			desc.SampleDesc.Count   = 1;
 			desc.SampleDesc.Quality = 0;
 			desc.Layout             = conversions::to_texture_layout(tiling);
-			desc.Flags              = D3D12_RESOURCE_FLAG_NONE;
+			desc.Flags              = conversions::to_resource_flags(all_usages);
 			return desc;
 		}
 
 		void adjust_resource_flags_for_image2d(
-			format, image_usage::mask all_usages, D3D12_RESOURCE_DESC &desc, D3D12_HEAP_FLAGS *heap_flags
+			format, image_usage_mask all_usages, D3D12_HEAP_FLAGS *heap_flags
 		) {
-			if (!is_empty(all_usages & image_usage::mask::read_write_color_texture)) {
-				desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-				if (heap_flags) {
+			if (heap_flags) {
+				if (!is_empty(all_usages & image_usage_mask::shader_read_write)) {
 					*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;
 				}
-			}
-			if (!is_empty(all_usages & image_usage::mask::color_render_target)) {
-				desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-			}
-			if (!is_empty(all_usages & image_usage::mask::depth_stencil_render_target)) {
-				desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 			}
 		}
 	}

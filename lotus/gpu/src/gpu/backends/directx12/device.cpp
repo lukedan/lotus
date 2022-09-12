@@ -13,6 +13,12 @@
 #include "lotus/gpu/synchronization.h"
 #include "lotus/gpu/descriptors.h"
 
+// specify that we want preview SDK
+extern "C" {
+	_declspec(dllexport) extern const UINT D3D12SDKVersion = 706;
+	_declspec(dllexport) extern const char* D3D12SDKPath = ".\\";
+}
+
 namespace lotus::gpu::backends::directx12 {
 	back_buffer_info device::acquire_back_buffer(swap_chain &s) {
 		back_buffer_info result = uninitialized;
@@ -597,54 +603,52 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	buffer device::create_committed_buffer(
-		std::size_t size, memory_type_index mem_id, buffer_usage::mask all_usages
+		std::size_t size, memory_type_index mem_id, buffer_usage_mask all_usages
 	) {
 		buffer result = nullptr;
 		auto heap_type = static_cast<D3D12_HEAP_TYPE>(mem_id);
 		D3D12_HEAP_PROPERTIES heap_properties = _details::default_heap_properties(heap_type);
-		D3D12_RESOURCE_DESC desc = _details::resource_desc::for_buffer(size);
-		D3D12_RESOURCE_STATES states = D3D12_RESOURCE_STATE_COMMON;
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_buffer(size, all_usages);
 		D3D12_HEAP_FLAGS heap_flags = D3D12_HEAP_FLAG_NONE;
-		_details::resource_desc::adjust_resource_flags_for_buffer(
-			heap_type, all_usages, desc, states, &heap_flags
-		);
-		_details::assert_dx(_device->CreateCommittedResource(
-			&heap_properties, heap_flags, &desc, states, nullptr, IID_PPV_ARGS(&result._buffer)
+		_details::resource_desc::adjust_resource_flags_for_buffer(heap_type, all_usages, &heap_flags);
+		_details::assert_dx(_device->CreateCommittedResource3(
+			&heap_properties, heap_flags, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
+			nullptr, 0, nullptr, IID_PPV_ARGS(&result._buffer)
 		), _device.Get());
 		return result;
 	}
 
 	image2d device::create_committed_image2d(
 		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-		format fmt, image_tiling tiling, image_usage::mask all_usages
+		format fmt, image_tiling tiling, image_usage_mask all_usages
 	) {
 		image2d result = nullptr;
 		D3D12_HEAP_PROPERTIES heap_properties = _details::default_heap_properties(D3D12_HEAP_TYPE_DEFAULT);
-		D3D12_RESOURCE_DESC desc = _details::resource_desc::for_image2d(
-			width, height, array_slices, mip_levels, fmt, tiling
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image2d(
+			width, height, array_slices, mip_levels, fmt, tiling, all_usages
 		);
-		D3D12_RESOURCE_STATES states = D3D12_RESOURCE_STATE_COMMON;
 		D3D12_HEAP_FLAGS heap_flags = D3D12_HEAP_FLAG_NONE;
-		_details::resource_desc::adjust_resource_flags_for_image2d(fmt, all_usages, desc, &heap_flags);
-		_details::assert_dx(_device->CreateCommittedResource(
-			&heap_properties, heap_flags, &desc, states, nullptr, IID_PPV_ARGS(&result._image)
+		_details::resource_desc::adjust_resource_flags_for_image2d(fmt, all_usages, &heap_flags);
+		_details::assert_dx(_device->CreateCommittedResource3(
+			&heap_properties, heap_flags, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
+			nullptr, 0, nullptr, IID_PPV_ARGS(&result._image)
 		), _device.Get());
 		return result;
 	}
 
 	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_staging_buffer(
-		std::size_t width, std::size_t height, format fmt, memory_type_index mem_id,
-		buffer_usage::mask allowed_usage
+		std::size_t width, std::size_t height, format fmt, memory_type_index mem_id, buffer_usage_mask all_usages
 	) {
-		D3D12_RESOURCE_DESC image_desc = _details::resource_desc::for_image2d(
-			width, height, 1, 1, fmt, image_tiling::row_major
+		// TODO will different usages affect size calculation?
+		D3D12_RESOURCE_DESC1 image_desc = _details::resource_desc::for_image2d(
+			width, height, 1, 1, fmt, image_tiling::row_major, image_usage_mask::copy_destination
 		);
 		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 		UINT64 total_bytes = 0;
-		_device->GetCopyableFootprints(&image_desc, 0, 1, 0, &footprint, nullptr, nullptr, &total_bytes);
+		_device->GetCopyableFootprints1(&image_desc, 0, 1, 0, &footprint, nullptr, nullptr, &total_bytes);
 		assert(footprint.Offset == 0); // assume we always start immediatly - no reason not to
 
-		buffer result = create_committed_buffer(static_cast<std::size_t>(total_bytes), mem_id, allowed_usage);
+		buffer result = create_committed_buffer(static_cast<std::size_t>(total_bytes), mem_id, all_usages);
 		staging_buffer_pitch result_pitch = uninitialized;
 		result_pitch._pitch = footprint.Footprint.RowPitch;
 		return std::make_tuple(std::move(result), result_pitch, total_bytes);
@@ -729,7 +733,7 @@ namespace lotus::gpu::backends::directx12 {
 		result._desc.ComparisonFunc =
 			comparison.has_value() ?
 			_details::conversions::to_comparison_function(comparison.value()) :
-			D3D12_COMPARISON_FUNC_ALWAYS;
+			D3D12_COMPARISON_FUNC_NONE;
 		result._desc.BorderColor[0] = border_color.r;
 		result._desc.BorderColor[1] = border_color.g;
 		result._desc.BorderColor[2] = border_color.b;
@@ -1047,7 +1051,7 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
-	device::device(_details::com_ptr<ID3D12Device8> dev) : _device(std::move(dev)) {
+	device::device(_details::com_ptr<ID3D12Device10> dev) : _device(std::move(dev)) {
 		_rtv_descriptors.initialize(*_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, descriptor_heap_size);
 		_dsv_descriptors.initialize(*_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, descriptor_heap_size);
 		_srv_descriptors.initialize(*_device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, descriptor_heap_size);
@@ -1062,7 +1066,7 @@ namespace lotus::gpu::backends::directx12 {
 
 
 	device adapter::create_device() {
-		_details::com_ptr<ID3D12Device8> result;
+		_details::com_ptr<ID3D12Device10> result;
 		_details::assert_dx(D3D12CreateDevice(_adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&result)));
 		_details::com_ptr<ID3D12InfoQueue1> info_queue;
 		HRESULT res = result->QueryInterface(IID_PPV_ARGS(&info_queue));

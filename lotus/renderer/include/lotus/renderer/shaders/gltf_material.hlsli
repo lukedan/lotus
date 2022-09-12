@@ -26,10 +26,10 @@ struct vs_output {
 
 Texture2D<float4> material_textures[] : register(t0, space0);
 
-ConstantBuffer<gltf_material> material : register(b0, space1);
-ConstantBuffer<instance_data> instance : register(b1, space1);
-ConstantBuffer<view_data> view         : register(b2, space1);
-SamplerState linear_sampler            : register(s3, space1);
+ConstantBuffer<gltf_material> instance_material : register(b0, space1);
+ConstantBuffer<instance_data> instance          : register(b1, space1);
+ConstantBuffer<view_data> view                  : register(b2, space1);
+SamplerState linear_sampler                     : register(s3, space1);
 
 vs_output transform_geometry(vs_input input) {
 	vs_output result = (vs_output)0;
@@ -54,10 +54,11 @@ vs_output transform_geometry(vs_input input) {
 	return result;
 }
 
-material_output evaluate_material(vs_output input) {
-	material_output result = (material_output)0;
-	result.albedo    = material_textures[material.assets.albedo_texture].Sample(linear_sampler, input.uv);
-	result.normal_ts = material_textures[material.assets.normal_texture].Sample(linear_sampler, input.uv) * 2.0f - 1.0f;
+material::basic_properties evaluate_material(vs_output input) {
+	material::basic_properties result = (material::basic_properties)0;
+	result.albedo    = material_textures[instance_material.assets.albedo_texture].Sample(linear_sampler, input.uv).rgb;
+	result.normal_ts = material_textures[instance_material.assets.normal_texture].Sample(linear_sampler, input.uv).rgb;
+	result.normal_ts = result.normal_ts * 2.0f - 1.0f;
 	return result;
 }
 

@@ -117,6 +117,14 @@ namespace lotus::renderer {
 
 			std::vector<std::byte> data; ///< Constant buffer data.
 		};
+		/// A top-level acceleration structure.
+		struct tlas {
+			/// Initializes all fields of this structure.
+			explicit tlas(renderer::tlas as) : acceleration_structure(std::move(as)) {
+			}
+
+			renderer::tlas acceleration_structure; ///< The acceleration structure.
+		};
 		/// A sampler.
 		struct sampler {
 			/// Initializes the sampler value to a default point sampler.
@@ -157,7 +165,14 @@ namespace lotus::renderer {
 
 
 		/// A union of all possible resource types.
-		using value = std::variant<image2d, swap_chain_image, buffer, immediate_constant_buffer, sampler>;
+		using value = std::variant<
+			image2d,
+			swap_chain_image,
+			buffer,
+			immediate_constant_buffer,
+			tlas,
+			sampler
+		>;
 	}
 
 	/// The binding of a single resource.

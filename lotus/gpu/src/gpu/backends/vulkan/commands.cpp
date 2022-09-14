@@ -246,39 +246,40 @@ namespace lotus::gpu::backends::vulkan {
 
 	void command_list::resource_barrier(std::span<const image_barrier> imgs, std::span<const buffer_barrier> bufs) {
 		auto bookmark = stack_allocator::for_this_thread().bookmark();
-		auto img_barriers = bookmark.create_reserved_vector_array<vk::ImageMemoryBarrier>(imgs.size());
-		auto buf_barriers = bookmark.create_reserved_vector_array<vk::BufferMemoryBarrier>(bufs.size());
+		auto img_barriers = bookmark.create_reserved_vector_array<vk::ImageMemoryBarrier2>(imgs.size());
+		auto buf_barriers = bookmark.create_reserved_vector_array<vk::BufferMemoryBarrier2>(bufs.size());
 		for (const auto &i : imgs) {
-			auto [from_access, from_layout] = _details::conversions::to_image_access_layout(i.from_state);
-			auto [to_access, to_layout] = _details::conversions::to_image_access_layout(i.to_state);
-			vk::ImageMemoryBarrier barrier;
+			auto &barrier = img_barriers.emplace_back();
 			barrier
-				.setSrcAccessMask(from_access)
-				.setDstAccessMask(to_access)
-				.setOldLayout(from_layout)
-				.setNewLayout(to_layout)
+				.setSrcStageMask(_details::conversions::to_pipeline_stage_flags_2(i.from_point))
+				.setSrcAccessMask(_details::conversions::to_access_flags_2(i.from_access))
+				.setDstStageMask(_details::conversions::to_pipeline_stage_flags_2(i.to_point))
+				.setDstAccessMask(_details::conversions::to_access_flags_2(i.to_access))
+				.setOldLayout(_details::conversions::to_image_layout(i.from_layout))
+				.setNewLayout(_details::conversions::to_image_layout(i.to_layout))
 				.setSrcQueueFamilyIndex(0) // TODO
 				.setDstQueueFamilyIndex(0)
 				.setImage(static_cast<_details::image*>(i.target)->_image)
-				.setSubresourceRange(_details::conversions::to_image_subresource_range(i.subresource));
-			img_barriers.emplace_back(barrier);
+				.setSubresourceRange(_details::conversions::to_image_subresource_range(i.subresources));
 		}
 		for (const auto &b : bufs) {
-			vk::BufferMemoryBarrier barrier;
+			auto &barrier = buf_barriers.emplace_back();
 			barrier
-				.setSrcAccessMask(_details::conversions::to_access_flags(b.from_state))
-				.setDstAccessMask(_details::conversions::to_access_flags(b.to_state))
+				.setSrcStageMask(_details::conversions::to_pipeline_stage_flags_2(b.from_point))
+				.setSrcAccessMask(_details::conversions::to_access_flags_2(b.from_access))
+				.setDstStageMask(_details::conversions::to_pipeline_stage_flags_2(b.to_point))
+				.setDstAccessMask(_details::conversions::to_access_flags_2(b.to_access))
 				.setSrcQueueFamilyIndex(0) // TODO
 				.setDstQueueFamilyIndex(0)
 				.setBuffer(static_cast<buffer*>(b.target)->_buffer)
 				.setOffset(0)
 				.setSize(VK_WHOLE_SIZE);
-			buf_barriers.emplace_back(barrier);
 		}
-		_buffer.pipelineBarrier(
-			vk::PipelineStageFlagBits::eAllGraphics, vk::PipelineStageFlagBits::eAllGraphics, vk::DependencyFlags(),
-			{}, buf_barriers, img_barriers
-		);
+		vk::DependencyInfo info;
+		info
+			.setImageMemoryBarriers(img_barriers)
+			.setBufferMemoryBarriers(buf_barriers);
+		_buffer.pipelineBarrier2(info);
 	}
 
 	void command_list::end_pass() {

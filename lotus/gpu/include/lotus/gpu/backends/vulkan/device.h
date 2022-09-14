@@ -139,18 +139,18 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::UniqueDevice::createBuffer() to create the buffer, then calls
 		/// \p vk::UniqueDevice::allocateMemory() to allocate memory for it.
 		[[nodiscard]] buffer create_committed_buffer(
-			std::size_t size, memory_type_index, buffer_usage::mask allowed_usage
+			std::size_t size, memory_type_index, buffer_usage_mask allowed_usage
 		);
 		/// Calls \p vk::UniqueDevice::createImage() to create the image, then calls
 		/// \p vk::UniqueDevice::allocateMemory() to allocate memory for it.
 		[[nodiscard]] image2d create_committed_image2d(
 			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format, image_tiling, image_usage::mask allowed_usage
+			format, image_tiling, image_usage_mask allowed_usage
 		);
 		/// Obtains the layout of the buffer by creating a dummy image object, then calls
 		/// \ref create_committed_buffer() to create the buffer.
 		[[nodiscard]] std::tuple<buffer, staging_buffer_pitch, std::size_t> create_committed_staging_buffer(
-			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage::mask allowed_usage
+			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage_mask allowed_usage
 		);
 
 		/// Calls \ref _map_memory().

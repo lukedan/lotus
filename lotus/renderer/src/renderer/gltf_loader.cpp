@@ -194,7 +194,7 @@ namespace lotus::renderer::gltf {
 					geom.num_vertices = static_cast<std::uint32_t>(model.accessors[it->second].count);
 					geom.vertex_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
-						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only | gpu::buffer_usage_mask::acceleration_structure_build_input
 					);
 				}
 				if (auto it = prim.attributes.find("NORMAL"); it != prim.attributes.end()) {
@@ -218,7 +218,7 @@ namespace lotus::renderer::gltf {
 				if (prim.indices >= 0) {
 					geom.index_buffer = _load_data_buffer<std::uint32_t>(
 						_asset_manager, path, model, prim.indices, 1,
-						gpu::buffer_usage_mask::index_buffer | gpu::buffer_usage_mask::shader_read_only
+						gpu::buffer_usage_mask::index_buffer | gpu::buffer_usage_mask::shader_read_only | gpu::buffer_usage_mask::acceleration_structure_build_input
 					);
 					geom.index_format = gpu::index_format::uint32;
 					geom.index_offset = 0;

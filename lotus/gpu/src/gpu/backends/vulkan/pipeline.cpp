@@ -40,9 +40,11 @@ namespace lotus::gpu::backends::vulkan {
 
 	shader_reflection shader_library_reflection::find_shader(std::u8string_view entry, shader_stage stage) const {
 		auto count = _reflection->GetEntryPointCount();
-		auto stage_bits = _details::conversions::to_shader_stage_flags(stage);
+		auto stage_bits = static_cast<SpvReflectShaderStageFlagBits>(static_cast<VkShaderStageFlags>(
+			_details::conversions::to_shader_stage_flags(stage)
+		));
 		for (std::uint32_t i = 0; i < count; ++i) {
-			if (static_cast<VkShaderStageFlags>(stage_bits) != _reflection->GetEntryPointShaderStage(i)) {
+			if (stage_bits != _reflection->GetEntryPointShaderStage(i)) {
 				continue;
 			}
 			auto entry_name = _reflection->GetEntryPointName(i);

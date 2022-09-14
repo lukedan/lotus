@@ -69,89 +69,108 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::ImageAspectFlags to_image_aspect_flags(image_aspect_mask mask) {
-			constexpr static std::pair<image_aspect_mask, vk::ImageAspectFlagBits> table[]{
-				{ image_aspect_mask::color,   vk::ImageAspectFlagBits::eColor   },
-				{ image_aspect_mask::depth,   vk::ImageAspectFlagBits::eDepth   },
-				{ image_aspect_mask::stencil, vk::ImageAspectFlagBits::eStencil },
+			constexpr static bit_mask_mapping<image_aspect_mask, vk::ImageAspectFlagBits> table{
+				std::pair(image_aspect_mask::color,   vk::ImageAspectFlagBits::eColor  ),
+				std::pair(image_aspect_mask::depth,   vk::ImageAspectFlagBits::eDepth  ),
+				std::pair(image_aspect_mask::stencil, vk::ImageAspectFlagBits::eStencil),
 			};
-			vk::ImageAspectFlags result;
-			for (auto [myval, vkval] : table) {
-				if ((mask & myval) == myval) {
-					result |= vkval;
-					mask &= ~myval;
-				}
-			}
-			assert(is_empty(mask));
-			return result;
+			return table.get_union(mask);
 		}
 
-		std::pair<vk::AccessFlags, vk::ImageLayout> to_image_access_layout(image_usage usage) {
-			constexpr static enum_mapping<image_usage, std::pair<vk::AccessFlags, vk::ImageLayout>> table{
-				std::pair(image_usage::color_render_target,         std::pair(vk::AccessFlagBits::eColorAttachmentWrite,                          vk::ImageLayout::eColorAttachmentOptimal       )),
-				std::pair(image_usage::depth_stencil_render_target, std::pair(vk::AccessFlagBits::eDepthStencilAttachmentWrite,                   vk::ImageLayout::eDepthStencilAttachmentOptimal)),
-				std::pair(image_usage::read_only_texture,           std::pair(vk::AccessFlagBits::eShaderRead,                                    vk::ImageLayout::eShaderReadOnlyOptimal        )),
-				std::pair(image_usage::read_write_color_texture,    std::pair(vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite, vk::ImageLayout::eGeneral                      )),
-				std::pair(image_usage::present,                     std::pair(vk::AccessFlags(),                                                  vk::ImageLayout::ePresentSrcKHR                )),
-				std::pair(image_usage::copy_source,                 std::pair(vk::AccessFlagBits::eTransferRead,                                  vk::ImageLayout::eTransferSrcOptimal           )),
-				std::pair(image_usage::copy_destination,            std::pair(vk::AccessFlagBits::eTransferWrite,                                 vk::ImageLayout::eTransferDstOptimal           )),
-				std::pair(image_usage::initial,                     std::pair(vk::AccessFlags(),                                                  vk::ImageLayout::eUndefined                    )),
+		vk::ImageLayout to_image_layout(image_layout layout) {
+			constexpr static enum_mapping<image_layout, vk::ImageLayout> table{
+				std::pair(image_layout::undefined,                vk::ImageLayout::eUndefined                    ),
+				std::pair(image_layout::general,                  vk::ImageLayout::eGeneral                      ),
+				std::pair(image_layout::copy_source,              vk::ImageLayout::eTransferSrcOptimal           ),
+				std::pair(image_layout::copy_destination,         vk::ImageLayout::eTransferDstOptimal           ),
+				std::pair(image_layout::present,                  vk::ImageLayout::ePresentSrcKHR                ),
+				std::pair(image_layout::color_render_target,      vk::ImageLayout::eColorAttachmentOptimal       ),
+				std::pair(image_layout::depth_stencil_read_only,  vk::ImageLayout::eDepthStencilReadOnlyOptimal  ),
+				std::pair(image_layout::depth_stencil_read_write, vk::ImageLayout::eDepthStencilAttachmentOptimal),
+				std::pair(image_layout::shader_read_only,         vk::ImageLayout::eShaderReadOnlyOptimal        ),
+				std::pair(image_layout::shader_read_write,        vk::ImageLayout::eGeneral                      ),
 			};
-			return table[usage];
+			return table[layout];
 		}
 
-		vk::BufferUsageFlags to_buffer_usage_flags(buffer_usage::mask mask) {
-			constexpr static std::pair<buffer_usage::mask, vk::BufferUsageFlags> table[]{
-				{ buffer_usage::mask::index_buffer,           vk::BufferUsageFlagBits::eIndexBuffer                                             },
-				{ buffer_usage::mask::vertex_buffer,          vk::BufferUsageFlagBits::eVertexBuffer                                            },
-				{ buffer_usage::mask::read_only_buffer,       vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer },
-				{ buffer_usage::mask::read_write_buffer,      vk::BufferUsageFlagBits::eStorageBuffer                                           },
-				{ buffer_usage::mask::copy_source,            vk::BufferUsageFlagBits::eTransferSrc                                             },
-				{ buffer_usage::mask::copy_destination,       vk::BufferUsageFlagBits::eTransferDst                                             },
-				{ buffer_usage::mask::acceleration_structure, vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR                         },
+		vk::BufferUsageFlags to_buffer_usage_flags(buffer_usage_mask mask) {
+			constexpr static bit_mask_mapping<buffer_usage_mask, vk::BufferUsageFlagBits> table{
+				std::pair(buffer_usage_mask::copy_source,                        vk::BufferUsageFlagBits::eTransferSrc                               ),
+				std::pair(buffer_usage_mask::copy_destination,                   vk::BufferUsageFlagBits::eTransferDst                               ),
+				std::pair(buffer_usage_mask::shader_read_only,                   vk::BufferUsageFlagBits::eUniformBuffer                             ),
+				std::pair(buffer_usage_mask::shader_read_write,                  vk::BufferUsageFlagBits::eStorageBuffer                             ),
+				std::pair(buffer_usage_mask::index_buffer,                       vk::BufferUsageFlagBits::eIndexBuffer                               ),
+				std::pair(buffer_usage_mask::vertex_buffer,                      vk::BufferUsageFlagBits::eVertexBuffer                              ),
+				std::pair(buffer_usage_mask::acceleration_structure_build_input, vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR),
+				std::pair(buffer_usage_mask::acceleration_structure,             vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR           ),
+				std::pair(buffer_usage_mask::shader_record_table,                vk::BufferUsageFlagBits::eShaderBindingTableKHR                     ),
 			};
-			vk::BufferUsageFlags result;
-			for (auto [myval, vkval] : table) {
-				if ((mask & myval) == myval) {
-					result |= vkval;
-					mask &= ~myval;
-				}
-			}
-			assert(is_empty(mask));
-			return result;
+			return table.get_union(mask);
 		}
 
-		vk::ImageUsageFlags to_image_usage_flags(image_usage::mask mask) {
-			constexpr static std::pair<image_usage::mask, vk::ImageUsageFlags> table[]{
-				{ image_usage::mask::color_render_target,         vk::ImageUsageFlagBits::eColorAttachment        },
-				{ image_usage::mask::depth_stencil_render_target, vk::ImageUsageFlagBits::eDepthStencilAttachment },
-				{ image_usage::mask::read_only_texture,           vk::ImageUsageFlagBits::eSampled                },
-				{ image_usage::mask::read_write_color_texture,    vk::ImageUsageFlagBits::eStorage                },
-				{ image_usage::mask::present,                     vk::ImageUsageFlagBits()                        }, // TODO what should this be?
-				{ image_usage::mask::copy_source,                 vk::ImageUsageFlagBits::eTransferSrc            },
-				{ image_usage::mask::copy_destination,            vk::ImageUsageFlagBits::eTransferDst            },
+		vk::ImageUsageFlags to_image_usage_flags(image_usage_mask mask) {
+			constexpr static bit_mask_mapping<image_usage_mask, vk::ImageUsageFlagBits> table{
+				std::pair(image_usage_mask::copy_source,                 vk::ImageUsageFlagBits::eTransferSrc           ),
+				std::pair(image_usage_mask::copy_destination,            vk::ImageUsageFlagBits::eTransferDst           ),
+				std::pair(image_usage_mask::shader_read_only,            vk::ImageUsageFlagBits::eSampled               ),
+				std::pair(image_usage_mask::shader_read_write,           vk::ImageUsageFlagBits::eStorage               ),
+				std::pair(image_usage_mask::color_render_target,         vk::ImageUsageFlagBits::eColorAttachment       ),
+				std::pair(image_usage_mask::depth_stencil_render_target, vk::ImageUsageFlagBits::eDepthStencilAttachment),
 			};
-			vk::ImageUsageFlags result;
-			for (auto [myval, vkval] : table) {
-				if ((mask & myval) == myval) {
-					result |= vkval;
-					mask &= ~myval;
-				}
-			}
-			assert(is_empty(mask));
-			return result;
+			return table.get_union(mask);
 		}
 
-		vk::AccessFlags to_access_flags(buffer_usage usage) {
-			constexpr static enum_mapping<buffer_usage, vk::AccessFlags> table{
-				std::pair(buffer_usage::index_buffer,           vk::AccessFlagBits::eIndexRead                                    ),
-				std::pair(buffer_usage::vertex_buffer,          vk::AccessFlagBits::eVertexAttributeRead                          ),
-				std::pair(buffer_usage::read_only_buffer,       vk::AccessFlagBits::eUniformRead                                  ),
-				std::pair(buffer_usage::read_write_buffer,      vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite),
-				std::pair(buffer_usage::copy_source,            vk::AccessFlagBits::eTransferRead                                 ),
-				std::pair(buffer_usage::copy_destination,       vk::AccessFlagBits::eTransferWrite                                ),
-				std::pair(buffer_usage::acceleration_structure, vk::AccessFlagBits::eAccelerationStructureReadKHR                 ), // TODO this won't work
+		vk::PipelineStageFlags2 to_pipeline_stage_flags_2(synchronization_point_mask mask) {
+			constexpr static bit_mask_mapping<synchronization_point_mask, vk::PipelineStageFlagBits2> table{
+				std::pair(synchronization_point_mask::all,                          vk::PipelineStageFlagBits2::eAllCommands                  ),
+				std::pair(synchronization_point_mask::all_graphics,                 vk::PipelineStageFlagBits2::eAllGraphics                  ),
+				std::pair(synchronization_point_mask::index_input,                  vk::PipelineStageFlagBits2::eIndexInput                   ),
+				std::pair(synchronization_point_mask::vertex_input,                 vk::PipelineStageFlagBits2::eVertexAttributeInput         ),
+				std::pair(synchronization_point_mask::vertex_shader,                vk::PipelineStageFlagBits2::eVertexShader                 ),
+				std::pair(synchronization_point_mask::pixel_shader,                 vk::PipelineStageFlagBits2::eFragmentShader               ),
+				std::pair(synchronization_point_mask::depth_stencil_read_write,     flags_to_bits(
+					vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests
+				)),
+				std::pair(synchronization_point_mask::render_target_read_write,     vk::PipelineStageFlagBits2::eColorAttachmentOutput        ),
+				std::pair(synchronization_point_mask::compute_shader,               vk::PipelineStageFlagBits2::eComputeShader                ),
+				std::pair(synchronization_point_mask::raytracing,                   vk::PipelineStageFlagBits2::eRayTracingShaderKHR          ),
+				std::pair(synchronization_point_mask::copy,                         vk::PipelineStageFlagBits2::eTransfer                     ),
+				std::pair(synchronization_point_mask::acceleration_structure_build, vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR),
+				std::pair(synchronization_point_mask::acceleration_structure_copy,  vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR),
+				std::pair(synchronization_point_mask::cpu_access,                   vk::PipelineStageFlagBits2::eHost                         ),
 			};
-			return table[usage];
+			return table.get_union(mask);
+		}
+
+		vk::AccessFlags2 to_access_flags_2(buffer_access_mask access) {
+			constexpr static bit_mask_mapping<buffer_access_mask, vk::AccessFlagBits2> table{
+				std::pair(buffer_access_mask::copy_source,                        vk::AccessFlagBits2::eTransferRead                 ),
+				std::pair(buffer_access_mask::copy_destination,                   vk::AccessFlagBits2::eTransferWrite                ),
+				std::pair(buffer_access_mask::vertex_buffer,                      vk::AccessFlagBits2::eVertexAttributeRead          ),
+				std::pair(buffer_access_mask::index_buffer,                       vk::AccessFlagBits2::eIndexRead                    ),
+				std::pair(buffer_access_mask::constant_buffer,                    vk::AccessFlagBits2::eUniformRead                  ),
+				std::pair(buffer_access_mask::shader_read_only,                   vk::AccessFlagBits2::eShaderRead                   ),
+				std::pair(buffer_access_mask::shader_read_write,                  vk::AccessFlagBits2::eShaderWrite                  ),
+				std::pair(buffer_access_mask::acceleration_structure_build_input, vk::AccessFlagBits2::eAccelerationStructureReadKHR ),
+				std::pair(buffer_access_mask::acceleration_structure_read,        vk::AccessFlagBits2::eAccelerationStructureReadKHR ),
+				std::pair(buffer_access_mask::acceleration_structure_write,       vk::AccessFlagBits2::eAccelerationStructureWriteKHR),
+				std::pair(buffer_access_mask::cpu_read,                           vk::AccessFlagBits2::eHostRead                     ),
+				std::pair(buffer_access_mask::cpu_write,                          vk::AccessFlagBits2::eHostWrite                    ),
+			};
+			return table.get_union(access);
+		}
+
+		vk::AccessFlags2 to_access_flags_2(image_access_mask access) {
+			constexpr static bit_mask_mapping<image_access_mask, vk::AccessFlagBits2> table{
+				std::pair(image_access_mask::copy_source,              vk::AccessFlagBits2::eTransferRead),
+				std::pair(image_access_mask::copy_destination,         vk::AccessFlagBits2::eTransferWrite),
+				std::pair(image_access_mask::color_render_target,      vk::AccessFlagBits2::eColorAttachmentWrite),
+				std::pair(image_access_mask::depth_stencil_read_only,  vk::AccessFlagBits2::eDepthStencilAttachmentRead),
+				std::pair(image_access_mask::depth_stencil_read_write, vk::AccessFlagBits2::eDepthStencilAttachmentWrite),
+				std::pair(image_access_mask::shader_read_only,         vk::AccessFlagBits2::eShaderRead),
+				std::pair(image_access_mask::shader_read_write,        vk::AccessFlagBits2::eShaderWrite),
+			};
+			return table.get_union(access);
 		}
 
 		vk::DescriptorType to_descriptor_type(descriptor_type ty) {
@@ -306,21 +325,13 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::ColorComponentFlags to_color_component_flags(channel_mask mask) {
-			constexpr static std::pair<channel_mask, vk::ColorComponentFlagBits> table[]{
-				{ channel_mask::red,   vk::ColorComponentFlagBits::eR },
-				{ channel_mask::green, vk::ColorComponentFlagBits::eG },
-				{ channel_mask::blue,  vk::ColorComponentFlagBits::eB },
-				{ channel_mask::alpha, vk::ColorComponentFlagBits::eA },
+			constexpr static bit_mask_mapping<channel_mask, vk::ColorComponentFlagBits> table{
+				std::pair(channel_mask::red,   vk::ColorComponentFlagBits::eR),
+				std::pair(channel_mask::green, vk::ColorComponentFlagBits::eG),
+				std::pair(channel_mask::blue,  vk::ColorComponentFlagBits::eB),
+				std::pair(channel_mask::alpha, vk::ColorComponentFlagBits::eA),
 			};
-			vk::ColorComponentFlags result;
-			for (auto [myval, vkval] : table) {
-				if ((mask & myval) == myval) {
-					result |= vkval;
-					mask &= ~myval;
-				}
-			}
-			assert(is_empty(mask));
-			return result;
+			return table.get_union(mask);
 		}
 
 		vk::AttachmentLoadOp to_attachment_load_op(pass_load_operation op) {
@@ -359,14 +370,14 @@ namespace lotus::gpu::backends::vulkan::_details {
 			return result;
 		}
 
-		vk::ImageSubresourceRange to_image_subresource_range(const subresource_index &id) {
+		vk::ImageSubresourceRange to_image_subresource_range(const subresource_range &id) {
 			vk::ImageSubresourceRange result;
 			result
 				.setAspectMask(to_image_aspect_flags(id.aspects))
-				.setBaseMipLevel(id.mip_level)
-				.setLevelCount(1)
-				.setBaseArrayLayer(id.array_slice)
-				.setLayerCount(1);
+				.setBaseMipLevel(id.first_mip_level)
+				.setLevelCount(id.num_mip_levels)
+				.setBaseArrayLayer(id.first_array_slice)
+				.setLayerCount(id.num_array_slices);
 			return result;
 		}
 

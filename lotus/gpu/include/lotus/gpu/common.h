@@ -492,19 +492,21 @@ namespace lotus::gpu {
 		none                         = 0,       ///< No synchronization.
 		all                          = 1 << 0,  ///< Any operation.
 		all_graphics                 = 1 << 1,  ///< Any graphics-related operation.
-		vertex_input                 = 1 << 2,  ///< Vertex input stage where vertex and index buffers are consumed.
-		vertex_shader                = 1 << 3,  ///< All vertex related shader stages.
-		pixel_shader                 = 1 << 4,  ///< Pixel shader stage.
-		depth_stencil_read_write     = 1 << 5,  ///< Depth stencil read/write operations, such as depth testing.
-		render_target_read_write     = 1 << 6,  ///< Render target read/write operations.
-		compute_shader               = 1 << 7,  ///< Compute shader execution.
-		raytracing                   = 1 << 8,  ///< Raytracing operations.
-		copy                         = 1 << 9,  ///< Copy operations.
-		acceleration_structure_build = 1 << 10, ///< Acceleration structure build operations.
-		acceleration_structure_copy  = 1 << 11, ///< Acceleration structure copy operations.
-		cpu_access                   = 1 << 12, ///< CPU access.
+		index_input                  = 1 << 2,  ///< Index input stage where index buffers are consumed.
+		// For DX12U barriers this is equivalent to vertex_shader; for Vulkan this is a separate stage.
+		vertex_input                 = 1 << 3,  ///< Where vertex buffers are consumed.
+		vertex_shader                = 1 << 4,  ///< All vertex related shader stages.
+		pixel_shader                 = 1 << 5,  ///< Pixel shader stage.
+		depth_stencil_read_write     = 1 << 6,  ///< Depth stencil read/write operations, such as depth testing.
+		render_target_read_write     = 1 << 7,  ///< Render target read/write operations.
+		compute_shader               = 1 << 8,  ///< Compute shader execution.
+		raytracing                   = 1 << 9,  ///< Raytracing operations.
+		copy                         = 1 << 10,  ///< Copy operations.
+		acceleration_structure_build = 1 << 11, ///< Acceleration structure build operations.
+		acceleration_structure_copy  = 1 << 12, ///< Acceleration structure copy operations.
+		cpu_access                   = 1 << 13, ///< CPU access.
 
-		num_enumerators = 13 ///< Number of valid bits.
+		num_enumerators = 14 ///< Number of valid bits.
 	};
 }
 namespace lotus {

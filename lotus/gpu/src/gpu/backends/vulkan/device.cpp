@@ -662,14 +662,14 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	buffer device::create_committed_buffer(
-		std::size_t size, memory_type_index mem_id, buffer_usage::mask allowed_usage
+		std::size_t size, memory_type_index mem_id, buffer_usage_mask allowed_usage
 	) {
 		buffer result = nullptr;
 		result._device = _device.get();
 
 		vk::BufferCreateInfo buf_info;
 		buf_info
-			.setSize(size)
+			.setSize(memory::align_up(size, _device_limits.nonCoherentAtomSize))
 			.setUsage(
 				_details::conversions::to_buffer_usage_flags(allowed_usage) |
 				vk::BufferUsageFlagBits::eShaderDeviceAddress
@@ -702,7 +702,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	image2d device::create_committed_image2d(
 		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-		format fmt, image_tiling tiling, image_usage::mask allowed_usage
+		format fmt, image_tiling tiling, image_usage_mask allowed_usage
 	) {
 		image2d result = nullptr;
 		result._device = _device.get();
@@ -745,7 +745,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_staging_buffer(
 		std::size_t width, std::size_t height, format fmt, memory_type_index mem_id,
-		buffer_usage::mask allowed_usage
+		buffer_usage_mask allowed_usage
 	) {
 		vk::SubresourceLayout layout;
 		{
@@ -1231,8 +1231,8 @@ namespace lotus::gpu::backends::vulkan {
 		if (len > 0) {
 			vk::DeviceSize align = _device_limits.nonCoherentAtomSize;
 			std::size_t end = beg + len;
-			beg = align * (beg / align);
-			end = align * ((end + align - 1) / align);
+			beg = memory::align_down(beg, align);
+			end = memory::align_up(end, align);
 			len = end - beg;
 			vk::MappedMemoryRange range;
 			range
@@ -1287,6 +1287,8 @@ namespace lotus::gpu::backends::vulkan {
 			VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 			VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 			VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+			VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+			VK_KHR_RAY_QUERY_EXTENSION_NAME,
 			/*VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
@@ -1334,6 +1336,7 @@ namespace lotus::gpu::backends::vulkan {
 		vk::PhysicalDeviceVulkan13Features vk13_features;
 		vk13_features
 			.setPNext(&acceleration_structure_features)
+			.setSynchronization2(true)
 			.setDynamicRendering(true);
 
 		vk::PhysicalDeviceVulkan12Features vk12_features;

@@ -1167,7 +1167,7 @@ namespace lotus::renderer {
 			ectx.stage_transition(
 				*input.data._buffer,
 				_details::buffer_access(
-					gpu::synchronization_point_mask::vertex_shader,
+					gpu::synchronization_point_mask::vertex_input,
 					gpu::buffer_access_mask::vertex_buffer
 				)
 			);
@@ -1176,7 +1176,7 @@ namespace lotus::renderer {
 			ectx.stage_transition(
 				*cmd.index_buffer.data._buffer,
 				_details::buffer_access(
-					gpu::synchronization_point_mask::vertex_input,
+					gpu::synchronization_point_mask::index_input,
 					gpu::buffer_access_mask::index_buffer
 				)
 			);

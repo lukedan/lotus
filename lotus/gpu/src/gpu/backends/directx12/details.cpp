@@ -222,7 +222,8 @@ namespace lotus::gpu::backends::directx12::_details {
 			constexpr static bit_mask_mapping<synchronization_point_mask, D3D12_BARRIER_SYNC> table{
 				std::pair(synchronization_point_mask::all,                          D3D12_BARRIER_SYNC_ALL                                    ),
 				std::pair(synchronization_point_mask::all_graphics,                 D3D12_BARRIER_SYNC_DRAW                                   ),
-				std::pair(synchronization_point_mask::vertex_input,                 D3D12_BARRIER_SYNC_INPUT_ASSEMBLER                        ),
+				std::pair(synchronization_point_mask::index_input,                  D3D12_BARRIER_SYNC_INPUT_ASSEMBLER                        ),
+				std::pair(synchronization_point_mask::vertex_input,                 D3D12_BARRIER_SYNC_VERTEX_SHADING                         ),
 				std::pair(synchronization_point_mask::vertex_shader,                D3D12_BARRIER_SYNC_VERTEX_SHADING                         ),
 				std::pair(synchronization_point_mask::pixel_shader,                 D3D12_BARRIER_SYNC_PIXEL_SHADING                          ),
 				std::pair(synchronization_point_mask::depth_stencil_read_write,     D3D12_BARRIER_SYNC_DEPTH_STENCIL                          ),

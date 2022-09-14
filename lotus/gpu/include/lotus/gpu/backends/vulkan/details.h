@@ -30,6 +30,11 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 	}
 
+	/// Converts a Vulkan flags object back to its bits enum type.
+	template <typename Bits> [[nodiscard]] inline constexpr typename Bits flags_to_bits(vk::Flags<Bits> v) {
+		return static_cast<Bits>(static_cast<std::underlying_type_t<Bits>>(v));
+	}
+
 	/// Conversions to Vulkan data types.
 	namespace conversions {
 		/// Converts a \ref format to a \p vk::Format.
@@ -38,14 +43,18 @@ namespace lotus::gpu::backends::vulkan::_details {
 		[[nodiscard]] vk::IndexType to_index_type(index_format);
 		/// Converts a \ref image_aspect_mask to a \p vk::ImageAspectFlags.
 		[[nodiscard]] vk::ImageAspectFlags to_image_aspect_flags(image_aspect_mask);
-		/// Converts a \ref image_usage to a \p vk::AccessFlags and \p vk::ImageLayout.
-		[[nodiscard]] std::pair<vk::AccessFlags, vk::ImageLayout> to_image_access_layout(image_usage);
-		/// Converts a \ref buffer_usage::mask to a \p vk::BufferUsageFlags.
-		[[nodiscard]] vk::BufferUsageFlags to_buffer_usage_flags(buffer_usage::mask);
-		/// Converts a \ref image_usage::mask to a \p vk::ImageUsageFlags.
-		[[nodiscard]] vk::ImageUsageFlags to_image_usage_flags(image_usage::mask);
-		/// Converts a \ref buffer_usage to a \p vk::AccessFlags.
-		[[nodiscard]] vk::AccessFlags to_access_flags(buffer_usage);
+		/// Converts a \ref image_layout to a \p vk::ImageLayout.
+		[[nodiscard]] vk::ImageLayout to_image_layout(image_layout);
+		/// Converts a \ref buffer_usage_mask to a \p vk::BufferUsageFlags.
+		[[nodiscard]] vk::BufferUsageFlags to_buffer_usage_flags(buffer_usage_mask);
+		/// Converts a \ref image_usage_mask to a \p vk::ImageUsageFlags.
+		[[nodiscard]] vk::ImageUsageFlags to_image_usage_flags(image_usage_mask);
+		/// Converts a \ref synchronization_point_mask to a \p vk::PipelineStageFlags2.
+		[[nodiscard]] vk::PipelineStageFlags2 to_pipeline_stage_flags_2(synchronization_point_mask);
+		/// Converts a \ref buffer_access_mask to a \p vk::AccessFlags2.
+		[[nodiscard]] vk::AccessFlags2 to_access_flags_2(buffer_access_mask);
+		/// Converts a \ref image_access_mask to a \p vk::AccessFlags2.
+		[[nodiscard]] vk::AccessFlags2 to_access_flags_2(image_access_mask);
 		/// Converts a \ref descriptor_type to a \p vk::DescriptorType.
 		[[nodiscard]] vk::DescriptorType to_descriptor_type(descriptor_type);
 		/// Converts a \ref filtering to a \p vk::Filter.
@@ -93,7 +102,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		/// Converts a \ref subresource_index to a \p vk::ImageSubresourceLayers.
 		[[nodiscard]] vk::ImageSubresourceLayers to_image_subresource_layers(const subresource_index&);
 		/// Converts a \ref subresource_index to a \p vk::ImageSubresourceRange.
-		[[nodiscard]] vk::ImageSubresourceRange to_image_subresource_range(const subresource_index&);
+		[[nodiscard]] vk::ImageSubresourceRange to_image_subresource_range(const subresource_range&);
 		/// Converts a \ref mip_levels to a \p vk::ImageSubresourceRange.
 		[[nodiscard]] vk::ImageSubresourceRange to_image_subresource_range(const mip_levels&, vk::ImageAspectFlags);
 		/// Converts a \ref subresource_index to a \p vk::ImageSubresource.

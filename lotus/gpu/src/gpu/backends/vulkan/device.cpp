@@ -1323,9 +1323,14 @@ namespace lotus::gpu::backends::vulkan {
 			.setCustomBorderColors(true)
 			.setCustomBorderColorWithoutFormat(true);
 
+		vk::PhysicalDeviceRayQueryFeaturesKHR ray_query_features;
+		ray_query_features
+			.setPNext(&border_color_features)
+			.setRayQuery(true);
+
 		vk::PhysicalDeviceRayTracingPipelineFeaturesKHR raytracing_features;
 		raytracing_features
-			.setPNext(&border_color_features)
+			.setPNext(&ray_query_features)
 			.setRayTracingPipeline(true);
 
 		vk::PhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features;

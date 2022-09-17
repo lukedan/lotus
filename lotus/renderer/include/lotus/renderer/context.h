@@ -336,7 +336,11 @@ namespace lotus::renderer {
 			return request_swap_chain(name, wnd, num_images, std::span{ formats.begin(), formats.end() });
 		}
 		/// Creates a descriptor array with the given properties.
-		[[nodiscard]] descriptor_array request_descriptor_array(
+		[[nodiscard]] image_descriptor_array request_image_descriptor_array(
+			std::u8string_view name, gpu::descriptor_type, std::uint32_t capacity
+		);
+		/// Creates a descriptor array with the given properties.
+		[[nodiscard]] buffer_descriptor_array request_buffer_descriptor_array(
 			std::u8string_view name, gpu::descriptor_type, std::uint32_t capacity
 		);
 		/// Creates a bottom-level acceleration structure for the given input geometry.
@@ -360,6 +364,13 @@ namespace lotus::renderer {
 			const buffer &target, std::span<const std::byte> data, std::uint32_t offset,
 			std::u8string_view descriptorion
 		);
+		/// \overload
+		template <typename T> void upload_buffer(
+			const buffer &target, std::span<const T> data, std::uint32_t byte_offset, std::u8string_view description
+		) {
+			auto *d = reinterpret_cast<const std::byte*>(data.data());
+			upload_buffer(target, { d, d + sizeof(T) * data.size() }, byte_offset, description);
+		}
 
 		/// Builds the given \ref blas.
 		void build_blas(blas&, std::u8string_view description);
@@ -441,14 +452,26 @@ namespace lotus::renderer {
 
 
 		/// Writes the given images into the given descriptor array.
-		void write_image_descriptors(descriptor_array&, std::uint32_t first_index, std::span<const image2d_view>);
+		void write_image_descriptors(
+			image_descriptor_array&, std::uint32_t first_index, std::span<const image2d_view>
+		);
 		/// \override
 		void write_image_descriptors(
-			descriptor_array &arr, std::uint32_t first_index, std::initializer_list<image2d_view> imgs
+			image_descriptor_array &arr, std::uint32_t first_index, std::initializer_list<image2d_view> imgs
 		) {
 			write_image_descriptors(arr, first_index, { imgs.begin(), imgs.end() });
 		}
-		// TODO buffer descriptors
+		/// Writes the given buffers into the given descriptor array.
+		void write_buffer_descriptors(
+			buffer_descriptor_array&, std::uint32_t first_index, std::span<const structured_buffer_view>
+		);
+		/// \override
+		void write_buffer_descriptors(
+			buffer_descriptor_array &arr, std::uint32_t first_index,
+			std::initializer_list<structured_buffer_view> bufs
+		) {
+			write_buffer_descriptors(arr, first_index, { bufs.begin(), bufs.end() });
+		}
 	private:
 		/// Indicates a descriptor set bind point.
 		enum class _bind_point {
@@ -649,8 +672,10 @@ namespace lotus::renderer {
 				auto [it, inserted] = _raw_buffer_transitions.emplace(&buf, usage);
 				assert(inserted || it->second == usage);
 			}
-			/// Stages all pending transitions from the given descriptor array.
-			void stage_all_transitions(_details::descriptor_array&);
+			/// Stages all pending transitions from the given image descriptor array.
+			void stage_all_transitions_for(_details::image_descriptor_array&);
+			/// Stages all pending transitions from the given buffer descriptor array.
+			void stage_all_transitions_for(_details::buffer_descriptor_array&);
 			/// Flushes all staged surface transition operations.
 			void flush_transitions();
 
@@ -677,6 +702,15 @@ namespace lotus::renderer {
 			}
 			/// Flushes all staged immediate constant buffers.
 			void flush_immediate_constant_buffers();
+
+			/// Flushes all writes to the given image descriptor array, waiting if necessary.
+			void flush_descriptor_array_writes(
+				_details::image_descriptor_array&, const gpu::descriptor_set_layout&
+			);
+			/// Flushes all writes to the given buffer descriptor array, waiting if necessary.
+			void flush_descriptor_array_writes(
+				_details::buffer_descriptor_array&, const gpu::descriptor_set_layout&
+			);
 		private:
 			/// Initializes this context.
 			_execution_context(context &ctx, _batch_resources &rsrc) :
@@ -763,12 +797,48 @@ namespace lotus::renderer {
 		);
 
 		/// Initializes the given \ref _details::descriptor_array if necessary.
-		void _maybe_initialize_descriptor_array(_details::descriptor_array&);
+		template <typename RecordedResource> void _maybe_initialize_descriptor_array(
+			_details::descriptor_array<RecordedResource> &arr
+		) {
+			if (!arr.set) {
+				const auto &layout = _cache.get_descriptor_set_layout(
+					cache_keys::descriptor_set_layout::from_descriptor_array(arr)
+				);
+				arr.set = _device.create_descriptor_set(_descriptor_pool, layout, arr.capacity);
+				arr.resources.resize(arr.capacity, nullptr);
+			}
+		}
 
 		/// Initializes the given \ref _details::blas if necessary.
 		void _maybe_initialize_blas(_details::blas&);
 		/// Initializes the given \ref _details::tlas if necessary.
 		void _maybe_initialize_tlas(_execution_context&, _details::tlas&);
+
+		/// Writes one descriptor array element into the given array.
+		template <auto MemberPtr, typename RecordedResource> void _write_one_descriptor_array_element(
+			_details::descriptor_array<RecordedResource> &arr, RecordedResource rsrc, std::uint32_t index
+		) {
+			auto &cur_ref = arr.resources[index];
+			if (auto *surf = cur_ref.resource.*MemberPtr) {
+				auto old_index = cur_ref.reference_index;
+				surf->array_references[old_index] = surf->array_references.back();
+				surf->array_references.pop_back();
+				auto new_ref = surf->array_references[old_index];
+				new_ref.array->resources[new_ref.index].reference_index = old_index;
+				cur_ref = nullptr;
+				arr.has_descriptor_overwrites = true;
+			}
+			// update recorded image
+			cur_ref.resource = rsrc;
+			auto &new_surf = *(cur_ref.resource.*MemberPtr);
+			cur_ref.reference_index = static_cast<std::uint32_t>(new_surf.array_references.size());
+			auto &new_ref = new_surf.array_references.emplace_back(nullptr);
+			new_ref.array = &arr;
+			new_ref.index = index;
+			// stage the write
+			arr.staged_transitions.emplace_back(index);
+			arr.staged_writes.emplace_back(index);
+		}
 
 		/// Returns the descriptor type of an image binding.
 		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::image2d &img) const {
@@ -788,7 +858,7 @@ namespace lotus::renderer {
 		}
 		/// Returns the descriptor type of a buffer binding.
 		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(
-			const descriptor_resource::buffer &buf
+			const descriptor_resource::structured_buffer &buf
 		) const {
 			switch (buf.binding_type) {
 			case buffer_binding_type::read_only:
@@ -829,7 +899,7 @@ namespace lotus::renderer {
 		void _create_descriptor_binding(
 			_execution_context&, gpu::descriptor_set&,
 			const gpu::descriptor_set_layout&, std::uint32_t reg,
-			const descriptor_resource::buffer&
+			const descriptor_resource::structured_buffer&
 		);
 		/// Creates a descriptor binding for an immediate constant buffer.
 		void _create_descriptor_binding(
@@ -857,11 +927,20 @@ namespace lotus::renderer {
 			gpu::descriptor_set&
 		> _use_descriptor_set(_execution_context&, const resource_set_binding::descriptor_bindings&);
 		/// Returns the descriptor set of the given bindless descriptor array, and flushes all pending operations.
-		[[nodiscard]] std::tuple<
-			cache_keys::descriptor_set_layout,
-			const gpu::descriptor_set_layout&,
-			gpu::descriptor_set&
-		> _use_descriptor_set(_execution_context&, const recorded_resources::descriptor_array&);
+		template <typename RecordedResource> [[nodiscard]] std::tuple<
+			cache_keys::descriptor_set_layout, const gpu::descriptor_set_layout&, gpu::descriptor_set&
+		> _use_descriptor_set(
+			_execution_context &ectx, const recorded_resources::descriptor_array<RecordedResource> &arr
+		) {
+			auto key = cache_keys::descriptor_set_layout::from_descriptor_array(*arr._array);
+			auto &layout = _cache.get_descriptor_set_layout(key);
+
+			_maybe_initialize_descriptor_array(*arr._array);
+			ectx.stage_all_transitions_for(*arr._array);
+			ectx.flush_descriptor_array_writes(*arr._array, layout);
+
+			return { std::move(key), layout, arr._array->set };
+		}
 
 		/// Checks and creates a descriptor set for the given resources.
 		[[nodiscard]] std::tuple<
@@ -936,7 +1015,11 @@ namespace lotus::renderer {
 			_deferred_delete_resources.swap_chain_meta.emplace_back(chain);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a descriptor array.
-		void _deferred_delete(_details::descriptor_array*) {
+		void _deferred_delete(_details::image_descriptor_array*) {
+			// TODO
+		}
+		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a descriptor array.
+		void _deferred_delete(_details::buffer_descriptor_array*) {
 			// TODO
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a BLAS.

@@ -94,19 +94,24 @@ namespace lotus::renderer {
 	) {
 		_surface_transitions.emplace_back(surf, mips, access);
 		for (const auto &ref : surf.array_references) {
-			const auto &img = ref.arr->images[ref.index].image;
+			const auto &img = ref.array->resources[ref.index].resource;
 			assert(img._surface == &surf);
 			if (!gpu::mip_levels::intersection(img._mip_levels, mips).is_empty()) {
-				ref.arr->staged_transitions.emplace_back(ref.index);
+				ref.array->staged_transitions.emplace_back(ref.index);
 			}
 		}
 	}
 
 	void context::_execution_context::stage_transition(_details::buffer &buf, _details::buffer_access access) {
 		_buffer_transitions.emplace_back(buf, access);
+		for (const auto &ref : buf.array_references) {
+			const auto &b = ref.array->resources[ref.index].resource;
+			assert(b._buffer == &buf);
+			ref.array->staged_transitions.emplace_back(ref.index);
+		}
 	}
 
-	void context::_execution_context::stage_all_transitions(_details::descriptor_array &arr) {
+	void context::_execution_context::stage_all_transitions_for(_details::image_descriptor_array &arr) {
 		auto transitions = std::exchange(arr.staged_transitions, {});
 		std::sort(transitions.begin(), transitions.end());
 		transitions.erase(std::unique(transitions.begin(), transitions.end()), transitions.end());
@@ -115,11 +120,25 @@ namespace lotus::renderer {
 		assert(access != gpu::image_access_mask::none);
 		assert(layout != gpu::image_layout::undefined);
 		for (auto index : transitions) {
-			const auto &img = arr.images[index];
+			const auto &img = arr.resources[index].resource;
 			_surface_transitions.emplace_back(
-				*img.image._surface,
-				img.image._mip_levels,
+				*img._surface,
+				img._mip_levels,
 				_details::image_access(gpu::synchronization_point_mask::all, access, layout)
+			);
+		}
+	}
+
+	void context::_execution_context::stage_all_transitions_for(_details::buffer_descriptor_array &arr) {
+		auto transitions = std::exchange(arr.staged_transitions, {});
+		std::sort(transitions.begin(), transitions.end());
+		transitions.erase(std::unique(transitions.begin(), transitions.end()), transitions.end());
+		auto access = gpu::to_buffer_access_mask(arr.type);
+		assert(access != gpu::buffer_access_mask::none);
+		for (auto index : transitions) {
+			const auto &buf = arr.resources[index].resource;
+			_buffer_transitions.emplace_back(
+				*buf._buffer, _details::buffer_access(gpu::synchronization_point_mask::all, access)
 			);
 		}
 	}
@@ -403,6 +422,59 @@ namespace lotus::renderer {
 		_immediate_constant_upload_buffer_ptr = nullptr;
 	}
 
+	void context::_execution_context::flush_descriptor_array_writes(
+		_details::image_descriptor_array &arr, const gpu::descriptor_set_layout &layout
+	) {
+		if (arr.has_descriptor_overwrites) {
+			// TODO wait until we've finished using this descriptor
+			arr.has_descriptor_overwrites = false;
+		}
+		if (!arr.staged_writes.empty()) {
+			auto writes = std::exchange(arr.staged_writes, {});
+			std::sort(writes.begin(), writes.end());
+			writes.erase(std::unique(writes.begin(), writes.end()), writes.end());
+			auto write_func = gpu::device::get_write_image_descriptor_function(arr.type);
+			assert(write_func);
+			for (auto index : writes) {
+				const auto &img = arr.resources[index].resource;
+				// TODO batch writes
+				gpu::image2d_view *view = nullptr;
+				if (img) {
+					view = &_ctx._request_image_view(*this, img);
+				}
+				std::initializer_list<const gpu::image_view*> views = { view };
+				(_ctx._device.*write_func)(arr.set, layout, index, views);
+			}
+		}
+	}
+
+	void context::_execution_context::flush_descriptor_array_writes(
+		_details::buffer_descriptor_array &arr, const gpu::descriptor_set_layout &layout
+	) {
+		if (arr.has_descriptor_overwrites) {
+			// TODO wait until we've finished using this descriptor
+			arr.has_descriptor_overwrites = false;
+		}
+		if (!arr.staged_writes.empty()) {
+			auto writes = std::exchange(arr.staged_writes, {});
+			std::sort(writes.begin(), writes.end());
+			writes.erase(std::unique(writes.begin(), writes.end()), writes.end());
+			auto write_func = gpu::device::get_write_structured_buffer_descriptor_function(arr.type);
+			assert(write_func);
+			for (auto index : writes) {
+				const auto &buf = arr.resources[index].resource;
+				// TODO batch writes
+				gpu::structured_buffer_view view = nullptr;
+				if (buf) {
+					assert((buf._first + buf._count) * buf._stride <= buf._buffer->size);
+					view = gpu::structured_buffer_view(buf._buffer->data, buf._first, buf._count, buf._stride);
+				}
+				std::initializer_list<gpu::structured_buffer_view> views = { view };
+				(_ctx._device.*write_func)(arr.set, layout, index, views);
+			}
+		}
+	}
+
 
 	context context::create(
 		gpu::context &ctx,
@@ -448,12 +520,24 @@ namespace lotus::renderer {
 		return swap_chain(std::move(chain_ptr));
 	}
 
-	descriptor_array context::request_descriptor_array(
+	image_descriptor_array context::request_image_descriptor_array(
 		std::u8string_view name, gpu::descriptor_type type, std::uint32_t capacity
 	) {
-		auto *arr = new _details::descriptor_array(type, capacity, name);
-		auto arr_ptr = std::shared_ptr<_details::descriptor_array>(arr, _details::context_managed_deleter(*this));
-		return descriptor_array(std::move(arr_ptr));
+		auto *arr = new _details::image_descriptor_array(type, capacity, name);
+		auto arr_ptr = std::shared_ptr<_details::image_descriptor_array>(
+			arr, _details::context_managed_deleter(*this)
+		);
+		return image_descriptor_array(std::move(arr_ptr));
+	}
+
+	buffer_descriptor_array context::request_buffer_descriptor_array(
+		std::u8string_view name, gpu::descriptor_type type, std::uint32_t capacity
+	) {
+		auto *arr = new _details::buffer_descriptor_array(type, capacity, name);
+		auto arr_ptr = std::shared_ptr<_details::buffer_descriptor_array>(
+			arr, _details::context_managed_deleter(*this)
+		);
+		return buffer_descriptor_array(std::move(arr_ptr));
 	}
 
 	blas context::request_blas(std::u8string_view name, std::span<const geometry_buffers_view> geometries) {
@@ -621,34 +705,26 @@ namespace lotus::renderer {
 	}
 
 	void context::write_image_descriptors(
-		descriptor_array &arr_handle, std::uint32_t first_index, std::span<const image2d_view> imgs
+		image_descriptor_array &arr_handle, std::uint32_t first_index, std::span<const image2d_view> imgs
 	) {
 		auto &arr = *arr_handle._array;
-
 		_maybe_initialize_descriptor_array(arr);
-
 		for (std::size_t i = 0; i < imgs.size(); ++i) {
-			auto descriptor_index = static_cast<std::uint32_t>(i + first_index);
-			auto &cur_ref = arr.images[descriptor_index];
-			if (auto *surf = cur_ref.image._surface) {
-				auto old_index = cur_ref.reference_index;
-				surf->array_references[old_index] = surf->array_references.back();
-				surf->array_references.pop_back();
-				auto new_ref = surf->array_references[old_index];
-				new_ref.arr->images[new_ref.index].reference_index = old_index;
-				cur_ref = nullptr;
-				arr.has_descriptor_overwrites = true;
-			}
-			// update recorded image
-			cur_ref.image = imgs[i];
-			auto &new_surf = *cur_ref.image._surface;
-			cur_ref.reference_index = static_cast<std::uint32_t>(new_surf.array_references.size());
-			auto &new_ref = new_surf.array_references.emplace_back(nullptr);
-			new_ref.arr = &arr;
-			new_ref.index = descriptor_index;
-			// stage the write
-			arr.staged_transitions.emplace_back(descriptor_index);
-			arr.staged_writes.emplace_back(descriptor_index);
+			_write_one_descriptor_array_element<&recorded_resources::image2d_view::_surface>(
+				arr, recorded_resources::image2d_view(imgs[i]), i + first_index
+			);
+		}
+	}
+
+	void context::write_buffer_descriptors(
+		buffer_descriptor_array &arr_handle, std::uint32_t first_index, std::span<const structured_buffer_view> bufs
+	) {
+		auto &arr = *arr_handle._array;
+		_maybe_initialize_descriptor_array(arr);
+		for (std::size_t i = 0; i < bufs.size(); ++i) {
+			_write_one_descriptor_array_element<&recorded_resources::structured_buffer_view::_buffer>(
+				arr, recorded_resources::structured_buffer_view(bufs[i]), i + first_index
+			);
 		}
 	}
 
@@ -801,14 +877,6 @@ namespace lotus::renderer {
 		));
 	}
 
-	void context::_maybe_initialize_descriptor_array(_details::descriptor_array &arr) {
-		if (!arr.set) {
-			const auto &layout = _cache.get_descriptor_set_layout(arr.get_layout_key());
-			arr.set = _device.create_descriptor_set(_descriptor_pool, layout, arr.capacity);
-			arr.images.resize(arr.capacity, nullptr);
-		}
-	}
-
 	void context::_maybe_initialize_blas(_details::blas &b) {
 		if (!b.handle) {
 			std::vector<std::pair<gpu::vertex_buffer_view, gpu::index_buffer_view>> input_geom;
@@ -937,14 +1005,14 @@ namespace lotus::renderer {
 	void context::_create_descriptor_binding(
 		_execution_context &ectx, gpu::descriptor_set &set,
 		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
-		const descriptor_resource::buffer &buf
+		const descriptor_resource::structured_buffer &buf
 	) {
 		_maybe_create_buffer(*buf.data._buffer);
 		switch (buf.binding_type) {
 		case buffer_binding_type::read_only:
 			_device.write_descriptor_set_read_only_structured_buffers(
-				set, layout, reg, { gpu::structured_buffer_view::create(
-					buf.data._buffer->data, buf.first_element, buf.count, buf.stride
+				set, layout, reg, { gpu::structured_buffer_view(
+					buf.data._buffer->data, buf.data._first, buf.data._count, buf.data._stride
 				) }
 			);
 			ectx.stage_transition(
@@ -956,8 +1024,8 @@ namespace lotus::renderer {
 			break;
 		case buffer_binding_type::read_write:
 			_device.write_descriptor_set_read_write_structured_buffers(
-				set, layout, reg, { gpu::structured_buffer_view::create(
-					buf.data._buffer->data, buf.first_element, buf.count, buf.stride
+				set, layout, reg, { gpu::structured_buffer_view(
+					buf.data._buffer->data, buf.data._first, buf.data._count, buf.data._stride
 				) }
 			);
 			ectx.stage_transition(
@@ -1046,43 +1114,6 @@ namespace lotus::renderer {
 			}, b.resource);
 		}
 		return { std::move(key), layout, set };
-	}
-
-	std::tuple<
-		cache_keys::descriptor_set_layout,
-		const gpu::descriptor_set_layout&,
-		gpu::descriptor_set&
-	> context::_use_descriptor_set(
-		_execution_context &ectx, const recorded_resources::descriptor_array &arr
-	) {
-		auto key = arr._array->get_layout_key();
-		auto &layout = _cache.get_descriptor_set_layout(key);
-
-		ectx.stage_all_transitions(*arr._array);
-		// write descriptors
-		if (arr._array->has_descriptor_overwrites) {
-			// TODO wait until we've finished using this descriptor
-			arr._array->has_descriptor_overwrites = false;
-		}
-		if (!arr._array->staged_writes.empty()) {
-			auto writes = std::exchange(arr._array->staged_writes, {});
-			std::sort(writes.begin(), writes.end());
-			writes.erase(std::unique(writes.begin(), writes.end()), writes.end());
-			auto write_func = gpu::device::get_write_image_descriptor_function(arr._array->type);
-			assert(write_func);
-			for (auto index : writes) {
-				const auto &img = arr._array->images[index].image;
-				// TODO batch writes
-				gpu::image2d_view *view = nullptr;
-				if (img) {
-					view = &_request_image_view(ectx, img);
-				}
-				std::initializer_list<const gpu::image_view*> views = { view };
-				(_device.*write_func)(arr._array->set, layout, index, views);
-			}
-		}
-
-		return { std::move(key), layout, arr._array->set };
 	}
 
 	std::tuple<
@@ -1523,11 +1554,13 @@ namespace lotus::renderer {
 			const auto &batch = _all_resources.front();
 			for (const auto &surf : batch.surface2d_meta) {
 				for (const auto &array_ref : surf->array_references) {
-					if (array_ref.arr->set) {
+					if (array_ref.array->set) {
 						std::initializer_list<const gpu::image_view*> images = { nullptr };
-						(_device.*_device.get_write_image_descriptor_function(array_ref.arr->type))(
-							array_ref.arr->set,
-							_cache.get_descriptor_set_layout(array_ref.arr->get_layout_key()),
+						(_device.*_device.get_write_image_descriptor_function(array_ref.array->type))(
+							array_ref.array->set,
+							_cache.get_descriptor_set_layout(
+								cache_keys::descriptor_set_layout::from_descriptor_array(*array_ref.array)
+							),
 							array_ref.index,
 							images
 						);

@@ -17,24 +17,23 @@ namespace lotus::renderer {
 	struct all_resource_bindings;
 	class image2d_view;
 	class buffer;
+	class structured_buffer_view;
 	class swap_chain;
-	class descriptor_array;
+	template <typename> class descriptor_array;
 	class blas;
 	class tlas;
 	namespace _details {
 		struct surface2d;
 		struct buffer;
+		struct structured_buffer_view;
 		struct swap_chain;
-		struct descriptor_array;
+		template <typename> struct descriptor_array;
 		struct blas;
 		struct tlas;
 	}
 	namespace assets {
 		class manager;
-		template <typename T> struct handle;
-	}
-	namespace cache_keys {
-		struct descriptor_set_layout;
+		template <typename> struct handle;
 	}
 
 
@@ -106,6 +105,31 @@ namespace lotus::renderer {
 			_details::buffer *_buffer = nullptr; ///< The buffer.
 		};
 
+		/// \ref renderer::structured_buffer_view.
+		class structured_buffer_view {
+			friend context;
+		public:
+			/// Initializes this struct to empty.
+			structured_buffer_view(std::nullptr_t) {
+			}
+			/// Conversion from a non-recorded \ref renderer::structured_buffer_view.
+			structured_buffer_view(const renderer::structured_buffer_view&);
+
+			/// Returns whether this object holds a valid buffer.
+			[[nodiscard]] bool is_valid() const {
+				return _buffer;
+			}
+			/// \overload
+			[[nodiscard]] explicit operator bool() const {
+				return is_valid();
+			}
+		private:
+			_details::buffer *_buffer = nullptr; ///< The buffer.
+			std::uint32_t _stride = 0; ///< Byte stride between elements.
+			std::uint32_t _first = 0; ///< The first buffer element.
+			std::uint32_t _count = 0; ///< Number of visible buffer elements.
+		};
+
 		/// \ref renderer::swap_chain.
 		class swap_chain {
 			friend context;
@@ -126,11 +150,11 @@ namespace lotus::renderer {
 		};
 
 		/// \ref renderer::descriptor_array.
-		class descriptor_array {
+		template <typename RecordedResource> class descriptor_array {
 			friend context;
 		public:
 			/// Conversion from a non-recorded \ref renderer::descriptor_array.
-			descriptor_array(const renderer::descriptor_array&);
+			descriptor_array(const renderer::descriptor_array<RecordedResource>&);
 
 			/// Returns whether this object holds a valid descriptor array.
 			[[nodiscard]] bool is_valid() const {
@@ -141,7 +165,7 @@ namespace lotus::renderer {
 				return is_valid();
 			}
 		private:
-			_details::descriptor_array *_array = nullptr; ///< The descriptor array.
+			_details::descriptor_array<RecordedResource> *_array = nullptr; ///< The descriptor array.
 		};
 
 		/// \ref renderer::blas.
@@ -275,11 +299,22 @@ namespace lotus::renderer {
 
 	/// Internal data structures used by the rendering context.
 	namespace _details {
-		struct descriptor_array;
+		template <typename> struct descriptor_array;
 
 
 		/// Returns the descriptor type that corresponds to the image binding.
 		[[nodiscard]] gpu::descriptor_type to_descriptor_type(image_binding_type);
+
+		/// A reference to a usage of this surface in a descriptor array.
+		template <typename RecordedResource> struct descriptor_array_reference {
+			/// Initializes this reference to empty.
+			descriptor_array_reference(std::nullptr_t) {
+			}
+
+			/// The descriptor array.
+			descriptor_array<RecordedResource> *array = nullptr;
+			std::uint32_t index = 0; ///< The index of this image in the array.
+		};
 
 		/// Indicates how an image is accessed.
 		struct image_access {
@@ -334,16 +369,6 @@ namespace lotus::renderer {
 		/// A 2D surface managed by a context.
 		struct surface2d {
 		public:
-			/// A reference to a usage of this surface in a descriptor array.
-			struct descriptor_array_reference {
-				/// Initializes this reference to empty.
-				descriptor_array_reference(std::nullptr_t) {
-				}
-
-				descriptor_array *arr = nullptr; ///< The descriptor array.
-				std::uint32_t index = 0; ///< The index of this image in the array.
-			};
-
 			/// Initializes this surface to empty.
 			surface2d(
 				cvec2s sz,
@@ -370,7 +395,8 @@ namespace lotus::renderer {
 			gpu::image_tiling tiling = gpu::image_tiling::optimal; ///< Tiling of this image.
 			gpu::image_usage_mask usages = gpu::image_usage_mask::none; ///< Possible usages.
 
-			std::vector<descriptor_array_reference> array_references; ///< References in descriptor arrays.
+			/// References in descriptor arrays.
+			std::vector<descriptor_array_reference<recorded_resources::image2d_view>> array_references;
 
 			std::uint64_t id = 0; ///< Used to uniquely identify this surface.
 			// TODO make this debug only?
@@ -391,6 +417,9 @@ namespace lotus::renderer {
 
 			std::uint32_t size; ///< The size of this buffer.
 			gpu::buffer_usage_mask usages = gpu::buffer_usage_mask::none; ///< Possible usages.
+
+			/// References in descriptor arrays.
+			std::vector<descriptor_array_reference<recorded_resources::structured_buffer_view>> array_references;
 
 			std::uint64_t id = 0; ///< Used to uniquely identify this buffer.
 			// TODO make this debug only?
@@ -432,16 +461,16 @@ namespace lotus::renderer {
 		};
 
 		/// A bindless descriptor array.
-		struct descriptor_array {
+		template <typename RecordedResource> struct descriptor_array {
 		public:
 			/// A reference to an element in the array.
-			struct image_reference {
+			struct resource_reference {
 				/// Initializes this reference to empty.
-				image_reference(std::nullptr_t) : image(nullptr) {
+				resource_reference(std::nullptr_t) : resource(nullptr) {
 				}
 
-				recorded_resources::image2d_view image; ///< The referenced image.
-				std::uint32_t reference_index = 0; ///< Index of this reference in \ref surface2d::array_references.
+				RecordedResource resource; ///< The referenced resource.
+				std::uint32_t reference_index = 0; ///< Index of this reference in \p Descriptor::array_references.
 			};
 
 			/// Initializes all fields of this structure without creating a descriptor set.
@@ -449,19 +478,17 @@ namespace lotus::renderer {
 				set(nullptr), capacity(cap), type(ty), name(n) {
 			}
 
-			/// Returns a key for the layout of this descriptor array.
-			[[nodiscard]] cache_keys::descriptor_set_layout get_layout_key() const;
-
 			gpu::descriptor_set set; ///< The descriptor set.
 			std::uint32_t capacity = 0; ///< The capacity of this array.
 			/// The type of this descriptor array.
 			gpu::descriptor_type type = gpu::descriptor_type::num_enumerators;
 
-			std::vector<image_reference> images; ///< Contents of this descriptor array.
+			std::vector<resource_reference> resources; ///< Contents of this descriptor array.
 
-			/// Indices of all images that have been used externally and may need transitions.
+			/// Indices of all resources that have been used externally and may need transitions.
 			std::vector<std::uint32_t> staged_transitions;
-			/// Indices of all images that have been modified in \ref images but have not been written into \ref set.
+			/// Indices of all resources that have been modified in \ref resources but have not been written into
+			/// \ref set.
 			std::vector<std::uint32_t> staged_writes;
 			/// Indicates whether there are pending descriptor writes that overwrite an existing descriptor. This
 			/// means that we'll need to wait until the previous use of this descriptor array has finished.
@@ -469,6 +496,10 @@ namespace lotus::renderer {
 
 			std::u8string name; ///< Name of this descriptor array.
 		};
+		/// Array of image descriptors.
+		using image_descriptor_array = descriptor_array<recorded_resources::image2d_view>;
+		/// Array of buffer descriptors.
+		using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view>;
 
 		/// A bottom-level acceleration structure.
 		struct blas {
@@ -646,6 +677,15 @@ namespace lotus::renderer {
 			return _buffer->size;
 		}
 
+		/// Returns a view of this buffer as a structured buffer.
+		[[nodiscard]] structured_buffer_view get_view(
+			std::uint32_t stride, std::uint32_t first, std::uint32_t count
+		) const;
+		/// \overload
+		template <typename T> [[nodiscard]] structured_buffer_view get_view(
+			std::uint32_t first, std::uint32_t count
+		) const;
+
 		/// Returns whether this object holds a valid buffer.
 		[[nodiscard]] bool is_valid() const {
 			return _buffer != nullptr;
@@ -660,6 +700,56 @@ namespace lotus::renderer {
 		}
 
 		std::shared_ptr<_details::buffer> _buffer; ///< The referenced buffer.
+	};
+
+	/// A view into a buffer as a structured buffer.
+	class structured_buffer_view {
+		friend buffer;
+		friend context;
+		friend recorded_resources::structured_buffer_view;
+	public:
+		/// Initializes this view to empty.
+		structured_buffer_view(std::nullptr_t) {
+		}
+
+		/// Returns the stride of an element in bytes.
+		[[nodiscard]] std::uint32_t get_stride() const {
+			return _stride;
+		}
+		/// Returns the first element visible to this view.
+		[[nodiscard]] std::uint32_t get_first_element_index() const {
+			return _first;
+		}
+		/// Returns the number of elements visible to this view.
+		[[nodiscard]] std::uint32_t get_num_elements() const {
+			return _count;
+		}
+
+		/// Moves the range of visible elements and returns the new view.
+		[[nodiscard]] structured_buffer_view move_view(std::uint32_t first, std::uint32_t count) const {
+			assert((first + count) * _stride <= _buffer->size);
+			return structured_buffer_view(_buffer, _stride, first, count);
+		}
+
+		/// Returns whether this object holds a valid buffer.
+		[[nodiscard]] bool is_valid() const {
+			return _buffer != nullptr;
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
+		}
+	private:
+		/// Initializes all fields of this struct.
+		structured_buffer_view(
+			std::shared_ptr<_details::buffer> b, std::uint32_t s, std::uint32_t f, std::uint32_t c
+		) : _buffer(std::move(b)), _stride(s), _first(f), _count(c) {
+		}
+
+		std::shared_ptr<_details::buffer> _buffer; ///< The referenced buffer.
+		std::uint32_t _stride = 0; ///< Stride between buffer elements in bytes.
+		std::uint32_t _first = 0; ///< Index of the first visible buffer element.
+		std::uint32_t _count = 0; ///< Index of the number of visible buffer elements.
 	};
 
 	/// A reference of a swap chain.
@@ -691,9 +781,9 @@ namespace lotus::renderer {
 	};
 
 	/// A bindless descriptor array.
-	class descriptor_array {
+	template <typename RecordedResource> class descriptor_array {
 		friend context;
-		friend recorded_resources::descriptor_array;
+		friend recorded_resources::descriptor_array<RecordedResource>;
 	public:
 		/// Initializes this object to empty.
 		descriptor_array(std::nullptr_t) {
@@ -709,11 +799,23 @@ namespace lotus::renderer {
 		}
 	private:
 		/// Initializes this descriptor array.
-		explicit descriptor_array(std::shared_ptr<_details::descriptor_array> arr) : _array(std::move(arr)) {
+		explicit descriptor_array(
+			std::shared_ptr<_details::descriptor_array<RecordedResource>> arr
+		) : _array(std::move(arr)) {
 		}
 
-		std::shared_ptr<_details::descriptor_array> _array; ///< The descriptor array.
+		std::shared_ptr<_details::descriptor_array<RecordedResource>> _array; ///< The descriptor array.
 	};
+	/// An array of image descriptors.
+	using image_descriptor_array = descriptor_array<recorded_resources::image2d_view>;
+	/// An array of buffer descriptors.
+	using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view>;
+	namespace recorded_resources {
+		/// \ref renderer::image_descriptor_array.
+		using image_descriptor_array = descriptor_array<image2d_view>;
+		/// \ref renderer::buffer_descriptor_array.
+		using buffer_descriptor_array = descriptor_array<structured_buffer_view>;
+	}
 
 	/// A bottom level acceleration structure.
 	class blas {
@@ -784,4 +886,17 @@ namespace lotus::renderer {
 		std::uint8_t mask = 0; ///< Ray mask.
 		std::uint32_t hit_group_offset = 0; ///< Offset in the hit group.
 	};
+
+
+	namespace recorded_resources {
+		template <typename RecordedResource> descriptor_array<RecordedResource>::descriptor_array(
+			const renderer::descriptor_array<RecordedResource> &arr
+		) : _array(arr._array.get()) {
+		}
+	}
+
+
+	template <typename T> structured_buffer_view buffer::get_view(std::uint32_t first, std::uint32_t count) const {
+		return get_view(sizeof(T), first, count);
+	}
 }

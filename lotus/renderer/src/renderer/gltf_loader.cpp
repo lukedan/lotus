@@ -28,11 +28,10 @@ namespace lotus::renderer::gltf {
 		int stride = accessor.ByteStride(buffer_view);
 		int component_type = accessor.componentType;
 		std::int32_t num_components = tinygltf::GetNumComponentsInType(accessor.type);
-		std::size_t buffer_elements = accessor.count * num_components;
+		std::size_t buffer_elements = accessor.count * expected_components;
 
 		if (num_components != expected_components) {
 			log().warn<u8"Expected {} components but getting {}">(expected_components, num_components);
-			return nullptr;
 		}
 
 		std::vector<T> data(buffer_elements);
@@ -42,8 +41,8 @@ namespace lotus::renderer::gltf {
 		);
 		for (int i = 0; i < accessor.count; ++i) {
 			auto *current_raw = data_raw + stride * i;
-			auto *target = data.data() + i * num_components;
-			for (int j = 0; j < num_components; ++j) {
+			auto *target = data.data() + i * expected_components;
+			for (int j = 0; j < std::min(static_cast<std::size_t>(num_components), expected_components); ++j) {
 				switch (component_type) {
 				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
 					{
@@ -193,13 +192,13 @@ namespace lotus::renderer::gltf {
 				if (auto it = prim.attributes.find("POSITION"); it != prim.attributes.end()) {
 					geom.num_vertices = static_cast<std::uint32_t>(model.accessors[it->second].count);
 					geom.vertex_buffer = _load_input_buffer<float>(
-						_asset_manager, path, model, it->second, 3,
+						_asset_manager, path, model, it->second, 4,
 						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only | gpu::buffer_usage_mask::acceleration_structure_build_input
 					);
 				}
 				if (auto it = prim.attributes.find("NORMAL"); it != prim.attributes.end()) {
 					geom.normal_buffer = _load_input_buffer<float>(
-						_asset_manager, path, model, it->second, 3,
+						_asset_manager, path, model, it->second, 4,
 						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
 					);
 				}

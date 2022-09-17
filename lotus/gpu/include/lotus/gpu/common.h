@@ -670,6 +670,20 @@ namespace lotus::gpu {
 			return image_access_mask::none;
 		}
 	}
+	/// Converts the given \ref descriptor_type to a \ref buffer_access_mask. Returns \ref buffer_access_mask::none
+	/// for invalid descriptor types.
+	[[nodiscard]] constexpr buffer_access_mask to_buffer_access_mask(descriptor_type ty) {
+		switch (ty) {
+		case descriptor_type::constant_buffer:
+			return buffer_access_mask::constant_buffer;
+		case descriptor_type::read_only_buffer:
+			return buffer_access_mask::shader_read_only;
+		case descriptor_type::read_write_buffer:
+			return buffer_access_mask::shader_read_write;
+		default:
+			return buffer_access_mask::none;
+		}
+	}
 	/// Converts the given \ref descriptor_type to a \ref image_layout. Returns \ref image_layout::undefined for
 	/// invalid descriptor types.
 	[[nodiscard]] constexpr image_layout to_image_layout(descriptor_type ty) {
@@ -1563,25 +1577,18 @@ namespace lotus::gpu {
 	/// A view into a structured buffer.
 	struct structured_buffer_view {
 	public:
-		/// No initialization.
-		structured_buffer_view(uninitialized_t) {
+		/// Initializes this object to empty.
+		structured_buffer_view(std::nullptr_t) {
 		}
-		/// Creates a new view with the given values.
-		[[nodiscard]] constexpr inline static structured_buffer_view create(
-			buffer &b, std::size_t f, std::size_t c, std::size_t str
-		) {
-			return structured_buffer_view(b, f, c, str);
-		}
-
-		buffer *data; ///< Data for the buffer.
-		std::size_t first; ///< Index of the first buffer element.
-		std::size_t count; ///< Size of the buffer in elements.
-		std::size_t stride; ///< Stride between two consecutive buffer elements.
-	protected:
 		/// Initializes all fields of this struct.
 		constexpr structured_buffer_view(buffer &b, std::size_t f, std::size_t c, std::size_t str) :
 			data(&b), first(f), count(c), stride(str) {
 		}
+
+		const buffer *data = nullptr; ///< Data for the buffer.
+		std::size_t first = 0; ///< Index of the first buffer element.
+		std::size_t count = 0; ///< Size of the buffer in elements.
+		std::size_t stride = 0; ///< Stride between two consecutive buffer elements.
 	};
 	/// A view into a constant buffer.
 	struct constant_buffer_view {

@@ -117,7 +117,7 @@ namespace lotus::gpu {
 		) {
 			write_descriptor_set_read_write_images(set, layout, first_register, { images.begin(), images.end() });
 		}
-		/// Retrieves a member function pointer to the function that writes descriptors of the specified type.
+		/// Retrieves a member function pointer to the function that writes image descriptors of the specified type.
 		inline static void (device::*get_write_image_descriptor_function(descriptor_type type))(
 			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view *const>
 		) {
@@ -126,6 +126,20 @@ namespace lotus::gpu {
 				return &write_descriptor_set_read_only_images;
 			case descriptor_type::read_write_image:
 				return &write_descriptor_set_read_write_images;
+			default:
+				return nullptr;
+			}
+		}
+		/// Retrieves a member function pointer to the function that writes structured buffer descriptors of the
+		/// specified type.
+		inline static void (device::*get_write_structured_buffer_descriptor_function(descriptor_type type))(
+			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const structured_buffer_view>
+		) {
+			switch (type) {
+			case descriptor_type::read_only_buffer:
+				return &write_descriptor_set_read_only_structured_buffers;
+			case descriptor_type::read_write_buffer:
+				return &write_descriptor_set_read_write_structured_buffers;
 			default:
 				return nullptr;
 			}

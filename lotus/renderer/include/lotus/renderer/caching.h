@@ -26,6 +26,15 @@ namespace lotus::renderer {
 				descriptor_set_type ty = descriptor_set_type::normal
 			) : ranges(std::move(rs)), type(ty) {
 			}
+			/// Initializes this key for the given descriptor array.
+			template <typename RecordedResource> [[nodiscard]] static descriptor_set_layout from_descriptor_array(
+				const _details::descriptor_array<RecordedResource> &d
+			) {
+				return cache_keys::descriptor_set_layout(
+					{ gpu::descriptor_range_binding::create_unbounded(d.type, 0), },
+					descriptor_set_type::variable_descriptor_count
+				);
+			}
 
 			/// Sorts and merges the ranges.
 			void consolidate();

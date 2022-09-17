@@ -70,35 +70,28 @@ namespace lotus::renderer {
 
 			recorded_resources::swap_chain image; ///< The swap chain.
 		};
-		/// A buffer.
-		struct buffer {
+		/// A structured buffer.
+		struct structured_buffer {
 			/// Initializes all fields of this struct.
-			buffer(
-				recorded_resources::buffer d,
-				buffer_binding_type t,
-				std::uint32_t first,
-				std::uint32_t str,
-				std::uint32_t c
-			) : data(d), binding_type(t), first_element(first), stride(str), count(c) {
+			structured_buffer(
+				recorded_resources::structured_buffer_view d, buffer_binding_type t
+			) : data(d), binding_type(t) {
 			}
 			/// Creates a read-only buffer binding.
-			[[nodiscard]] inline static buffer create_read_only(
-				recorded_resources::buffer buf, std::uint32_t first, std::uint32_t str, std::uint32_t c
+			[[nodiscard]] inline static structured_buffer create_read_only(
+				recorded_resources::structured_buffer_view buf
 			) {
-				return buffer(buf, buffer_binding_type::read_only, first, str, c);
+				return structured_buffer(buf, buffer_binding_type::read_only);
 			}
 			/// Creates a read-write buffer binding.
-			[[nodiscard]] inline static buffer create_read_write(
-				recorded_resources::buffer buf, std::uint32_t first, std::uint32_t str, std::uint32_t c
+			[[nodiscard]] inline static structured_buffer create_read_write(
+				recorded_resources::structured_buffer_view buf
 			) {
-				return buffer(buf, buffer_binding_type::read_write, first, str, c);
+				return structured_buffer(buf, buffer_binding_type::read_write);
 			}
 
-			recorded_resources::buffer data; ///< Buffer data.
+			recorded_resources::structured_buffer_view data; ///< Buffer data.
 			buffer_binding_type binding_type = buffer_binding_type::read_only; ///< Usage of the bound buffer.
-			std::uint32_t first_element = 0; ///< Index of the first visible element.
-			std::uint32_t stride        = 0; ///< Byte offset between two consecutive elements.
-			std::uint32_t count         = 0; ///< Number of visible elements.
 		};
 		/// Constant buffer with data that will be copied to VRAM when a command list is executed.
 		struct immediate_constant_buffer {
@@ -166,12 +159,12 @@ namespace lotus::renderer {
 
 		/// A union of all possible resource types.
 		using value = std::variant<
-			image2d,
-			swap_chain_image,
-			buffer,
-			immediate_constant_buffer,
-			tlas,
-			sampler
+			descriptor_resource::image2d,
+			descriptor_resource::swap_chain_image,
+			descriptor_resource::structured_buffer,
+			descriptor_resource::immediate_constant_buffer,
+			descriptor_resource::tlas,
+			descriptor_resource::sampler
 		>;
 	}
 
@@ -212,9 +205,13 @@ namespace lotus::renderer {
 		resource_set_binding(descriptor_bindings b, std::uint32_t s) :
 			bindings(std::in_place_type<descriptor_bindings>, std::move(b)), space(s) {
 		}
-		/// Initializes this struct from a \ref descriptor_array.
-		resource_set_binding(recorded_resources::descriptor_array arr, std::uint32_t s) :
-			bindings(std::in_place_type<recorded_resources::descriptor_array>, arr), space(s) {
+		/// Initializes this struct from an \ref image_descriptor_array.
+		resource_set_binding(recorded_resources::image_descriptor_array arr, std::uint32_t s) :
+			bindings(std::in_place_type<recorded_resources::image_descriptor_array>, arr), space(s) {
+		}
+		/// Initializes this struct from a \ref buffer_descriptor_array.
+		resource_set_binding(recorded_resources::buffer_descriptor_array arr, std::uint32_t s) :
+			bindings(std::in_place_type<recorded_resources::buffer_descriptor_array>, arr), space(s) {
 		}
 		/// Shorthand for initializing a \ref descriptor_bindings object and then creating a
 		/// \ref resource_set_binding.
@@ -222,7 +219,11 @@ namespace lotus::renderer {
 			return resource_set_binding(descriptor_bindings(std::move(b)), s);
 		}
 
-		std::variant<descriptor_bindings, recorded_resources::descriptor_array> bindings; ///< Bindings.
+		std::variant<
+			descriptor_bindings,
+			recorded_resources::image_descriptor_array,
+			recorded_resources::buffer_descriptor_array
+		> bindings; ///< Bindings.
 		std::uint32_t space; ///< Register space to bind to.
 	};
 	/// Contains information about all resource bindings used during a compute shader dispatch or a pass.

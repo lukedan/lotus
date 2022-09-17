@@ -13,7 +13,7 @@ void get_any_tangent_space(float3 n, out float3 tangent, out float3 bitangent) {
 	float a = -rcp(sign + n.z);
 	float b = n.x * n.y * a;
 	tangent   = float3(1.0f + sign * sqr(n.x) * a, sign * b,            -sign * n.x);
-	bitangent = float3(b,                          sign * sqr(n.y) * a, -n.y       );
+	bitangent = float3(b,                          sign + sqr(n.y) * a, -n.y       );
 }
 
 float2 specular_glossiness_to_metalness_roughness(float3 base_color, float3 specular, float glossiness) {

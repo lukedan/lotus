@@ -97,7 +97,9 @@ namespace lotus::gpu::backends::vulkan::_details {
 			constexpr static bit_mask_mapping<buffer_usage_mask, vk::BufferUsageFlagBits> table{
 				std::pair(buffer_usage_mask::copy_source,                        vk::BufferUsageFlagBits::eTransferSrc                               ),
 				std::pair(buffer_usage_mask::copy_destination,                   vk::BufferUsageFlagBits::eTransferDst                               ),
-				std::pair(buffer_usage_mask::shader_read_only,                   vk::BufferUsageFlagBits::eUniformBuffer                             ),
+				std::pair(buffer_usage_mask::shader_read_only,                   flags_to_bits(
+					vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer
+				)),
 				std::pair(buffer_usage_mask::shader_read_write,                  vk::BufferUsageFlagBits::eStorageBuffer                             ),
 				std::pair(buffer_usage_mask::index_buffer,                       vk::BufferUsageFlagBits::eIndexBuffer                               ),
 				std::pair(buffer_usage_mask::vertex_buffer,                      vk::BufferUsageFlagBits::eVertexBuffer                              ),

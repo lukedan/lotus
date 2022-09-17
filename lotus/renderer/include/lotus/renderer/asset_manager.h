@@ -166,7 +166,7 @@ namespace lotus::renderer {
 			}
 
 			/// Returns the descriptor array with descriptors of all loaded images.
-			[[nodiscard]] recorded_resources::descriptor_array get_images() {
+			[[nodiscard]] recorded_resources::image_descriptor_array get_images() {
 				return _texture2d_descriptors;
 			}
 			/// Returns a handle for the texture that indicates an invalid texture.
@@ -273,7 +273,7 @@ namespace lotus::renderer {
 
 			context &_context; ///< Associated context.
 
-			descriptor_array _texture2d_descriptors; ///< Bindless descriptor array of all textures.
+			image_descriptor_array _texture2d_descriptors; ///< Bindless descriptor array of all textures.
 			handle<texture2d> _invalid_texture; ///< Index of a texture indicating "invalid texture".
 			std::vector<std::uint32_t> _texture2d_descriptor_index_alloc; ///< Used to allocate descriptor indices.
 

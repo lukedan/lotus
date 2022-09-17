@@ -25,7 +25,7 @@ pcg32 pcg32_seed(uint64_t state, uint64_t seq) {
 }
 
 float pcg32_random_01(inout pcg32 rng) { // [0, 1)
-	return pcg32_random(rng) / 4294967296.0f;
+	return (pcg32_random(rng) & ((1 << 24) - 1)) / (float)(1 << 24);
 }
 
 #endif

@@ -243,7 +243,7 @@ namespace lotus::gpu::backends::vulkan {
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
-				.setBuffer(buf.data ? static_cast<buffer*>(buf.data)->_buffer : nullptr)
+				.setBuffer(buf.data ? static_cast<const buffer*>(buf.data)->_buffer : nullptr)
 				.setOffset(buf.first * buf.stride)
 				.setRange(buf.count * buf.stride);
 		}
@@ -266,7 +266,7 @@ namespace lotus::gpu::backends::vulkan {
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
-				.setBuffer(buf.data ? static_cast<buffer*>(buf.data)->_buffer : nullptr)
+				.setBuffer(buf.data ? static_cast<const buffer*>(buf.data)->_buffer : nullptr)
 				.setOffset(buf.first * buf.stride)
 				.setRange(buf.count * buf.stride);
 		}

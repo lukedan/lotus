@@ -30,11 +30,12 @@ namespace lotus::renderer {
 		}
 
 
-		swap_chain::swap_chain(const renderer::swap_chain &c) : _swap_chain(c._swap_chain.get()) {
+		structured_buffer_view::structured_buffer_view(const renderer::structured_buffer_view &view) :
+			_buffer(view._buffer.get()), _stride(view._stride), _first(view._first), _count(view._count) {
 		}
 
 
-		descriptor_array::descriptor_array(const renderer::descriptor_array &arr) : _array(arr._array.get()) {
+		swap_chain::swap_chain(const renderer::swap_chain &c) : _swap_chain(c._swap_chain.get()) {
 		}
 
 
@@ -55,14 +56,6 @@ namespace lotus::renderer {
 			};
 			return table[type];
 		}
-
-
-		cache_keys::descriptor_set_layout descriptor_array::get_layout_key() const {
-			return cache_keys::descriptor_set_layout(
-				{ gpu::descriptor_range_binding::create_unbounded(type, 0), },
-				descriptor_set_type::variable_descriptor_count
-			);
-		}
 	}
 
 
@@ -75,6 +68,13 @@ namespace lotus::renderer {
 				{ gpu::input_buffer_element(semantic, semantic_index, format, 0) }
 			);
 		}
+	}
+
+
+	structured_buffer_view buffer::get_view(
+		std::uint32_t stride, std::uint32_t first, std::uint32_t count
+	) const {
+		return structured_buffer_view(_buffer, stride, first, count);
 	}
 
 

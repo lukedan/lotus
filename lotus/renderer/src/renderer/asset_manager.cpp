@@ -194,7 +194,7 @@ namespace lotus::renderer::assets {
 		std::filesystem::path shader_lib_path, gpu::shader_utility *shader_utils
 	) :
 		_device(dev), _shader_utilities(shader_utils), _context(ctx),
-		_texture2d_descriptors(ctx.request_descriptor_array(
+		_texture2d_descriptors(ctx.request_image_descriptor_array(
 			u8"Texture assets", gpu::descriptor_type::read_only_image, 1024
 		)),
 		_invalid_texture(nullptr),

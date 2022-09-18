@@ -42,8 +42,7 @@ int main(int argc, char **argv) {
 	lsys::application app(u8"test");
 	auto wnd = app.create_window();
 
-	auto gctx_options = lgpu::context_options::enable_validation;
-	/*auto gctx_options = lgpu::context_options::none;*/
+	auto gctx_options = true ? lgpu::context_options::enable_validation : lgpu::context_options::none;
 	auto gctx = lgpu::context::create(gctx_options);
 	auto shader_util = lgpu::shader_utility::create();
 	lgpu::device gdev = nullptr;
@@ -75,6 +74,7 @@ int main(int argc, char **argv) {
 
 		lren::buffer_descriptor_array vertex_buffers = nullptr;
 		lren::buffer_descriptor_array normal_buffers = nullptr;
+		lren::buffer_descriptor_array tangent_buffers = nullptr;
 		lren::buffer_descriptor_array uv_buffers = nullptr;
 		lren::buffer_descriptor_array index_buffers = nullptr;
 		std::uint32_t buffer_alloc = 0;
@@ -84,10 +84,11 @@ int main(int argc, char **argv) {
 		std::vector<lren::blas> blases;
 	} scene;
 
-	scene.vertex_buffers = rctx.request_buffer_descriptor_array(u8"Vertex buffers", lgpu::descriptor_type::read_only_buffer, 1024);
-	scene.normal_buffers = rctx.request_buffer_descriptor_array(u8"Normal buffers", lgpu::descriptor_type::read_only_buffer, 1024);
-	scene.uv_buffers     = rctx.request_buffer_descriptor_array(u8"UV buffers",     lgpu::descriptor_type::read_only_buffer, 1024);
-	scene.index_buffers  = rctx.request_buffer_descriptor_array(u8"Index buffers",  lgpu::descriptor_type::read_only_buffer, 1024);
+	scene.vertex_buffers  = rctx.request_buffer_descriptor_array(u8"Vertex buffers", lgpu::descriptor_type::read_only_buffer, 1024);
+	scene.normal_buffers  = rctx.request_buffer_descriptor_array(u8"Normal buffers", lgpu::descriptor_type::read_only_buffer, 1024);
+	scene.tangent_buffers = rctx.request_buffer_descriptor_array(u8"Tangent buffers", lgpu::descriptor_type::read_only_buffer, 1024);
+	scene.uv_buffers      = rctx.request_buffer_descriptor_array(u8"UV buffers",     lgpu::descriptor_type::read_only_buffer, 1024);
+	scene.index_buffers   = rctx.request_buffer_descriptor_array(u8"Index buffers",  lgpu::descriptor_type::read_only_buffer, 1024);
 
 	for (int i = 1; i < argc; ++i) {
 		gltf_ctx.load(
@@ -115,7 +116,7 @@ int main(int argc, char **argv) {
 						)
 					});
 				}
-				inst.vertex_buffer = inst.normal_buffer = inst.uv_buffer = scene.buffer_alloc++;
+				inst.vertex_buffer = inst.normal_buffer = inst.tangent_buffer = inst.uv_buffer = scene.buffer_alloc++;
 				rctx.write_buffer_descriptors(scene.vertex_buffers, inst.vertex_buffer, {
 					geom->vertex_buffer.data->data.get_view(
 						geom->vertex_buffer.stride, geom->vertex_buffer.offset, geom->num_vertices
@@ -126,6 +127,13 @@ int main(int argc, char **argv) {
 						geom->normal_buffer.stride, geom->normal_buffer.offset, geom->num_vertices
 					)
 				});
+				if (geom->tangent_buffer.data) {
+					rctx.write_buffer_descriptors(scene.tangent_buffers, inst.tangent_buffer, {
+						geom->tangent_buffer.data->data.get_view(
+							geom->tangent_buffer.stride, geom->tangent_buffer.offset, geom->num_vertices
+						)
+					});
+				}
 				rctx.write_buffer_descriptors(scene.uv_buffers, inst.uv_buffer, {
 					geom->uv_buffer.data->data.get_view(
 						geom->uv_buffer.stride, geom->uv_buffer.offset, geom->num_vertices
@@ -136,9 +144,20 @@ int main(int argc, char **argv) {
 				mat.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(scene.materials.size()));
 				auto &mat_data = scene.materials.emplace_back();
 				if (auto *data = dynamic_cast<lren::gltf::material_data*>(mat->data.get())) {
+					std::uint32_t invalid_tex = asset_man.get_invalid_texture()->descriptor_index;
+					mat_data.base_color_index = invalid_tex;
+					mat_data.metallic_roughness_index = invalid_tex;
+					mat_data.normal_index = invalid_tex;
 					if (data->albedo_texture) {
 						mat_data.base_color_index = data->albedo_texture->descriptor_index;
 					}
+					if (data->properties_texture) {
+						mat_data.metallic_roughness_index = data->properties_texture->descriptor_index;
+					}
+					if (data->normal_texture) {
+						mat_data.normal_index = data->normal_texture->descriptor_index;
+					}
+					mat_data.base_color = cvec4f(1.0f, 1.0f, 1.0f, 1.0f);
 				}
 				scene.material_assets.emplace_back(std::move(mat));
 			},
@@ -344,7 +363,6 @@ int main(int argc, char **argv) {
 		{
 			asset_man.update();
 
-			frame_index = 0;
 			cam = cam_params.into_camera();
 
 			/*auto gbuffer = lren::g_buffer::view::create(rctx, window_size);
@@ -379,13 +397,14 @@ int main(int argc, char **argv) {
 						lren::resource_set_binding(asset_man.get_images(), 1),
 						lren::resource_set_binding(scene.vertex_buffers, 2),
 						lren::resource_set_binding(scene.normal_buffers, 3),
-						lren::resource_set_binding(scene.uv_buffers, 4),
-						lren::resource_set_binding(scene.index_buffers, 5),
+						lren::resource_set_binding(scene.tangent_buffers, 4),
+						lren::resource_set_binding(scene.uv_buffers, 5),
+						lren::resource_set_binding(scene.index_buffers, 6),
 						lren::resource_set_binding::descriptor_bindings({
 							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(inst_structured_buf), 0),
 							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(geom_structured_buf), 1),
 							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(mat_structured_buf), 2),
-						}).at_space(6),
+						}).at_space(7),
 					}
 				);
 				rctx.trace_rays(

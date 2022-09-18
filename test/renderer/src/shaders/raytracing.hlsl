@@ -2,23 +2,23 @@
 #include "pcg32.hlsl"
 #include "brdf.hlsl"
 
+/*#define RT_SKYVIS_DEBUG*/
+
 RaytracingAccelerationStructure rtas      : register(t0, space0);
 ConstantBuffer<global_data> globals       : register(b1, space0);
 RWTexture2D<float4> output                : register(u2, space0);
 SamplerState image_sampler                : register(s3, space0);
 
 Texture2D<float4>        textures[]  : register(t0, space1);
-StructuredBuffer<float4> positions[] : register(t0, space2);
-StructuredBuffer<float4> normals[]   : register(t0, space3);
-StructuredBuffer<float2> uvs[]       : register(t0, space4);
-StructuredBuffer<uint>   indices[]   : register(t0, space5);
+StructuredBuffer<float3> positions[] : register(t0, space2);
+StructuredBuffer<float3> normals[]   : register(t0, space3);
+StructuredBuffer<float4> tangents[]  : register(t0, space4);
+StructuredBuffer<float2> uvs[]       : register(t0, space5);
+StructuredBuffer<uint>   indices[]   : register(t0, space6);
 
-StructuredBuffer<instance_data> instances  : register(t0, space6);
-StructuredBuffer<geometry_data> geometries : register(t1, space6);
-StructuredBuffer<material_data> materials  : register(t2, space6);
-/*StructuredBuffer<vertex> vertices         : register(t4, space1);
-StructuredBuffer<uint> indices            : register(t5, space1);
-SamplerState image_sampler                : register(s7, space1);*/
+StructuredBuffer<instance_data> instances  : register(t0, space7);
+StructuredBuffer<geometry_data> geometries : register(t1, space7);
+StructuredBuffer<material_data> materials  : register(t2, space7);
 
 struct vertex {
 	float3 position;
@@ -56,9 +56,10 @@ hit_triangle get_hit_triangle_indexed_object_space() {
 	[unroll]
 	for (uint i = 0; i < 3; ++i) {
 		uint index = indices[NonUniformResourceIndex(geometry.index_buffer)][index_offset + i];
-		result.verts[i].position = positions[NonUniformResourceIndex(geometry.vertex_buffer)][index];
-		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.normal_buffer)][index];
-		result.verts[i].uv       = uvs      [NonUniformResourceIndex(geometry.uv_buffer    )][index];
+		result.verts[i].position = positions[NonUniformResourceIndex(geometry.vertex_buffer )][index];
+		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.normal_buffer )][index];
+		result.verts[i].tangent  = tangents [NonUniformResourceIndex(geometry.tangent_buffer)][index];
+		result.verts[i].uv       = uvs      [NonUniformResourceIndex(geometry.uv_buffer     )][index];
 	}
 	return result;
 }
@@ -69,9 +70,10 @@ hit_triangle get_hit_triangle_unindexed_object_space() {
 	hit_triangle result;
 	[unroll]
 	for (uint i = 0; i < 3; ++i) {
-		result.verts[i].position = positions[NonUniformResourceIndex(geometry.vertex_buffer)][index + i];
-		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.normal_buffer)][index + i];
-		result.verts[i].uv       = uvs      [NonUniformResourceIndex(geometry.uv_buffer    )][index + i];
+		result.verts[i].position = positions[NonUniformResourceIndex(geometry.vertex_buffer )][index + i];
+		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.normal_buffer )][index + i];
+		result.verts[i].tangent  = tangents [NonUniformResourceIndex(geometry.tangent_buffer)][index + i];
+		result.verts[i].uv       = uvs      [NonUniformResourceIndex(geometry.uv_buffer     )][index + i];
 	}
 	return result;
 }
@@ -165,12 +167,15 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 
 	hit_point hit = transform_hit_point_to_world_space(interpolate_hit_point(tri, barycentrics));
 
+#ifdef RT_ALBEDO_DEBUG
 	instance_data inst = instances[InstanceID()];
 	material_data mat = materials[inst.material_index];
 	payload.light = textures[NonUniformResourceIndex(mat.base_color_index)].SampleLevel(image_sampler, hit.uv, 0);
 	return;
+#endif
 
-#if RT_USE_PCG32
+#ifdef RT_SKYVIS_DEBUG
+#ifdef RT_USE_PCG32
 	float xi1 = pcg32_random_01(payload.rand);
 	float xi2 = pcg32_random_01(payload.rand) * 2.0f * pi;
 #else
@@ -193,8 +198,10 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	ray.Direction = dir;
 	ray.TMax = globals.t_max;
 	TraceRay(rtas, 0, 0xFF, 0, 0, 0, ray, payload);
+	return;
+#endif
 
-	/*instance_data instance = instances[InstanceID()];
+	instance_data instance = instances[InstanceID()];
 
 	material_data mat = materials[instance.material_index];
 	float3 base_color = textures[mat.base_color_index].SampleLevel(image_sampler, hit.uv, 0).rgb;
@@ -258,7 +265,7 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 			float xi1 = rd(5, globals.frame_index);
 			float xi2 = rd(6, globals.frame_index);
 
-#if 0
+#if 1
 			float2 sampled = importance_sample_ggx_cos_theta(alpha, xi1);
 			float cos_theta = sampled.x;
 			float sin_theta = sqrt(1.0f - sqr(cos_theta));
@@ -346,7 +353,7 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 		total_light += payload.light;
 	}
 
-	payload.light = total_light;*/
+	payload.light = total_light;
 }
 
 [shader("closesthit")]

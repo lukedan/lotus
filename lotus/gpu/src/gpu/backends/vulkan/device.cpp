@@ -1296,12 +1296,14 @@ namespace lotus::gpu::backends::vulkan {
 
 		std::vector<const char*> extensions{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
 			VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 			VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 			VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 			VK_KHR_SPIRV_1_4_EXTENSION_NAME,
 			VK_KHR_RAY_QUERY_EXTENSION_NAME,
+			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
+			VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
+			VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
 			/*VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
@@ -1329,34 +1331,32 @@ namespace lotus::gpu::backends::vulkan {
 		vk::PhysicalDeviceRobustness2FeaturesEXT robustness_features;
 		robustness_features
 			.setNullDescriptor(true);
-
+		vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageable_memory_features;
+		pageable_memory_features
+			.setPNext(&robustness_features)
+			.setPageableDeviceLocalMemory(true);
 		vk::PhysicalDeviceCustomBorderColorFeaturesEXT border_color_features;
 		border_color_features
-			.setPNext(&robustness_features)
+			.setPNext(&pageable_memory_features)
 			.setCustomBorderColors(true)
 			.setCustomBorderColorWithoutFormat(true);
-
 		vk::PhysicalDeviceRayQueryFeaturesKHR ray_query_features;
 		ray_query_features
 			.setPNext(&border_color_features)
 			.setRayQuery(true);
-
 		vk::PhysicalDeviceRayTracingPipelineFeaturesKHR raytracing_features;
 		raytracing_features
 			.setPNext(&ray_query_features)
 			.setRayTracingPipeline(true);
-
 		vk::PhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features;
 		acceleration_structure_features
 			.setPNext(&raytracing_features)
 			.setAccelerationStructure(true);
-
 		vk::PhysicalDeviceVulkan13Features vk13_features;
 		vk13_features
 			.setPNext(&acceleration_structure_features)
 			.setSynchronization2(true)
 			.setDynamicRendering(true);
-
 		vk::PhysicalDeviceVulkan12Features vk12_features;
 		vk12_features
 			.setPNext(&vk13_features)
@@ -1376,7 +1376,6 @@ namespace lotus::gpu::backends::vulkan {
 			.setShaderStorageBufferArrayNonUniformIndexing(true)
 			.setShaderStorageImageArrayNonUniformIndexing(true)
 			.setTimelineSemaphore(true);
-
 		vk::PhysicalDeviceFeatures2 features;
 		features.setPNext(&vk12_features);
 		features.features

@@ -19,6 +19,7 @@ struct geometry_data {
 	uint index_buffer;
 	uint vertex_buffer;
 	uint normal_buffer;
+	uint tangent_buffer;
 	uint uv_buffer;
 };
 struct material_data {

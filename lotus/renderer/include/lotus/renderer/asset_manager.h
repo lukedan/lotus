@@ -9,6 +9,8 @@
 #include <filesystem>
 #include <memory>
 #include <any>
+#include <mutex>
+#include <condition_variable>
 
 #include "lotus/logging.h"
 #include "lotus/containers/maybe_uninitialized.h"
@@ -174,6 +176,9 @@ namespace lotus::renderer {
 				return _invalid_texture;
 			}
 
+			/// Updates resource loading.
+			void update();
+
 			/// Returns the device associated with this asset manager.
 			[[nodiscard]] gpu::device &get_device() const {
 				return _device;
@@ -203,6 +208,70 @@ namespace lotus::renderer {
 			using _shader_map         = _map<shader>;         ///< Shader map.
 			using _shader_library_map = _map<shader_library>; ///< Shader library map.
 			using _material_map       = _map<material>;       ///< Material map.
+
+			/// Manages a thread that asynchronously loads resources.
+			class _async_loader {
+			public:
+				/// The state of this loader.
+				enum class state {
+					running, ///< The loader is running normally.
+					shutting_down ///< The loader is being shut down.
+				};
+				/// A job.
+				struct job {
+					/// Initializes this job to empty.
+					job(std::nullptr_t) : target(nullptr) {
+					}
+					/// Initializes the job from a point where it's safe to access the identifier.
+					explicit job(handle<texture2d> t) : target(std::move(t)) {
+						path = target.get().get_id().path;
+					}
+
+					handle<texture2d> target; ///< Target image to load, to keep it alive.
+					/// Path of the image. This is duplicated because it's not safe to access the \ref identifier
+					/// from other threads.
+					std::filesystem::path path;
+				};
+				/// Result of a finished job.
+				struct job_result {
+					/// Initializes all fields of this struct.
+					job_result(job j, void *res, cvec2s sz, gpu::format f) :
+						input(std::move(j)), data(res), size(sz), pixel_format(f) {
+					}
+					/// Initializes this job with no return data.
+					job_result(job j, std::nullptr_t) : input(std::move(j)), size(zero) {
+					}
+
+					job input; ///< Original job description.
+					void *data = nullptr; ///< Loaded data.
+					cvec2s size; ///< Size of the loaded image.
+					gpu::format pixel_format = gpu::format::none; ///< Format of the loaded image.
+				};
+
+				/// Starts the worker thread.
+				_async_loader();
+				/// Terminates the loading thread.
+				~_async_loader();
+
+				/// Adds the given jobs to the job queue.
+				void add_jobs(std::vector<job>);
+				/// Returns a list of jobs that have been completed.
+				[[nodiscard]] std::vector<job_result> get_completed_jobs();
+			private:
+				std::vector<job> _inputs; ///< Inputs.
+				std::vector<job_result> _outputs; ///< Outputs.
+
+				std::condition_variable _signal; ///< Used to signal that there are new jobs available.
+				std::mutex _input_mtx; ///< Protects \ref _inputs.
+				std::mutex _output_mtx; ///< Protects \ref _outputs.
+				std::thread _job_thread; ///< The worker thread.
+				std::atomic<state> _state; ///< The state of this loader.
+
+				/// Function that is ran by the job thread.
+				void _job_thread_func();
+				/// Processes one job.
+				[[nodiscard]] job_result _process_job(job);
+			};
 
 			/// Initializes this manager.
 			manager(context&, gpu::device&, std::filesystem::path, gpu::shader_utility*);
@@ -272,6 +341,10 @@ namespace lotus::renderer {
 			gpu::shader_utility *_shader_utilities; ///< Used for compiling shaders.
 
 			context &_context; ///< Associated context.
+
+			_async_loader _image_loader; ///< Loader for images.
+			/// Buffered input jobs. These will be submitted in \ref update().
+			std::vector<_async_loader::job> _input_jobs;
 
 			image_descriptor_array _texture2d_descriptors; ///< Bindless descriptor array of all textures.
 			handle<texture2d> _invalid_texture; ///< Index of a texture indicating "invalid texture".

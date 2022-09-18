@@ -191,6 +191,10 @@ namespace lotus::gpu::backends::directx12 {
 		void set_debug_name(buffer &buf, const char8_t *name) {
 			_set_debug_name(*buf._buffer.Get(), name);
 		}
+		/// Calls \ref _set_debug_name().
+		void set_debug_name(image_view &buf, const char8_t *name) {
+			_set_debug_name(*static_cast<_details::image_view*>(&buf)->_image.Get(), name);
+		}
 
 
 		// ray-tracing related

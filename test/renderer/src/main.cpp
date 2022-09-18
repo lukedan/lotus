@@ -71,25 +71,29 @@ int main(int argc, char **argv) {
 		std::vector<lren::instance> instances;
 		std::vector<shader_types::instance_data> instance_data;
 		std::vector<lren::blas_reference> tlas_instances;
+		std::vector<lren::assets::handle<lren::assets::material>> material_assets;
 
 		lren::buffer_descriptor_array vertex_buffers = nullptr;
 		lren::buffer_descriptor_array normal_buffers = nullptr;
+		lren::buffer_descriptor_array uv_buffers = nullptr;
 		lren::buffer_descriptor_array index_buffers = nullptr;
 		std::uint32_t buffer_alloc = 0;
 		std::uint32_t index_alloc = 0;
 		std::vector<shader_types::geometry_data> geometries;
+		std::vector<shader_types::material_data> materials;
 		std::vector<lren::blas> blases;
 	} scene;
 
 	scene.vertex_buffers = rctx.request_buffer_descriptor_array(u8"Vertex buffers", lgpu::descriptor_type::read_only_buffer, 1024);
 	scene.normal_buffers = rctx.request_buffer_descriptor_array(u8"Normal buffers", lgpu::descriptor_type::read_only_buffer, 1024);
-	scene.index_buffers = rctx.request_buffer_descriptor_array(u8"Index buffers", lgpu::descriptor_type::read_only_buffer, 1024);
+	scene.uv_buffers     = rctx.request_buffer_descriptor_array(u8"UV buffers",     lgpu::descriptor_type::read_only_buffer, 1024);
+	scene.index_buffers  = rctx.request_buffer_descriptor_array(u8"Index buffers",  lgpu::descriptor_type::read_only_buffer, 1024);
 
 	for (int i = 1; i < argc; ++i) {
 		gltf_ctx.load(
 			argv[i],
 			[&](lren::assets::handle<lren::assets::texture2d> tex) {
-				mip_gen.generate_all(tex->image);
+				/*mip_gen.generate_all(tex->image);*/
 			},
 			[&](lren::assets::handle<lren::assets::geometry> geom) {
 				geom.user_data() = reinterpret_cast<void*>(scene.blases.size());
@@ -111,7 +115,7 @@ int main(int argc, char **argv) {
 						)
 					});
 				}
-				inst.vertex_buffer = inst.normal_buffer = scene.buffer_alloc++;
+				inst.vertex_buffer = inst.normal_buffer = inst.uv_buffer = scene.buffer_alloc++;
 				rctx.write_buffer_descriptors(scene.vertex_buffers, inst.vertex_buffer, {
 					geom->vertex_buffer.data->data.get_view(
 						geom->vertex_buffer.stride, geom->vertex_buffer.offset, geom->num_vertices
@@ -122,11 +126,26 @@ int main(int argc, char **argv) {
 						geom->normal_buffer.stride, geom->normal_buffer.offset, geom->num_vertices
 					)
 				});
+				rctx.write_buffer_descriptors(scene.uv_buffers, inst.uv_buffer, {
+					geom->uv_buffer.data->data.get_view(
+						geom->uv_buffer.stride, geom->uv_buffer.offset, geom->num_vertices
+					)
+				});
 			},
-			nullptr,
+			[&](lren::assets::handle<lren::assets::material> mat) {
+				mat.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(scene.materials.size()));
+				auto &mat_data = scene.materials.emplace_back();
+				if (auto *data = dynamic_cast<lren::gltf::material_data*>(mat->data.get())) {
+					if (data->albedo_texture) {
+						mat_data.base_color_index = data->albedo_texture->descriptor_index;
+					}
+				}
+				scene.material_assets.emplace_back(std::move(mat));
+			},
 			[&](lren::instance inst) {
 				if (inst.geometry) {
 					auto geom_index = reinterpret_cast<std::uintptr_t>(inst.geometry.user_data());
+					auto mat_index = reinterpret_cast<std::uintptr_t>(inst.material.user_data());
 					auto inst_index = scene.instances.size();
 					scene.tlas_instances.emplace_back(
 						scene.blases[geom_index], inst.transform, inst_index, 0xFF, inst.geometry->index_buffer ? 0 : 1
@@ -134,6 +153,7 @@ int main(int argc, char **argv) {
 					scene.instances.emplace_back(std::move(inst));
 					auto &gpu_inst = scene.instance_data.emplace_back();
 					gpu_inst.geometry_index = geom_index;
+					gpu_inst.material_index = mat_index;
 				}
 			}
 		);
@@ -148,6 +168,14 @@ int main(int argc, char **argv) {
 	);
 	rctx.upload_buffer<shader_types::geometry_data>(geom_buf, { scene.geometries.begin(), scene.geometries.end() }, 0, u8"Upload geometry buffer");
 	auto geom_structured_buf = geom_buf.get_view<shader_types::geometry_data>(0, scene.geometries.size());
+
+	auto mat_buf = rctx.request_buffer(
+		u8"Material buffer",
+		sizeof(shader_types::material_data) * scene.materials.size(),
+		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only
+	);
+	rctx.upload_buffer<shader_types::material_data>(mat_buf, { scene.materials.begin(), scene.materials.end() }, 0, u8"Upload material buffer");
+	auto mat_structured_buf = mat_buf.get_view<shader_types::material_data>(0, scene.materials.size());
 
 	auto inst_buf = rctx.request_buffer(
 		u8"Instance buffer",
@@ -314,6 +342,9 @@ int main(int argc, char **argv) {
 		auto start = std::chrono::high_resolution_clock::now();
 
 		{
+			asset_man.update();
+
+			frame_index = 0;
 			cam = cam_params.into_camera();
 
 			/*auto gbuffer = lren::g_buffer::view::create(rctx, window_size);
@@ -343,14 +374,18 @@ int main(int argc, char **argv) {
 							lren::resource_binding(lren::descriptor_resource::tlas(tlas), 0),
 							lren::resource_binding(lren::descriptor_resource::immediate_constant_buffer::create_for(globals), 1),
 							lren::resource_binding(lren::descriptor_resource::image2d::create_read_write(rt_result), 2),
-						}).at_space(1),
+							lren::resource_binding(lren::descriptor_resource::sampler(), 3),
+						}).at_space(0),
+						lren::resource_set_binding(asset_man.get_images(), 1),
 						lren::resource_set_binding(scene.vertex_buffers, 2),
 						lren::resource_set_binding(scene.normal_buffers, 3),
-						lren::resource_set_binding(scene.index_buffers, 4),
+						lren::resource_set_binding(scene.uv_buffers, 4),
+						lren::resource_set_binding(scene.index_buffers, 5),
 						lren::resource_set_binding::descriptor_bindings({
 							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(inst_structured_buf), 0),
 							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(geom_structured_buf), 1),
-						}).at_space(5),
+							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(mat_structured_buf), 2),
+						}).at_space(6),
 					}
 				);
 				rctx.trace_rays(

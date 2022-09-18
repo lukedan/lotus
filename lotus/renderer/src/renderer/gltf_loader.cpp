@@ -192,19 +192,19 @@ namespace lotus::renderer::gltf {
 				if (auto it = prim.attributes.find("POSITION"); it != prim.attributes.end()) {
 					geom.num_vertices = static_cast<std::uint32_t>(model.accessors[it->second].count);
 					geom.vertex_buffer = _load_input_buffer<float>(
-						_asset_manager, path, model, it->second, 4,
+						_asset_manager, path, model, it->second, 3,
 						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only | gpu::buffer_usage_mask::acceleration_structure_build_input
 					);
 				}
 				if (auto it = prim.attributes.find("NORMAL"); it != prim.attributes.end()) {
 					geom.normal_buffer = _load_input_buffer<float>(
-						_asset_manager, path, model, it->second, 4,
+						_asset_manager, path, model, it->second, 3,
 						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
 					);
 				}
 				if (auto it = prim.attributes.find("TANGENT"); it != prim.attributes.end()) {
 					geom.tangent_buffer = _load_input_buffer<float>(
-						_asset_manager, path, model, it->second, 4,
+						_asset_manager, path, model, it->second, 3,
 						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
 					);
 				}

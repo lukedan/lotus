@@ -160,6 +160,11 @@ namespace lotus::gpu::backends::vulkan {
 			/// Creates an empty object.
 			image_view(std::nullptr_t) {
 			}
+
+			/// Returns whether \ref _view is empty.
+			[[nodiscard]] bool is_valid() const {
+				return static_cast<bool>(_view);
+			}
 		private:
 			vk::UniqueImageView _view; ///< The image view.
 		};

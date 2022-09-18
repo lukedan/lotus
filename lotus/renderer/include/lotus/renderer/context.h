@@ -797,15 +797,18 @@ namespace lotus::renderer {
 		);
 
 		/// Initializes the given \ref _details::descriptor_array if necessary.
-		template <typename RecordedResource> void _maybe_initialize_descriptor_array(
-			_details::descriptor_array<RecordedResource> &arr
+		template <typename RecordedResource, typename View> void _maybe_initialize_descriptor_array(
+			_details::descriptor_array<RecordedResource, View> &arr
 		) {
 			if (!arr.set) {
 				const auto &layout = _cache.get_descriptor_set_layout(
 					cache_keys::descriptor_set_layout::from_descriptor_array(arr)
 				);
 				arr.set = _device.create_descriptor_set(_descriptor_pool, layout, arr.capacity);
-				arr.resources.resize(arr.capacity, nullptr);
+				arr.resources.reserve(arr.capacity);
+				while (arr.resources.size() < arr.capacity) {
+					arr.resources.emplace_back(nullptr);
+				}
 			}
 		}
 
@@ -815,16 +818,21 @@ namespace lotus::renderer {
 		void _maybe_initialize_tlas(_execution_context&, _details::tlas&);
 
 		/// Writes one descriptor array element into the given array.
-		template <auto MemberPtr, typename RecordedResource> void _write_one_descriptor_array_element(
-			_details::descriptor_array<RecordedResource> &arr, RecordedResource rsrc, std::uint32_t index
+		template <auto MemberPtr, typename RecordedResource, typename View> void _write_one_descriptor_array_element(
+			_details::descriptor_array<RecordedResource, View> &arr, RecordedResource rsrc, std::uint32_t index
 		) {
 			auto &cur_ref = arr.resources[index];
 			if (auto *surf = cur_ref.resource.*MemberPtr) {
 				auto old_index = cur_ref.reference_index;
 				surf->array_references[old_index] = surf->array_references.back();
-				surf->array_references.pop_back();
 				auto new_ref = surf->array_references[old_index];
 				new_ref.array->resources[new_ref.index].reference_index = old_index;
+				surf->array_references.pop_back();
+				if constexpr (!std::is_same_v<View, void>) {
+					if (cur_ref.view.value && !_all_resources.empty()) {
+						_all_resources.back().record(std::move(cur_ref.view.value));
+					}
+				}
 				cur_ref = nullptr;
 				arr.has_descriptor_overwrites = true;
 			}
@@ -927,10 +935,10 @@ namespace lotus::renderer {
 			gpu::descriptor_set&
 		> _use_descriptor_set(_execution_context&, const resource_set_binding::descriptor_bindings&);
 		/// Returns the descriptor set of the given bindless descriptor array, and flushes all pending operations.
-		template <typename RecordedResource> [[nodiscard]] std::tuple<
+		template <typename RecordedResource, typename View> [[nodiscard]] std::tuple<
 			cache_keys::descriptor_set_layout, const gpu::descriptor_set_layout&, gpu::descriptor_set&
 		> _use_descriptor_set(
-			_execution_context &ectx, const recorded_resources::descriptor_array<RecordedResource> &arr
+			_execution_context &ectx, const recorded_resources::descriptor_array<RecordedResource, View> &arr
 		) {
 			auto key = cache_keys::descriptor_set_layout::from_descriptor_array(*arr._array);
 			auto &layout = _cache.get_descriptor_set_layout(key);

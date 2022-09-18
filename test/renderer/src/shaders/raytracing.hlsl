@@ -2,20 +2,21 @@
 #include "pcg32.hlsl"
 #include "brdf.hlsl"
 
-/*Texture2D<float4> textures[] : register(t0);*/
+RaytracingAccelerationStructure rtas      : register(t0, space0);
+ConstantBuffer<global_data> globals       : register(b1, space0);
+RWTexture2D<float4> output                : register(u2, space0);
+SamplerState image_sampler                : register(s3, space0);
 
-RaytracingAccelerationStructure rtas      : register(t0, space1);
-ConstantBuffer<global_data> globals       : register(b1, space1);
-RWTexture2D<float4> output                : register(u2, space1);
-
+Texture2D<float4>        textures[]  : register(t0, space1);
 StructuredBuffer<float4> positions[] : register(t0, space2);
 StructuredBuffer<float4> normals[]   : register(t0, space3);
-StructuredBuffer<uint>   indices[]   : register(t0, space4);
+StructuredBuffer<float2> uvs[]       : register(t0, space4);
+StructuredBuffer<uint>   indices[]   : register(t0, space5);
 
-StructuredBuffer<instance_data> instances  : register(t0, space5);
-StructuredBuffer<geometry_data> geometries : register(t1, space5);
-/*StructuredBuffer<material_data> materials : register(t3, space1);
-StructuredBuffer<vertex> vertices         : register(t4, space1);
+StructuredBuffer<instance_data> instances  : register(t0, space6);
+StructuredBuffer<geometry_data> geometries : register(t1, space6);
+StructuredBuffer<material_data> materials  : register(t2, space6);
+/*StructuredBuffer<vertex> vertices         : register(t4, space1);
 StructuredBuffer<uint> indices            : register(t5, space1);
 SamplerState image_sampler                : register(s7, space1);*/
 
@@ -34,7 +35,9 @@ float rd(uint sequence, uint index) {
 struct ray_payload {
 	float3 light;
 	uint bounces;
-	/*pcg32 rand;*/
+#ifdef RT_USE_PCG32
+	pcg32 rand;
+#endif
 };
 
 [shader("miss")]
@@ -55,6 +58,7 @@ hit_triangle get_hit_triangle_indexed_object_space() {
 		uint index = indices[NonUniformResourceIndex(geometry.index_buffer)][index_offset + i];
 		result.verts[i].position = positions[NonUniformResourceIndex(geometry.vertex_buffer)][index];
 		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.normal_buffer)][index];
+		result.verts[i].uv       = uvs      [NonUniformResourceIndex(geometry.uv_buffer    )][index];
 	}
 	return result;
 }
@@ -66,7 +70,8 @@ hit_triangle get_hit_triangle_unindexed_object_space() {
 	[unroll]
 	for (uint i = 0; i < 3; ++i) {
 		result.verts[i].position = positions[NonUniformResourceIndex(geometry.vertex_buffer)][index + i];
-		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.vertex_buffer)][index + i];
+		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.normal_buffer)][index + i];
+		result.verts[i].uv       = uvs      [NonUniformResourceIndex(geometry.uv_buffer    )][index + i];
 	}
 	return result;
 }
@@ -160,10 +165,18 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 
 	hit_point hit = transform_hit_point_to_world_space(interpolate_hit_point(tri, barycentrics));
 
+	instance_data inst = instances[InstanceID()];
+	material_data mat = materials[inst.material_index];
+	payload.light = textures[NonUniformResourceIndex(mat.base_color_index)].SampleLevel(image_sampler, hit.uv, 0);
+	return;
+
+#if RT_USE_PCG32
+	float xi1 = pcg32_random_01(payload.rand);
+	float xi2 = pcg32_random_01(payload.rand) * 2.0f * pi;
+#else
 	float xi1 = rd(payload.bounces * 2 + 2, globals.frame_index);
 	float xi2 = rd(payload.bounces * 2 + 3, globals.frame_index) * 2.0f * pi;
-	/*float xi1 = pcg32_random_01(payload.rand);
-	float xi2 = pcg32_random_01(payload.rand) * 2.0f * pi;*/
+#endif
 	float2 xy = sqrt(xi1) * float2(cos(xi2), sin(xi2));
 	float3 dir = normalize(hit.normal);
 	if (dot(WorldRayDirection(), dir) > 0.0f) {
@@ -350,7 +363,9 @@ void main_closesthit_unindexed(inout ray_payload payload, BuiltInTriangleInterse
 void main_raygen() {
 	ray_payload payload = (ray_payload)0;
 	payload.light = (float3)1.0f;
-	/*payload.rand = pcg32_seed(DispatchRaysIndex().y * 10000 + DispatchRaysIndex().x, globals.frame_index);*/
+#ifdef RT_USE_PCG32
+	payload.rand = pcg32_seed(DispatchRaysIndex().y * 10000 + DispatchRaysIndex().x, globals.frame_index);
+#endif
 
 	float2 jitter;
 	jitter.x = rd(1, globals.frame_index);

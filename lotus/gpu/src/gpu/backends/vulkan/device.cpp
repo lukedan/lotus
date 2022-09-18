@@ -933,6 +933,19 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	}
 
+	void device::set_debug_name(image_view &img, const char8_t *name) {
+		if (!is_empty(_options & context_options::enable_validation)) {
+			vk::DebugMarkerObjectNameInfoEXT info;
+			info
+				.setObjectType(vk::DebugReportObjectTypeEXT::eImageView)
+				.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkImageView>(
+					static_cast<_details::image_view&>(img)._view.get()
+				)))
+				.setPObjectName(reinterpret_cast<const char*>(name));
+			_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
+		}
+	}
+
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
 		std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
 	) {
@@ -1358,6 +1371,10 @@ namespace lotus::gpu::backends::vulkan {
 			.setDescriptorBindingUniformTexelBufferUpdateAfterBind(true)
 			.setDescriptorBindingVariableDescriptorCount(true)
 			.setRuntimeDescriptorArray(true)
+			.setShaderUniformBufferArrayNonUniformIndexing(true)
+			.setShaderSampledImageArrayNonUniformIndexing(true)
+			.setShaderStorageBufferArrayNonUniformIndexing(true)
+			.setShaderStorageImageArrayNonUniformIndexing(true)
 			.setTimelineSemaphore(true);
 
 		vk::PhysicalDeviceFeatures2 features;

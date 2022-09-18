@@ -451,6 +451,14 @@ namespace lotus::gpu {
 		void set_debug_name(image &img, const std::u8string &name) {
 			set_debug_name(img, name.c_str());
 		}
+		/// Sets the debug name of the given object.
+		void set_debug_name(image_view &img, const char8_t *name) {
+			backend::device::set_debug_name(img, name);
+		}
+		/// \overload
+		void set_debug_name(image_view &img, const std::u8string &name) {
+			set_debug_name(img, name.c_str());
+		}
 
 
 		// ray-tracing related

@@ -15,6 +15,121 @@
 #include "lotus/renderer/mipmap.h"
 
 namespace lotus::renderer::assets {
+	manager::_async_loader::_async_loader() : _state(state::running) {
+		_job_thread = std::thread([this]() {
+			_job_thread_func();
+		});
+	}
+
+	manager::_async_loader::~_async_loader() {
+		_state = state::shutting_down;
+		_signal.notify_all();
+		_job_thread.join();
+	}
+
+	void manager::_async_loader::add_jobs(std::vector<job> jobs) {
+		{
+			std::unique_lock<std::mutex> lock(_input_mtx);
+			for (auto &j : jobs) {
+				_inputs.emplace_back(std::move(j));
+			}
+		}
+		_signal.notify_all();
+	}
+
+	std::vector<manager::_async_loader::job_result> manager::_async_loader::get_completed_jobs() {
+		std::unique_lock<std::mutex> lock(_output_mtx);
+		return std::move(_outputs);
+	}
+
+	void manager::_async_loader::_job_thread_func() {
+		while (_state != state::shutting_down) {
+			std::vector<job> jobs;
+			{
+				std::unique_lock<std::mutex> lock(_input_mtx);
+				if (_inputs.empty()) {
+					_signal.wait(lock);
+				}
+				jobs = std::exchange(_inputs, {});
+			}
+
+			std::size_t i = 0;
+			for (; i < jobs.size(); ++i) {
+				auto result = _process_job(std::move(jobs[i]));
+				{
+					std::unique_lock<std::mutex> lock(_output_mtx);
+					_outputs.emplace_back(std::move(result));
+				}
+				if (_state == state::shutting_down) {
+					std::unique_lock<std::mutex> lock(_output_mtx);
+					for (++i; i < jobs.size(); ++i) {
+						_outputs.emplace_back(std::move(jobs[i]), nullptr);
+					}
+					return;
+				}
+			}
+		}
+	}
+
+	manager::_async_loader::job_result manager::_async_loader::_process_job(job j) {
+		// load image binary
+		// TODO subpath is ignored
+		auto [image_mem, image_size] = load_binary_file(j.path.string().c_str());
+		if (!image_mem) {
+			log().error<u8"Failed to open image file: {}">(j.path.string());
+			return job_result(std::move(j), nullptr);
+		}
+
+		// get image format and load
+		void *loaded = nullptr;
+		std::uint8_t bytes_per_channel = 1;
+		int width = 0;
+		int height = 0;
+		int original_channels = 0;
+		auto type = gpu::format_properties::data_type::unknown;
+		auto *stbi_mem = static_cast<const stbi_uc*>(image_mem.get());
+		if (stbi_is_hdr_from_memory(stbi_mem, static_cast<int>(image_size))) {
+			type = gpu::format_properties::data_type::floating_point;
+			bytes_per_channel = 4;
+			loaded = stbi_loadf_from_memory(
+				stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 0
+			);
+		} else if (stbi_is_16_bit_from_memory(stbi_mem, static_cast<int>(image_size))) {
+			type = gpu::format_properties::data_type::unsigned_norm;
+			bytes_per_channel = 2;
+			loaded = stbi_load_16_from_memory(
+				stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
+			);
+			original_channels = 4; // TODO support 1 and 2 channel images
+		} else {
+			type = gpu::format_properties::data_type::unsigned_norm;
+			bytes_per_channel = 1;
+			loaded = stbi_load_from_memory(
+				stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
+			);
+			original_channels = 4; // TODO support 1 and 2 channel images
+		}
+		image_mem.reset(); // we're done loading; free the loaded image file
+		std::uint8_t num_channels = original_channels == 3 ? 4 : static_cast<std::uint8_t>(original_channels);
+		std::uint8_t bits_per_channel_4[4] = { 0, 0, 0, 0 };
+		for (int i = 0; i < num_channels; ++i) {
+			bits_per_channel_4[i] = bytes_per_channel * 8;
+		}
+
+		auto pixel_format = gpu::format_properties::find_exact_rgba(
+			bits_per_channel_4[0], bits_per_channel_4[1], bits_per_channel_4[2], bits_per_channel_4[3], type
+		);
+		if (pixel_format == gpu::format::none) {
+			log().error<u8"Failed to find appropriate pixel format for bytes per channel {}, type {}">(
+				bytes_per_channel,
+				static_cast<std::underlying_type_t<gpu::format_properties::data_type>>(type)
+			);
+		}
+
+		return job_result(std::move(j), loaded, cvec2s(width, height), pixel_format);
+	}
+
+
 	[[nodiscard]] handle<texture2d> manager::get_texture2d(const identifier &id) {
 		if (auto it = _textures.find(id); it != _textures.end()) {
 			if (auto ptr = it->second.lock()) {
@@ -22,81 +137,14 @@ namespace lotus::renderer::assets {
 			}
 		}
 
-		// load image
-		// TODO subpath is ignored
-		auto [image_mem, image_size] = load_binary_file(id.path.string().c_str());
-		if (!image_mem) {
-			log().error<u8"Failed to open image file: {}">(id.path.string());
-			return nullptr;
-		}
-
 		// create object
 		texture2d tex = nullptr;
-
-		// get image format and load
-		void *loaded = nullptr;
-		std::uint8_t bytes_per_channel = 1;
-		{
-			int width = 0;
-			int height = 0;
-			int original_channels = 0;
-			auto type = gpu::format_properties::data_type::unknown;
-			auto *stbi_mem = static_cast<const stbi_uc*>(image_mem.get());
-			if (stbi_is_hdr_from_memory(stbi_mem, static_cast<int>(image_size))) {
-				type = gpu::format_properties::data_type::floating_point;
-				bytes_per_channel = 4;
-				loaded = stbi_loadf_from_memory(
-					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 0
-				);
-			} else if (stbi_is_16_bit_from_memory(stbi_mem, static_cast<int>(image_size))) {
-				type = gpu::format_properties::data_type::unsigned_norm;
-				bytes_per_channel = 2;
-				loaded = stbi_load_16_from_memory(
-					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
-				);
-				original_channels = 4; // TODO support 1 and 2 channel images
-			} else {
-				type = gpu::format_properties::data_type::unsigned_norm;
-				bytes_per_channel = 1;
-				loaded = stbi_load_from_memory(
-					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
-				);
-				original_channels = 4; // TODO support 1 and 2 channel images
-			}
-			image_mem.reset(); // we've done loading; free the loaded image file
-			std::uint8_t num_channels = original_channels == 3 ? 4 : static_cast<std::uint8_t>(original_channels);
-			std::uint8_t bits_per_channel_4[4] = { 0, 0, 0, 0 };
-			for (int i = 0; i < num_channels; ++i) {
-				bits_per_channel_4[i] = bytes_per_channel * 8;
-			}
-
-			auto pixel_format = gpu::format_properties::find_exact_rgba(
-				bits_per_channel_4[0], bits_per_channel_4[1], bits_per_channel_4[2], bits_per_channel_4[3], type
-			);
-			if (pixel_format == gpu::format::none) {
-				log().error<u8"Failed to find appropriate pixel format for bytes per channel {}, type {}">(
-					bytes_per_channel,
-					static_cast<std::underlying_type_t<gpu::format_properties::data_type>>(type)
-				);
-			}
-			// TODO mips
-			cvec2s size(width, height);
-			tex.image = _context.request_image2d(
-				id.path.u8string(), size, mipmap::get_levels(size.into<std::uint32_t>()), pixel_format,
-				gpu::image_usage_mask::copy_destination |
-				gpu::image_usage_mask::shader_read_write |
-				gpu::image_usage_mask::shader_read_only
-			);
-			tex.highest_mip_loaded = 0;
-		}
-
-		// upload
-		_context.upload_image(tex.image, loaded, u8"Upload image"); // TODO better label
-		stbi_image_free(loaded);
-
+		tex.image = get_invalid_texture()->image;
 		tex.descriptor_index = _allocate_descriptor_index();
 		_context.write_image_descriptors(_texture2d_descriptors, tex.descriptor_index, { tex.image });
-		return _register_asset(id, std::move(tex), _textures);
+		auto result = _register_asset(id, std::move(tex), _textures);
+		_input_jobs.emplace_back(result);
+		return result;
 	}
 
 	handle<buffer> manager::create_buffer(
@@ -187,6 +235,32 @@ namespace lotus::renderer::assets {
 		return _do_compile_shader_library_from_source(
 			std::move(id), { static_cast<const std::byte*>(binary.get()), size }, defines
 		);
+	}
+
+	void manager::update() {
+		if (!_input_jobs.empty()) {
+			_image_loader.add_jobs(std::move(_input_jobs));
+		}
+		auto finished_jobs = _image_loader.get_completed_jobs();
+		for (const auto &j : finished_jobs) {
+			if (j.data) {
+				auto &tex = j.input.target._ptr->value;
+				tex.image = _context.request_image2d(
+					j.input.path.u8string(), j.size, mipmap::get_levels(j.size.into<std::uint32_t>()), j.pixel_format,
+					gpu::image_usage_mask::copy_destination |
+					gpu::image_usage_mask::shader_read_write |
+					gpu::image_usage_mask::shader_read_only
+				);
+				tex.highest_mip_loaded = 0;
+
+				// upload image
+				_context.upload_image(tex.image, j.data, u8"Upload image"); // TODO better label
+				stbi_image_free(j.data);
+
+				_context.write_image_descriptors(_texture2d_descriptors, tex.descriptor_index, { tex.image });
+				log().debug<u8"Texture {} loaded">(j.input.path.string());
+			}
+		}
 	}
 
 	manager::manager(

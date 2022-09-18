@@ -425,24 +425,33 @@ namespace lotus::renderer {
 	void context::_execution_context::flush_descriptor_array_writes(
 		_details::image_descriptor_array &arr, const gpu::descriptor_set_layout &layout
 	) {
-		if (arr.has_descriptor_overwrites) {
-			// TODO wait until we've finished using this descriptor
-			arr.has_descriptor_overwrites = false;
-		}
 		if (!arr.staged_writes.empty()) {
+			// TODO wait more intelligently
+			auto fence = _ctx._device.create_fence(gpu::synchronization_state::unset);
+			submit(_ctx._queue, &fence);
+			_ctx._device.wait_for_fence(fence);
+			if (arr.has_descriptor_overwrites) {
+				arr.has_descriptor_overwrites = false;
+			}
+
 			auto writes = std::exchange(arr.staged_writes, {});
 			std::sort(writes.begin(), writes.end());
 			writes.erase(std::unique(writes.begin(), writes.end()), writes.end());
 			auto write_func = gpu::device::get_write_image_descriptor_function(arr.type);
 			assert(write_func);
 			for (auto index : writes) {
-				const auto &img = arr.resources[index].resource;
-				// TODO batch writes
-				gpu::image2d_view *view = nullptr;
-				if (img) {
-					view = &_ctx._request_image_view(*this, img);
+				auto &rsrc = arr.resources[index];
+				if (rsrc.view.value) {
+					record(std::exchange(rsrc.view.value, nullptr));
 				}
-				std::initializer_list<const gpu::image_view*> views = { view };
+				// TODO batch writes
+				if (rsrc.resource) {
+					rsrc.view.value = _ctx._device.create_image2d_view_from(
+						rsrc.resource._surface->image, rsrc.resource._view_format, rsrc.resource._mip_levels
+					);
+					_ctx._device.set_debug_name(rsrc.view.value, rsrc.resource._surface->name);
+				}
+				std::initializer_list<const gpu::image_view*> views = { &rsrc.view.value };
 				(_ctx._device.*write_func)(arr.set, layout, index, views);
 			}
 		}
@@ -451,11 +460,15 @@ namespace lotus::renderer {
 	void context::_execution_context::flush_descriptor_array_writes(
 		_details::buffer_descriptor_array &arr, const gpu::descriptor_set_layout &layout
 	) {
-		if (arr.has_descriptor_overwrites) {
-			// TODO wait until we've finished using this descriptor
-			arr.has_descriptor_overwrites = false;
-		}
 		if (!arr.staged_writes.empty()) {
+			// TODO wait more intelligently
+			auto fence = _ctx._device.create_fence(gpu::synchronization_state::unset);
+			submit(_ctx._queue, &fence);
+			_ctx._device.wait_for_fence(fence);
+			if (arr.has_descriptor_overwrites) {
+				arr.has_descriptor_overwrites = false;
+			}
+
 			auto writes = std::exchange(arr.staged_writes, {});
 			std::sort(writes.begin(), writes.end());
 			writes.erase(std::unique(writes.begin(), writes.end()), writes.end());
@@ -711,7 +724,7 @@ namespace lotus::renderer {
 		_maybe_initialize_descriptor_array(arr);
 		for (std::size_t i = 0; i < imgs.size(); ++i) {
 			_write_one_descriptor_array_element<&recorded_resources::image2d_view::_surface>(
-				arr, recorded_resources::image2d_view(imgs[i]), i + first_index
+				arr, recorded_resources::image2d_view(imgs[i]), static_cast<std::uint32_t>(i + first_index)
 			);
 		}
 	}
@@ -723,7 +736,7 @@ namespace lotus::renderer {
 		_maybe_initialize_descriptor_array(arr);
 		for (std::size_t i = 0; i < bufs.size(); ++i) {
 			_write_one_descriptor_array_element<&recorded_resources::structured_buffer_view::_buffer>(
-				arr, recorded_resources::structured_buffer_view(bufs[i]), i + first_index
+				arr, recorded_resources::structured_buffer_view(bufs[i]), static_cast<std::uint32_t>(i + first_index)
 			);
 		}
 	}
@@ -792,7 +805,9 @@ namespace lotus::renderer {
 
 	gpu::image2d_view context::_create_image_view(const recorded_resources::image2d_view &view) {
 		_maybe_create_image(*view._surface);
-		return _device.create_image2d_view_from(view._surface->image, view._view_format, view._mip_levels);
+		auto result = _device.create_image2d_view_from(view._surface->image, view._view_format, view._mip_levels);
+		_device.set_debug_name(result, view._surface->name);
+		return result;
 	}
 
 	gpu::image2d_view &context::_request_image_view(
@@ -1565,6 +1580,13 @@ namespace lotus::renderer {
 							images
 						);
 					}
+				}
+			}
+			constexpr bool _debug_resource_disposal = true;
+			if constexpr (_debug_resource_disposal) {
+				auto rsrc = std::move(_all_resources.front());
+				for (auto &img : rsrc.image_views) {
+					img = nullptr;
 				}
 			}
 			_all_resources.pop_front();

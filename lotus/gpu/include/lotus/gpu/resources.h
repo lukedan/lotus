@@ -155,6 +155,15 @@ namespace lotus::gpu {
 		}
 		/// No copy assignment.
 		image2d_view &operator=(const image2d_view&) = delete;
+
+		/// Returns whether this holds a valid object.
+		[[nodiscard]] bool is_valid() const {
+			return backend::image2d_view::is_valid();
+		}
+		/// \override
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
+		}
 	protected:
 		/// Initializes the base class.
 		image2d_view(backend::image2d_view base) : backend::image2d_view(std::move(base)) {

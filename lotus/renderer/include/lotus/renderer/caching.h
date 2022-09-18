@@ -27,8 +27,10 @@ namespace lotus::renderer {
 			) : ranges(std::move(rs)), type(ty) {
 			}
 			/// Initializes this key for the given descriptor array.
-			template <typename RecordedResource> [[nodiscard]] static descriptor_set_layout from_descriptor_array(
-				const _details::descriptor_array<RecordedResource> &d
+			template <
+				typename RecordedResource, typename View
+			> [[nodiscard]] static descriptor_set_layout from_descriptor_array(
+				const _details::descriptor_array<RecordedResource, View> &d
 			) {
 				return cache_keys::descriptor_set_layout(
 					{ gpu::descriptor_range_binding::create_unbounded(d.type, 0), },

@@ -194,6 +194,8 @@ namespace lotus::gpu::backends::vulkan {
 		void set_debug_name(buffer&, const char8_t*);
 		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT().
 		void set_debug_name(image&, const char8_t*);
+		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT().
+		void set_debug_name(image_view&, const char8_t*);
 
 
 		// ray-tracing related

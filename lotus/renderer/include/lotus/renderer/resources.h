@@ -19,7 +19,7 @@ namespace lotus::renderer {
 	class buffer;
 	class structured_buffer_view;
 	class swap_chain;
-	template <typename> class descriptor_array;
+	template <typename, typename> class descriptor_array;
 	class blas;
 	class tlas;
 	namespace _details {
@@ -27,7 +27,7 @@ namespace lotus::renderer {
 		struct buffer;
 		struct structured_buffer_view;
 		struct swap_chain;
-		template <typename> struct descriptor_array;
+		template <typename, typename> struct descriptor_array;
 		struct blas;
 		struct tlas;
 	}
@@ -150,11 +150,11 @@ namespace lotus::renderer {
 		};
 
 		/// \ref renderer::descriptor_array.
-		template <typename RecordedResource> class descriptor_array {
+		template <typename RecordedResource, typename View> class descriptor_array {
 			friend context;
 		public:
 			/// Conversion from a non-recorded \ref renderer::descriptor_array.
-			descriptor_array(const renderer::descriptor_array<RecordedResource>&);
+			descriptor_array(const renderer::descriptor_array<RecordedResource, View>&);
 
 			/// Returns whether this object holds a valid descriptor array.
 			[[nodiscard]] bool is_valid() const {
@@ -165,7 +165,7 @@ namespace lotus::renderer {
 				return is_valid();
 			}
 		private:
-			_details::descriptor_array<RecordedResource> *_array = nullptr; ///< The descriptor array.
+			_details::descriptor_array<RecordedResource, View> *_array = nullptr; ///< The descriptor array.
 		};
 
 		/// \ref renderer::blas.
@@ -299,20 +299,20 @@ namespace lotus::renderer {
 
 	/// Internal data structures used by the rendering context.
 	namespace _details {
-		template <typename> struct descriptor_array;
+		template <typename, typename> struct descriptor_array;
 
 
 		/// Returns the descriptor type that corresponds to the image binding.
 		[[nodiscard]] gpu::descriptor_type to_descriptor_type(image_binding_type);
 
 		/// A reference to a usage of this surface in a descriptor array.
-		template <typename RecordedResource> struct descriptor_array_reference {
+		template <typename RecordedResource, typename View> struct descriptor_array_reference {
 			/// Initializes this reference to empty.
 			descriptor_array_reference(std::nullptr_t) {
 			}
 
 			/// The descriptor array.
-			descriptor_array<RecordedResource> *array = nullptr;
+			descriptor_array<RecordedResource, View> *array = nullptr;
 			std::uint32_t index = 0; ///< The index of this image in the array.
 		};
 
@@ -396,7 +396,9 @@ namespace lotus::renderer {
 			gpu::image_usage_mask usages = gpu::image_usage_mask::none; ///< Possible usages.
 
 			/// References in descriptor arrays.
-			std::vector<descriptor_array_reference<recorded_resources::image2d_view>> array_references;
+			std::vector<
+				descriptor_array_reference<recorded_resources::image2d_view, gpu::image2d_view>
+			> array_references;
 
 			std::uint64_t id = 0; ///< Used to uniquely identify this surface.
 			// TODO make this debug only?
@@ -419,7 +421,9 @@ namespace lotus::renderer {
 			gpu::buffer_usage_mask usages = gpu::buffer_usage_mask::none; ///< Possible usages.
 
 			/// References in descriptor arrays.
-			std::vector<descriptor_array_reference<recorded_resources::structured_buffer_view>> array_references;
+			std::vector<
+				descriptor_array_reference<recorded_resources::structured_buffer_view, void>
+			> array_references;
 
 			std::uint64_t id = 0; ///< Used to uniquely identify this buffer.
 			// TODO make this debug only?
@@ -461,15 +465,16 @@ namespace lotus::renderer {
 		};
 
 		/// A bindless descriptor array.
-		template <typename RecordedResource> struct descriptor_array {
+		template <typename RecordedResource, typename View> struct descriptor_array {
 		public:
 			/// A reference to an element in the array.
 			struct resource_reference {
 				/// Initializes this reference to empty.
-				resource_reference(std::nullptr_t) : resource(nullptr) {
+				resource_reference(std::nullptr_t) : resource(nullptr), view(nullptr) {
 				}
 
 				RecordedResource resource; ///< The referenced resource.
+				static_optional<View, !std::is_same_v<View, void>> view; ///< View object of the resource.
 				std::uint32_t reference_index = 0; ///< Index of this reference in \p Descriptor::array_references.
 			};
 
@@ -497,9 +502,9 @@ namespace lotus::renderer {
 			std::u8string name; ///< Name of this descriptor array.
 		};
 		/// Array of image descriptors.
-		using image_descriptor_array = descriptor_array<recorded_resources::image2d_view>;
+		using image_descriptor_array = descriptor_array<recorded_resources::image2d_view, gpu::image2d_view>;
 		/// Array of buffer descriptors.
-		using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view>;
+		using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view, void>;
 
 		/// A bottom-level acceleration structure.
 		struct blas {
@@ -781,9 +786,9 @@ namespace lotus::renderer {
 	};
 
 	/// A bindless descriptor array.
-	template <typename RecordedResource> class descriptor_array {
+	template <typename RecordedResource, typename View> class descriptor_array {
 		friend context;
-		friend recorded_resources::descriptor_array<RecordedResource>;
+		friend recorded_resources::descriptor_array<RecordedResource, View>;
 	public:
 		/// Initializes this object to empty.
 		descriptor_array(std::nullptr_t) {
@@ -800,21 +805,21 @@ namespace lotus::renderer {
 	private:
 		/// Initializes this descriptor array.
 		explicit descriptor_array(
-			std::shared_ptr<_details::descriptor_array<RecordedResource>> arr
+			std::shared_ptr<_details::descriptor_array<RecordedResource, View>> arr
 		) : _array(std::move(arr)) {
 		}
 
-		std::shared_ptr<_details::descriptor_array<RecordedResource>> _array; ///< The descriptor array.
+		std::shared_ptr<_details::descriptor_array<RecordedResource, View>> _array; ///< The descriptor array.
 	};
 	/// An array of image descriptors.
-	using image_descriptor_array = descriptor_array<recorded_resources::image2d_view>;
+	using image_descriptor_array = descriptor_array<recorded_resources::image2d_view, gpu::image2d_view>;
 	/// An array of buffer descriptors.
-	using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view>;
+	using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view, void>;
 	namespace recorded_resources {
 		/// \ref renderer::image_descriptor_array.
-		using image_descriptor_array = descriptor_array<image2d_view>;
+		using image_descriptor_array = descriptor_array<image2d_view, gpu::image2d_view>;
 		/// \ref renderer::buffer_descriptor_array.
-		using buffer_descriptor_array = descriptor_array<structured_buffer_view>;
+		using buffer_descriptor_array = descriptor_array<structured_buffer_view, void>;
 	}
 
 	/// A bottom level acceleration structure.
@@ -889,8 +894,10 @@ namespace lotus::renderer {
 
 
 	namespace recorded_resources {
-		template <typename RecordedResource> descriptor_array<RecordedResource>::descriptor_array(
-			const renderer::descriptor_array<RecordedResource> &arr
+		template <
+			typename RecordedResource, typename View
+		> descriptor_array<RecordedResource, View>::descriptor_array(
+			const renderer::descriptor_array<RecordedResource, View> &arr
 		) : _array(arr._array.get()) {
 		}
 	}

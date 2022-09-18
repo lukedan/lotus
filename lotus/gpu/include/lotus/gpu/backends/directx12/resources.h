@@ -90,6 +90,11 @@ namespace lotus::gpu::backends::directx12 {
 		class image_view : public gpu::image_view {
 			friend device;
 		protected:
+			/// Returns whether \ref _image is empty.
+			[[nodiscard]] bool is_valid() const {
+				return _image;
+			}
+
 			_details::com_ptr<ID3D12Resource> _image; ///< The image.
 			D3D12_SHADER_RESOURCE_VIEW_DESC _srv_desc; ///< Shader resource view description.
 			D3D12_UNORDERED_ACCESS_VIEW_DESC _uav_desc; ///< Unordered access view description.

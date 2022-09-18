@@ -9,6 +9,7 @@
 #include <lotus/gpu/descriptors.h>
 #include "common.h"
 #include "resources.h"
+#include "resource_bindings.h"
 #include "assets.h"
 
 namespace lotus::renderer {
@@ -79,6 +80,7 @@ namespace lotus::renderer {
 
 			std::vector<set> sets; ///< The vector of sets. These are sorted based on their register spaces.
 		};
+
 		/// Key containing all pipeline parameters.
 		struct graphics_pipeline {
 			/// Version of \ref gpu::input_buffer_layout that owns the array of
@@ -117,7 +119,7 @@ namespace lotus::renderer {
 
 
 			// input descriptors
-			pipeline_resources pipeline_resources; ///< Pipeline resources.
+			pipeline_resources pipeline_rsrc; ///< Pipeline resources.
 
 			// input buffers
 			std::vector<input_buffer_layout> input_buffers; ///< Input buffers.
@@ -133,23 +135,48 @@ namespace lotus::renderer {
 			graphics_pipeline_state pipeline_state; ///< Blending, rasterizer, and depth-stencil state.
 			gpu::primitive_topology topology = gpu::primitive_topology::num_enumerators; ///< Topology.
 		};
+		/// Key containing all raytracing pipeline states.
+		struct raytracing_pipeline {
+			/// Initializes this key to empty.
+			raytracing_pipeline(std::nullptr_t) {
+			}
+
+			/// Default equality and inequality.
+			[[nodiscard]] friend bool operator==(const raytracing_pipeline&, const raytracing_pipeline&) = default;
+
+
+			pipeline_resources pipeline_rsrc;///< Pipeline resources.
+
+			std::vector<shader_function> hit_group_shaders; ///< Hit gruop shaders.
+			std::vector<gpu::hit_shader_group> hit_groups;  ///< Hit groups.
+			std::vector<shader_function> general_shaders;   ///< General shaders.
+
+			std::uint32_t max_recursion_depth = 0; ///< Maximum recursion depth.
+			std::uint32_t max_payload_size = 0;    ///< Maximum payload size.
+			std::uint32_t max_attribute_size = 0;  ///< Maximum attribute size.
+		};
 	}
 }
 namespace std {
 	/// Hash function for \ref lotus::renderer::cache_keys::descriptor_set_layout.
-	template <> struct std::hash<lotus::renderer::cache_keys::descriptor_set_layout> {
+	template <> struct hash<lotus::renderer::cache_keys::descriptor_set_layout> {
 		/// Hashes the given object.
-		[[nodiscard]] std::size_t operator()(const lotus::renderer::cache_keys::descriptor_set_layout&) const;
+		[[nodiscard]] size_t operator()(const lotus::renderer::cache_keys::descriptor_set_layout&) const;
 	};
 	/// Hash function for \ref lotus::renderer::cache_keys::pipeline_resources.
-	template <> struct std::hash<lotus::renderer::cache_keys::pipeline_resources> {
+	template <> struct hash<lotus::renderer::cache_keys::pipeline_resources> {
 		/// Hashes the given object.
-		[[nodiscard]] std::size_t operator()(const lotus::renderer::cache_keys::pipeline_resources&) const;
+		[[nodiscard]] size_t operator()(const lotus::renderer::cache_keys::pipeline_resources&) const;
 	};
 	/// Hash function for \ref lotus::renderer::cache_keys::graphics_pipeline.
-	template <> struct std::hash<lotus::renderer::cache_keys::graphics_pipeline> {
+	template <> struct hash<lotus::renderer::cache_keys::graphics_pipeline> {
 		/// Hashes the given object.
-		[[nodiscard]] std::size_t operator()(const lotus::renderer::cache_keys::graphics_pipeline&) const;
+		[[nodiscard]] size_t operator()(const lotus::renderer::cache_keys::graphics_pipeline&) const;
+	};
+	/// Hash function for \ref lotus::renderer::cache_keys::raytracing_pipeline.
+	template <> struct hash<lotus::renderer::cache_keys::raytracing_pipeline> {
+		/// Hashes the given object.
+		[[nodiscard]] size_t operator()(const lotus::renderer::cache_keys::raytracing_pipeline&) const;
 	};
 }
 
@@ -174,6 +201,10 @@ namespace lotus::renderer {
 		[[nodiscard]] const gpu::graphics_pipeline_state &get_graphics_pipeline_state(
 			const cache_keys::graphics_pipeline&
 		);
+		/// Creates or retrieves a graphics raytracing state matching the given key.
+		[[nodiscard]] const gpu::raytracing_pipeline_state &get_raytracing_pipeline_state(
+			const cache_keys::raytracing_pipeline&
+		);
 	private:
 		gpu::device &_device; ///< The device used by this cache.
 		gpu::descriptor_set_layout _empty_layout; ///< An empty descriptor set layout.
@@ -184,5 +215,7 @@ namespace lotus::renderer {
 		std::unordered_map<cache_keys::pipeline_resources, gpu::pipeline_resources> _pipeline_resources;
 		/// Cached graphics pipeline states.
 		std::unordered_map<cache_keys::graphics_pipeline, gpu::graphics_pipeline_state> _graphics_pipelines;
+		/// Cached raytracing pipeline states.
+		std::unordered_map<cache_keys::raytracing_pipeline, gpu::raytracing_pipeline_state> _raytracing_pipelines;
 	};
 }

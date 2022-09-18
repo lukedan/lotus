@@ -77,7 +77,7 @@ namespace std {
 	size_t hash<lotus::renderer::cache_keys::graphics_pipeline>::operator()(
 		const lotus::renderer::cache_keys::graphics_pipeline &key
 	) const {
-		size_t result = lotus::compute_hash(key.pipeline_resources);
+		size_t result = lotus::compute_hash(key.pipeline_rsrc);
 		for (const auto &buf : key.input_buffers) {
 			for (const auto &elem : buf.elements) {
 				result = lotus::hash_combine(result, lotus::compute_hash(elem));
@@ -99,6 +99,29 @@ namespace std {
 			lotus::compute_hash(key.pixel_shader),
 			lotus::compute_hash(key.pipeline_state),
 			lotus::compute_hash(key.topology),
+		});
+		return result;
+	}
+
+
+	size_t hash<lotus::renderer::cache_keys::raytracing_pipeline>::operator()(
+		const lotus::renderer::cache_keys::raytracing_pipeline &key
+	) const {
+		size_t result = lotus::compute_hash(key.pipeline_rsrc);
+		for (const auto &hg : key.hit_group_shaders) {
+			result = lotus::hash_combine(result, lotus::compute_hash(hg));
+		}
+		for (const auto &hg : key.hit_groups) {
+			result = lotus::hash_combine(result, lotus::compute_hash(hg));
+		}
+		for (const auto &hg : key.general_shaders) {
+			result = lotus::hash_combine(result, lotus::compute_hash(hg));
+		}
+		result = lotus::hash_combine({
+			result,
+			lotus::compute_hash(key.max_recursion_depth),
+			lotus::compute_hash(key.max_payload_size),
+			lotus::compute_hash(key.max_attribute_size),
 		});
 		return result;
 	}
@@ -138,7 +161,7 @@ namespace lotus::renderer {
 		auto [it, inserted] = _graphics_pipelines.try_emplace(key, nullptr);
 		if (inserted) {
 			// pipeline resources
-			const auto &pipeline_rsrc = get_pipeline_resources(it->first.pipeline_resources);
+			const auto &pipeline_rsrc = get_pipeline_resources(it->first.pipeline_rsrc);
 
 			// gather shaders
 			gpu::shader_set set = nullptr;
@@ -168,6 +191,39 @@ namespace lotus::renderer {
 				input_buffers,
 				it->first.topology,
 				layout
+			);
+		}
+		return it->second;
+	}
+
+	const gpu::raytracing_pipeline_state &context_cache::get_raytracing_pipeline_state(
+		const cache_keys::raytracing_pipeline &key
+	) {
+		auto [it, inserted] = _raytracing_pipelines.try_emplace(key, nullptr);
+		if (inserted) {
+			// pipeline resources
+			const auto &pipeline_rsrc = get_pipeline_resources(it->first.pipeline_rsrc);
+
+			// shaders
+			std::vector<gpu::shader_function> hg_shaders;
+			hg_shaders.reserve(it->first.hit_group_shaders.size());
+			for (const auto &s : it->first.hit_group_shaders) {
+				hg_shaders.emplace_back(s.shader_library->binary, s.entry_point, s.stage);
+			}
+			std::vector<gpu::shader_function> gen_shaders;
+			gen_shaders.reserve(it->first.general_shaders.size());
+			for (const auto &s : it->first.general_shaders) {
+				gen_shaders.emplace_back(s.shader_library->binary, s.entry_point, s.stage);
+			}
+
+			it->second = _device.create_raytracing_pipeline_state(
+				hg_shaders,
+				it->first.hit_groups,
+				gen_shaders,
+				it->first.max_recursion_depth,
+				it->first.max_payload_size,
+				it->first.max_attribute_size,
+				pipeline_rsrc
 			);
 		}
 		return it->second;

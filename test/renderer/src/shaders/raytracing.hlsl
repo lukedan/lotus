@@ -244,8 +244,13 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 
 	if (payload.bounces == 1) {
 		{ // evaluate diffuse lobe
+#ifdef RT_USE_PCG32
+			float xi1 = pcg32_random_01(payload.rand);
+			float xi2 = pcg32_random_01(payload.rand);
+#else
 			float xi1 = rd(3, globals.frame_index);
 			float xi2 = rd(4, globals.frame_index);
+#endif
 
 			float3 normal_dir = square_to_unit_hemisphere_y_cosine(float2(xi1, xi2));
 			float3 dir = shading_tangent * normal_dir.x + shading_normal * normal_dir.y + shading_bitangent * normal_dir.z;
@@ -262,8 +267,13 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 		}
 
 		{ // evaluate specular lobe
+#ifdef RT_USE_PCG32
+			float xi1 = pcg32_random_01(payload.rand);
+			float xi2 = pcg32_random_01(payload.rand);
+#else
 			float xi1 = rd(5, globals.frame_index);
 			float xi2 = rd(6, globals.frame_index);
+#endif
 
 #if 1
 			float2 sampled = importance_sample_ggx_cos_theta(alpha, xi1);
@@ -317,8 +327,13 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 			}
 		}
 	} else {
+#ifdef RT_USE_PCG32
+		float xi1 = pcg32_random_01(payload.rand);
+		float xi2 = pcg32_random_01(payload.rand);
+#else
 		float xi1 = rd(payload.bounces * 2 + 3, globals.frame_index);
 		float xi2 = rd(payload.bounces * 2 + 4, globals.frame_index);
+#endif
 
 		float3 dir;
 		float cosine_over_pdf;

@@ -222,7 +222,7 @@ namespace lotus::gpu::backends::directx12 {
 		std::span<const pipeline_resources::_root_param_indices> _descriptor_table_binding;
 		_details::com_ptr<ID3D12RootSignature> _root_signature; ///< The root signature.
 		_details::com_ptr<ID3D12StateObject> _state; ///< The \p ID3D12PipelineState object.
-		_details::com_ptr<ID3D12StateObjectProperties> _properties; ///< Lazily-initialized state object properties.
+		_details::com_ptr<ID3D12StateObjectProperties> _properties; ///< State object properties.
 	};
 
 	/// Contains a \p void* that identifies a shader group.

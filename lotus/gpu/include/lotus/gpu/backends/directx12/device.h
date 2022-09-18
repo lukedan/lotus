@@ -234,7 +234,9 @@ namespace lotus::gpu::backends::directx12 {
 		);
 
 		/// Calls \p ID3D12StateObjectProperties::GetShaderIdentifier().
-		[[nodiscard]] shader_group_handle get_shader_group_handle(raytracing_pipeline_state&, std::size_t index);
+		[[nodiscard]] shader_group_handle get_shader_group_handle(
+			const raytracing_pipeline_state&, std::size_t index
+		);
 
 		/// Calls \p ID3D12Device5::CreateStateObject().
 		[[nodiscard]] raytracing_pipeline_state create_raytracing_pipeline_state(

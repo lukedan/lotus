@@ -157,7 +157,11 @@ int main(int argc, char **argv) {
 					if (data->normal_texture) {
 						mat_data.normal_index = data->normal_texture->descriptor_index;
 					}
-					mat_data.base_color = cvec4f(1.0f, 1.0f, 1.0f, 1.0f);
+					mat_data.is_metallic_roughness = true; // TODO
+					mat_data.base_color = data->properties.albedo_multiplier;
+					mat_data.normal_scale = data->properties.normal_scale;
+					mat_data.metalness = data->properties.metalness_multiplier;
+					mat_data.roughness = data->properties.roughness_multiplier;
 				}
 				scene.material_assets.emplace_back(std::move(mat));
 			},

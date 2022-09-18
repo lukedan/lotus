@@ -534,7 +534,7 @@ namespace lotus::gpu {
 
 		/// Returns a handle to the shader group at the given index.
 		[[nodiscard]] shader_group_handle get_shader_group_handle(
-			raytracing_pipeline_state &pipeline, std::size_t index
+			const raytracing_pipeline_state &pipeline, std::size_t index
 		) {
 			return backend::device::get_shader_group_handle(pipeline, index);
 		}

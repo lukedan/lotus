@@ -72,3 +72,14 @@ namespace lotus::renderer {
 		}
 	}
 }
+
+
+namespace std {
+	size_t hash<lotus::renderer::shader_function>::operator()(const lotus::renderer::shader_function &func) const {
+		return lotus::hash_combine({
+			lotus::compute_hash(func.shader_library),
+			lotus::compute_hash(std::u8string_view(func.entry_point)),
+			lotus::compute_hash(func.stage),
+		});
+	}
+}

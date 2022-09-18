@@ -1116,7 +1116,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	shader_group_handle device::get_shader_group_handle(
-		raytracing_pipeline_state &pipeline, std::size_t index
+		const raytracing_pipeline_state &pipeline, std::size_t index
 	) {
 		shader_group_handle result = uninitialized;
 		result._data.resize(_raytracing_properties.shaderGroupHandleSize);

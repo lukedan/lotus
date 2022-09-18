@@ -235,7 +235,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Returns the result of \p vk::UniqueDevice::getRayTracingShaderGroupHandlesKHR().
 		[[nodiscard]] shader_group_handle get_shader_group_handle(
-			raytracing_pipeline_state &pipeline, std::size_t index
+			const raytracing_pipeline_state &pipeline, std::size_t index
 		);
 
 		/// Returns the result of \p vk::UniqueDevice::createRayTracingPipelineKHRUnique().

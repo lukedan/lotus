@@ -1229,7 +1229,7 @@ namespace lotus::renderer {
 		}
 
 		cache_keys::graphics_pipeline key = nullptr;
-		key.pipeline_resources      = std::move(rsrc_key);
+		key.pipeline_rsrc           = std::move(rsrc_key);
 		key.input_buffers           = std::move(input_layouts);
 		key.color_rt_formats        =
 			{ fb_layout.color_render_target_formats.begin(), fb_layout.color_render_target_formats.end() };
@@ -1476,20 +1476,16 @@ namespace lotus::renderer {
 
 	void context::_handle_command(_execution_context &ectx, const context_commands::trace_rays &cmd) {
 		auto &&[rsrc_key, rsrc, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resource_bindings);
-		std::vector<gpu::shader_function> hg_shaders;
-		hg_shaders.reserve(cmd.hit_group_shaders.size());
-		for (const auto &s : cmd.hit_group_shaders) {
-			hg_shaders.emplace_back(s.shader_library->binary, s.entry_point, s.stage);
-		}
-		std::vector<gpu::shader_function> gen_shaders;
-		gen_shaders.reserve(cmd.general_shaders.size());
-		for (const auto &s : cmd.general_shaders) {
-			gen_shaders.emplace_back(s.shader_library->binary, s.entry_point, s.stage);
-		}
-		auto &state = ectx.record(_device.create_raytracing_pipeline_state(
-			hg_shaders, cmd.hit_groups, gen_shaders,
-			cmd.max_recursion_depth, cmd.max_payload_size, cmd.max_attribute_size, rsrc
-		));
+
+		cache_keys::raytracing_pipeline pipeline_key = nullptr;
+		pipeline_key.pipeline_rsrc       = std::move(rsrc_key);
+		pipeline_key.hit_group_shaders   = cmd.hit_group_shaders;
+		pipeline_key.hit_groups          = cmd.hit_groups;
+		pipeline_key.general_shaders     = cmd.general_shaders;
+		pipeline_key.max_recursion_depth = cmd.max_recursion_depth;
+		pipeline_key.max_payload_size    = cmd.max_payload_size;
+		pipeline_key.max_attribute_size  = cmd.max_attribute_size;
+		auto &state = _cache.get_raytracing_pipeline_state(pipeline_key);
 
 		// create shader group buffers
 		std::size_t record_size = memory::align_up(

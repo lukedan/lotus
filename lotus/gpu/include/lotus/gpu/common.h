@@ -1838,7 +1838,21 @@ namespace lotus::gpu {
 			return hit_shader_group(closest_hit, no_shader);
 		}
 
+		/// Default equality and inequality comparisons.
+		[[nodiscard]] friend bool operator==(const hit_shader_group&, const hit_shader_group&) = default;
+
 		std::size_t closest_hit_shader_index = 0; ///< Index of the closest hit shader.
 		std::size_t any_hit_shader_index     = 0; ///< Index of the any hit shader.
+	};
+}
+namespace std {
+	/// Hash function for \ref lotus::gpu::hit_shader_group.
+	template <> struct hash<lotus::gpu::hit_shader_group> {
+		/// Hashes the given object.
+		[[nodiscard]] size_t operator()(const lotus::gpu::hit_shader_group &g) const {
+			return lotus::hash_combine(
+				lotus::compute_hash(g.closest_hit_shader_index), lotus::compute_hash(g.any_hit_shader_index)
+			);
+		}
 	};
 }

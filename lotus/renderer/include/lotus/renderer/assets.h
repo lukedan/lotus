@@ -90,8 +90,10 @@ namespace lotus::renderer {
 				return &get_value();
 			}
 
-			/// Default equality and inequality.
-			[[nodiscard]] friend bool operator==(const handle&, const handle&) = default;
+			/// Equality and inequality compares the unique ID.
+			[[nodiscard]] friend bool operator==(const handle &lhs, const handle &rhs) {
+				return lhs.get().get_unique_id() == rhs.get().get_unique_id();
+			}
 
 			/// Returns whether this handle is valid.
 			[[nodiscard]] bool is_valid() const {

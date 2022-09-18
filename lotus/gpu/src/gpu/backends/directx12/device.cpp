@@ -928,10 +928,9 @@ namespace lotus::gpu::backends::directx12 {
 		}
 	}
 
-	shader_group_handle device::get_shader_group_handle(raytracing_pipeline_state &pipeline, std::size_t index) {
-		if (!pipeline._properties) {
-			_details::assert_dx(pipeline._state->QueryInterface(IID_PPV_ARGS(&pipeline._properties)));
-		}
+	shader_group_handle device::get_shader_group_handle(
+		const raytracing_pipeline_state &pipeline, std::size_t index
+	) {
 		shader_group_handle result = uninitialized;
 		void *ptr = pipeline._properties->GetShaderIdentifier(_details::shader_record_name(index));
 		assert(ptr);
@@ -1047,7 +1046,7 @@ namespace lotus::gpu::backends::directx12 {
 		desc.NumSubobjects = static_cast<UINT>(subobjects.size());
 		desc.pSubobjects = subobjects.data();
 		_details::assert_dx(_device->CreateStateObject(&desc, IID_PPV_ARGS(&result._state)));
-
+		_details::assert_dx(result._state->QueryInterface(IID_PPV_ARGS(&result._properties)));
 		return result;
 	}
 

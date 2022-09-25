@@ -3,10 +3,9 @@
 /// \file
 /// GLTF loader and utilities.
 
-#include "asset_manager.h"
-#include "context.h"
-#include "shader_types.h"
-#include "mipmap.h"
+#include "lotus/renderer/asset_manager.h"
+#include "lotus/renderer/context.h"
+#include "lotus/renderer/shader_types.h"
 
 namespace lotus::renderer::gltf {
 	/// GLTF context.

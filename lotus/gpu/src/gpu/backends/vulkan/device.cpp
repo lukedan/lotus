@@ -669,7 +669,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		vk::BufferCreateInfo buf_info;
 		buf_info
-			.setSize(memory::align_up(size, _device_limits.nonCoherentAtomSize))
+			.setSize(memory::align_up(std::max<std::size_t>(size, 1), _device_limits.nonCoherentAtomSize))
 			.setUsage(
 				_details::conversions::to_buffer_usage_flags(allowed_usage) |
 				vk::BufferUsageFlagBits::eShaderDeviceAddress

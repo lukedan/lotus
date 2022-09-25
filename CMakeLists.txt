@@ -12,7 +12,7 @@ set(
 set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
 set(TINYGLTF_HEADER_ONLY OFF CACHE INTERNAL "" FORCE)
 add_subdirectory("${CMAKE_SOURCE_DIR}/thirdparty/tinygltf")
-
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 
 if(LOTUS_BUILD_DXC)
 	# build DirectXShaderCompiler now since we'll need its binaries

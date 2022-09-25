@@ -1,4 +1,4 @@
-#include "lotus/renderer/gltf_loader.h"
+#include "lotus/renderer/loaders/gltf_loader.h"
 
 /// \file
 /// Implementation of GLTF loader.
@@ -8,7 +8,6 @@
 #include <tiny_gltf.h>
 
 #include <lotus/math/quaternion.h>
-#include <lotus/renderer/mipmap.h>
 
 namespace lotus::renderer::gltf {
 	/// Loads a data buffer with the given properties.

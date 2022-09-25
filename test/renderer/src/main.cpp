@@ -6,16 +6,22 @@
 #include <tiny_gltf.h>
 
 #include <lotus/math/vector.h>
+#include <lotus/utils/camera.h>
+#include <lotus/utils/misc.h>
+
+#include <lotus/system/window.h>
+#include <lotus/system/application.h>
+
 #include <lotus/gpu/context.h>
 #include <lotus/gpu/commands.h>
 #include <lotus/gpu/descriptors.h>
-#include <lotus/system/window.h>
-#include <lotus/system/application.h>
-#include <lotus/utils/camera.h>
-#include <lotus/utils/misc.h>
+
 #include <lotus/renderer/asset_manager.h>
-#include <lotus/renderer/gltf_loader.h>
 #include <lotus/renderer/g_buffer.h>
+#include <lotus/renderer/mipmap.h>
+
+#include <lotus/renderer/loaders/gltf_loader.h>
+#include <lotus/renderer/loaders/fbx_loader.h>
 
 #include "common.h"
 /*#include "scene.h"
@@ -64,149 +70,184 @@ int main(int argc, char **argv) {
 	auto asset_man = lren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_util);
 	auto mip_gen = lren::mipmap::generator::create(asset_man);
 	lren::gltf::context gltf_ctx(asset_man);
+	auto fbx_ctx = lren::fbx::context::create(asset_man);
 
 	// model & resources
-	struct {
-		std::vector<lren::instance> instances;
-		std::vector<shader_types::instance_data> instance_data;
-		std::vector<lren::blas_reference> tlas_instances;
-		std::vector<lren::assets::handle<lren::assets::material>> material_assets;
+	std::vector<lren::instance> instances;
+	std::vector<shader_types::instance_data> instance_data;
+	std::vector<lren::blas_reference> tlas_instances;
+	std::vector<lren::assets::handle<lren::assets::material>> material_assets;
 
-		lren::buffer_descriptor_array vertex_buffers = nullptr;
-		lren::buffer_descriptor_array normal_buffers = nullptr;
-		lren::buffer_descriptor_array tangent_buffers = nullptr;
-		lren::buffer_descriptor_array uv_buffers = nullptr;
-		lren::buffer_descriptor_array index_buffers = nullptr;
-		std::uint32_t buffer_alloc = 0;
-		std::uint32_t index_alloc = 0;
-		std::vector<shader_types::geometry_data> geometries;
-		std::vector<shader_types::material_data> materials;
-		std::vector<lren::blas> blases;
-	} scene;
+	lren::buffer_descriptor_array vertex_buffers = rctx.request_buffer_descriptor_array(u8"Vertex buffers", lgpu::descriptor_type::read_only_buffer, 16384);
+	lren::buffer_descriptor_array normal_buffers = rctx.request_buffer_descriptor_array(u8"Normal buffers", lgpu::descriptor_type::read_only_buffer, 16384);
+	lren::buffer_descriptor_array tangent_buffers = rctx.request_buffer_descriptor_array(u8"Tangent buffers", lgpu::descriptor_type::read_only_buffer, 16384);
+	lren::buffer_descriptor_array uv_buffers = rctx.request_buffer_descriptor_array(u8"UV buffers", lgpu::descriptor_type::read_only_buffer, 16384);
+	lren::buffer_descriptor_array index_buffers = rctx.request_buffer_descriptor_array(u8"Index buffers", lgpu::descriptor_type::read_only_buffer, 16384);
+	std::uint32_t buffer_alloc = 0;
+	std::uint32_t index_alloc = 0;
+	std::vector<shader_types::geometry_data> geometries;
+	std::vector<shader_types::material_data> materials;
+	std::vector<lren::blas> blases;
 
-	scene.vertex_buffers  = rctx.request_buffer_descriptor_array(u8"Vertex buffers", lgpu::descriptor_type::read_only_buffer, 1024);
-	scene.normal_buffers  = rctx.request_buffer_descriptor_array(u8"Normal buffers", lgpu::descriptor_type::read_only_buffer, 1024);
-	scene.tangent_buffers = rctx.request_buffer_descriptor_array(u8"Tangent buffers", lgpu::descriptor_type::read_only_buffer, 1024);
-	scene.uv_buffers      = rctx.request_buffer_descriptor_array(u8"UV buffers",     lgpu::descriptor_type::read_only_buffer, 1024);
-	scene.index_buffers   = rctx.request_buffer_descriptor_array(u8"Index buffers",  lgpu::descriptor_type::read_only_buffer, 1024);
+	auto on_texture_loaded = [&](lren::assets::handle<lren::assets::texture2d> tex) {
+		/*mip_gen.generate_all(tex->image);*/
+	};
+	auto on_geometry_loaded = [&](lren::assets::handle<lren::assets::geometry> geom) {
+		geom.user_data() = reinterpret_cast<void*>(blases.size());
+
+		auto &blas = blases.emplace_back(rctx.request_blas(
+			geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }
+		));
+		rctx.build_blas(blas, u8"Build BLAS");
+
+		auto &inst = geometries.emplace_back();
+		if (geom->index_buffer) {
+			inst.index_buffer = index_alloc++;
+			rctx.write_buffer_descriptors(index_buffers, inst.index_buffer, {
+				geom->index_buffer->data.get_view(
+					geom->index_format == lgpu::index_format::uint16 ?
+						sizeof(std::uint16_t) : sizeof(std::uint32_t),
+					geom->index_offset,
+					geom->num_indices
+				)
+			});
+		}
+		inst.vertex_buffer = inst.normal_buffer = inst.tangent_buffer = inst.uv_buffer = buffer_alloc++;
+		rctx.write_buffer_descriptors(vertex_buffers, inst.vertex_buffer, {
+			geom->vertex_buffer.data->data.get_view(
+				geom->vertex_buffer.stride, geom->vertex_buffer.offset, geom->num_vertices
+			)
+		});
+		if (geom->normal_buffer.data) {
+			rctx.write_buffer_descriptors(normal_buffers, inst.normal_buffer, {
+				geom->normal_buffer.data->data.get_view(
+					geom->normal_buffer.stride, geom->normal_buffer.offset, geom->num_vertices
+				)
+			});
+		}
+		if (geom->tangent_buffer.data) {
+			rctx.write_buffer_descriptors(tangent_buffers, inst.tangent_buffer, {
+				geom->tangent_buffer.data->data.get_view(
+					geom->tangent_buffer.stride, geom->tangent_buffer.offset, geom->num_vertices
+				)
+			});
+		}
+		if (geom->uv_buffer.data) {
+			rctx.write_buffer_descriptors(uv_buffers, inst.uv_buffer, {
+				geom->uv_buffer.data->data.get_view(
+					geom->uv_buffer.stride, geom->uv_buffer.offset, geom->num_vertices
+				)
+			});
+		}
+	};
+	auto on_material_loaded = [&](lren::assets::handle<lren::assets::material> mat) {
+		mat.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(materials.size()));
+		auto &mat_data = materials.emplace_back();
+		if (auto *data = dynamic_cast<lren::gltf::material_data*>(mat->data.get())) {
+			std::uint32_t invalid_tex = asset_man.get_invalid_texture()->descriptor_index;
+			mat_data.base_color_index = invalid_tex;
+			mat_data.metallic_roughness_index = invalid_tex;
+			mat_data.normal_index = invalid_tex;
+			if (data->albedo_texture) {
+				mat_data.base_color_index = data->albedo_texture->descriptor_index;
+			}
+			if (data->properties_texture) {
+				mat_data.metallic_roughness_index = data->properties_texture->descriptor_index;
+			}
+			if (data->normal_texture) {
+				mat_data.normal_index = data->normal_texture->descriptor_index;
+			}
+			mat_data.is_metallic_roughness = true; // TODO
+			mat_data.base_color = data->properties.albedo_multiplier;
+			mat_data.normal_scale = data->properties.normal_scale;
+			mat_data.metalness = data->properties.metalness_multiplier;
+			mat_data.roughness = data->properties.roughness_multiplier;
+		}
+		material_assets.emplace_back(std::move(mat));
+	};
+	auto on_instance_loaded = [&](lren::instance inst) {
+		if (inst.geometry) {
+			if (inst.geometry.get().get_id().subpath.find(u8"decal") != std::u8string::npos) {
+				return;
+			}
+
+			auto geom_index = reinterpret_cast<std::uintptr_t>(inst.geometry.user_data());
+			auto mat_index = reinterpret_cast<std::uintptr_t>(inst.material.user_data());
+			auto inst_index = instances.size();
+			tlas_instances.emplace_back(
+				blases[geom_index], inst.transform, inst_index, 0xFF, inst.geometry->index_buffer ? 0 : 1
+			);
+			instances.emplace_back(std::move(inst));
+			auto &gpu_inst = instance_data.emplace_back();
+			gpu_inst.geometry_index = geom_index;
+			gpu_inst.material_index = mat_index;
+		}
+	};
 
 	for (int i = 1; i < argc; ++i) {
-		gltf_ctx.load(
-			argv[i],
-			[&](lren::assets::handle<lren::assets::texture2d> tex) {
-				/*mip_gen.generate_all(tex->image);*/
-			},
-			[&](lren::assets::handle<lren::assets::geometry> geom) {
-				geom.user_data() = reinterpret_cast<void*>(scene.blases.size());
-
-				auto &blas = scene.blases.emplace_back(rctx.request_blas(
-					geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }
-				));
-				rctx.build_blas(blas, u8"Build BLAS");
-
-				auto &inst = scene.geometries.emplace_back();
-				if (geom->index_buffer) {
-					inst.index_buffer = scene.index_alloc++;
-					rctx.write_buffer_descriptors(scene.index_buffers, inst.index_buffer, {
-						geom->index_buffer->data.get_view(
-							geom->index_format == lgpu::index_format::uint16 ?
-								sizeof(std::uint16_t) : sizeof(std::uint32_t),
-							geom->index_offset,
-							geom->num_indices
-						)
-					});
+		std::filesystem::path path = argv[i];
+		if (path.extension() == ".gltf") {
+			gltf_ctx.load(
+				argv[i],
+				[&](lren::assets::handle<lren::assets::texture2d> tex) {
+					on_texture_loaded(std::move(tex));
+				},
+				[&](lren::assets::handle<lren::assets::geometry> geom) {
+					on_geometry_loaded(std::move(geom));
+				},
+				[&](lren::assets::handle<lren::assets::material> mat) {
+					on_material_loaded(std::move(mat));
+				},
+				[&](lren::instance inst) {
+					on_instance_loaded(std::move(inst));
 				}
-				inst.vertex_buffer = inst.normal_buffer = inst.tangent_buffer = inst.uv_buffer = scene.buffer_alloc++;
-				rctx.write_buffer_descriptors(scene.vertex_buffers, inst.vertex_buffer, {
-					geom->vertex_buffer.data->data.get_view(
-						geom->vertex_buffer.stride, geom->vertex_buffer.offset, geom->num_vertices
-					)
-				});
-				rctx.write_buffer_descriptors(scene.normal_buffers, inst.normal_buffer, {
-					geom->normal_buffer.data->data.get_view(
-						geom->normal_buffer.stride, geom->normal_buffer.offset, geom->num_vertices
-					)
-				});
-				if (geom->tangent_buffer.data) {
-					rctx.write_buffer_descriptors(scene.tangent_buffers, inst.tangent_buffer, {
-						geom->tangent_buffer.data->data.get_view(
-							geom->tangent_buffer.stride, geom->tangent_buffer.offset, geom->num_vertices
-						)
-					});
+			);
+		} else if (path.extension() == ".fbx") {
+			fbx_ctx.load(
+				argv[i],
+				[&](lren::assets::handle<lren::assets::texture2d> tex) {
+					on_texture_loaded(std::move(tex));
+				},
+				[&](lren::assets::handle<lren::assets::geometry> geom) {
+					on_geometry_loaded(std::move(geom));
+				},
+				[&](lren::assets::handle<lren::assets::material> mat) {
+					on_material_loaded(std::move(mat));
+				},
+				[&](lren::instance inst) {
+					on_instance_loaded(std::move(inst));
 				}
-				rctx.write_buffer_descriptors(scene.uv_buffers, inst.uv_buffer, {
-					geom->uv_buffer.data->data.get_view(
-						geom->uv_buffer.stride, geom->uv_buffer.offset, geom->num_vertices
-					)
-				});
-			},
-			[&](lren::assets::handle<lren::assets::material> mat) {
-				mat.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(scene.materials.size()));
-				auto &mat_data = scene.materials.emplace_back();
-				if (auto *data = dynamic_cast<lren::gltf::material_data*>(mat->data.get())) {
-					std::uint32_t invalid_tex = asset_man.get_invalid_texture()->descriptor_index;
-					mat_data.base_color_index = invalid_tex;
-					mat_data.metallic_roughness_index = invalid_tex;
-					mat_data.normal_index = invalid_tex;
-					if (data->albedo_texture) {
-						mat_data.base_color_index = data->albedo_texture->descriptor_index;
-					}
-					if (data->properties_texture) {
-						mat_data.metallic_roughness_index = data->properties_texture->descriptor_index;
-					}
-					if (data->normal_texture) {
-						mat_data.normal_index = data->normal_texture->descriptor_index;
-					}
-					mat_data.is_metallic_roughness = true; // TODO
-					mat_data.base_color = data->properties.albedo_multiplier;
-					mat_data.normal_scale = data->properties.normal_scale;
-					mat_data.metalness = data->properties.metalness_multiplier;
-					mat_data.roughness = data->properties.roughness_multiplier;
-				}
-				scene.material_assets.emplace_back(std::move(mat));
-			},
-			[&](lren::instance inst) {
-				if (inst.geometry) {
-					auto geom_index = reinterpret_cast<std::uintptr_t>(inst.geometry.user_data());
-					auto mat_index = reinterpret_cast<std::uintptr_t>(inst.material.user_data());
-					auto inst_index = scene.instances.size();
-					scene.tlas_instances.emplace_back(
-						scene.blases[geom_index], inst.transform, inst_index, 0xFF, inst.geometry->index_buffer ? 0 : 1
-					);
-					scene.instances.emplace_back(std::move(inst));
-					auto &gpu_inst = scene.instance_data.emplace_back();
-					gpu_inst.geometry_index = geom_index;
-					gpu_inst.material_index = mat_index;
-				}
-			}
-		);
+			);
+		} else {
+			log().error<u8"Unknown file type: {}">(path.string());
+		}
 	}
-	auto tlas = rctx.request_tlas(u8"TLAS", scene.tlas_instances);
+	auto tlas = rctx.request_tlas(u8"TLAS", tlas_instances);
 	rctx.build_tlas(tlas, u8"Build TLAS");
 
 	auto geom_buf = rctx.request_buffer(
 		u8"Geometry buffer",
-		sizeof(shader_types::geometry_data) * scene.geometries.size(),
+		sizeof(shader_types::geometry_data) * geometries.size(),
 		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only
 	);
-	rctx.upload_buffer<shader_types::geometry_data>(geom_buf, { scene.geometries.begin(), scene.geometries.end() }, 0, u8"Upload geometry buffer");
-	auto geom_structured_buf = geom_buf.get_view<shader_types::geometry_data>(0, scene.geometries.size());
+	rctx.upload_buffer<shader_types::geometry_data>(geom_buf, { geometries.begin(), geometries.end() }, 0, u8"Upload geometry buffer");
+	auto geom_structured_buf = geom_buf.get_view<shader_types::geometry_data>(0, geometries.size());
 
 	auto mat_buf = rctx.request_buffer(
 		u8"Material buffer",
-		sizeof(shader_types::material_data) * scene.materials.size(),
+		sizeof(shader_types::material_data) * materials.size(),
 		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only
 	);
-	rctx.upload_buffer<shader_types::material_data>(mat_buf, { scene.materials.begin(), scene.materials.end() }, 0, u8"Upload material buffer");
-	auto mat_structured_buf = mat_buf.get_view<shader_types::material_data>(0, scene.materials.size());
+	rctx.upload_buffer<shader_types::material_data>(mat_buf, { materials.begin(), materials.end() }, 0, u8"Upload material buffer");
+	auto mat_structured_buf = mat_buf.get_view<shader_types::material_data>(0, materials.size());
 
 	auto inst_buf = rctx.request_buffer(
 		u8"Instance buffer",
-		sizeof(shader_types::instance_data) * scene.instance_data.size(),
+		sizeof(shader_types::instance_data) * instance_data.size(),
 		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only
 	);
-	rctx.upload_buffer<shader_types::instance_data>(inst_buf, { scene.instance_data.begin(), scene.instance_data.end() }, 0, u8"Upload instance buffer");
-	auto inst_structured_buf = inst_buf.get_view<shader_types::instance_data>(0, scene.instance_data.size());
+	rctx.upload_buffer<shader_types::instance_data>(inst_buf, { instance_data.begin(), instance_data.end() }, 0, u8"Upload instance buffer");
+	auto inst_structured_buf = inst_buf.get_view<shader_types::instance_data>(0, instance_data.size());
 
 	auto rt_shader = asset_man.compile_shader_library_in_filesystem("src/shaders/raytracing.hlsl", {});
 
@@ -372,7 +413,7 @@ int main(int argc, char **argv) {
 			/*auto gbuffer = lren::g_buffer::view::create(rctx, window_size);
 			{
 				auto pass = gbuffer.begin_pass(rctx);
-				lren::g_buffer::render_instances(pass, asset_man, scene.instances, cam.view_matrix, cam.projection_matrix);
+				lren::g_buffer::render_instances(pass, asset_man, instances, cam.view_matrix, cam.projection_matrix);
 				pass.end();
 			}*/
 
@@ -399,11 +440,11 @@ int main(int argc, char **argv) {
 							lren::resource_binding(lren::descriptor_resource::sampler(), 3),
 						}).at_space(0),
 						lren::resource_set_binding(asset_man.get_images(), 1),
-						lren::resource_set_binding(scene.vertex_buffers, 2),
-						lren::resource_set_binding(scene.normal_buffers, 3),
-						lren::resource_set_binding(scene.tangent_buffers, 4),
-						lren::resource_set_binding(scene.uv_buffers, 5),
-						lren::resource_set_binding(scene.index_buffers, 6),
+						lren::resource_set_binding(vertex_buffers, 2),
+						lren::resource_set_binding(normal_buffers, 3),
+						lren::resource_set_binding(tangent_buffers, 4),
+						lren::resource_set_binding(uv_buffers, 5),
+						lren::resource_set_binding(index_buffers, 6),
 						lren::resource_set_binding::descriptor_bindings({
 							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(inst_structured_buf), 0),
 							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(geom_structured_buf), 1),

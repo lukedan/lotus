@@ -11,24 +11,26 @@ struct view_data {
 	float4x4 projection_view;
 };
 
-struct gltf_material_properties {
-	float4 albedo_multiplier;
-	float  normal_scale;
-	float  metalness_multiplier;
-	float  roughness_multiplier;
-	float  alpha_cutoff;
-};
+namespace generic_pbr_material {
+	struct material_properties {
+		float4 albedo_multiplier;
+		float  normal_scale;
+		float  metalness_multiplier;
+		float  roughness_multiplier;
+		float  alpha_cutoff;
+	};
 
-struct gltf_material_assets {
-	uint albedo_texture;
-	uint normal_texture;
-	uint properties_texture;
-	uint _padding;
-};
+	struct material_assets {
+		uint albedo_texture;
+		uint normal_texture;
+		uint properties_texture;
+		uint _padding;
+	};
 
-struct gltf_material {
-	gltf_material_properties properties;
-	gltf_material_assets assets;
-};
+	struct material {
+		material_properties properties;
+		material_assets     assets;
+	};
+}
 
 #endif

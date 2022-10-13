@@ -70,7 +70,7 @@ namespace lotus::physics::constraints {
 				cvec3d normal = vec::cross(d1, d2);
 				double area2 = normal.norm();
 				normal /= area2;
-				mat33d configuration = matd::concat_columns(d1, d2, normal);
+				mat33d configuration = mat::concat_columns(d1, d2, normal);
 				result.inverse_configuration = configuration.inverse();
 				result.thickness = thickness;
 				result.area = 0.5 * area2;
@@ -112,17 +112,17 @@ namespace lotus::physics::constraints {
 			double sqrt_vol = std::sqrt(state.area * state.thickness);
 
 			mat33d r_t = // rotation matrix from surface to world space
-				matd::concat_columns(d1_norm, vec::cross(normal_norm, d1_norm), normal_norm);
+				mat::concat_columns(d1_norm, vec::cross(normal_norm, d1_norm), normal_norm);
 			mat33d r = r_t.transposed();
 			mat33d f = // deformation gradient
-				matd::concat_columns(r * d1, r * d2, cvec3d(0.0, 0.0, 1.0)) *
+				mat::concat_columns(r * d1, r * d2, cvec3d(0.0, 0.0, 1.0)) *
 				state.inverse_configuration;
 			mat33d g = 0.5 * (f.transposed() * f - mat33d::identity());
 
 			column_vector<6, double> c(g(0, 0), g(1, 1), g(2, 2), g(0, 1), g(0, 2), g(1, 2));
 			c *= sqrt_vol;
 
-			mat33d df_dx = matd::concat_rows(
+			mat33d df_dx = mat::concat_rows(
 				-(state.inverse_configuration.row(0) + state.inverse_configuration.row(1)),
 				state.inverse_configuration.row(0),
 				state.inverse_configuration.row(1)
@@ -130,23 +130,23 @@ namespace lotus::physics::constraints {
 			mat33d f2_t = (f * sqrt_vol).transposed();
 			mat33d f2_t_half = 0.5 * f2_t;
 			matrix<6, 9, double> dep_dx = uninitialized;
-			dep_dx.set_block(0, 0, matd::kronecker_product(df_dx.row(0), f2_t.row(0)));
-			dep_dx.set_block(1, 0, matd::kronecker_product(df_dx.row(1), f2_t.row(1)));
-			dep_dx.set_block(2, 0, matd::kronecker_product(df_dx.row(2), f2_t.row(2)));
+			dep_dx.set_block(0, 0, mat::kronecker_product(df_dx.row(0), f2_t.row(0)));
+			dep_dx.set_block(1, 0, mat::kronecker_product(df_dx.row(1), f2_t.row(1)));
+			dep_dx.set_block(2, 0, mat::kronecker_product(df_dx.row(2), f2_t.row(2)));
 			dep_dx.set_block(
 				3, 0,
-				matd::kronecker_product(df_dx.row(0), f2_t_half.row(1)) +
-				matd::kronecker_product(df_dx.row(1), f2_t_half.row(0))
+				mat::kronecker_product(df_dx.row(0), f2_t_half.row(1)) +
+				mat::kronecker_product(df_dx.row(1), f2_t_half.row(0))
 			);
 			dep_dx.set_block(
 				4, 0,
-				matd::kronecker_product(df_dx.row(0), f2_t_half.row(2)) +
-				matd::kronecker_product(df_dx.row(2), f2_t_half.row(0))
+				mat::kronecker_product(df_dx.row(0), f2_t_half.row(2)) +
+				mat::kronecker_product(df_dx.row(2), f2_t_half.row(0))
 			);
 			dep_dx.set_block(
 				5, 0,
-				matd::kronecker_product(df_dx.row(1), f2_t_half.row(2)) +
-				matd::kronecker_product(df_dx.row(2), f2_t_half.row(1))
+				mat::kronecker_product(df_dx.row(1), f2_t_half.row(2)) +
+				mat::kronecker_product(df_dx.row(2), f2_t_half.row(1))
 			);
 			matrix<9, 6, double> dep_dx_t_over_m = dep_dx.transposed();
 			for (std::size_t y = 0; y < 3; ++y) {
@@ -158,12 +158,12 @@ namespace lotus::physics::constraints {
 			}
 
 			auto lhs =
-				matd::multiply_into_symmetric(dep_dx, dep_dx_t_over_m) +
+				mat::multiply_into_symmetric(dep_dx, dep_dx_t_over_m) +
 				properties.inverse_stiffness * inv_dt2;
 			auto rhs = -(c + properties.inverse_stiffness * (lambda * inv_dt2));
 			matrix<6, 1, double> delta_lambda = uninitialized;
 			if (proj_type == projection_type::exact) {
-				delta_lambda = matd::lup_decompose(lhs).solve(rhs);
+				delta_lambda = mat::lup_decompose(lhs).solve(rhs);
 			} else {
 				delta_lambda = state.prev_delta_lambda;
 				gauss_seidel::iterate(lhs, rhs, delta_lambda);

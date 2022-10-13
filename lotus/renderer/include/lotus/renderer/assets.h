@@ -31,7 +31,9 @@ namespace lotus::renderer {
 
 		/// Type of the ID used to uniquely identify assets. Two assets may have the same identifier due to reloading
 		/// etc. but will not have the same unique ID. Valid unique ID's are nonzero.
-		using unique_id_t = std::uint32_t;
+		enum class unique_id : std::uint32_t {
+			invalid = 0 ///< Indicates an invalid asset.
+		};
 	}
 
 	/// An asset.
@@ -42,8 +44,8 @@ namespace lotus::renderer {
 		void *user_data = nullptr; ///< User data.
 
 		/// Returns the ID that uniquely identifies this object.
-		[[nodiscard]] assets::unique_id_t get_unique_id() const {
-			assert(_uid != 0);
+		[[nodiscard]] assets::unique_id get_unique_id() const {
+			assert(_uid != assets::unique_id::invalid);
 			return _uid;
 		}
 		/// Retrieves the ID of this asset.
@@ -57,7 +59,7 @@ namespace lotus::renderer {
 
 		/// ID of this asset. This will point to the key stored in the \p std::unordered_map.
 		const assets::identifier *_id = nullptr;
-		assets::unique_id_t _uid = 0; ///< Unique ID to each asset. 
+		assets::unique_id _uid = assets::unique_id::invalid; ///< Unique ID to each asset. 
 	};
 
 
@@ -123,10 +125,10 @@ namespace std {
 }
 
 namespace lotus::renderer::assets {
-	/// A loaded 2D texture.
-	struct texture2d {
+	/// A loaded 2D image.
+	struct image2d {
 		/// Initializes this texture to empty.
-		texture2d(std::nullptr_t) : image(nullptr) {
+		image2d(std::nullptr_t) : image(nullptr) {
 		}
 
 		image2d_view image; ///< The image.
@@ -187,8 +189,15 @@ namespace lotus::renderer::assets {
 	struct geometry {
 		/// Information about a buffer used as a rasterization stage input.
 		struct input_buffer {
+		public:
 			/// Initializes this buffer to empty.
 			input_buffer(std::nullptr_t) : data(nullptr) {
+			}
+			/// Creates a simple input buffer description, with the stide inferred from the pixel format.
+			[[nodiscard]] inline static input_buffer create_simple(
+				gpu::format f, std::uint32_t off, handle<buffer> d
+			) {
+				return input_buffer(std::move(d), off, gpu::format_properties::get(f).bytes_per_fragment, f);
 			}
 
 			/// Creates a \ref input_buffer_binding from this buffer.
@@ -200,6 +209,11 @@ namespace lotus::renderer::assets {
 			std::uint32_t offset = 0; ///< Offset of the first element in bytes.
 			std::uint32_t stride = 0; ///< Stride between consecutive buffer elements in bytes.
 			gpu::format format = gpu::format::none; ///< Format of an element.
+		private:
+			/// Initializes all fields of this struct.
+			input_buffer(handle<buffer> d, std::uint32_t off, std::uint32_t str, gpu::format f) :
+				data(std::move(d)), offset(off), stride(str), format(f) {
+			}
 		};
 
 		/// Initializes this geometry to empty.
@@ -213,7 +227,7 @@ namespace lotus::renderer::assets {
 
 		/// Returns a \ref index_buffer_binding for the index buffer of this geometry.
 		[[nodiscard]] index_buffer_binding get_index_buffer_binding() const {
-			return index_buffer_binding(index_buffer->data, 0, index_format);
+			return index_buffer_binding(index_buffer ? index_buffer->data : nullptr, 0, index_format);
 		}
 		/// Returns a \ref geometry_buffers_view for this geometry.
 		[[nodiscard]] geometry_buffers_view get_geometry_buffers_view() const {

@@ -19,11 +19,11 @@ namespace lotus::renderer::g_buffer {
 	context::pass view::begin_pass(context &ctx) {
 		return ctx.begin_pass(
 			{
-				surface2d_color(albedo_glossiness, gpu::color_render_target_access::create_discard_then_write()),
-				surface2d_color(normal,            gpu::color_render_target_access::create_discard_then_write()),
-				surface2d_color(metalness,         gpu::color_render_target_access::create_discard_then_write()),
+				image2d_color(albedo_glossiness, gpu::color_render_target_access::create_clear(cvec4d(zero))),
+				image2d_color(normal,            gpu::color_render_target_access::create_discard_then_write()),
+				image2d_color(metalness,         gpu::color_render_target_access::create_discard_then_write()),
 			},
-			surface2d_depth_stencil(
+			image2d_depth_stencil(
 				depth_stencil,
 				gpu::depth_render_target_access::create_clear(0.0f),
 				gpu::stencil_render_target_access::create_clear(0)
@@ -96,7 +96,7 @@ namespace lotus::renderer::g_buffer {
 					gpu::render_target_blend_options::disabled(),
 					gpu::render_target_blend_options::disabled(),
 				},
-				gpu::rasterizer_options(gpu::depth_bias_options::disabled(), gpu::front_facing_mode::clockwise, gpu::cull_mode::cull_front, false),
+				gpu::rasterizer_options(gpu::depth_bias_options::disabled(), gpu::front_facing_mode::clockwise, gpu::cull_mode::none, false),
 				gpu::depth_stencil_options(true, true, gpu::comparison_function::greater, false, 0, 0, gpu::stencil_options::always_pass_no_op(), gpu::stencil_options::always_pass_no_op())
 			);
 			shader_types::instance_data instance;
@@ -105,12 +105,12 @@ namespace lotus::renderer::g_buffer {
 			view_data.view = view;
 			view_data.projection = projection;
 			view_data.projection_view = projection * view;
-			resource_set_binding::descriptor_bindings bindings({
+			resource_set_binding::descriptors bindings({
 				resource_binding(descriptor_resource::immediate_constant_buffer::create_for(instance), 1),
 				resource_binding(descriptor_resource::immediate_constant_buffer::create_for(view_data), 2),
 			});
 			all_resource_bindings additional_resources = nullptr;
-			additional_resources.sets.emplace_back(bindings, 1);
+			additional_resources.sets.emplace_back(std::move(bindings).at_space(1));
 			pass.draw_instanced(
 				inst.geometry, inst.material, pass_ctx,
 				{}, additional_resources, state, 1, u8"GBuffer instance"

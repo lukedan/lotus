@@ -6,7 +6,7 @@
 #include <cstddef>
 
 #include "lotus/common.h"
-#include "lotus/memory.h"
+#include "lotus/memory/common.h"
 
 namespace lotus {
 	/// Holds an object that may or may not be initialized. Holds additional data for debugging when in debug mode.

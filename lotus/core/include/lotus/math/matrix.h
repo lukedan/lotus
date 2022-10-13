@@ -350,38 +350,64 @@ namespace lotus {
 
 	template <std::size_t N, typename T> class lup_decomposition;
 	/// Matrix utilities.
-	template <typename T> class mat {
+	class mat {
 	public:
 		/// This class only contains utility functions.
 		mat() = delete;
 
-		/// Memberwise multiplication of the two matrices.
+		/// Applies the memberwise operator to the two matrices and returns the result.
 		template <
-			std::size_t R, std::size_t C
-		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_multiply(
-			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
+			std::size_t R, std::size_t C, typename T, typename Operator
+		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_operation(
+			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs, Operator op
 		) {
 			matrix<R, C, T> result = zero;
 			for (std::size_t y = 0; y < R; ++y) {
 				for (std::size_t x = 0; x < C; ++x) {
-					result(y, x) = lhs(y, x) * rhs(y, x);
+					result(y, x) = op(lhs(y, x), rhs(y, x));
 				}
 			}
 			return result;
 		}
 		/// Memberwise multiplication of the two matrices.
 		template <
-			std::size_t R, std::size_t C
+			std::size_t R, std::size_t C, typename T
+		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_multiply(
+			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
+		) {
+			return memberwise_operation(lhs, rhs, [](const T &lhs, const T &rhs) {
+				return lhs * rhs;
+			});
+		}
+		/// Memberwise multiplication of the two matrices.
+		template <
+			std::size_t R, std::size_t C, typename T
 		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_divide(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
-			matrix<R, C, T> result = zero;
-			for (std::size_t y = 0; y < R; ++y) {
-				for (std::size_t x = 0; x < C; ++x) {
-					result(y, x) = lhs(y, x) / rhs(y, x);
-				}
-			}
-			return result;
+			return memberwise_operation(lhs, rhs, [](const T &lhs, const T &rhs) {
+				return lhs / rhs;
+			});
+		}
+		/// Memberwise minimum of the two matrices.
+		template <
+			std::size_t R, std::size_t C, typename T
+		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_min(
+			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
+		) {
+			return memberwise_operation(lhs, rhs, [](const T &lhs, const T &rhs) {
+				return std::min(lhs, rhs);
+			});
+		}
+		/// Memberwise minimum of the two matrices.
+		template <
+			std::size_t R, std::size_t C, typename T
+		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_max(
+			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
+		) {
+			return memberwise_operation(lhs, rhs, [](const T &lhs, const T &rhs) {
+				return std::max(lhs, rhs);
+			});
 		}
 
 	protected:
@@ -398,6 +424,13 @@ namespace lotus {
 			std::size_t Current, typename OutMat, typename CurMat, typename ...OtherMats
 		> constexpr inline static void _concat_impl(OutMat &out, CurMat &&cur, OtherMats &&...others) {
 			constexpr bool _is_rows = _num_cols<CurMat>() == _num_cols<OutMat>();
+			using _t1 = typename std::decay_t<OutMat>::value_type;
+			static_assert(
+				std::is_same_v<std::decay_t<CurMat>, zero_t> ||
+				std::is_same_v<_t1, typename std::decay_t<CurMat>::value_type>,
+				"mat::concat_*() does not work with matrices with different data types; "
+				"use matrix::into<>() to convert data types first"
+			);
 
 			out.set_block(
 				_is_rows ? Current : 0,
@@ -418,15 +451,30 @@ namespace lotus {
 		template <std::size_t I, std::size_t...> [[nodiscard]] constexpr inline static std::size_t _take() {
 			return I;
 		}
+		template <typename...> struct _first_value_type;
+		/// Returns the first available \ref matrix::value_type.
+		template <typename FirstMat, typename ...Mats> struct _first_value_type<FirstMat, Mats...> {
+			using type = std::conditional_t<
+				std::is_same_v<std::decay_t<FirstMat>, zero_t>,
+				typename _first_value_type<Mats...>::type,
+				typename std::decay_t<FirstMat>::value_type
+			>; ///< Type that ignores \ref zero_t.
+		};
+		/// Specialization for invalid types.
+		template <> struct _first_value_type<> {
+			using type = void; ///< Invalid data type.
+		};
+		template <typename ...Mats> using _first_value_type_t = _first_value_type<Mats...>::type;
 	public:
 		/// Creates a new matrix by concatenating the given matrices horizontally.
 		template <typename ...Mats> [[nodiscard]] inline static constexpr matrix<
-			_take<_num_rows<Mats>()...>(), _sum<_num_cols<Mats>()...>(), T
+			_take<_num_rows<Mats>()...>(), _sum<_num_cols<Mats>()...>(), _first_value_type_t<Mats...>
 		> concat_columns(Mats &&...mats) {
 			constexpr std::size_t
 				_rows = _take<_num_rows<Mats>()...>(),
 				_cols = _sum<_num_cols<Mats>()...>();
-			using _mat = matrix<_rows, _cols, T>;
+			using _t = _first_value_type_t<Mats...>;
+			using _mat = matrix<_rows, _cols, _t>;
 
 			static_assert(
 				((_num_rows<Mats>() == _rows) && ...),
@@ -438,12 +486,13 @@ namespace lotus {
 		}
 		/// Creates a new matrix by concatenating the given matrices vertically.
 		template <typename ...Mats> [[nodiscard]] inline static constexpr matrix<
-			_sum<_num_rows<Mats>()...>(), _take<_num_cols<Mats>()...>(), T
+			_sum<_num_rows<Mats>()...>(), _take<_num_cols<Mats>()...>(), _first_value_type_t<Mats...>
 		> concat_rows(Mats &&...mats) {
 			constexpr std::size_t
 				_rows = _sum<_num_rows<Mats>()...>(),
 				_cols = _take<_num_cols<Mats>()...>();
-			using _mat = matrix<_rows, _cols, T>;
+			using _t = _first_value_type_t<Mats...>;
+			using _mat = matrix<_rows, _cols, _t>;
 
 			static_assert(
 				((std::decay_t<Mats>::num_columns == _cols) && ...),
@@ -457,7 +506,7 @@ namespace lotus {
 		// products
 		/// Kronecker product.
 		template <
-			std::size_t M1, std::size_t N1, std::size_t M2, std::size_t N2
+			std::size_t M1, std::size_t N1, std::size_t M2, std::size_t N2, typename T
 		> constexpr static matrix<M1 * M2, N1 * N2, T> kronecker_product(
 			const matrix<M1, N1, T> &lhs, const matrix<M2, N2, T> &rhs
 		) {
@@ -491,7 +540,7 @@ namespace lotus {
 
 		// decomposition
 		/// Shorthand for \ref lup_decomposition::compute().
-		template <std::size_t N> [[nodiscard]] constexpr static lup_decomposition<N, T> lup_decompose(
+		template <std::size_t N, typename T> [[nodiscard]] constexpr static lup_decomposition<N, T> lup_decompose(
 			const matrix<N, N, T>&
 		);
 
@@ -500,7 +549,7 @@ namespace lotus {
 		/// triangle to the bottom-left triangle. This is used for accelerating matrix products that will produce
 		/// symmetric matrices.
 		template <
-			std::size_t M, std::size_t N
+			std::size_t M, std::size_t N, typename T
 		> [[nodiscard]] constexpr static matrix<M, M, T> multiply_into_symmetric(
 			const matrix<M, N, T> &lhs, const matrix<N, M, T> &rhs
 		) {
@@ -653,7 +702,7 @@ namespace lotus {
 
 
 	/// Shorthand for various matrix types.
-	namespace matrix_types {
+	inline namespace matrix_types {
 		template <typename T> using mat22 = matrix<2, 2, T>; ///< 2x2 matrices.
 		using mat22f = matrix<2, 2, float>;  ///< 2x2 matrices of \p float.
 		using mat22d = matrix<2, 2, double>; ///< 2x2 matrices of \p double.
@@ -673,12 +722,7 @@ namespace lotus {
 		template <typename T> using mat44 = matrix<4, 4, T>; ///< 4x4 matrices.
 		using mat44f = matrix<4, 4, float>;  ///< 2x2 matrices of \p float.
 		using mat44d = matrix<4, 4, double>; ///< 2x2 matrices of \p double.
-
-		using matf   = mat<float>;         ///< Utilities for matrices of \p float.
-		using matd   = mat<double>;        ///< Utilities for matrices of \p double.
-		using matu32 = mat<std::uint32_t>; ///< Utilities for matrices of \p std::uint32_t.
 	}
-	using namespace matrix_types;
 
 
 	// implementations
@@ -689,7 +733,7 @@ namespace lotus {
 	}
 
 
-	template <typename T> template <std::size_t N> constexpr lup_decomposition<N, T> mat<T>::lup_decompose(
+	template <std::size_t N, typename T> constexpr lup_decomposition<N, T> mat::lup_decompose(
 		const matrix<N, N, T> &mat
 	) {
 		return lup_decomposition<N, T>::compute(mat);

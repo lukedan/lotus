@@ -18,23 +18,26 @@ target_sources(lotus_core
 		"include/lotus/containers/pooled_hash_table.h"
 		"include/lotus/containers/static_optional.h"
 
+		"include/lotus/memory/block.h"
+		"include/lotus/memory/common.h"
+		"include/lotus/memory/managed_allocator.h"
+		"include/lotus/memory/stack_allocator.h"
+
 		"include/lotus/utils/camera.h"
 		"include/lotus/utils/event_closure.h"
 		"include/lotus/utils/index.h"
 		"include/lotus/utils/misc.h"
-		"include/lotus/utils/stack_allocator.h"
 		"include/lotus/utils/static_function.h"
 		"include/lotus/utils/strings.h"
 
 		"include/lotus/color.h"
 		"include/lotus/common.h"
 		"include/lotus/logging.h"
-		"include/lotus/memory.h"
 	PRIVATE
-		"src/utils/stack_allocator.cpp"
+		"src/memory/common.cpp"
+		"src/memory/stack_allocator.cpp"
 		
-		"src/logging.cpp"
-		"src/memory.cpp")
+		"src/logging.cpp")
 
 if("${LOTUS_USE_ALLOCATOR}" STREQUAL "mimalloc")
 	find_package(mimalloc CONFIG REQUIRED)

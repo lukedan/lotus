@@ -118,7 +118,7 @@ namespace lotus::gpu::backends::vulkan {
 	) {
 		descriptor_pool result = nullptr;
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto ranges = bookmark.create_reserved_vector_array<vk::DescriptorPoolSize>(capacity.size());
 		for (const auto &range : capacity) {
 			ranges.emplace_back()
@@ -197,7 +197,7 @@ namespace lotus::gpu::backends::vulkan {
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const gpu::image_view *const> images
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto imgs = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
 		for (const auto *img : images) {
 			imgs.emplace_back()
@@ -218,7 +218,7 @@ namespace lotus::gpu::backends::vulkan {
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const image_view *const> images
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto imgs = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
 		for (const auto *img : images) {
 			imgs.emplace_back()
@@ -239,7 +239,7 @@ namespace lotus::gpu::backends::vulkan {
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const structured_buffer_view> buffers
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
@@ -262,7 +262,7 @@ namespace lotus::gpu::backends::vulkan {
 		std::size_t first_register, std::span<const structured_buffer_view> buffers
 	) {
 		// this is literally the same as read-only structured buffers
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
@@ -284,7 +284,7 @@ namespace lotus::gpu::backends::vulkan {
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const constant_buffer_view> buffers
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
@@ -306,7 +306,7 @@ namespace lotus::gpu::backends::vulkan {
 		descriptor_set &set, const descriptor_set_layout&,
 		std::size_t first_register, std::span<const gpu::sampler *const> samplers
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto smps = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(samplers.size());
 		for (const auto *smp : samplers) {
 			smps.emplace_back()
@@ -344,7 +344,7 @@ namespace lotus::gpu::backends::vulkan {
 		sampler_address_mode addressing_u, sampler_address_mode addressing_v, sampler_address_mode addressing_w,
 		linear_rgba_f border_color, std::optional<comparison_function> comparison
 	) {
-		sampler result;
+		sampler result = nullptr;
 
 		vk::SamplerCustomBorderColorCreateInfoEXT border_color_info;
 		std::array<float, 4> border_color_arr{ { border_color.r, border_color.g, border_color.b, border_color.a } };
@@ -381,7 +381,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		auto stages = _details::conversions::to_shader_stage_flags(visible_stages);
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto arr = bookmark.create_vector_array<vk::DescriptorSetLayoutBinding>();
 		auto flags_arr = bookmark.create_vector_array<vk::DescriptorBindingFlags>();
 		for (const auto &rng : ranges) {
@@ -431,7 +431,7 @@ namespace lotus::gpu::backends::vulkan {
 	) {
 		pipeline_resources result = nullptr;
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto arr = bookmark.create_reserved_vector_array<vk::DescriptorSetLayout>(layouts.size());
 		for (const auto *layout : layouts) {
 			arr.emplace_back(static_cast<const descriptor_set_layout*>(layout)->_layout.get());
@@ -462,7 +462,7 @@ namespace lotus::gpu::backends::vulkan {
 	) {
 		graphics_pipeline_state result = nullptr;
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 
 		std::size_t count = 0;
 		std::array<vk::PipelineShaderStageCreateInfo, 5> stages;
@@ -776,9 +776,11 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		buffer result_buf = create_committed_buffer(layout.size, mem_id, allowed_usage);
+		const auto &format_props = format_properties::get(fmt);
+		std::size_t fragments_width = (width + format_props.fragment_size[0] - 1) / format_props.fragment_size[0];
 		staging_buffer_pitch result_pitch = uninitialized;
-		result_pitch._pixels = static_cast<std::uint32_t>(width);
-		result_pitch._bytes = static_cast<std::uint32_t>(width * format_properties::get(fmt).bytes_per_pixel());
+		result_pitch._pixels = static_cast<std::uint32_t>(fragments_width) * format_props.fragment_size[0];
+		result_pitch._bytes = static_cast<std::uint32_t>(fragments_width * format_props.bytes_per_fragment);
 
 		return std::make_tuple(std::move(result_buf), result_pitch, result_pitch._bytes * height);
 	}
@@ -1093,7 +1095,7 @@ namespace lotus::gpu::backends::vulkan {
 		descriptor_set &set, const descriptor_set_layout&, std::size_t first_register,
 		std::span<gpu::top_level_acceleration_structure *const> acceleration_structures
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto as_ptrs = bookmark.create_reserved_vector_array<vk::AccelerationStructureKHR>(
 			acceleration_structures.size()
 		);
@@ -1132,7 +1134,7 @@ namespace lotus::gpu::backends::vulkan {
 		std::span<const shader_function> general_shaders, std::size_t max_recursion_depth, std::size_t, std::size_t,
 		const pipeline_resources &rsrc
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 
 		auto stages = bookmark.create_reserved_vector_array<vk::PipelineShaderStageCreateInfo>(
 			hit_group_shaders.size() + general_shaders.size()
@@ -1265,7 +1267,7 @@ namespace lotus::gpu::backends::vulkan {
 		result._options         = _options;
 		result._dispatch_loader = _dispatch_loader;
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto queue_familly_allocator = bookmark.create_std_allocator<vk::QueueFamilyProperties>();
 		auto families = _device.getQueueFamilyProperties(queue_familly_allocator);
 		result._graphics_compute_queue_family_index = result._compute_queue_family_index =

@@ -143,7 +143,7 @@ namespace lotus::gpu {
 			std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string, std::u8string>> defines
 		) {
-			auto bookmark = stack_allocator::for_this_thread().bookmark();
+			auto bookmark = get_scratch_bookmark();
 			auto defs = bookmark.create_reserved_vector_array<
 				std::pair<std::u8string_view, std::u8string_view>
 			>(defines.size());
@@ -177,7 +177,7 @@ namespace lotus::gpu {
 			std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string, std::u8string>> defines
 		) {
-			auto bookmark = stack_allocator::for_this_thread().bookmark();
+			auto bookmark = get_scratch_bookmark();
 			auto defs = bookmark.create_reserved_vector_array<
 				std::pair<std::u8string_view, std::u8string_view>
 			>(defines.size());

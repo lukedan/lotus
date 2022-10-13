@@ -130,6 +130,29 @@ namespace lotus::gpu {
 		r32g32b32a32_sint,
 		r32g32b32a32_float,
 
+
+		bc1_unorm,
+		bc1_srgb,
+
+		bc2_unorm,
+		bc2_srgb,
+
+		bc3_unorm,
+		bc3_srgb,
+
+		bc4_unorm,
+		bc4_snorm,
+
+		bc5_unorm,
+		bc5_snorm,
+
+		bc6h_f16,
+		bc6h_uf16,
+
+		bc7_unorm,
+		bc7_srgb,
+
+
 		num_enumerators ///< The total number of enumerators.
 	};
 	/// Properties of a format.
@@ -137,20 +160,36 @@ namespace lotus::gpu {
 	public:
 		/// Data type used by the format.
 		enum class data_type {
-			unknown,        ///< Unknown.
-			unsigned_norm,  ///< Unsigned value normalized in [0, 1].
-			signed_norm,    ///< Signed value normalized in [-1, 1].
-			srgb,           ///< sRGB values in [0, 1].
-			unsigned_int,   ///< Unsigned integer.
-			signed_int,     ///< Signed integer.
-			floating_point, ///< Floating-point number.
+			unknown,                 ///< Unknown.
+			unsigned_norm,           ///< Unsigned value normalized in [0, 1].
+			signed_norm,             ///< Signed value normalized in [-1, 1].
+			srgb,                    ///< sRGB values in [0, 1].
+			unsigned_int,            ///< Unsigned integer.
+			signed_int,              ///< Signed integer.
+			floating_point,          ///< Floating-point number.
+			unsigned_floating_point, ///< Positive floating-point number without the sign bit.
 		};
-		/// The order of channels. One or more channels may not present in the format.
-		enum class channel_order {
+		/// The contents and the order of those contents inside a pixel or block.
+		enum class fragment_contents {
 			unknown,       ///< Unknown.
 			rgba,          ///< RGBA.
 			bgra,          ///< BGRA.
 			depth_stencil, ///< Depth-stencil.
+
+			bc1,           ///< BC1 compressed 4x4 block.
+			bc2,           ///< BC2 compressed 4x4 block.
+			bc3,           ///< BC3 compressed 4x4 block.
+			bc4,           ///< BC4 compressed 4x4 block.
+			bc5,           ///< BC5 compressed 4x4 block.
+			bc6h,          ///< BC6H compressed 4x4 block.
+			bc7,           ///< BC7 compressed 4x4 block.
+
+
+			first_bc = bc1, ///< First BC compressed format.
+			last_bc  = bc7, ///< Last BC compressed format.
+
+			first_compressed_color = bc1, ///< First compressed color format.
+			last_compressed_color  = bc7, ///< Last compressed color format.
 		};
 
 		/// No initialization.
@@ -158,19 +197,25 @@ namespace lotus::gpu {
 		}
 		/// Initializes all bit values to zero and \ref type to \ref data_type::unknown.
 		constexpr format_properties(zero_t) :
-			format_properties(0, 0, 0, 0, 0, 0, data_type::unknown, channel_order::unknown) {
+			format_properties(0, 0, 0, 0, 0, 0, 0, zero, data_type::unknown, fragment_contents::unknown) {
 		}
 		/// Creates an object for a color format.
-		[[nodiscard]] constexpr inline static format_properties create_color(
-			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type ty, channel_order o
+		[[nodiscard]] constexpr inline static format_properties create_uncompressed_color(
+			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type ty, fragment_contents c
 		) {
-			return format_properties(r, g, b, a, 0, 0, ty, o);
+			return format_properties(r, g, b, a, 0, 0, 0, cvec2u8(1, 1), ty, c);
 		}
 		/// Creates an object for a depth-stencil format.
 		[[nodiscard]] constexpr inline static format_properties create_depth_stencil(
 			std::uint8_t d, std::uint8_t s, data_type ty
 		) {
-			return format_properties(0, 0, 0, 0, d, s, ty, channel_order::depth_stencil);
+			return format_properties(0, 0, 0, 0, d, s, 0, cvec2u8(1, 1), ty, fragment_contents::depth_stencil);
+		}
+		/// Creates an object for a compressed format.
+		[[nodiscard]] constexpr inline static format_properties create_compressed(
+			std::uint8_t bytes_per_frag, cvec2u8 frag_size, data_type ty, fragment_contents c
+		) {
+			return format_properties(0, 0, 0, 0, 0, 0, bytes_per_frag, frag_size, ty, c);
 		}
 
 		/// Retrieves the \ref format_properties for the given \ref format.
@@ -181,45 +226,56 @@ namespace lotus::gpu {
 			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type type
 		);
 
-		/// Bits per pixel.
-		[[nodiscard]] constexpr std::uint8_t bits_per_pixel() const {
-			return _bits_per_pixel;
+		/// Returns whether this format has any uncompressed color components.
+		[[nodiscard]] constexpr bool has_uncompressed_color() const {
+			return contents == fragment_contents::rgba || contents == fragment_contents::bgra;
 		}
-		/// Bytes per pixel.
-		[[nodiscard]] constexpr std::uint8_t bytes_per_pixel() const {
-			return _bytes_per_pixel;
+		/// Returns whether this format has any compressed color components.
+		[[nodiscard]] constexpr bool has_compressed_color() const {
+			return
+				contents >= fragment_contents::first_compressed_color &&
+				contents <= fragment_contents::last_compressed_color;
 		}
-
 		/// Returns whether this format has any color components.
 		[[nodiscard]] constexpr bool has_color() const {
-			return red_bits > 0 || green_bits > 0 || blue_bits > 0 || alpha_bits > 0;
+			return has_uncompressed_color() || has_compressed_color();
 		}
 		/// Returns whether this format has any depth or stencil components.
 		[[nodiscard]] constexpr bool has_depth_stencil() const {
 			return depth_bits > 0 || stencil_bits > 0;
 		}
 
-		std::uint8_t red_bits;     ///< Number of bits for the red channel.
-		std::uint8_t green_bits;   ///< Number of bits for the green channel.
-		std::uint8_t blue_bits;    ///< Number of bits for the blue channel.
-		std::uint8_t alpha_bits;   ///< Number of bits for the alpha channel.
+		std::uint8_t red_bits;     ///< Number of bits for the red channel. Zero for compressed formats.
+		std::uint8_t green_bits;   ///< Number of bits for the green channel. Zero for compressed formats.
+		std::uint8_t blue_bits;    ///< Number of bits for the blue channel. Zero for compressed formats.
+		std::uint8_t alpha_bits;   ///< Number of bits for the alpha channel. Zero for compressed formats.
+
 		std::uint8_t depth_bits;   ///< Number of bits for the depth channel.
 		std::uint8_t stencil_bits; ///< Number of bits for the stencil channel.
-		data_type type; ///< Data type for all the channels except for stencil.
-		channel_order order; ///< Order of the channels.
+
+		std::uint8_t bits_per_fragment;  ///< Number of bits per fragment.
+		std::uint8_t bytes_per_fragment; ///< Number of bytes per fragment.
+		cvec2u8 fragment_size = uninitialized;  ///< The size of a fragment in pixels.
+
+		data_type type; ///< Data type for all the channels except for stencil, after decoding.
+		fragment_contents contents; ///< Contents inside a fragment.
 	protected:
 		/// Initializes all fields.
 		constexpr format_properties(
 			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a,
-			std::uint8_t d, std::uint8_t s, data_type ty, channel_order o
+			std::uint8_t d, std::uint8_t s, std::uint8_t bytes_per_frag, cvec2u8 frag_size,
+			data_type ty, fragment_contents c
 		) :
 			red_bits(r), green_bits(g), blue_bits(b), alpha_bits(a),
-			depth_bits(d), stencil_bits(s), type(ty), order(o),
-			_bits_per_pixel(r + g + b + a + d + s), _bytes_per_pixel((_bits_per_pixel + 7) / 8) {
+			depth_bits(d), stencil_bits(s),
+			bits_per_fragment(bytes_per_frag * 8), bytes_per_fragment(bytes_per_frag), fragment_size(frag_size),
+			type(ty), contents(c)
+		{
+			if (bytes_per_frag == 0) {
+				bits_per_fragment = red_bits + green_bits + blue_bits + alpha_bits + depth_bits + stencil_bits;
+				bytes_per_fragment = (bits_per_fragment + 7) / 8;
+			}
 		}
-
-		std::uint8_t _bits_per_pixel;
-		std::uint8_t _bytes_per_pixel;
 	};
 
 	/// Format used by the index buffer.

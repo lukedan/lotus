@@ -8,17 +8,17 @@
 
 namespace lotus::renderer {
 	/// Reference to a 2D color image that can be rendered to.
-	struct surface2d_color {
+	struct image2d_color {
 		/// Initializes the surface to empty.
-		surface2d_color(std::nullptr_t) :
+		image2d_color(std::nullptr_t) :
 			view(std::in_place_type<recorded_resources::image2d_view>, nullptr), access(nullptr) {
 		}
 		/// Initializes all fields of this struct.
-		surface2d_color(recorded_resources::image2d_view v, gpu::color_render_target_access acc) :
+		image2d_color(recorded_resources::image2d_view v, gpu::color_render_target_access acc) :
 			view(std::in_place_type<recorded_resources::image2d_view>, v), access(acc) {
 		}
 		/// Initializes all fields of this struct.
-		surface2d_color(recorded_resources::swap_chain v, gpu::color_render_target_access acc) :
+		image2d_color(recorded_resources::swap_chain v, gpu::color_render_target_access acc) :
 			view(std::in_place_type<recorded_resources::swap_chain>, v), access(acc) {
 		}
 
@@ -27,12 +27,12 @@ namespace lotus::renderer {
 		gpu::color_render_target_access access; ///< Usage of this surface in a render pass.
 	};
 	/// Reference to a 2D depth-stencil image that can be rendered to.
-	struct surface2d_depth_stencil {
+	struct image2d_depth_stencil {
 		/// Initializes this surface to empty.
-		surface2d_depth_stencil(std::nullptr_t) : view(nullptr), depth_access(nullptr), stencil_access(nullptr) {
+		image2d_depth_stencil(std::nullptr_t) : view(nullptr), depth_access(nullptr), stencil_access(nullptr) {
 		}
 		/// Initializes all fields of this struct.
-		surface2d_depth_stencil(
+		image2d_depth_stencil(
 			recorded_resources::image2d_view v,
 			gpu::depth_render_target_access d,
 			gpu::stencil_render_target_access s = nullptr
@@ -113,58 +113,23 @@ namespace lotus::renderer {
 		/// A top-level acceleration structure.
 		struct tlas {
 			/// Initializes all fields of this structure.
-			explicit tlas(renderer::tlas as) : acceleration_structure(std::move(as)) {
+			explicit tlas(const renderer::tlas &as) : acceleration_structure(as) {
 			}
 
-			renderer::tlas acceleration_structure; ///< The acceleration structure.
+			recorded_resources::tlas acceleration_structure; ///< The acceleration structure.
 		};
 		/// A sampler.
-		struct sampler {
-			/// Initializes the sampler value to a default point sampler.
-			sampler(std::nullptr_t) {
-			}
-			/// Initializes all fields of this struct.
-			sampler(
-				gpu::filtering min = gpu::filtering::linear,
-				gpu::filtering mag = gpu::filtering::linear,
-				gpu::filtering mip = gpu::filtering::linear,
-				float lod_bias = 0.0f, float minlod = 0.0f, float maxlod = std::numeric_limits<float>::max(),
-				std::optional<float> max_aniso = std::nullopt,
-				gpu::sampler_address_mode addr_u = gpu::sampler_address_mode::repeat,
-				gpu::sampler_address_mode addr_v = gpu::sampler_address_mode::repeat,
-				gpu::sampler_address_mode addr_w = gpu::sampler_address_mode::repeat,
-				linear_rgba_f border = zero,
-				std::optional<gpu::comparison_function> comp = std::nullopt
-			) :
-				minification(min), magnification(mag), mipmapping(mip),
-				mip_lod_bias(lod_bias), min_lod(minlod), max_lod(maxlod), max_anisotropy(max_aniso),
-				addressing_u(addr_u), addressing_v(addr_v), addressing_w(addr_w),
-				border_color(border), comparison(comp) {
-			}
-
-			gpu::filtering minification  = gpu::filtering::nearest;
-			gpu::filtering magnification = gpu::filtering::nearest;
-			gpu::filtering mipmapping    = gpu::filtering::nearest;
-			float mip_lod_bias = 0.0f;
-			float min_lod      = 0.0f;
-			float max_lod      = 0.0f;
-			std::optional<float> max_anisotropy;
-			gpu::sampler_address_mode addressing_u = gpu::sampler_address_mode::repeat;
-			gpu::sampler_address_mode addressing_v = gpu::sampler_address_mode::repeat;
-			gpu::sampler_address_mode addressing_w = gpu::sampler_address_mode::repeat;
-			linear_rgba_f border_color = zero;
-			std::optional<gpu::comparison_function> comparison;
-		};
+		using sampler = sampler_state;
 
 
 		/// A union of all possible resource types.
 		using value = std::variant<
-			descriptor_resource::image2d,
-			descriptor_resource::swap_chain_image,
-			descriptor_resource::structured_buffer,
-			descriptor_resource::immediate_constant_buffer,
-			descriptor_resource::tlas,
-			descriptor_resource::sampler
+			image2d,
+			swap_chain_image,
+			structured_buffer,
+			immediate_constant_buffer,
+			tlas,
+			sampler
 		>;
 	}
 
@@ -181,10 +146,11 @@ namespace lotus::renderer {
 	};
 	/// The binding of a set of resources corresponding to a descriptor set or register space.
 	struct resource_set_binding {
+	public:
 		/// Bindings composed of individual descriptors.
-		struct descriptor_bindings {
+		struct descriptors {
 			/// Sorts all bindings based on register index.
-			explicit descriptor_bindings(std::vector<resource_binding> b) : bindings(std::move(b)) {
+			explicit descriptors(std::vector<resource_binding> b) : bindings(std::move(b)) {
 				// sort based on register index
 				std::sort(
 					bindings.begin(), bindings.end(),
@@ -201,10 +167,6 @@ namespace lotus::renderer {
 
 			std::vector<resource_binding> bindings; ///< All resource bindings.
 		};
-		/// Initializes this struct from a \ref descriptor_bindings object.
-		resource_set_binding(descriptor_bindings b, std::uint32_t s) :
-			bindings(std::in_place_type<descriptor_bindings>, std::move(b)), space(s) {
-		}
 		/// Initializes this struct from an \ref image_descriptor_array.
 		resource_set_binding(recorded_resources::image_descriptor_array arr, std::uint32_t s) :
 			bindings(std::in_place_type<recorded_resources::image_descriptor_array>, arr), space(s) {
@@ -213,18 +175,23 @@ namespace lotus::renderer {
 		resource_set_binding(recorded_resources::buffer_descriptor_array arr, std::uint32_t s) :
 			bindings(std::in_place_type<recorded_resources::buffer_descriptor_array>, arr), space(s) {
 		}
-		/// Shorthand for initializing a \ref descriptor_bindings object and then creating a
-		/// \ref resource_set_binding.
-		[[nodiscard]] inline static resource_set_binding create(std::vector<resource_binding> b, std::uint32_t s) {
-			return resource_set_binding(descriptor_bindings(std::move(b)), s);
+		/// Initializes this struct from a \ref cached_descriptor_set.
+		resource_set_binding(recorded_resources::cached_descriptor_set set, std::uint32_t s) :
+			bindings(std::in_place_type<recorded_resources::cached_descriptor_set>, set), space(s) {
 		}
 
 		std::variant<
-			descriptor_bindings,
+			descriptors,
 			recorded_resources::image_descriptor_array,
-			recorded_resources::buffer_descriptor_array
+			recorded_resources::buffer_descriptor_array,
+			recorded_resources::cached_descriptor_set
 		> bindings; ///< Bindings.
 		std::uint32_t space; ///< Register space to bind to.
+	private:
+		/// Initializes this struct from a \ref descriptors object.
+		resource_set_binding(descriptors b, std::uint32_t s) :
+			bindings(std::in_place_type<descriptors>, std::move(b)), space(s) {
+		}
 	};
 	/// Contains information about all resource bindings used during a compute shader dispatch or a pass.
 	struct all_resource_bindings {
@@ -233,6 +200,9 @@ namespace lotus::renderer {
 		}
 		/// Initializes the resource sets and sorts them based on their register space.
 		[[nodiscard]] static all_resource_bindings from_unsorted(std::vector<resource_set_binding>);
+		/// Initializes the resource sets using the given data, assuming that all the registers and register spaces
+		/// have been properly sorted.
+		[[nodiscard]] static all_resource_bindings assume_sorted(std::vector<resource_set_binding>);
 
 		/// Removes duplicate sets and sorts all sets and bindings.
 		void consolidate();

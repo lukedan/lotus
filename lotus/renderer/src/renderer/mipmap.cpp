@@ -25,7 +25,7 @@ namespace lotus::renderer::mipmap {
 		);
 		for (std::uint16_t i = mips.minimum + 1; i < mips.maximum; ++i) {
 			auto rsrc = all_resource_bindings::from_unsorted({
-				resource_set_binding::descriptor_bindings({
+				resource_set_binding::descriptors({
 					resource_binding(descriptor_resource::image2d::create_read_only(
 						img.view_mips(gpu::mip_levels::only(i - 1))
 					), 0),

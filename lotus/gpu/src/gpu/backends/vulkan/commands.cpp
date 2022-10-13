@@ -3,7 +3,7 @@
 /// \file
 /// Command list implementation.
 
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 #include "lotus/gpu/descriptors.h"
 #include "lotus/gpu/device.h"
 #include "lotus/gpu/pipeline.h"
@@ -42,7 +42,7 @@ namespace lotus::gpu::backends::vulkan {
 	void command_list::begin_pass(const frame_buffer &buf, const frame_buffer_access &access) {
 		assert(buf._color_views.size() == access.color_render_targets.size());
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto color_attachments = bookmark.create_reserved_vector_array<vk::RenderingAttachmentInfo>(
 			access.color_render_targets.size()
 		);
@@ -103,7 +103,7 @@ namespace lotus::gpu::backends::vulkan {
 		if (buffers.empty()) {
 			return;
 		}
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto buffer_ptrs = bookmark.create_reserved_vector_array<vk::Buffer>(buffers.size());
 		auto offsets = bookmark.create_reserved_vector_array<vk::DeviceSize>(buffers.size());
 		for (auto &buf : buffers) {
@@ -125,7 +125,7 @@ namespace lotus::gpu::backends::vulkan {
 		if (sets.empty()) {
 			return;
 		}
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto vk_sets = bookmark.create_reserved_vector_array<vk::DescriptorSet>(sets.size());
 		for (auto *set : sets) {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
@@ -141,7 +141,7 @@ namespace lotus::gpu::backends::vulkan {
 		if (sets.empty()) {
 			return;
 		}
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto vk_sets = bookmark.create_reserved_vector_array<vk::DescriptorSet>(sets.size());
 		for (auto *set : sets) {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
@@ -152,7 +152,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::set_viewports(std::span<const viewport> vps) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto viewports = bookmark.create_reserved_vector_array<vk::Viewport>(vps.size());
 		for (const auto &vp : vps) {
 			cvec2f size = vp.xy.signed_size();
@@ -162,7 +162,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::set_scissor_rectangles(std::span<const aab2i> rects) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto scissors = bookmark.create_reserved_vector_array<vk::Rect2D>(rects.size());
 		for (const auto &r : rects) {
 			cvec2i size = r.signed_size();
@@ -245,7 +245,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::resource_barrier(std::span<const image_barrier> imgs, std::span<const buffer_barrier> bufs) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto img_barriers = bookmark.create_reserved_vector_array<vk::ImageMemoryBarrier2>(imgs.size());
 		auto buf_barriers = bookmark.create_reserved_vector_array<vk::BufferMemoryBarrier2>(bufs.size());
 		for (const auto &i : imgs) {
@@ -322,7 +322,7 @@ namespace lotus::gpu::backends::vulkan {
 		const bottom_level_acceleration_structure_geometry &geom,
 		bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto build_ranges = bookmark.create_reserved_vector_array<vk::AccelerationStructureBuildRangeInfoKHR>(
 			geom._geometries.size()
 		);
@@ -378,7 +378,7 @@ namespace lotus::gpu::backends::vulkan {
 	void command_list::bind_ray_tracing_descriptor_sets(
 		const pipeline_resources &rsrc, std::size_t first, std::span<const gpu::descriptor_set *const> sets
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto vk_sets = bookmark.create_reserved_vector_array<vk::DescriptorSet>(sets.size());
 		for (auto *set : sets) {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
@@ -418,7 +418,7 @@ namespace lotus::gpu::backends::vulkan {
 	void command_queue::submit_command_lists(
 		std::span<const gpu::command_list *const> lists, queue_synchronization synch
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto vk_lists = bookmark.create_reserved_vector_array<vk::CommandBuffer>(lists.size());
 		for (const auto *list : lists) {
 			vk_lists.emplace_back(list->_buffer);

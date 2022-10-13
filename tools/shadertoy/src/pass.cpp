@@ -12,7 +12,7 @@
 #include "lotus/renderer/asset_manager.h"
 
 std::optional<pass::input::value_type> pass::input::load_value(
-	const nlohmann::json &val, const error_callback &on_error
+	const nlohmann::json &val, error_callback &on_error
 ) {
 	if (val.is_object()) {
 		if (auto type_it = val.find("pass"); type_it != val.end()) {
@@ -49,7 +49,7 @@ std::optional<pass::input::value_type> pass::input::load_value(
 }
 
 
-std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &on_error) {
+std::optional<pass> pass::load(const nlohmann::json &val, error_callback &on_error) {
 	if (!val.is_object()) {
 		on_error(u8"Pass must be described using a JSON object");
 		return std::nullopt;
@@ -142,12 +142,12 @@ std::optional<pass> pass::load(const nlohmann::json &val, const error_callback &
 }
 
 void pass::load_input_images(
-	lren::assets::manager &man, const std::filesystem::path &root, const error_callback&
+	lren::assets::manager &man, const std::filesystem::path &root, error_callback&
 ) {
 	for (auto &in : inputs) {
 		if (std::holds_alternative<input::image>(in.value)) {
 			auto &val = std::get<input::image>(in.value);
-			val.texture = man.get_texture2d(lren::assets::identifier(root / val.path));
+			val.texture = man.get_image2d(lren::assets::identifier(root / val.path));
 		}
 	}
 	images_loaded = true;
@@ -155,7 +155,7 @@ void pass::load_input_images(
 
 void pass::load_shader(
 	lren::assets::manager &man, lren::assets::handle<lren::assets::shader> vert_shader,
-	const std::filesystem::path &root, const error_callback &on_error
+	const std::filesystem::path &root, error_callback &on_error
 ) {
 	shader_loaded = false;
 

@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <array>
 #include <cassert>
+#include <optional>
 #include <string_view>
 #include <source_location>
 #include <span>
@@ -16,6 +17,13 @@ namespace lotus {
 #else
 	constexpr bool is_debugging = false;
 #endif
+
+	/// Calls \p std::abort() if \p value is \p true.
+	inline void crash_if(bool value) {
+		if (value) {
+			std::abort();
+		}
+	}
 
 	/// A type indicating a specific object should not be initialized.
 	struct uninitialized_t {
@@ -212,6 +220,7 @@ namespace lotus {
 		return true;
 	}
 
+
 	/// Shorthand for creating a hash object and then hashing the given object.
 	template <typename T, typename Hash = std::hash<T>> [[nodiscard]] inline constexpr std::size_t compute_hash(
 		const T &obj, const Hash &hash = Hash()
@@ -248,4 +257,45 @@ namespace lotus {
 			compute_hash(loc.column()),
 		});
 	}
+
+
+	/// Represents a linear range with beginning and end points. The end points can be either floating point or
+	/// integral, and when it's integral the range will be closed at the beginning and open at the end (i.e., [s, e)
+	/// will be the range).
+	template <typename T> struct linear_range {
+		/// Initializes the range to [0, 0).
+		constexpr linear_range(zero_t) {
+		}
+		/// Initializes the range.
+		constexpr linear_range(T b, T e) : begin(std::move(b)), end(std::move(e)) {
+		}
+
+		/// Returns the intersection of the two ranges.
+		[[nodiscard]] constexpr inline static std::optional<linear_range> get_intersection(
+			linear_range a, linear_range b
+		) {
+			if (a.end <= b.begin || a.begin >= b.end) {
+				return std::nullopt;
+			}
+			return linear_range(std::max(a.begin, b.begin), std::min(a.end, b.end));
+		}
+		/// Returns whether this range fully covers the other range.
+		[[nodiscard]] constexpr bool fully_covers(linear_range rhs) const {
+			return begin <= rhs.begin && end >= rhs.end;
+		}
+
+		/// Returns the length of this range.
+		[[nodiscard]] constexpr auto get_length() const {
+			return end - begin;
+		}
+		/// Returns \p false if the end is after the beginning.
+		[[nodiscard]] constexpr bool is_empty() const {
+			return end <= begin;
+		}
+
+		T begin = zero; ///< The beginning of the range.
+		T end = zero; ///< The end of the range.
+	};
+	using linear_float_range  = linear_range<float>;       ///< Shorthand for linear ranges for \p float.
+	using linear_size_t_range = linear_range<std::size_t>; ///< Shorthand for linear range for \p std::size_t.
 }

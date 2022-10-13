@@ -6,7 +6,7 @@
 #include <Unknwn.h>
 #include <dxcapi.h>
 
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 #include "lotus/system/window.h"
 #include "lotus/gpu/backends/common/dxc.h"
 #include "details.h"
@@ -32,7 +32,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Calls \p vk::Instance::enumeratePhysicalDevices().
 		template <typename Callback> void enumerate_adapters(Callback &&cb) {
-			auto bookmark = stack_allocator::for_this_thread().bookmark();
+			auto bookmark = get_scratch_bookmark();
 			auto allocator = bookmark.create_std_allocator<vk::PhysicalDevice>();
 			auto physical_devices = _details::unwrap(_instance->enumeratePhysicalDevices(allocator));
 			for (const auto &dev : physical_devices) {

@@ -7,6 +7,7 @@ option(LOTUS_GPU_VULKAN_USE_SYSTEM_DXC "Whether to use system DXC for vulkan ins
 
 set(LOTUS_GPU_COMMON_HEADERS
 	"include/lotus/gpu/backends/common/dxc.h"
+	"include/lotus/gpu/backends/common/dxgi_format.h"
 
 	"include/lotus/gpu/acceleration_structure.h"
 	"include/lotus/gpu/commands.h"
@@ -19,7 +20,10 @@ set(LOTUS_GPU_COMMON_HEADERS
 	"include/lotus/gpu/resources.h"
 	"include/lotus/gpu/synchronization.h")
 set(LOTUS_GPU_COMMON_SOURCES
-	"src/gpu/backends/common/dxc.cpp")
+	"src/gpu/backends/common/dxc.cpp"
+	"src/gpu/backends/common/dxgi_format.cpp")
+
+add_subdirectory("thirdparty/DirectX-Headers/")
 
 # DirectX 12
 set(LOTUS_GPU_HAS_DIRECTX12 NO CACHE INTERNAL "Whether the DirectX12 backend is available.")
@@ -28,8 +32,6 @@ if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 
 	add_library(lotus_gpu_directx12 STATIC)
 	configure_lotus_module(lotus_gpu_directx12)
-
-	add_subdirectory("thirdparty/DirectX-Headers/")
 
 	target_include_directories(lotus_gpu_directx12 PUBLIC "include/")
 	target_sources(lotus_gpu_directx12
@@ -135,7 +137,7 @@ if(LOTUS_GPU_USE_VULKAN)
 			"src/gpu/common.cpp")
 	target_link_libraries(lotus_gpu_vulkan
 		PUBLIC
-			lotus_core lotus_system Vulkan::Vulkan SPIRV_Reflect)
+			lotus_core lotus_system Vulkan::Vulkan SPIRV_Reflect Microsoft::DirectX-Headers)
 	target_compile_definitions(lotus_gpu_vulkan
 		PUBLIC
 			VULKAN_HPP_NO_EXCEPTIONS

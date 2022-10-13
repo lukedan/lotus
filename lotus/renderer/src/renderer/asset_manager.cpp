@@ -13,6 +13,7 @@
 #include "lotus/gpu/context.h"
 #include "lotus/renderer/resources.h"
 #include "lotus/renderer/mipmap.h"
+#include "lotus/renderer/loaders/dds_loader.h"
 
 namespace lotus::renderer::assets {
 	manager::_async_loader::_async_loader() : _state(state::running) {
@@ -80,69 +81,93 @@ namespace lotus::renderer::assets {
 			return job_result(std::move(j), nullptr);
 		}
 
-		// get image format and load
-		void *loaded = nullptr;
-		std::uint8_t bytes_per_channel = 1;
-		int width = 0;
-		int height = 0;
-		int original_channels = 0;
-		auto type = gpu::format_properties::data_type::unknown;
-		auto *stbi_mem = static_cast<const stbi_uc*>(image_mem.get());
-		if (stbi_is_hdr_from_memory(stbi_mem, static_cast<int>(image_size))) {
-			type = gpu::format_properties::data_type::floating_point;
-			bytes_per_channel = 4;
-			loaded = stbi_loadf_from_memory(
-				stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 0
-			);
-		} else if (stbi_is_16_bit_from_memory(stbi_mem, static_cast<int>(image_size))) {
-			type = gpu::format_properties::data_type::unsigned_norm;
-			bytes_per_channel = 2;
-			loaded = stbi_load_16_from_memory(
-				stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
-			);
-			original_channels = 4; // TODO support 1 and 2 channel images
+		if (j.path.extension() == ".dds") {
+			auto *data = static_cast<std::byte*>(image_mem.get());
+			if (auto loaded = dds::loader::create({ data, data + image_size })) {
+				// TODO more verifications?
+				return job_result(
+					std::move(j),
+					loader_type::dds,
+					loaded->get_raw_data().data(),
+					cvec2s(loaded->get_width(), loaded->get_height()),
+					loaded->get_format(),
+					[blob = std::move(image_mem)]() mutable {
+						blob = nullptr;
+					}
+				);
+			} else {
+				return job_result(std::move(j), nullptr);
+			}
 		} else {
-			type = gpu::format_properties::data_type::unsigned_norm;
-			bytes_per_channel = 1;
-			loaded = stbi_load_from_memory(
-				stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
-			);
-			original_channels = 4; // TODO support 1 and 2 channel images
-		}
-		image_mem.reset(); // we're done loading; free the loaded image file
-		std::uint8_t num_channels = original_channels == 3 ? 4 : static_cast<std::uint8_t>(original_channels);
-		std::uint8_t bits_per_channel_4[4] = { 0, 0, 0, 0 };
-		for (int i = 0; i < num_channels; ++i) {
-			bits_per_channel_4[i] = bytes_per_channel * 8;
-		}
+			// get image format and load
+			void *loaded = nullptr;
+			std::uint8_t bytes_per_channel = 1;
+			int width = 0;
+			int height = 0;
+			int original_channels = 0;
+			auto type = gpu::format_properties::data_type::unknown;
+			auto *stbi_mem = static_cast<const stbi_uc*>(image_mem.get());
+			if (stbi_is_hdr_from_memory(stbi_mem, static_cast<int>(image_size))) {
+				type = gpu::format_properties::data_type::floating_point;
+				bytes_per_channel = 4;
+				loaded = stbi_loadf_from_memory(
+					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 0
+				);
+			} else if (stbi_is_16_bit_from_memory(stbi_mem, static_cast<int>(image_size))) {
+				type = gpu::format_properties::data_type::unsigned_norm;
+				bytes_per_channel = 2;
+				loaded = stbi_load_16_from_memory(
+					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
+				);
+				original_channels = 4; // TODO support 1 and 2 channel images
+			} else {
+				type = gpu::format_properties::data_type::unsigned_norm;
+				bytes_per_channel = 1;
+				loaded = stbi_load_from_memory(
+					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
+				);
+				original_channels = 4; // TODO support 1 and 2 channel images
+			}
+			image_mem.reset(); // we're done loading; free the loaded image file
+			std::uint8_t num_channels = original_channels == 3 ? 4 : static_cast<std::uint8_t>(original_channels);
+			std::uint8_t bits_per_channel_4[4] = { 0, 0, 0, 0 };
+			for (int i = 0; i < num_channels; ++i) {
+				bits_per_channel_4[i] = bytes_per_channel * 8;
+			}
 
-		auto pixel_format = gpu::format_properties::find_exact_rgba(
-			bits_per_channel_4[0], bits_per_channel_4[1], bits_per_channel_4[2], bits_per_channel_4[3], type
-		);
-		if (pixel_format == gpu::format::none) {
-			log().error<u8"Failed to find appropriate pixel format for bytes per channel {}, type {}">(
-				bytes_per_channel,
-				static_cast<std::underlying_type_t<gpu::format_properties::data_type>>(type)
+			auto pixel_format = gpu::format_properties::find_exact_rgba(
+				bits_per_channel_4[0], bits_per_channel_4[1], bits_per_channel_4[2], bits_per_channel_4[3], type
+			);
+			if (pixel_format == gpu::format::none) {
+				log().error<u8"Failed to find appropriate pixel format for bytes per channel {}, type {}">(
+					bytes_per_channel,
+					static_cast<std::underlying_type_t<gpu::format_properties::data_type>>(type)
+				);
+			}
+
+			return job_result(
+				std::move(j), loader_type::stbi, loaded, cvec2s(width, height), pixel_format,
+				[ptr = loaded]() {
+					stbi_image_free(ptr);
+				}
 			);
 		}
-
-		return job_result(std::move(j), loaded, cvec2s(width, height), pixel_format);
 	}
 
 
-	[[nodiscard]] handle<texture2d> manager::get_texture2d(const identifier &id) {
-		if (auto it = _textures.find(id); it != _textures.end()) {
+	[[nodiscard]] handle<image2d> manager::get_image2d(const identifier &id) {
+		if (auto it = _images.find(id); it != _images.end()) {
 			if (auto ptr = it->second.lock()) {
-				return handle<texture2d>(std::move(ptr));
+				return handle<image2d>(std::move(ptr));
 			}
 		}
 
 		// create object
-		texture2d tex = nullptr;
-		tex.image = get_invalid_texture()->image;
+		image2d tex = nullptr;
+		tex.image = get_invalid_image()->image;
 		tex.descriptor_index = _allocate_descriptor_index();
-		_context.write_image_descriptors(_texture2d_descriptors, tex.descriptor_index, { tex.image });
-		auto result = _register_asset(id, std::move(tex), _textures);
+		_context.write_image_descriptors(_image2d_descriptors, tex.descriptor_index, { tex.image });
+		auto result = _register_asset(id, std::move(tex), _images);
 		_input_jobs.emplace_back(result);
 		return result;
 	}
@@ -242,22 +267,37 @@ namespace lotus::renderer::assets {
 			_image_loader.add_jobs(std::move(_input_jobs));
 		}
 		auto finished_jobs = _image_loader.get_completed_jobs();
-		for (const auto &j : finished_jobs) {
+		for (auto &j : finished_jobs) {
 			if (j.data) {
 				auto &tex = j.input.target._ptr->value;
+				const auto &format_props = gpu::format_properties::get(j.pixel_format);
+				auto usages = gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only;
+				if (!format_props.has_compressed_color()) {
+					usages |= gpu::image_usage_mask::shader_read_write;
+				}
 				tex.image = _context.request_image2d(
-					j.input.path.u8string(), j.size, mipmap::get_levels(j.size.into<std::uint32_t>()), j.pixel_format,
-					gpu::image_usage_mask::copy_destination |
-					gpu::image_usage_mask::shader_read_write |
-					gpu::image_usage_mask::shader_read_only
+					j.input.path.u8string(),
+					j.size, mipmap::get_levels(j.size.into<std::uint32_t>()), j.pixel_format, usages
 				);
 				tex.highest_mip_loaded = 0;
 
+				if (
+					j.size[0] % format_props.fragment_size[0] != 0 ||
+					j.size[1] % format_props.fragment_size[1] != 0
+				) {
+					log().warn<u8"Image size not a multiple of block size: {}, {} x {}">(
+						j.input.path.string(), j.size[0], j.size[1]
+					);
+				}
+
 				// upload image
 				_context.upload_image(tex.image, j.data, u8"Upload image"); // TODO better label
-				stbi_image_free(j.data);
+				j.destroy();
 
-				_context.write_image_descriptors(_texture2d_descriptors, tex.descriptor_index, { tex.image });
+				_context.write_image_descriptors(
+					_image2d_descriptors, tex.descriptor_index,
+					{ tex.image.view_mips(gpu::mip_levels::only_highest()) }
+				);
 				log().debug<u8"Texture {} loaded">(j.input.path.string());
 			}
 		}
@@ -268,25 +308,28 @@ namespace lotus::renderer::assets {
 		std::filesystem::path shader_lib_path, gpu::shader_utility *shader_utils
 	) :
 		_device(dev), _shader_utilities(shader_utils), _context(ctx),
-		_texture2d_descriptors(ctx.request_image_descriptor_array(
+		_image2d_descriptors(ctx.request_image_descriptor_array(
 			u8"Texture assets", gpu::descriptor_type::read_only_image, 1024
 		)),
-		_invalid_texture(nullptr),
-		_texture2d_descriptor_index_alloc({ 0 }),
+		_sampler_descriptors(ctx.create_cached_descriptor_set(u8"Samplers", resource_set_binding::descriptors({
+			resource_binding(descriptor_resource::sampler(), 0),
+		}))),
+		_invalid_image(nullptr),
+		_image2d_descriptor_index_alloc({ 0 }),
 		_shader_library_path(std::move(shader_lib_path)) {
 
 		{ // create "invalid" texture
 			constexpr cvec2s size = cvec2s(128, 128);
 			{
-				texture2d tex = nullptr;
+				image2d tex = nullptr;
 				tex.image = _context.request_image2d(
 					u8"Invalid", size, 1, gpu::format::b8g8r8a8_unorm,
 					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only
 				);
 				tex.descriptor_index = _allocate_descriptor_index();
 				tex.highest_mip_loaded = 0;
-				_context.write_image_descriptors(_texture2d_descriptors, tex.descriptor_index, { tex.image });
-				_invalid_texture = _register_asset(assets::identifier({}, u8"invalid"), std::move(tex), _textures);
+				_context.write_image_descriptors(_image2d_descriptors, tex.descriptor_index, { tex.image });
+				_invalid_image = _register_asset(assets::identifier({}, u8"invalid"), std::move(tex), _images);
 			}
 
 			std::vector<linear_rgba_u8> tex_data(size[0] * size[1], zero);
@@ -296,7 +339,7 @@ namespace lotus::renderer::assets {
 						(x ^ y) & 1 ? linear_rgba_u8(255, 0, 255, 255) : linear_rgba_u8(0, 255, 0, 255);
 				}
 			}
-			_context.upload_image(_invalid_texture->image, tex_data.data(), u8"Invalid");
+			_context.upload_image(_invalid_image->image, tex_data.data(), u8"Invalid");
 		}
 	}
 

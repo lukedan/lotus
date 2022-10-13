@@ -8,13 +8,13 @@
 #include <lotus/gpu/pipeline.h>
 #include <lotus/gpu/descriptors.h>
 #include "common.h"
-#include "resources.h"
 #include "resource_bindings.h"
 #include "assets.h"
 
 namespace lotus::renderer {
 	/// Types that are used as keys for caching objects.
 	namespace cache_keys {
+		using sampler = sampler_state; ///< Key of a sampler.
 		/// Key of a descriptor set layout.
 		struct descriptor_set_layout {
 			/// Initializes this key to empty.
@@ -27,14 +27,10 @@ namespace lotus::renderer {
 				descriptor_set_type ty = descriptor_set_type::normal
 			) : ranges(std::move(rs)), type(ty) {
 			}
-			/// Initializes this key for the given descriptor array.
-			template <
-				typename RecordedResource, typename View
-			> [[nodiscard]] static descriptor_set_layout from_descriptor_array(
-				const _details::descriptor_array<RecordedResource, View> &d
-			) {
+			/// Initializes this key for a descriptor array of unbounded size.
+			[[nodiscard]] inline static descriptor_set_layout for_descriptor_array(gpu::descriptor_type type) {
 				return cache_keys::descriptor_set_layout(
-					{ gpu::descriptor_range_binding::create_unbounded(d.type, 0), },
+					{ gpu::descriptor_range_binding::create_unbounded(type, 0), },
 					descriptor_set_type::variable_descriptor_count
 				);
 			}
@@ -80,7 +76,7 @@ namespace lotus::renderer {
 
 			std::vector<set> sets; ///< The vector of sets. These are sorted based on their register spaces.
 		};
-
+		
 		/// Key containing all pipeline parameters.
 		struct graphics_pipeline {
 			/// Version of \ref gpu::input_buffer_layout that owns the array of
@@ -130,7 +126,7 @@ namespace lotus::renderer {
 			gpu::format dpeth_stencil_rt_format = gpu::format::none;
 
 			assets::handle<assets::shader> vertex_shader; ///< Vertex shader.
-			assets::handle<assets::shader> pixel_shader;  ///< Vertex shader.
+			assets::handle<assets::shader> pixel_shader;  ///< Pixel shader.
 
 			graphics_pipeline_state pipeline_state; ///< Blending, rasterizer, and depth-stencil state.
 			gpu::primitive_topology topology = gpu::primitive_topology::num_enumerators; ///< Topology.
@@ -152,8 +148,8 @@ namespace lotus::renderer {
 			std::vector<shader_function> general_shaders;   ///< General shaders.
 
 			std::uint32_t max_recursion_depth = 0; ///< Maximum recursion depth.
-			std::uint32_t max_payload_size = 0;    ///< Maximum payload size.
-			std::uint32_t max_attribute_size = 0;  ///< Maximum attribute size.
+			std::uint32_t max_payload_size    = 0; ///< Maximum payload size.
+			std::uint32_t max_attribute_size  = 0; ///< Maximum attribute size.
 		};
 	}
 }
@@ -189,6 +185,8 @@ namespace lotus::renderer {
 			_device(dev), _empty_layout(dev.create_descriptor_set_layout({}, gpu::shader_stage::all)) {
 		}
 
+		/// Creates or retrieves a sampler matching the given key.
+		[[nodiscard]] const gpu::sampler &get_sampler(const cache_keys::sampler&);
 		/// Creates or retrieves a descriptor set layout matching the given key.
 		[[nodiscard]] const gpu::descriptor_set_layout &get_descriptor_set_layout(
 			const cache_keys::descriptor_set_layout&
@@ -209,6 +207,8 @@ namespace lotus::renderer {
 		gpu::device &_device; ///< The device used by this cache.
 		gpu::descriptor_set_layout _empty_layout; ///< An empty descriptor set layout.
 
+		/// Cached samplers.
+		std::unordered_map<cache_keys::sampler, gpu::sampler> _samplers;
 		/// Cached descriptor layouts.
 		std::unordered_map<cache_keys::descriptor_set_layout, gpu::descriptor_set_layout> _layouts;
 		/// Cached pipeline resources.

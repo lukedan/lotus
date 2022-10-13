@@ -5,7 +5,7 @@
 
 #include "lotus/utils/strings.h"
 
-project project::load(const nlohmann::json &val, const error_callback &on_error) {
+project project::load(const nlohmann::json &val, error_callback &on_error) {
 	project result = nullptr;
 	if (!val.is_object()) {
 		on_error(u8"Project must be an object");
@@ -42,7 +42,7 @@ project project::load(const nlohmann::json &val, const error_callback &on_error)
 void project::load_resources(
 	lren::assets::manager &man,
 	lren::assets::handle<lren::assets::shader> vert_shader,
-	const std::filesystem::path &root, const error_callback &on_error
+	const std::filesystem::path &root, error_callback &on_error
 ) {
 	for (auto &it : passes) {
 		it.second.load_input_images(man, root, on_error);
@@ -51,7 +51,7 @@ void project::load_resources(
 }
 
 [[nodiscard]] pass::target *project::find_target(
-	std::u8string_view name, const error_callback &on_error
+	std::u8string_view name, error_callback &on_error
 ) {
 	// first attempt: raw name
 	if (auto it = passes.find(name); it != passes.end()) {
@@ -107,7 +107,7 @@ void project::load_resources(
 	return nullptr;
 }
 
-std::vector<std::map<std::u8string, pass>::iterator> project::get_pass_order(const error_callback &on_error) {
+std::vector<std::map<std::u8string, pass>::iterator> project::get_pass_order(error_callback &on_error) {
 	using _iter = std::map<std::u8string, pass>::iterator;
 
 	std::vector<_iter> result;

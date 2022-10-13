@@ -129,6 +129,19 @@ namespace std {
 
 
 namespace lotus::renderer {
+	const gpu::sampler &context_cache::get_sampler(const cache_keys::sampler &key) {
+		auto [it, inserted] = _samplers.try_emplace(key, nullptr);
+		if (inserted) {
+			it->second = _device.create_sampler(
+				key.minification, key.magnification, key.mipmapping,
+				key.mip_lod_bias, key.min_lod, key.max_lod, key.max_anisotropy,
+				key.addressing_u, key.addressing_v, key.addressing_w,
+				key.border_color, key.comparison
+			);
+		}
+		return it->second;
+	}
+
 	const gpu::descriptor_set_layout &context_cache::get_descriptor_set_layout(
 		const cache_keys::descriptor_set_layout &key
 	) {

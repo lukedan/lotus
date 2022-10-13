@@ -21,9 +21,9 @@ namespace lotus::collision::shapes {
 			auto p1 = verts[f[0]];
 			auto p2 = verts[f[1]];
 			auto p3 = verts[f[2]];
-			mat33d a = matd::concat_columns(p1, p2, p3);
-			double det = matd::lup_decompose(a).determinant();
-			result.covariance_matrix += det * matd::multiply_into_symmetric(a, _canonical * a.transposed());
+			mat33d a = mat::concat_columns(p1, p2, p3);
+			double det = mat::lup_decompose(a).determinant();
+			result.covariance_matrix += det * mat::multiply_into_symmetric(a, _canonical * a.transposed());
 			result.volume += det;
 			result.center_of_mass += (det * 0.25) * (p1 + p2 + p3);
 		}

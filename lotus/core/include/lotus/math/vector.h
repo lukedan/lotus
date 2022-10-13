@@ -13,7 +13,7 @@ namespace lotus {
 
 
 	/// Generic vector utilities.
-	class vec {
+	class vec : public mat {
 	public:
 		/// Dot product.
 		template <typename Vec> [[nodiscard]] inline static constexpr typename Vec::value_type dot(
@@ -56,10 +56,11 @@ namespace lotus {
 
 
 	/// Shorthands for various vector types.
-	namespace vector_types {
+	inline namespace vector_types {
 		template <typename T> using cvec2 = column_vector<2, T>; ///< 2D column vectors.
 		using cvec2f   = cvec2<float>;         ///< 2D column vectors of \p float.
 		using cvec2d   = cvec2<double>;        ///< 2D column vectors of \p double.
+		using cvec2u8  = cvec2<std::uint8_t>;  ///< 2D column vectors of \p std::uint8_t.
 		using cvec2i   = cvec2<int>;           ///< 2D column vectors of \p int.
 		using cvec2s   = cvec2<std::size_t>;   ///< 2D column vectors of \p std::size_t.
 		using cvec2u32 = cvec2<std::uint32_t>; ///< 2D column vectors of \p std::uint32_t.
@@ -96,5 +97,4 @@ namespace lotus {
 		using rvec4i   = rvec4<int>;           ///< 4D row vectors of \p int.
 		using rvec4u32 = rvec4<std::uint32_t>; ///< 4D row vectors of \p std::uint32_t.
 	}
-	using namespace vector_types;
 }

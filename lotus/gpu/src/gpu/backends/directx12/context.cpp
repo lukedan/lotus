@@ -8,7 +8,7 @@
 #include <d3dcompiler.h>
 
 #include "lotus/system/platforms/windows/details.h"
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 
 namespace lotus::gpu::backends::directx12 {
 	context context::create(context_options opts) {

@@ -20,7 +20,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	context context::create(context_options opt) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto enabled_layers = bookmark.create_vector_array<const char*>();
 		if (!is_empty(opt & context_options::enable_validation)) {
 			enabled_layers.emplace_back("VK_LAYER_KHRONOS_validation");
@@ -96,7 +96,7 @@ namespace lotus::gpu::backends::vulkan {
 	) {
 		swap_chain result = nullptr;
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 
 #ifdef WIN32
 		vk::Win32SurfaceCreateInfoKHR surface_info;
@@ -206,7 +206,7 @@ namespace lotus::gpu::backends::vulkan {
 		std::span<const std::filesystem::path> include_paths,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto extra_args = bookmark.create_vector_array<LPCWSTR>();
 		extra_args.insert(extra_args.end(), std::begin(_additional_args), std::end(_additional_args));
 		if (stage == shader_stage::vertex_shader || stage == shader_stage::geometry_shader) {
@@ -220,7 +220,7 @@ namespace lotus::gpu::backends::vulkan {
 		std::span<const std::filesystem::path> include_paths,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto extra_args = bookmark.create_vector_array<LPCWSTR>();
 		extra_args.insert(extra_args.end(), std::begin(_additional_args), std::end(_additional_args));
 		return _compiler.compile_shader_library(code, include_paths, defines, extra_args);

@@ -9,7 +9,7 @@
 #include <deque>
 #include <array>
 
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 #include "lotus/common.h"
 
 namespace lotus {
@@ -205,14 +205,14 @@ namespace lotus {
 			vertex v, typename face_collection::iterator hint, const ComputeFaceData &compute_data
 		) {
 			using _ptr = typename face_collection::iterator;
-			using _ptr_deque = std::deque<_ptr, stack_allocator::std_allocator<_ptr>>;
+			using _ptr_deque = std::deque<_ptr, memory::stack_allocator::std_allocator<_ptr>>;
 
 			std::size_t vert_id = vertices.size();
 			auto &vert = vertices.emplace_back(std::move(v));
 
 			half_edge_ref boundary_edge = uninitialized;
 			{ // find all faces that should be removed & create new faces
-				auto bookmark = stack_allocator::for_this_thread().bookmark();
+				auto bookmark = get_scratch_bookmark();
 				std::stack<_ptr, _ptr_deque> stk{ _ptr_deque(bookmark.create_std_allocator<_ptr>()) };
 				stk.emplace(hint);
 				hint->marked = true;

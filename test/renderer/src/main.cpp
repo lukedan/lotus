@@ -36,14 +36,16 @@ namespace shader_types {
 }
 #include <lotus/renderer/shader_types_include_wrapper.h>
 
+/*#define NO_SCENES*/
+
 int main(int argc, char **argv) {
 	if (argc < 2) {
 		std::cout << "No model file specified\n";
 		return 1;
 	}
 
-	std::cout << "Backend: " << std::string_view(reinterpret_cast<const char*>(lgpu::backend_name.data()), lgpu::backend_name.size()) << "\n";
-	std::cout << "Working dir: " << std::filesystem::current_path() << "\n";
+	log().debug<u8"Backend: {}">(lstr::to_generic(lgpu::backend_name));
+	log().debug<u8"Working dir: {}">(std::filesystem::current_path().string());
 
 	lsys::application app(u8"test");
 	auto wnd = app.create_window();
@@ -73,6 +75,7 @@ int main(int argc, char **argv) {
 	auto fbx_ctx = lren::fbx::context::create(asset_man);
 
 	// model & resources
+#ifndef NO_SCENES
 	std::vector<lren::instance> instances;
 	std::vector<shader_types::instance_data> instance_data;
 	std::vector<lren::blas_reference> tlas_instances;
@@ -89,7 +92,7 @@ int main(int argc, char **argv) {
 	std::vector<shader_types::material_data> materials;
 	std::vector<lren::blas> blases;
 
-	auto on_texture_loaded = [&](lren::assets::handle<lren::assets::texture2d> tex) {
+	auto on_texture_loaded = [&](lren::assets::handle<lren::assets::image2d> tex) {
 		/*mip_gen.generate_all(tex->image);*/
 	};
 	auto on_geometry_loaded = [&](lren::assets::handle<lren::assets::geometry> geom) {
@@ -144,7 +147,7 @@ int main(int argc, char **argv) {
 		mat.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(materials.size()));
 		auto &mat_data = materials.emplace_back();
 		if (auto *data = dynamic_cast<lren::gltf::material_data*>(mat->data.get())) {
-			std::uint32_t invalid_tex = asset_man.get_invalid_texture()->descriptor_index;
+			std::uint32_t invalid_tex = asset_man.get_invalid_image()->descriptor_index;
 			mat_data.base_color_index = invalid_tex;
 			mat_data.metallic_roughness_index = invalid_tex;
 			mat_data.normal_index = invalid_tex;
@@ -167,15 +170,20 @@ int main(int argc, char **argv) {
 	};
 	auto on_instance_loaded = [&](lren::instance inst) {
 		if (inst.geometry) {
+			/*// hack to not load decals
 			if (inst.geometry.get().get_id().subpath.find(u8"decal") != std::u8string::npos) {
 				return;
-			}
+			}*/
 
 			auto geom_index = reinterpret_cast<std::uintptr_t>(inst.geometry.user_data());
-			auto mat_index = reinterpret_cast<std::uintptr_t>(inst.material.user_data());
+			auto mat_index = inst.material ? reinterpret_cast<std::uintptr_t>(inst.material.user_data()) : 0;
 			auto inst_index = instances.size();
 			tlas_instances.emplace_back(
-				blases[geom_index], inst.transform, inst_index, 0xFF, inst.geometry->index_buffer ? 0 : 1
+				blases[geom_index],
+				inst.transform,
+				static_cast<std::uint32_t>(inst_index),
+				0xFFu,
+				inst.geometry->index_buffer ? 0u : 1u
 			);
 			instances.emplace_back(std::move(inst));
 			auto &gpu_inst = instance_data.emplace_back();
@@ -189,7 +197,7 @@ int main(int argc, char **argv) {
 		if (path.extension() == ".gltf") {
 			gltf_ctx.load(
 				argv[i],
-				[&](lren::assets::handle<lren::assets::texture2d> tex) {
+				[&](lren::assets::handle<lren::assets::image2d> tex) {
 					on_texture_loaded(std::move(tex));
 				},
 				[&](lren::assets::handle<lren::assets::geometry> geom) {
@@ -205,7 +213,7 @@ int main(int argc, char **argv) {
 		} else if (path.extension() == ".fbx") {
 			fbx_ctx.load(
 				argv[i],
-				[&](lren::assets::handle<lren::assets::texture2d> tex) {
+				[&](lren::assets::handle<lren::assets::image2d> tex) {
 					on_texture_loaded(std::move(tex));
 				},
 				[&](lren::assets::handle<lren::assets::geometry> geom) {
@@ -222,6 +230,7 @@ int main(int argc, char **argv) {
 			log().error<u8"Unknown file type: {}">(path.string());
 		}
 	}
+
 	auto tlas = rctx.request_tlas(u8"TLAS", tlas_instances);
 	rctx.build_tlas(tlas, u8"Build TLAS");
 
@@ -233,21 +242,28 @@ int main(int argc, char **argv) {
 	rctx.upload_buffer<shader_types::geometry_data>(geom_buf, { geometries.begin(), geometries.end() }, 0, u8"Upload geometry buffer");
 	auto geom_structured_buf = geom_buf.get_view<shader_types::geometry_data>(0, geometries.size());
 
+	if (materials.empty()) {
+		materials.emplace_back();
+	}
 	auto mat_buf = rctx.request_buffer(
 		u8"Material buffer",
 		sizeof(shader_types::material_data) * materials.size(),
 		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only
 	);
-	rctx.upload_buffer<shader_types::material_data>(mat_buf, { materials.begin(), materials.end() }, 0, u8"Upload material buffer");
+	rctx.upload_buffer<shader_types::material_data>(mat_buf, materials, 0, u8"Upload material buffer");
 	auto mat_structured_buf = mat_buf.get_view<shader_types::material_data>(0, materials.size());
 
+	if (instance_data.empty()) {
+		instance_data.emplace_back();
+	}
 	auto inst_buf = rctx.request_buffer(
 		u8"Instance buffer",
 		sizeof(shader_types::instance_data) * instance_data.size(),
 		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only
 	);
-	rctx.upload_buffer<shader_types::instance_data>(inst_buf, { instance_data.begin(), instance_data.end() }, 0, u8"Upload instance buffer");
+	rctx.upload_buffer<shader_types::instance_data>(inst_buf, instance_data, 0, u8"Upload instance buffer");
 	auto inst_structured_buf = inst_buf.get_view<shader_types::instance_data>(0, instance_data.size());
+#endif
 
 	auto rt_shader = asset_man.compile_shader_library_in_filesystem("src/shaders/raytracing.hlsl", {});
 
@@ -430,10 +446,11 @@ int main(int argc, char **argv) {
 			globals.down = -up_half / (window_size[1] * 0.5f);
 			globals.frame_index = frame_index;
 
+#ifndef NO_SCENES
 			{
 				auto resources = lren::all_resource_bindings::from_unsorted(
 					{
-						lren::resource_set_binding::descriptor_bindings({
+						lren::resource_set_binding::descriptors({
 							lren::resource_binding(lren::descriptor_resource::tlas(tlas), 0),
 							lren::resource_binding(lren::descriptor_resource::immediate_constant_buffer::create_for(globals), 1),
 							lren::resource_binding(lren::descriptor_resource::image2d::create_read_write(rt_result), 2),
@@ -445,7 +462,7 @@ int main(int argc, char **argv) {
 						lren::resource_set_binding(tangent_buffers, 4),
 						lren::resource_set_binding(uv_buffers, 5),
 						lren::resource_set_binding(index_buffers, 6),
-						lren::resource_set_binding::descriptor_bindings({
+						lren::resource_set_binding::descriptors({
 							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(inst_structured_buf), 0),
 							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(geom_structured_buf), 1),
 							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(mat_structured_buf), 2),
@@ -474,46 +491,11 @@ int main(int argc, char **argv) {
 					u8"Trace rays"
 				);
 			}
-
-			/*{
-				auto *data = static_cast<gbuffer_pass::constants*>(dev.map_buffer(gbuf_input.constant_buffer, 0, 0));
-				data->view = cam.view_matrix.into<float>();
-				data->projection_view = cam.projection_view_matrix.into<float>();
-				dev.unmap_buffer(gbuf_input.constant_buffer, 0, sizeof(gbuffer_pass::constants));
-			}
-
-			{
-				auto *data = static_cast<raytrace_pass::global_data*>(dev.map_buffer(rt_input.constant_buffer, 0, 0));
-				data->camera_position = cam_params.position;
-				data->t_min = 0.001f;
-				float tan_half_y = std::tan(0.5f * cam_params.fov_y_radians);
-				auto x = cam.unit_right * cam_params.aspect_ratio * tan_half_y;
-				auto y = cam.unit_up * tan_half_y;
-				data->top_left = cam.unit_forward - x + y;
-				data->t_max = 10000.0f;
-				data->right = matf::concat_rows(x * (2.0f / rt_input.output_size[0]), column_vector<1, float>(0.0f));
-				data->down = y * (-2.0f / rt_input.output_size[1]);
-				data->frame_index = frame_index;
-				dev.unmap_buffer(rt_input.constant_buffer, 0, sizeof(raytrace_pass::global_data));
-			}
-
-			{
-				auto *data = static_cast<raytrace_resolve_pass::global_data*>(dev.map_buffer(rt_resolve_input.globals_buffer, 0, 0));
-				data->frame_index = frame_index;
-				dev.unmap_buffer(rt_resolve_input.globals_buffer, 0, sizeof(raytrace_resolve_pass::global_data));
-			}*/
-
-			/*if constexpr (0) {
-				gbuf_pass.record_commands(cmd_list, gbuf, model, model_resources, gbuf_input, gbuf_output);
-				comp_pass.record_commands(cmd_list, image, comp_input, comp_output[back_buffer.index]);
-			} else {
-				rt_pass.record_commands(cmd_list, model, model_resources, rt_input, raytrace_buffer);
-				rt_resolve_pass.record_commands(cmd_list, image, raytrace_buffer, rt_resolve_input, rt_resolve_output[back_buffer.index]);
-			}*/
+#endif
 
 			{
 				auto pass = rctx.begin_pass({
-					lren::surface2d_color(
+					lren::image2d_color(
 						swap_chain,
 						lgpu::color_render_target_access::create_clear(cvec4d(0.0f, 0.0f, 0.0f, 0.0f))
 					)
@@ -528,7 +510,7 @@ int main(int argc, char **argv) {
 				pass.draw_instanced(
 					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list,
 					lren::all_resource_bindings::from_unsorted({
-						lren::resource_set_binding::descriptor_bindings({
+						lren::resource_set_binding::descriptors({
 							lren::resource_binding(lren::descriptor_resource::image2d(
 								rt_result, lren::image_binding_type::read_only
 							), 0),

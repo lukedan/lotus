@@ -137,9 +137,9 @@ int main(int argc, char **argv) {
 
 	// load project
 	std::filesystem::path proj_path = argv[1];
-	auto error_callback = [](std::u8string_view msg) {
+	auto error_callback = lotus::static_function<void(std::u8string_view)>([](std::u8string_view msg) {
 		lotus::log().error<u8"{}">(lotus::string::to_generic(msg));
-	};
+	});
 	project proj = nullptr;
 	std::vector<std::map<std::u8string, pass>::iterator> pass_order;
 
@@ -198,7 +198,7 @@ int main(int argc, char **argv) {
 		// render all passes
 		for (auto pit : pass_order) {
 			if (pit->second.ready()) {
-				std::vector<lren::surface2d_color> color_surfaces;
+				std::vector<lren::image2d_color> color_surfaces;
 				lren::graphics_pipeline_state state(
 					{},
 					lgpu::rasterizer_options(
@@ -218,7 +218,7 @@ int main(int argc, char **argv) {
 				}
 				lren::all_resource_bindings resource_bindings = nullptr;
 				resource_bindings.sets = {
-					lren::resource_set_binding::create({
+					lren::resource_set_binding::descriptors({
 						lren::resource_binding(
 							lren::descriptor_resource::immediate_constant_buffer::create_for(globals_buf_data), 0
 						),
@@ -230,7 +230,7 @@ int main(int argc, char **argv) {
 						lren::resource_binding(
 							lren::descriptor_resource::sampler(), 2
 						),
-					}, 1)
+					}).at_space(1)
 				};
 				for (const auto &in : pit->second.inputs) {
 					if (in.register_index) {
@@ -238,14 +238,14 @@ int main(int argc, char **argv) {
 							const auto &out = std::get<pass::input::pass_output>(in.value);
 							const auto *target = proj.find_target(out.name, error_callback);
 							if (target) {
-								resource_bindings.sets.emplace_back(lren::resource_set_binding::create({
+								resource_bindings.sets.emplace_back(lren::resource_set_binding::descriptors({
 									lren::resource_binding(
 										lren::descriptor_resource::image2d::create_read_only(
 											out.previous_frame ? target->previous_frame : target->current_frame
 										),
 										in.register_index.value()
 									)
-								}, 0));
+								}).at_space(0));
 							}
 						}
 					}
@@ -274,7 +274,7 @@ int main(int argc, char **argv) {
 			);
 			lren::all_resource_bindings resource_bindings = nullptr;
 			resource_bindings.sets = {
-				lren::resource_set_binding::create({
+				lren::resource_set_binding::descriptors({
 					lren::resource_binding(
 						lren::descriptor_resource::image2d::create_read_only(main_out->current_frame), 0
 					),
@@ -283,12 +283,12 @@ int main(int argc, char **argv) {
 							lgpu::filtering::nearest, lgpu::filtering::nearest, lgpu::filtering::nearest
 						), 1
 					),
-				}, 0)
+				}).at_space(0)
 			};
 
 			auto pass = rctx.begin_pass(
 				{
-					lren::surface2d_color(
+					lren::image2d_color(
 						swapchain, lgpu::color_render_target_access::create_clear(lotus::cvec4d(1.0, 0.0, 0.0, 0.0))
 					)
 				},

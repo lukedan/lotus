@@ -20,19 +20,19 @@ public:
 	}
 
 	/// Loads a project from the given JSON object.
-	[[nodiscard]] static project load(const nlohmann::json&, const error_callback&);
+	[[nodiscard]] static project load(const nlohmann::json&, error_callback&);
 	/// Loads resources for all passes.
 	void load_resources(
 		lren::assets::manager&,
 		lren::assets::handle<lren::assets::shader> vert_shader,
-		const std::filesystem::path &root, const error_callback&
+		const std::filesystem::path &root, error_callback&
 	);
 
 	/// Finds the output buffer corresponding to the given name.
-	[[nodiscard]] pass::target *find_target(std::u8string_view name, const error_callback&);
+	[[nodiscard]] pass::target *find_target(std::u8string_view name, error_callback&);
 
 	/// Returns the order in which these passes should be executed.
-	[[nodiscard]] std::vector<std::map<std::u8string, pass>::iterator> get_pass_order(const error_callback&);
+	[[nodiscard]] std::vector<std::map<std::u8string, pass>::iterator> get_pass_order(error_callback&);
 
 	std::map<std::u8string, pass, std::less<void>> passes; ///< Passes and their names.
 	std::u8string main_pass; ///< Main pass.

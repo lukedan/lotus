@@ -39,7 +39,7 @@ namespace lotus::collision::shapes {
 				return covariance_matrix + volume * (
 					dx * center_of_mass.transposed() +
 					center_of_mass * dx.transposed() +
-					matd::multiply_into_symmetric(dx, dx.transposed())
+					mat::multiply_into_symmetric(dx, dx.transposed())
 				);
 			}
 			/// Returns the properties of this polyhedron translated by the given offset.

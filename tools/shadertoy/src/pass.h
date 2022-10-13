@@ -81,13 +81,13 @@ public:
 			}
 
 			std::filesystem::path path; ///< Path to the image.
-			lren::assets::handle<lren::assets::texture2d> texture; ///< Loaded texture.
+			lren::assets::handle<lren::assets::image2d> texture; ///< Loaded image.
 		};
 
 		using value_type = std::variant<pass_output, image>; ///< Input value storage type.
 
 		/// Loads the value from the given JSON object.
-		[[nodiscard]] static std::optional<value_type> load_value(const nlohmann::json&, const error_callback&);
+		[[nodiscard]] static std::optional<value_type> load_value(const nlohmann::json&, error_callback&);
 
 		std::u8string binding_name; ///< Name of the texture that this is bound to.
 		value_type value; ///< The value of this input.
@@ -108,14 +108,14 @@ public:
 	pass(std::nullptr_t) {
 	}
 	/// Loads settings from the JSON value.
-	[[nodiscard]] static std::optional<pass> load(const nlohmann::json&, const error_callback&);
+	[[nodiscard]] static std::optional<pass> load(const nlohmann::json&, error_callback&);
 
 	/// Loads all input images.
-	void load_input_images(lren::assets::manager&, const std::filesystem::path &root, const error_callback&);
+	void load_input_images(lren::assets::manager&, const std::filesystem::path &root, error_callback&);
 	/// Loads the shader and uses its reflection data to initialize the pipeline.
 	void load_shader(
 		lren::assets::manager&, lren::assets::handle<lren::assets::shader> vert_shader,
-		const std::filesystem::path &root, const error_callback&
+		const std::filesystem::path &root, error_callback&
 	);
 
 

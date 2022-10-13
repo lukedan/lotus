@@ -7,9 +7,15 @@
 
 #include "lotus/system/platforms/windows/details.h"
 #include "lotus/system/window.h"
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 
 namespace lotus::system::platforms::windows {
+	[[nodiscard]] static modifier_key_mask _get_modifier_key_mask(WPARAM wparam) {
+		return
+			((wparam & MK_CONTROL)    ? modifier_key_mask::control : modifier_key_mask::none) |
+			((wparam & MK_SHIFT)      ? modifier_key_mask::shift   : modifier_key_mask::none) |
+			(GetKeyState(VK_MENU) < 0 ? modifier_key_mask::alt     : modifier_key_mask::none);
+	}
 	LRESULT CALLBACK _window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 		auto *wnd = reinterpret_cast<window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
 		auto *sys_wnd = static_cast<system::window*>(wnd);
@@ -41,7 +47,9 @@ namespace lotus::system::platforms::windows {
 
 		case WM_MOUSEMOVE:
 			{
-				window_events::mouse::move info(cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)));
+				window_events::mouse::move info(
+					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)), _get_modifier_key_mask(wparam)
+				);
 				sys_wnd->on_mouse_move.invoke_all(*sys_wnd, info);
 			}
 			return 0;
@@ -49,7 +57,8 @@ namespace lotus::system::platforms::windows {
 		case WM_LBUTTONDOWN:
 			{
 				window_events::mouse::button_down info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)), mouse_button::primary
+					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
+					mouse_button::primary, _get_modifier_key_mask(wparam)
 				);
 				sys_wnd->on_mouse_button_down.invoke_all(*sys_wnd, info);
 			}
@@ -57,7 +66,8 @@ namespace lotus::system::platforms::windows {
 		case WM_LBUTTONUP:
 			{
 				window_events::mouse::button_up info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)), mouse_button::primary
+					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
+					mouse_button::primary, _get_modifier_key_mask(wparam)
 				);
 				sys_wnd->on_mouse_button_up.invoke_all(*sys_wnd, info);
 			}
@@ -66,7 +76,8 @@ namespace lotus::system::platforms::windows {
 		case WM_RBUTTONDOWN:
 			{
 				window_events::mouse::button_down info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)), mouse_button::secondary
+					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
+					mouse_button::secondary, _get_modifier_key_mask(wparam)
 				);
 				sys_wnd->on_mouse_button_down.invoke_all(*sys_wnd, info);
 			}
@@ -74,7 +85,8 @@ namespace lotus::system::platforms::windows {
 		case WM_RBUTTONUP:
 			{
 				window_events::mouse::button_up info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)), mouse_button::secondary
+					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
+					mouse_button::secondary, _get_modifier_key_mask(wparam)
 				);
 				sys_wnd->on_mouse_button_up.invoke_all(*sys_wnd, info);
 			}
@@ -82,7 +94,8 @@ namespace lotus::system::platforms::windows {
 		case WM_MBUTTONDOWN:
 			{
 				window_events::mouse::button_down info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)), mouse_button::middle
+					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
+					mouse_button::middle, _get_modifier_key_mask(wparam)
 				);
 				sys_wnd->on_mouse_button_down.invoke_all(*sys_wnd, info);
 			}
@@ -90,7 +103,8 @@ namespace lotus::system::platforms::windows {
 		case WM_MBUTTONUP:
 			{
 				window_events::mouse::button_up info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)), mouse_button::middle
+					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
+					mouse_button::middle, _get_modifier_key_mask(wparam)
 				);
 				sys_wnd->on_mouse_button_up.invoke_all(*sys_wnd, info);
 			}
@@ -104,7 +118,7 @@ namespace lotus::system::platforms::windows {
 
 
 	application::application(std::u8string_view name) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 
 		auto class_name = _details::u8string_to_tstring(name, bookmark.create_std_allocator<TCHAR>());
 

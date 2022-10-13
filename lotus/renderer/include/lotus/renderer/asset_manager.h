@@ -41,8 +41,8 @@ namespace lotus::renderer {
 				return manager(ctx, dev, std::move(shader_lib_path), shader_utils);
 			}
 
-			/// Retrieves a texture with the given ID, loading it if necessary.
-			[[nodiscard]] handle<texture2d> get_texture2d(const identifier&);
+			/// Retrieves a image with the given ID, loading it if necessary.
+			[[nodiscard]] handle<image2d> get_image2d(const identifier&);
 
 			/// Finds the buffer with the given identifier. Returns \p nullptr if none exists.
 			[[nodiscard]] handle<buffer> find_buffer(const identifier &id) {
@@ -169,11 +169,15 @@ namespace lotus::renderer {
 
 			/// Returns the descriptor array with descriptors of all loaded images.
 			[[nodiscard]] recorded_resources::image_descriptor_array get_images() {
-				return _texture2d_descriptors;
+				return _image2d_descriptors;
 			}
-			/// Returns a handle for the texture that indicates an invalid texture.
-			[[nodiscard]] const handle<texture2d> &get_invalid_texture() const {
-				return _invalid_texture;
+			/// Returns the descriptor array with descriptors of all samplers.
+			[[nodiscard]] recorded_resources::cached_descriptor_set get_samplers() {
+				return _sampler_descriptors;
+			}
+			/// Returns a handle for the image that indicates an invalid image.
+			[[nodiscard]] const handle<image2d> &get_invalid_image() const {
+				return _invalid_image;
 			}
 
 			/// Updates resource loading.
@@ -202,7 +206,7 @@ namespace lotus::renderer {
 			};
 			///< A map containing a specific type of assets.
 			template <typename T> using _map = std::unordered_map<identifier, std::weak_ptr<asset<T>>, _id_hash>;
-			using _texture_map        = _map<texture2d>;      ///< Texture map.
+			using _image_map          = _map<image2d>;        ///< Texture map.
 			using _buffer_map         = _map<buffer>;         ///< Buffer map.
 			using _geometry_map       = _map<geometry>;       ///< Geometry map.
 			using _shader_map         = _map<shader>;         ///< Shader map.
@@ -217,35 +221,46 @@ namespace lotus::renderer {
 					running, ///< The loader is running normally.
 					shutting_down ///< The loader is being shut down.
 				};
+				/// Results from jobs.
+				enum class loader_type {
+					stbi, ///< The image has successfully been loaded using stbi.
+					dds,  ///< The image has successfully been loaded using \ref dds::loader.
+				};
 				/// A job.
 				struct job {
 					/// Initializes this job to empty.
 					job(std::nullptr_t) : target(nullptr) {
 					}
 					/// Initializes the job from a point where it's safe to access the identifier.
-					explicit job(handle<texture2d> t) : target(std::move(t)) {
+					explicit job(handle<image2d> t) : target(std::move(t)) {
 						path = target.get().get_id().path;
 					}
 
-					handle<texture2d> target; ///< Target image to load, to keep it alive.
+					handle<image2d> target; ///< Target image to load, to keep it alive.
 					/// Path of the image. This is duplicated because it's not safe to access the \ref identifier
 					/// from other threads.
 					std::filesystem::path path;
 				};
 				/// Result of a finished job.
 				struct job_result {
+					/// Function type used to free resources after the loaded data has been processed.
+					using destroy_func = static_function<void()>;
+
 					/// Initializes all fields of this struct.
-					job_result(job j, void *res, cvec2s sz, gpu::format f) :
-						input(std::move(j)), data(res), size(sz), pixel_format(f) {
+					job_result(job j, loader_type t, const void *res, cvec2s sz, gpu::format f, destroy_func d) :
+						input(std::move(j)), type(t), data(res), size(sz), pixel_format(f), destroy(std::move(d)) {
 					}
 					/// Initializes this job with no return data.
-					job_result(job j, std::nullptr_t) : input(std::move(j)), size(zero) {
+					job_result(job j, std::nullptr_t) : input(std::move(j)), size(zero), destroy(nullptr) {
 					}
 
 					job input; ///< Original job description.
-					void *data = nullptr; ///< Loaded data.
+
+					loader_type type; ///< Job result.
+					const void *data = nullptr; ///< Loaded data.
 					cvec2s size; ///< Size of the loaded image.
 					gpu::format pixel_format = gpu::format::none; ///< Format of the loaded image.
+					destroy_func destroy; ///< Called to free any intermediate resources.
 				};
 
 				/// Starts the worker thread.
@@ -285,7 +300,7 @@ namespace lotus::renderer {
 					assert(it->second.lock() == nullptr);
 				}
 				ptr->_id = &it->first;
-				ptr->_uid = ++_uid_alloc;
+				ptr->_uid = static_cast<assets::unique_id>(++_uid_alloc);
 				return handle<T>(std::move(ptr));
 			}
 
@@ -316,21 +331,21 @@ namespace lotus::renderer {
 
 			/// Allocates a descriptor index.
 			[[nodiscard]] std::uint32_t _allocate_descriptor_index() {
-				if (_texture2d_descriptor_index_alloc.size() == 1) {
-					return _texture2d_descriptor_index_alloc[0]++;
+				if (_image2d_descriptor_index_alloc.size() == 1) {
+					return _image2d_descriptor_index_alloc[0]++;
 				}
-				std::uint32_t result = _texture2d_descriptor_index_alloc.back();
-				_texture2d_descriptor_index_alloc.pop_back();
+				std::uint32_t result = _image2d_descriptor_index_alloc.back();
+				_image2d_descriptor_index_alloc.pop_back();
 				return result;
 			}
 			/// Frees a descriptor index.
 			void _free_descriptor_index(std::uint32_t id) {
-				_texture2d_descriptor_index_alloc.emplace_back(id);
+				_image2d_descriptor_index_alloc.emplace_back(id);
 			}
 
-			assets::unique_id_t _uid_alloc = 0; ///< Unique ID allocation.
+			std::underlying_type_t<assets::unique_id> _uid_alloc = 0; ///< Unique ID allocation.
 
-			_texture_map        _textures;         ///< All loaded textures.
+			_image_map          _images;           ///< All loaded images.
 			_buffer_map         _buffers;          ///< All loaded buffers.
 			_geometry_map       _geometries;       ///< All loaded geometries.
 			_shader_map         _shaders;          ///< All loaded shaders.
@@ -346,9 +361,10 @@ namespace lotus::renderer {
 			/// Buffered input jobs. These will be submitted in \ref update().
 			std::vector<_async_loader::job> _input_jobs;
 
-			image_descriptor_array _texture2d_descriptors; ///< Bindless descriptor array of all textures.
-			handle<texture2d> _invalid_texture; ///< Index of a texture indicating "invalid texture".
-			std::vector<std::uint32_t> _texture2d_descriptor_index_alloc; ///< Used to allocate descriptor indices.
+			image_descriptor_array _image2d_descriptors; ///< Bindless descriptor array of all images.
+			cached_descriptor_set _sampler_descriptors; ///< Descriptors of all samplers.
+			handle<image2d> _invalid_image; ///< Index of a image indicating "invalid image".
+			std::vector<std::uint32_t> _image2d_descriptor_index_alloc; ///< Used to allocate descriptor indices.
 
 			std::filesystem::path _shader_library_path; ///< Path containing all shaders.
 		};

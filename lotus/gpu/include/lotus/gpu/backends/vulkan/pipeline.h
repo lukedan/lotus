@@ -9,7 +9,7 @@
 #include <spirv_reflect.h>
 
 #include "details.h"
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 
 namespace lotus::gpu::backends::vulkan {
 	class command_list;

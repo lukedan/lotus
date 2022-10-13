@@ -312,7 +312,7 @@ namespace lotus::physics {
 			cvec3d diff12 = spx_pos[1] - spx_pos[0]; // also the x axis
 			cvec3d diff13 = spx_pos[2] - spx_pos[0];
 			cvec3d y = vec::cross(epa_res.normal, diff12);
-			auto xform = matd::concat_columns(diff12 / diff12.squared_norm(), y / y.squared_norm()).transposed();
+			auto xform = mat::concat_columns(diff12 / diff12.squared_norm(), y / y.squared_norm()).transposed();
 			cvec2d pos1 = xform * diff13;
 			cvec3d contact_offset = epa_res.depth * epa_res.normal - spx_pos[0];
 			cvec2d contact = xform * contact_offset;

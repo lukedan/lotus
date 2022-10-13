@@ -1,4 +1,4 @@
-#include "lotus/memory.h"
+#include "lotus/memory/common.h"
 
 /// \file
 /// Implementation of memory operations.

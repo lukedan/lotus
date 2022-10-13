@@ -3,7 +3,7 @@
 /// \file
 /// Interface to swap chains.
 
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 #include LOTUS_GPU_BACKEND_INCLUDE
 #include "resources.h"
 #include "synchronization.h"
@@ -52,7 +52,7 @@ namespace lotus::gpu {
 		}
 		/// \overload
 		void update_synchronization_primitives(std::span<fence> fences) {
-			auto bookmark = stack_allocator::for_this_thread().bookmark();
+			auto bookmark = get_scratch_bookmark();
 			auto prims = bookmark.create_vector_array<back_buffer_synchronization>(get_image_count(), nullptr);
 			assert(fences.empty() || fences.size() == prims.size());
 			for (std::size_t i = 0; i < fences.size(); ++i) {

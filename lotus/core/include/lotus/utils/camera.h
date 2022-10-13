@@ -64,7 +64,7 @@ namespace lotus {
 			cvec3<T> unit_right = vec::unsafe_normalize(vec::cross(unit_forward, world_up));
 			cvec3<T> unit_up = vec::cross(unit_right, unit_forward);
 
-			mat33<T> rotation = mat<T>::concat_columns(unit_right, unit_up, unit_forward).transposed();
+			mat33<T> rotation = mat::concat_columns(unit_right, unit_up, unit_forward).transposed();
 			cvec3<T> offset = -(rotation * position);
 
 			mat44<T> view = zero;

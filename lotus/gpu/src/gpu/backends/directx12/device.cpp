@@ -5,7 +5,7 @@
 
 #include <algorithm>
 
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 #include "lotus/logging.h"
 #include "lotus/system/platforms/windows/details.h"
 #include "lotus/gpu/commands.h"
@@ -146,11 +146,11 @@ namespace lotus::gpu::backends::directx12 {
 		_details::com_ptr<ID3DBlob> signature;
 		std::vector<pipeline_resources::_root_param_indices> indices(sets.size(), nullptr);
 		{ // serialize root signature
-			auto bookmark = stack_allocator::for_this_thread().bookmark();
+			auto bookmark = get_scratch_bookmark();
 
 			auto root_params = bookmark.create_reserved_vector_array<D3D12_ROOT_PARAMETER1>(sets.size() * 2);
 			auto descriptor_tables = bookmark.create_reserved_vector_array<
-				stack_allocator::vector_type<D3D12_DESCRIPTOR_RANGE1>
+				memory::stack_allocator::vector_type<D3D12_DESCRIPTOR_RANGE1>
 			>(sets.size() * 2);
 
 			for (std::size_t i = 0; i < sets.size(); ++i) {
@@ -234,7 +234,7 @@ namespace lotus::gpu::backends::directx12 {
 		const frame_buffer_layout &fb_layout,
 		[[maybe_unused]] std::size_t num_viewports
 	) {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 
 		graphics_pipeline_state result = nullptr;
 
@@ -718,7 +718,7 @@ namespace lotus::gpu::backends::directx12 {
 		sampler_address_mode addressing_u, sampler_address_mode addressing_v, sampler_address_mode addressing_w,
 		linear_rgba_f border_color, std::optional<comparison_function> comparison
 	) {
-		sampler result;
+		sampler result = nullptr;
 		result._desc = {};
 		result._desc.Filter         = _details::conversions::to_filter(
 			minification, magnification, mipmapping, max_anisotropy.has_value(), comparison.has_value()
@@ -951,7 +951,7 @@ namespace lotus::gpu::backends::directx12 {
 
 		std::size_t num_subobjects = hit_group_shaders.size() + hit_groups.size() + general_shaders.size() + 3;
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto subobjects = bookmark.create_reserved_vector_array<D3D12_STATE_SUBOBJECT>(num_subobjects);
 
 		// root signature
@@ -985,7 +985,9 @@ namespace lotus::gpu::backends::directx12 {
 		std::size_t num_shaders = hit_group_shaders.size() + general_shaders.size();
 		auto shader_libs = bookmark.create_reserved_vector_array<D3D12_DXIL_LIBRARY_DESC>(num_shaders);
 		auto shader_exports = bookmark.create_reserved_vector_array<D3D12_EXPORT_DESC>(num_shaders);
-		auto shader_names = bookmark.create_reserved_vector_array<stack_allocator::string_type<WCHAR>>(num_shaders);
+		auto shader_names = bookmark.create_reserved_vector_array<
+			memory::stack_allocator::string_type<WCHAR>
+		>(num_shaders);
 		auto add_shader = [&](const shader_function &sh, LPCWSTR export_name) {
 			auto name = shader_names.emplace_back(
 				system::platforms::windows::_details::u8string_to_wstring(

@@ -195,6 +195,9 @@ namespace lotus::gpu::backends::vulkan {
 	class sampler {
 		friend device;
 	protected:
+		/// Initializes this sampler to empty.
+		sampler(std::nullptr_t) {
+		}
 	private:
 		vk::UniqueSampler _sampler; ///< The sampler.
 	};

@@ -11,7 +11,7 @@
 #include <format>
 #include <source_location>
 
-#include "utils/stack_allocator.h"
+#include "memory/stack_allocator.h"
 #include "utils/strings.h"
 
 namespace lotus {
@@ -56,7 +56,7 @@ namespace lotus {
 		) {
 			std::lock_guard<std::mutex> lock(_lock);
 
-			auto bookmark = stack_allocator::for_this_thread().bookmark();
+			auto bookmark = get_scratch_bookmark();
 			auto text = bookmark.create_string();
 			auto it = std::back_inserter(text);
 			constexpr string::constexpr_string fmt_char = fmt.as<char>();

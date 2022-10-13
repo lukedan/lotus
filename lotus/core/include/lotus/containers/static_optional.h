@@ -16,8 +16,17 @@ namespace lotus {
 			return is_enabled;
 		}
 
-		/// Constructor.
-		template <typename ...Args> constexpr static_optional(Args &&...args) : value(std::forward<Args>(args)...) {
+		/// Default constructor.
+		static_optional() = default;
+		/// Initializes the underlying value with a single parameter.
+		template <
+			typename Arg, std::enable_if_t<!std::is_same_v<std::decay_t<Arg>, static_optional>, int> = 0
+		> constexpr static_optional(Arg &&arg) : value(std::forward<Arg>(arg)) {
+		}
+		/// Initializes the underlying value with multiple parameters.
+		template <typename Arg1, typename Arg2, typename ...Args> constexpr static_optional(
+			Arg1 &&arg1, Arg2 &&arg2, Args &&...args
+		) : value(std::forward<Arg1>(arg1), std::forward<Arg2>(arg2), std::forward<Args>(args)...) {
 		}
 		/// Default move constructor.
 		static_optional(static_optional&&) = default;

@@ -5,7 +5,7 @@
 
 #include <array>
 
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 #include "lotus/math/quaternion.h"
 #include "lotus/collision/shapes/polyhedron.h"
 #include "lotus/physics/body.h"

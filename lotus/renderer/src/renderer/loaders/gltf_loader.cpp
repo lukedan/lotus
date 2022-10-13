@@ -129,7 +129,7 @@ namespace lotus::renderer::gltf {
 	}
 	void context::load(
 		const std::filesystem::path &path,
-		static_function<void(assets::handle<assets::texture2d>)> image_loaded_callback,
+		static_function<void(assets::handle<assets::image2d>)> image_loaded_callback,
 		static_function<void(assets::handle<assets::geometry>)> geometry_loaded_callback,
 		static_function<void(assets::handle<assets::material>)> material_loaded_callback,
 		static_function<void(instance)> instance_loaded_callback
@@ -157,16 +157,16 @@ namespace lotus::renderer::gltf {
 			return;
 		}
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 
 		// load images
-		auto images = bookmark.create_vector_array<assets::handle<assets::texture2d>>(model.images.size(), nullptr);
+		auto images = bookmark.create_vector_array<assets::handle<assets::image2d>>(model.images.size(), nullptr);
 		for (std::size_t i = 0; i < images.size(); ++i) {
 			constexpr bool _debug_disable_images = false;
 			if constexpr (_debug_disable_images) {
-				images[i] = _asset_manager.get_invalid_texture();
+				images[i] = _asset_manager.get_invalid_image();
 			} else {
-				images[i] = _asset_manager.get_texture2d(
+				images[i] = _asset_manager.get_image2d(
 					assets::identifier(path.parent_path() / std::filesystem::path(model.images[i].uri))
 				);
 				if (image_loaded_callback) {
@@ -177,7 +177,7 @@ namespace lotus::renderer::gltf {
 
 		// load geometries
 		auto geometries = bookmark.create_reserved_vector_array<
-			stack_allocator::vector_type<assets::handle<assets::geometry>>
+			memory::stack_allocator::vector_type<assets::handle<assets::geometry>>
 		>(model.meshes.size());
 		for (std::size_t i = 0; i < model.meshes.size(); ++i) {
 			const auto &mesh = model.meshes[i];
@@ -338,8 +338,8 @@ namespace lotus::renderer::gltf {
 						node.translation.empty() ?
 						cvec3f(zero) :
 						cvec3d(node.translation[0], node.translation[1], node.translation[2]).into<float>();
-					trans = matf::concat_rows(
-						matf::concat_columns(rotation * scale, translation),
+					trans = mat::concat_rows(
+						mat::concat_columns(rotation * scale, translation),
 						rvec4f(0.0f, 0.0f, 0.0f, 1.0f)
 					);
 				} else {
@@ -370,27 +370,5 @@ namespace lotus::renderer::gltf {
 				}
 			}
 		}
-	}
-
-
-	all_resource_bindings material_data::create_resource_bindings() const {
-		all_resource_bindings result = nullptr;
-
-		result.sets.emplace_back(manager->get_images(), 0);
-
-		resource_set_binding::descriptor_bindings set1({});
-
-		shader_types::gltf_material mat;
-		mat.properties = properties;
-		mat.assets.albedo_texture     = albedo_texture     ? albedo_texture->descriptor_index     : manager->get_invalid_texture()->descriptor_index;
-		mat.assets.normal_texture     = normal_texture     ? normal_texture->descriptor_index     : manager->get_invalid_texture()->descriptor_index;
-		mat.assets.properties_texture = properties_texture ? properties_texture->descriptor_index : manager->get_invalid_texture()->descriptor_index;
-		set1.bindings.emplace_back(descriptor_resource::immediate_constant_buffer::create_for(mat), 0);
-
-		set1.bindings.emplace_back(descriptor_resource::sampler(), 3);
-
-		result.sets.emplace_back(set1, 1);
-
-		return result;
 	}
 }

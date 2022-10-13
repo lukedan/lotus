@@ -1,5 +1,5 @@
-#ifndef LOTUS_RENDERER_GLTF_MATERIAL_HLSLI
-#define LOTUS_RENDERER_GLTF_MATERIAL_HLSLI
+#ifndef LOTUS_RENDERER_GENERIC_PBR_MATERIAL_HLSLI
+#define LOTUS_RENDERER_GENERIC_PBR_MATERIAL_HLSLI
 
 #include "types.hlsli"
 
@@ -26,10 +26,12 @@ struct vs_output {
 
 Texture2D<float4> material_textures[] : register(t0, space0);
 
-ConstantBuffer<gltf_material> instance_material : register(b0, space1);
-ConstantBuffer<instance_data> instance          : register(b1, space1);
-ConstantBuffer<view_data> view                  : register(b2, space1);
-SamplerState linear_sampler                     : register(s3, space1);
+ConstantBuffer<generic_pbr_material::material> instance_material : register(b0, space1);
+ConstantBuffer<instance_data> instance                           : register(b1, space1);
+ConstantBuffer<view_data> view                                   : register(b2, space1);
+
+/*LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(space2);*/
+SamplerState linear_sampler : register(s0, space2);
 
 vs_output transform_geometry(vs_input input) {
 	vs_output result = (vs_output)0;
@@ -55,10 +57,12 @@ vs_output transform_geometry(vs_input input) {
 }
 
 material::basic_properties evaluate_material(vs_output input) {
+	float4 albedo_sample = material_textures[instance_material.assets.albedo_texture].Sample(linear_sampler, input.uv);
+	float4 normal_sample = material_textures[instance_material.assets.normal_texture].Sample(linear_sampler, input.uv);
+
 	material::basic_properties result = (material::basic_properties)0;
-	result.albedo    = material_textures[instance_material.assets.albedo_texture].Sample(linear_sampler, input.uv).rgb;
-	result.normal_ts = material_textures[instance_material.assets.normal_texture].Sample(linear_sampler, input.uv).rgb;
-	result.normal_ts = result.normal_ts * 2.0f - 1.0f;
+	result.albedo    = albedo_sample.rgb;
+	result.normal_ts = normal_sample.rgb * 2.0f - 1.0f;
 	return result;
 }
 

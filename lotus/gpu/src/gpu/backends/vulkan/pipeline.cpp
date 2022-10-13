@@ -3,7 +3,7 @@
 /// \file
 /// Implementation of pipeline-related functions.
 
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 
 namespace lotus::gpu::backends::vulkan {
 	std::optional<shader_resource_binding> shader_reflection::find_resource_binding_by_name(

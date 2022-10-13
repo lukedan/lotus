@@ -64,13 +64,34 @@ namespace lotus {
 			}
 		}
 
+		/// Default comparisons.
+		[[nodiscard]] friend constexpr bool operator==(const linear_rgba&, const linear_rgba&) = default;
+
 		T r; ///< The red channel.
 		T g; ///< The green channel.
 		T b; ///< The blue channel.
 		T a; ///< The alpha channel.
 	};
+}
+namespace std {
+	/// Hash function for \ref lotus::linear_rgba.
+	template <typename T> struct hash<lotus::linear_rgba<T>> {
+		/// Computes the hash function.
+		[[nodiscard]] constexpr size_t operator()(const lotus::linear_rgba<T> &c) const {
+			return lotus::hash_combine({
+				lotus::compute_hash(c.r),
+				lotus::compute_hash(c.g),
+				lotus::compute_hash(c.b),
+				lotus::compute_hash(c.a),
+			});
+		}
+	};
+}
 
-	using linear_rgba_f = linear_rgba<float>; ///< Linear RGBA colors of \p float.
-	using linear_rgba_d = linear_rgba<double>; ///< Linear RGBA colors of \p double.
-	using linear_rgba_u8 = linear_rgba<std::uint8_t>; ///< Linear RGBA colors of \p std::uint8_t.
+namespace lotus {
+	inline namespace linear_colors {
+		using linear_rgba_f = linear_rgba<float>; ///< Linear RGBA colors of \p float.
+		using linear_rgba_d = linear_rgba<double>; ///< Linear RGBA colors of \p double.
+		using linear_rgba_u8 = linear_rgba<std::uint8_t>; ///< Linear RGBA colors of \p std::uint8_t.
+	}
 }

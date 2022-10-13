@@ -31,7 +31,7 @@ namespace lotus::gpu::backends::directx12 {
 		friend void descriptor_set::_free();
 	protected:
 		/// The capacity of \ref _rtv_descriptors and \ref _dsv_descriptors.
-		constexpr static std::size_t descriptor_heap_size = 65535;
+		constexpr static std::size_t descriptor_heap_size = 524288;
 		constexpr static std::size_t sampler_heap_size = 2048;
 
 		/// Does not create a device.

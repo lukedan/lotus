@@ -5,12 +5,12 @@
 
 #include <cassert>
 
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 #include "lotus/algorithms/convex_hull.h"
 
 namespace lotus::collision {
 	std::pair<bool, gjk_epa::gjk_result_state> gjk_epa::gjk() {
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 
 		gjk_result_state state = uninitialized;
 
@@ -149,9 +149,11 @@ namespace lotus::collision {
 	}
 
 	gjk_epa::epa_result gjk_epa::epa(gjk_result_state gjk_state) const {
-		using _convex_hull_t = incremental_convex_hull<simplex_vertex, double, stack_allocator::std_allocator>;
+		using _convex_hull_t = incremental_convex_hull<
+			simplex_vertex, double, memory::stack_allocator::std_allocator
+		>;
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 
 		auto compute_face_data = [](const _convex_hull_t &hull, _convex_hull_t::face &f) {
 			f.data = vec::dot(f.normal, hull.vertices[f.vertex_indices[0]].position);

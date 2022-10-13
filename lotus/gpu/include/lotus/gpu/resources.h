@@ -175,6 +175,9 @@ namespace lotus::gpu {
 	class sampler : public backend::sampler {
 		friend device;
 	public:
+		/// Initializes this sampler to empty.
+		sampler(std::nullptr_t) : backend::sampler(nullptr) {
+		}
 		/// Move constructor.
 		sampler(sampler &&src) : backend::sampler(std::move(src)) {
 		}

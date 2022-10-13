@@ -1,9 +1,9 @@
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 
 /// \file
 /// Implementation of the stack allocator.
 
-namespace lotus {
+namespace lotus::memory {
 	stack_allocator::_page_ref stack_allocator::_page_ref::to_new_page(void *ptr, std::size_t sz) {
 		_page_ref result = uninitialized;
 		result.memory = ptr;

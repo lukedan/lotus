@@ -134,6 +134,10 @@ namespace lotus::gpu::backends::directx12 {
 	/// Wraps around a \p D3D12_SAMPLER_DESC.
 	class sampler {
 		friend device;
+	protected:
+		/// Initializes this to a default sampler.
+		sampler(std::nullptr_t) : _desc({}) {
+		}
 	private:
 		D3D12_SAMPLER_DESC _desc;
 	};

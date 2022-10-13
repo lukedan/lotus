@@ -10,11 +10,11 @@
 #include <thread>
 #include <vector>
 
+#include "common.h"
 #include "lotus/common.h"
-#include "lotus/memory.h"
 #include "lotus/containers/static_optional.h"
 
-namespace lotus {
+namespace lotus::memory {
 	/// An allocator that allocates out of a stack. The user can make bookmarks in the stack that the allocator can
 	/// unwind to.
 	class stack_allocator {
@@ -322,4 +322,11 @@ namespace lotus {
 		_page_ref _free_pages = nullptr;
 		_bookmark *_top_bookmark = nullptr; ///< The most recent bookmark.
 	};
+}
+
+namespace lotus {
+	/// Shorthand for creating a memory bookmark for scratch memory on the current thread.
+	[[nodiscard]] inline static memory::stack_allocator::scoped_bookmark get_scratch_bookmark() {
+		return memory::stack_allocator::for_this_thread().bookmark();
+	}
 }

@@ -11,6 +11,12 @@ namespace lotus::renderer {
 		return result;
 	}
 
+	all_resource_bindings all_resource_bindings::assume_sorted(std::vector<resource_set_binding> s) {
+		all_resource_bindings result = nullptr;
+		result.sets = std::move(s);
+		return result;
+	}
+
 	void all_resource_bindings::consolidate() {
 		// sort based on register space
 		std::sort(
@@ -25,11 +31,11 @@ namespace lotus::renderer {
 			if (last->space == it->space) {
 				if (last != it) {
 					if (
-						std::holds_alternative<resource_set_binding::descriptor_bindings>(last->bindings) &&
-						std::holds_alternative<resource_set_binding::descriptor_bindings>(it->bindings)
+						std::holds_alternative<resource_set_binding::descriptors>(last->bindings) &&
+						std::holds_alternative<resource_set_binding::descriptors>(it->bindings)
 						) {
-						auto &prev_descriptors = std::get<resource_set_binding::descriptor_bindings>(last->bindings);
-						auto &cur_descriptors = std::get<resource_set_binding::descriptor_bindings>(it->bindings);
+						auto &prev_descriptors = std::get<resource_set_binding::descriptors>(last->bindings);
+						auto &cur_descriptors = std::get<resource_set_binding::descriptors>(it->bindings);
 						for (auto &b : cur_descriptors.bindings) {
 							prev_descriptors.bindings.emplace_back(std::move(b));
 						}
@@ -52,8 +58,8 @@ namespace lotus::renderer {
 		}
 		// sort each set
 		for (auto &set : sets) {
-			if (std::holds_alternative<resource_set_binding::descriptor_bindings>(set.bindings)) {
-				auto &descriptors = std::get<resource_set_binding::descriptor_bindings>(set.bindings);
+			if (std::holds_alternative<resource_set_binding::descriptors>(set.bindings)) {
+				auto &descriptors = std::get<resource_set_binding::descriptors>(set.bindings);
 				std::sort(
 					descriptors.bindings.begin(), descriptors.bindings.end(),
 					[](const resource_binding &lhs, const resource_binding &rhs) {

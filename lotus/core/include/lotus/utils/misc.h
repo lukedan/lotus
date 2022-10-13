@@ -5,7 +5,8 @@
 
 #include <cstdio>
 
-#include "lotus/memory.h"
+#include "lotus/memory/common.h"
+#include "lotus/memory/block.h"
 
 namespace lotus {
 	/// Loads the specified binary file.
@@ -34,5 +35,15 @@ namespace lotus {
 			std::fclose(fin);
 		}
 		return { memory::block<Allocator>(nullptr, std::move(alloc)), 0};
+	}
+
+
+	/// Converts the given four-character literal to its 32-bit binary representation.
+	constexpr inline static std::uint32_t make_four_character_code(std::u8string_view s) {
+		return
+			static_cast<std::uint32_t>(s[0]) |
+			(static_cast<std::uint32_t>(s[1]) << 8) |
+			(static_cast<std::uint32_t>(s[2]) << 16) |
+			(static_cast<std::uint32_t>(s[3]) << 24);
 	}
 }

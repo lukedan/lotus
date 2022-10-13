@@ -7,4 +7,7 @@ float squared(float x) {
 	return x * x;
 }
 
+#define LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(SPACE)    \
+	SamplerState linear_sampler : register(s0, SPACE); \
+
 #endif

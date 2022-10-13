@@ -55,6 +55,20 @@ namespace lotus::gpu::backends::vulkan::_details {
 			std::pair(format::r32g32b32a32_uint,  vk::Format::eR32G32B32A32Uint  ),
 			std::pair(format::r32g32b32a32_sint,  vk::Format::eR32G32B32A32Sint  ),
 			std::pair(format::r32g32b32a32_float, vk::Format::eR32G32B32A32Sfloat),
+			std::pair(format::bc1_unorm,          vk::Format::eBc1RgbaUnormBlock ),
+			std::pair(format::bc1_srgb,           vk::Format::eBc1RgbaSrgbBlock  ),
+			std::pair(format::bc2_unorm,          vk::Format::eBc2UnormBlock     ),
+			std::pair(format::bc2_srgb,           vk::Format::eBc2SrgbBlock      ),
+			std::pair(format::bc3_unorm,          vk::Format::eBc3UnormBlock     ),
+			std::pair(format::bc3_srgb,           vk::Format::eBc3SrgbBlock      ),
+			std::pair(format::bc4_unorm,          vk::Format::eBc4UnormBlock     ),
+			std::pair(format::bc4_snorm,          vk::Format::eBc4SnormBlock     ),
+			std::pair(format::bc5_unorm,          vk::Format::eBc5UnormBlock     ),
+			std::pair(format::bc5_snorm,          vk::Format::eBc5SnormBlock     ),
+			std::pair(format::bc6h_f16,           vk::Format::eBc6HSfloatBlock   ),
+			std::pair(format::bc6h_uf16,          vk::Format::eBc6HUfloatBlock   ),
+			std::pair(format::bc7_unorm,          vk::Format::eBc7UnormBlock     ),
+			std::pair(format::bc7_srgb,           vk::Format::eBc7SrgbBlock      ),
 		};
 		vk::Format to_format(format fmt) {
 			return _format_table[fmt];

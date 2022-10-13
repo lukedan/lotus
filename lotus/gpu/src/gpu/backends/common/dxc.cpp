@@ -3,7 +3,7 @@
 /// \file
 /// Implementation of DXC functions.
 
-#include "lotus/utils/stack_allocator.h"
+#include "lotus/memory/stack_allocator.h"
 #include "lotus/utils/strings.h"
 
 namespace lotus::gpu::backends::common {
@@ -30,8 +30,8 @@ namespace lotus::gpu::backends::common {
 
 
 	/// Converts a UTF-8 string to a wide string.
-	[[nodiscard]] static stack_allocator::string_type<WCHAR> _u8string_to_wstring(
-		stack_allocator::scoped_bookmark &bookmark, std::u8string_view view
+	[[nodiscard]] static memory::stack_allocator::string_type<WCHAR> _u8string_to_wstring(
+		memory::stack_allocator::scoped_bookmark &bookmark, std::u8string_view view
 	) {
 		// TODO this assumes the entry point don't contain chars above 128
 		return bookmark.create_string<WCHAR>(view.begin(), view.end());
@@ -55,9 +55,9 @@ namespace lotus::gpu::backends::common {
 			std::pair(shader_stage::closest_hit_shader,    "INVALID"),
 			std::pair(shader_stage::miss_shader,           "INVALID"),
 		};
-		using _wstring = stack_allocator::string_type<WCHAR>;
+		using _wstring = memory::stack_allocator::string_type<WCHAR>;
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 
 		auto entry_wstr = _u8string_to_wstring(bookmark, entry);
 
@@ -124,9 +124,9 @@ namespace lotus::gpu::backends::common {
 		std::span<const LPCWSTR> extra_args,
 		std::initializer_list<LPCWSTR> extra_args_2
 	) {
-		using _wstring = stack_allocator::string_type<WCHAR>;
+		using _wstring = memory::stack_allocator::string_type<WCHAR>;
 
-		auto bookmark = stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 
 		auto includes = bookmark.create_reserved_vector_array<_wstring>(include_paths.size());
 		for (const auto &p : include_paths) {

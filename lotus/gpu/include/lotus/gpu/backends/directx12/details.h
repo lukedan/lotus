@@ -12,6 +12,7 @@
 #include <directx/d3d12.h>
 #include <directx/d3d12shader.h>
 
+#include "lotus/containers/static_optional.h"
 #include "lotus/gpu/common.h"
 
 namespace lotus::gpu::backends::directx12 {
@@ -28,7 +29,7 @@ namespace lotus::gpu::backends::directx12::_details {
 	/// Converts generic types into DX12 types.
 	namespace conversions {
 		// simple enum conversions
-		/// Converts a \ref format to a \p DXGI_FORMAT.
+		/// Calls \ref backends::common::_details::conversions::to_format().
 		[[nodiscard]] DXGI_FORMAT to_format(format);
 		/// Converts a \ref index_format to a \p DXGI_FORMAT.
 		[[nodiscard]] DXGI_FORMAT to_format(index_format);
@@ -128,7 +129,7 @@ namespace lotus::gpu::backends::directx12::_details {
 	struct descriptor_range {
 		template <std::size_t, std::size_t> friend class descriptor_heap;
 	public:
-		using index_t = std::uint16_t; ///< Index of a descriptor.
+		using index_t = std::uint32_t; ///< Index of a descriptor.
 
 		/// Initializes this descriptor to empty.
 		descriptor_range(std::nullptr_t) {
@@ -214,7 +215,8 @@ namespace lotus::gpu::backends::directx12::_details {
 			_heap(std::exchange(src._heap, nullptr)),
 			_free(std::move(src._free)),
 			_sized_free(std::move(src._sized_free)),
-			_increment(src._increment) {
+			_increment(src._increment),
+			_capacity(src._capacity) {
 		}
 		/// No copy construction.
 		descriptor_heap(const descriptor_heap&) = delete;
@@ -224,6 +226,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			_free       = std::move(src._free);
 			_sized_free = std::move(src._sized_free);
 			_increment  = src._increment;
+			_capacity   = src._capacity;
 			return *this;
 		}
 		/// No copy assignment.
@@ -249,6 +252,8 @@ namespace lotus::gpu::backends::directx12::_details {
 				descriptor_range::index_t(0), _range_data(static_cast<descriptor_range::index_t>(capacity), 0)
 			);
 			_sized_free.add_range(entry.first);
+
+			_capacity = debug_value<std::size_t>(capacity);
 		}
 
 		/// Allocates a range of descritors.
@@ -387,6 +392,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		_free_list _free; ///< An array containing descriptors that are not in use.
 		_size_list _sized_free; ///< Free descriptor lists categorized by size.
 		UINT _increment; ///< Size of a single descriptor.
+		[[no_unique_address]] debug_value<std::size_t> _capacity; ///< Capacity.
 
 		/// Safely disposes of the given range.
 		void _dispose(descriptor_range range) {

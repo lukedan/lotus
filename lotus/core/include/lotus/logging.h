@@ -26,25 +26,25 @@ namespace lotus {
 		template <string::constexpr_string fmt, typename ...Args> void debug(
 			std::source_location loc, Args &&...args
 		) {
-			_do_log_fmt<fmt>(loc, u8"DEBUG", std::forward<Args>(args)...);
+			_do_log_fmt<fmt>(loc, u8"DEBUG", console::color::dark_gray, std::forward<Args>(args)...);
 		}
 		/// Logs an info entry.
 		template <string::constexpr_string fmt, typename ...Args> void info(
 			std::source_location loc, Args &&...args
 		) {
-			_do_log_fmt<fmt>(loc, u8"INFO", std::forward<Args>(args)...);
+			_do_log_fmt<fmt>(loc, u8"INFO", console::color::white, std::forward<Args>(args)...);
 		}
 		/// Logs a warning entry.
 		template <string::constexpr_string fmt, typename ...Args> void warn(
 			std::source_location loc, Args &&...args
 		) {
-			_do_log_fmt<fmt>(loc, u8"WARNING", std::forward<Args>(args)...);
+			_do_log_fmt<fmt>(loc, u8"WARNING", console::color::orange, std::forward<Args>(args)...);
 		}
 		/// Logs an error entry.
 		template <string::constexpr_string fmt, typename ...Args> void error(
 			std::source_location loc, Args &&...args
 		) {
-			_do_log_fmt<fmt>(loc, u8"ERROR", std::forward<Args>(args)...);
+			_do_log_fmt<fmt>(loc, u8"ERROR", console::color::red, std::forward<Args>(args)...);
 		}
 
 		/// Returns the global logger instance.
@@ -52,7 +52,7 @@ namespace lotus {
 	protected:
 		/// Formats the given log entry and calls \ref _do_log() to log it.
 		template <string::constexpr_string fmt, typename ...Args> void _do_log_fmt(
-			std::source_location loc, const char8_t *type, Args &&...args
+			std::source_location loc, const char8_t *type, console::color c, Args &&...args
 		) {
 			std::lock_guard<std::mutex> lock(_lock);
 
@@ -63,20 +63,13 @@ namespace lotus {
 			std::format_to(it, _locale, fmt_char, std::forward<Args>(args)...);
 
 			auto time = std::chrono::high_resolution_clock::now() - _startup;
-			_do_log(time, loc, reinterpret_cast<const char*>(type), text.c_str());
+			_do_log(time, loc, reinterpret_cast<const char*>(type), c, text.c_str());
 		}
 		/// Logs the given string to the console.
 		void _do_log(
-			std::chrono::high_resolution_clock::duration time, std::source_location loc,
-			const char *type, const char *text
-		) {
-			std::fprintf(
-				stdout, "[%6.2f] %s:%d:%d|%s [%s] %s\n",
-				std::chrono::duration<double>(time).count(),
-				loc.file_name(), loc.line(), loc.column(), loc.function_name(),
-				type, text
-			);
-		}
+			std::chrono::high_resolution_clock::duration, std::source_location,
+			const char *type, console::color c, const char *text
+		);
 
 		std::mutex _lock; ///< Only one thread can log at any given time.
 		std::locale _locale; ///< Locale used for formatting text.

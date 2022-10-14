@@ -298,4 +298,37 @@ namespace lotus {
 	};
 	using linear_float_range  = linear_range<float>;       ///< Shorthand for linear ranges for \p float.
 	using linear_size_t_range = linear_range<std::size_t>; ///< Shorthand for linear range for \p std::size_t.
+
+
+	/// Console output utilities.
+	namespace console {
+		/// Console colors.
+		enum class color {
+			black        = 30,
+			dark_red     = 31,
+			dark_green   = 32,
+			dark_orange  = 33,
+			dark_blue    = 34,
+			dark_magenta = 35,
+			dark_cyan    = 36,
+			light_gray   = 37,
+			dark_gray    = 90,
+			red          = 91,
+			green        = 92,
+			orange       = 93,
+			blue         = 94,
+			magenta      = 95,
+			cyan         = 96,
+			white        = 97,
+		};
+
+		/// Sets the foreground color of console output.
+		inline void set_foreground_color(color c, FILE *fout = nullptr) {
+			fprintf(fout ? fout : stdout, "\033[%dm", static_cast<int>(c));
+		}
+		/// Resets console text color.
+		inline void reset_color(FILE *fout = nullptr) {
+			fprintf(fout ? fout : stdout, "\033[0m");
+		}
+	}
 }

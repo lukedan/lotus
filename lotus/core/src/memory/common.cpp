@@ -17,17 +17,17 @@
 
 namespace lotus::memory {
 	namespace raw {
-		void *allocate(size_alignment s) {
+		std::byte *allocate(size_alignment s) {
 #ifdef LOTUS_USE_MIMALLOC
 			return mi_aligned_alloc(s.alignment, s.size);
 #else
 #	ifdef _MSC_VER
-			return _aligned_malloc(s.size, s.alignment);
+			return static_cast<std::byte*>(_aligned_malloc(s.size, s.alignment));
 #	endif
 #endif
 		}
 
-		void free(void *ptr) {
+		void free(std::byte *ptr) {
 #ifdef LOTUS_USE_MIMALLOC
 			mi_free(ptr);
 #else
@@ -38,14 +38,14 @@ namespace lotus::memory {
 		}
 	}
 
-	void poison(void *memory, std::size_t size) {
+	void poison(std::byte *memory, std::size_t size) {
 #ifdef __SANITIZE_ADDRESS__
 		__asan_poison_memory_region(memory, size);
 #else
 		std::memset(memory, 0xCD, size);
 #endif
 	}
-	void unpoison([[maybe_unused]] void *memory, [[maybe_unused]] std::size_t size) {
+	void unpoison([[maybe_unused]] std::byte *memory, [[maybe_unused]] std::size_t size) {
 #ifdef __SANITIZE_ADDRESS__
 		__asan_unpoison_memory_region(memory, size);
 #endif

@@ -82,7 +82,7 @@ namespace lotus::renderer::assets {
 		}
 
 		if (j.path.extension() == ".dds") {
-			auto *data = static_cast<std::byte*>(image_mem.get());
+			auto *data = image_mem.get();
 			if (auto loaded = dds::loader::create({ data, data + image_size })) {
 				// TODO more verifications?
 				return job_result(
@@ -106,7 +106,7 @@ namespace lotus::renderer::assets {
 			int height = 0;
 			int original_channels = 0;
 			auto type = gpu::format_properties::data_type::unknown;
-			auto *stbi_mem = static_cast<const stbi_uc*>(image_mem.get());
+			auto *stbi_mem = reinterpret_cast<const stbi_uc*>(image_mem.get());
 			if (stbi_is_hdr_from_memory(stbi_mem, static_cast<int>(image_size))) {
 				type = gpu::format_properties::data_type::floating_point;
 				bytes_per_channel = 4;
@@ -146,7 +146,11 @@ namespace lotus::renderer::assets {
 			}
 
 			return job_result(
-				std::move(j), loader_type::stbi, loaded, cvec2s(width, height), pixel_format,
+				std::move(j),
+				loader_type::stbi,
+				static_cast<std::byte*>(loaded),
+				cvec2s(width, height),
+				pixel_format,
 				[ptr = loaded]() {
 					stbi_image_free(ptr);
 				}
@@ -221,8 +225,7 @@ namespace lotus::renderer::assets {
 
 		auto [binary, size] = load_binary_file(path.string().c_str());
 		return _do_compile_shader_from_source(
-			std::move(id), { static_cast<const std::byte*>(binary.get()), size },
-			stage, entry_point, defines
+			std::move(id), { binary.get(), size }, stage, entry_point, defines
 		);
 	}
 
@@ -257,9 +260,7 @@ namespace lotus::renderer::assets {
 		}
 
 		auto [binary, size] = load_binary_file(path.string().c_str());
-		return _do_compile_shader_library_from_source(
-			std::move(id), { static_cast<const std::byte*>(binary.get()), size }, defines
-		);
+		return _do_compile_shader_library_from_source(std::move(id), { binary.get(), size }, defines);
 	}
 
 	void manager::update() {
@@ -339,7 +340,7 @@ namespace lotus::renderer::assets {
 						(x ^ y) & 1 ? linear_rgba_u8(255, 0, 255, 255) : linear_rgba_u8(0, 255, 0, 255);
 				}
 			}
-			_context.upload_image(_invalid_image->image, tex_data.data(), u8"Invalid");
+			_context.upload_image(_invalid_image->image, reinterpret_cast<std::byte*>(tex_data.data()), u8"Invalid");
 		}
 	}
 

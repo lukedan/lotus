@@ -42,11 +42,11 @@ namespace lotus::memory {
 			allocator &operator=(const allocator&) = default;
 
 			/// Calls \ref stack_allocator::_allocate().
-			[[nodiscard]] void *allocate(memory::size_alignment s) const {
+			[[nodiscard]] std::byte *allocate(memory::size_alignment s) const {
 				return _alloc->_allocate(s);
 			}
 			/// Memory allocated from a stack allocator cannot be freed in isolation.
-			void free(void*) const {
+			void free(std::byte*) const {
 				// nothing to do
 			}
 		private:
@@ -74,7 +74,9 @@ namespace lotus::memory {
 
 			/// Allocates an array.
 			[[nodiscard]] T *allocate(std::size_t n) const {
-				return static_cast<T*>(_alloc->_allocate(memory::size_alignment::of_array<T>(n)));
+				return static_cast<T*>(static_cast<void*>(
+					_alloc->_allocate(memory::size_alignment::of_array<T>(n))
+				));
 			}
 			/// Does nothing. De-allocation only happens when popping bookmarks.
 			void deallocate(T*, std::size_t) const {
@@ -114,7 +116,7 @@ namespace lotus::memory {
 			}
 
 			/// Allocates a piece of memory from the current segment.
-			[[nodiscard]] void *allocate(memory::size_alignment s) {
+			[[nodiscard]] std::byte *allocate(memory::size_alignment s) {
 				if constexpr (_this_bookmark.is_enabled) {
 					assert(_alloc && _alloc->_top_bookmark == *_this_bookmark);
 				}
@@ -202,8 +204,8 @@ namespace lotus::memory {
 		static stack_allocator &for_this_thread();
 
 		std::size_t page_size = 8 * 1024 * 1024; /// Size of a page.
-		void *(*allocate_page)(memory::size_alignment) = memory::raw::allocate; ///< Used to allocate the pages.
-		void (*free_page)(void*) = memory::raw::free; ///< Used to free a page.
+		std::byte *(*allocate_page)(memory::size_alignment) = memory::raw::allocate; ///< Used to allocate the pages.
+		void (*free_page)(std::byte*) = memory::raw::free; ///< Used to free a page.
 	protected:
 		/// Reference to a page.
 		struct _page_ref {
@@ -214,19 +216,19 @@ namespace lotus::memory {
 			_page_ref(std::nullptr_t) : memory(nullptr), header(nullptr), current(nullptr), end(nullptr) {
 			}
 			/// Creates a new reference to the given newly allocated page. \ref header is not initialized.
-			[[nodiscard]] static _page_ref to_new_page(void*, std::size_t sz);
+			[[nodiscard]] static _page_ref to_new_page(std::byte*, std::size_t sz);
 
 			/// Allocates a block of memory from this page. If there's not enough space within this page, this
 			/// function returns \p nullptr. The returned memory block is not initialized.
-			[[nodiscard]] void *allocate(memory::size_alignment);
+			[[nodiscard]] std::byte *allocate(memory::size_alignment);
 			/// \overload
-			template <typename T> [[nodiscard]] T *allocate() {
-				return static_cast<T*>(allocate(memory::size_alignment::of<T>()));
+			template <typename T> [[nodiscard]] void *allocate() {
+				return allocate(memory::size_alignment::of<T>());
 			}
 
 			/// Calls the destructor of \ref header, then empties this page and re-allocate the header.
 			void reset(_page_header new_header) {
-				void *old_current = current;
+				std::byte *old_current = current;
 				header->~_page_header();
 				current = memory;
 				header = new (allocate<_page_header>()) _page_header(new_header);
@@ -234,14 +236,14 @@ namespace lotus::memory {
 			}
 
 			/// Lowers the `current' pointer and poisons the freed range if necessary.
-			void lower_current(void *new_current) {
+			void lower_current(std::byte *new_current) {
 				assert(new_current >= memory && new_current <= current);
-				void *old_current = std::exchange(current, new_current);
+				std::byte *old_current = std::exchange(current, new_current);
 				maybe_poison_range(current, old_current);
 			}
 			/// Poisons all bytes in the page between the two pointers, or after the given pointer if the end is not
 			/// specified. This is only done if \ref should_poison_freed_memory is \p true.
-			void maybe_poison_range(void *ptr, void *custom_end = nullptr) {
+			void maybe_poison_range(std::byte *ptr, std::byte *custom_end = nullptr) {
 				assert(ptr >= memory && ptr <= end);
 				if (custom_end) {
 					assert(custom_end >= ptr && custom_end <= end);
@@ -249,7 +251,7 @@ namespace lotus::memory {
 					custom_end = end;
 				}
 				if constexpr (should_poison_freed_memory) {
-					memory::poison(ptr, static_cast<std::byte*>(end) - static_cast<std::byte*>(ptr));
+					memory::poison(ptr, end - ptr);
 				}
 			}
 
@@ -258,10 +260,10 @@ namespace lotus::memory {
 				return memory != nullptr;
 			}
 
-			void *memory; ///< Pointer to the memory block.
+			std::byte *memory; ///< Pointer to the memory block.
 			_page_header *header; ///< The header of this page.
-			void *current; ///< Next byte that could be allocated.
-			void *end; ///< Pointer past the page.
+			std::byte *current; ///< Next byte that could be allocated.
+			std::byte *end; ///< Pointer past the page.
 		};
 		/// Header of a page.
 		struct _page_header {
@@ -269,10 +271,10 @@ namespace lotus::memory {
 			_page_header(uninitialized_t) {
 			}
 			/// Creates a header object with the given reference to the previous page.
-			[[nodiscard]] static _page_header create(_page_ref prev, void (*free)(void*));
+			[[nodiscard]] static _page_header create(_page_ref prev, void (*free)(std::byte*));
 
 			_page_ref previous = uninitialized; ///< The previous page.
-			void (*free_page)(void*); ///< The function that should be used to free this page.
+			void (*free_page)(std::byte*); ///< The function that should be used to free this page.
 		};
 		/// Bookmark data.
 		struct _bookmark {
@@ -280,10 +282,10 @@ namespace lotus::memory {
 			_bookmark(uninitialized_t) {
 			}
 			/// Creates a new bookmark object.
-			[[nodiscard]] static _bookmark create(void *page, void *cur, _bookmark *prev);
+			[[nodiscard]] static _bookmark create(std::byte *page, std::byte *cur, _bookmark *prev);
 
-			void *page; ///< Address of the page that this bookmark is in.
-			void *current; ///< Position of the bookmark within the page.
+			std::byte *page; ///< Address of the page that this bookmark is in.
+			std::byte *current; ///< Position of the bookmark within the page.
 			_bookmark *previous; ///< The previous bookmark.
 		};
 
@@ -308,7 +310,7 @@ namespace lotus::memory {
 		void _pop_bookmark();
 
 		/// Allocates a new block of memory.
-		void *_allocate(memory::size_alignment);
+		std::byte *_allocate(memory::size_alignment);
 
 		/// Replaces \ref _top_page with a new page. If \ref _free_pages is empty, a page is taken from the list;
 		/// otherwise a new page is allocated.

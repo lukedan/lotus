@@ -785,7 +785,7 @@ namespace lotus::gpu::backends::vulkan {
 		return std::make_tuple(std::move(result_buf), result_pitch, result_pitch._bytes * height);
 	}
 
-	void *device::map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
+	std::byte *device::map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
 		return _map_memory(buf._memory, begin, length);
 	}
 
@@ -793,7 +793,7 @@ namespace lotus::gpu::backends::vulkan {
 		_unmap_memory(buf._memory, begin, length);
 	}
 
-	void *device::map_image2d(
+	std::byte *device::map_image2d(
 		image2d &img, subresource_index i, std::size_t begin, std::size_t length
 	) {
 		if (length > 0) {
@@ -1222,7 +1222,7 @@ namespace lotus::gpu::backends::vulkan {
 		return best;
 	}
 
-	void *device::_map_memory(vk::DeviceMemory mem, std::size_t beg, std::size_t len) {
+	std::byte *device::_map_memory(vk::DeviceMemory mem, std::size_t beg, std::size_t len) {
 		// TODO reference counting
 		void *result = _details::unwrap(_device->mapMemory(mem, 0, VK_WHOLE_SIZE));
 		if (len > 0) {
@@ -1238,7 +1238,7 @@ namespace lotus::gpu::backends::vulkan {
 				.setSize(len);
 			_details::assert_vk(_device->invalidateMappedMemoryRanges(range));
 		}
-		return result;
+		return static_cast<std::byte*>(result);
 	}
 
 	void device::_unmap_memory(vk::DeviceMemory mem, std::size_t beg, std::size_t len) {

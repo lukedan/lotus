@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
 		/*mip_gen.generate_all(tex->image);*/
 	};
 	auto on_geometry_loaded = [&](lren::assets::handle<lren::assets::geometry> geom) {
-		geom.user_data() = reinterpret_cast<void*>(blases.size());
+		geom.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(blases.size()));
 
 		auto &blas = blases.emplace_back(rctx.request_blas(
 			geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }

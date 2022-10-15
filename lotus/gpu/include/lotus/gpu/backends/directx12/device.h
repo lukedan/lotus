@@ -140,11 +140,11 @@ namespace lotus::gpu::backends::directx12 {
 		);
 
 		/// Calls \p ID3D12Resource::Map().
-		[[nodiscard]] void *map_buffer(buffer&, std::size_t begin, std::size_t length);
+		[[nodiscard]] std::byte *map_buffer(buffer&, std::size_t begin, std::size_t length);
 		/// Calls \p ID3D12Resource::Unmap().
 		void unmap_buffer(buffer&, std::size_t begin, std::size_t length);
 		/// Calls \p ID3D12Resource::Map().
-		[[nodiscard]] void *map_image2d(image2d&, subresource_index, std::size_t begin, std::size_t length);
+		[[nodiscard]] std::byte *map_image2d(image2d&, subresource_index, std::size_t begin, std::size_t length);
 		/// Calls \p ID3D12Resource::Unmap().
 		void unmap_image2d(image2d&, subresource_index, std::size_t begin, std::size_t length);
 

@@ -11,12 +11,12 @@ namespace lotus::memory {
 		block(std::nullptr_t, Allocator alloc = Allocator()) : _allocator(std::move(alloc)), _ptr(nullptr) {
 		}
 		/// Passes the given pointer to be managed by a \ref block.
-		[[nodiscard]] inline static block manage(void *ptr, Allocator alloc = Allocator()) {
+		[[nodiscard]] inline static block manage(std::byte *ptr, Allocator alloc = Allocator()) {
 			return block(ptr, std::move(alloc));
 		}
 		/// Allocates a new block.
 		[[nodiscard]] inline static block allocate(size_alignment s, Allocator alloc = Allocator()) {
-			void *ptr = alloc.allocate(s);
+			std::byte *ptr = alloc.allocate(s);
 			return block::manage(ptr, std::move(alloc));
 		}
 		/// Move constructor.
@@ -43,7 +43,7 @@ namespace lotus::memory {
 		}
 
 		/// Returns the pointer to the block.
-		[[nodiscard]] void *get() const {
+		[[nodiscard]] std::byte *get() const {
 			return _ptr;
 		}
 
@@ -65,10 +65,10 @@ namespace lotus::memory {
 		}
 	private:
 		[[no_unique_address]] Allocator _allocator; ///< Allocator.
-		[[no_unique_address]] void *_ptr; ///< Pointer to the memory block.
+		[[no_unique_address]] std::byte *_ptr; ///< Pointer to the memory block.
 
 		/// Initializes all fields of this struct.
-		block(void *p, Allocator alloc) : _allocator(std::move(alloc)), _ptr(p) {
+		block(std::byte *p, Allocator alloc) : _allocator(std::move(alloc)), _ptr(p) {
 		}
 	};
 }

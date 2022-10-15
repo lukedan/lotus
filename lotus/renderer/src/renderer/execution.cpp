@@ -283,7 +283,7 @@ namespace lotus::renderer::execution {
 	}
 
 	std::pair<
-		gpu::constant_buffer_view, void*
+		gpu::constant_buffer_view, std::byte*
 	> context::stage_immediate_constant_buffer(memory::size_alignment size_align) {
 		if (_immediate_constant_device_buffer) {
 			_immediate_constant_buffer_used = memory::align_up(_immediate_constant_buffer_used, size_align.alignment);
@@ -305,9 +305,7 @@ namespace lotus::renderer::execution {
 				_ctx._upload_memory_index,
 				gpu::buffer_usage_mask::copy_source
 			);
-			_immediate_constant_upload_buffer_ptr = static_cast<std::byte*>(
-				_ctx._device.map_buffer(_immediate_constant_upload_buffer, 0, 0)
-			);
+			_immediate_constant_upload_buffer_ptr = _ctx._device.map_buffer(_immediate_constant_upload_buffer, 0, 0);
 		}
 
 		gpu::constant_buffer_view result(
@@ -315,7 +313,7 @@ namespace lotus::renderer::execution {
 		);
 
 		crash_if(_immediate_constant_buffer_used + size_align.size > immediate_constant_buffer_cache_size);
-		void *data_addr = _immediate_constant_upload_buffer_ptr + _immediate_constant_buffer_used;
+		std::byte *data_addr = _immediate_constant_upload_buffer_ptr + _immediate_constant_buffer_used;
 		_immediate_constant_buffer_used += size_align.size;
 
 		return { result, data_addr };

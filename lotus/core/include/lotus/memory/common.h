@@ -30,19 +30,19 @@ namespace lotus::memory {
 
 	namespace raw {
 		/// Allocates memory.
-		[[nodiscard]] void *allocate(size_alignment);
+		[[nodiscard]] std::byte *allocate(size_alignment);
 		/// Frees memory.
-		void free(void*);
+		void free(std::byte*);
 
 		/// Allocator using the basic raw allocation functions.
 		class allocator {
 		public:
 			/// Allocates a block of memory with the given size and alignment.
-			[[nodiscard]] void *allocate(size_alignment s) const {
+			[[nodiscard]] std::byte *allocate(size_alignment s) const {
 				return raw::allocate(s);
 			}
 			/// Frees the given memory block.
-			void free(void *ptr) const {
+			void free(std::byte *ptr) const {
 				raw::free(ptr);
 			}
 		};
@@ -66,12 +66,12 @@ namespace lotus::memory {
 		return value - (value % align);
 	}
 	/// Checks that the given pointer is aligned.
-	[[nodiscard]] inline bool is_aligned(void *ptr, std::size_t align) {
+	[[nodiscard]] inline bool is_aligned(std::byte *ptr, std::size_t align) {
 		return reinterpret_cast<std::uintptr_t>(ptr) % align == 0;
 	}
 
 	/// Poisons the given block of memory.
-	void poison(void *memory, std::size_t size);
+	void poison(std::byte *memory, std::size_t size);
 	/// Un-poisons the given block of memory.
-	void unpoison(void *memory, std::size_t size);
+	void unpoison(std::byte *memory, std::size_t size);
 }

@@ -154,11 +154,11 @@ namespace lotus::gpu::backends::vulkan {
 		);
 
 		/// Calls \ref _map_memory().
-		[[nodiscard]] void *map_buffer(buffer&, std::size_t begin, std::size_t length);
+		[[nodiscard]] std::byte *map_buffer(buffer&, std::size_t begin, std::size_t length);
 		/// Calls \ref _unmap_memory().
 		void unmap_buffer(buffer&, std::size_t begin, std::size_t length);
 		/// Calls \ref _map_memory().
-		[[nodiscard]] void *map_image2d(
+		[[nodiscard]] std::byte *map_image2d(
 			image2d&, subresource_index, std::size_t begin, std::size_t length
 		);
 		/// Calls \ref _unmap_memory().
@@ -274,7 +274,7 @@ namespace lotus::gpu::backends::vulkan {
 		) const;
 
 		/// Maps the given memory, and invalidates the given memory range.
-		[[nodiscard]] void *_map_memory(vk::DeviceMemory, std::size_t beg, std::size_t len);
+		[[nodiscard]] std::byte *_map_memory(vk::DeviceMemory, std::size_t beg, std::size_t len);
 		/// Unmaps the given memory, and flushes the given memory range.
 		void _unmap_memory(vk::DeviceMemory, std::size_t beg, std::size_t len);
 	};

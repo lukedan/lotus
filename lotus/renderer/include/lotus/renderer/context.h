@@ -365,7 +365,7 @@ namespace lotus::renderer {
 		/// Uploads image data to the GPU. This function immediately creates and fills the staging buffer, but actual
 		/// image uploading is deferred. The pixels format of the input data is assumed to be the same as the
 		/// image (i.e. direct memcpy can be used), and the rows are assumed to be tightly packed.
-		void upload_image(const image2d_view &target, const void *data, std::u8string_view description);
+		void upload_image(const image2d_view &target, const std::byte *data, std::u8string_view description);
 		/// Uploads buffer data to the GPU.
 		void upload_buffer(
 			const buffer &target, std::span<const std::byte> data, std::uint32_t offset,
@@ -376,7 +376,7 @@ namespace lotus::renderer {
 			const buffer &target, std::span<const T> data, std::uint32_t byte_offset, std::u8string_view description
 		) {
 			auto *d = reinterpret_cast<const std::byte*>(data.data());
-			upload_buffer(target, { d, d + sizeof(T) * data.size() }, byte_offset, description);
+			upload_buffer(target, { d, d + data.size_bytes() }, byte_offset, description);
 		}
 
 		/// Builds the given \ref blas.

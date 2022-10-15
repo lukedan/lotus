@@ -218,7 +218,7 @@ namespace lotus::renderer::execution {
 		/// \return A reference to the allocated region, and a pointer to the buffer data. The caller should
 		///         immediately copy over the buffer's data.
 		[[nodiscard]] std::pair<
-			gpu::constant_buffer_view, void*
+			gpu::constant_buffer_view, std::byte*
 		> stage_immediate_constant_buffer(memory::size_alignment);
 		/// Allocates an immediate constant buffer and copies the data over.
 		///

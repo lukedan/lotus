@@ -64,8 +64,7 @@ namespace lotus::renderer {
 				return create_buffer(
 					std::move(id),
 					std::span<const std::byte>(
-						static_cast<const std::byte*>(static_cast<const void*>(contents.data())),
-						contents.size() * sizeof(T)
+						reinterpret_cast<const std::byte*>(contents.data()), contents.size_bytes()
 					),
 					usages
 				);
@@ -247,8 +246,9 @@ namespace lotus::renderer {
 					using destroy_func = static_function<void()>;
 
 					/// Initializes all fields of this struct.
-					job_result(job j, loader_type t, const void *res, cvec2s sz, gpu::format f, destroy_func d) :
-						input(std::move(j)), type(t), data(res), size(sz), pixel_format(f), destroy(std::move(d)) {
+					job_result(
+						job j, loader_type t, const std::byte *res, cvec2s sz, gpu::format f, destroy_func d
+					) : input(std::move(j)), type(t), data(res), size(sz), pixel_format(f), destroy(std::move(d)) {
 					}
 					/// Initializes this job with no return data.
 					job_result(job j, std::nullptr_t) : input(std::move(j)), size(zero), destroy(nullptr) {
@@ -257,7 +257,7 @@ namespace lotus::renderer {
 					job input; ///< Original job description.
 
 					loader_type type; ///< Job result.
-					const void *data = nullptr; ///< Loaded data.
+					const std::byte *data = nullptr; ///< Loaded data.
 					cvec2s size; ///< Size of the loaded image.
 					gpu::format pixel_format = gpu::format::none; ///< Format of the loaded image.
 					destroy_func destroy; ///< Called to free any intermediate resources.

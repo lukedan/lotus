@@ -181,7 +181,7 @@ namespace lotus::renderer {
 		));
 	}
 
-	void context::upload_image(const image2d_view &target, const void *data, std::u8string_view description) {
+	void context::upload_image(const image2d_view &target, const std::byte *data, std::u8string_view description) {
 		cvec2s image_size = target.get_size();
 		std::uint32_t mip_index = target._mip_levels.minimum;
 		image_size[0] >>= mip_index;
@@ -199,8 +199,8 @@ namespace lotus::renderer {
 		cvec2s num_fragments = mat::memberwise_divide(image_size + frag_size - cvec2s(1, 1), frag_size);
 
 		// copy to device
-		auto *src = static_cast<const std::byte*>(data);
-		auto *dst = static_cast<std::byte*>(_device.map_buffer(staging_buffer.data, 0, 0));
+		auto *src = data;
+		auto *dst = _device.map_buffer(staging_buffer.data, 0, 0);
 		for (std::uint32_t y = 0; y < num_fragments[1]; ++y) {
 			std::memcpy(
 				dst + y * staging_buffer.row_pitch.get_pitch_in_bytes(),
@@ -223,7 +223,7 @@ namespace lotus::renderer {
 			data.size(), _upload_memory_index, gpu::buffer_usage_mask::copy_source
 		);
 
-		auto *dst = static_cast<std::byte*>(_device.map_buffer(staging_buffer, 0, 0));
+		auto *dst = _device.map_buffer(staging_buffer, 0, 0);
 		std::memcpy(dst, data.data(), data.size());
 		_device.unmap_buffer(staging_buffer, 0, data.size());
 
@@ -573,9 +573,11 @@ namespace lotus::renderer {
 			auto &upload_buf = ectx.create_buffer(
 				input_size, _upload_memory_index, gpu::buffer_usage_mask::copy_source
 			);
-			void *ptr = _device.map_buffer(upload_buf, 0, 0);
-			std::memcpy(ptr, t.input.data(), input_size);
-			_device.unmap_buffer(upload_buf, 0, input_size);
+			{
+				std::byte *ptr = _device.map_buffer(upload_buf, 0, 0);
+				std::memcpy(ptr, t.input.data(), input_size);
+				_device.unmap_buffer(upload_buf, 0, input_size);
+			}
 			ectx.transitions.stage_transition(
 				upload_buf,
 				{ gpu::synchronization_point_mask::cpu_access, gpu::buffer_access_mask::cpu_write },
@@ -1138,7 +1140,7 @@ namespace lotus::renderer {
 			record_size * cmd.miss_group_indices.size(), _adapter_properties.shader_group_handle_table_alignment
 		));
 		{
-			auto *ptr = static_cast<std::byte*>(miss_data);
+			auto *ptr = miss_data;
 			for (const auto &id : cmd.miss_group_indices) {
 				auto rec = _device.get_shader_group_handle(state, id);
 				std::memcpy(ptr, rec.data().data(), rec.data().size());
@@ -1150,7 +1152,7 @@ namespace lotus::renderer {
 			record_size * cmd.hit_group_indices.size(), _adapter_properties.shader_group_handle_table_alignment
 		));
 		{
-			auto *ptr = static_cast<std::byte*>(hit_data);
+			auto *ptr = hit_data;
 			for (const auto &id : cmd.hit_group_indices) {
 				auto rec = _device.get_shader_group_handle(state, id);
 				std::memcpy(ptr, rec.data().data(), rec.data().size());

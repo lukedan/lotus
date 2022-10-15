@@ -358,7 +358,7 @@ namespace lotus::gpu {
 		/// Maps the given buffer and ensures that the specified range has up-to-date data from the device.
 		/// \ref map_buffer() and \ref unmap_buffer() calls can be nested. Note that the returned address is to the
 		/// start of the buffer, instead of the requested memory range.
-		[[nodiscard]] void *map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
+		[[nodiscard]] std::byte *map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
 			return backend::device::map_buffer(buf, begin, length);
 		}
 		/// Unmaps the given buffer and ensures that the specified memory range is flushed to the device.
@@ -369,7 +369,7 @@ namespace lotus::gpu {
 		/// Maps the given image and ensures that the specified range has up-to-date data. \ref map_image2d() and
 		/// \ref unmap_image2d() calls can be nested. Note that the returned address is to the start of the
 		/// subresource, instead of the requested memory range.
-		[[nodiscard]] void *map_image2d(
+		[[nodiscard]] std::byte *map_image2d(
 			image2d &img, subresource_index subresource, std::size_t begin, std::size_t length
 		) {
 			return backend::device::map_image2d(img, subresource, begin, length);

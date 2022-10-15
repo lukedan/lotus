@@ -225,7 +225,7 @@ namespace lotus::gpu::backends::directx12 {
 		_details::com_ptr<ID3D12StateObjectProperties> _properties; ///< State object properties.
 	};
 
-	/// Contains a \p void* that identifies a shader group.
+	/// Contains a binary blob that identifies a shader group.
 	class shader_group_handle {
 		friend device;
 	protected:

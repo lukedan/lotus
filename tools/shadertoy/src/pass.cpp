@@ -163,10 +163,9 @@ void pass::load_shader(
 	if (std::filesystem::path abs_shader_path = root / shader_path; std::filesystem::exists(abs_shader_path)) {
 		// prepend global shader code
 		auto [code, size] = lotus::load_binary_file(abs_shader_path.string().c_str());
-		const auto *data1 = static_cast<const std::byte*>(static_cast<const void*>(pixel_shader_prefix.data()));
-		const auto *data2 = static_cast<const std::byte*>(code.get());
+		const auto *data1 = reinterpret_cast<const std::byte*>(pixel_shader_prefix.data());
 		std::vector<std::byte> full_code(data1, data1 + pixel_shader_prefix.size());
-		full_code.insert(full_code.end(), data2, data2 + size);
+		full_code.insert(full_code.end(), code.get(), code.get() + size);
 		shader = man.compile_shader_from_source(
 			abs_shader_path, full_code, lgpu::shader_stage::pixel_shader, entry_point, defines
 		);

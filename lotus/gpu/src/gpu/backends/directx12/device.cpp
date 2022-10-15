@@ -654,13 +654,13 @@ namespace lotus::gpu::backends::directx12 {
 		return std::make_tuple(std::move(result), result_pitch, total_bytes);
 	}
 
-	void *device::map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
+	std::byte *device::map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
 		void *result = nullptr;
 		D3D12_RANGE range = {};
 		range.Begin = static_cast<SIZE_T>(begin);
 		range.End   = static_cast<SIZE_T>(begin + length);
 		_details::assert_dx(buf._buffer->Map(0, &range, &result));
-		return result;
+		return static_cast<std::byte*>(result);
 	}
 
 	void device::unmap_buffer(buffer &buf, std::size_t begin, std::size_t length) {
@@ -670,7 +670,9 @@ namespace lotus::gpu::backends::directx12 {
 		buf._buffer->Unmap(0, &range);
 	}
 
-	void *device::map_image2d(image2d &img, subresource_index subresource, std::size_t begin, std::size_t length) {
+	std::byte *device::map_image2d(
+		image2d &img, subresource_index subresource, std::size_t begin, std::size_t length
+	) {
 		void *result = nullptr;
 		D3D12_RANGE range = {};
 		range.Begin = static_cast<SIZE_T>(begin);
@@ -678,7 +680,7 @@ namespace lotus::gpu::backends::directx12 {
 		_details::assert_dx(img._image->Map(
 			_details::compute_subresource_index(subresource, img._image.Get()), &range, &result
 		));
-		return result;
+		return static_cast<std::byte*>(result);
 	}
 
 	void device::unmap_image2d(image2d &img, subresource_index subresource, std::size_t begin, std::size_t length) {
@@ -933,7 +935,7 @@ namespace lotus::gpu::backends::directx12 {
 	) {
 		shader_group_handle result = uninitialized;
 		void *ptr = pipeline._properties->GetShaderIdentifier(_details::shader_record_name(index));
-		assert(ptr);
+		crash_if(!ptr);
 		std::memcpy(result._id.data(), ptr, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
 		return result;
 	}

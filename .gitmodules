@@ -2,11 +2,8 @@
 	path = test/testbed/thirdparty/imgui
 	url = https://github.com/ocornut/imgui
 [submodule "thirdparty/tinygltf"]
-	path = thirdparty/tinygltf
+	path = lotus/renderer/thirdparty/tinygltf
 	url = https://github.com/syoyo/tinygltf.git
-[submodule "tools/shadertoy/thirdparty/stb"]
-	path = tools/shadertoy/thirdparty/stb
-	url = https://github.com/nothings/stb.git
 [submodule "lotus/gpu/thirdparty/SPIRV-Reflect"]
 	path = lotus/gpu/thirdparty/SPIRV-Reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect.git

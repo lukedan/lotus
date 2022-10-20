@@ -3,9 +3,9 @@
 /// \file
 /// Generic single-layer PBR materials.
 
-#include "assets.h"
+#include "context/assets.h"
+#include "context/resource_bindings.h"
 #include "shader_types.h"
-#include "resource_bindings.h"
 
 namespace lotus::renderer {
 	/// Generic single-layer PBR material parameters.

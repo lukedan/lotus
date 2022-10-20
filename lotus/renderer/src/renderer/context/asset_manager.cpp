@@ -1,4 +1,4 @@
-#include "lotus/renderer/asset_manager.h"
+#include "lotus/renderer/context/asset_manager.h"
 
 /// \file
 /// Implementation of the asset manager.
@@ -11,9 +11,9 @@
 #include "lotus/gpu/device.h"
 #include "lotus/gpu/commands.h"
 #include "lotus/gpu/context.h"
-#include "lotus/renderer/resources.h"
-#include "lotus/renderer/mipmap.h"
+#include "lotus/renderer/context/resources.h"
 #include "lotus/renderer/loaders/dds_loader.h"
+#include "lotus/renderer/mipmap.h"
 
 namespace lotus::renderer::assets {
 	manager::_async_loader::_async_loader() : _state(state::running) {

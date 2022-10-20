@@ -8,8 +8,8 @@
 #include <lotus/system/window.h>
 #include <lotus/gpu/context.h>
 #include <lotus/gpu/device.h>
-#include <lotus/renderer/context.h>
-#include <lotus/renderer/asset_manager.h>
+#include <lotus/renderer/context/context.h>
+#include <lotus/renderer/context/asset_manager.h>
 
 #include "common.h"
 #include "pass.h"

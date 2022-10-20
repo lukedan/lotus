@@ -3,8 +3,8 @@
 /// \file
 /// GLTF loader and utilities.
 
-#include "lotus/renderer/asset_manager.h"
-#include "lotus/renderer/context.h"
+#include "lotus/renderer/context/asset_manager.h"
+#include "lotus/renderer/context/context.h"
 #include "lotus/renderer/shader_types.h"
 #include "lotus/renderer/generic_pbr_material.h"
 

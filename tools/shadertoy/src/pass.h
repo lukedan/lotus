@@ -11,7 +11,7 @@
 
 #include <lotus/common.h>
 #include <lotus/utils/static_function.h>
-#include <lotus/renderer/context.h>
+#include <lotus/renderer/context/context.h>
 
 #include "common.h"
 

@@ -16,7 +16,9 @@
 #include <lotus/gpu/commands.h>
 #include <lotus/gpu/descriptors.h>
 
-#include <lotus/renderer/asset_manager.h>
+#include <lotus/renderer/context/asset_manager.h>
+#include <lotus/renderer/context/context.h>
+
 #include <lotus/renderer/g_buffer.h>
 #include <lotus/renderer/mipmap.h>
 
@@ -24,11 +26,6 @@
 #include <lotus/renderer/loaders/fbx_loader.h>
 
 #include "common.h"
-/*#include "scene.h"
-/*#include "gbuffer_pass.h"
-#include "composite_pass.h"
-#include "raytrace_pass.h"
-#include "rt_resolve_pass.h"*/
 
 #include <lotus/renderer/shader_types_include_wrapper.h>
 namespace shader_types {
@@ -266,22 +263,6 @@ int main(int argc, char **argv) {
 #endif
 
 	auto rt_shader = asset_man.compile_shader_library_in_filesystem("src/shaders/raytracing.hlsl", {});
-
-	/*composite_pass comp_pass(dev);*/
-
-	/*raytrace_pass rt_pass(dev, model_resources, dev_prop);
-	raytrace_resolve_pass rt_resolve_pass(dev);*/
-
-	/*composite_pass::input_resources comp_input;
-	std::vector<composite_pass::output_resources> comp_output;*/
-
-	// raytracing buffers
-	/*lgpu::image2d raytrace_buffer = nullptr;
-	lgpu::image2d_view raytrace_buffer_view = nullptr;
-	raytrace_pass::input_resources rt_input;
-
-	raytrace_resolve_pass::input_resources rt_resolve_input;
-	std::vector<raytrace_resolve_pass::output_resources> rt_resolve_output;*/
 
 	auto blit_vs = asset_man.compile_shader_in_filesystem(
 		asset_man.get_shader_library_path() / "fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs", {}

@@ -9,7 +9,7 @@
 
 #include "lotus/utils/strings.h"
 #include "lotus/utils/misc.h"
-#include "lotus/renderer/asset_manager.h"
+#include "lotus/renderer/context/asset_manager.h"
 
 std::optional<pass::input::value_type> pass::input::load_value(
 	const nlohmann::json &val, error_callback &on_error

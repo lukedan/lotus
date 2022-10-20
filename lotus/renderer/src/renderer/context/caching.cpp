@@ -1,4 +1,4 @@
-#include "lotus/renderer/caching.h"
+#include "lotus/renderer/context/caching.h"
 
 /// \file
 /// Implementation of caching functionalities

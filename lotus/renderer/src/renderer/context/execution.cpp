@@ -1,9 +1,9 @@
-#include "lotus/renderer/execution.h"
+#include "lotus/renderer/context/execution.h"
 
 /// \file
 /// Implementation of command execution related functions.
 
-#include "lotus/renderer/context.h"
+#include "lotus/renderer/context/context.h"
 
 namespace lotus::renderer::execution {
 	void transition_buffer::stage_transition(

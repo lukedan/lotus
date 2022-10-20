@@ -3,7 +3,7 @@
 /// \file
 /// Utility class for generating mips.
 
-#include "asset_manager.h"
+#include "context/asset_manager.h"
 
 namespace lotus::renderer::mipmap {
 	/// Returns the maximum number of mip levels possible for an image of the given size.

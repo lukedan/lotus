@@ -8,7 +8,7 @@
 #include "lotus/gpu/frame_buffer.h"
 #include "lotus/gpu/pipeline.h"
 #include "lotus/gpu/resources.h"
-#include "common.h"
+#include "lotus/renderer/common.h"
 #include "execution.h"
 
 namespace lotus::renderer {

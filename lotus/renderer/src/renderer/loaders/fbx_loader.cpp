@@ -12,7 +12,7 @@
 #include "lotus/logging.h"
 #include "lotus/utils/strings.h"
 #include "lotus/math/vector.h"
-#include "lotus/renderer/asset_manager.h"
+#include "lotus/renderer/context/asset_manager.h"
 
 namespace lotus::renderer::fbx {
 	namespace _details {

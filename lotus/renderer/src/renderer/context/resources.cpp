@@ -1,7 +1,7 @@
-#include "lotus/renderer/resources.h"
+#include "lotus/renderer/context/resources.h"
 
-#include "lotus/renderer/caching.h"
-#include "lotus/renderer/resource_bindings.h"
+#include "lotus/renderer/context/caching.h"
+#include "lotus/renderer/context/resource_bindings.h"
 
 namespace lotus::renderer {
 	namespace recorded_resources {

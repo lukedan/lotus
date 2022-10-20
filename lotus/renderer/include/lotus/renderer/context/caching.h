@@ -7,7 +7,7 @@
 
 #include <lotus/gpu/pipeline.h>
 #include <lotus/gpu/descriptors.h>
-#include "common.h"
+#include "lotus/renderer/common.h"
 #include "resource_bindings.h"
 #include "assets.h"
 

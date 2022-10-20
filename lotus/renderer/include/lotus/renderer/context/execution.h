@@ -14,7 +14,7 @@
 #include "lotus/gpu/pipeline.h"
 #include "lotus/gpu/synchronization.h"
 #include "lotus/gpu/commands.h"
-#include "common.h"
+#include "lotus/renderer/common.h"
 
 namespace lotus::renderer {
 	class context;

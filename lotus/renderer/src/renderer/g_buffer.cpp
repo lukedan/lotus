@@ -3,7 +3,7 @@
 /// \file
 /// Implementation of the G-buffer.
 
-#include "lotus/renderer/asset_manager.h"
+#include "lotus/renderer/context/asset_manager.h"
 #include "lotus/renderer/shader_types.h"
 
 namespace lotus::renderer::g_buffer {

@@ -1,4 +1,4 @@
-#include "lotus/renderer/context.h"
+#include "lotus/renderer/context/context.h"
 
 /// \file
 /// Implementation of scene loading and rendering.

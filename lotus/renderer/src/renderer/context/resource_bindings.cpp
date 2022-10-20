@@ -1,4 +1,4 @@
-#include "lotus/renderer/resource_bindings.h"
+#include "lotus/renderer/context/resource_bindings.h"
 
 /// \file
 /// Implementation of resource binding related classes.

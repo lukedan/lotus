@@ -9,8 +9,8 @@
 #include <filesystem>
 
 #include "lotus/utils/static_function.h"
-#include "lotus/renderer/assets.h"
-#include "lotus/renderer/asset_manager.h"
+#include "lotus/renderer/context/assets.h"
+#include "lotus/renderer/context/asset_manager.h"
 #include "lotus/renderer/generic_pbr_material.h"
 
 namespace lotus::renderer::fbx {

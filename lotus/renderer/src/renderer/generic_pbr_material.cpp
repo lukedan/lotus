@@ -3,7 +3,7 @@
 /// \file
 /// Implementation of generic PBR materials.
 
-#include "lotus/renderer/asset_manager.h"
+#include "lotus/renderer/context/asset_manager.h"
 
 namespace lotus::renderer {
 	all_resource_bindings generic_pbr_material_data::create_resource_bindings() const {

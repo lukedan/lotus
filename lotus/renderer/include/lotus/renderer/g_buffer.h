@@ -3,7 +3,7 @@
 /// \file
 /// Renders geometry onto a G-buffer.
 
-#include "context.h"
+#include "context/context.h"
 
 namespace lotus::renderer::g_buffer {
 	/// Storage for the G-buffer.

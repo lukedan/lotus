@@ -18,7 +18,7 @@
 #include "lotus/gpu/commands.h"
 #include "lotus/gpu/device.h"
 #include "lotus/gpu/resources.h"
-#include "common.h"
+#include "lotus/renderer/common.h"
 #include "context.h"
 
 namespace lotus::renderer {

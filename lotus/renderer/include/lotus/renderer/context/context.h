@@ -111,14 +111,14 @@ namespace lotus::renderer {
 			upload_buffer(
 				gpu::buffer &src, std::uint32_t src_off, execution::upload_buffers::allocation_type ty,
 				recorded_resources::buffer dst, std::uint32_t off, std::uint32_t sz
-			) : source(&src), source_offset(src_off), destination(dst), offset(off), size(sz), type(ty) {
+			) : source(&src), source_offset(src_off), destination(dst), destination_offset(off), size(sz), type(ty) {
 			}
 
-			gpu::buffer *source; ///< Buffer data.
+			gpu::buffer *source = nullptr; ///< Buffer data.
 			std::uint32_t source_offset = 0;
 			recorded_resources::buffer destination; ///< Buffer to upload to.
-			std::uint32_t offset = 0; ///< Offset of the region to upload to in the destination buffer.
-			std::uint32_t size   = 0; ///< Size of the region to upload.
+			std::uint32_t destination_offset = 0; ///< Offset of the region to upload to in the destination buffer.
+			std::uint32_t size = 0; ///< Size of the region to upload.
 			/// The type of \ref source.
 			execution::upload_buffers::allocation_type type = execution::upload_buffers::allocation_type::invalid;
 		};

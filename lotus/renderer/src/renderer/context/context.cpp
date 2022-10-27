@@ -319,7 +319,8 @@ namespace lotus::renderer {
 					_handle_command(ectx, cmd_val);
 				}, cmd.value);
 
-				if constexpr (true) {
+				constexpr bool _debug_separate_commands = false;
+				if constexpr (_debug_separate_commands) {
 					gpu::fence f = _device.create_fence(gpu::synchronization_state::unset);
 					ectx.submit(_queue, &f);
 					_device.wait_for_fence(f);
@@ -990,7 +991,9 @@ namespace lotus::renderer {
 			*dest._ptr, { gpu::synchronization_point_mask::copy, gpu::buffer_access_mask::copy_destination }
 		);
 		ectx.flush_transitions();
-		ectx.get_command_list().copy_buffer(*buf.source, buf.offset, dest._ptr->data, buf.offset, buf.size);
+		ectx.get_command_list().copy_buffer(
+			*buf.source, buf.source_offset, dest._ptr->data, buf.destination_offset, buf.size
+		);
 	}
 
 	void context::_handle_command(execution::context &ectx, const context_commands::dispatch_compute &cmd) {

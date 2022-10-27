@@ -41,8 +41,9 @@ namespace lotus::renderer {
 				return manager(ctx, dev, std::move(shader_lib_path), shader_utils);
 			}
 
-			/// Retrieves a image with the given ID, loading it if necessary.
-			[[nodiscard]] handle<image2d> get_image2d(const identifier&);
+			/// Retrieves a image with the given ID. If it has not been loaded, it will be loaded and allocated out
+			/// of the given pool.
+			[[nodiscard]] handle<image2d> get_image2d(const identifier&, pool*);
 
 			/// Finds the buffer with the given identifier. Returns \p nullptr if none exists.
 			[[nodiscard]] handle<buffer> find_buffer(const identifier &id) {
@@ -55,18 +56,19 @@ namespace lotus::renderer {
 			}
 			/// Creates a buffer with the given contents and usage mask.
 			[[nodiscard]] handle<buffer> create_buffer(
-				identifier, std::span<const std::byte>, gpu::buffer_usage_mask
+				identifier, std::span<const std::byte>, gpu::buffer_usage_mask, pool*
 			);
 			/// \overload
 			template <typename T> [[nodiscard]] std::enable_if_t<
 				std::is_trivially_copyable_v<std::decay_t<T>>, handle<buffer>
-			> create_buffer(identifier id, std::span<T> contents, gpu::buffer_usage_mask usages) {
+			> create_buffer(identifier id, std::span<T> contents, gpu::buffer_usage_mask usages, pool *p) {
 				return create_buffer(
 					std::move(id),
 					std::span<const std::byte>(
 						reinterpret_cast<const std::byte*>(contents.data()), contents.size_bytes()
 					),
-					usages
+					usages,
+					p
 				);
 			}
 
@@ -231,7 +233,7 @@ namespace lotus::renderer {
 					job(std::nullptr_t) : target(nullptr) {
 					}
 					/// Initializes the job from a point where it's safe to access the identifier.
-					explicit job(handle<image2d> t) : target(std::move(t)) {
+					job(handle<image2d> t, pool *p) : target(std::move(t)), memory_pool(p) {
 						path = target.get().get_id().path;
 					}
 
@@ -239,6 +241,7 @@ namespace lotus::renderer {
 					/// Path of the image. This is duplicated because it's not safe to access the \ref identifier
 					/// from other threads.
 					std::filesystem::path path;
+					pool *memory_pool = nullptr; ///< Memory pool to allocate the texture from.
 				};
 				/// Result of a finished job.
 				struct job_result {

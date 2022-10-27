@@ -25,7 +25,9 @@ public:
 	void load_resources(
 		lren::assets::manager&,
 		lren::assets::handle<lren::assets::shader> vert_shader,
-		const std::filesystem::path &root, error_callback&
+		const std::filesystem::path &root,
+		lren::pool*,
+		error_callback&
 	);
 
 	/// Finds the output buffer corresponding to the given name.

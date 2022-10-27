@@ -142,12 +142,12 @@ std::optional<pass> pass::load(const nlohmann::json &val, error_callback &on_err
 }
 
 void pass::load_input_images(
-	lren::assets::manager &man, const std::filesystem::path &root, error_callback&
+	lren::assets::manager &man, const std::filesystem::path &root, lren::pool *p, error_callback&
 ) {
 	for (auto &in : inputs) {
 		if (std::holds_alternative<input::image>(in.value)) {
 			auto &val = std::get<input::image>(in.value);
-			val.texture = man.get_image2d(lren::assets::identifier(root / val.path));
+			val.texture = man.get_image2d(lren::assets::identifier(root / val.path), p);
 		}
 	}
 	images_loaded = true;

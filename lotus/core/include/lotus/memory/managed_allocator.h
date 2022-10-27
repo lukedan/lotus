@@ -9,6 +9,7 @@
 #include <compare>
 
 #include "lotus/containers/static_optional.h"
+#include "lotus/logging.h"
 #include "common.h"
 
 namespace lotus::memory {
@@ -26,10 +27,9 @@ namespace lotus::memory {
 		constexpr static bool _has_ghost_data = !std::is_same_v<GhostData, std::nullopt_t>;
 	public:
 		/// Creates a new allocator object.
-		[[nodiscard]] inline static managed_allocator create(std::size_t size, std::size_t threshold = 0) {
+		[[nodiscard]] inline static managed_allocator create(std::size_t size) {
 			managed_allocator result;
 			result._total_size = size;
-			result._size_threshold = threshold;
 			result._free_ranges.emplace(_range(0, result._total_size), _free_range_data());
 			return result;
 		}
@@ -42,7 +42,7 @@ namespace lotus::memory {
 			std::is_same_v<std::decay_t<GhostCallback>, std::nullopt_t> || _has_ghost_data,
 			std::optional<std::pair<std::size_t, Data&>>
 		> allocate(
-			size_alignment size_align, Data &&data, GhostCallback &&callback = std::nullopt
+			size_alignment size_align, Data &&data, GhostCallback &&callback
 		) {
 			constexpr bool has_callback = std::is_same_v<std::decay_t<GhostCallback>, std::nullopt_t>;
 			for (auto it = _free_ranges.begin(); it != _free_ranges.end(); ++it) {
@@ -59,82 +59,198 @@ namespace lotus::memory {
 								}
 							}
 						}
-						// cut the free range into 3 and record the allocation
-						// part before the allocation
-						auto size_before = addr - it->first.begin;
-						if (size_before > 0 && size_before >= _size_threshold) {
-							auto [before_it, inserted] = _free_ranges.emplace(
-								_range(it->first.begin, addr), _free_range_data()
-							);
-							assert(inserted);
-							for (const auto &ghost : it->second.ghosts) {
-								if (_range::get_intersection(ghost.range, before_it->first)) {
-									before_it->second.ghosts.emplace_back(ghost);
-								}
-							}
-						}
-						// part after the allocation
-						auto size_after = it->first.end - allocated.end;
-						if (size_after > 0 && size_after >= _size_threshold) {
-							auto [after_it, inserted] = _free_ranges.emplace(
-								_range(allocated.end, it->first.end), _free_range_data()
-							);
-							assert(inserted);
-							for (const auto &ghost : it->second.ghosts) {
-								if (_range::get_intersection(ghost.range, after_it->first)) {
-									after_it->second.ghosts.emplace_back(ghost);
-								}
-							}
-						}
-						// record allocation
-						auto [alloc_it, inserted] = _allocated_ranges.emplace(allocated, std::move(data));
-						assert(inserted);
-						_free_ranges.erase(it);
-						return std::make_pair(allocated.begin, std::ref(alloc_it->second));
 					}
+					// cut the free range into 3 and record the allocation
+					// part before the allocation
+					auto size_before = addr - it->first.begin;
+					if (size_before > 0) {
+						auto [before_it, inserted] = _free_ranges.emplace(
+							_range(it->first.begin, addr), _free_range_data()
+						);
+						crash_if(!inserted);
+						for (const auto &ghost : it->second.ghosts) {
+							if (_range::get_intersection(ghost.range, before_it->first)) {
+								before_it->second.ghosts.emplace_back(ghost);
+							}
+						}
+					}
+					// part after the allocation
+					auto size_after = it->first.end - allocated.end;
+					if (size_after > 0) {
+						auto [after_it, inserted] = _free_ranges.emplace(
+							_range(allocated.end, it->first.end), _free_range_data()
+						);
+						crash_if(!inserted);
+						for (const auto &ghost : it->second.ghosts) {
+							if (_range::get_intersection(ghost.range, after_it->first)) {
+								after_it->second.ghosts.emplace_back(ghost);
+							}
+						}
+					}
+					// record allocation
+					auto [alloc_it, inserted] = _allocated_ranges.emplace(allocated, std::move(data));
+					crash_if(!inserted);
+					_free_ranges.erase(it);
+					return std::make_pair(allocated.begin, std::ref(alloc_it->second));
 				}
 			}
 			return std::nullopt;
 		}
+		/// \overload
+		template <typename Dummy = int> [[nodiscard]] std::enable_if_t<
+			std::is_same_v<Dummy, Dummy> && !_has_ghost_data,
+			std::optional<std::pair<std::size_t, Data&>>
+		> allocate(
+			size_alignment size_align, Data &&data
+		) {
+			return allocate(size_align, std::forward<Data>(data), std::nullopt);
+		}
 
 		/// Frees the range starting from the given location.
-		void free(std::size_t addr) {
+		template <typename ConvertGhost> void free(std::size_t addr, ConvertGhost &&convert) {
 			auto it = _allocated_ranges.lower_bound(_range(addr, 0));
-			assert(it != _allocated_ranges.end());
-			assert(it->first.begin == addr);
+			crash_if(it == _allocated_ranges.end());
+			crash_if(it->first.begin != addr);
+			_range freed_range = it->first;
 
-			std::size_t before = 0;
-			std::size_t after = _total_size;
+			_range new_free(0, _total_size);
 			if (it != _allocated_ranges.begin()) {
 				auto before_it = it;
 				--before_it;
-				before = before_it->first.end;
+				new_free.begin = before_it->first.end;
 			}
-			auto after_it = it;
-			if (++after_it != _allocated_ranges.end()) {
-				after = after_it->first.begin;
+			if (auto after_it = it; ++after_it != _allocated_ranges.end()) {
+				new_free.end = after_it->first.begin;
 			}
 
+			std::vector<_ghost> ghosts;
+			if (new_free.begin != freed_range.begin) {
+				auto before_it = _free_ranges.find(_range(new_free.begin, freed_range.begin));
+				crash_if(before_it == _free_ranges.end());
+				if constexpr (_has_ghost_data) {
+					for (auto &d : before_it->second.ghosts) {
+						if (!freed_range.fully_covers(d.range)) {
+							ghosts.emplace_back(std::move(d));
+						}
+					}
+				}
+				_free_ranges.erase(before_it);
+			}
+			if (new_free.end != freed_range.end) {
+				auto after_it = _free_ranges.find(_range(freed_range.end, new_free.end));
+				crash_if(after_it == _free_ranges.end());
+				if constexpr (_has_ghost_data) {
+					for (auto &d : after_it->second.ghosts) {
+						if (!freed_range.fully_covers(d.range)) {
+							ghosts.emplace_back(std::move(d));
+						}
+					}
+				}
+				_free_ranges.erase(after_it);
+			}
+			if constexpr (_has_ghost_data) {
+				ghosts.emplace_back(freed_range, convert(std::move(it->second)));
+			}
+			_allocated_ranges.erase(it);
 
+			auto [new_it, inserted] = _free_ranges.emplace(new_free, _free_range_data(std::move(ghosts)));
+			crash_if(!inserted);
+		}
+		/// \overload
+		template <
+			typename Dummy = void
+		> std::enable_if_t<!_has_ghost_data && std::is_same_v<Dummy, Dummy>, void> free(std::size_t addr) {
+			free(addr, std::nullopt);
+		}
+
+		/// Checks the integrity of this container. One scenario that this is unable to detect is missing ghosts.
+		[[nodiscard]] bool check_integrity() const {
+			auto alloc_it = _allocated_ranges.begin();
+			auto free_it = _free_ranges.begin();
+			std::size_t prev = 0;
+			while (true) {
+				std::size_t alloc_beg = _total_size;
+				std::size_t free_beg = _total_size;
+				if (alloc_it != _allocated_ranges.end()) {
+					alloc_beg = alloc_it->first.begin;
+					if (alloc_it->first.begin >= alloc_it->first.end) {
+						log().error<u8"Invalid allocated range [{}, {})">(
+							alloc_it->first.begin, alloc_it->first.end
+						);
+						return false;
+					}
+				}
+				if (free_it != _free_ranges.end()) {
+					free_beg = free_it->first.begin;
+					if (free_it->first.begin >= free_it->first.end) {
+						log().error<u8"Inavlid free range [{}, {})">(free_it->first.begin, free_it->first.end);
+						return false;
+					}
+				}
+				std::size_t current = std::min(alloc_beg, free_beg);
+				if (prev != current) {
+					log().error<u8"Missing range [{}, {})">(prev, current);
+					return false;
+				}
+				if (current == _total_size) {
+					break;
+				}
+				if (current == alloc_beg) {
+					prev = alloc_it->first.end;
+					++alloc_it;
+				} else {
+					for (const auto &gh : free_it->second) {
+						if (!_range::get_intersection(gh.range, free_it->first)) {
+							log().error<u8"Ghost does not intersect with free range">();
+							return false;
+						}
+					}
+					prev = free_it->first.end;
+					++free_it;
+				}
+			}
+			if (alloc_it != _allocated_ranges.end()) {
+				log().error<u8"Allocated range reaches past the memory pool">();
+				return false;
+			}
+			if (free_it != _free_ranges.end()) {
+				log().error<u8"Free range reaches past the memory pool">();
+				return false;
+			}
+			return true;
 		}
 	private:
 		using _range = linear_size_t_range; ///< A memory range.
 		/// An allocation made previously that has been freed.
 		struct _ghost {
+			/// Initializes all fields of this struct.
+			_ghost(_range r, GhostData d) : range(r), data(std::move(d)) {
+			}
+
 			_range range; ///< The original range of this allocation.
 			GhostData data; ///< Data associated with this allocation.
 		};
 		/// Data associated with a range that is not allocated.
 		struct _free_range_data {
+			/// Default constructor.
+			_free_range_data() = default;
+			/// Initializes all fields of this struct.
+			explicit _free_range_data(std::vector<_ghost> ghs) : ghosts(std::move(ghs)) {
+			}
+
 			std::vector<_ghost> ghosts; ///< Ghosts in this free range.
 		};
+		/// Comparison for ranges.
+		struct _compare {
+			/// Comparison function.
+			[[nodiscard]] constexpr bool operator()(const _range &lhs, const _range &rhs) const {
+				return lhs.begin == rhs.begin ? lhs.end < rhs.end : lhs.begin < rhs.begin;
+			}
+		};
 
-		std::map<_range, Data> _allocated_ranges; ///< All allocated ranges.
-		std::map<_range, _free_range_data> _free_ranges; ///< Available free ranges.
+		std::map<_range, Data, _compare> _allocated_ranges; ///< All allocated ranges.
+		std::map<_range, _free_range_data, _compare> _free_ranges; ///< Available free ranges.
 		std::size_t _total_size = 0; ///< Total size of the managed block.
-		/// Threshold for when a free range is considered too small to be worth considering when allocating. Set to 0
-		/// to disable this behavior.
-		std::size_t _size_threshold = 0;
 
 		/// Does not invoke a \p std::nullopt_t object.
 		template <typename ...Args> void _maybe_invoke(std::nullopt_t, Args&&...) {

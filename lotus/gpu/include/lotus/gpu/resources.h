@@ -14,8 +14,16 @@ namespace lotus::gpu {
 	class memory_block : public backend::memory_block {
 		friend device;
 	public:
+		/// Move constructor.
+		memory_block(memory_block &&src) : backend::memory_block(std::move(src)) {
+		}
 		/// No copy construction.
 		memory_block(const memory_block&) = delete;
+		/// Move assignment.
+		memory_block &operator=(memory_block &&src) {
+			backend::memory_block::operator=(std::move(src));
+			return *this;
+		}
 		/// No copy assignment.
 		memory_block &operator=(const memory_block&) = delete;
 	protected:

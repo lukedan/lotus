@@ -6,6 +6,47 @@
 #include "lotus/renderer/context/context.h"
 
 namespace lotus::renderer::execution {
+	upload_buffers::result upload_buffers::stage(std::span<const std::byte> data, std::size_t alignment) {
+		auto &dev = _context->_device;
+		if (data.size() > _buffer_size) {
+			auto &buf = allocate_buffer(data.size());
+			auto *ptr = dev.map_buffer(buf, 0, 0);
+			std::memcpy(ptr, data.data(), data.size());
+			dev.unmap_buffer(buf, 0, data.size());
+			return result(buf, 0, allocation_type::individual_buffer);
+		}
+
+		crash_if(!_current && _current_used != 0);
+
+		allocation_type type = allocation_type::same_buffer;
+		std::size_t alloc_start = memory::align_up(_current_used, alignment);
+		std::size_t new_used = alloc_start + data.size();
+		if (new_used > _buffer_size) { // flush
+			dev.unmap_buffer(*_current, 0, _current_used);
+			_current = nullptr;
+			_current_used = 0;
+			alloc_start = 0;
+			new_used = data.size();
+		}
+		if (!_current) {
+			_current = &allocate_buffer(_buffer_size);
+			_current_ptr = dev.map_buffer(*_current, 0, 0);
+			type = allocation_type::new_buffer;
+		}
+		std::memcpy(_current_ptr + alloc_start, data.data(), data.size());
+		_current_used = new_used;
+		return result(*_current, alloc_start, type);
+	}
+
+	void upload_buffers::flush() {
+		if (_current) {
+			_context->_device.unmap_buffer(*_current, 0, _current_used);
+			_current = nullptr;
+			_current_used = 0;
+		}
+	}
+
+
 	void transition_buffer::stage_transition(
 		_details::image2d &surf, gpu::mip_levels mips, _details::image_access access
 	) {
@@ -253,11 +294,6 @@ namespace lotus::renderer::execution {
 		return { std::move(image_barriers), std::move(buffer_barriers) };
 	}
 
-
-	context context::create(renderer::context &ctx) {
-		auto &resources = ctx._all_resources.emplace_back(std::exchange(ctx._deferred_delete_resources, {}));
-		return context(ctx, resources);
-	}
 
 	gpu::command_list &context::get_command_list() {
 		if (!_list) {

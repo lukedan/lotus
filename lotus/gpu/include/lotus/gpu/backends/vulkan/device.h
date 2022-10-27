@@ -153,6 +153,27 @@ namespace lotus::gpu::backends::vulkan {
 			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage_mask allowed_usage
 		);
 
+		/// Creates a temporary \p vk::UniqueImage, then calls \p vk::UniqueDevice::getImageMemoryRequirements2() to
+		/// obtain the memory requirements.
+		[[nodiscard]] memory::size_alignment get_image_memory_requirements(
+			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			format, image_tiling, image_usage_mask
+		);
+		/// Creates a temporary \p vk::UniqueBuffer, then calls \p vk::UniqueDevice::getBufferMemoryRequirements2()
+		/// to obtain the memory requirements.
+		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(std::size_t size, buffer_usage_mask);
+		/// Calls \p vk::UniqueDevice::createBuffer() to create the buffer, then calls
+		/// \p vk::UniqueDevice::bindBufferMemory2() to bind it to the given \ref memory_block.
+		[[nodiscard]] buffer create_placed_buffer(
+			std::size_t size, buffer_usage_mask allowed_usage, const memory_block &mem, std::size_t offset
+		);
+		/// Calls \p vk::UniqueDevice::createImage() to create the image, then calls
+		/// \p vk::UniqueDevice::bindImageMemory2() to bind it to the given \ref memory_block.
+		[[nodiscard]] image2d create_placed_image2d(
+			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			format, image_tiling, image_usage_mask allowed_usage, const memory_block &mem, std::size_t offset
+		);
+
 		/// Calls \ref _map_memory().
 		[[nodiscard]] std::byte *map_buffer(buffer&, std::size_t begin, std::size_t length);
 		/// Calls \ref _unmap_memory().
@@ -251,8 +272,8 @@ namespace lotus::gpu::backends::vulkan {
 
 		// TODO custom queues
 		// queue indices
-		std::uint32_t _graphics_compute_queue_family_index; ///< Graphics and compute command queue family index.
-		std::uint32_t _compute_queue_family_index; ///< Compute-only command queue family index.
+		std::uint32_t _graphics_compute_queue_family_index = 0; ///< Graphics and compute command queue family index.
+		std::uint32_t _compute_queue_family_index = 0; ///< Compute-only command queue family index.
 
 		vk::PhysicalDeviceLimits _device_limits; ///< Device limits.
 		vk::PhysicalDeviceMemoryProperties _memory_properties; ///< Memory properties.
@@ -261,7 +282,7 @@ namespace lotus::gpu::backends::vulkan {
 		std::vector<std::pair<memory_type_index, memory_properties>> _memory_properties_list;
 
 		context_options _options = context_options::none; ///< Context options.
-		const vk::DispatchLoaderDynamic *_dispatch_loader; ///< The dispatch loader.
+		const vk::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< The dispatch loader.
 
 
 		/// Finds the best memory type fit for the given requirements and \ref heap_type.

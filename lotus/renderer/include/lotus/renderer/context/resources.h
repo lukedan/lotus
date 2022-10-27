@@ -10,6 +10,7 @@
 #include "lotus/gpu/resources.h"
 #include "lotus/renderer/common.h"
 #include "execution.h"
+#include "pool.h"
 
 namespace lotus::renderer {
 	class context;
@@ -271,12 +272,13 @@ namespace lotus::renderer {
 				gpu::format fmt,
 				gpu::image_tiling tiling,
 				gpu::image_usage_mask usages,
+				pool *p,
 				std::uint64_t i,
 				std::u8string_view n
 			) :
-				resource(n), image(nullptr), current_usages(mips, image_access::initial()),
-				size(sz), num_mips(mips), format(fmt), tiling(tiling), usages(usages),
-				id(i) {
+				resource(n), image(nullptr), memory_pool(p), memory(nullptr),
+				current_usages(mips, image_access::initial()), size(sz), num_mips(mips),
+				format(fmt), tiling(tiling), usages(usages), id(i) {
 			}
 
 			/// Returns \ref resource_type::image2d.
@@ -285,6 +287,8 @@ namespace lotus::renderer {
 			}
 
 			gpu::image2d image; ///< Image for the surface.
+			pool *memory_pool = nullptr; ///< Memory pool to allocate this image out of.
+			pool::token memory; ///< Allocated memory for this image.
 			
 			std::vector<image_access> current_usages; ///< Current usage of each mip of the surface.
 
@@ -306,8 +310,9 @@ namespace lotus::renderer {
 		/// A buffer.
 		struct buffer : public resource {
 			/// Initializes this buffer to empty.
-			buffer(std::uint32_t sz, gpu::buffer_usage_mask usg, std::uint64_t i, std::u8string_view n) :
-				resource(n), data(nullptr), access(buffer_access::initial()), size(sz), usages(usg), id(i) {
+			buffer(std::uint32_t sz, gpu::buffer_usage_mask usg, pool *p, std::uint64_t i, std::u8string_view n) :
+				resource(n), data(nullptr), memory_pool(p), memory(nullptr),
+				access(buffer_access::initial()), size(sz), usages(usg), id(i) {
 			}
 
 			/// Returns \ref resource_type::buffer.
@@ -316,6 +321,8 @@ namespace lotus::renderer {
 			}
 
 			gpu::buffer data; ///< The buffer.
+			pool *memory_pool = nullptr; ///< Memory pool to allocate this buffer out of.
+			pool::token memory; ///< Allocated memory for this image.
 
 			/// Current usage of this buffer.
 			buffer_access access;
@@ -420,8 +427,8 @@ namespace lotus::renderer {
 		struct blas : public resource {
 		public:
 			/// Initializes this structure.
-			blas(std::vector<geometry_buffers_view> in, std::u8string_view n) :
-				resource(n), handle(nullptr), geometry(nullptr), build_sizes(uninitialized),
+			blas(std::vector<geometry_buffers_view> in, pool *p, std::u8string_view n) :
+				resource(n), handle(nullptr), geometry(nullptr), build_sizes(uninitialized), memory_pool(p),
 				input(std::move(in)) {
 			}
 
@@ -437,6 +444,7 @@ namespace lotus::renderer {
 			gpu::bottom_level_acceleration_structure_geometry geometry;
 			/// Memory requirements for the acceleration structure.
 			gpu::acceleration_structure_build_sizes build_sizes;
+			pool *memory_pool = nullptr; ///< Memory pool to allocate the BLAS out of.
 
 			std::vector<geometry_buffers_view> input; ///< Build input.
 
@@ -450,9 +458,11 @@ namespace lotus::renderer {
 			tlas(
 				std::vector<gpu::instance_description> in,
 				std::vector<std::shared_ptr<blas>> refs,
+				pool *p,
 				std::u8string_view n
 			) :
 				resource(n), handle(nullptr), input_data(nullptr), build_sizes(uninitialized),
+				memory_pool(p), input_data_token(nullptr),
 				input(std::move(in)), input_references(std::move(refs)) {
 			}
 
@@ -469,6 +479,9 @@ namespace lotus::renderer {
 			gpu::buffer input_data;
 			/// Memory requirements for the acceleration structure.
 			gpu::acceleration_structure_build_sizes build_sizes;
+			/// Memory pool to allocate this TLAS out of. Input data is also allocated out of this pool.
+			pool *memory_pool = nullptr;
+			pool::token input_data_token; ///< Token for the input data buffer.
 
 			std::vector<gpu::instance_description> input; ///< Input data.
 			bool input_copied = false; ///< Whether \ref input has been copied to \ref input_data.

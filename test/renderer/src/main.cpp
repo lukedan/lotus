@@ -67,6 +67,13 @@ int main(int argc, char **argv) {
 
 	auto rctx = lren::context::create(gctx, dev_prop, gdev, cmd_queue);
 	auto asset_man = lren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_util);
+
+	lren::pool geom_buffer_pool(u8"Geometry Buffers", rctx.get_device_memory_type_index());
+	lren::pool other_buffer_pool(u8"Miscellaneous Buffers", rctx.get_device_memory_type_index());
+	lren::pool geom_texture_pool(u8"Geometry Textures", rctx.get_device_memory_type_index());
+	lren::pool other_texture_pool(u8"Miscellaneous Textures", rctx.get_device_memory_type_index());
+	lren::pool as_pool(u8"Acceleration Structures", rctx.get_device_memory_type_index());
+
 	auto mip_gen = lren::mipmap::generator::create(asset_man);
 	lren::gltf::context gltf_ctx(asset_man);
 	auto fbx_ctx = lren::fbx::context::create(asset_man);
@@ -96,7 +103,7 @@ int main(int argc, char **argv) {
 		geom.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(blases.size()));
 
 		auto &blas = blases.emplace_back(rctx.request_blas(
-			geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }
+			geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }, &as_pool
 		));
 		rctx.build_blas(blas, u8"Build BLAS");
 
@@ -205,7 +212,8 @@ int main(int argc, char **argv) {
 				},
 				[&](lren::instance inst) {
 					on_instance_loaded(std::move(inst));
-				}
+				},
+				&geom_buffer_pool, &geom_texture_pool
 			);
 		} else if (path.extension() == ".fbx") {
 			fbx_ctx.load(
@@ -221,20 +229,22 @@ int main(int argc, char **argv) {
 				},
 				[&](lren::instance inst) {
 					on_instance_loaded(std::move(inst));
-				}
+				},
+				&geom_buffer_pool, &geom_texture_pool
 			);
 		} else {
 			log().error<u8"Unknown file type: {}">(path.string());
 		}
 	}
 
-	auto tlas = rctx.request_tlas(u8"TLAS", tlas_instances);
+	auto tlas = rctx.request_tlas(u8"TLAS", tlas_instances, &as_pool);
 	rctx.build_tlas(tlas, u8"Build TLAS");
 
 	auto geom_buf = rctx.request_buffer(
 		u8"Geometry buffer",
 		sizeof(shader_types::geometry_data) * geometries.size(),
-		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only
+		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
+		&other_buffer_pool
 	);
 	rctx.upload_buffer<shader_types::geometry_data>(geom_buf, { geometries.begin(), geometries.end() }, 0, u8"Upload geometry buffer");
 	auto geom_structured_buf = geom_buf.get_view<shader_types::geometry_data>(0, geometries.size());
@@ -245,7 +255,8 @@ int main(int argc, char **argv) {
 	auto mat_buf = rctx.request_buffer(
 		u8"Material buffer",
 		sizeof(shader_types::material_data) * materials.size(),
-		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only
+		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
+		&other_buffer_pool
 	);
 	rctx.upload_buffer<shader_types::material_data>(mat_buf, materials, 0, u8"Upload material buffer");
 	auto mat_structured_buf = mat_buf.get_view<shader_types::material_data>(0, materials.size());
@@ -256,7 +267,8 @@ int main(int argc, char **argv) {
 	auto inst_buf = rctx.request_buffer(
 		u8"Instance buffer",
 		sizeof(shader_types::instance_data) * instance_data.size(),
-		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only
+		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
+		&other_buffer_pool
 	);
 	rctx.upload_buffer<shader_types::instance_data>(inst_buf, instance_data, 0, u8"Upload instance buffer");
 	auto inst_structured_buf = inst_buf.get_view<shader_types::instance_data>(0, instance_data.size());
@@ -300,7 +312,8 @@ int main(int argc, char **argv) {
 		cam_params.aspect_ratio = info.new_size[0] / static_cast<float>(info.new_size[1]);
 		rt_result = rctx.request_image2d(
 			u8"Raytracing result", window_size, 1, lgpu::format::r32g32b32a32_float,
-			lgpu::image_usage_mask::shader_read_only | lgpu::image_usage_mask::shader_read_write
+			lgpu::image_usage_mask::shader_read_only | lgpu::image_usage_mask::shader_read_write,
+			&other_texture_pool
 		);
 	};
 	auto on_mouse_move = [&](lsys::window&, lsys::window_events::mouse::move &move) {

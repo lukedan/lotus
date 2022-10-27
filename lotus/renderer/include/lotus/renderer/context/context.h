@@ -20,6 +20,8 @@
 #include "execution.h"
 
 namespace lotus::renderer {
+	class pool;
+
 	/// Provides information about a pass's shader and input buffer layout.
 	class pass_context {
 	public:
@@ -106,14 +108,19 @@ namespace lotus::renderer {
 		/// Uploads contents from the given staging buffer to the target buffer.
 		struct upload_buffer {
 			/// Initializes all fields of this struct.
-			upload_buffer(gpu::buffer buf, recorded_resources::buffer dst, std::uint32_t off, std::uint32_t sz) :
-				source(std::move(buf)), destination(dst), offset(off), size(sz) {
+			upload_buffer(
+				gpu::buffer &src, std::uint32_t src_off, execution::upload_buffers::allocation_type ty,
+				recorded_resources::buffer dst, std::uint32_t off, std::uint32_t sz
+			) : source(&src), source_offset(src_off), destination(dst), offset(off), size(sz), type(ty) {
 			}
 
-			gpu::buffer source; ///< Buffer data.
+			gpu::buffer *source; ///< Buffer data.
+			std::uint32_t source_offset = 0;
 			recorded_resources::buffer destination; ///< Buffer to upload to.
 			std::uint32_t offset = 0; ///< Offset of the region to upload to in the destination buffer.
 			std::uint32_t size   = 0; ///< Size of the region to upload.
+			/// The type of \ref source.
+			execution::upload_buffers::allocation_type type = execution::upload_buffers::allocation_type::invalid;
 		};
 
 		/// Compute shader dispatch.
@@ -252,6 +259,7 @@ namespace lotus::renderer {
 	class context {
 		friend _details::image2d;
 		friend _details::context_managed_deleter;
+		friend execution::upload_buffers;
 		friend execution::context;
 	public:
 		class command_list;
@@ -315,16 +323,18 @@ namespace lotus::renderer {
 		[[nodiscard]] static context create(
 			gpu::context&, const gpu::adapter_properties&, gpu::device&, gpu::command_queue&
 		);
+		/// No move constructor.
+		context(context&&) = delete;
 		/// Disposes of all resources.
 		~context();
 
 		/// Creates a 2D image with the given properties.
 		[[nodiscard]] image2d_view request_image2d(
-			std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask
+			std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask, pool*
 		);
 		/// Creates a buffer with the given size.
 		[[nodiscard]] buffer request_buffer(
-			std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask
+			std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask, pool*
 		);
 		/// Creates a swap chain with the given properties.
 		[[nodiscard]] swap_chain request_swap_chain(
@@ -347,15 +357,17 @@ namespace lotus::renderer {
 			std::u8string_view name, gpu::descriptor_type, std::uint32_t capacity
 		);
 		/// Creates a bottom-level acceleration structure for the given input geometry.
-		[[nodiscard]] blas request_blas(std::u8string_view name, std::span<const geometry_buffers_view>);
+		[[nodiscard]] blas request_blas(
+			std::u8string_view name, std::span<const geometry_buffers_view>, pool*
+		);
 		/// \overload
 		[[nodiscard]] blas request_blas(
-			std::u8string_view name, std::initializer_list<const geometry_buffers_view> geometries
+			std::u8string_view name, std::initializer_list<const geometry_buffers_view> geometries, pool *p
 		) {
-			return request_blas(name, { geometries.begin(), geometries.end() });
+			return request_blas(name, { geometries.begin(), geometries.end() }, p);
 		}
 		/// Creates a top-level acceleration structure for the given input instances.
-		[[nodiscard]] tlas request_tlas(std::u8string_view name, std::span<const blas_reference>);
+		[[nodiscard]] tlas request_tlas(std::u8string_view name, std::span<const blas_reference>, pool*);
 		/// Creates a cached descriptor set.
 		[[nodiscard]] cached_descriptor_set create_cached_descriptor_set(
 			std::u8string_view name, const resource_set_binding::descriptors&
@@ -479,6 +491,15 @@ namespace lotus::renderer {
 		) {
 			write_buffer_descriptors(arr, first_index, { bufs.begin(), bufs.end() });
 		}
+
+		/// Returns the memory type index for memory used for uploading data to the GPU.
+		[[nodiscard]] gpu::memory_type_index get_upload_memory_type_index() const {
+			return _upload_memory_index;
+		}
+		/// Returns the memory type index for memory located on the GPU.
+		[[nodiscard]] gpu::memory_type_index get_device_memory_type_index() const {
+			return _device_memory_index;
+		}
 	private:
 		/// Indicates a descriptor set bind point.
 		enum class _bind_point {
@@ -536,6 +557,8 @@ namespace lotus::renderer {
 		std::deque<execution::batch_resources> _all_resources; ///< Resources that are in use by previous operations.
 		execution::batch_resources _deferred_delete_resources; ///< Resources that are marked for deferred deletion.
 		std::uint32_t _batch_index = 0; ///< Index of the last batch that has been submitted.
+
+		execution::upload_buffers _uploads; ///< Upload buffers.
 
 		std::uint64_t _resource_index = 0; ///< Counter used to uniquely identify resources.
 

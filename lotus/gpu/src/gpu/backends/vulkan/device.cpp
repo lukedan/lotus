@@ -651,8 +651,12 @@ namespace lotus::gpu::backends::vulkan {
 	memory_block device::allocate_memory(std::size_t size, memory_type_index mem_id) {
 		memory_block result;
 
+		vk::MemoryAllocateFlagsInfo flags_info;
+		flags_info
+			.setFlags(vk::MemoryAllocateFlagBits::eDeviceAddress);
 		vk::MemoryAllocateInfo info;
 		info
+			.setPNext(&flags_info)
 			.setAllocationSize(size)
 			.setMemoryTypeIndex(static_cast<std::uint32_t>(mem_id));
 		// TODO allocator
@@ -677,7 +681,9 @@ namespace lotus::gpu::backends::vulkan {
 		// TODO allocator
 		result._buffer = _details::unwrap(_device->createBuffer(buf_info));
 
-		auto req = _device->getBufferMemoryRequirements(result._buffer);
+		vk::BufferMemoryRequirementsInfo2 mem_info;
+		mem_info.setBuffer(result._buffer);
+		auto req = _device->getBufferMemoryRequirements2(mem_info);
 
 		vk::MemoryDedicatedAllocateInfo dedicated_info;
 		dedicated_info
@@ -691,7 +697,7 @@ namespace lotus::gpu::backends::vulkan {
 		vk::MemoryAllocateInfo info;
 		info
 			.setPNext(&flags_info)
-			.setAllocationSize(req.size)
+			.setAllocationSize(req.memoryRequirements.size)
 			.setMemoryTypeIndex(static_cast<std::uint32_t>(mem_id));
 		// TODO allocator
 		result._memory = _details::unwrap(_device->allocateMemory(info));
@@ -702,24 +708,15 @@ namespace lotus::gpu::backends::vulkan {
 
 	image2d device::create_committed_image2d(
 		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-		format fmt, image_tiling tiling, image_usage_mask allowed_usage
+		format fmt, image_tiling tiling, image_usage_mask usages
 	) {
 		image2d result = nullptr;
 		result._device = _device.get();
 
-		vk::ImageCreateInfo img_info;
-		img_info
-			.setImageType(vk::ImageType::e2D)
-			.setFormat(_details::conversions::to_format(fmt))
-			.setExtent(vk::Extent3D(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1))
-			.setMipLevels(static_cast<std::uint32_t>(mip_levels))
-			.setArrayLayers(static_cast<std::uint32_t>(array_slices))
-			.setSamples(vk::SampleCountFlagBits::e1)
-			.setTiling(_details::conversions::to_image_tiling(tiling))
-			.setUsage(_details::conversions::to_image_usage_flags(allowed_usage))
-			.setInitialLayout(vk::ImageLayout::eUndefined);
 		// TODO allocator
-		result._image = _details::unwrap(_device->createImage(img_info));
+		result._image = _details::unwrap(_device->createImage(_details::create_info::for_image2d(
+			width, height, array_slices, mip_levels, fmt, tiling, usages
+		)));
 
 		auto req = _device->getImageMemoryRequirements(result._image);
 
@@ -749,26 +746,16 @@ namespace lotus::gpu::backends::vulkan {
 	) {
 		vk::SubresourceLayout layout;
 		{
-			vk::ImageCreateInfo img_info;
-			img_info
-				.setImageType(vk::ImageType::e2D)
-				.setFormat(_details::conversions::to_format(fmt))
-				.setExtent(vk::Extent3D(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1))
-				.setMipLevels(1)
-				.setArrayLayers(1)
-				.setSamples(vk::SampleCountFlagBits::e1)
-				.setTiling(vk::ImageTiling::eLinear)
-				.setUsage(vk::ImageUsageFlagBits::eSampled);
-			auto img = _details::unwrap(_device->createImageUnique(img_info));
+			auto img = _details::unwrap(_device->createImageUnique(_details::create_info::for_image2d(
+				width, height, 1, 1, fmt, image_tiling::row_major, image_usage_mask::copy_source
+			)));
 			vk::ImageSubresource subresource;
 			const auto &format_props = format_properties::get(fmt);
 			subresource
 				.setAspectMask(
 					// we can only have one thing at a time
 					// stencil can be emulated using int textures
-					format_props.depth_bits > 0 ?
-					vk::ImageAspectFlagBits::eDepth :
-					vk::ImageAspectFlagBits::eColor
+					format_props.depth_bits > 0 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor
 				)
 				.setArrayLayer(0)
 				.setMipLevel(0);
@@ -782,7 +769,77 @@ namespace lotus::gpu::backends::vulkan {
 		result_pitch._pixels = static_cast<std::uint32_t>(fragments_width) * format_props.fragment_size[0];
 		result_pitch._bytes = static_cast<std::uint32_t>(fragments_width * format_props.bytes_per_fragment);
 
-		return std::make_tuple(std::move(result_buf), result_pitch, result_pitch._bytes * height);
+		return std::make_tuple(std::move(result_buf), result_pitch, layout.size);
+	}
+
+	memory::size_alignment device::get_image_memory_requirements(
+		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+		format fmt, image_tiling tiling, image_usage_mask usages
+	) {
+		auto img = _details::unwrap(_device->createImageUnique(_details::create_info::for_image2d(
+			width, height, array_slices, mip_levels, fmt, tiling, usages
+		)));
+		vk::ImageMemoryRequirementsInfo2 req_info;
+		req_info.setImage(img.get());
+		auto req = _device->getImageMemoryRequirements2(req_info);
+		return memory::size_alignment(req.memoryRequirements.size, req.memoryRequirements.alignment);
+	}
+
+	memory::size_alignment device::get_buffer_memory_requirements(std::size_t size, buffer_usage_mask usages) {
+		vk::BufferCreateInfo info;
+		info
+			.setSize(memory::align_up(std::max<std::size_t>(size, 1), _device_limits.nonCoherentAtomSize))
+			.setUsage(
+				_details::conversions::to_buffer_usage_flags(usages) |
+				vk::BufferUsageFlagBits::eShaderDeviceAddress
+			);
+		auto buf = _details::unwrap(_device->createBufferUnique(info)); // TODO allocator
+		vk::BufferMemoryRequirementsInfo2 req_info;
+		req_info.setBuffer(buf.get());
+		auto req = _device->getBufferMemoryRequirements2(req_info);
+		return memory::size_alignment(req.memoryRequirements.size, req.memoryRequirements.alignment);
+	}
+
+	buffer device::create_placed_buffer(
+		std::size_t size, buffer_usage_mask allowed_usage, const memory_block &mem, std::size_t offset
+	) {
+		buffer result = nullptr;
+		result._device = _device.get();
+		vk::BufferCreateInfo info;
+		info
+			.setSize(memory::align_up(std::max<std::size_t>(size, 1), _device_limits.nonCoherentAtomSize))
+			.setUsage(
+				_details::conversions::to_buffer_usage_flags(allowed_usage) |
+				vk::BufferUsageFlagBits::eShaderDeviceAddress
+			);
+		result._buffer = _details::unwrap(_device->createBuffer(info)); // TODO allocator
+
+		vk::BindBufferMemoryInfo bind_info;
+		bind_info
+			.setBuffer(result._buffer)
+			.setMemory(mem._memory.get())
+			.setMemoryOffset(offset);
+		_details::assert_vk(_device->bindBufferMemory2(bind_info));
+		return result;
+	}
+
+	image2d device::create_placed_image2d(
+		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+		format fmt, image_tiling tiling, image_usage_mask allowed_usage, const memory_block &mem, std::size_t offset
+	) {
+		image2d result = nullptr;
+		result._device = _device.get();
+		result._image = _details::unwrap(_device->createImage(_details::create_info::for_image2d(
+			width, height, array_slices, mip_levels, fmt, tiling, allowed_usage
+		))); // TODO allocator
+		
+		vk::BindImageMemoryInfo bind_info;
+		bind_info
+			.setImage(result._image)
+			.setMemory(mem._memory.get())
+			.setMemoryOffset(offset);
+		_details::assert_vk(_device->bindImageMemory2(bind_info));
+		return result;
 	}
 
 	std::byte *device::map_buffer(buffer &buf, std::size_t begin, std::size_t length) {

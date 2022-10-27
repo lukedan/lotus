@@ -654,6 +654,52 @@ namespace lotus::gpu::backends::directx12 {
 		return std::make_tuple(std::move(result), result_pitch, total_bytes);
 	}
 
+	memory::size_alignment device::get_image_memory_requirements(
+		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+		format fmt, image_tiling tiling, image_usage_mask usages
+	) {
+		D3D12_RESOURCE_DESC1 image_desc = _details::resource_desc::for_image2d(
+			width, height, array_slices, mip_levels, fmt, tiling, usages
+		);
+		D3D12_RESOURCE_ALLOCATION_INFO1 info = {};
+		_device->GetResourceAllocationInfo2(0, 1, &image_desc, &info);
+		return memory::size_alignment(info.SizeInBytes, info.Alignment);
+	}
+
+	memory::size_alignment device::get_buffer_memory_requirements(std::size_t size, buffer_usage_mask usages) {
+		D3D12_RESOURCE_DESC1 image_desc = _details::resource_desc::for_buffer(size, usages);
+		D3D12_RESOURCE_ALLOCATION_INFO1 info = {};
+		_device->GetResourceAllocationInfo2(0, 1, &image_desc, &info);
+		return memory::size_alignment(info.SizeInBytes, info.Alignment);
+	}
+
+	buffer device::create_placed_buffer(
+		std::size_t size, buffer_usage_mask usages, const memory_block &mem, std::size_t offset
+	) {
+		buffer result = nullptr;
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_buffer(size, usages);
+		_details::assert_dx(_device->CreatePlacedResource2(
+			mem._heap.Get(), offset, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
+			0, nullptr, IID_PPV_ARGS(&result._buffer)
+		));
+		return result;
+	}
+
+	image2d device::create_placed_image2d(
+		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+		format fmt, image_tiling tiling, image_usage_mask usages, const memory_block &mem, std::size_t offset
+	) {
+		image2d result = nullptr;
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image2d(
+			width, height, array_slices, mip_levels, fmt, tiling, usages
+		);
+		_details::assert_dx(_device->CreatePlacedResource2(
+			mem._heap.Get(), offset, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
+			0, nullptr, IID_PPV_ARGS(&result._image)
+		));
+		return result;
+	}
+
 	std::byte *device::map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
 		void *result = nullptr;
 		D3D12_RANGE range = {};

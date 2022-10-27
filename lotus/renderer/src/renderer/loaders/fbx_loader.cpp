@@ -99,7 +99,8 @@ namespace lotus::renderer::fbx {
 		static_function<void(assets::handle<assets::image2d>)> image_loaded_callback,
 		static_function<void(assets::handle<assets::geometry>)> geometry_loaded_callback,
 		static_function<void(assets::handle<assets::material>)> material_loaded_callback,
-		static_function<void(instance)> instance_loaded_callback
+		static_function<void(instance)> instance_loaded_callback,
+		pool *buf_pool, pool *tex_pool
 	) {
 		auto file_str = file.string();
 		_details::handle<fbxsdk::FbxScene, true> scene =
@@ -138,9 +139,9 @@ namespace lotus::renderer::fbx {
 				) {
 					log().warn<u8"Texture {} has non-identity UV transform which is not supported.">(tex->GetName());
 				}
-				auto handle = _asset_manager.get_image2d(assets::identifier(tex->GetFileName()));
+				auto handle = _asset_manager.get_image2d(assets::identifier(tex->GetFileName()), tex_pool);
 				auto [it, inserted] = images.emplace(tex->GetUniqueID(), std::move(handle));
-				assert(inserted);
+				crash_if(!inserted);
 				if (image_loaded_callback) {
 					image_loaded_callback(it->second);
 				}
@@ -303,7 +304,8 @@ namespace lotus::renderer::fbx {
 						gpu::buffer_usage_mask::copy_destination |
 						gpu::buffer_usage_mask::vertex_buffer |
 						gpu::buffer_usage_mask::shader_read_only |
-						gpu::buffer_usage_mask::acceleration_structure_build_input
+						gpu::buffer_usage_mask::acceleration_structure_build_input,
+						buf_pool
 					)
 				));
 			}
@@ -321,7 +323,8 @@ namespace lotus::renderer::fbx {
 							std::span(in),
 							gpu::buffer_usage_mask::copy_destination |
 							gpu::buffer_usage_mask::vertex_buffer |
-							gpu::buffer_usage_mask::shader_read_only
+							gpu::buffer_usage_mask::shader_read_only,
+							buf_pool
 						)
 					));
 				}
@@ -340,7 +343,8 @@ namespace lotus::renderer::fbx {
 							std::span(in),
 							gpu::buffer_usage_mask::copy_destination |
 							gpu::buffer_usage_mask::vertex_buffer |
-							gpu::buffer_usage_mask::shader_read_only
+							gpu::buffer_usage_mask::shader_read_only,
+							buf_pool
 						)
 					));
 				}
@@ -358,7 +362,8 @@ namespace lotus::renderer::fbx {
 						gpu::buffer_usage_mask::copy_destination |
 						gpu::buffer_usage_mask::index_buffer     |
 						gpu::buffer_usage_mask::shader_read_only |
-						gpu::buffer_usage_mask::acceleration_structure_build_input
+						gpu::buffer_usage_mask::acceleration_structure_build_input,
+						buf_pool
 					));
 				}
 			}

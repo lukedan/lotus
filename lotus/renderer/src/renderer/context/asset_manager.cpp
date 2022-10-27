@@ -159,7 +159,7 @@ namespace lotus::renderer::assets {
 	}
 
 
-	[[nodiscard]] handle<image2d> manager::get_image2d(const identifier &id) {
+	[[nodiscard]] handle<image2d> manager::get_image2d(const identifier &id, pool *p) {
 		if (auto it = _images.find(id); it != _images.end()) {
 			if (auto ptr = it->second.lock()) {
 				return handle<image2d>(std::move(ptr));
@@ -172,18 +172,19 @@ namespace lotus::renderer::assets {
 		tex.descriptor_index = _allocate_descriptor_index();
 		_context.write_image_descriptors(_image2d_descriptors, tex.descriptor_index, { tex.image });
 		auto result = _register_asset(id, std::move(tex), _images);
-		_input_jobs.emplace_back(result);
+		_input_jobs.emplace_back(result, p);
 		return result;
 	}
 
 	handle<buffer> manager::create_buffer(
-		identifier id, std::span<const std::byte> data, gpu::buffer_usage_mask usages
+		identifier id, std::span<const std::byte> data, gpu::buffer_usage_mask usages, pool *p
 	) {
 		buffer buf = nullptr;
-		buf.data        = _context.request_buffer(
+		buf.data = _context.request_buffer(
 			id.path.u8string() + id.subpath,
 			static_cast<std::uint32_t>(data.size()),
-			usages | gpu::buffer_usage_mask::copy_destination
+			usages | gpu::buffer_usage_mask::copy_destination,
+			p
 		);
 		_context.upload_buffer(buf.data, data, 0, u8"Load buffer asset");
 		return _register_asset(std::move(id), std::move(buf), _buffers);
@@ -278,7 +279,8 @@ namespace lotus::renderer::assets {
 				}
 				tex.image = _context.request_image2d(
 					j.input.path.u8string(),
-					j.size, mipmap::get_levels(j.size.into<std::uint32_t>()), j.pixel_format, usages
+					j.size, mipmap::get_levels(j.size.into<std::uint32_t>()), j.pixel_format, usages,
+					j.input.memory_pool
 				);
 				tex.highest_mip_loaded = 0;
 
@@ -325,7 +327,8 @@ namespace lotus::renderer::assets {
 				image2d tex = nullptr;
 				tex.image = _context.request_image2d(
 					u8"Invalid", size, 1, gpu::format::b8g8r8a8_unorm,
-					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only
+					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only,
+					nullptr // TODO pool?
 				);
 				tex.descriptor_index = _allocate_descriptor_index();
 				tex.highest_mip_loaded = 0;

@@ -42,10 +42,12 @@ project project::load(const nlohmann::json &val, error_callback &on_error) {
 void project::load_resources(
 	lren::assets::manager &man,
 	lren::assets::handle<lren::assets::shader> vert_shader,
-	const std::filesystem::path &root, error_callback &on_error
+	const std::filesystem::path &root,
+	lren::pool *p,
+	error_callback &on_error
 ) {
 	for (auto &it : passes) {
-		it.second.load_input_images(man, root, on_error);
+		it.second.load_input_images(man, root, p, on_error);
 		it.second.load_shader(man, std::move(vert_shader), root, on_error);
 	}
 }

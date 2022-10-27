@@ -9,6 +9,7 @@
 
 #include "details.h"
 
+#include "lotus/memory/common.h"
 #include "lotus/gpu/common.h"
 #include "acceleration_structure.h"
 #include "commands.h"
@@ -137,6 +138,23 @@ namespace lotus::gpu::backends::directx12 {
 		/// that can hold it.
 		[[nodiscard]] std::tuple<buffer, staging_buffer_pitch, std::size_t> create_committed_staging_buffer(
 			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage_mask
+		);
+
+		/// Calls \p ID3D12Device::GetResourceAllocationInfo2().
+		[[nodiscard]] memory::size_alignment get_image_memory_requirements(
+			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			format, image_tiling, image_usage_mask
+		);
+		/// Calls \p ID3D12Device::GetResourceAllocationInfo2().
+		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(std::size_t size, buffer_usage_mask);
+		/// Calls \p ID3D12Device::CreatePlacedResource2().
+		[[nodiscard]] buffer create_placed_buffer(
+			std::size_t size, buffer_usage_mask, const memory_block&, std::size_t offset
+		);
+		/// Calls \p ID3D12Device::CreatePlacedResource2().
+		[[nodiscard]] image2d create_placed_image2d(
+			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			format, image_tiling, image_usage_mask, const memory_block&, std::size_t offset
 		);
 
 		/// Calls \p ID3D12Resource::Map().

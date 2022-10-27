@@ -355,6 +355,38 @@ namespace lotus::gpu {
 			return result;
 		}
 
+		/// Queries the memory requirements of the given image.
+		[[nodiscard]] memory::size_alignment get_image_memory_requirements(
+			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			format fmt, image_tiling tiling, image_usage_mask usages
+		) {
+			return backend::device::get_image_memory_requirements(
+				width, height, array_slices, mip_levels, fmt, tiling, usages
+			);
+		}
+		/// Queries the memory requirements of the given buffer.
+		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(
+			std::size_t size, buffer_usage_mask usages
+		) {
+			return backend::device::get_buffer_memory_requirements(size, usages);
+		}
+		/// Creates a buffer placed at the given memory location.
+		[[nodiscard]] buffer create_placed_buffer(
+			std::size_t size, buffer_usage_mask allowed_usages, const memory_block &mem, std::size_t offset
+		) {
+			return backend::device::create_placed_buffer(size, allowed_usages, mem, offset);
+		}
+		/// Creates a 2D image placed at the given memory location.
+		[[nodiscard]] image2d create_placed_image2d(
+			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			format fmt, image_tiling tiling, image_usage_mask allowed_usages,
+			const memory_block &mem, std::size_t offset
+		) {
+			return backend::device::create_placed_image2d(
+				width, height, array_slices, mip_levels, fmt, tiling, allowed_usages, mem, offset
+			);
+		}
+
 		/// Maps the given buffer and ensures that the specified range has up-to-date data from the device.
 		/// \ref map_buffer() and \ref unmap_buffer() calls can be nested. Note that the returned address is to the
 		/// start of the buffer, instead of the requested memory range.

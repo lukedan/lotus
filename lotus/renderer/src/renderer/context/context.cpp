@@ -7,6 +7,7 @@
 
 #include "lotus/logging.h"
 #include "lotus/memory/stack_allocator.h"
+#include "lotus/renderer/context/pool.h"
 
 namespace lotus::renderer {
 	void context::pass::draw_instanced(
@@ -92,20 +93,20 @@ namespace lotus::renderer {
 
 	image2d_view context::request_image2d(
 		std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format fmt,
-		gpu::image_usage_mask usages
+		gpu::image_usage_mask usages, pool *p
 	) {
 		gpu::image_tiling tiling = gpu::image_tiling::optimal;
 		auto *surf = new _details::image2d(
-			size, num_mips, fmt, tiling, usages, _resource_index++, name
+			size, num_mips, fmt, tiling, usages, p, _resource_index++, name
 		);
 		auto surf_ptr = std::shared_ptr<_details::image2d>(surf, _details::context_managed_deleter(*this));
 		return image2d_view(std::move(surf_ptr), fmt, gpu::mip_levels::all());
 	}
 
 	buffer context::request_buffer(
-		std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask usages
+		std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask usages, pool *p
 	) {
-		auto *buf = new _details::buffer(size_bytes, usages, _resource_index++, name);
+		auto *buf = new _details::buffer(size_bytes, usages, p, _resource_index++, name);
 		auto buf_ptr = std::shared_ptr<_details::buffer>(buf, _details::context_managed_deleter(*this));
 		return buffer(std::move(buf_ptr));
 	}
@@ -141,13 +142,13 @@ namespace lotus::renderer {
 		return buffer_descriptor_array(std::move(arr_ptr));
 	}
 
-	blas context::request_blas(std::u8string_view name, std::span<const geometry_buffers_view> geometries) {
-		auto *blas_ptr = new _details::blas(std::vector(geometries.begin(), geometries.end()), name);
+	blas context::request_blas(std::u8string_view name, std::span<const geometry_buffers_view> geometries, pool *p) {
+		auto *blas_ptr = new _details::blas(std::vector(geometries.begin(), geometries.end()), p, name);
 		auto ptr = std::shared_ptr<_details::blas>(blas_ptr, _details::context_managed_deleter(*this));
 		return blas(std::move(ptr));
 	}
 
-	tlas context::request_tlas(std::u8string_view name, std::span<const blas_reference> blases) {
+	tlas context::request_tlas(std::u8string_view name, std::span<const blas_reference> blases, pool *p) {
 		std::vector<gpu::instance_description> instances;
 		std::vector<std::shared_ptr<_details::blas>> references;
 		for (const auto &b : blases) {
@@ -157,7 +158,7 @@ namespace lotus::renderer {
 			));
 			references.emplace_back(b.acceleration_structure._ptr);
 		}
-		auto *tlas_ptr = new _details::tlas(std::move(instances), std::move(references), name);
+		auto *tlas_ptr = new _details::tlas(std::move(instances), std::move(references), p, name);
 		auto ptr = std::shared_ptr<_details::tlas>(tlas_ptr, _details::context_managed_deleter(*this));
 		return tlas(std::move(ptr));
 	}
@@ -219,16 +220,16 @@ namespace lotus::renderer {
 		const buffer &target, std::span<const std::byte> data, std::uint32_t offset,
 		std::u8string_view description
 	) {
-		auto staging_buffer = _device.create_committed_buffer(
-			data.size(), _upload_memory_index, gpu::buffer_usage_mask::copy_source
-		);
-
-		auto *dst = _device.map_buffer(staging_buffer, 0, 0);
-		std::memcpy(dst, data.data(), data.size());
-		_device.unmap_buffer(staging_buffer, 0, data.size());
-
+		if (!_uploads) {
+			_uploads = execution::upload_buffers(*this, [this](std::size_t size) -> gpu::buffer& {
+				return _deferred_delete_resources.buffers.emplace_back(_device.create_committed_buffer(
+					size, _upload_memory_index, gpu::buffer_usage_mask::copy_source
+				));
+			});
+		}
+		auto staged = _uploads.stage(data, 1);
 		_commands.emplace_back(description).value.emplace<context_commands::upload_buffer>(
-			std::move(staging_buffer), target, offset, static_cast<std::uint32_t>(data.size())
+			*staged.buffer, staged.offset, staged.type, target, offset, static_cast<std::uint32_t>(data.size())
 		);
 	}
 
@@ -301,23 +302,36 @@ namespace lotus::renderer {
 	}
 
 	void context::flush() {
-		assert(std::this_thread::get_id() == _thread);
+		crash_if(std::this_thread::get_id() != _thread);
 
 		++_batch_index;
-		auto ectx = execution::context::create(*this);
-
-		auto cmds = std::exchange(_commands, {});
-		for (auto &cmd : cmds) {
-			std::visit([&, this](auto &cmd_val) {
-				_handle_command(ectx, cmd_val);
-			}, cmd.value);
+		if (_uploads) {
+			_uploads.flush();
 		}
-		ectx.flush_transitions();
 
-		auto signal_semaphores = {
-			gpu::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)
-		};
-		ectx.submit(_queue, gpu::queue_synchronization(nullptr, {}, signal_semaphores));
+		_all_resources.emplace_back(std::exchange(_deferred_delete_resources, {}));
+		{
+			auto ectx = execution::context(*this, _all_resources.back());
+
+			auto cmds = std::exchange(_commands, {});
+			for (auto &cmd : cmds) {
+				std::visit([&, this](auto &cmd_val) {
+					_handle_command(ectx, cmd_val);
+				}, cmd.value);
+
+				if constexpr (true) {
+					gpu::fence f = _device.create_fence(gpu::synchronization_state::unset);
+					ectx.submit(_queue, &f);
+					_device.wait_for_fence(f);
+				}
+			}
+			ectx.flush_transitions();
+
+			auto signal_semaphores = {
+				gpu::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)
+			};
+			ectx.submit(_queue, gpu::queue_synchronization(nullptr, {}, signal_semaphores));
+		}
 
 		_cleanup();
 	}
@@ -372,7 +386,8 @@ namespace lotus::renderer {
 		_batch_semaphore(_device.create_timeline_semaphore(0)),
 		_adapter_properties(adap_prop),
 		_cache(_device),
-		_thread(std::this_thread::get_id()) {
+		_thread(std::this_thread::get_id()),
+		_uploads(nullptr) {
 
 		const auto &memory_types = _device.enumerate_memory_types();
 		for (const auto &type : memory_types) {
@@ -394,10 +409,21 @@ namespace lotus::renderer {
 	void context::_maybe_create_image(_details::image2d &surf) {
 		if (!surf.image) {
 			// create resource if it's not initialized
-			surf.image = _device.create_committed_image2d(
-				surf.size[0], surf.size[1], 1, surf.num_mips,
-				surf.format, surf.tiling, surf.usages
-			);
+			if (surf.memory_pool) {
+				memory::size_alignment size_align = _device.get_image_memory_requirements(
+					surf.size[0], surf.size[1], 1, surf.num_mips, surf.format, surf.tiling, surf.usages
+				);
+				surf.memory = surf.memory_pool->allocate(_device, size_align);
+				auto &&[blk, off] = surf.memory_pool->get_memory_and_offset(surf.memory);
+				surf.image = _device.create_placed_image2d(
+					surf.size[0], surf.size[1], 1, surf.num_mips, surf.format, surf.tiling, surf.usages, blk, off
+				);
+			} else {
+				surf.image = _device.create_committed_image2d(
+					surf.size[0], surf.size[1], 1, surf.num_mips,
+					surf.format, surf.tiling, surf.usages
+				);
+			}
 			if constexpr (should_register_debug_names) {
 				_device.set_debug_name(surf.image, surf.name);
 			}
@@ -406,7 +432,15 @@ namespace lotus::renderer {
 
 	void context::_maybe_create_buffer(_details::buffer &buf) {
 		if (!buf.data) {
-			buf.data = _device.create_committed_buffer(buf.size, _device_memory_index, buf.usages);
+			if (buf.memory_pool) {
+				memory::size_alignment size_align = _device.get_buffer_memory_requirements(buf.size, buf.usages);
+				buf.memory = buf.memory_pool->allocate(_device, size_align);
+				auto &&[blk, off] = buf.memory_pool->get_memory_and_offset(buf.memory);
+				buf.data = _device.create_placed_buffer(buf.size, buf.usages, blk, off);
+			} else {
+				buf.data = _device.create_committed_buffer(buf.size, _device_memory_index, buf.usages);
+			}
+
 			if constexpr (should_register_debug_names) {
 				_device.set_debug_name(buf.data, buf.name);
 			}
@@ -526,7 +560,7 @@ namespace lotus::renderer {
 			// TODO better name
 			b.memory      = request_buffer(
 				u8"BLAS memory", static_cast<std::uint32_t>(b.build_sizes.acceleration_structure_size),
-				gpu::buffer_usage_mask::acceleration_structure
+				gpu::buffer_usage_mask::acceleration_structure, b.memory_pool
 			)._ptr;
 			_maybe_create_buffer(*b.memory);
 			b.handle      = _device.create_bottom_level_acceleration_structure(
@@ -547,7 +581,7 @@ namespace lotus::renderer {
 			// TODO better name
 			t.memory = request_buffer(
 				t.name, static_cast<std::uint32_t>(t.build_sizes.acceleration_structure_size),
-				gpu::buffer_usage_mask::acceleration_structure
+				gpu::buffer_usage_mask::acceleration_structure, t.memory_pool
 			)._ptr;
 			_maybe_create_buffer(*t.memory);
 			t.handle = _device.create_top_level_acceleration_structure(
@@ -649,9 +683,12 @@ namespace lotus::renderer {
 		switch (buf.binding_type) {
 		case buffer_binding_type::read_only:
 			_device.write_descriptor_set_read_only_structured_buffers(
-				set, layout, reg, { gpu::structured_buffer_view(
-					buf.data._buffer->data, buf.data._first, buf.data._count, buf.data._stride
-				) }
+				set, layout, reg,
+				{
+					gpu::structured_buffer_view(
+						buf.data._buffer->data, buf.data._first, buf.data._count, buf.data._stride
+					)
+				}
 			);
 			transitions.stage_transition(
 				*buf.data._buffer,
@@ -662,9 +699,12 @@ namespace lotus::renderer {
 			break;
 		case buffer_binding_type::read_write:
 			_device.write_descriptor_set_read_write_structured_buffers(
-				set, layout, reg, { gpu::structured_buffer_view(
-					buf.data._buffer->data, buf.data._first, buf.data._count, buf.data._stride
-				) }
+				set, layout, reg,
+				{
+					gpu::structured_buffer_view(
+						buf.data._buffer->data, buf.data._first, buf.data._count, buf.data._stride
+					)
+				}
 			);
 			transitions.stage_transition(
 				*buf.data._buffer,
@@ -939,16 +979,18 @@ namespace lotus::renderer {
 		auto dest = buf.destination;
 		_maybe_create_buffer(*dest._ptr);
 
-		ectx.transitions.stage_transition(
-			buf.source,
-			{ gpu::synchronization_point_mask::cpu_access, gpu::buffer_access_mask::cpu_write },
-			{ gpu::synchronization_point_mask::copy, gpu::buffer_access_mask::copy_source }
-		);
+		if (buf.type != execution::upload_buffers::allocation_type::same_buffer) {
+			ectx.transitions.stage_transition(
+				*buf.source,
+				{ gpu::synchronization_point_mask::cpu_access, gpu::buffer_access_mask::cpu_write },
+				{ gpu::synchronization_point_mask::copy, gpu::buffer_access_mask::copy_source }
+			);
+		}
 		ectx.transitions.stage_transition(
 			*dest._ptr, { gpu::synchronization_point_mask::copy, gpu::buffer_access_mask::copy_destination }
 		);
 		ectx.flush_transitions();
-		ectx.get_command_list().copy_buffer(buf.source, 0, dest._ptr->data, buf.offset, buf.size);
+		ectx.get_command_list().copy_buffer(*buf.source, buf.offset, dest._ptr->data, buf.offset, buf.size);
 	}
 
 	void context::_handle_command(execution::context &ectx, const context_commands::dispatch_compute &cmd) {
@@ -1198,6 +1240,7 @@ namespace lotus::renderer {
 		std::uint64_t finished_batch = _device.query_timeline_semaphore(_batch_semaphore);
 		while (first_batch <= finished_batch) {
 			const auto &batch = _all_resources.front();
+			
 			for (const auto &surf : batch.image2d_meta) {
 				for (const auto &array_ref : surf->array_references) {
 					if (array_ref.array->set) {
@@ -1212,14 +1255,25 @@ namespace lotus::renderer {
 						);
 					}
 				}
+				if (surf->memory) {
+					surf->memory_pool->free(surf->memory);
+				}
 			}
-			constexpr bool _debug_resource_disposal = true;
+
+			for (const auto &buf : batch.buffer_meta) {
+				if (buf->memory) {
+					buf->memory_pool->free(buf->memory);
+				}
+			}
+
+			constexpr bool _debug_resource_disposal = false;
 			if constexpr (_debug_resource_disposal) {
 				auto rsrc = std::move(_all_resources.front());
 				for (auto &img : rsrc.image_views) {
 					img = nullptr;
 				}
 			}
+
 			_all_resources.pop_front();
 			++first_batch;
 		}

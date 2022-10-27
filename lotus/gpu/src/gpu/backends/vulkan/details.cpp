@@ -552,4 +552,24 @@ namespace lotus::gpu::backends::vulkan::_details {
 			return result;
 		}
 	}
+
+	namespace create_info {
+		vk::ImageCreateInfo for_image2d(
+			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			format fmt, image_tiling tiling, image_usage_mask usages
+		) {
+			vk::ImageCreateInfo img_info;
+			img_info
+				.setImageType(vk::ImageType::e2D)
+				.setFormat(_details::conversions::to_format(fmt))
+				.setExtent(vk::Extent3D(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1))
+				.setMipLevels(static_cast<std::uint32_t>(mip_levels))
+				.setArrayLayers(static_cast<std::uint32_t>(array_slices))
+				.setSamples(vk::SampleCountFlagBits::e1)
+				.setTiling(_details::conversions::to_image_tiling(tiling))
+				.setUsage(_details::conversions::to_image_usage_flags(usages))
+				.setInitialLayout(vk::ImageLayout::eUndefined);
+			return img_info;
+		}
+	}
 }

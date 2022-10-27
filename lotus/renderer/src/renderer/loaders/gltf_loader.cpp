@@ -13,7 +13,7 @@ namespace lotus::renderer::gltf {
 	/// Loads a data buffer with the given properties.
 	template <typename T> static assets::handle<assets::buffer> _load_data_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask
+		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask, pool *p
 	) {
 		auto id = assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 			"buffer{}|{}|{}({})", accessor_index, expected_components, typeid(T).hash_code(), typeid(T).name()
@@ -99,15 +99,15 @@ namespace lotus::renderer::gltf {
 			}
 		}
 
-		return man.create_buffer(std::move(id), std::span(data.begin(), data.end()), usage_mask);
+		return man.create_buffer(std::move(id), std::span(data.begin(), data.end()), usage_mask, p);
 	}
 	/// Wrapper around \ref _load_data_buffer() that loads an \ref assets::geometry::input_buffer.
 	template <typename T> static assets::geometry::input_buffer _load_input_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask
+		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask, pool *p
 	) {
 		assets::geometry::input_buffer result = nullptr;
-		result.data = _load_data_buffer<T>(man, path, model, accessor_index, expected_components, usage_mask);
+		result.data = _load_data_buffer<T>(man, path, model, accessor_index, expected_components, usage_mask, p);
 		result.offset = 0;
 		result.stride = static_cast<std::uint32_t>(sizeof(T) * expected_components);
 
@@ -132,7 +132,8 @@ namespace lotus::renderer::gltf {
 		static_function<void(assets::handle<assets::image2d>)> image_loaded_callback,
 		static_function<void(assets::handle<assets::geometry>)> geometry_loaded_callback,
 		static_function<void(assets::handle<assets::material>)> material_loaded_callback,
-		static_function<void(instance)> instance_loaded_callback
+		static_function<void(instance)> instance_loaded_callback,
+		pool *buf_pool, pool *tex_pool
 	) {
 		tinygltf::TinyGLTF loader;
 		tinygltf::Model model;
@@ -167,7 +168,7 @@ namespace lotus::renderer::gltf {
 				images[i] = _asset_manager.get_invalid_image();
 			} else {
 				images[i] = _asset_manager.get_image2d(
-					assets::identifier(path.parent_path() / std::filesystem::path(model.images[i].uri))
+					assets::identifier(path.parent_path() / std::filesystem::path(model.images[i].uri)), tex_pool
 				);
 				if (image_loaded_callback) {
 					image_loaded_callback(images[i]);
@@ -192,31 +193,40 @@ namespace lotus::renderer::gltf {
 					geom.num_vertices = static_cast<std::uint32_t>(model.accessors[it->second].count);
 					geom.vertex_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
-						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only | gpu::buffer_usage_mask::acceleration_structure_build_input
+						gpu::buffer_usage_mask::vertex_buffer |
+						gpu::buffer_usage_mask::shader_read_only |
+						gpu::buffer_usage_mask::acceleration_structure_build_input,
+						buf_pool
 					);
 				}
 				if (auto it = prim.attributes.find("NORMAL"); it != prim.attributes.end()) {
 					geom.normal_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
-						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only,
+						buf_pool
 					);
 				}
 				if (auto it = prim.attributes.find("TANGENT"); it != prim.attributes.end()) {
 					geom.tangent_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
-						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only,
+						buf_pool
 					);
 				}
 				if (auto it = prim.attributes.find("TEXCOORD_0"); it != prim.attributes.end()) {
 					geom.uv_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 2,
-						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only,
+						buf_pool
 					);
 				}
 				if (prim.indices >= 0) {
 					geom.index_buffer = _load_data_buffer<std::uint32_t>(
 						_asset_manager, path, model, prim.indices, 1,
-						gpu::buffer_usage_mask::index_buffer | gpu::buffer_usage_mask::shader_read_only | gpu::buffer_usage_mask::acceleration_structure_build_input
+						gpu::buffer_usage_mask::index_buffer |
+						gpu::buffer_usage_mask::shader_read_only |
+						gpu::buffer_usage_mask::acceleration_structure_build_input,
+						buf_pool
 					);
 					geom.index_format = gpu::index_format::uint32;
 					geom.index_offset = 0;

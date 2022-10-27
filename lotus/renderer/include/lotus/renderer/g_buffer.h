@@ -23,7 +23,7 @@ namespace lotus::renderer::g_buffer {
 			albedo_glossiness(nullptr), normal(nullptr), metalness(nullptr), depth_stencil(nullptr) {
 		}
 		/// Creates a storage with the given size.
-		[[nodiscard]] static view create(context&, cvec2s size);
+		[[nodiscard]] static view create(context&, cvec2s size, pool*);
 
 		/// Starts a pass rendering to this view.
 		[[nodiscard]] context::pass begin_pass(context&);

@@ -43,6 +43,8 @@ int main(int argc, char **argv) {
 	auto rctx = lren::context::create(gctx, gdev_props, gdev, cmd_queue);
 	auto ass_man = lren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_utils);
 
+	lren::pool resource_pool(u8"Resource Pool", rctx.get_device_memory_type_index());
+
 	// swap chain
 	auto swapchain = rctx.request_swap_chain(
 		u8"Swap chain", wnd, 3, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb }
@@ -171,7 +173,7 @@ int main(int argc, char **argv) {
 				}
 			}
 			proj = project::load(proj_json, error_callback);
-			proj.load_resources(ass_man, vert_shader, proj_path.parent_path(), error_callback);
+			proj.load_resources(ass_man, vert_shader, proj_path.parent_path(), &resource_pool, error_callback);
 			pass_order = proj.get_pass_order(error_callback);
 		}
 
@@ -183,7 +185,8 @@ int main(int argc, char **argv) {
 					format_utf8<u8"Pass \"{}\" output #{} \"{}\" frame {}">(
 						lstr::to_generic(p.first), out_i, lstr::to_generic(out.name), frame_index
 					), window_size, 1, pass::output_image_format,
-					lgpu::image_usage_mask::color_render_target | lgpu::image_usage_mask::shader_read_only
+					lgpu::image_usage_mask::color_render_target | lgpu::image_usage_mask::shader_read_only,
+					&resource_pool
 				);
 			}
 		}

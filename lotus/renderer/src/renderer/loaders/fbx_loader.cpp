@@ -100,7 +100,7 @@ namespace lotus::renderer::fbx {
 		static_function<void(assets::handle<assets::geometry>)> geometry_loaded_callback,
 		static_function<void(assets::handle<assets::material>)> material_loaded_callback,
 		static_function<void(instance)> instance_loaded_callback,
-		pool *buf_pool, pool *tex_pool
+		const pool &buf_pool, const pool &tex_pool
 	) {
 		auto file_str = file.string();
 		_details::handle<fbxsdk::FbxScene, true> scene =

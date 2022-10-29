@@ -7,7 +7,6 @@
 
 #include "lotus/logging.h"
 #include "lotus/memory/stack_allocator.h"
-#include "lotus/renderer/context/pool.h"
 
 namespace lotus::renderer {
 	void context::pass::draw_instanced(
@@ -91,22 +90,35 @@ namespace lotus::renderer {
 		wait_idle();
 	}
 
+	pool context::request_pool(
+		std::u8string_view name, gpu::memory_type_index memory_type, std::uint32_t chunk_size
+	) {
+		auto *p = new _details::pool(
+			[dev = &_device, memory_type](std::size_t sz) {
+				return dev->allocate_memory(sz, memory_type);
+			},
+			chunk_size, name
+		);
+		auto pool_ptr = std::shared_ptr<_details::pool>(p, _details::context_managed_deleter(*this));
+		return pool(std::move(pool_ptr));
+	}
+
 	image2d_view context::request_image2d(
 		std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format fmt,
-		gpu::image_usage_mask usages, pool *p
+		gpu::image_usage_mask usages, const pool &p
 	) {
 		gpu::image_tiling tiling = gpu::image_tiling::optimal;
 		auto *surf = new _details::image2d(
-			size, num_mips, fmt, tiling, usages, p, _resource_index++, name
+			size, num_mips, fmt, tiling, usages, p._ptr, _resource_index++, name
 		);
 		auto surf_ptr = std::shared_ptr<_details::image2d>(surf, _details::context_managed_deleter(*this));
 		return image2d_view(std::move(surf_ptr), fmt, gpu::mip_levels::all());
 	}
 
 	buffer context::request_buffer(
-		std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask usages, pool *p
+		std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask usages, const pool &p
 	) {
-		auto *buf = new _details::buffer(size_bytes, usages, p, _resource_index++, name);
+		auto *buf = new _details::buffer(size_bytes, usages, p._ptr, _resource_index++, name);
 		auto buf_ptr = std::shared_ptr<_details::buffer>(buf, _details::context_managed_deleter(*this));
 		return buffer(std::move(buf_ptr));
 	}
@@ -142,13 +154,15 @@ namespace lotus::renderer {
 		return buffer_descriptor_array(std::move(arr_ptr));
 	}
 
-	blas context::request_blas(std::u8string_view name, std::span<const geometry_buffers_view> geometries, pool *p) {
-		auto *blas_ptr = new _details::blas(std::vector(geometries.begin(), geometries.end()), p, name);
+	blas context::request_blas(
+		std::u8string_view name, std::span<const geometry_buffers_view> geometries, const pool &p
+	) {
+		auto *blas_ptr = new _details::blas(std::vector(geometries.begin(), geometries.end()), p._ptr, name);
 		auto ptr = std::shared_ptr<_details::blas>(blas_ptr, _details::context_managed_deleter(*this));
 		return blas(std::move(ptr));
 	}
 
-	tlas context::request_tlas(std::u8string_view name, std::span<const blas_reference> blases, pool *p) {
+	tlas context::request_tlas(std::u8string_view name, std::span<const blas_reference> blases, const pool &p) {
 		std::vector<gpu::instance_description> instances;
 		std::vector<std::shared_ptr<_details::blas>> references;
 		for (const auto &b : blases) {
@@ -158,7 +172,7 @@ namespace lotus::renderer {
 			));
 			references.emplace_back(b.acceleration_structure._ptr);
 		}
-		auto *tlas_ptr = new _details::tlas(std::move(instances), std::move(references), p, name);
+		auto *tlas_ptr = new _details::tlas(std::move(instances), std::move(references), p._ptr, name);
 		auto ptr = std::shared_ptr<_details::tlas>(tlas_ptr, _details::context_managed_deleter(*this));
 		return tlas(std::move(ptr));
 	}
@@ -561,7 +575,7 @@ namespace lotus::renderer {
 			// TODO better name
 			b.memory      = request_buffer(
 				u8"BLAS memory", static_cast<std::uint32_t>(b.build_sizes.acceleration_structure_size),
-				gpu::buffer_usage_mask::acceleration_structure, b.memory_pool
+				gpu::buffer_usage_mask::acceleration_structure, pool(b.memory_pool)
 			)._ptr;
 			_maybe_create_buffer(*b.memory);
 			b.handle      = _device.create_bottom_level_acceleration_structure(
@@ -582,7 +596,7 @@ namespace lotus::renderer {
 			// TODO better name
 			t.memory = request_buffer(
 				t.name, static_cast<std::uint32_t>(t.build_sizes.acceleration_structure_size),
-				gpu::buffer_usage_mask::acceleration_structure, t.memory_pool
+				gpu::buffer_usage_mask::acceleration_structure, pool(t.memory_pool)
 			)._ptr;
 			_maybe_create_buffer(*t.memory);
 			t.handle = _device.create_top_level_acceleration_structure(

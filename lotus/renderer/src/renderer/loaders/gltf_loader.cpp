@@ -13,7 +13,7 @@ namespace lotus::renderer::gltf {
 	/// Loads a data buffer with the given properties.
 	template <typename T> static assets::handle<assets::buffer> _load_data_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask, pool *p
+		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask, const pool &p
 	) {
 		auto id = assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 			"buffer{}|{}|{}({})", accessor_index, expected_components, typeid(T).hash_code(), typeid(T).name()
@@ -104,7 +104,7 @@ namespace lotus::renderer::gltf {
 	/// Wrapper around \ref _load_data_buffer() that loads an \ref assets::geometry::input_buffer.
 	template <typename T> static assets::geometry::input_buffer _load_input_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask, pool *p
+		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask, const pool &p
 	) {
 		assets::geometry::input_buffer result = nullptr;
 		result.data = _load_data_buffer<T>(man, path, model, accessor_index, expected_components, usage_mask, p);
@@ -133,7 +133,7 @@ namespace lotus::renderer::gltf {
 		static_function<void(assets::handle<assets::geometry>)> geometry_loaded_callback,
 		static_function<void(assets::handle<assets::material>)> material_loaded_callback,
 		static_function<void(instance)> instance_loaded_callback,
-		pool *buf_pool, pool *tex_pool
+		const pool &buf_pool, const pool &tex_pool
 	) {
 		tinygltf::TinyGLTF loader;
 		tinygltf::Model model;

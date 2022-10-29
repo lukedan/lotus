@@ -43,7 +43,7 @@ void project::load_resources(
 	lren::assets::manager &man,
 	lren::assets::handle<lren::assets::shader> vert_shader,
 	const std::filesystem::path &root,
-	lren::pool *p,
+	const lren::pool &p,
 	error_callback &on_error
 ) {
 	for (auto &it : passes) {

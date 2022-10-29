@@ -40,6 +40,46 @@ namespace lotus::renderer {
 			};
 			return table[type];
 		}
+
+
+		pool::token pool::allocate(gpu::device &dev, memory::size_alignment size_align) {
+			crash_if(size_align.size > chunk_size);
+			for (std::size_t i = 0; i < _chunks.size(); ++i) {
+				if (auto res = _chunks[i].allocator.allocate(size_align, 0)) {
+					if (debug_log_allocations) {
+						log().debug<u8"Allocating from pool {}, chunk {}, addr {}, size {}">(
+							string::to_generic(name), i, res->first, size_align.size
+						);
+					}
+					return token(static_cast<std::uint32_t>(i), static_cast<std::uint32_t>(res->first));
+				}
+			}
+			std::size_t index = _chunks.size();
+			auto new_chunk_size = std::max(static_cast<std::uint32_t>(size_align.size), chunk_size);
+			auto &chk = _chunks.emplace_back(
+				allocate_memory(new_chunk_size), _chunk::allocator_t::create(new_chunk_size)
+			);
+			if (auto res = chk.allocator.allocate(size_align, 0)) {
+				if (debug_log_allocations) {
+					log().debug<u8"Allocating from pool {}, chunk {}, addr {}, size {}">(
+						string::to_generic(name), index, res->first, size_align.size
+					);
+				}
+				return token(static_cast<std::uint32_t>(index), static_cast<std::uint32_t>(res->first));
+			}
+			crash_if(true); // don't know how this could happen
+			return nullptr;
+		}
+
+		void pool::free(token tok) {
+			crash_if(tok._chunk_index >= _chunks.size());
+			_chunks[tok._chunk_index].allocator.free(tok._address);
+			if (debug_log_allocations) {
+				log().debug<u8"Freeing from pool {}, chunk {}, addr {}">(
+					string::to_generic(name), tok._chunk_index, tok._address
+				);
+			}
+		}
 	}
 
 

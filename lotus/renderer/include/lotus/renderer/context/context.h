@@ -7,10 +7,6 @@
 #include <unordered_map>
 
 #include "lotus/math/matrix.h"
-#include "lotus/utils/index.h"
-#include "lotus/memory/managed_allocator.h"
-#include "lotus/containers/intrusive_linked_list.h"
-#include "lotus/containers/pool.h"
 #include "lotus/system/window.h"
 #include "lotus/gpu/context.h"
 #include "caching.h"
@@ -328,13 +324,18 @@ namespace lotus::renderer {
 		/// Disposes of all resources.
 		~context();
 
+		/// Creates a new memory pool.
+		[[nodiscard]] pool request_pool(
+			std::u8string_view name, gpu::memory_type_index, std::uint32_t chunk_size = pool::default_chunk_size
+		);
 		/// Creates a 2D image with the given properties.
 		[[nodiscard]] image2d_view request_image2d(
-			std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask, pool*
+			std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask,
+			const pool&
 		);
 		/// Creates a buffer with the given size.
 		[[nodiscard]] buffer request_buffer(
-			std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask, pool*
+			std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask, const pool&
 		);
 		/// Creates a swap chain with the given properties.
 		[[nodiscard]] swap_chain request_swap_chain(
@@ -358,16 +359,16 @@ namespace lotus::renderer {
 		);
 		/// Creates a bottom-level acceleration structure for the given input geometry.
 		[[nodiscard]] blas request_blas(
-			std::u8string_view name, std::span<const geometry_buffers_view>, pool*
+			std::u8string_view name, std::span<const geometry_buffers_view>, const pool&
 		);
 		/// \overload
 		[[nodiscard]] blas request_blas(
-			std::u8string_view name, std::initializer_list<const geometry_buffers_view> geometries, pool *p
+			std::u8string_view name, std::initializer_list<const geometry_buffers_view> geometries, const pool &p
 		) {
 			return request_blas(name, { geometries.begin(), geometries.end() }, p);
 		}
 		/// Creates a top-level acceleration structure for the given input instances.
-		[[nodiscard]] tlas request_tlas(std::u8string_view name, std::span<const blas_reference>, pool*);
+		[[nodiscard]] tlas request_tlas(std::u8string_view name, std::span<const blas_reference>, const pool&);
 		/// Creates a cached descriptor set.
 		[[nodiscard]] cached_descriptor_set create_cached_descriptor_set(
 			std::u8string_view name, const resource_set_binding::descriptors&
@@ -894,6 +895,10 @@ namespace lotus::renderer {
 		/// Cleans up all unused resources.
 		void _cleanup();
 
+		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a pool.
+		void _deferred_delete(_details::pool*) {
+			// TODO
+		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a 2D image.
 		void _deferred_delete(_details::image2d *surf) {
 			if (surf->image) {

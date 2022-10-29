@@ -68,11 +68,11 @@ int main(int argc, char **argv) {
 	auto rctx = lren::context::create(gctx, dev_prop, gdev, cmd_queue);
 	auto asset_man = lren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_util);
 
-	lren::pool geom_buffer_pool(u8"Geometry Buffers", rctx.get_device_memory_type_index());
-	lren::pool other_buffer_pool(u8"Miscellaneous Buffers", rctx.get_device_memory_type_index());
-	lren::pool geom_texture_pool(u8"Geometry Textures", rctx.get_device_memory_type_index());
-	lren::pool other_texture_pool(u8"Miscellaneous Textures", rctx.get_device_memory_type_index());
-	lren::pool as_pool(u8"Acceleration Structures", rctx.get_device_memory_type_index());
+	auto geom_buffer_pool = rctx.request_pool(u8"Geometry Buffers", rctx.get_device_memory_type_index());
+	auto other_buffer_pool = rctx.request_pool(u8"Miscellaneous Buffers", rctx.get_device_memory_type_index());
+	auto geom_texture_pool = rctx.request_pool(u8"Geometry Textures", rctx.get_device_memory_type_index());
+	auto other_texture_pool = rctx.request_pool(u8"Miscellaneous Textures", rctx.get_device_memory_type_index());
+	auto as_pool = rctx.request_pool(u8"Acceleration Structures", rctx.get_device_memory_type_index());
 
 	auto mip_gen = lren::mipmap::generator::create(asset_man);
 	lren::gltf::context gltf_ctx(asset_man);
@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
 		geom.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(blases.size()));
 
 		auto &blas = blases.emplace_back(rctx.request_blas(
-			geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }, &as_pool
+			geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }, as_pool
 		));
 		rctx.build_blas(blas, u8"Build BLAS");
 
@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
 				[&](lren::instance inst) {
 					on_instance_loaded(std::move(inst));
 				},
-				&geom_buffer_pool, &geom_texture_pool
+				geom_buffer_pool, geom_texture_pool
 			);
 		} else if (path.extension() == ".fbx") {
 			fbx_ctx.load(
@@ -230,21 +230,21 @@ int main(int argc, char **argv) {
 				[&](lren::instance inst) {
 					on_instance_loaded(std::move(inst));
 				},
-				&geom_buffer_pool, &geom_texture_pool
+				geom_buffer_pool, geom_texture_pool
 			);
 		} else {
 			log().error<u8"Unknown file type: {}">(path.string());
 		}
 	}
 
-	auto tlas = rctx.request_tlas(u8"TLAS", tlas_instances, &as_pool);
+	auto tlas = rctx.request_tlas(u8"TLAS", tlas_instances, as_pool);
 	rctx.build_tlas(tlas, u8"Build TLAS");
 
 	auto geom_buf = rctx.request_buffer(
 		u8"Geometry buffer",
 		sizeof(shader_types::geometry_data) * geometries.size(),
 		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
-		&other_buffer_pool
+		other_buffer_pool
 	);
 	rctx.upload_buffer<shader_types::geometry_data>(geom_buf, { geometries.begin(), geometries.end() }, 0, u8"Upload geometry buffer");
 	auto geom_structured_buf = geom_buf.get_view<shader_types::geometry_data>(0, geometries.size());
@@ -256,7 +256,7 @@ int main(int argc, char **argv) {
 		u8"Material buffer",
 		sizeof(shader_types::material_data) * materials.size(),
 		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
-		&other_buffer_pool
+		other_buffer_pool
 	);
 	rctx.upload_buffer<shader_types::material_data>(mat_buf, materials, 0, u8"Upload material buffer");
 	auto mat_structured_buf = mat_buf.get_view<shader_types::material_data>(0, materials.size());
@@ -268,7 +268,7 @@ int main(int argc, char **argv) {
 		u8"Instance buffer",
 		sizeof(shader_types::instance_data) * instance_data.size(),
 		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
-		&other_buffer_pool
+		other_buffer_pool
 	);
 	rctx.upload_buffer<shader_types::instance_data>(inst_buf, instance_data, 0, u8"Upload instance buffer");
 	auto inst_structured_buf = inst_buf.get_view<shader_types::instance_data>(0, instance_data.size());
@@ -313,7 +313,7 @@ int main(int argc, char **argv) {
 		rt_result = rctx.request_image2d(
 			u8"Raytracing result", window_size, 1, lgpu::format::r32g32b32a32_float,
 			lgpu::image_usage_mask::shader_read_only | lgpu::image_usage_mask::shader_read_write,
-			&other_texture_pool
+			other_texture_pool
 		);
 	};
 	auto on_mouse_move = [&](lsys::window&, lsys::window_events::mouse::move &move) {
@@ -420,12 +420,12 @@ int main(int argc, char **argv) {
 
 			cam = cam_params.into_camera();
 
-			/*auto gbuffer = lren::g_buffer::view::create(rctx, window_size);
+			auto gbuffer = lren::g_buffer::view::create(rctx, window_size, other_texture_pool);
 			{
 				auto pass = gbuffer.begin_pass(rctx);
 				lren::g_buffer::render_instances(pass, asset_man, instances, cam.view_matrix, cam.projection_matrix);
 				pass.end();
-			}*/
+			}
 
 			float tan_half_fovy = tan(cam_params.fov_y_radians * 0.5);
 			auto right_half = cam.unit_right * tan_half_fovy * cam_params.aspect_ratio;
@@ -438,10 +438,11 @@ int main(int argc, char **argv) {
 			globals.t_max = 1000.0f;
 			globals.right = right_half / (window_size[0] * 0.5f);
 			globals.down = -up_half / (window_size[1] * 0.5f);
-			globals.frame_index = frame_index;
+			/*globals.frame_index = frame_index;*/
+			globals.frame_index = 1;
 
 #ifndef NO_SCENES
-			{
+			/*{
 				auto resources = lren::all_resource_bindings::from_unsorted(
 					{
 						lren::resource_set_binding::descriptors({
@@ -484,7 +485,7 @@ int main(int argc, char **argv) {
 					std::move(resources),
 					u8"Trace rays"
 				);
-			}
+			}*/
 #endif
 
 			{
@@ -506,7 +507,7 @@ int main(int argc, char **argv) {
 					lren::all_resource_bindings::from_unsorted({
 						lren::resource_set_binding::descriptors({
 							lren::resource_binding(lren::descriptor_resource::image2d(
-								rt_result, lren::image_binding_type::read_only
+								/*rt_result*/ gbuffer.albedo_glossiness, lren::image_binding_type::read_only
 							), 0),
 							lren::resource_binding(lren::descriptor_resource::sampler(), 1),
 							lren::resource_binding(lren::descriptor_resource::immediate_constant_buffer::create_for(globals), 2)

@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "lotus/logging.h"
+#include "lotus/memory/managed_allocator.h"
 #include "lotus/system/window.h"
 #include "lotus/gpu/descriptors.h"
 #include "lotus/gpu/frame_buffer.h"
@@ -10,7 +11,6 @@
 #include "lotus/gpu/resources.h"
 #include "lotus/renderer/common.h"
 #include "execution.h"
-#include "pool.h"
 
 namespace lotus::renderer {
 	class context;
@@ -262,6 +262,82 @@ namespace lotus::renderer {
 			std::u8string name; ///< The name of this resource.
 		};
 
+		/// A pool that resources can be allocated out of.
+		struct pool : public resource {
+		public:
+			/// A token of an allocation.
+			struct token {
+				friend pool;
+			public:
+				/// Initializes this token to empty.
+				constexpr token(std::nullptr_t) {
+				}
+
+				/// Returns \p true if this represents a valid allocation.
+				[[nodiscard]] constexpr bool is_valid() const {
+					return _chunk_index != invalid_chunk_index;
+				}
+				/// \overload
+				[[nodiscard]] constexpr explicit operator bool() const {
+					return is_valid();
+				}
+			private:
+				/// Index indicating an invalid token.
+				constexpr static std::uint32_t invalid_chunk_index = std::numeric_limits<std::uint32_t>::max();
+
+				std::uint32_t _chunk_index = invalid_chunk_index; ///< The index of the chunk.
+				std::uint32_t _address = 0; ///< Address of the memory block within the chunk.
+
+				/// Initializes all fields of this struct.
+				token(std::uint32_t ch, std::uint32_t addr) : _chunk_index(ch), _address(addr) {
+				}
+			};
+			/// Callback function used to allocate memory chunks.
+			using allocation_function = static_function<gpu::memory_block(std::size_t)>;
+
+			/// Initializes the pool.
+			explicit pool(
+				allocation_function alloc, std::uint32_t chunk_sz, std::u8string_view n
+			) : resource(n), allocate_memory(std::move(alloc)), chunk_size(chunk_sz) {
+			}
+
+			/// Returns \ref resource_type::pool.
+			[[nodiscard]] resource_type get_type() const override {
+				return resource_type::pool;
+			}
+
+			/// Allocates a memory block.
+			[[nodiscard]] token allocate(gpu::device&, memory::size_alignment);
+			/// Frees the given memory block.
+			void free(token);
+
+			/// Given a \ref token, returns the corresponding memory block and its offset within it.
+			[[nodiscare]] std::pair<const gpu::memory_block&, std::uint32_t> get_memory_and_offset(token tk) const {
+				return { _chunks[tk._chunk_index].memory, tk._address };
+			}
+
+			/// Callback for allocating memory blocks.
+			static_function<gpu::memory_block(std::size_t)> allocate_memory;
+			std::uint32_t chunk_size = 0; ///< Chunk size.
+			bool debug_log_allocations = false;
+		private:
+			/// A chunk of GPU memory managed by this pool.
+			struct _chunk {
+				// TODO what data should we include in the allocations?
+				using allocator_t = memory::managed_allocator<int>;
+
+				/// Initializes all fields of this struct.
+				_chunk(gpu::memory_block mem, allocator_t alloc) :
+					memory(std::move(mem)), allocator(std::move(alloc)) {
+				}
+
+				gpu::memory_block memory; ///< The memory block.
+				allocator_t allocator; ///< Allocator.
+			};
+
+			std::deque<_chunk> _chunks; ///< Allocated chunks.
+		};
+
 		/// A 2D image managed by a context.
 		struct image2d : public resource {
 		public:
@@ -272,11 +348,11 @@ namespace lotus::renderer {
 				gpu::format fmt,
 				gpu::image_tiling tiling,
 				gpu::image_usage_mask usages,
-				pool *p,
+				std::shared_ptr<pool> p,
 				std::uint64_t i,
 				std::u8string_view n
 			) :
-				resource(n), image(nullptr), memory_pool(p), memory(nullptr),
+				resource(n), image(nullptr), memory_pool(std::move(p)), memory(nullptr),
 				current_usages(mips, image_access::initial()), size(sz), num_mips(mips),
 				format(fmt), tiling(tiling), usages(usages), id(i) {
 			}
@@ -287,7 +363,7 @@ namespace lotus::renderer {
 			}
 
 			gpu::image2d image; ///< Image for the surface.
-			pool *memory_pool = nullptr; ///< Memory pool to allocate this image out of.
+			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this image out of.
 			pool::token memory; ///< Allocated memory for this image.
 			
 			std::vector<image_access> current_usages; ///< Current usage of each mip of the surface.
@@ -310,8 +386,11 @@ namespace lotus::renderer {
 		/// A buffer.
 		struct buffer : public resource {
 			/// Initializes this buffer to empty.
-			buffer(std::uint32_t sz, gpu::buffer_usage_mask usg, pool *p, std::uint64_t i, std::u8string_view n) :
-				resource(n), data(nullptr), memory_pool(p), memory(nullptr),
+			buffer(
+				std::uint32_t sz, gpu::buffer_usage_mask usg, std::shared_ptr<pool> p,
+				std::uint64_t i, std::u8string_view n
+			) :
+				resource(n), data(nullptr), memory_pool(std::move(p)), memory(nullptr),
 				access(buffer_access::initial()), size(sz), usages(usg), id(i) {
 			}
 
@@ -321,7 +400,7 @@ namespace lotus::renderer {
 			}
 
 			gpu::buffer data; ///< The buffer.
-			pool *memory_pool = nullptr; ///< Memory pool to allocate this buffer out of.
+			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this buffer out of.
 			pool::token memory; ///< Allocated memory for this image.
 
 			/// Current usage of this buffer.
@@ -427,9 +506,9 @@ namespace lotus::renderer {
 		struct blas : public resource {
 		public:
 			/// Initializes this structure.
-			blas(std::vector<geometry_buffers_view> in, pool *p, std::u8string_view n) :
-				resource(n), handle(nullptr), geometry(nullptr), build_sizes(uninitialized), memory_pool(p),
-				input(std::move(in)) {
+			blas(std::vector<geometry_buffers_view> in, std::shared_ptr<pool> p, std::u8string_view n) :
+				resource(n), handle(nullptr), geometry(nullptr), build_sizes(uninitialized),
+				memory_pool(std::move(p)), input(std::move(in)) {
 			}
 
 			/// Returns \ref resource_type::blas.
@@ -444,7 +523,7 @@ namespace lotus::renderer {
 			gpu::bottom_level_acceleration_structure_geometry geometry;
 			/// Memory requirements for the acceleration structure.
 			gpu::acceleration_structure_build_sizes build_sizes;
-			pool *memory_pool = nullptr; ///< Memory pool to allocate the BLAS out of.
+			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate the BLAS out of.
 
 			std::vector<geometry_buffers_view> input; ///< Build input.
 
@@ -458,11 +537,11 @@ namespace lotus::renderer {
 			tlas(
 				std::vector<gpu::instance_description> in,
 				std::vector<std::shared_ptr<blas>> refs,
-				pool *p,
+				std::shared_ptr<pool> p,
 				std::u8string_view n
 			) :
 				resource(n), handle(nullptr), input_data(nullptr), build_sizes(uninitialized),
-				memory_pool(p), input_data_token(nullptr),
+				memory_pool(std::move(p)), input_data_token(nullptr),
 				input(std::move(in)), input_references(std::move(refs)) {
 			}
 
@@ -480,7 +559,7 @@ namespace lotus::renderer {
 			/// Memory requirements for the acceleration structure.
 			gpu::acceleration_structure_build_sizes build_sizes;
 			/// Memory pool to allocate this TLAS out of. Input data is also allocated out of this pool.
-			pool *memory_pool = nullptr;
+			std::shared_ptr<pool> memory_pool;
 			pool::token input_data_token; ///< Token for the input data buffer.
 
 			std::vector<gpu::instance_description> input; ///< Input data.
@@ -590,6 +669,26 @@ namespace lotus::renderer {
 		std::shared_ptr<Resource> _ptr; ///< Pointer to the resource.
 	};
 
+
+	/// A reference of a resource pool.
+	struct pool : public basic_resource_handle<_details::pool> {
+		friend context;
+	public:
+		constexpr static std::uint32_t default_chunk_size = 100 * 1024 * 1024; ///< Default chunk size is 100 MiB.
+
+		/// Initializes this handle to empty.
+		pool(std::nullptr_t) : basic_resource_handle(nullptr) {
+		}
+
+		/// Returns a reference to a \p bool controlling whether allocations should be logged.
+		[[nodiscard]] bool &debug_log_allocations() const {
+			return _ptr->debug_log_allocations;
+		}
+	private:
+		/// Initializes the base handle.
+		explicit pool(std::shared_ptr<_details::pool> p) : basic_resource_handle(std::move(p)) {
+		}
+	};
 
 	/// A reference of a view into a 2D image.
 	struct image2d_view : public basic_resource_handle<_details::image2d> {

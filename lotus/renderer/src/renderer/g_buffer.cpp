@@ -7,7 +7,7 @@
 #include "lotus/renderer/shader_types.h"
 
 namespace lotus::renderer::g_buffer {
-	view view::create(context &ctx, cvec2s size, pool *p) {
+	view view::create(context &ctx, cvec2s size, const pool &p) {
 		view result = nullptr;
 		result.albedo_glossiness = ctx.request_image2d(u8"GBuffer Albedo-glossiness", size, 1, albedo_glossiness_format, gpu::image_usage_mask::color_render_target | gpu::image_usage_mask::shader_read_only, p);
 		result.normal            = ctx.request_image2d(u8"GBuffer Normal",            size, 1, normal_format,            gpu::image_usage_mask::color_render_target | gpu::image_usage_mask::shader_read_only, p);

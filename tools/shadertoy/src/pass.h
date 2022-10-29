@@ -111,7 +111,9 @@ public:
 	[[nodiscard]] static std::optional<pass> load(const nlohmann::json&, error_callback&);
 
 	/// Loads all input images.
-	void load_input_images(lren::assets::manager&, const std::filesystem::path &root, lren::pool*, error_callback&);
+	void load_input_images(
+		lren::assets::manager&, const std::filesystem::path &root, const lren::pool&, error_callback&
+	);
 	/// Loads the shader and uses its reflection data to initialize the pipeline.
 	void load_shader(
 		lren::assets::manager&, lren::assets::handle<lren::assets::shader> vert_shader,

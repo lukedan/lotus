@@ -26,7 +26,7 @@ public:
 		lren::assets::manager&,
 		lren::assets::handle<lren::assets::shader> vert_shader,
 		const std::filesystem::path &root,
-		lren::pool*,
+		const lren::pool&,
 		error_callback&
 	);
 

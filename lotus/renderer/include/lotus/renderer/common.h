@@ -60,6 +60,7 @@ namespace lotus::renderer {
 
 	/// The type of a resource.
 	enum class resource_type {
+		pool,                     ///< A memory pool.
 		image2d,                  ///< A 2D image.
 		buffer,                   ///< A buffer.
 		swap_chain,               ///< A swap chain.

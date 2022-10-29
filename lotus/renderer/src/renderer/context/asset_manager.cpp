@@ -159,7 +159,7 @@ namespace lotus::renderer::assets {
 	}
 
 
-	[[nodiscard]] handle<image2d> manager::get_image2d(const identifier &id, pool *p) {
+	[[nodiscard]] handle<image2d> manager::get_image2d(const identifier &id, const pool &p) {
 		if (auto it = _images.find(id); it != _images.end()) {
 			if (auto ptr = it->second.lock()) {
 				return handle<image2d>(std::move(ptr));
@@ -177,7 +177,7 @@ namespace lotus::renderer::assets {
 	}
 
 	handle<buffer> manager::create_buffer(
-		identifier id, std::span<const std::byte> data, gpu::buffer_usage_mask usages, pool *p
+		identifier id, std::span<const std::byte> data, gpu::buffer_usage_mask usages, const pool &p
 	) {
 		buffer buf = nullptr;
 		buf.data = _context.request_buffer(

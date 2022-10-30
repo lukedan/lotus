@@ -218,7 +218,7 @@ namespace lotus::renderer {
 		auto *dst = _device.map_buffer(staging_buffer.data, 0, 0);
 		for (std::uint32_t y = 0; y < num_fragments[1]; ++y) {
 			std::memcpy(
-				dst + y * staging_buffer.row_pitch.get_pitch_in_bytes(),
+				dst + y * staging_buffer.meta.get_pitch_in_bytes(),
 				src + y * num_fragments[0] * bytes_per_fragment,
 				num_fragments[0] * bytes_per_fragment
 			);
@@ -390,14 +390,14 @@ namespace lotus::renderer {
 		_cmd_alloc(_device.create_command_allocator()),
 		_transient_cmd_alloc(_device.create_command_allocator()),
 		_descriptor_pool(_device.create_descriptor_pool({
-			gpu::descriptor_range::create(gpu::descriptor_type::acceleration_structure, 1024),
-			gpu::descriptor_range::create(gpu::descriptor_type::constant_buffer, 1024),
-			gpu::descriptor_range::create(gpu::descriptor_type::read_only_buffer, 1024),
-			gpu::descriptor_range::create(gpu::descriptor_type::read_only_image, 1024),
-			gpu::descriptor_range::create(gpu::descriptor_type::read_write_buffer, 1024),
-			gpu::descriptor_range::create(gpu::descriptor_type::read_write_image, 1024),
+			gpu::descriptor_range::create(gpu::descriptor_type::acceleration_structure, 10240),
+			gpu::descriptor_range::create(gpu::descriptor_type::constant_buffer, 10240),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_only_buffer, 10240),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_only_image, 10240),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_write_buffer, 10240),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_write_image, 10240),
 			gpu::descriptor_range::create(gpu::descriptor_type::sampler, 1024),
-		}, 1024)), // TODO proper numbers
+		}, 10240)), // TODO proper numbers
 		_batch_semaphore(_device.create_timeline_semaphore(0)),
 		_adapter_properties(adap_prop),
 		_cache(_device),
@@ -963,11 +963,8 @@ namespace lotus::renderer {
 		auto mip_level = dest._mip_levels.minimum;
 
 		cvec2s size = dest._image->size;
-		size[0] >>= mip_level;
-		size[1] >>= mip_level;
-		const auto &format_props = gpu::format_properties::get(dest._image->format);
-		size[0] = memory::align_up(size[0], format_props.fragment_size[0]);
-		size[1] = memory::align_up(size[1], format_props.fragment_size[1]);
+		size[0] = std::max<std::size_t>(1, size[0] >> mip_level);
+		size[1] = std::max<std::size_t>(1, size[1] >> mip_level);
 
 		ectx.transitions.stage_transition(
 			img.source.data,
@@ -985,7 +982,7 @@ namespace lotus::renderer {
 		);
 		ectx.flush_transitions();
 		ectx.get_command_list().copy_buffer_to_image(
-			img.source.data, 0, img.source.row_pitch, aab2s::create_from_min_max(zero, size),
+			img.source.data, 0, img.source.meta,
 			dest._image->image, gpu::subresource_index::create_color(mip_level, 0), zero
 		);
 	}

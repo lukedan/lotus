@@ -71,29 +71,29 @@ namespace lotus::gpu {
 	class staging_buffer {
 	public:
 		/// Initializes the buffer to empty without initializing \ref row_pitch or \ref total_size.
-		staging_buffer(std::nullptr_t) : data(nullptr), row_pitch(uninitialized) {
+		staging_buffer(std::nullptr_t) : data(nullptr), meta(uninitialized) {
 		}
 
-		/// An opaque token used by backends to specify the row pitch value of the image data.
-		struct pitch : public backend::staging_buffer_pitch {
+		/// An opaque token used by backends to record additional metadata of the image.
+		struct metadata : public backend::staging_buffer_metadata {
 			friend device;
 		public:
 			/// No initialization.
-			pitch(uninitialized_t) : backend::staging_buffer_pitch(uninitialized) {
+			metadata(uninitialized_t) : backend::staging_buffer_metadata(uninitialized) {
 			}
 
 			/// Returns the pitch in bytes.
 			std::size_t get_pitch_in_bytes() const {
-				return backend::staging_buffer_pitch::get_pitch_in_bytes();
+				return backend::staging_buffer_metadata::get_pitch_in_bytes();
 			}
 		private:
 			/// Initializes the base class object.
-			pitch(backend::staging_buffer_pitch p) : backend::staging_buffer_pitch(std::move(p)) {
+			metadata(backend::staging_buffer_metadata p) : backend::staging_buffer_metadata(std::move(p)) {
 			}
 		};
 
 		buffer data; ///< The actual buffer.
-		pitch row_pitch; ///< Row pitch.
+		metadata meta; ///< Additional metadata.
 		std::size_t total_size; ///< Total size of \ref data.
 	};
 

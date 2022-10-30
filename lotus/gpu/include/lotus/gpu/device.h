@@ -346,11 +346,11 @@ namespace lotus::gpu {
 			buffer_usage_mask allowed_usages
 		) {
 			staging_buffer result = nullptr;
-			auto [buf, pitch, size] = backend::device::create_committed_staging_buffer(
+			auto [buf, meta, size] = backend::device::create_committed_staging_buffer(
 				width, height, fmt, mem_type, allowed_usages
 			);
 			result.data = std::move(buf);
-			result.row_pitch = pitch;
+			result.meta = meta;
 			result.total_size = size;
 			return result;
 		}

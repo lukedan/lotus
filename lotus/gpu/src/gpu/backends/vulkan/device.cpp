@@ -740,7 +740,7 @@ namespace lotus::gpu::backends::vulkan {
 		return result;
 	}
 
-	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_staging_buffer(
+	std::tuple<buffer, staging_buffer_metadata, std::size_t> device::create_committed_staging_buffer(
 		std::size_t width, std::size_t height, format fmt, memory_type_index mem_id,
 		buffer_usage_mask allowed_usage
 	) {
@@ -763,11 +763,11 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		buffer result_buf = create_committed_buffer(layout.size, mem_id, allowed_usage);
-		const auto &format_props = format_properties::get(fmt);
-		std::size_t fragments_width = (width + format_props.fragment_size[0] - 1) / format_props.fragment_size[0];
-		staging_buffer_pitch result_pitch = uninitialized;
-		result_pitch._pixels = static_cast<std::uint32_t>(fragments_width) * format_props.fragment_size[0];
-		result_pitch._bytes = static_cast<std::uint32_t>(fragments_width * format_props.bytes_per_fragment);
+
+		staging_buffer_metadata result_pitch = uninitialized;
+		result_pitch._size   = cvec2s(width, height).into<std::uint32_t>();
+		result_pitch._bytes  = static_cast<std::uint32_t>(layout.rowPitch);
+		result_pitch._format = fmt;
 
 		return std::make_tuple(std::move(result_buf), result_pitch, layout.size);
 	}
@@ -1355,14 +1355,21 @@ namespace lotus::gpu::backends::vulkan {
 
 		std::vector<const char*> extensions{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+			VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
+
+			// raytracing related
 			VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 			VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 			VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-			VK_KHR_SPIRV_1_4_EXTENSION_NAME,
 			VK_KHR_RAY_QUERY_EXTENSION_NAME,
-			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
+
+			// pageable heap
 			VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
 			VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
+
+			// HLSL to SPIR-V
+			// getting ErrorExtensionNotPresent with these, but the program runs fine
 			/*VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
@@ -1383,7 +1390,7 @@ namespace lotus::gpu::backends::vulkan {
 				}
 			}
 			if (!found) {
-				log().error<u8"Extension {} not found. Device creation may fail.">(ext_required);
+				log().warn<u8"Extension {} not found. Device creation may fail.">(ext_required);
 			}
 		}
 

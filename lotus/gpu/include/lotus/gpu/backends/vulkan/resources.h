@@ -76,13 +76,13 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	};
 
-	/// Stores number of pixels in a row and the number of bytes for each pixel.
-	struct staging_buffer_pitch {
+	/// Stores additional information about a staging buffer.
+	struct staging_buffer_metadata {
 		friend command_list;
 		friend device;
 	public:
 		/// No initialization.
-		staging_buffer_pitch(uninitialized_t) {
+		staging_buffer_metadata(uninitialized_t) : _size(uninitialized) {
 		}
 	protected:
 		/// Returns \ref _bytes.
@@ -90,8 +90,9 @@ namespace lotus::gpu::backends::vulkan {
 			return _bytes;
 		}
 	private:
-		std::uint32_t _pixels; ///< The number of pixels;
-		std::uint32_t _bytes; ///< The number of bytes that correspond to \ref _pixels.
+		cvec2u32 _size; ///< Size of the texture in pixels.
+		std::uint32_t _bytes; ///< The number of bytes between two consecutive rows.
+		gpu::format _format; ///< Image data format.
 	};
 
 	namespace _details {

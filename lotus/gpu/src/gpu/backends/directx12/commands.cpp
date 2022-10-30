@@ -273,7 +273,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void command_list::copy_buffer_to_image(
-		const buffer &from, std::size_t byte_offset, staging_buffer_pitch row_pitch, aab2s region,
+		const buffer &from, std::size_t byte_offset, staging_buffer_metadata meta,
 		image2d &to, subresource_index subresource, cvec2s off
 	) {
 		D3D12_TEXTURE_COPY_LOCATION dest = {};
@@ -284,20 +284,24 @@ namespace lotus::gpu::backends::directx12 {
 		source.pResource = from._buffer.Get();
 		source.Type      = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
 		source.PlacedFootprint.Offset = static_cast<UINT64>(byte_offset);
-		cvec2s size = region.signed_size();
+		const auto &fmt_props = format_properties::get(meta._format);
+		cvec2s aligned_size(
+			memory::align_up(meta._size[0], fmt_props.fragment_size[0]),
+			memory::align_up(meta._size[1], fmt_props.fragment_size[1])
+		);
 		source.PlacedFootprint.Footprint.Format   = to._image->GetDesc().Format;
-		source.PlacedFootprint.Footprint.Width    = static_cast<UINT>(size[0]);
-		source.PlacedFootprint.Footprint.Height   = static_cast<UINT>(size[1]);
+		source.PlacedFootprint.Footprint.Width    = static_cast<UINT>(aligned_size[0]);
+		source.PlacedFootprint.Footprint.Height   = static_cast<UINT>(aligned_size[1]);
 		source.PlacedFootprint.Footprint.Depth    = 1;
-		source.PlacedFootprint.Footprint.RowPitch = row_pitch._pitch;
+		source.PlacedFootprint.Footprint.RowPitch = meta._pitch;
 		D3D12_BOX src_box = {};
 		src_box.left   = static_cast<UINT>(off[0]);
 		src_box.top    = static_cast<UINT>(off[1]);
-		src_box.right  = static_cast<UINT>(size[0]);
-		src_box.bottom = static_cast<UINT>(size[1]);
+		src_box.right  = static_cast<UINT>(aligned_size[0]);
+		src_box.bottom = static_cast<UINT>(aligned_size[1]);
 		src_box.back   = 1;
 		_list->CopyTextureRegion(
-			&dest, static_cast<UINT>(region.min[0]), static_cast<UINT>(region.min[1]), 0, &source, &src_box
+			&dest, static_cast<UINT>(off[0]), static_cast<UINT>(off[1]), 0, &source, &src_box
 		);
 	}
 

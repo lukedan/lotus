@@ -49,6 +49,8 @@ namespace lotus::system::platforms::windows {
 		/// Returns the result of \p GetClientRect().
 		[[nodiscard]] cvec2s get_size() const;
 
+		void set_title(std::u8string_view);
+
 		/// Returns \ref _hwnd.
 		[[nodiscard]] native_handle_t get_native_handle() const {
 			return _hwnd;

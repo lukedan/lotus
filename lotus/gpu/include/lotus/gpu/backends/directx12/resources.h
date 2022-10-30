@@ -40,13 +40,13 @@ namespace lotus::gpu::backends::directx12 {
 	};
 
 
-	/// Contains the byte pitch of a buffer.
-	struct staging_buffer_pitch {
+	/// Stores additional information about a staging buffer.
+	struct staging_buffer_metadata {
 		friend command_list;
 		friend device;
 	public:
 		/// No initialization.
-		staging_buffer_pitch(uninitialized_t) {
+		staging_buffer_metadata(uninitialized_t) : _size(uninitialized) {
 		}
 	protected:
 		/// Returns \ref _pitch.
@@ -55,6 +55,8 @@ namespace lotus::gpu::backends::directx12 {
 		}
 	private:
 		UINT _pitch; ///< Pitch in bytes.
+		cvec2u32 _size; ///< Size of the buffer in pixels.
+		gpu::format _format; ///< Format of the buffer.
 	};
 
 

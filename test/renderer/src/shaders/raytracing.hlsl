@@ -183,7 +183,11 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	float xi2 = rd(payload.bounces * 2 + 3, globals.frame_index) * 2.0f * pi;
 #endif
 	float2 xy = sqrt(xi1) * float2(cos(xi2), sin(xi2));
+#if 1
+	float3 dir = normalize(hit.geometric_normal);
+#else
 	float3 dir = normalize(hit.normal);
+#endif
 	if (dot(WorldRayDirection(), dir) > 0.0f) {
 		dir = -dir;
 	}
@@ -197,6 +201,7 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	ray.TMin = globals.t_min;
 	ray.Direction = dir;
 	ray.TMax = globals.t_max;
+	payload.light *= 0.8f;
 	TraceRay(rtas, 0, 0xFF, 0, 0, 0, ray, payload);
 	return;
 #endif

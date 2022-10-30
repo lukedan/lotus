@@ -18,7 +18,6 @@ function(add_lotus_renderer_target BACKEND)
 			"include/lotus/renderer/context/caching.h"
 			"include/lotus/renderer/context/context.h"
 			"include/lotus/renderer/context/execution.h"
-			"include/lotus/renderer/context/pool.h"
 			"include/lotus/renderer/context/resource_bindings.h"
 			"include/lotus/renderer/context/resources.h"
 

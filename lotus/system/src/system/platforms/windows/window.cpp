@@ -44,6 +44,13 @@ namespace lotus::system::platforms::windows {
 		return cvec2s(static_cast<std::size_t>(rect.right), static_cast<std::size_t>(rect.bottom));
 	}
 
+	void window::set_title(std::u8string_view title) {
+		auto bookmark = memory::stack_allocator::for_this_thread().bookmark();
+		auto alloc = bookmark.create_std_allocator<TCHAR>();
+		auto title_tstring = _details::u8string_to_tstring(title, alloc);
+		_details::assert_win32(SetWindowText(_hwnd, title_tstring.c_str()));
+	}
+
 	window::window(HWND hwnd) : _hwnd(hwnd) {
 		_update_address();
 	}

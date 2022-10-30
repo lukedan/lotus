@@ -199,22 +199,19 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::copy_buffer_to_image(
-		const buffer &from, std::size_t byte_offset, staging_buffer_pitch row_pitch, aab2s region,
+		const buffer &from, std::size_t byte_offset, staging_buffer_metadata meta,
 		image2d &to, subresource_index subresource, cvec2s offset
 	) {
-		cvec2s size = region.signed_size();
+		const auto &props = format_properties::get(meta._format);
+		crash_if(offset[0] % props.fragment_size[0] != 0 || offset[1] % props.fragment_size[1] != 0);
 		vk::BufferImageCopy copy;
 		copy
-			.setBufferOffset(
-				byte_offset +
-				offset[1] * row_pitch._bytes + // y
-				offset[0] * (row_pitch._bytes / row_pitch._pixels) // x
-			)
-			.setBufferRowLength(row_pitch._pixels)
-			.setBufferImageHeight(static_cast<std::uint32_t>(size[1]))
+			.setBufferOffset(byte_offset)
+			.setBufferRowLength(memory::align_up(meta._size[0], props.fragment_size[0]))
+			.setBufferImageHeight(memory::align_up(meta._size[1], props.fragment_size[1]))
 			.setImageSubresource(_details::conversions::to_image_subresource_layers(subresource))
-			.setImageOffset(vk::Offset3D(_details::conversions::to_offset_2d(region.min), 0))
-			.setImageExtent(vk::Extent3D(_details::conversions::to_extent_2d(size), 1));
+			.setImageOffset(vk::Offset3D(_details::conversions::to_offset_2d(offset), 0))
+			.setImageExtent(vk::Extent3D(_details::conversions::to_extent_2d(meta._size), 1));
 		_buffer.copyBufferToImage(from._buffer, to._image, vk::ImageLayout::eTransferDstOptimal, copy);
 	}
 

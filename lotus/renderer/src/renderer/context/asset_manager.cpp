@@ -284,15 +284,6 @@ namespace lotus::renderer::assets {
 				);
 				tex.highest_mip_loaded = 0;
 
-				if (
-					j.size[0] % format_props.fragment_size[0] != 0 ||
-					j.size[1] % format_props.fragment_size[1] != 0
-				) {
-					log().warn<u8"Image size not a multiple of block size: {}, {} x {}">(
-						j.input.path.string(), j.size[0], j.size[1]
-					);
-				}
-
 				// upload image
 				_context.upload_image(tex.image, j.data, u8"Upload image"); // TODO better label
 				j.destroy();

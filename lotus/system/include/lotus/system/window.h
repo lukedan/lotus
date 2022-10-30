@@ -47,6 +47,11 @@ namespace lotus::system {
 			return platform::window::get_size();
 		}
 
+		/// Sets the title of this window.
+		void set_title(std::u8string_view title) {
+			platform::window::set_title(title);
+		}
+
 		/// Returns the native handle of this window.
 		[[nodiscard]] native_handle_t get_native_handle() const {
 			return platform::window::get_native_handle();

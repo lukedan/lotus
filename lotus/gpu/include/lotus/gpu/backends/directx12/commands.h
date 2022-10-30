@@ -75,7 +75,7 @@ namespace lotus::gpu::backends::directx12 {
 		);
 		/// Calls \p ID3D12GraphicsCommandList::CopyTextureRegion().
 		void copy_buffer_to_image(
-			const buffer &from, std::size_t byte_offset, staging_buffer_pitch, aab2s region,
+			const buffer &from, std::size_t byte_offset, staging_buffer_metadata,
 			image2d &to, subresource_index subresource, cvec2s off
 		);
 

@@ -636,7 +636,7 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
-	std::tuple<buffer, staging_buffer_pitch, std::size_t> device::create_committed_staging_buffer(
+	std::tuple<buffer, staging_buffer_metadata, std::size_t> device::create_committed_staging_buffer(
 		std::size_t width, std::size_t height, format fmt, memory_type_index mem_id, buffer_usage_mask all_usages
 	) {
 		// TODO will different usages affect size calculation?
@@ -649,9 +649,11 @@ namespace lotus::gpu::backends::directx12 {
 		assert(footprint.Offset == 0); // assume we always start immediatly - no reason not to
 
 		buffer result = create_committed_buffer(static_cast<std::size_t>(total_bytes), mem_id, all_usages);
-		staging_buffer_pitch result_pitch = uninitialized;
-		result_pitch._pitch = footprint.Footprint.RowPitch;
-		return std::make_tuple(std::move(result), result_pitch, total_bytes);
+		staging_buffer_metadata result_meta = uninitialized;
+		result_meta._pitch  = footprint.Footprint.RowPitch;
+		result_meta._size   = cvec2s(width, height).into<std::uint32_t>();
+		result_meta._format = fmt;
+		return std::make_tuple(std::move(result), result_meta, total_bytes);
 	}
 
 	memory::size_alignment device::get_image_memory_requirements(

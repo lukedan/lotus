@@ -105,7 +105,9 @@ int main(int argc, char **argv) {
 		auto &blas = blases.emplace_back(rctx.request_blas(
 			geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }, as_pool
 		));
+#ifndef DISABLE_ALL_RT
 		rctx.build_blas(blas, u8"Build BLAS");
+#endif
 
 		auto &inst = geometries.emplace_back();
 		if (geom->index_buffer) {
@@ -237,8 +239,10 @@ int main(int argc, char **argv) {
 		}
 	}
 
+#ifndef DISABLE_ALL_RT
 	auto tlas = rctx.request_tlas(u8"TLAS", tlas_instances, as_pool);
 	rctx.build_tlas(tlas, u8"Build TLAS");
+#endif
 
 	auto geom_buf = rctx.request_buffer(
 		u8"Geometry buffer",
@@ -274,7 +278,9 @@ int main(int argc, char **argv) {
 	auto inst_structured_buf = inst_buf.get_view<shader_types::instance_data>(0, instance_data.size());
 #endif
 
+#ifndef DISABLE_ALL_RT
 	auto rt_shader = asset_man.compile_shader_library_in_filesystem("src/shaders/raytracing.hlsl", {});
+#endif
 
 	auto blit_vs = asset_man.compile_shader_in_filesystem(
 		asset_man.get_shader_library_path() / "fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs", {}
@@ -435,14 +441,14 @@ int main(int argc, char **argv) {
 			globals.camera_position = cam_params.position;
 			globals.t_min = 0.001f;
 			globals.top_left = cam.unit_forward - right_half + up_half;
-			globals.t_max = 1000.0f;
+			globals.t_max = std::numeric_limits<float>::max();
 			globals.right = right_half / (window_size[0] * 0.5f);
 			globals.down = -up_half / (window_size[1] * 0.5f);
 			/*globals.frame_index = frame_index;*/
 			globals.frame_index = 1;
 
-#ifndef NO_SCENES
-			/*{
+#ifndef DISABLE_ALL_RT
+			{
 				auto resources = lren::all_resource_bindings::from_unsorted(
 					{
 						lren::resource_set_binding::descriptors({
@@ -485,7 +491,7 @@ int main(int argc, char **argv) {
 					std::move(resources),
 					u8"Trace rays"
 				);
-			}*/
+			}
 #endif
 
 			{
@@ -527,7 +533,9 @@ int main(int argc, char **argv) {
 
 		auto end = std::chrono::high_resolution_clock::now();
 
-		log().debug<"CPU frame {}: {} ms">(frame_index, std::chrono::duration<float, std::milli>(end - start).count());
+		wnd.set_title(lstr::assume_utf8(std::format(
+			"Frame {}, Frame Time: {}", frame_index, std::chrono::duration<float, std::milli>(end - start).count()
+		)));
 	}
 
 	return 0;

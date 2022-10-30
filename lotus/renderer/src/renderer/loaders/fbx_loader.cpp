@@ -217,8 +217,8 @@ namespace lotus::renderer::fbx {
 				int poly_count = mesh->GetPolygonCount();
 				for (int i_poly = 0; i_poly < poly_count; ++i_poly) {
 					int poly_size = mesh->GetPolygonSize(i_poly);
-					if (poly_size != 3) {
-						log().error<u8"Mesh {} polygon {} is not a triangle, skipping">(mesh->GetName(), i_poly);
+					if (poly_size < 3) {
+						log().error<u8"Mesh {} polygon {} is degenerate, skipping">(mesh->GetName(), i_poly);
 						continue;
 					}
 
@@ -227,34 +227,44 @@ namespace lotus::renderer::fbx {
 						mesh_indices.resize(material_index + 1);
 					}
 
-					for (int i_pt = 0; i_pt < poly_size; ++i_pt) {
+					auto get_index = [mesh, i_poly, vert_count](int i_pt) -> std::uint32_t {
 						int i_vert = mesh->GetPolygonVertex(i_poly, i_pt);
 						if (i_vert < 0 || i_vert >= vert_count) {
 							log().error<u8"Invalid vertex index for mesh {}, polygon {}, vertex {}">(
 								mesh->GetName(), i_poly, i_pt
 							);
-							i_vert = 0;
+							return 0;
 						}
-						mesh_indices[material_index].emplace_back(static_cast<std::uint32_t>(i_vert));
+						return static_cast<std::uint32_t>(i_vert);
+					};
+
+					std::uint32_t i0 = get_index(0);
+					std::uint32_t i_prev = get_index(1);
+					for (int i_pt = 2; i_pt < poly_size; ++i_pt) {
+						std::uint32_t i_current = get_index(i_pt);
+						mesh_indices[material_index].emplace_back(i0);
+						mesh_indices[material_index].emplace_back(i_prev);
+						mesh_indices[material_index].emplace_back(i_current);
+						i_prev = i_current;
 					}
 				}
 			} else {
 				int poly_count = mesh->GetPolygonCount();
 				for (int i_poly = 0; i_poly < poly_count; ++i_poly) {
 					int poly_size = mesh->GetPolygonSize(i_poly);
-					if (poly_size != 3) {
-						log().error<u8"Mesh {} polygon {} is not a triangle, skipping">(mesh->GetName(), i_poly);
+					if (poly_size < 3) {
+						log().error<u8"Mesh {} polygon {} is degenerate, skipping">(mesh->GetName(), i_poly);
 						continue;
 					}
 
 					int material_index = polygon_materials ? polygon_materials->GetAt(i_poly) : 0;
-					if (material_index + 1 > mesh_positions.size()) {
-						mesh_positions.emplace_back();
-						mesh_normals.emplace_back();
-						mesh_uvs.emplace_back();
+					if (material_index >= mesh_positions.size()) {
+						mesh_positions.resize(material_index + 1);
+						mesh_normals.resize(material_index + 1);
+						mesh_uvs.resize(material_index + 1);
 					}
 
-					for (int i_pt = 0; i_pt < poly_size; ++i_pt) {
+					auto append_vertex = [&](int i_pt) {
 						int i_vert = mesh->GetPolygonVertex(i_poly, i_pt);
 						fbxsdk::FbxVector4 v;
 						if (i_vert < 0 || i_vert >= vert_count) {
@@ -284,6 +294,12 @@ namespace lotus::renderer::fbx {
 							}  
 							mesh_uvs[material_index].emplace_back(cvec2d(uv[0], 1.0 - uv[1]).into<float>());
 						}
+					};
+
+					for (int i_pt = 2; i_pt < poly_size; ++i_pt) {
+						append_vertex(0);
+						append_vertex(i_pt - 1);
+						append_vertex(i_pt);
 					}
 				}
 			}
@@ -470,16 +486,13 @@ namespace lotus::renderer::fbx {
 			}
 			return nullptr;
 		};
-
-		std::unordered_map<fbxsdk::FbxUInt64, assets::handle<assets::material>> materials;
-		int mat_count = scene->GetMaterialCount();
-		for (int i = 0; i < mat_count; ++i) {
-			auto *mat = scene->GetMaterial(i);
-			auto mat_data = std::make_unique<material_data>(_asset_manager);
-			if (auto diffuse = mat->FindProperty("DiffuseColor"); diffuse.IsValid()) {
-				if (auto *tex = find_texture(diffuse)) {
+		auto find_property_texture = [&find_texture, &images](
+			fbxsdk::FbxSurfaceMaterial *mat, const char *name
+		) -> assets::handle<assets::image2d> {
+			if (auto prop = mat->FindProperty(name); prop.IsValid()) {
+				if (auto *tex = find_texture(prop)) {
 					if (auto tex_it = images.find(tex->GetUniqueID()); tex_it != images.end()) {
-						mat_data->albedo_texture = tex_it->second;
+						return tex_it->second;
 					} else {
 						log().error<u8"Material {}({}) referencing unknown texture {}({})">(
 							mat->GetName(), mat->GetUniqueID(), tex->GetName(), tex->GetUniqueID()
@@ -487,6 +500,19 @@ namespace lotus::renderer::fbx {
 					}
 				}
 			}
+			return nullptr;
+		};
+
+		std::unordered_map<fbxsdk::FbxUInt64, assets::handle<assets::material>> materials;
+		int mat_count = scene->GetMaterialCount();
+		for (int i = 0; i < mat_count; ++i) {
+			auto *mat = scene->GetMaterial(i);
+			auto mat_data = std::make_unique<material_data>(_asset_manager);
+
+			// TODO can't use the static names provided by the library - link errors
+			mat_data->albedo_texture = find_property_texture(mat, "DiffuseColor");
+			mat_data->normal_texture = find_property_texture(mat, "NormalMap");
+			mat_data->properties_texture = find_property_texture(mat, "ShininessExponent");
 			if (auto diffuse = mat->FindProperty("DiffuseFactor"); diffuse.IsValid()) {
 				// TODO
 			}
@@ -510,36 +536,38 @@ namespace lotus::renderer::fbx {
 		if (instance_loaded_callback) {
 			std::vector<std::pair<fbxsdk::FbxNode*, mat44f>> stack;
 			if (auto *root = scene->GetRootNode()) {
-				// invert x and y axis
-				mat44f scene_transform({
-					{ -1.0f,  0.0f, 0.0f, 0.0f },
-					{ 0.0f, -1.0f, 0.0f, 0.0f },
-					{ 0.0f,  0.0f, 1.0f, 0.0f },
-					{ 0.0f,  0.0f, 0.0f, 1.0f },
-				});
-				stack.emplace_back(root, scene_transform);
+				stack.emplace_back(root, mat44f::identity());
 			}
 			while (!stack.empty()) {
 				auto [node, parent_trans] = stack.back();
 				stack.pop_back();
 				 
-				auto matrix = node->EvaluateLocalTransform();
+				fbxsdk::FbxAMatrix geom_matrix;
+				geom_matrix.SetIdentity();
+				if (node->GetNodeAttribute()) {
+					geom_matrix.SetT(node->GetGeometricTranslation(fbxsdk::FbxNode::eSourcePivot));
+					geom_matrix.SetR(node->GetGeometricRotation(fbxsdk::FbxNode::eSourcePivot));
+					geom_matrix.SetS(node->GetGeometricScaling(fbxsdk::FbxNode::eSourcePivot));
+				}
+				auto matrix = node->EvaluateLocalTransform() * geom_matrix;
 				mat44f local_trans = uninitialized;
 				for (std::size_t y = 0; y < 4; ++y) {
 					for (std::size_t x = 0; x < 4; ++x) {
-						local_trans(y, x) = static_cast<float>(matrix[y][x]);
+						local_trans(y, x) = static_cast<float>(matrix[x][y]); // transposed
 					}
 				}
 				mat44f node_trans = parent_trans * local_trans;
 
 				if (auto *mesh = node->GetMesh()) {
 					auto mesh_it = geometries.find(mesh->GetUniqueID());
-					assert(mesh_it != geometries.end());
+					crash_if(mesh_it == geometries.end());
 
-					int material_count = node->GetMaterialCount();
+					auto material_count = std::min(
+						node->GetMaterialCount(), static_cast<int>(mesh_it->second.size())
+					);
 					for (int i = 0; i < material_count; ++i) {
 						auto mat_it = materials.find(node->GetMaterial(i)->GetUniqueID());
-						assert(mat_it != materials.end());
+						crash_if(mat_it == materials.end());
 
 						instance inst = nullptr;
 						inst.geometry  = mesh_it->second[i];

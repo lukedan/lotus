@@ -136,7 +136,7 @@ namespace lotus::gpu::backends::directx12 {
 		);
 		/// Computes the layout of the image using \p ID3D12Device::GetCopyableFootprints(), then creates a buffer
 		/// that can hold it.
-		[[nodiscard]] std::tuple<buffer, staging_buffer_pitch, std::size_t> create_committed_staging_buffer(
+		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, std::size_t> create_committed_staging_buffer(
 			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage_mask
 		);
 

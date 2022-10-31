@@ -42,7 +42,7 @@ namespace lotus::renderer {
 		}
 
 
-		pool::token pool::allocate(gpu::device &dev, memory::size_alignment size_align) {
+		pool::token pool::allocate(memory::size_alignment size_align) {
 			crash_if(size_align.size > chunk_size);
 			for (std::size_t i = 0; i < _chunks.size(); ++i) {
 				if (auto res = _chunks[i].allocator.allocate(size_align, 0)) {

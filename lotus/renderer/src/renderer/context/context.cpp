@@ -428,7 +428,7 @@ namespace lotus::renderer {
 				memory::size_alignment size_align = _device.get_image_memory_requirements(
 					surf.size[0], surf.size[1], 1, surf.num_mips, surf.format, surf.tiling, surf.usages
 				);
-				surf.memory = surf.memory_pool->allocate(_device, size_align);
+				surf.memory = surf.memory_pool->allocate(size_align);
 				auto &&[blk, off] = surf.memory_pool->get_memory_and_offset(surf.memory);
 				surf.image = _device.create_placed_image2d(
 					surf.size[0], surf.size[1], 1, surf.num_mips, surf.format, surf.tiling, surf.usages, blk, off
@@ -449,7 +449,7 @@ namespace lotus::renderer {
 		if (!buf.data) {
 			if (buf.memory_pool) {
 				memory::size_alignment size_align = _device.get_buffer_memory_requirements(buf.size, buf.usages);
-				buf.memory = buf.memory_pool->allocate(_device, size_align);
+				buf.memory = buf.memory_pool->allocate(size_align);
 				auto &&[blk, off] = buf.memory_pool->get_memory_and_offset(buf.memory);
 				buf.data = _device.create_placed_buffer(buf.size, buf.usages, blk, off);
 			} else {
@@ -812,7 +812,7 @@ namespace lotus::renderer {
 		cache_keys::descriptor_set_layout,
 		const gpu::descriptor_set_layout&,
 		gpu::descriptor_set&
-	> context::_use_descriptor_set(execution::context &ectx, const recorded_resources::cached_descriptor_set &set) {
+	> context::_use_descriptor_set(execution::context&, const recorded_resources::cached_descriptor_set &set) {
 		return { cache_keys::descriptor_set_layout(set._ptr->ranges), *set._ptr->layout, set._ptr->set };
 	}
 

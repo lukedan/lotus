@@ -32,9 +32,9 @@ namespace lotus {
 		}
 		/// Initializes the entire matrix.
 		constexpr matrix(std::initializer_list<std::initializer_list<T>> data) : elements{} {
-			assert(data.size() == Rows);
+			crash_if_constexpr(data.size() != Rows);
 			for (auto row_it = data.begin(); row_it != data.end(); ++row_it) {
-				assert(row_it->size() == Cols);
+				crash_if_constexpr(row_it->size() != Cols);
 				for (auto col_it = row_it->begin(); col_it != row_it->end(); ++col_it) {
 					elements[row_it - data.begin()][col_it - row_it->begin()] = std::move(*col_it);
 				}
@@ -166,8 +166,8 @@ namespace lotus {
 		> [[nodiscard]] constexpr matrix<RowCount, ColCount, T> block(
 			std::size_t row_start, std::size_t col_start
 		) const {
-			assert(row_start + RowCount <= Rows);
-			assert(col_start + ColCount <= Cols);
+			crash_if_constexpr(row_start + RowCount > Rows);
+			crash_if_constexpr(col_start + ColCount > Cols);
 			matrix<RowCount, ColCount, T> result = zero;
 			for (std::size_t srcy = row_start, dsty = 0; dsty < RowCount; ++srcy, ++dsty) {
 				for (std::size_t srcx = col_start, dstx = 0; dstx < ColCount; ++srcx, ++dstx) {
@@ -181,8 +181,8 @@ namespace lotus {
 		template <std::size_t RowCount, std::size_t ColCount> constexpr void set_block(
 			std::size_t row_start, std::size_t col_start, matrix<RowCount, ColCount, T> mat
 		) {
-			assert(row_start + RowCount <= Rows);
-			assert(col_start + ColCount <= Cols);
+			crash_if_constexpr(row_start + RowCount > Rows);
+			crash_if_constexpr(col_start + ColCount > Cols);
 			for (std::size_t srcy = 0, dsty = row_start; srcy < RowCount; ++srcy, ++dsty) {
 				for (std::size_t srcx = 0, dstx = col_start; srcx < ColCount; ++srcx, ++dstx) {
 					elements[dsty][dstx] = std::move(mat(srcy, srcx));

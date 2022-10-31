@@ -24,6 +24,17 @@ namespace lotus {
 			std::abort();
 		}
 	}
+	/// Calls \ref crash_if() in debug builds.
+	inline void crash_if_debug([[maybe_unused]] bool value) {
+		if constexpr (is_debugging) {
+			crash_if(value);
+		}
+	}
+	/// \p constexpr version of \ref crash_if().
+	inline constexpr void crash_if_constexpr(bool value) {
+		assert(!value);
+	}
+
 
 	/// A type indicating a specific object should not be initialized.
 	struct uninitialized_t {
@@ -131,7 +142,7 @@ namespace lotus {
 			_mapping{ { std::forward<Args>(args)... } } {
 			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for enum mapping.");
 			for (std::size_t i = 0; i < NumEnumerators; ++i) {
-				assert(static_cast<std::size_t>(_mapping[i].first) == i);
+				crash_if_constexpr(static_cast<std::size_t>(_mapping[i].first) != i);
 			}
 		}
 
@@ -158,7 +169,7 @@ namespace lotus {
 			_mapping{ { std::forward<Args>(args)... } } {
 			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for bit mask mapping.");
 			for (std::size_t i = 0; i < NumEnumerators; ++i) {
-				assert(_mapping[i].first == static_cast<BitMask>(1 << i));
+				crash_if_constexpr(_mapping[i].first != static_cast<BitMask>(1 << i));
 			}
 		}
 
@@ -171,7 +182,7 @@ namespace lotus {
 			auto result = static_cast<_dst_ty>(0);
 			while (value != 0) {
 				int bit = std::countr_zero(value);
-				assert(bit < NumEnumerators);
+				crash_if_constexpr(bit >= NumEnumerators);
 				result |= static_cast<_dst_ty>(_mapping[bit].second);
 				value ^= static_cast<_src_ty>(1ull << bit);
 			}
@@ -198,7 +209,7 @@ namespace lotus {
 		/// Dynamically retrieves the i-th element.
 		template <T First, T ...Others> [[nodiscard]] constexpr inline static T get(std::size_t i) {
 			if constexpr (sizeof...(Others) == 0) {
-				assert(i == 0);
+				crash_if_constexpr(i != 0);
 				return First;
 			} else {
 				return i == 0 ? First : get<Others...>(i - 1);

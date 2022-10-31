@@ -35,7 +35,7 @@ namespace lotus::renderer::execution {
 		}
 		std::memcpy(_current_ptr + alloc_start, data.data(), data.size());
 		_current_used = new_used;
-		return result(*_current, alloc_start, type);
+		return result(*_current, static_cast<std::uint32_t>(alloc_start), type);
 	}
 
 	void upload_buffers::flush() {

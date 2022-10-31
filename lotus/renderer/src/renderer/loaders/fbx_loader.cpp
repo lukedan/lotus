@@ -151,8 +151,8 @@ namespace lotus::renderer::fbx {
 		// load geometries
 		std::unordered_map<fbxsdk::FbxUInt64, std::vector<assets::handle<assets::geometry>>> geometries;
 		int geom_count = scene->GetGeometryCount();
-		for (int i = 0; i < geom_count; ++i) {
-			auto *geom = scene->GetGeometry(i);
+		for (int i_geom = 0; i_geom < geom_count; ++i_geom) {
+			auto *geom = scene->GetGeometry(i_geom);
 			if (geom->GetAttributeType() != fbxsdk::FbxNodeAttribute::eMesh) {
 				continue;
 			}
@@ -203,7 +203,7 @@ namespace lotus::renderer::fbx {
 							i_norm = normals->GetIndexArray()[i_norm];
 						}
 						const auto &n = normals->GetDirectArray()[i_norm];
-						mesh_normals[0].emplace_back(cvec3d(v[0], v[1], v[2]).into<float>());
+						mesh_normals[0].emplace_back(cvec3d(n[0], n[1], n[2]).into<float>());
 					}
 					if (uvs) {
 						int i_uv = i_vert;
@@ -385,13 +385,13 @@ namespace lotus::renderer::fbx {
 			}
 
 			auto [map_it, inserted] = geometries.try_emplace(mesh->GetUniqueID());
-			assert(inserted);
+			crash_if(!inserted);
 			if (can_use_indices) {
 				assert(position_inputs.size() == 1 && normal_inputs.size() == 1 && uv_inputs.size() == 1);
 				for (std::size_t i = 0; i < index_inputs.size(); ++i) {
 					assets::geometry loaded_geom = nullptr;
-					loaded_geom.num_vertices = mesh_positions[i].size();
-					loaded_geom.num_indices  = mesh_indices[i].size();
+					loaded_geom.num_vertices = static_cast<std::uint32_t>(mesh_positions[i].size());
+					loaded_geom.num_indices  = static_cast<std::uint32_t>(mesh_indices[i].size());
 					loaded_geom.topology     = gpu::primitive_topology::triangle_list;
 
 					loaded_geom.vertex_buffer = position_inputs[0];
@@ -419,7 +419,7 @@ namespace lotus::renderer::fbx {
 				);
 				for (std::size_t i = 0; i < position_inputs.size(); ++i) {
 					assets::geometry loaded_geom = nullptr;
-					loaded_geom.num_vertices = mesh_positions[i].size();
+					loaded_geom.num_vertices = static_cast<std::uint32_t>(mesh_positions[i].size());
 					loaded_geom.num_indices  = 0;
 					loaded_geom.topology     = gpu::primitive_topology::triangle_list;
 
@@ -553,7 +553,8 @@ namespace lotus::renderer::fbx {
 				mat44f local_trans = uninitialized;
 				for (std::size_t y = 0; y < 4; ++y) {
 					for (std::size_t x = 0; x < 4; ++x) {
-						local_trans(y, x) = static_cast<float>(matrix[x][y]); // transposed
+						// transposed
+						local_trans(y, x) = static_cast<float>(matrix[static_cast<int>(x)][static_cast<int>(y)]);
 					}
 				}
 				mat44f node_trans = parent_trans * local_trans;

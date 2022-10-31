@@ -50,6 +50,10 @@ namespace lotus {
 			return value;
 		}
 
+		/// Returns \ref value.
+		constexpr const T &value_or(const T&) const {
+			return value;
+		}
 		/// Calls the callback with the stored value.
 		template <typename Cb> void if_enabled(Cb &&callback) {
 			callback(value);
@@ -70,6 +74,10 @@ namespace lotus {
 		template <typename ...Args> constexpr static_optional(Args&&...) {
 		}
 
+		/// Returns the given value.
+		constexpr T value_or(T value) const {
+			return value;
+		}
 		/// Does nothing.
 		template <typename Cb> void if_enabled(Cb&&) {
 		}

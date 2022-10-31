@@ -111,7 +111,7 @@ namespace lotus::renderer::execution {
 		/// Initializes this object with the given device and parameters.
 		explicit upload_buffers(
 			renderer::context &ctx, allocate_buffer_func alloc, std::size_t buf_size = default_buffer_size
-		) : allocate_buffer(std::move(alloc)), _current(nullptr), _buffer_size(default_buffer_size), _context(&ctx) {
+		) : allocate_buffer(std::move(alloc)), _current(nullptr), _buffer_size(buf_size), _context(&ctx) {
 		}
 
 		/// Allocates space for a chunk of the given size and writes the given data into it.

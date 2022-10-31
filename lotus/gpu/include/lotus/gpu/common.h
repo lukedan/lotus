@@ -203,13 +203,15 @@ namespace lotus::gpu {
 		[[nodiscard]] constexpr inline static format_properties create_uncompressed_color(
 			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type ty, fragment_contents c
 		) {
-			return format_properties(r, g, b, a, 0, 0, 0, cvec2u8(1, 1), ty, c);
+			return format_properties(r, g, b, a, 0, 0, 0, cvec2i(1, 1).into<std::uint8_t>(), ty, c);
 		}
 		/// Creates an object for a depth-stencil format.
 		[[nodiscard]] constexpr inline static format_properties create_depth_stencil(
 			std::uint8_t d, std::uint8_t s, data_type ty
 		) {
-			return format_properties(0, 0, 0, 0, d, s, 0, cvec2u8(1, 1), ty, fragment_contents::depth_stencil);
+			return format_properties(
+				0, 0, 0, 0, d, s, 0, cvec2i(1, 1).into<std::uint8_t>(), ty, fragment_contents::depth_stencil
+			);
 		}
 		/// Creates an object for a compressed format.
 		[[nodiscard]] constexpr inline static format_properties create_compressed(

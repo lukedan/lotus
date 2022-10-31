@@ -20,7 +20,7 @@ namespace lotus::renderer {
 		struct buffer;
 		struct structured_buffer_view;
 		struct swap_chain;
-		template <typename, typename> struct descriptor_array;
+		template <typename, typename = std::nullopt_t> struct descriptor_array;
 		struct blas;
 		struct tlas;
 		struct cached_descriptor_set;
@@ -28,7 +28,7 @@ namespace lotus::renderer {
 		/// Array of image descriptors.
 		using image_descriptor_array = descriptor_array<recorded_resources::image2d_view, gpu::image2d_view>;
 		/// Array of buffer descriptors.
-		using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view, void>;
+		using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view>;
 	}
 
 

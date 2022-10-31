@@ -125,7 +125,7 @@ namespace lotus::renderer {
 		using swap_chain = basic_handle<_details::swap_chain>;
 
 		/// \ref renderer::descriptor_array.
-		template <typename RecordedResource, typename View> using descriptor_array = basic_handle<
+		template <typename RecordedResource, typename View = std::nullopt_t> using descriptor_array = basic_handle<
 			_details::descriptor_array<RecordedResource, View>
 		>;
 
@@ -235,7 +235,7 @@ namespace lotus::renderer {
 		[[nodiscard]] gpu::descriptor_type to_descriptor_type(image_binding_type);
 
 		/// A reference to a usage of this surface in a descriptor array.
-		template <typename RecordedResource, typename View> struct descriptor_array_reference {
+		template <typename RecordedResource, typename View = std::nullopt_t> struct descriptor_array_reference {
 			/// Initializes this reference to empty.
 			descriptor_array_reference(std::nullptr_t) {
 			}
@@ -307,12 +307,12 @@ namespace lotus::renderer {
 			}
 
 			/// Allocates a memory block.
-			[[nodiscard]] token allocate(gpu::device&, memory::size_alignment);
+			[[nodiscard]] token allocate(memory::size_alignment);
 			/// Frees the given memory block.
 			void free(token);
 
 			/// Given a \ref token, returns the corresponding memory block and its offset within it.
-			[[nodiscare]] std::pair<const gpu::memory_block&, std::uint32_t> get_memory_and_offset(token tk) const {
+			[[nodiscard]] std::pair<const gpu::memory_block&, std::uint32_t> get_memory_and_offset(token tk) const {
 				return { _chunks[tk._chunk_index].memory, tk._address };
 			}
 
@@ -411,7 +411,7 @@ namespace lotus::renderer {
 
 			/// References in descriptor arrays.
 			std::vector<
-				descriptor_array_reference<recorded_resources::structured_buffer_view, void>
+				descriptor_array_reference<recorded_resources::structured_buffer_view>
 			> array_references;
 
 			std::uint64_t id = 0; ///< Used to uniquely identify this buffer.
@@ -464,7 +464,7 @@ namespace lotus::renderer {
 				}
 
 				RecordedResource resource; ///< The referenced resource.
-				static_optional<View, !std::is_same_v<View, void>> view; ///< View object of the resource.
+				static_optional<View, !std::is_same_v<View, std::nullopt_t>> view; ///< View object of the resource.
 				std::uint32_t reference_index = 0; ///< Index of this reference in \p Descriptor::array_references.
 			};
 
@@ -828,7 +828,7 @@ namespace lotus::renderer {
 	};
 
 	/// A bindless descriptor array.
-	template <typename RecordedResource, typename View> struct descriptor_array :
+	template <typename RecordedResource, typename View = std::nullopt_t> struct descriptor_array :
 		public basic_resource_handle<_details::descriptor_array<RecordedResource, View>> {
 		friend context;
 	public:
@@ -846,12 +846,12 @@ namespace lotus::renderer {
 	/// An array of image descriptors.
 	using image_descriptor_array = descriptor_array<recorded_resources::image2d_view, gpu::image2d_view>;
 	/// An array of buffer descriptors.
-	using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view, void>;
+	using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view>;
 	namespace recorded_resources {
 		/// \ref renderer::image_descriptor_array.
 		using image_descriptor_array = descriptor_array<image2d_view, gpu::image2d_view>;
 		/// \ref renderer::buffer_descriptor_array.
-		using buffer_descriptor_array = descriptor_array<structured_buffer_view, void>;
+		using buffer_descriptor_array = descriptor_array<structured_buffer_view>;
 	}
 
 	/// A bottom level acceleration structure.

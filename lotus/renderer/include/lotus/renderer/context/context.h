@@ -16,8 +16,6 @@
 #include "execution.h"
 
 namespace lotus::renderer {
-	class pool;
-
 	/// Provides information about a pass's shader and input buffer layout.
 	class pass_context {
 	public:
@@ -620,7 +618,7 @@ namespace lotus::renderer {
 				auto new_ref = surf->array_references[old_index];
 				new_ref.array->resources[new_ref.index].reference_index = old_index;
 				surf->array_references.pop_back();
-				if constexpr (!std::is_same_v<View, void>) {
+				if constexpr (!std::is_same_v<View, std::nullopt_t>) {
 					if (cur_ref.view.value && !_all_resources.empty()) {
 						_all_resources.back().record(std::move(cur_ref.view.value));
 					}

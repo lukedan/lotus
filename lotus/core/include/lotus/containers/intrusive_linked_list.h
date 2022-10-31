@@ -35,7 +35,7 @@ namespace lotus {
 			}
 			/// Used to initialize this node after \ref create_uninitialized().
 			void update_this(Ref self) {
-				assert(is_isolated());
+				crash_if(!is_isolated());
 				_prev = _next = self;
 			}
 			/// Creates a new node whose previous and next nodes are the node itself.
@@ -48,7 +48,7 @@ namespace lotus {
 			node &operator=(const node&) = delete;
 			/// Checks that this node has been properly detached.
 			~node() {
-				assert(is_isolated());
+				crash_if(!is_isolated());
 			}
 
 			/// Returns the reference to the next node.
@@ -84,7 +84,7 @@ namespace lotus {
 			/// Links this node after the given one. This node must be isolated before the call.
 			template <typename Getter> void link_after(node &prev_n, const Getter &getter = Getter()) {
 				// for an isolated node, _next and _prev will point to this node itself
-				assert(is_isolated() && &next_node(getter) == this);
+				crash_if(!is_isolated() || &next_node(getter) != this);
 				node &next_n = prev_n.next_node(getter);
 				std::swap(prev_n._next, _next);
 				std::swap(next_n._prev, _prev);
@@ -105,7 +105,7 @@ namespace lotus {
 				node &prev_n = previous_node(getter);
 				std::swap(prev_n._next, _next);
 				std::swap(next_n._prev, _prev);
-				assert(is_isolated() && &previous_node(getter) == this); // integrity check
+				crash_if_debug(!is_isolated() || &previous_node(getter) != this); // integrity check
 				return result;
 			}
 		private:

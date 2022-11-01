@@ -45,7 +45,7 @@ namespace lotus::system::platforms::windows {
 	}
 
 	void window::set_title(std::u8string_view title) {
-		auto bookmark = memory::stack_allocator::for_this_thread().bookmark();
+		auto bookmark = get_scratch_bookmark();
 		auto alloc = bookmark.create_std_allocator<TCHAR>();
 		auto title_tstring = _details::u8string_to_tstring(title, alloc);
 		_details::assert_win32(SetWindowText(_hwnd, title_tstring.c_str()));

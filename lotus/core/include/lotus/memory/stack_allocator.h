@@ -244,14 +244,14 @@ namespace lotus::memory {
 			/// Poisons all bytes in the page between the two pointers, or after the given pointer if the end is not
 			/// specified. This is only done if \ref should_poison_freed_memory is \p true.
 			void maybe_poison_range(std::byte *ptr, std::byte *custom_end = nullptr) {
-				assert(ptr >= memory && ptr <= end);
+				crash_if(ptr < memory || ptr > end);
 				if (custom_end) {
-					assert(custom_end >= ptr && custom_end <= end);
+					crash_if(custom_end < ptr || custom_end > end);
 				} else {
 					custom_end = end;
 				}
 				if constexpr (should_poison_freed_memory) {
-					memory::poison(ptr, end - ptr);
+					memory::poison(ptr, custom_end - ptr);
 				}
 			}
 

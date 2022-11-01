@@ -68,7 +68,7 @@ namespace lotus::memory {
 	}
 
 	void stack_allocator::_pop_bookmark() {
-		assert(_top_bookmark);
+		crash_if(_top_bookmark == nullptr);
 		_bookmark mark = *_top_bookmark;
 		_top_bookmark->~_bookmark();
 		_top_bookmark = mark.previous;

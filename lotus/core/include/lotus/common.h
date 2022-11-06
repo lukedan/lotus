@@ -31,7 +31,7 @@ namespace lotus {
 		}
 	}
 	/// \p constexpr version of \ref crash_if().
-	inline constexpr void crash_if_constexpr(bool value) {
+	inline constexpr void crash_if_constexpr([[maybe_unused]] bool value) {
 		assert(!value);
 	}
 

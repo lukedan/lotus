@@ -167,7 +167,7 @@ namespace lotus::renderer::fbx {
 
 			auto *normals = mesh->GetElementNormalCount() > 0 ? mesh->GetElementNormal(0) : nullptr;
 			auto *uvs = mesh->GetElementUVCount() > 0 ? mesh->GetElementUV(0) : nullptr;
-			if (normals && normals->GetMappingMode() != fbxsdk::FbxGeometryElement::eNone) {
+			if (normals && normals->GetMappingMode() == fbxsdk::FbxGeometryElement::eNone) {
 				normals = nullptr;
 			}
 			if (uvs && uvs->GetMappingMode() == fbxsdk::FbxGeometryElement::eNone) {
@@ -518,6 +518,12 @@ namespace lotus::renderer::fbx {
 			}
 			// TODO
 			
+			mat_data->properties.albedo_multiplier    = cvec4f(1.0f, 1.0f, 1.0f, 1.0f);
+			mat_data->properties.normal_scale         = 1.0f;
+			mat_data->properties.metalness_multiplier = 1.0f;
+			mat_data->properties.roughness_multiplier = 1.0f;
+			mat_data->properties.alpha_cutoff         = 0.0f;
+
 			assets::material loaded_mat = nullptr;
 			loaded_mat.data = std::move(mat_data);
 			auto mat_name = std::format("{}({})", mat->GetName(), mat->GetUniqueID());

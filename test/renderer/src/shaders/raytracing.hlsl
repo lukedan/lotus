@@ -1,8 +1,13 @@
+#include "common.hlsli"
+
 #include "types.hlsli"
 #include "pcg32.hlsl"
 #include "brdf.hlsl"
 
+#define RT_USE_PCG32
 /*#define RT_SKYVIS_DEBUG*/
+//#define RT_ALBEDO_DEBUG
+//#define RT_NORMAL_DEBUG
 
 RaytracingAccelerationStructure rtas      : register(t0, space0);
 ConstantBuffer<global_data> globals       : register(b1, space0);
@@ -48,6 +53,27 @@ void main_miss(inout ray_payload payload) {
 struct hit_triangle {
 	vertex verts[3];
 };
+void compute_tangent(inout hit_triangle tri) {
+	// u0.u * U + u0.v * V = x0
+	// u1.u * U + u1.v * V = x1
+	// u0.u * u1.v * U - u1.u * u0.v * U = x0 * u1.v - x1 * u0.v
+	float2 u0 = tri.verts[1].uv - tri.verts[0].uv;
+	float2 u1 = tri.verts[2].uv - tri.verts[0].uv;
+	float3 x0 = tri.verts[1].position - tri.verts[0].position;
+	float3 x1 = tri.verts[2].position - tri.verts[0].position;
+	float3 tangent = (x0 * u1.y - x1 * u0.y) / (u0.x * u1.y - u1.x * u0.y);
+
+	float len2 = dot(tangent, tangent);
+	if (len2 < 0.0001f || !isfinite(len2)) { // also handles NaN
+		float3 normal = normalize(cross(
+			tri.verts[1].position - tri.verts[0].position,
+			tri.verts[2].position - tri.verts[0].position
+		));
+		tangent = tangent_frame::any(normal).tangent;
+	}
+
+	tri.verts[0].tangent = tri.verts[1].tangent = tri.verts[2].tangent = float4(tangent, 1.0f);
+}
 hit_triangle get_hit_triangle_indexed_object_space() {
 	instance_data instance = instances[InstanceID()];
 	geometry_data geometry = geometries[instance.geometry_index];
@@ -58,8 +84,13 @@ hit_triangle get_hit_triangle_indexed_object_space() {
 		uint index = indices[NonUniformResourceIndex(geometry.index_buffer)][index_offset + i];
 		result.verts[i].position = positions[NonUniformResourceIndex(geometry.vertex_buffer )][index];
 		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.normal_buffer )][index];
-		result.verts[i].tangent  = tangents [NonUniformResourceIndex(geometry.tangent_buffer)][index];
 		result.verts[i].uv       = uvs      [NonUniformResourceIndex(geometry.uv_buffer     )][index];
+		if (geometry.tangent_buffer != max_uint_v) {
+			result.verts[i].tangent = tangents [NonUniformResourceIndex(geometry.tangent_buffer)][index];
+		}
+	}
+	if (geometry.tangent_buffer == max_uint_v) {
+		compute_tangent(result);
 	}
 	return result;
 }
@@ -72,16 +103,22 @@ hit_triangle get_hit_triangle_unindexed_object_space() {
 	for (uint i = 0; i < 3; ++i) {
 		result.verts[i].position = positions[NonUniformResourceIndex(geometry.vertex_buffer )][index + i];
 		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.normal_buffer )][index + i];
-		result.verts[i].tangent  = tangents [NonUniformResourceIndex(geometry.tangent_buffer)][index + i];
 		result.verts[i].uv       = uvs      [NonUniformResourceIndex(geometry.uv_buffer     )][index + i];
+		if (geometry.tangent_buffer != max_uint_v) {
+			result.verts[i].tangent = tangents [NonUniformResourceIndex(geometry.tangent_buffer)][index + i];
+		}
+	}
+	if (geometry.tangent_buffer == max_uint_v) {
+		compute_tangent(result);
 	}
 	return result;
 }
-hit_triangle transform_hit_triangle_to_world_space(hit_triangle tri) {
+hit_triangle transform_hit_triangle_to_world_space(hit_triangle tri, float3x3 normal_transform) {
 	[unroll]
 	for (int i = 0; i < 3; ++i) {
 		tri.verts[i].position = mul(ObjectToWorld3x4(), float4(tri.verts[i].position, 1.0f));
-		tri.verts[i].normal   = mul(ObjectToWorld3x4(), float4(tri.verts[i].normal,   0.0f));
+		tri.verts[i].normal   = mul(normal_transform,   tri.verts[i].normal);
+		tri.verts[i].tangent  = float4(mul(ObjectToWorld3x4(), float4(tri.verts[i].tangent.xyz, 0.0f)), tri.verts[i].tangent.w);
 	}
 	return tri;
 }
@@ -117,11 +154,11 @@ hit_point interpolate_hit_point(hit_triangle tri, float2 barycentrics) {
 		tri.verts[2].tangent * barycentrics.y;
 	return result;
 }
-hit_point transform_hit_point_to_world_space(hit_point pt) {
-	pt.position = mul(ObjectToWorld3x4(), float4(pt.position, 1.0f));
-	pt.normal = mul(ObjectToWorld3x4(), float4(pt.normal, 0.0f));
-	pt.geometric_normal = mul(ObjectToWorld3x4(), float4(pt.geometric_normal, 0.0f));
-	pt.tangent = float4(mul(ObjectToWorld3x4(), float4(pt.tangent.xyz, 0.0f)), pt.tangent.w);
+hit_point transform_hit_point_to_world_space(hit_point pt, float3x3 normal_transform) {
+	pt.position         = mul(ObjectToWorld3x4(), float4(pt.position, 1.0f));
+	pt.normal           = mul(normal_transform,   pt.normal);
+	pt.geometric_normal = mul(normal_transform,   pt.geometric_normal);
+	pt.tangent          = float4(mul(ObjectToWorld3x4(), float4(pt.tangent.xyz, 0.0f)), pt.tangent.w);
 	return pt;
 }
 
@@ -165,13 +202,17 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 		return;
 	}
 
-	hit_point hit = transform_hit_point_to_world_space(interpolate_hit_point(tri, barycentrics));
+	instance_data instance = instances[InstanceID()];
+	material_data mat = materials[instance.material_index];
+
+	hit_point interpolated_hit = interpolate_hit_point(tri, barycentrics);
+	hit_point hit = transform_hit_point_to_world_space(interpolated_hit, instance.normal_transform);
 
 #ifdef RT_ALBEDO_DEBUG
-	instance_data inst = instances[InstanceID()];
-	material_data mat = materials[inst.material_index];
-	payload.light = textures[NonUniformResourceIndex(mat.base_color_index)].SampleLevel(image_sampler, hit.uv, 0);
-	return;
+	{
+		payload.light = textures[NonUniformResourceIndex(mat.base_color_index)].SampleLevel(image_sampler, hit.uv, 0).rgb;
+		return;
+	}
 #endif
 
 #ifdef RT_SKYVIS_DEBUG
@@ -192,23 +233,19 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 		dir = -dir;
 	}
 
-	float3 t, b;
-	get_any_tangent_space(dir, t, b);
-	dir = dir * sqrt(1.0f - dot(xy, xy)) + xy.x * t + xy.y * b;
+	tangent_frame::tbn tbn = tangent_frame::any(dir);
+	dir = dir * sqrt(1.0f - dot(xy, xy)) + xy.x * tbn.tangent + xy.y * tbn.bitangent;
 
 	RayDesc ray;
-	ray.Origin = get_hit_position();
-	ray.TMin = globals.t_min;
+	ray.Origin    = get_hit_position();
+	ray.TMin      = globals.t_min;
 	ray.Direction = dir;
-	ray.TMax = globals.t_max;
+	ray.TMax      = globals.t_max;
 	payload.light *= 0.8f;
 	TraceRay(rtas, 0, 0xFF, 0, 0, 0, ray, payload);
 	return;
 #endif
 
-	instance_data instance = instances[InstanceID()];
-
-	material_data mat = materials[instance.material_index];
 	float3 base_color = textures[mat.base_color_index].SampleLevel(image_sampler, hit.uv, 0).rgb;
 	base_color *= mat.base_color.rgb;
 	float4 material_props = textures[mat.metallic_roughness_index].SampleLevel(image_sampler, hit.uv, 0);
@@ -221,6 +258,10 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 		// TODO
 		roughness = 0.0f;
 	}
+#if 1
+	metalness = 0.5f;
+	roughness = 0.5f;
+#endif
 	metalness = saturate(metalness * mat.metalness);
 	roughness = saturate(roughness * mat.roughness);
 	roughness = max(0.01f, roughness);
@@ -229,11 +270,20 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	float3 bitangent = hit.tangent.w * cross(hit.normal, hit.tangent.xyz);
 	float3 shading_normal_sample = textures[mat.normal_index].SampleLevel(image_sampler, hit.uv, 0).xyz;
 	shading_normal_sample = shading_normal_sample * 2.0f - 1.0f;
+	shading_normal_sample.z = sqrt(max(0.0001f, 1.0f - dot(shading_normal_sample.xy, shading_normal_sample.xy)));
 	float3 shading_normal = normalize(
 		hit.tangent.xyz * shading_normal_sample.x +
 		bitangent * shading_normal_sample.y +
 		hit.normal * shading_normal_sample.z
 	);
+
+#ifdef RT_NORMAL_DEBUG
+	/*payload.light = normalize(hit.normal) * 0.5f + 0.5f;*/
+	/*payload.light = shading_normal * 0.5f + 0.5f;*/
+	payload.light = hit.tangent.xyz * 0.5f + 0.5f;
+	return;
+#endif
+
 	if (dot(WorldRayDirection(), shading_normal) >= 0.0f) {
 		payload.light = (float3)0.0f;
 		return;

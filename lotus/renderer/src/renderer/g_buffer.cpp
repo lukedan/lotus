@@ -96,7 +96,7 @@ namespace lotus::renderer::g_buffer {
 					gpu::render_target_blend_options::disabled(),
 					gpu::render_target_blend_options::disabled(),
 				},
-				gpu::rasterizer_options(gpu::depth_bias_options::disabled(), gpu::front_facing_mode::clockwise, gpu::cull_mode::none, false),
+				gpu::rasterizer_options(gpu::depth_bias_options::disabled(), gpu::front_facing_mode::counter_clockwise, gpu::cull_mode::cull_back, false),
 				gpu::depth_stencil_options(true, true, gpu::comparison_function::greater, false, 0, 0, gpu::stencil_options::always_pass_no_op(), gpu::stencil_options::always_pass_no_op())
 			);
 			shader_types::instance_data instance;

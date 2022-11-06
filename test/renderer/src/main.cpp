@@ -140,6 +140,8 @@ int main(int argc, char **argv) {
 					geom->tangent_buffer.stride, geom->tangent_buffer.offset, geom->num_vertices
 				)
 			});
+		} else {
+			inst.tangent_buffer = std::numeric_limits<std::uint32_t>::max();
 		}
 		if (geom->uv_buffer.data) {
 			rctx.write_buffer_descriptors(uv_buffers, inst.uv_buffer, {
@@ -195,6 +197,7 @@ int main(int argc, char **argv) {
 			auto &gpu_inst = instance_data.emplace_back();
 			gpu_inst.geometry_index = geom_index;
 			gpu_inst.material_index = mat_index;
+			gpu_inst.normal_transform = inst.transform.transposed().inverse().block<3, 3>(0, 0);
 		}
 	};
 

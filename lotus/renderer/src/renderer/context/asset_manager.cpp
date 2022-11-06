@@ -399,7 +399,7 @@ namespace lotus::renderer::assets {
 			return nullptr;
 		}
 
-		auto paths = { id.path.parent_path() }; // TODO hack to make sure the shader can include files in the same directory
+		auto paths = { id.path.parent_path(), _shader_library_path }; // TODO hack to make sure the shader can include files in the same directory
 		auto result = _shader_utilities->compile_shader(code, stage, entry_point, paths, defines);
 		auto output = result.get_compiler_output();
 		if (!result.succeeded()) {
@@ -431,7 +431,7 @@ namespace lotus::renderer::assets {
 			return nullptr;
 		}
 
-		auto paths = { id.path.parent_path() }; // TODO hack to make sure the shader can include files in the same directory
+		auto paths = { id.path.parent_path(), _shader_library_path }; // TODO hack to make sure the shader can include files in the same directory
 		auto result = _shader_utilities->compile_shader_library(code, paths, defines);
 		auto output = result.get_compiler_output();
 		if (!result.succeeded()) {

@@ -36,9 +36,9 @@ struct material_data {
 	bool is_metallic_roughness;
 };
 struct instance_data {
+	float3x3 normal_transform;
 	uint geometry_index;
 	uint material_index;
-	uint2 _padding;
 };
 
 #endif // TYPES_HLSLI

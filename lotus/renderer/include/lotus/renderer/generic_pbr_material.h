@@ -13,7 +13,11 @@ namespace lotus::renderer {
 	public:
 		/// Initializes this material to empty.
 		explicit generic_pbr_material_data(assets::manager &man) :
-			albedo_texture(nullptr), normal_texture(nullptr), properties_texture(nullptr), manager(&man) {
+			albedo_texture(nullptr),
+			normal_texture(nullptr),
+			properties_texture(nullptr),
+			properties2_texture(nullptr),
+			manager(&man) {
 		}
 
 		/// Returns "gltf_material.hlsli".
@@ -24,9 +28,10 @@ namespace lotus::renderer {
 		[[nodiscard]] all_resource_bindings create_resource_bindings() const override;
 
 		shader_types::generic_pbr_material::material_properties properties; ///< Properties of this material.
-		assets::handle<assets::image2d> albedo_texture;     ///< Albedo texture.
-		assets::handle<assets::image2d> normal_texture;     ///< Normal texture.
-		assets::handle<assets::image2d> properties_texture; ///< Properties texture.
+		assets::handle<assets::image2d> albedo_texture;      ///< Albedo texture.
+		assets::handle<assets::image2d> normal_texture;      ///< Normal texture.
+		assets::handle<assets::image2d> properties_texture;  ///< Properties texture.
+		assets::handle<assets::image2d> properties2_texture; ///< Additional properties texture.
 		assets::manager *manager = nullptr; ///< The associated asset manager.
 	};
 }

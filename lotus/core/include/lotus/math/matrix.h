@@ -134,8 +134,12 @@ namespace lotus {
 			return result;
 		}
 
-		/// Returns the inverse of this matrix.
+		/// Computes the inverse of this matrix.
 		[[nodiscard]] constexpr matrix<Rows, Cols, T> inverse() const;
+		/// Computes the determinant of this matrix.
+		template <typename U = T> [[nodiscard]] constexpr std::enable_if_t<
+			std::is_same_v<U, U> && Rows == Cols, U
+		> determinant() const;
 
 		/// Returns the trace of this matrix.
 		[[nodiscard]] constexpr T trace() const {
@@ -729,7 +733,13 @@ namespace lotus {
 	template <
 		std::size_t Rows, std::size_t Cols, typename T
 	> constexpr matrix<Rows, Cols, T> matrix<Rows, Cols, T>::inverse() const {
-		return lup_decomposition<Cols, T>::compute(*this).invert();
+		return mat::lup_decompose(*this).invert();
+	}
+
+	template <std::size_t Rows, std::size_t Cols, typename T> template <typename U> constexpr std::enable_if_t<
+		std::is_same_v<U, U> && Rows == Cols, U
+	> matrix<Rows, Cols, T>::determinant() const {
+		return mat::lup_decompose(into<U>()).determinant();
 	}
 
 

@@ -1,4 +1,5 @@
 #include "common.hlsli"
+#include "material_common.hlsli"
 
 #include "types.hlsli"
 #include "pcg32.hlsl"
@@ -21,9 +22,9 @@ StructuredBuffer<float4> tangents[]  : register(t0, space4);
 StructuredBuffer<float2> uvs[]       : register(t0, space5);
 StructuredBuffer<uint>   indices[]   : register(t0, space6);
 
-StructuredBuffer<instance_data> instances  : register(t0, space7);
-StructuredBuffer<geometry_data> geometries : register(t1, space7);
-StructuredBuffer<material_data> materials  : register(t2, space7);
+StructuredBuffer<rt_instance_data> instances               : register(t0, space7);
+StructuredBuffer<geometry_data> geometries                 : register(t1, space7);
+StructuredBuffer<generic_pbr_material::material> materials : register(t2, space7);
 
 struct vertex {
 	float3 position;
@@ -75,7 +76,7 @@ void compute_tangent(inout hit_triangle tri) {
 	tri.verts[0].tangent = tri.verts[1].tangent = tri.verts[2].tangent = float4(tangent, 1.0f);
 }
 hit_triangle get_hit_triangle_indexed_object_space() {
-	instance_data instance = instances[InstanceID()];
+	rt_instance_data instance = instances[InstanceID()];
 	geometry_data geometry = geometries[instance.geometry_index];
 	uint index_offset = 3 * PrimitiveIndex();
 	hit_triangle result;
@@ -86,7 +87,7 @@ hit_triangle get_hit_triangle_indexed_object_space() {
 		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.normal_buffer )][index];
 		result.verts[i].uv       = uvs      [NonUniformResourceIndex(geometry.uv_buffer     )][index];
 		if (geometry.tangent_buffer != max_uint_v) {
-			result.verts[i].tangent = tangents [NonUniformResourceIndex(geometry.tangent_buffer)][index];
+			result.verts[i].tangent = tangents[NonUniformResourceIndex(geometry.tangent_buffer)][index];
 		}
 	}
 	if (geometry.tangent_buffer == max_uint_v) {
@@ -95,7 +96,7 @@ hit_triangle get_hit_triangle_indexed_object_space() {
 	return result;
 }
 hit_triangle get_hit_triangle_unindexed_object_space() {
-	instance_data instance = instances[InstanceID()];
+	rt_instance_data instance = instances[InstanceID()];
 	geometry_data geometry = geometries[instance.geometry_index];
 	uint index = 3 * PrimitiveIndex();
 	hit_triangle result;
@@ -105,7 +106,7 @@ hit_triangle get_hit_triangle_unindexed_object_space() {
 		result.verts[i].normal   = normals  [NonUniformResourceIndex(geometry.normal_buffer )][index + i];
 		result.verts[i].uv       = uvs      [NonUniformResourceIndex(geometry.uv_buffer     )][index + i];
 		if (geometry.tangent_buffer != max_uint_v) {
-			result.verts[i].tangent = tangents [NonUniformResourceIndex(geometry.tangent_buffer)][index + i];
+			result.verts[i].tangent = tangents[NonUniformResourceIndex(geometry.tangent_buffer)][index + i];
 		}
 	}
 	if (geometry.tangent_buffer == max_uint_v) {
@@ -158,7 +159,7 @@ hit_point transform_hit_point_to_world_space(hit_point pt, float3x3 normal_trans
 	pt.position         = mul(ObjectToWorld3x4(), float4(pt.position, 1.0f));
 	pt.normal           = mul(normal_transform,   pt.normal);
 	pt.geometric_normal = mul(normal_transform,   pt.geometric_normal);
-	pt.tangent          = float4(mul(ObjectToWorld3x4(), float4(pt.tangent.xyz, 0.0f)), pt.tangent.w);
+	pt.tangent = float4(mul(ObjectToWorld3x4(), float4(pt.tangent.xyz, 0.0f)), pt.tangent.w);
 	return pt;
 }
 
@@ -166,27 +167,27 @@ float3 get_hit_position() {
 	return WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
 }
 
-/*void handle_anyhit(inout ray_payload payload, float2 barycentrics, hit_triangle tri) {
+void handle_anyhit(inout ray_payload payload, float2 barycentrics, hit_triangle tri) {
 	hit_point hit = interpolate_hit_point(tri, barycentrics);
-	instance_data instance = instances[InstanceID()];
-	material_data mat = materials[instance.material_index];
-	float threshold = mat.alpha_cutoff;
+	rt_instance_data instance = instances[InstanceID()];
+	generic_pbr_material::material mat = materials[instance.material_index];
+	float threshold = mat.properties.alpha_cutoff;
 	if (threshold > 0.0f) {
-		float alpha = textures[mat.base_color_index].SampleLevel(image_sampler, hit.uv, 0).a;
+		float alpha = textures[mat.assets.albedo_texture].SampleLevel(image_sampler, hit.uv, 0).a;
 		if (alpha < threshold) {
 			IgnoreHit();
 		}
 	}
-}*/
+}
 
 [shader("anyhit")]
 void main_anyhit_indexed(inout ray_payload payload, BuiltInTriangleIntersectionAttributes attr) {
-	/*handle_anyhit(payload, attr.barycentrics, get_hit_triangle_indexed_object_space());*/
+	handle_anyhit(payload, attr.barycentrics, get_hit_triangle_indexed_object_space());
 }
 
 [shader("anyhit")]
 void main_anyhit_unindexed(inout ray_payload payload, BuiltInTriangleIntersectionAttributes attr) {
-	/*handle_anyhit(payload, attr.barycentrics, get_hit_triangle_unindexed_object_space());*/
+	handle_anyhit(payload, attr.barycentrics, get_hit_triangle_unindexed_object_space());
 }
 
 float3 square_to_unit_hemisphere_y_cosine(float2 xi) {
@@ -202,15 +203,20 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 		return;
 	}
 
-	instance_data instance = instances[InstanceID()];
-	material_data mat = materials[instance.material_index];
+	rt_instance_data instance = instances[InstanceID()];
+	generic_pbr_material::material mat = materials[instance.material_index];
 
 	hit_point interpolated_hit = interpolate_hit_point(tri, barycentrics);
 	hit_point hit = transform_hit_point_to_world_space(interpolated_hit, instance.normal_transform);
 
+	if (dot(WorldRayDirection(), hit.geometric_normal) >= 0.0f) {
+		hit.geometric_normal = -hit.geometric_normal;
+		hit.normal = -hit.normal;
+	}
+
 #ifdef RT_ALBEDO_DEBUG
 	{
-		payload.light = textures[NonUniformResourceIndex(mat.base_color_index)].SampleLevel(image_sampler, hit.uv, 0).rgb;
+		payload.light = textures[NonUniformResourceIndex(mat.assets.albedo_texture)].SampleLevel(image_sampler, hit.uv, 0).rgb;
 		return;
 	}
 #endif
@@ -246,12 +252,12 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	return;
 #endif
 
-	float3 base_color = textures[mat.base_color_index].SampleLevel(image_sampler, hit.uv, 0).rgb;
-	base_color *= mat.base_color.rgb;
-	float4 material_props = textures[mat.metallic_roughness_index].SampleLevel(image_sampler, hit.uv, 0);
+	float3 base_color = textures[mat.assets.albedo_texture].SampleLevel(image_sampler, hit.uv, 0).rgb;
+	base_color *= mat.properties.albedo_multiplier.rgb;
+	float4 material_props = textures[mat.assets.properties_texture].SampleLevel(image_sampler, hit.uv, 0);
 	float metalness = 1.0f;
 	float roughness = 1.0f;
-	if (mat.is_metallic_roughness) {
+	if (/*mat.is_metallic_roughness*/true) {
 		metalness = material_props.z;
 		roughness = material_props.y;
 	} else {
@@ -262,25 +268,26 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	metalness = 0.5f;
 	roughness = 0.5f;
 #endif
-	metalness = saturate(metalness * mat.metalness);
-	roughness = saturate(roughness * mat.roughness);
+	metalness = saturate(metalness * mat.properties.metalness_multiplier);
+	roughness = saturate(roughness * mat.properties.roughness_multiplier);
 	roughness = max(0.01f, roughness);
 	float alpha = sqr(roughness);
 
 	float3 bitangent = hit.tangent.w * cross(hit.normal, hit.tangent.xyz);
-	float3 shading_normal_sample = textures[mat.normal_index].SampleLevel(image_sampler, hit.uv, 0).xyz;
+	float3 shading_normal_sample = textures[mat.assets.normal_texture].SampleLevel(image_sampler, hit.uv, 0).xyz;
 	shading_normal_sample = shading_normal_sample * 2.0f - 1.0f;
 	shading_normal_sample.z = sqrt(max(0.0001f, 1.0f - dot(shading_normal_sample.xy, shading_normal_sample.xy)));
 	float3 shading_normal = normalize(
-		hit.tangent.xyz * shading_normal_sample.x +
-		bitangent * shading_normal_sample.y +
-		hit.normal * shading_normal_sample.z
+		normalize(hit.tangent.xyz) * shading_normal_sample.x +
+		normalize(bitangent) * shading_normal_sample.y +
+		normalize(hit.normal) * shading_normal_sample.z
 	);
 
 #ifdef RT_NORMAL_DEBUG
 	/*payload.light = normalize(hit.normal) * 0.5f + 0.5f;*/
-	/*payload.light = shading_normal * 0.5f + 0.5f;*/
-	payload.light = hit.tangent.xyz * 0.5f + 0.5f;
+	payload.light = shading_normal * 0.5f + 0.5f;
+	/*payload.light = shading_normal_sample * 0.5f + 0.5f;*/
+	/*payload.light = hit.tangent.xyz * 0.5f + 0.5f;*/
 	return;
 #endif
 

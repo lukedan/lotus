@@ -510,9 +510,10 @@ namespace lotus::renderer::fbx {
 			auto mat_data = std::make_unique<material_data>(_asset_manager);
 
 			// TODO can't use the static names provided by the library - link errors
-			mat_data->albedo_texture = find_property_texture(mat, "DiffuseColor");
-			mat_data->normal_texture = find_property_texture(mat, "NormalMap");
-			mat_data->properties_texture = find_property_texture(mat, "ShininessExponent");
+			mat_data->albedo_texture      = find_property_texture(mat, "DiffuseColor");
+			mat_data->normal_texture      = find_property_texture(mat, "NormalMap");
+			mat_data->properties_texture  = find_property_texture(mat, "ShininessExponent");
+			mat_data->properties2_texture = find_property_texture(mat, "TransparentColor");
 			if (auto diffuse = mat->FindProperty("DiffuseFactor"); diffuse.IsValid()) {
 				// TODO
 			}
@@ -522,7 +523,7 @@ namespace lotus::renderer::fbx {
 			mat_data->properties.normal_scale         = 1.0f;
 			mat_data->properties.metalness_multiplier = 1.0f;
 			mat_data->properties.roughness_multiplier = 1.0f;
-			mat_data->properties.alpha_cutoff         = 0.0f;
+			mat_data->properties.alpha_cutoff         = 0.5f;
 
 			assets::material loaded_mat = nullptr;
 			loaded_mat.data = std::move(mat_data);

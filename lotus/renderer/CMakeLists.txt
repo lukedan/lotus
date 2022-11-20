@@ -1,4 +1,5 @@
 find_package(FBX)
+find_package(assimp CONFIG)
 
 set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
 set(TINYGLTF_HEADER_ONLY OFF CACHE INTERNAL "" FORCE)
@@ -21,6 +22,7 @@ function(add_lotus_renderer_target BACKEND)
 			"include/lotus/renderer/context/resource_bindings.h"
 			"include/lotus/renderer/context/resources.h"
 
+			"include/lotus/renderer/loaders/assimp_loader.h"
 			"include/lotus/renderer/loaders/dds_loader.h"
 			"include/lotus/renderer/loaders/fbx_loader.h"
 			"include/lotus/renderer/loaders/gltf_loader.h"
@@ -40,6 +42,7 @@ function(add_lotus_renderer_target BACKEND)
 			"src/renderer/context/resource_bindings.cpp"
 			"src/renderer/context/resources.cpp"
 
+			"src/renderer/loaders/assimp_loader.cpp"
 			"src/renderer/loaders/dds_loader.cpp"
 			"src/renderer/loaders/fbx_loader.cpp"
 			"src/renderer/loaders/gltf_loader.cpp"
@@ -51,6 +54,10 @@ function(add_lotus_renderer_target BACKEND)
 	if(FBX_FOUND)
 		target_link_libraries(${PROJ} PUBLIC FBX::FBX)
 		target_compile_definitions(${PROJ} PUBLIC LOTUS_RENDERER_HAS_FBX)
+	endif()
+	if(assimp_FOUND)
+		target_link_libraries(${PROJ} PUBLIC assimp::assimp)
+		target_compile_definitions(${PROJ} PUBLIC LOTUS_RENDERER_HAS_ASSIMP)
 	endif()
 endfunction()
 

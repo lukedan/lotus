@@ -22,6 +22,7 @@
 #include <lotus/renderer/g_buffer.h>
 #include <lotus/renderer/mipmap.h>
 
+#include <lotus/renderer/loaders/assimp_loader.h>
 #include <lotus/renderer/loaders/gltf_loader.h>
 #include <lotus/renderer/loaders/fbx_loader.h>
 
@@ -77,11 +78,12 @@ int main(int argc, char **argv) {
 	auto mip_gen = lren::mipmap::generator::create(asset_man);
 	lren::gltf::context gltf_ctx(asset_man);
 	auto fbx_ctx = lren::fbx::context::create(asset_man);
+	lren::assimp::context assimp_ctx(asset_man);
 
 	// model & resources
 #ifndef NO_SCENES
 	std::vector<lren::instance> instances;
-	std::vector<shader_types::instance_data> instance_data;
+	std::vector<shader_types::rt_instance_data> instance_data;
 	std::vector<lren::blas_reference> tlas_instances;
 	std::vector<lren::assets::handle<lren::assets::material>> material_assets;
 
@@ -93,7 +95,7 @@ int main(int argc, char **argv) {
 	std::uint32_t buffer_alloc = 0;
 	std::uint32_t index_alloc = 0;
 	std::vector<shader_types::geometry_data> geometries;
-	std::vector<shader_types::material_data> materials;
+	std::vector<lren::shader_types::generic_pbr_material::material> materials;
 	std::vector<lren::blas> blases;
 
 	auto on_texture_loaded = [&](lren::assets::handle<lren::assets::image2d> tex) {
@@ -156,23 +158,12 @@ int main(int argc, char **argv) {
 		auto &mat_data = materials.emplace_back();
 		if (auto *data = dynamic_cast<lren::gltf::material_data*>(mat->data.get())) {
 			std::uint32_t invalid_tex = asset_man.get_invalid_image()->descriptor_index;
-			mat_data.base_color_index = invalid_tex;
-			mat_data.metallic_roughness_index = invalid_tex;
-			mat_data.normal_index = invalid_tex;
-			if (data->albedo_texture) {
-				mat_data.base_color_index = data->albedo_texture->descriptor_index;
-			}
-			if (data->properties_texture) {
-				mat_data.metallic_roughness_index = data->properties_texture->descriptor_index;
-			}
-			if (data->normal_texture) {
-				mat_data.normal_index = data->normal_texture->descriptor_index;
-			}
-			mat_data.is_metallic_roughness = true; // TODO
-			mat_data.base_color = data->properties.albedo_multiplier;
-			mat_data.normal_scale = data->properties.normal_scale;
-			mat_data.metalness = data->properties.metalness_multiplier;
-			mat_data.roughness = data->properties.roughness_multiplier;
+			mat_data.assets.albedo_texture = data->albedo_texture ? data->albedo_texture->descriptor_index : invalid_tex;
+			mat_data.assets.normal_texture = data->normal_texture ? data->normal_texture->descriptor_index : invalid_tex;
+			mat_data.assets.properties_texture = data->properties_texture ? data->properties_texture->descriptor_index : invalid_tex;
+			mat_data.assets.properties2_texture = invalid_tex;
+			mat_data.properties = data->properties;
+			/*mat_data.is_metallic_roughness = true;*/ // TODO
 		}
 		material_assets.emplace_back(std::move(mat));
 	};
@@ -203,25 +194,8 @@ int main(int argc, char **argv) {
 
 	for (int i = 1; i < argc; ++i) {
 		std::filesystem::path path = argv[i];
-		if (path.extension() == ".gltf") {
-			gltf_ctx.load(
-				argv[i],
-				[&](lren::assets::handle<lren::assets::image2d> tex) {
-					on_texture_loaded(std::move(tex));
-				},
-				[&](lren::assets::handle<lren::assets::geometry> geom) {
-					on_geometry_loaded(std::move(geom));
-				},
-				[&](lren::assets::handle<lren::assets::material> mat) {
-					on_material_loaded(std::move(mat));
-				},
-				[&](lren::instance inst) {
-					on_instance_loaded(std::move(inst));
-				},
-				geom_buffer_pool, geom_texture_pool
-			);
-		} else if (path.extension() == ".fbx") {
-			fbx_ctx.load(
+		if constexpr (true) {
+			assimp_ctx.load(
 				argv[i],
 				[&](lren::assets::handle<lren::assets::image2d> tex) {
 					on_texture_loaded(std::move(tex));
@@ -238,7 +212,43 @@ int main(int argc, char **argv) {
 				geom_buffer_pool, geom_texture_pool
 			);
 		} else {
-			log().error<u8"Unknown file type: {}">(path.string());
+			if (path.extension() == ".gltf") {
+				gltf_ctx.load(
+					argv[i],
+					[&](lren::assets::handle<lren::assets::image2d> tex) {
+						on_texture_loaded(std::move(tex));
+					},
+					[&](lren::assets::handle<lren::assets::geometry> geom) {
+						on_geometry_loaded(std::move(geom));
+					},
+					[&](lren::assets::handle<lren::assets::material> mat) {
+						on_material_loaded(std::move(mat));
+					},
+					[&](lren::instance inst) {
+						on_instance_loaded(std::move(inst));
+					},
+					geom_buffer_pool, geom_texture_pool
+				);
+			} else if (path.extension() == ".fbx") {
+				fbx_ctx.load(
+					argv[i],
+					[&](lren::assets::handle<lren::assets::image2d> tex) {
+						on_texture_loaded(std::move(tex));
+					},
+					[&](lren::assets::handle<lren::assets::geometry> geom) {
+						on_geometry_loaded(std::move(geom));
+					},
+					[&](lren::assets::handle<lren::assets::material> mat) {
+						on_material_loaded(std::move(mat));
+					},
+					[&](lren::instance inst) {
+						on_instance_loaded(std::move(inst));
+					},
+					geom_buffer_pool, geom_texture_pool
+				);
+			} else {
+				log().error<u8"Unknown file type: {}">(path.string());
+			}
 		}
 	}
 
@@ -261,24 +271,24 @@ int main(int argc, char **argv) {
 	}
 	auto mat_buf = rctx.request_buffer(
 		u8"Material buffer",
-		sizeof(shader_types::material_data) * materials.size(),
+		sizeof(lren::shader_types::generic_pbr_material::material) * materials.size(),
 		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
 		other_buffer_pool
 	);
-	rctx.upload_buffer<shader_types::material_data>(mat_buf, materials, 0, u8"Upload material buffer");
-	auto mat_structured_buf = mat_buf.get_view<shader_types::material_data>(0, materials.size());
+	rctx.upload_buffer<lren::shader_types::generic_pbr_material::material>(mat_buf, materials, 0, u8"Upload material buffer");
+	auto mat_structured_buf = mat_buf.get_view<lren::shader_types::generic_pbr_material::material>(0, materials.size());
 
 	if (instance_data.empty()) {
 		instance_data.emplace_back();
 	}
 	auto inst_buf = rctx.request_buffer(
 		u8"Instance buffer",
-		sizeof(shader_types::instance_data) * instance_data.size(),
+		sizeof(shader_types::rt_instance_data) * instance_data.size(),
 		lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
 		other_buffer_pool
 	);
-	rctx.upload_buffer<shader_types::instance_data>(inst_buf, instance_data, 0, u8"Upload instance buffer");
-	auto inst_structured_buf = inst_buf.get_view<shader_types::instance_data>(0, instance_data.size());
+	rctx.upload_buffer<shader_types::rt_instance_data>(inst_buf, instance_data, 0, u8"Upload instance buffer");
+	auto inst_structured_buf = inst_buf.get_view<shader_types::rt_instance_data>(0, instance_data.size());
 #endif
 
 #ifndef DISABLE_ALL_RT
@@ -299,8 +309,6 @@ int main(int argc, char **argv) {
 	);
 	std::size_t frame_index = 0;
 
-	lren::image2d_view rt_result = nullptr;
-
 	auto cam_params = lotus::camera_parameters<float>::create_look_at(cvec3f(0.0f, 10.0f, 0.0f), cvec3f(50.0f, 10.0f, 0.0f));
 	{
 		auto size = wnd.get_size();
@@ -313,17 +321,22 @@ int main(int argc, char **argv) {
 	bool is_moving = false;
 	cvec2i prev_mouse = zero;
 	cvec2s window_size = zero;
+#ifndef DISABLE_ALL_RT
+	lren::image2d_view rt_result = nullptr;
+#endif
 
 	auto on_resize = [&](lsys::window&, lsys::window_events::resize &info) {
 		window_size = info.new_size;
 		frame_index = 0;
 		swap_chain.resize(info.new_size);
 		cam_params.aspect_ratio = info.new_size[0] / static_cast<float>(info.new_size[1]);
+#ifndef DISABLE_ALL_RT
 		rt_result = rctx.request_image2d(
 			u8"Raytracing result", window_size, 1, lgpu::format::r32g32b32a32_float,
 			lgpu::image_usage_mask::shader_read_only | lgpu::image_usage_mask::shader_read_write,
 			other_texture_pool
 		);
+#endif
 	};
 	auto on_mouse_move = [&](lsys::window&, lsys::window_events::mouse::move &move) {
 		cvec2f offset = (move.new_position - prev_mouse).into<float>();

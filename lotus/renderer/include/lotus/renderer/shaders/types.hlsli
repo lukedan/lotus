@@ -24,7 +24,7 @@ namespace generic_pbr_material {
 		uint albedo_texture;
 		uint normal_texture;
 		uint properties_texture;
-		uint _padding;
+		uint properties2_texture;
 	};
 
 	struct material {

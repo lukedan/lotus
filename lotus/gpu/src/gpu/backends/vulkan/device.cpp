@@ -1358,21 +1358,27 @@ namespace lotus::gpu::backends::vulkan {
 			VK_KHR_SPIRV_1_4_EXTENSION_NAME,
 			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
 
-			// raytracing related
-			VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-			VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-			VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-			VK_KHR_RAY_QUERY_EXTENSION_NAME,
-
-			// pageable heap
-			VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
-			VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
-
 			// HLSL to SPIR-V
-			// getting ErrorExtensionNotPresent with these, but the program runs fine
+			// getting ErrorExtensionNotPresent with these, but the program runs fine without them
 			/*VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
+		constexpr static bool _disable_advanced_extensions = false; // for RenderDoc and stuff
+		if constexpr (!_disable_advanced_extensions) {
+			extensions.insert(extensions.end(),
+				{
+					// raytracing related
+					VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+					VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+					VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+					VK_KHR_RAY_QUERY_EXTENSION_NAME,
+
+					// pageable heap
+					VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
+					VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
+				}
+			);
+		}
 		if (!is_empty(_options & context_options::enable_validation)) {
 			extensions.emplace_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
 		}

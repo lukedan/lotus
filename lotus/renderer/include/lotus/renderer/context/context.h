@@ -253,11 +253,18 @@ namespace lotus::renderer {
 	class context {
 		friend _details::image2d;
 		friend _details::context_managed_deleter;
-		friend execution::upload_buffers;
 		friend execution::context;
 	public:
 		class command_list;
 
+		/// Helper class used to retrieve the device associated with a \ref context.
+		struct device_access {
+			friend assets::manager;
+			friend execution::upload_buffers;
+		protected:
+			/// Retrieves the device associated with the given \ref context.
+			[[nodiscard]] static gpu::device &get(context&);
+		};
 		/// A pass being rendered.
 		class pass {
 			friend context;

@@ -43,6 +43,12 @@ namespace lotus {
 			}
 			return *this;
 		}
+		/// Assigns a function object to this function.
+		template <typename Callable> static_function &operator=(Callable &&obj) {
+			_reset();
+			_set(std::forward<Callable>(obj));
+			return *this;
+		}
 		/// No copy assignment.
 		static_function &operator=(const static_function&) = delete;
 		/// Destroys the callable object.

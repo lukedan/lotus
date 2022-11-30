@@ -61,35 +61,37 @@ namespace lotus::gpu::backends::common {
 		/// Calls \p IDxcCompiler3::Compile().
 		[[nodiscard]] compilation_result compile_shader(
 			std::span<const std::byte>, shader_stage, std::u8string_view entry_point,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
 			std::span<const LPCWSTR> args
 		);
 		/// \overload
 		[[nodiscard]] compilation_result compile_shader(
 			std::span<const std::byte> code, shader_stage stage, std::u8string_view entry_point,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
 			std::initializer_list<LPCWSTR> args
 		) {
-			return compile_shader(code, stage, entry_point, include_paths, defines, { args.begin(), args.end() });
+			return compile_shader(
+				code, stage, entry_point, shader_path, include_paths, defines, { args.begin(), args.end() }
+			);
 		}
 
 		/// Calls \p IDxcCompiler3::Compile().
 		[[nodiscard]] compilation_result compile_shader_library(
 			std::span<const std::byte> code,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
 			std::span<const LPCWSTR> args
 		);
 		/// \overload
 		[[nodiscard]] compilation_result compile_shader_library(
 			std::span<const std::byte> code,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
 			std::initializer_list<const LPCWSTR> args
 		) {
-			return compile_shader_library(code, include_paths, defines, { args.begin(), args.end() });
+			return compile_shader_library(code, shader_path, include_paths, defines, { args.begin(), args.end() });
 		}
 
 		/// Initializes \ref _dxc_utils if necessary, and returns it.
@@ -107,7 +109,7 @@ namespace lotus::gpu::backends::common {
 		/// Calls \p IDxcCompiler3::Compile().
 		[[nodiscard]] compilation_result _do_compile_shader(
 			std::span<const std::byte> code,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
 			std::span<const LPCWSTR> args,
 			std::initializer_list<LPCWSTR> extra_args_2

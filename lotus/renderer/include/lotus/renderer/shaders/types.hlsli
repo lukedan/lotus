@@ -11,6 +11,7 @@ struct view_data {
 	float4x4 projection_view;
 };
 
+
 namespace generic_pbr_material {
 	struct material_properties {
 		float4 albedo_multiplier;
@@ -32,5 +33,19 @@ namespace generic_pbr_material {
 		material_assets     assets;
 	};
 }
+
+
+enum class light_type : uint {
+	directional_light,
+	point_light,
+	spot_light,
+};
+
+struct light {
+	light_type type;
+	float3 position;
+	float3 direction;
+	float3 color;
+};
 
 #endif

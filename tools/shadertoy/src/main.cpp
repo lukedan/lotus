@@ -41,7 +41,11 @@ int main(int argc, char **argv) {
 	lgpu::command_queue cmd_queue = gdev.create_command_queue();
 
 	auto rctx = lren::context::create(gctx, gdev_props, gdev, cmd_queue);
-	auto ass_man = lren::assets::manager::create(rctx, gdev, "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders", &shader_utils);
+	auto ass_man = lren::assets::manager::create(rctx, &shader_utils);
+	ass_man.shader_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders";
+	ass_man.additional_shader_includes = {
+		"D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders",
+	};
 
 	auto resource_pool = rctx.request_pool(u8"Resource Pool", rctx.get_device_memory_type_index());
 
@@ -75,67 +79,64 @@ int main(int argc, char **argv) {
 		"shaders/blit.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps"
 	);
 
-	lotus::cvec2s window_size = zero;
 
 	bool is_mouse_down = false;
+	lotus::cvec2s window_size = zero;
 	lotus::cvec2i mouse_pos = zero;
 	lotus::cvec2i mouse_down_pos = zero;
 	lotus::cvec2i mouse_drag_pos = zero;
 
-	auto close_request = wnd.on_close_request.create_linked_node(
-		[&](lsys::window&, lsys::window_events::close_request &request) {
-			window_size = zero; // prevent from resizing the frame buffers
-			request.should_close = true;
-			app.quit();
+	auto on_close_request = [&](lsys::window_events::close_request &request) {
+		window_size = zero; // prevent from resizing the frame buffers
+		request.should_close = true;
+		app.quit();
+	};
+	auto on_resize = [&](lsys::window_events::resize &info) {
+		window_size = info.new_size;
+		swapchain.resize(window_size);
+	};
+	auto on_mouse_button_down = [&](lsys::window_events::mouse::button_down &info) {
+		if (info.button == lsys::mouse_button::primary) {
+			wnd.acquire_mouse_capture();
+			is_mouse_down = true;
+		} else if (info.button == lsys::mouse_button::secondary) {
+			reload = true;
 		}
-	);
+	};
+	auto on_mouse_button_up = [&](lsys::window_events::mouse::button_up &info) {
+		if (info.button == lsys::mouse_button::primary) {
+			if (is_mouse_down) {
+				wnd.release_mouse_capture();
+				is_mouse_down = false;
+			}
+		}
+	};
+	auto on_mouse_move = [&](lsys::window_events::mouse::move &info) {
+		if (is_mouse_down) {
+			mouse_drag_pos += info.new_position - mouse_pos;
+			mouse_down_pos = info.new_position;
+		}
+		mouse_pos = info.new_position;
+	};
 
-	auto resize = wnd.on_resize.create_linked_node(
-		[&](lsys::window&, lsys::window_events::resize &info) {
-			window_size = info.new_size;
-			swapchain.resize(window_size);
-		}
-	);
-	auto mouse_down = wnd.on_mouse_button_down.create_linked_node(
-		[&](lsys::window &w, lsys::window_events::mouse::button_down &info) {
-			if (info.button == lsys::mouse_button::primary) {
-				w.acquire_mouse_capture();
-				is_mouse_down = true;
-			} else if (info.button == lsys::mouse_button::secondary) {
-				reload = true;
-			}
-		}
-	);
-	auto mouse_up = wnd.on_mouse_button_up.create_linked_node(
-		[&](lsys::window &w, lsys::window_events::mouse::button_up &info) {
-			if (info.button == lsys::mouse_button::primary) {
-				if (is_mouse_down) {
-					w.release_mouse_capture();
-					is_mouse_down = false;
-				}
-			}
-		}
-	);
-	auto capture_broken = wnd.on_capture_broken.create_linked_node(
-		[&](lsys::window&) {
-			is_mouse_down = false;
-		}
-	);
-	struct {
-		bool &is_mouse_down;
-		lotus::cvec2i &mouse_drag_pos;
-		lotus::cvec2i &mouse_down_pos;
-		lotus::cvec2i &mouse_pos;
-	} closure = { is_mouse_down, mouse_drag_pos, mouse_down_pos, mouse_pos };
-	auto mouse_move = wnd.on_mouse_move.create_linked_node(
-		[&](lsys::window&, lsys::window_events::mouse::move &info) {
-			if (closure.is_mouse_down) {
-				closure.mouse_drag_pos += info.new_position - closure.mouse_pos;
-				closure.mouse_down_pos = info.new_position;
-			}
-			closure.mouse_pos = info.new_position;
-		}
-	);
+	wnd.on_close_request = [&](lsys::window_events::close_request &request) {
+		on_close_request(request);
+	};
+	wnd.on_resize = [&](lsys::window_events::resize &info) {
+		on_resize(info);
+	};
+	wnd.on_mouse_button_down = [&](lsys::window_events::mouse::button_down &info) {
+		on_mouse_button_down(info);
+	};
+	wnd.on_mouse_button_up = [&](lsys::window_events::mouse::button_up &info) {
+		on_mouse_button_up(info);
+	};
+	wnd.on_capture_broken = [&]() {
+		is_mouse_down = false;
+	};
+	wnd.on_mouse_move = [&](lsys::window_events::mouse::move &info) {
+		on_mouse_move(info);
+	};
 
 	// load project
 	std::filesystem::path proj_path = argv[1];

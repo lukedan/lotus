@@ -96,13 +96,13 @@ namespace lotus::gpu::backends::vulkan {
 		/// Compiles the given shader using the currently selected compiler.
 		[[nodiscard]] compilation_result compile_shader(
 			std::span<const std::byte> code, shader_stage, std::u8string_view entry,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 		);
 		/// Compiles the given shader library using the currently selected compiler.
 		[[nodiscard]] compilation_result compile_shader_library(
 			std::span<const std::byte> code,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 		);
 	private:

@@ -68,6 +68,7 @@ namespace lotus::renderer::assimp {
 		static_function<void(assets::handle<assets::geometry>)> geometry_loaded_callback,
 		static_function<void(assets::handle<assets::material>)> material_loaded_callback,
 		static_function<void(instance)> instance_loaded_callback,
+		static_function<void(shader_types::light)> light_loaded_callback,
 		const pool &buf_pool, const pool &tex_pool
 	) {
 		Assimp::Importer importer;
@@ -255,8 +256,46 @@ namespace lotus::renderer::assimp {
 			}
 		}
 
-		// load instances
-		if (instance_loaded_callback) {
+		// load lights
+		std::vector<shader_types::light> lights;
+		std::unordered_map<std::string, std::size_t> lights_mapping;
+		if (light_loaded_callback) {
+			for (unsigned i = 0; i < scene->mNumLights; ++i) {
+				const aiLight *light = scene->mLights[i];
+				auto [it, inserted] = lights_mapping.emplace(light->mName.C_Str(), lights.size());
+				if (!inserted) {
+					log().error<
+						u8"Light with duplicate name: {}, previous was at position {}"
+					>(light->mName.C_Str(), it->second);
+					continue;
+				}
+				auto &loaded_light = lights.emplace_back();
+				switch (light->mType) {
+				case aiLightSource_DIRECTIONAL:
+					loaded_light.type = shader_types::light_type::directional_light;
+					break;
+				case aiLightSource_POINT:
+					loaded_light.type = shader_types::light_type::point_light;
+					break;
+				case aiLightSource_SPOT:
+					loaded_light.type = shader_types::light_type::spot_light;
+					break;
+				case aiLightSource_AMBIENT:
+					log().error<u8"Ambient light ignored: {}">(light->mName.C_Str());
+					break;
+				case aiLightSource_AREA:
+					loaded_light.type = shader_types::light_type::point_light;
+					log().warn<u8"Area light treated as a point light: {}">(light->mName.C_Str());
+					break;
+				}
+				loaded_light.position = cvec3f(light->mPosition.x, light->mPosition.y, light->mPosition.z);
+				loaded_light.direction = cvec3f(light->mDirection.x, light->mDirection.y, light->mDirection.z);
+				// mColorSpecular is ignored
+				loaded_light.color = cvec3f(light->mColorDiffuse.r, light->mColorDiffuse.g, light->mColorDiffuse.b);
+			}
+		}
+
+		{ // load instances
 			std::vector<std::pair<const aiNode*, mat44f>> stack;
 			stack.emplace_back(scene->mRootNode, mat44f::identity());
 			while (!stack.empty()) {
@@ -281,9 +320,31 @@ namespace lotus::renderer::assimp {
 					instance_loaded_callback(std::move(inst));
 				}
 
+				// load lights
+				if (light_loaded_callback) {
+					auto it = lights_mapping.find(node->mName.C_Str());
+					if (it != lights_mapping.end()) {
+						auto &light = lights[it->second];
+						light.position = (trans * cvec4f(cvec3f(light.position), 1.0f)).block<3, 1>(0, 0);
+						light.direction = (trans * cvec4f(cvec3f(light.direction), 0.0f)).block<3, 1>(0, 0);
+						lights_mapping.erase(it);
+					}
+				}
+
 				for (unsigned i_child = 0; i_child < node->mNumChildren; ++i_child) {
 					stack.emplace_back(node->mChildren[i_child], trans);
 				}
+			}
+		}
+
+		if (light_loaded_callback) {
+			if (!lights_mapping.empty()) {
+				for (auto &&[k, v] : lights_mapping) {
+					log().error<u8"Light without a corresponding node: {}">(k.c_str());
+				}
+			}
+			for (const auto &l : lights) {
+				light_loaded_callback(l);
 			}
 		}
 	}

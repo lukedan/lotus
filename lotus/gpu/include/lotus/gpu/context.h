@@ -122,25 +122,27 @@ namespace lotus::gpu {
 		/// Compiles the given shader.
 		[[nodiscard]] compilation_result compile_shader(
 			std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 		) {
-			return backend::shader_utility::compile_shader(code_utf8, stage, entry, include_paths, defines);
-		}
-		/// \overload
-		[[nodiscard]] compilation_result compile_shader(
-			std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry,
-			std::initializer_list<std::filesystem::path> include_paths,
-			std::initializer_list<std::pair<std::u8string_view, std::u8string_view>> defines
-		) {
-			return compile_shader(
-				code_utf8, stage, entry, { include_paths.begin(), include_paths.end() }, defines
+			return backend::shader_utility::compile_shader(
+				code_utf8, stage, entry, shader_path, include_paths, defines
 			);
 		}
 		/// \overload
 		[[nodiscard]] compilation_result compile_shader(
 			std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::initializer_list<std::filesystem::path> include_paths,
+			std::initializer_list<std::pair<std::u8string_view, std::u8string_view>> defines
+		) {
+			return compile_shader(
+				code_utf8, stage, entry, shader_path, { include_paths.begin(), include_paths.end() }, defines
+			);
+		}
+		/// \overload
+		[[nodiscard]] compilation_result compile_shader(
+			std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string, std::u8string>> defines
 		) {
 			auto bookmark = get_scratch_bookmark();
@@ -150,31 +152,31 @@ namespace lotus::gpu {
 			for (const auto &def : defines) {
 				defs.emplace_back(def.first, def.second);
 			}
-			return compile_shader(code_utf8, stage, entry, include_paths, defs);
+			return compile_shader(code_utf8, stage, entry, shader_path, include_paths, defs);
 		}
 
 		/// Compiles the given raytracing shader library.
 		[[nodiscard]] compilation_result compile_shader_library(
 			std::span<const std::byte> code_utf8,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 		) {
-			return backend::shader_utility::compile_shader_library(code_utf8, include_paths, defines);
+			return backend::shader_utility::compile_shader_library(code_utf8, shader_path, include_paths, defines);
 		}
 		/// \overload
 		[[nodiscard]] compilation_result compile_shader_library(
 			std::span<const std::byte> code_utf8,
-			std::initializer_list<std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::initializer_list<std::filesystem::path> include_paths,
 			std::initializer_list<std::pair<std::u8string_view, std::u8string_view>> defines
 		) {
 			return compile_shader_library(
-				code_utf8, { include_paths.begin(), include_paths.end() }, defines
+				code_utf8, shader_path, { include_paths.begin(), include_paths.end() }, defines
 			);
 		}
 		/// \overload
 		[[nodiscard]] compilation_result compile_shader_library(
 			std::span<const std::byte> code_utf8,
-			std::span<const std::filesystem::path> include_paths,
+			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string, std::u8string>> defines
 		) {
 			auto bookmark = get_scratch_bookmark();
@@ -184,7 +186,7 @@ namespace lotus::gpu {
 			for (const auto &def : defines) {
 				defs.emplace_back(def.first, def.second);
 			}
-			return compile_shader_library(code_utf8, include_paths, defs);
+			return compile_shader_library(code_utf8, shader_path, include_paths, defs);
 		}
 	protected:
 		/// Initializes the base object.

@@ -33,12 +33,9 @@ namespace lotus::renderer {
 
 			/// Creates a new instance.
 			[[nodiscard]] inline static manager create(
-				context &ctx,
-				gpu::device &dev,
-				std::filesystem::path shader_lib_path = {},
-				gpu::shader_utility *shader_utils = nullptr
+				context &ctx, gpu::shader_utility *shader_utils = nullptr
 			) {
-				return manager(ctx, dev, std::move(shader_lib_path), shader_utils);
+				return manager(ctx, shader_utils);
 			}
 
 			/// Retrieves a image with the given ID. If it has not been loaded, it will be loaded and allocated out
@@ -184,19 +181,13 @@ namespace lotus::renderer {
 			/// Updates resource loading.
 			void update();
 
-			/// Returns the device associated with this asset manager.
-			[[nodiscard]] gpu::device &get_device() const {
-				return _device;
-			}
-			/// Returns the path that contains shader files.
-			[[nodiscard]] const std::filesystem::path &get_shader_library_path() const {
-				return _shader_library_path;
-			}
-
 			/// Returns the \ref context this manager is associated with.
 			[[nodiscard]] context &get_context() const {
 				return _context;
 			}
+
+			std::filesystem::path shader_library_path; ///< Path to the folder containing all built-in shaders.
+			std::vector<std::filesystem::path> additional_shader_includes; ///< All additional shader include paths.
 		private:
 			/// Hashes an \ref identifier.
 			struct _id_hash {
@@ -292,7 +283,7 @@ namespace lotus::renderer {
 			};
 
 			/// Initializes this manager.
-			manager(context&, gpu::device&, std::filesystem::path, gpu::shader_utility*);
+			manager(context&, gpu::shader_utility*);
 
 			/// Generic interface for registering an asset.
 			template <typename T> handle<T> _register_asset(identifier id, T value, _map<T> &mp) {
@@ -355,10 +346,8 @@ namespace lotus::renderer {
 			_shader_library_map _shader_libraries; ///< All loaded shader libraries.
 			_material_map       _materials;        ///< All loaded materials.
 
-			gpu::device &_device; ///< Device that all assets are loaded onto.
-			gpu::shader_utility *_shader_utilities; ///< Used for compiling shaders.
-
 			context &_context; ///< Associated context.
+			gpu::shader_utility *_shader_utilities = nullptr; ///< Used for compiling shaders.
 
 			_async_loader _image_loader; ///< Loader for images.
 			/// Buffered input jobs. These will be submitted in \ref update().
@@ -368,8 +357,6 @@ namespace lotus::renderer {
 			cached_descriptor_set _sampler_descriptors; ///< Descriptors of all samplers.
 			handle<image2d> _invalid_image; ///< Index of a image indicating "invalid image".
 			std::vector<std::uint32_t> _image2d_descriptor_index_alloc; ///< Used to allocate descriptor indices.
-
-			std::filesystem::path _shader_library_path; ///< Path containing all shaders.
 		};
 	}
 }

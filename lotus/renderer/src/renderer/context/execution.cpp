@@ -7,7 +7,7 @@
 
 namespace lotus::renderer::execution {
 	upload_buffers::result upload_buffers::stage(std::span<const std::byte> data, std::size_t alignment) {
-		auto &dev = _context->_device;
+		auto &dev = renderer::context::device_access::get(*_context);
 		if (data.size() > _buffer_size) {
 			auto &buf = allocate_buffer(data.size());
 			auto *ptr = dev.map_buffer(buf, 0, 0);
@@ -40,7 +40,7 @@ namespace lotus::renderer::execution {
 
 	void upload_buffers::flush() {
 		if (_current) {
-			_context->_device.unmap_buffer(*_current, 0, _current_used);
+			renderer::context::device_access::get(*_context).unmap_buffer(*_current, 0, _current_used);
 			_current = nullptr;
 			_current_used = 0;
 		}
@@ -63,8 +63,7 @@ namespace lotus::renderer::execution {
 	void transition_buffer::stage_transition(_details::buffer &buf, _details::buffer_access access) {
 		_buffer_transitions.emplace_back(buf, access);
 		for (const auto &ref : buf.array_references) {
-			const auto &b = ref.array->resources[ref.index].resource;
-			assert(b._buffer == &buf);
+			crash_if(ref.array->resources[ref.index].resource._buffer != &buf);
 			ref.array->staged_transitions.emplace_back(ref.index);
 		}
 	}
@@ -75,8 +74,8 @@ namespace lotus::renderer::execution {
 		transitions.erase(std::unique(transitions.begin(), transitions.end()), transitions.end());
 		auto access = gpu::to_image_access_mask(arr.type);
 		auto layout = gpu::to_image_layout(arr.type);
-		assert(access != gpu::image_access_mask::none);
-		assert(layout != gpu::image_layout::undefined);
+		crash_if(access == gpu::image_access_mask::none);
+		crash_if(layout == gpu::image_layout::undefined);
 		for (auto index : transitions) {
 			const auto &img = arr.resources[index].resource;
 			_image2d_transitions.emplace_back(

@@ -7,6 +7,9 @@
 #include "assets.h"
 
 namespace lotus::renderer {
+	struct resource_binding;
+
+
 	/// Reference to a 2D color image that can be rendered to.
 	struct image2d_color {
 		/// Initializes the surface to empty.
@@ -45,8 +48,16 @@ namespace lotus::renderer {
 	};
 
 	namespace descriptor_resource {
+		namespace _details {
+			/// CRTP base class of descriptor resources.
+			template <typename Resource> struct resource_base {
+				/// Shorthand for \ref resource_binding::resource_binding().
+				[[nodiscard]] resource_binding at_register(std::uint32_t) &&;
+			};
+		}
+
 		/// A 2D image.
-		struct image2d {
+		struct image2d : public _details::resource_base<image2d> {
 			/// Initializes all fields of this struct.
 			image2d(recorded_resources::image2d_view v, image_binding_type type) : view(v), binding_type(type) {
 			}
@@ -63,7 +74,7 @@ namespace lotus::renderer {
 			image_binding_type binding_type = image_binding_type::read_only; ///< Usage of the bound image.
 		};
 		/// The next image in a swap chain.
-		struct swap_chain_image {
+		struct swap_chain_image : public _details::resource_base<swap_chain_image> {
 			/// Initializes all fields of this struct.
 			explicit swap_chain_image(recorded_resources::swap_chain chain) : image(chain) {
 			}
@@ -71,7 +82,7 @@ namespace lotus::renderer {
 			recorded_resources::swap_chain image; ///< The swap chain.
 		};
 		/// A structured buffer.
-		struct structured_buffer {
+		struct structured_buffer : public _details::resource_base<structured_buffer> {
 			/// Initializes all fields of this struct.
 			structured_buffer(
 				recorded_resources::structured_buffer_view d, buffer_binding_type t
@@ -94,7 +105,7 @@ namespace lotus::renderer {
 			buffer_binding_type binding_type = buffer_binding_type::read_only; ///< Usage of the bound buffer.
 		};
 		/// Constant buffer with data that will be copied to VRAM when a command list is executed.
-		struct immediate_constant_buffer {
+		struct immediate_constant_buffer : public _details::resource_base<immediate_constant_buffer> {
 			/// Initializes all fields of this struct.
 			explicit immediate_constant_buffer(std::vector<std::byte> d) : data(std::move(d)) {
 			}
@@ -111,7 +122,7 @@ namespace lotus::renderer {
 			std::vector<std::byte> data; ///< Constant buffer data.
 		};
 		/// A top-level acceleration structure.
-		struct tlas {
+		struct tlas : public _details::resource_base<tlas> {
 			/// Initializes all fields of this structure.
 			explicit tlas(const renderer::tlas &as) : acceleration_structure(as) {
 			}
@@ -119,7 +130,9 @@ namespace lotus::renderer {
 			recorded_resources::tlas acceleration_structure; ///< The acceleration structure.
 		};
 		/// A sampler.
-		using sampler = sampler_state;
+		struct sampler : public sampler_state, public _details::resource_base<sampler> {
+			using sampler_state::sampler_state;
+		};
 
 
 		/// A union of all possible resource types.
@@ -243,4 +256,14 @@ namespace std {
 		/// Hashes the given object.
 		[[nodiscard]] size_t operator()(const lotus::renderer::shader_function&) const;
 	};
+}
+
+
+// implementations
+namespace lotus::renderer {
+	namespace descriptor_resource::_details {
+		template <typename Resource> resource_binding resource_base<Resource>::at_register(std::uint32_t reg) && {
+			return resource_binding(std::move(*static_cast<Resource*>(this)), reg);
+		}
+	}
 }

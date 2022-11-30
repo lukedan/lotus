@@ -6,7 +6,7 @@
 #include "brdf.hlsl"
 
 #define RT_USE_PCG32
-/*#define RT_SKYVIS_DEBUG*/
+//#define RT_SKYVIS_DEBUG
 //#define RT_ALBEDO_DEBUG
 //#define RT_NORMAL_DEBUG
 
@@ -114,12 +114,12 @@ hit_triangle get_hit_triangle_unindexed_object_space() {
 	}
 	return result;
 }
-hit_triangle transform_hit_triangle_to_world_space(hit_triangle tri, float3x3 normal_transform) {
+hit_triangle transform_hit_triangle_to_world_space(hit_triangle tri, float3x3 normal_transform, float determinant) {
 	[unroll]
 	for (int i = 0; i < 3; ++i) {
 		tri.verts[i].position = mul(ObjectToWorld3x4(), float4(tri.verts[i].position, 1.0f));
 		tri.verts[i].normal   = mul(normal_transform,   tri.verts[i].normal);
-		tri.verts[i].tangent  = float4(mul(ObjectToWorld3x4(), float4(tri.verts[i].tangent.xyz, 0.0f)), tri.verts[i].tangent.w);
+		tri.verts[i].tangent  = float4(mul(ObjectToWorld3x4(), float4(tri.verts[i].tangent.xyz, 0.0f)) / determinant, tri.verts[i].tangent.w);
 	}
 	return tri;
 }
@@ -128,7 +128,8 @@ struct hit_point {
 	float3 position;
 	float3 normal;
 	float3 geometric_normal;
-	float4 tangent;
+	float3 tangent;
+	float3 bitangent;
 	float2 uv;
 };
 hit_point interpolate_hit_point(hit_triangle tri, float2 barycentrics) {
@@ -149,17 +150,20 @@ hit_point interpolate_hit_point(hit_triangle tri, float2 barycentrics) {
 		tri.verts[0].uv * (1.0f - barycentrics.x - barycentrics.y) +
 		tri.verts[1].uv * barycentrics.x +
 		tri.verts[2].uv * barycentrics.y;
-	result.tangent =
+	float4 tangent =
 		tri.verts[0].tangent * (1.0f - barycentrics.x - barycentrics.y) +
 		tri.verts[1].tangent * barycentrics.x +
 		tri.verts[2].tangent * barycentrics.y;
+	result.tangent = tangent.xyz;
+	result.bitangent = cross(result.normal, result.tangent) * tangent.w;
 	return result;
 }
-hit_point transform_hit_point_to_world_space(hit_point pt, float3x3 normal_transform) {
+hit_point transform_hit_point_to_world_space(hit_point pt, float3x3 normal_transform, float determinant) {
 	pt.position         = mul(ObjectToWorld3x4(), float4(pt.position, 1.0f));
 	pt.normal           = mul(normal_transform,   pt.normal);
 	pt.geometric_normal = mul(normal_transform,   pt.geometric_normal);
-	pt.tangent = float4(mul(ObjectToWorld3x4(), float4(pt.tangent.xyz, 0.0f)), pt.tangent.w);
+	pt.tangent          = mul(ObjectToWorld3x4(), float4(pt.tangent.xyz, 0.0f)) / determinant;
+	pt.bitangent        = mul(ObjectToWorld3x4(), float4(pt.bitangent, 0.0f)) / determinant;
 	return pt;
 }
 
@@ -207,7 +211,7 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	generic_pbr_material::material mat = materials[instance.material_index];
 
 	hit_point interpolated_hit = interpolate_hit_point(tri, barycentrics);
-	hit_point hit = transform_hit_point_to_world_space(interpolated_hit, instance.normal_transform);
+	hit_point hit = transform_hit_point_to_world_space(interpolated_hit, instance.normal_transform, instance.determinant);
 
 	if (dot(WorldRayDirection(), hit.geometric_normal) >= 0.0f) {
 		hit.geometric_normal = -hit.geometric_normal;
@@ -273,14 +277,13 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	roughness = max(0.01f, roughness);
 	float alpha = sqr(roughness);
 
-	float3 bitangent = hit.tangent.w * cross(hit.normal, hit.tangent.xyz);
 	float3 shading_normal_sample = textures[mat.assets.normal_texture].SampleLevel(image_sampler, hit.uv, 0).xyz;
 	shading_normal_sample = shading_normal_sample * 2.0f - 1.0f;
 	shading_normal_sample.z = sqrt(max(0.0001f, 1.0f - dot(shading_normal_sample.xy, shading_normal_sample.xy)));
 	float3 shading_normal = normalize(
-		normalize(hit.tangent.xyz) * shading_normal_sample.x +
-		normalize(bitangent) * shading_normal_sample.y +
-		normalize(hit.normal) * shading_normal_sample.z
+		hit.tangent * shading_normal_sample.x +
+		hit.bitangent * shading_normal_sample.y +
+		hit.normal * shading_normal_sample.z
 	);
 
 #ifdef RT_NORMAL_DEBUG
@@ -288,6 +291,7 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	payload.light = shading_normal * 0.5f + 0.5f;
 	/*payload.light = shading_normal_sample * 0.5f + 0.5f;*/
 	/*payload.light = hit.tangent.xyz * 0.5f + 0.5f;*/
+	//payload.light = float3(length(hit.tangent), length(bitangent), length(hit.normal)) * 0.5f;
 	return;
 #endif
 
@@ -295,7 +299,7 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 		payload.light = (float3)0.0f;
 		return;
 	}
-	float3 shading_tangent = normalize(cross(bitangent, shading_normal));
+	float3 shading_tangent = normalize(cross(hit.bitangent, shading_normal));
 	if (any(isnan(shading_tangent))) {
 		shading_tangent = normalize(cross(float3(0.3f, 0.4f, 0.5f), shading_normal));
 	}

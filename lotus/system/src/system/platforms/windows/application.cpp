@@ -23,21 +23,27 @@ namespace lotus::system::platforms::windows {
 		case WM_SIZE:
 			{
 				window_events::resize info(cvec2s(LOWORD(lparam), HIWORD(lparam)));
-				sys_wnd->on_resize.invoke_all(*sys_wnd, info);
+				if (sys_wnd->on_resize) {
+					sys_wnd->on_resize(info);
+				}
 			}
 			return 0;
 
 		case WM_CANCELMODE:
 			{
 				_details::assert_win32(ReleaseCapture());
-				sys_wnd->on_capture_broken.invoke_all(*sys_wnd);
+				if (sys_wnd->on_capture_broken) {
+					sys_wnd->on_capture_broken();
+				}
 			}
 			return 0;
 
 		case WM_CLOSE:
 			{
 				window_events::close_request info;
-				sys_wnd->on_close_request.invoke_all(*sys_wnd, info);
+				if (sys_wnd->on_close_request) {
+					sys_wnd->on_close_request(info);
+				}
 				if (info.should_close) {
 					_details::assert_win32(DestroyWindow(wnd->_hwnd));
 					wnd->_hwnd = nullptr;
@@ -50,7 +56,9 @@ namespace lotus::system::platforms::windows {
 				window_events::mouse::move info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)), _get_modifier_key_mask(wparam)
 				);
-				sys_wnd->on_mouse_move.invoke_all(*sys_wnd, info);
+				if (sys_wnd->on_mouse_move) {
+					sys_wnd->on_mouse_move(info);
+				}
 			}
 			return 0;
 
@@ -60,7 +68,9 @@ namespace lotus::system::platforms::windows {
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::primary, _get_modifier_key_mask(wparam)
 				);
-				sys_wnd->on_mouse_button_down.invoke_all(*sys_wnd, info);
+				if (sys_wnd->on_mouse_button_down) {
+					sys_wnd->on_mouse_button_down(info);
+				}
 			}
 			return 0;
 		case WM_LBUTTONUP:
@@ -69,7 +79,9 @@ namespace lotus::system::platforms::windows {
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::primary, _get_modifier_key_mask(wparam)
 				);
-				sys_wnd->on_mouse_button_up.invoke_all(*sys_wnd, info);
+				if (sys_wnd->on_mouse_button_up) {
+					sys_wnd->on_mouse_button_up(info);
+				}
 			}
 			return 0;
 
@@ -79,7 +91,9 @@ namespace lotus::system::platforms::windows {
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::secondary, _get_modifier_key_mask(wparam)
 				);
-				sys_wnd->on_mouse_button_down.invoke_all(*sys_wnd, info);
+				if (sys_wnd->on_mouse_button_down) {
+					sys_wnd->on_mouse_button_down(info);
+				}
 			}
 			return 0;
 		case WM_RBUTTONUP:
@@ -88,7 +102,9 @@ namespace lotus::system::platforms::windows {
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::secondary, _get_modifier_key_mask(wparam)
 				);
-				sys_wnd->on_mouse_button_up.invoke_all(*sys_wnd, info);
+				if (sys_wnd->on_mouse_button_up) {
+					sys_wnd->on_mouse_button_up(info);
+				}
 			}
 			return 0;
 		case WM_MBUTTONDOWN:
@@ -97,7 +113,9 @@ namespace lotus::system::platforms::windows {
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::middle, _get_modifier_key_mask(wparam)
 				);
-				sys_wnd->on_mouse_button_down.invoke_all(*sys_wnd, info);
+				if (sys_wnd->on_mouse_button_down) {
+					sys_wnd->on_mouse_button_down(info);
+				}
 			}
 			return 0;
 		case WM_MBUTTONUP:
@@ -106,7 +124,9 @@ namespace lotus::system::platforms::windows {
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::middle, _get_modifier_key_mask(wparam)
 				);
-				sys_wnd->on_mouse_button_up.invoke_all(*sys_wnd, info);
+				if (sys_wnd->on_mouse_button_up) {
+					sys_wnd->on_mouse_button_up(info);
+				}
 			}
 			return 0;
 

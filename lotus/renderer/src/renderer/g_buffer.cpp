@@ -65,7 +65,7 @@ namespace lotus::renderer::g_buffer {
 			defines.emplace_back(u8"VERTEX_INPUT_HAS_TANGENT", u8"");
 		}
 		auto shader = _man.compile_shader_in_filesystem(
-			_man.get_shader_library_path() / "standard_vertex_shader.hlsl",
+			_man.shader_library_path / "standard_vertex_shader.hlsl",
 			gpu::shader_stage::vertex_shader,
 			u8"main_vs",
 			defines
@@ -77,7 +77,7 @@ namespace lotus::renderer::g_buffer {
 		context&, const assets::material::context_data &mat_ctx
 	) {
 		return _man.compile_shader_in_filesystem(
-			_man.get_shader_library_path() / "gbuffer_pixel_shader.hlsl",
+			_man.shader_library_path / "gbuffer_pixel_shader.hlsl",
 			gpu::shader_stage::pixel_shader,
 			u8"main_ps",
 			{ { u8"LOTUS_MATERIAL_INCLUDE", mat_ctx.get_material_include() } }

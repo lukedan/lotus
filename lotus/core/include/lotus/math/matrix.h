@@ -13,6 +13,53 @@
 #include "lotus/common.h"
 
 namespace lotus {
+	template <std::size_t Rows, std::size_t Cols, typename T> struct matrix;
+
+	namespace _details {
+		/// Used to determine if the type is a matrix type.
+		template <typename T> struct is_matrix : std::false_type {
+		};
+		/// Specialization for matrix types.
+		template <
+			std::size_t Rows, std::size_t Cols, typename U
+		> struct is_matrix<matrix<Rows, Cols, U>> : std::true_type {
+		};
+		template <typename T> constexpr bool is_matrix_v = is_matrix<T>::value; ///< Shorthand for \ref is_matrix.
+
+		/// Helper class used for obtaining the number of rows and columns in a matrix.
+		template <typename T> struct matrix_size {
+			/// Scalars are one-dimensional.
+			constexpr static std::size_t width = 1;
+			/// Scalars are one-dimensional.
+			constexpr static std::size_t height = 1;
+		};
+		/// Specialization for matrix types.
+		template <std::size_t Rows, std::size_t Cols, typename T> struct matrix_size<matrix<Rows, Cols, T>> {
+			constexpr static std::size_t width = Cols; ///< Width of the matrix.
+			constexpr static std::size_t height = Rows; ///< Height of the matrix.
+		};
+
+		/// Shorthand for matrix width.
+		template <typename T> constexpr std::size_t matrix_width_v = matrix_size<T>::width;
+		/// Shorthand for matrix height.
+		template <typename T> constexpr std::size_t matrix_height_v = matrix_size<T>::height;
+
+		template <typename...> struct first_value_type;
+		/// Returns the first available \ref matrix::value_type.
+		template <typename FirstMat, typename ...Mats> struct first_value_type<FirstMat, Mats...> {
+			using type = std::conditional_t<
+				std::is_same_v<std::decay_t<FirstMat>, zero_t>,
+				typename first_value_type<Mats...>::type,
+				typename std::decay_t<FirstMat>::value_type
+			>; ///< Type that ignores \ref zero_t.
+		};
+		/// Specialization for invalid types.
+		template <> struct first_value_type<> {
+			using type = void; ///< Invalid data type.
+		};
+		template <typename ...Mats> using first_value_type_t = first_value_type<Mats...>::type;
+	}
+
 	/// A <tt>Rows x Cols</tt> matrix.
 	template <std::size_t Rows, std::size_t Cols, typename T> struct matrix {
 	public:
@@ -42,10 +89,16 @@ namespace lotus {
 		}
 		/// Initializes a vector.
 		template <
-			typename ...Args, typename Dummy = int,
-			std::enable_if_t<sizeof...(Args) == dimensionality && (Rows == 1 || Cols == 1), Dummy> = 0
+			typename ...Args,
+			std::enable_if_t<
+				(
+					(Rows == 1 && ((_details::matrix_height_v<Args> == 1) && ...)) ||
+					(Cols == 1 && ((_details::matrix_width_v<Args> == 1) && ...))
+				) && (sizeof...(Args) > 1),
+				int
+			> = 0
 		> constexpr matrix(Args &&...data) : elements{} {
-			_fill_vector(*this, std::make_index_sequence<dimensionality>(), std::forward<Args>(data)...);
+			_fill_vector<0>(*this, std::forward<Args>(data)...);
 		}
 		/// Default move constructor.
 		constexpr matrix(matrix&&) = default;
@@ -217,13 +270,31 @@ namespace lotus {
 
 		std::array<std::array<T, Cols>, Rows> elements; ///< The elements of this matrix.
 	protected:
-		/// Fills this matrix as a vector.
-		template <typename ...Args, std::size_t ...Is> constexpr static void _fill_vector(
-			matrix &m, std::index_sequence<Is...>, Args &&...args
-		) {
-			static_assert(sizeof...(Args) == dimensionality, "incorrect number of dimensions");
-			((m[Is] = std::forward<Args>(args)), ...);
+		/// End of recursion.
+		template <std::size_t Index> constexpr static void _fill_vector(matrix&) {
+			static_assert(Index == dimensionality, "Incorrect number of components");
 		}
+		/// Fills several components of the vector.
+		template <
+			std::size_t Index, std::size_t MyRows, std::size_t MyCols, typename U, typename ...OtherArgs
+		> constexpr static void _fill_vector(
+			matrix &m, const matrix<MyRows, MyCols, U> &first, OtherArgs &&...other_args
+		) {
+			constexpr std::size_t _current_dimensionality = std::max(MyRows, MyCols);
+			for (std::size_t i = 0; i < _current_dimensionality; ++i) {
+				m[i + Index] = first[i];
+			}
+			_fill_vector<Index + _current_dimensionality>(m, std::forward<OtherArgs>(other_args)...);
+		}
+		/// Fills one component of the vector.
+		template <
+			std::size_t Index, typename U, typename ...OtherArgs,
+			std::enable_if_t<!_details::is_matrix_v<std::decay_t<U>>, int> = 0
+		> constexpr static void _fill_vector(matrix &m, U &&first, OtherArgs &&...other_args) {
+			m[Index] = std::forward<U>(first);
+			_fill_vector<Index + 1>(m, std::forward<OtherArgs>(other_args)...);
+		}
+
 		/// Fills this matrix's diagonal.
 		template <typename ...Args, std::size_t ...Is> constexpr static void _fill_diagonal(
 			matrix &m, std::index_sequence<Is...>, Args &&...args
@@ -455,29 +526,15 @@ namespace lotus {
 		template <std::size_t I, std::size_t...> [[nodiscard]] constexpr inline static std::size_t _take() {
 			return I;
 		}
-		template <typename...> struct _first_value_type;
-		/// Returns the first available \ref matrix::value_type.
-		template <typename FirstMat, typename ...Mats> struct _first_value_type<FirstMat, Mats...> {
-			using type = std::conditional_t<
-				std::is_same_v<std::decay_t<FirstMat>, zero_t>,
-				typename _first_value_type<Mats...>::type,
-				typename std::decay_t<FirstMat>::value_type
-			>; ///< Type that ignores \ref zero_t.
-		};
-		/// Specialization for invalid types.
-		template <> struct _first_value_type<> {
-			using type = void; ///< Invalid data type.
-		};
-		template <typename ...Mats> using _first_value_type_t = _first_value_type<Mats...>::type;
 	public:
 		/// Creates a new matrix by concatenating the given matrices horizontally.
 		template <typename ...Mats> [[nodiscard]] inline static constexpr matrix<
-			_take<_num_rows<Mats>()...>(), _sum<_num_cols<Mats>()...>(), _first_value_type_t<Mats...>
+			_take<_num_rows<Mats>()...>(), _sum<_num_cols<Mats>()...>(), _details::first_value_type_t<Mats...>
 		> concat_columns(Mats &&...mats) {
 			constexpr std::size_t
 				_rows = _take<_num_rows<Mats>()...>(),
 				_cols = _sum<_num_cols<Mats>()...>();
-			using _t = _first_value_type_t<Mats...>;
+			using _t = _details::first_value_type_t<Mats...>;
 			using _mat = matrix<_rows, _cols, _t>;
 
 			static_assert(
@@ -490,12 +547,12 @@ namespace lotus {
 		}
 		/// Creates a new matrix by concatenating the given matrices vertically.
 		template <typename ...Mats> [[nodiscard]] inline static constexpr matrix<
-			_sum<_num_rows<Mats>()...>(), _take<_num_cols<Mats>()...>(), _first_value_type_t<Mats...>
+			_sum<_num_rows<Mats>()...>(), _take<_num_cols<Mats>()...>(), _details::first_value_type_t<Mats...>
 		> concat_rows(Mats &&...mats) {
 			constexpr std::size_t
 				_rows = _sum<_num_rows<Mats>()...>(),
 				_cols = _take<_num_cols<Mats>()...>();
-			using _t = _first_value_type_t<Mats...>;
+			using _t = _details::first_value_type_t<Mats...>;
 			using _mat = matrix<_rows, _cols, _t>;
 
 			static_assert(

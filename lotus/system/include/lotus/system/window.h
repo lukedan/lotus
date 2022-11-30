@@ -4,7 +4,7 @@
 /// Windows.
 
 #include LOTUS_SYSTEM_PLATFORM_INCLUDE
-#include "lotus/utils/event_closure.h"
+#include "lotus/utils/static_function.h"
 
 namespace lotus::system {
 	class application;
@@ -57,18 +57,18 @@ namespace lotus::system {
 			return platform::window::get_native_handle();
 		}
 
-		/// Event that will be triggered when the user attempts to close the window.
-		event<window&, window_events::close_request&>::head_node on_close_request = nullptr;
-		/// Event that will be triggered when the user resizes the window.
-		event<window&, window_events::resize&>::head_node on_resize = nullptr;
-		/// Event that will be triggered when mouse movement is detected over the window.
-		event<window&, window_events::mouse::move&>::head_node on_mouse_move = nullptr;
-		/// Event that will be triggered when a mouse button is pressed over the window.
-		event<window&, window_events::mouse::button_down&>::head_node on_mouse_button_down = nullptr;
-		/// Event that will be triggered when a mouse button is released over the window.
-		event<window&, window_events::mouse::button_up&>::head_node on_mouse_button_up = nullptr;
-		/// Event that will be triggered when mouse capture is broken externally.
-		event<window&>::head_node on_capture_broken = nullptr;
+		/// Function that will be called when the user attempts to close the window.
+		static_function<void(window_events::close_request&)> on_close_request = nullptr;
+		/// Function that will be called when the user resizes the window.
+		static_function<void(window_events::resize&)> on_resize = nullptr;
+		/// Function that will be called when mouse movement is detected over the window.
+		static_function<void(window_events::mouse::move&)> on_mouse_move = nullptr;
+		/// Function that will be called when a mouse button is pressed over the window.
+		static_function<void(window_events::mouse::button_down&)> on_mouse_button_down = nullptr;
+		/// Function that will be called when a mouse button is released over the window.
+		static_function<void(window_events::mouse::button_up&)> on_mouse_button_up = nullptr;
+		/// Function that will be called when mouse capture is broken externally.
+		static_function<void()> on_capture_broken = nullptr;
 	protected:
 		/// Implicit conversion from a base window.
 		window(platform::window base) : platform::window(std::move(base)) {

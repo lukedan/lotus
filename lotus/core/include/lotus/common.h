@@ -6,10 +6,13 @@
 #include <type_traits>
 #include <array>
 #include <cassert>
+#include <cstring>
+#include <cstdio>
 #include <optional>
 #include <string_view>
 #include <source_location>
 #include <span>
+#include <bit>
 
 namespace lotus {
 #ifndef NDEBUG

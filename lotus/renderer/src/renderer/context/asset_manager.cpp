@@ -297,11 +297,8 @@ namespace lotus::renderer::assets {
 		}
 	}
 
-	manager::manager(
-		context &ctx, gpu::device &dev,
-		std::filesystem::path shader_lib_path, gpu::shader_utility *shader_utils
-	) :
-		_device(dev), _shader_utilities(shader_utils), _context(ctx),
+	manager::manager(context &ctx, gpu::shader_utility *shader_utils) :
+		_context(ctx), _shader_utilities(shader_utils),
 		_image2d_descriptors(ctx.request_image_descriptor_array(
 			u8"Texture assets", gpu::descriptor_type::read_only_image, 1024
 		)),
@@ -309,8 +306,7 @@ namespace lotus::renderer::assets {
 			resource_binding(descriptor_resource::sampler(), 0),
 		}))),
 		_invalid_image(nullptr),
-		_image2d_descriptor_index_alloc({ 0 }),
-		_shader_library_path(std::move(shader_lib_path)) {
+		_image2d_descriptor_index_alloc({ 0 }) {
 
 		{ // create "invalid" texture
 			constexpr cvec2s size = cvec2s(128, 128);
@@ -399,8 +395,9 @@ namespace lotus::renderer::assets {
 			return nullptr;
 		}
 
-		auto paths = { id.path.parent_path(), _shader_library_path }; // TODO hack to make sure the shader can include files in the same directory
-		auto result = _shader_utilities->compile_shader(code, stage, entry_point, paths, defines);
+		auto result = _shader_utilities->compile_shader(
+			code, stage, entry_point, id.path, additional_shader_includes, defines
+		);
 		auto output = result.get_compiler_output();
 		if (!result.succeeded()) {
 			log().error<u8"Failed to compile shader {} ({}):">(id.path.string(), string::to_generic(id.subpath));
@@ -417,8 +414,8 @@ namespace lotus::renderer::assets {
 
 		shader res = nullptr;
 		auto binary = result.get_compiled_binary();
-		res.binary              = _device.load_shader(binary);
-		res.reflection          = _shader_utilities->load_shader_reflection(binary);
+		res.binary     = context::device_access::get(_context).load_shader(binary);
+		res.reflection = _shader_utilities->load_shader_reflection(binary);
 		return _register_asset(std::move(id), std::move(res), _shaders);
 	}
 
@@ -431,8 +428,7 @@ namespace lotus::renderer::assets {
 			return nullptr;
 		}
 
-		auto paths = { id.path.parent_path(), _shader_library_path }; // TODO hack to make sure the shader can include files in the same directory
-		auto result = _shader_utilities->compile_shader_library(code, paths, defines);
+		auto result = _shader_utilities->compile_shader_library(code, id.path, additional_shader_includes, defines);
 		auto output = result.get_compiler_output();
 		if (!result.succeeded()) {
 			log().error<u8"Failed to compile shader {} ({}):">(id.path.string(), string::to_generic(id.subpath));
@@ -449,8 +445,8 @@ namespace lotus::renderer::assets {
 
 		shader_library res = nullptr;
 		auto binary = result.get_compiled_binary();
-		res.binary              = _device.load_shader(binary);
-		res.reflection          = _shader_utilities->load_shader_library_reflection(binary);
+		res.binary     = context::device_access::get(_context).load_shader(binary);
+		res.reflection = _shader_utilities->load_shader_library_reflection(binary);
 		return _register_asset(std::move(id), std::move(res), _shader_libraries);
 	}
 }

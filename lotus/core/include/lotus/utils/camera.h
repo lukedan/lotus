@@ -18,19 +18,30 @@ namespace lotus {
 		camera(uninitialized_t) {
 		}
 
-		mat44<T> view_matrix            = uninitialized; ///< Transforms objects from world space to camera space.
-		mat44<T> projection_matrix      = uninitialized; ///< Projects objects from camera space onto a 2D plane.
-		mat44<T> projection_view_matrix = uninitialized; ///< Product of \ref projection_matrix and \ref view_matrix.
-		mat44<T> inverse_view_matrix    = uninitialized; ///< Inverse of \ref view_matrix.
+		/// Transforms objects from world space to camera space.
+		mat44<T> view_matrix                    = uninitialized;
+		/// Projects objects from camera space onto a 2D plane.
+		mat44<T> projection_matrix              = uninitialized;
+		/// Product of \ref projection_matrix and \ref view_matrix.
+		mat44<T> projection_view_matrix         = uninitialized;
+		mat44<T> inverse_view_matrix            = uninitialized; ///< Inverse of \ref view_matrix.
+		mat44<T> inverse_projection_view_matrix = uninitialized; ///< Inverse of \ref projection_view_matrix.
 		cvec3<T> unit_forward = uninitialized; ///< Unit vector corresponding to the forward direction.
 		cvec3<T> unit_right   = uninitialized; ///< Unit vector corresponding to the right direction.
 		cvec3<T> unit_up      = uninitialized; ///< Unit vector corresponding to the up direction.
+		/// Use rcp(depth * c.x + c.y) to linearize depth values.
+		cvec2<T> depth_linearization_constants = uninitialized;
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr camera(cvec3<T> forward, cvec3<T> right, cvec3<T> up, mat44<T> view, mat44<T> proj) :
-			view_matrix(view), projection_matrix(proj),
-			projection_view_matrix(proj * view), inverse_view_matrix(view.inverse()),
-			unit_forward(forward), unit_right(right), unit_up(up) {
+		constexpr camera(
+			cvec3<T> forward, cvec3<T> right, cvec3<T> up, mat44<T> view, mat44<T> proj, cvec2<T> depth_linearize
+		) :
+			view_matrix(view), projection_matrix(proj), projection_view_matrix(proj * view),
+			unit_forward(forward), unit_right(right), unit_up(up),
+			depth_linearization_constants(depth_linearize) {
+
+			inverse_view_matrix = view_matrix.inverse();
+			inverse_projection_view_matrix = projection_view_matrix.inverse();
 		}
 	};
 
@@ -73,14 +84,16 @@ namespace lotus {
 			view(3, 3) = 1.0f;
 
 			T f = 1.0f / std::tan(0.5f * fov_y_radians);
-			mat44<T> projection = zero;
-			projection(0, 0) = f / aspect_ratio;
-			projection(1, 1) = f;
-			projection(2, 2) = -near_plane / (far_plane - near_plane);
-			projection(2, 3) = near_plane * far_plane / (far_plane - near_plane);
-			projection(3, 2) = 1.0f;
+			mat44<T> projection({
+				{ f / aspect_ratio, 0.0f, 0.0f,                                   0.0f                                              },
+				{ 0.0f,             f,    0.0f,                                   0.0f                                              },
+				{ 0.0f,             0.0f, -near_plane / (far_plane - near_plane), near_plane * far_plane / (far_plane - near_plane) },
+				{ 0.0f,             0.0f, 1.0f,                                   0.0f                                              },
+			});
 
-			return camera(unit_forward, unit_right, unit_up, view, projection);
+			cvec2<T> depth_linearize((far_plane - near_plane) / (near_plane * far_plane), 1.0f / far_plane);
+
+			return camera(unit_forward, unit_right, unit_up, view, projection, depth_linearize);
 		}
 
 		/// Rotates the camera around the \ref world_up axis, which may be negated to ensure that the behavior is

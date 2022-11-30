@@ -77,6 +77,11 @@ namespace lotus::renderer {
 	}
 
 
+	gpu::device &context::device_access::get(context &ctx) {
+		return ctx._device;
+	}
+
+
 	context context::create(
 		gpu::context &ctx,
 		const gpu::adapter_properties &adap_prop,

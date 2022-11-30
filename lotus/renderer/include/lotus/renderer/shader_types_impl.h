@@ -30,11 +30,25 @@ namespace lotus::renderer::shader_types {
 		private:
 			T _value; ///< Value.
 		};
+
+		/// Used to obtain the underlying type of a scalar shader type.
+		template <typename T> struct scalar_type_properties {
+			using storage_type = T; ///< The type used for storage.
+			using real_type = T; ///< The actual type.
+		};
+		/// Specialization for wrapped types.
+		template <
+			typename U, typename T, std::size_t Alignment
+		> struct scalar_type_properties<primitive<U, T, Alignment>> {
+			using storage_type = T; ///< The type used for storage.
+			using real_type = U; ///< The actual type.
+		};
+
 		/// Vector type used in shaders.
 		template <typename T, std::size_t Dim> struct alignas(T) vector {
 		public:
 			/// Correponding C++ type that this type provides implicit conversions from and to.
-			using cpp_type = column_vector<Dim, typename T::cpp_type>;
+			using cpp_type = column_vector<Dim, typename scalar_type_properties<T>::real_type>;
 
 			/// No initialization.
 			vector() = default;
@@ -55,11 +69,12 @@ namespace lotus::renderer::shader_types {
 		private:
 			T _value[Dim]; ///< Vector data.
 		};
+
 		/// Matrix type used in shaders.
 		template <typename T, std::size_t Rows, std::size_t Cols> struct alignas(T) row_major_matrix {
 		public:
 			/// Correponding C++ type that this type provides implicit conversions from and to.
-			using cpp_type = matrix<Rows, Cols, typename T::cpp_type>;
+			using cpp_type = matrix<Rows, Cols, typename scalar_type_properties<T>::real_type>;
 
 			/// No initialization.
 			row_major_matrix() = default;
@@ -95,15 +110,15 @@ namespace lotus::renderer::shader_types {
 
 	using bool_    = _details::primitive<std::uint32_t, bool>;
 
-	using int_     = _details::primitive<std::int32_t>;
-	using int64_t  = _details::primitive<std::int64_t>;
-	using uint     = _details::primitive<std::uint32_t>;
-	using uint64_t = _details::primitive<std::uint64_t>;
+	using int_     = std::int32_t;
+	using int64_t  = std::int64_t;
+	using uint     = std::uint32_t;
+	using uint64_t = std::uint64_t;
 	using dword    = uint;
 
-	using half     = _details::primitive<std::uint16_t>; // TODO float16 type
-	using float_   = _details::primitive<float>;
-	using double_  = _details::primitive<double>;
+	using half     = std::uint16_t; // TODO float16 type
+	using float_   = float;
+	using double_  = double;
 	static_assert(sizeof(float) == sizeof(std::uint32_t), "Expecting float to be 32 bits");
 	static_assert(sizeof(double) == sizeof(std::uint64_t), "Expecting double to be 64 bits");
 

@@ -38,7 +38,7 @@ namespace lotus::gpu::backends::common {
 	}
 	dxc_compiler::compilation_result dxc_compiler::compile_shader(
 		std::span<const std::byte> code, shader_stage stage, std::u8string_view entry,
-		std::span<const std::filesystem::path> include_paths,
+		const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
 		std::span<const LPCWSTR> extra_args
 	) {
@@ -70,7 +70,7 @@ namespace lotus::gpu::backends::common {
 		auto profile = _u8string_to_wstring(bookmark, reinterpret_cast<const char8_t*>(profile_ascii));
 
 		return _do_compile_shader(
-			code, include_paths, defines, extra_args,
+			code, shader_path, include_paths, defines, extra_args,
 			{
 				L"-E", entry_wstr.c_str(),
 				L"-T", profile.c_str(),
@@ -82,12 +82,12 @@ namespace lotus::gpu::backends::common {
 
 	dxc_compiler::compilation_result dxc_compiler::compile_shader_library(
 		std::span<const std::byte> code,
-		std::span<const std::filesystem::path> include_paths,
+		const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
 		std::span<const LPCWSTR> args
 	) {
 		return _do_compile_shader(
-			code, include_paths, defines, args,
+			code, shader_path, include_paths, defines, args,
 			{
 				L"-T", L"lib_6_3",
 				L"-Zi",
@@ -119,7 +119,7 @@ namespace lotus::gpu::backends::common {
 
 	dxc_compiler::compilation_result dxc_compiler::_do_compile_shader(
 		std::span<const std::byte> code,
-		std::span<const std::filesystem::path> include_paths,
+		const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
 		std::span<const LPCWSTR> extra_args,
 		std::initializer_list<LPCWSTR> extra_args_2
@@ -147,7 +147,12 @@ namespace lotus::gpu::backends::common {
 			defs.emplace_back(_u8string_to_wstring(bookmark, string::assume_utf8(str)));
 		}
 
-		auto args = bookmark.create_vector_array<LPCWSTR>(extra_args_2.begin(), extra_args_2.end());
+		auto args = bookmark.create_vector_array<LPCWSTR>();
+		auto shader_path_str = shader_path.wstring();
+		if (!shader_path.empty()) {
+			args.emplace_back(shader_path_str.c_str());
+		}
+		args.insert(args.end(), extra_args_2.begin(), extra_args_2.end());
 		for (const auto &inc : includes) {
 			args.insert(args.end(), { L"-I", inc.c_str() });
 		}

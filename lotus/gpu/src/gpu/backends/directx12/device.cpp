@@ -418,6 +418,9 @@ namespace lotus::gpu::backends::directx12 {
 				case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
 					desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
 					break;
+				case DXGI_FORMAT_D24_UNORM_S8_UINT:
+					desc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+					break;
 				}
 				_device->CreateShaderResourceView(view->_image.Get(), &desc, current_descriptor);
 			} else {

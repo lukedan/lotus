@@ -33,7 +33,7 @@ public:
 		geom.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(blases.size()));
 
 		auto &blas = blases.emplace_back(rctx.request_blas(
-			geom.get().get_id().subpath, { geom->get_geometry_buffers_view() }, as_pool
+			geom.get().get_id().subpath, { geom->get_geometry_buffers_view(lgpu::raytracing_geometry_flags::opaque) }, as_pool
 		));
 		rctx.build_blas(blas, u8"Build BLAS");
 
@@ -108,7 +108,8 @@ public:
 				inst.transform,
 				static_cast<std::uint32_t>(inst_index),
 				0xFFu,
-				inst.geometry->index_buffer ? 0u : 1u
+				inst.geometry->index_buffer ? 0u : 1u,
+				lgpu::raytracing_instance_flags::none
 			);
 			instances.emplace_back(std::move(inst));
 			auto &gpu_inst = instance_data.emplace_back();
@@ -117,7 +118,9 @@ public:
 			auto tangent_trans = inst.transform.block<3, 3>(0, 0);
 			auto decomp = lotus::mat::lup_decompose(inst.transform.block<3, 3>(0, 0).into<double>());
 			gpu_inst.determinant = std::pow(decomp.determinant(), 1.0f / 3.0f);
-			gpu_inst.normal_transform = (decomp.invert().transposed() * gpu_inst.determinant).into<float>();
+			mat44f normal_trans = zero;
+			normal_trans.set_block(0, 0, (decomp.invert().transposed() * gpu_inst.determinant).into<float>());
+			gpu_inst.normal_transform = normal_trans;
 		}
 	}
 	void on_light_loaded(lren::shader_types::light l) {

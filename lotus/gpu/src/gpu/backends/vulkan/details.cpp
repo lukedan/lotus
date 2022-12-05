@@ -375,6 +375,24 @@ namespace lotus::gpu::backends::vulkan::_details {
 			return table[t];
 		}
 
+		vk::GeometryInstanceFlagsKHR to_geometry_instance_flags(raytracing_instance_flags flags) {
+			constexpr static bit_mask_mapping<raytracing_instance_flags, vk::GeometryInstanceFlagBitsKHR> table{
+				std::pair(raytracing_instance_flags::disable_triangle_culling,        vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable       ),
+				std::pair(raytracing_instance_flags::triangle_front_counterclockwise, vk::GeometryInstanceFlagBitsKHR::eTriangleFrontCounterclockwiseKHR),
+				std::pair(raytracing_instance_flags::force_opaque,                    vk::GeometryInstanceFlagBitsKHR::eForceOpaque                     ),
+				std::pair(raytracing_instance_flags::force_non_opaque,                vk::GeometryInstanceFlagBitsKHR::eForceNoOpaque                   ),
+			};
+			return table.get_union(flags);
+		}
+
+		vk::GeometryFlagsKHR to_geometry_flags(raytracing_geometry_flags flags) {
+			constexpr static bit_mask_mapping<raytracing_geometry_flags, vk::GeometryFlagBitsKHR> table{
+				std::pair(raytracing_geometry_flags::opaque,                          vk::GeometryFlagBitsKHR::eOpaque                     ),
+				std::pair(raytracing_geometry_flags::no_duplicate_any_hit_invocation, vk::GeometryFlagBitsKHR::eNoDuplicateAnyHitInvocation),
+			};
+			return table.get_union(flags);
+		}
+
 
 		vk::ImageSubresourceLayers to_image_subresource_layers(const subresource_index &i) {
 			vk::ImageSubresourceLayers result;

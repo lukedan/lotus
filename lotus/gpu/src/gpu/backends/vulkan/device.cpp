@@ -1006,16 +1006,19 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
-		std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
+		std::span<const raytracing_geometry_view> data
 	) {
 		bottom_level_acceleration_structure_geometry result = nullptr;
 		result._geometries.reserve(data.size());
 		result._pimitive_counts.reserve(data.size());
-		for (const auto &[vert, index] : data) {
+		for (const auto &view : data) {
+			const auto &vert = view.vertex_buffer;
+			const auto &index = view.index_buffer;
+
 			auto &geom = result._geometries.emplace_back();
 			geom
 				.setGeometryType(vk::GeometryTypeKHR::eTriangles)
-				.setFlags(vk::GeometryFlagsKHR());
+				.setFlags(_details::conversions::to_geometry_flags(view.flags));
 			geom.geometry.triangles
 				.setVertexFormat(_details::conversions::to_format(vert.vertex_format))
 				.setVertexData(_device->getBufferAddress(vert.data->_buffer) + vert.offset)
@@ -1047,14 +1050,15 @@ namespace lotus::gpu::backends::vulkan {
 
 	instance_description device::get_bottom_level_acceleration_structure_description(
 		bottom_level_acceleration_structure &as,
-		mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset
+		mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
+		raytracing_instance_flags flags
 	) const {
 		instance_description result = uninitialized;
 		result._instance
 			.setInstanceCustomIndex(id)
 			.setMask(mask)
 			.setInstanceShaderBindingTableRecordOffset(hit_group_offset)
-			.setFlags(vk::GeometryInstanceFlagsKHR())
+			.setFlags(_details::conversions::to_geometry_instance_flags(flags))
 			.setAccelerationStructureReference(_device->getAccelerationStructureAddressKHR(
 				as._acceleration_structure.get(), *_dispatch_loader
 			));

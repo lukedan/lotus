@@ -28,6 +28,7 @@ function(add_lotus_renderer_target BACKEND)
 			"include/lotus/renderer/loaders/gltf_loader.h"
 
 			"include/lotus/renderer/common.h"
+			"include/lotus/renderer/debug_drawing.h"
 			"include/lotus/renderer/g_buffer.h"
 			"include/lotus/renderer/generic_pbr_material.h"
 			"include/lotus/renderer/mipmap.h"

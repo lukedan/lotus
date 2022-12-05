@@ -203,7 +203,8 @@ namespace lotus::renderer {
 			recorded_resources::buffer indices,
 			gpu::index_format idx_fmt,
 			std::uint32_t idx_off,
-			std::uint32_t idx_count
+			std::uint32_t idx_count,
+			gpu::raytracing_geometry_flags f
 		) :
 			vertex_data(verts),
 			vertex_format(vert_fmt),
@@ -213,7 +214,8 @@ namespace lotus::renderer {
 			index_data(indices),
 			index_format(idx_fmt),
 			index_offset(idx_off),
-			index_count(idx_count) {
+			index_count(idx_count),
+			flags(f) {
 		}
 
 		recorded_resources::buffer vertex_data; ///< Vertex position buffer.
@@ -226,6 +228,8 @@ namespace lotus::renderer {
 		gpu::index_format index_format = gpu::index_format::uint16; ///< Index format.
 		std::uint32_t index_offset = 0; ///< Offset to the first index in bytes.
 		std::uint32_t index_count  = 0; ///< Number of indices in the buffer.
+
+		gpu::raytracing_geometry_flags flags = gpu::raytracing_geometry_flags::none; ///< Flags.
 	};
 
 
@@ -902,9 +906,12 @@ namespace lotus::renderer {
 		blas_reference(std::nullptr_t) : acceleration_structure(nullptr) {
 		}
 		/// Initializes all fields of this struct.
-		blas_reference(blas as, mat44f trans, std::uint32_t as_id, std::uint8_t as_mask, std::uint32_t hg_offset) :
+		blas_reference(
+			blas as, mat44f trans, std::uint32_t as_id, std::uint8_t as_mask, std::uint32_t hg_offset,
+			gpu::raytracing_instance_flags f
+		) :
 			acceleration_structure(std::move(as)), transform(trans),
-			id(as_id), mask(as_mask), hit_group_offset(hg_offset) {
+			id(as_id), mask(as_mask), hit_group_offset(hg_offset), flags(f) {
 		}
 
 		blas acceleration_structure; ///< The acceleration structure.
@@ -912,6 +919,7 @@ namespace lotus::renderer {
 		std::uint32_t id = 0; ///< ID of this instance.
 		std::uint8_t mask = 0; ///< Ray mask.
 		std::uint32_t hit_group_offset = 0; ///< Offset in the hit group.
+		gpu::raytracing_instance_flags flags = gpu::raytracing_instance_flags::none; ///< Instance flags.
 	};
 
 

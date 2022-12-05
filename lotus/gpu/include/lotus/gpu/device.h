@@ -496,15 +496,13 @@ namespace lotus::gpu {
 		// ray-tracing related
 		/// Creates an acceleration structure geometry description from the given buffer views.
 		[[nodiscard]] bottom_level_acceleration_structure_geometry
-			create_bottom_level_acceleration_structure_geometry(
-				std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
-		) {
+			create_bottom_level_acceleration_structure_geometry(std::span<const raytracing_geometry_view> data) {
 			return backend::device::create_bottom_level_acceleration_structure_geometry(data);
 		}
 		/// \overload
 		[[nodiscard]] bottom_level_acceleration_structure_geometry
 			create_bottom_level_acceleration_structure_geometry(
-				std::initializer_list<std::pair<vertex_buffer_view, index_buffer_view>> data
+				std::initializer_list<raytracing_geometry_view> data
 		) {
 			return create_bottom_level_acceleration_structure_geometry({ data.begin(), data.end() });
 		}
@@ -512,10 +510,11 @@ namespace lotus::gpu {
 		/// Returns an \ref instance_description for a bottom-level acceleration structure.
 		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
 			bottom_level_acceleration_structure &as,
-			mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset // TODO options
+			mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
+			raytracing_instance_flags flags
 		) const {
 			return backend::device::get_bottom_level_acceleration_structure_description(
-				as, trans, id, mask, hit_group_offset
+				as, trans, id, mask, hit_group_offset, flags
 			);
 		}
 

@@ -73,6 +73,10 @@ namespace lotus::gpu::backends::directx12::_details {
 		[[nodiscard]] D3D12_COMPARISON_FUNC to_comparison_function(comparison_function);
 		/// Converts a \ref shader_stage to a \p D3D12_SHADER_VERSION_TYPE.
 		[[nodiscard]] D3D12_SHADER_VERSION_TYPE to_shader_version_type(shader_stage);
+		/// Converts a \ref raytracing_instance_flags to a \p D3D12_RAYTRACING_INSTANCE_FLAGS.
+		[[nodiscard]] D3D12_RAYTRACING_INSTANCE_FLAGS to_raytracing_instance_flags(raytracing_instance_flags);
+		/// Converts a \ref raytracing_geometry_flags to a \p D3D12_RAYTRACING_GEOMETRY_FLAGS.
+		[[nodiscard]] D3D12_RAYTRACING_GEOMETRY_FLAGS to_raytracing_geometry_flags(raytracing_geometry_flags);
 
 		// bitmask conversions
 		/// Converts a \ref channel_mask to a \p D3D12_COLOR_WRITE_ENABLE.

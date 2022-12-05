@@ -9,7 +9,7 @@ struct geometry_data {
 	uint uv_buffer;
 };
 struct rt_instance_data {
-	float3x3 normal_transform;
+	float4x4 normal_transform;
 	float determinant;
 	uint geometry_index;
 	uint material_index;

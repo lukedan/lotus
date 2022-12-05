@@ -35,17 +35,21 @@ SamplerState linear_sampler : register(s0, space2);
 
 vs_output transform_geometry(vs_input input) {
 	vs_output result = (vs_output)0;
+
 	result.position = mul(view.projection_view, mul(instance.transform, float4(input.position, 1.0f)));
+
 #ifdef VERTEX_INPUT_HAS_UV
 	result.uv = input.uv;
 #else
 	result.uv = float2(0.0f, 0.0f);
 #endif
+
 #ifdef VERTEX_INPUT_HAS_NORMAL
-	result.normal = mul((float3x3)instance.transform, input.normal);
+	result.normal = mul((float3x3)instance.normal_transform, input.normal);
 #else
 	result.normal = float3(0.0f, 1.0f, 0.0f);
 #endif
+
 #ifdef VERTEX_INPUT_HAS_TANGENT
 	result.tangent        = mul((float3x3)instance.transform, input.tangent.xyz);
 	result.bitangent_sign = input.tangent.w;
@@ -53,6 +57,7 @@ vs_output transform_geometry(vs_input input) {
 	result.tangent        = float3(0.0f, 0.0f, 1.0f);
 	result.bitangent_sign = 1.0f;
 #endif
+
 	return result;
 }
 
@@ -63,6 +68,8 @@ material::basic_properties evaluate_material(vs_output input) {
 	material::basic_properties result = (material::basic_properties)0;
 	result.albedo    = albedo_sample.rgb;
 	result.normal_ts = normal_sample.rgb * 2.0f - 1.0f;
+	result.normal_ts.z = sqrt(1.0f - dot(result.normal_ts.xy, result.normal_ts.xy));
+
 	return result;
 }
 

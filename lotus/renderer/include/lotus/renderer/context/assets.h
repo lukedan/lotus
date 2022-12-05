@@ -230,7 +230,7 @@ namespace lotus::renderer::assets {
 			return index_buffer_binding(index_buffer ? index_buffer->data : nullptr, 0, index_format);
 		}
 		/// Returns a \ref geometry_buffers_view for this geometry.
-		[[nodiscard]] geometry_buffers_view get_geometry_buffers_view() const {
+		[[nodiscard]] geometry_buffers_view get_geometry_buffers_view(gpu::raytracing_geometry_flags flags) const {
 			return geometry_buffers_view(
 				vertex_buffer.data->data,
 				vertex_buffer.format,
@@ -240,7 +240,8 @@ namespace lotus::renderer::assets {
 				index_buffer ? index_buffer->data : nullptr,
 				index_format,
 				index_offset,
-				num_indices
+				num_indices,
+				flags
 			);
 		}
 

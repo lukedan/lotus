@@ -858,15 +858,19 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
-		std::span<const std::pair<vertex_buffer_view, index_buffer_view>> data
+		std::span<const raytracing_geometry_view> data
 	) {
 		bottom_level_acceleration_structure_geometry result = nullptr;
 
 		result._geometries.reserve(data.size());
-		for (const auto &[vert, idx] : data) {
+		for (const auto &view : data) {
+			const auto &vert = view.vertex_buffer;
+			const auto &idx = view.index_buffer;
+
 			auto &desc = result._geometries.emplace_back();
 			desc.Type                                 = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-			desc.Flags                                = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
+			desc.Flags                                =
+				_details::conversions::to_raytracing_geometry_flags(view.flags);
 			desc.Triangles.Transform3x4               = 0;
 			desc.Triangles.VertexFormat               = _details::conversions::to_format(vert.vertex_format);
 			desc.Triangles.VertexCount                = static_cast<UINT>(vert.count);
@@ -894,7 +898,8 @@ namespace lotus::gpu::backends::directx12 {
 
 	instance_description device::get_bottom_level_acceleration_structure_description(
 		bottom_level_acceleration_structure &as,
-		mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset
+		mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
+		raytracing_instance_flags flags
 	) const {
 		instance_description result = uninitialized;
 		for (std::size_t row = 0; row < 3; ++row) {
@@ -905,7 +910,8 @@ namespace lotus::gpu::backends::directx12 {
 		result._desc.InstanceID                          = id;
 		result._desc.InstanceMask                        = mask;
 		result._desc.InstanceContributionToHitGroupIndex = hit_group_offset;
-		result._desc.Flags                               = D3D12_RAYTRACING_INSTANCE_FLAG_NONE; // TODO
+		result._desc.Flags                               =
+			_details::conversions::to_raytracing_instance_flags(flags);
 		result._desc.AccelerationStructure               = as._buffer->GetGPUVirtualAddress() + as._offset;
 		return result;
 	}

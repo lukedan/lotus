@@ -699,10 +699,10 @@ namespace lotus::gpu {
 	};
 }
 namespace lotus {
-	/// Enable bitwise operations for \ref gpu::image_aspect_mask.
+	/// Enable bitwise operations for \ref gpu::memory_properties.
 	template <> struct enable_enum_bitwise_operators<gpu::memory_properties> : public std::true_type {
 	};
-	/// Enable \ref is_empty for \ref gpu::image_aspect_mask.
+	/// Enable \ref is_empty for \ref gpu::memory_properties.
 	template <> struct enable_enum_is_empty<gpu::memory_properties> : public std::true_type {
 	};
 }
@@ -715,7 +715,52 @@ namespace lotus::gpu {
 		unavailable, ///< The swap chain is no longer usable.
 	};
 
+	/// Raytracing instance flags.
+	enum class raytracing_instance_flags : std::uint8_t {
+		none = 0, ///< No flags.
 
+		disable_triangle_culling        = 1 << 0, ///< Disable front/back face culling.
+		triangle_front_counterclockwise = 1 << 1, ///< Treat counter-clockwise triangles as front facing.
+		/// Force all geometry to be opaque. This can be overriden in shaders.
+		force_opaque                    = 1 << 2,
+		/// Force all geometry to be non-opaque. This can be overriden in shaders.
+		force_non_opaque                = 1 << 3,
+
+		num_enumerators = 4 ///< Number of valid bits.
+	};
+}
+namespace lotus {
+	/// Enable bitwise operations for \ref gpu::raytracing_instance_flags.
+	template <> struct enable_enum_bitwise_operators<gpu::raytracing_instance_flags> : public std::true_type {
+	};
+	/// Enable \ref is_empty for \ref gpu::raytracing_instance_flags.
+	template <> struct enable_enum_is_empty<gpu::raytracing_instance_flags> : public std::true_type {
+	};
+}
+
+namespace lotus::gpu {
+	/// Raytracing geometry flags.
+	enum class raytracing_geometry_flags : std::uint8_t {
+		none = 0, ///< No flags.
+
+		opaque                          = 1 << 0, ///< Marks the geometry as opaque.
+		/// Indicates that the any hit shader can only be invoked once per primitive.
+		no_duplicate_any_hit_invocation = 1 << 1,
+
+		num_enumerators = 2 ///< Number of valid bits.
+	};
+}
+namespace lotus {
+	/// Enable bitwise operations for \ref gpu::raytracing_geometry_flags.
+	template <> struct enable_enum_bitwise_operators<gpu::raytracing_geometry_flags> : public std::true_type {
+	};
+	/// Enable \ref is_empty for \ref gpu::raytracing_geometry_flags.
+	template <> struct enable_enum_is_empty<gpu::raytracing_geometry_flags> : public std::true_type {
+	};
+}
+
+
+namespace lotus::gpu {
 	/// Converts the given \ref descriptor_type to a \ref image_access_mask. Returns \ref image_access_mask::none
 	/// for invalid descriptor types.
 	[[nodiscard]] constexpr image_access_mask to_image_access_mask(descriptor_type ty) {
@@ -801,6 +846,16 @@ namespace lotus::gpu {
 		/// Initializes \ref enabled to \p false, and other fields to as if no blending is applied.
 		[[nodiscard]] constexpr static render_target_blend_options disabled() {
 			return zero;
+		}
+		/// Creates a default alpha-blended blend options.
+		[[nodiscard]] constexpr inline static render_target_blend_options create_default_alpha_blend(
+			channel_mask channels = channel_mask::all
+		) {
+			return create_custom(
+				blend_factor::source_alpha, blend_factor::one_minus_source_alpha, blend_operation::add,
+				blend_factor::one, blend_factor::zero, blend_operation::add,
+				channels
+			);
 		}
 		/// Initializes \ref enabled to \p true and other fields with the given values.
 		[[nodiscard]] constexpr inline static render_target_blend_options create_custom(
@@ -1704,6 +1759,11 @@ namespace lotus::gpu {
 		[[nodiscard]] constexpr inline static render_target_access create_clear(ClearValue clear) {
 			return create_custom(clear, pass_load_operation::clear, pass_store_operation::preserve);
 		}
+		/// Returns a struct indicating that the original contents of the render target should be preserved and newly
+		/// rendered contents should be written back to the render target.
+		[[nodiscard]] constexpr inline static render_target_access create_preserve_and_write() {
+			return create_custom(zero, pass_load_operation::preserve, pass_store_operation::preserve);
+		}
 		/// Returns a struct indicating that the original contents of the render target should be ignored and newly
 		/// rendered contents should be written back to the render target.
 		[[nodiscard]] constexpr inline static render_target_access create_discard_then_write() {
@@ -1857,6 +1917,22 @@ namespace lotus::gpu {
 		index_format element_format = index_format::num_enumerators; ///< Index format.
 		std::size_t offset = 0; ///< Offset in bytes to the first index.
 		std::size_t count  = 0; ///< The number of indices.
+	};
+	/// A view into a piece of geometry for raytracing.
+	struct raytracing_geometry_view {
+	public:
+		/// Initializes this view to empty.
+		constexpr raytracing_geometry_view(std::nullptr_t) : vertex_buffer(nullptr), index_buffer(nullptr) {
+		}
+		/// Initializes the view with the given parameters.
+		constexpr raytracing_geometry_view(
+			vertex_buffer_view vert, index_buffer_view index, raytracing_geometry_flags f
+		) : vertex_buffer(vert), index_buffer(index), flags(f) {
+		}
+
+		vertex_buffer_view vertex_buffer; ///< The vertex buffer.
+		index_buffer_view index_buffer; ///< The index buffer, if applicable.
+		raytracing_geometry_flags flags = raytracing_geometry_flags::none; ///< Flags.
 	};
 	/// A view into an array of an array of shader records.
 	struct shader_record_view {

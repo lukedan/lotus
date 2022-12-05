@@ -101,6 +101,12 @@ namespace lotus::renderer::g_buffer {
 			);
 			shader_types::instance_data instance;
 			instance.transform = inst.transform;
+			auto normal_trans_inv = mat::lup_decompose(inst.transform.block<3, 3>(0, 0));
+			mat44f normal_trans = zero;
+			normal_trans.set_block(
+				0, 0, normal_trans_inv.invert().transposed() * pow(normal_trans_inv.determinant(), 2.0f / 3.0f)
+			);
+			instance.normal_transform = normal_trans;
 			shader_types::view_data view_data;
 			view_data.view = view;
 			view_data.projection = projection;

@@ -218,14 +218,13 @@ namespace lotus::gpu::backends::directx12 {
 		// ray-tracing related
 		/// Fills in the \p D3D12_RAYTRACING_GEOMETRY_DESC structures.
 		[[nodiscard]] bottom_level_acceleration_structure_geometry
-			create_bottom_level_acceleration_structure_geometry(
-				std::span<const std::pair<vertex_buffer_view, index_buffer_view>>
-			);
+			create_bottom_level_acceleration_structure_geometry(std::span<const raytracing_geometry_view>);
 
 		/// Fills out the \p D3D12_RAYTRACING_INSTANCE_DESC structure.
 		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
 			bottom_level_acceleration_structure&,
-			mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset // TODO options
+			mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
+			raytracing_instance_flags
 		) const;
 
 		/// Calls \p ID3D12Device5::GetRaytracingAccelerationStructurePrebuildInfo().

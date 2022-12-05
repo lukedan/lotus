@@ -3,6 +3,7 @@
 
 struct instance_data {
 	float4x4 transform;
+	float4x4 normal_transform;
 };
 
 struct view_data {

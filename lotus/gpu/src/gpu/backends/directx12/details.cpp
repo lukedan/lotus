@@ -312,6 +312,24 @@ namespace lotus::gpu::backends::directx12::_details {
 			return table[stage];
 		}
 
+		D3D12_RAYTRACING_INSTANCE_FLAGS to_raytracing_instance_flags(raytracing_instance_flags flags) {
+			constexpr static bit_mask_mapping<raytracing_instance_flags, D3D12_RAYTRACING_INSTANCE_FLAGS> table{
+				std::pair(raytracing_instance_flags::disable_triangle_culling,        D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE          ),
+				std::pair(raytracing_instance_flags::triangle_front_counterclockwise, D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_FRONT_COUNTERCLOCKWISE),
+				std::pair(raytracing_instance_flags::force_opaque,                    D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE                   ),
+				std::pair(raytracing_instance_flags::force_non_opaque,                D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_NON_OPAQUE               ),
+			};
+			return table.get_union(flags);
+		}
+
+		D3D12_RAYTRACING_GEOMETRY_FLAGS to_raytracing_geometry_flags(raytracing_geometry_flags flags) {
+			constexpr static bit_mask_mapping<raytracing_geometry_flags, D3D12_RAYTRACING_GEOMETRY_FLAGS> table{
+				std::pair(raytracing_geometry_flags::opaque,                          D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE                        ),
+				std::pair(raytracing_geometry_flags::no_duplicate_any_hit_invocation, D3D12_RAYTRACING_GEOMETRY_FLAG_NO_DUPLICATE_ANYHIT_INVOCATION),
+			};
+			return table.get_union(flags);
+		}
+
 
 		D3D12_COLOR_WRITE_ENABLE to_color_write_mask(channel_mask mask) {
 			constexpr static bit_mask_mapping<channel_mask, D3D12_COLOR_WRITE_ENABLE> table{
@@ -412,7 +430,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			result.BlendOp               = to_blend_operation(opt.color_operation);
 			result.SrcBlendAlpha         = to_blend_factor(opt.source_alpha);
 			result.DestBlendAlpha        = to_blend_factor(opt.destination_alpha);
-			result.BlendOp               = to_blend_operation(opt.color_operation);
+			result.BlendOpAlpha          = to_blend_operation(opt.alpha_operation);
 			result.RenderTargetWriteMask = static_cast<UINT8>(to_color_write_mask(opt.write_mask));
 			return result;
 		}

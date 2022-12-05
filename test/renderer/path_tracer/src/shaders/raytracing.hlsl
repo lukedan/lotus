@@ -211,7 +211,7 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	generic_pbr_material::material mat = materials[instance.material_index];
 
 	hit_point interpolated_hit = interpolate_hit_point(tri, barycentrics);
-	hit_point hit = transform_hit_point_to_world_space(interpolated_hit, instance.normal_transform, instance.determinant);
+	hit_point hit = transform_hit_point_to_world_space(interpolated_hit, (float3x3)instance.normal_transform, instance.determinant);
 
 	if (dot(WorldRayDirection(), hit.geometric_normal) >= 0.0f) {
 		hit.geometric_normal = -hit.geometric_normal;

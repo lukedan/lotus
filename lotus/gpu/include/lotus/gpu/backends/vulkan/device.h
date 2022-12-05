@@ -222,13 +222,12 @@ namespace lotus::gpu::backends::vulkan {
 		// ray-tracing related
 		/// Fills in the \p vk::AccelerationStructureBuildGeometryInfoKHR with the given information.
 		[[nodiscard]] bottom_level_acceleration_structure_geometry
-			create_bottom_level_acceleration_structure_geometry(
-				std::span<const std::pair<vertex_buffer_view, index_buffer_view>>
-			);
+			create_bottom_level_acceleration_structure_geometry(std::span<const raytracing_geometry_view>);
 		/// Fills in the \p vk::AccelerationStructureInstanceKHR.
 		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
 			bottom_level_acceleration_structure&,
-			mat44f, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset // TODO options
+			mat44f, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
+			raytracing_instance_flags
 		) const;
 
 		/// Returns the result of \p vk::UniqueDevice::getAccelerationStructureBuildSizesKHR().

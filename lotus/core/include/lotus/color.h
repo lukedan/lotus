@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "common.h"
+#include "math/vector.h"
 
 namespace lotus {
 	/// Linear RGBA colors.
@@ -62,6 +63,10 @@ namespace lotus {
 					);
 				}
 			}
+		}
+		/// Converts this object into a column vector.
+		[[nodiscard]] constexpr cvec4<T> into_vector() const {
+			return cvec4<T>(r, g, b, a);
 		}
 
 		/// Default comparisons.

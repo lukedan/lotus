@@ -173,7 +173,7 @@ namespace lotus::renderer {
 		for (const auto &b : blases) {
 			_maybe_initialize_blas(*b.acceleration_structure._ptr);
 			instances.emplace_back(_device.get_bottom_level_acceleration_structure_description(
-				b.acceleration_structure._ptr->handle, b.transform, b.id, b.mask, b.hit_group_offset
+				b.acceleration_structure._ptr->handle, b.transform, b.id, b.mask, b.hit_group_offset, b.flags
 			));
 			references.emplace_back(b.acceleration_structure._ptr);
 		}
@@ -558,7 +558,7 @@ namespace lotus::renderer {
 
 	void context::_maybe_initialize_blas(_details::blas &b) {
 		if (!b.handle) {
-			std::vector<std::pair<gpu::vertex_buffer_view, gpu::index_buffer_view>> input_geom;
+			std::vector<gpu::raytracing_geometry_view> input_geom;
 			for (const auto &geom : b.input) {
 				_maybe_create_buffer(*geom.vertex_data._ptr);
 				if (geom.index_data._ptr) {
@@ -572,7 +572,8 @@ namespace lotus::renderer {
 					geom.index_data ? gpu::index_buffer_view(
 						geom.index_data._ptr->data,
 						geom.index_format, geom.index_offset, geom.index_count
-					) : nullptr
+					) : nullptr,
+					geom.flags
 				);
 			}
 			b.geometry    = _device.create_bottom_level_acceleration_structure_geometry(input_geom);

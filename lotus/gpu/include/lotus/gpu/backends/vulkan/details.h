@@ -89,6 +89,10 @@ namespace lotus::gpu::backends::vulkan::_details {
 		[[nodiscard]] vk::AttachmentStoreOp to_attachment_store_op(pass_store_operation);
 		/// Converts a \ref image_tiling to a \p vk::ImageTiling.
 		[[nodiscard]] vk::ImageTiling to_image_tiling(image_tiling);
+		/// Converts a \ref raytracing_instance_flags to a \p vk::GeometryInstanceFlagsKHR.
+		[[nodiscard]] vk::GeometryInstanceFlagsKHR to_geometry_instance_flags(raytracing_instance_flags);
+		/// Converts a \ref raytracing_geometry_flags to a \p vk::GeometryFlagsKHR.
+		[[nodiscard]] vk::GeometryFlagsKHR to_geometry_flags(raytracing_geometry_flags);
 
 		/// Converts a vector to a \p vk::Offset2D.
 		template <typename Int> [[nodiscard]] inline vk::Offset2D to_offset_2d(cvec2<Int> off) {

@@ -215,6 +215,8 @@ namespace lotus::renderer {
 				};
 				/// Results from jobs.
 				enum class loader_type {
+					invalid, ///< Invalid loader.
+
 					stbi, ///< The image has successfully been loaded using stbi.
 					dds,  ///< The image has successfully been loaded using \ref dds::loader.
 				};
@@ -238,11 +240,25 @@ namespace lotus::renderer {
 				struct job_result {
 					/// Function type used to free resources after the loaded data has been processed.
 					using destroy_func = static_function<void()>;
+					/// A loaded subresource.
+					struct subresource {
+						/// Initializes this subresource to empty.
+						subresource(std::nullptr_t) {
+						}
+						/// Initializes all fields of this struct.
+						subresource(const std::byte *d, std::uint32_t m) : data(d), mip(m) {
+						}
+
+						const std::byte *data = nullptr; ///< Loaded data.
+						std::uint32_t mip = 0; ///< Mipmap index.
+					};
 
 					/// Initializes all fields of this struct.
 					job_result(
-						job j, loader_type t, const std::byte *res, cvec2s sz, gpu::format f, destroy_func d
-					) : input(std::move(j)), type(t), data(res), size(sz), pixel_format(f), destroy(std::move(d)) {
+						job j, loader_type t, cvec2s sz, gpu::format f, std::vector<subresource> res, destroy_func d
+					) :
+						input(std::move(j)), type(t), size(sz), pixel_format(f),
+						results(std::move(res)), destroy(std::move(d)) {
 					}
 					/// Initializes this job with no return data.
 					job_result(job j, std::nullptr_t) : input(std::move(j)), size(zero), destroy(nullptr) {
@@ -250,10 +266,12 @@ namespace lotus::renderer {
 
 					job input; ///< Original job description.
 
-					loader_type type; ///< Job result.
-					const std::byte *data = nullptr; ///< Loaded data.
+					loader_type type = loader_type::invalid; ///< Job result.
 					cvec2s size; ///< Size of the loaded image.
 					gpu::format pixel_format = gpu::format::none; ///< Format of the loaded image.
+
+					std::vector<subresource> results; ///< Successfully loaded subresources.
+
 					destroy_func destroy; ///< Called to free any intermediate resources.
 				};
 

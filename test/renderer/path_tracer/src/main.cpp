@@ -223,10 +223,10 @@ int main(int argc, char **argv) {
 				auto resources = lren::all_resource_bindings::from_unsorted(
 					{
 						lren::resource_set_binding::descriptors({
-							lren::resource_binding(lren::descriptor_resource::tlas(scene.tlas), 0),
-							lren::resource_binding(lren::descriptor_resource::immediate_constant_buffer::create_for(globals), 1),
-							lren::resource_binding(lren::descriptor_resource::image2d::create_read_write(rt_result), 2),
-							lren::resource_binding(lren::descriptor_resource::sampler(), 3),
+							lren::descriptor_resource::tlas(scene.tlas).at_register(0),
+							lren::descriptor_resource::immediate_constant_buffer::create_for(globals).at_register(1),
+							lren::descriptor_resource::image2d::create_read_write(rt_result).at_register(2),
+							lren::descriptor_resource::sampler().at_register(3),
 						}).at_space(0),
 						lren::resource_set_binding(asset_man.get_images(), 1),
 						lren::resource_set_binding(scene.vertex_buffers, 2),
@@ -235,9 +235,9 @@ int main(int argc, char **argv) {
 						lren::resource_set_binding(scene.uv_buffers, 5),
 						lren::resource_set_binding(scene.index_buffers, 6),
 						lren::resource_set_binding::descriptors({
-							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(scene.instances_buffer), 0),
-							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(scene.geometries_buffer), 1),
-							lren::resource_binding(lren::descriptor_resource::structured_buffer::create_read_only(scene.materials_buffer), 2),
+							lren::descriptor_resource::structured_buffer::create_read_only(scene.instances_buffer).at_register(0),
+							lren::descriptor_resource::structured_buffer::create_read_only(scene.geometries_buffer).at_register(1),
+							lren::descriptor_resource::structured_buffer::create_read_only(scene.materials_buffer).at_register(2),
 						}).at_space(7),
 					}
 				);
@@ -283,15 +283,15 @@ int main(int argc, char **argv) {
 					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list,
 					lren::all_resource_bindings::from_unsorted({
 						lren::resource_set_binding::descriptors({
-							lren::resource_binding(lren::descriptor_resource::image2d(
+							lren::descriptor_resource::image2d(
 #ifdef DISABLE_ALL_RT
 								gbuffer.normal, lren::image_binding_type::read_only
 #else
 								rt_result, lren::image_binding_type::read_only
 #endif
-							), 0),
-							lren::resource_binding(lren::descriptor_resource::sampler(), 1),
-							lren::resource_binding(lren::descriptor_resource::immediate_constant_buffer::create_for(globals), 2)
+							).at_register(0),
+							lren::descriptor_resource::sampler().at_register(1),
+							lren::descriptor_resource::immediate_constant_buffer::create_for(globals).at_register(2),
 						}).at_space(0),
 					}),
 					blit_vs, resolve_ps, state, 1, u8"Final blit"

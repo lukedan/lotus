@@ -33,7 +33,7 @@ namespace lotus::gpu::backends::common {
 	[[nodiscard]] static memory::stack_allocator::string_type<WCHAR> _u8string_to_wstring(
 		memory::stack_allocator::scoped_bookmark &bookmark, std::u8string_view view
 	) {
-		// TODO this assumes the entry point don't contain chars above 128
+		// TODO this assumes the entry point doesn't contain chars above 128
 		return bookmark.create_string<WCHAR>(view.begin(), view.end());
 	}
 	dxc_compiler::compilation_result dxc_compiler::compile_shader(
@@ -63,7 +63,7 @@ namespace lotus::gpu::backends::common {
 
 		char profile_ascii[10];
 		auto fmt_result = std::format_to_n(
-			profile_ascii, std::size(profile_ascii) - 1, "{}_{}_{}", stage_names[stage], 6, 3
+			profile_ascii, std::size(profile_ascii) - 1, "{}_{}_{}", stage_names[stage], 6, 5
 		);
 		assert(static_cast<std::size_t>(fmt_result.size) + 1 < std::size(profile_ascii));
 		profile_ascii[fmt_result.size] = L'\0';

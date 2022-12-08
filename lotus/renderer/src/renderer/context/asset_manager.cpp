@@ -84,13 +84,37 @@ namespace lotus::renderer::assets {
 		if (j.path.extension() == ".dds") {
 			auto *data = image_mem.get();
 			if (auto loaded = dds::loader::create({ data, data + image_size })) {
+				std::vector<job_result::subresource> mips;
+
+				std::uint32_t num_mips = loaded->get_num_mips();
+				const auto &format_props = gpu::format_properties::get(loaded->get_format());
+				auto frag_size = format_props.fragment_size.into<std::uint32_t>();
+				cvec2u32 one(1, 1);
+				auto raw_data = loaded->get_raw_data();
+				auto current = raw_data.begin();
+				for (std::uint32_t i = 0; i < num_mips; ++i) {
+					cvec2u32 pixel_size = vec::memberwise_max(
+						cvec2u32(loaded->get_width() >> i, loaded->get_height() >> i), one
+					);
+					cvec2u32 num_fragments = vec::memberwise_divide(pixel_size + frag_size - one, frag_size);
+					std::size_t size = num_fragments[0] * num_fragments[1] * format_props.bytes_per_fragment;
+
+					if (raw_data.end() - current < size) {
+						log().error<u8"{}: Not enough space for mip {} and below">(j.path.string(), i);
+						break;
+					}
+
+					mips.emplace_back(&*current, i);
+					current += size;
+				}
+
 				// TODO more verifications?
 				return job_result(
 					std::move(j),
 					loader_type::dds,
-					loaded->get_raw_data().data(),
 					cvec2s(loaded->get_width(), loaded->get_height()),
 					loaded->get_format(),
+					std::move(mips),
 					[blob = std::move(image_mem)]() mutable {
 						blob = nullptr;
 					}
@@ -148,9 +172,9 @@ namespace lotus::renderer::assets {
 			return job_result(
 				std::move(j),
 				loader_type::stbi,
-				static_cast<std::byte*>(loaded),
 				cvec2s(width, height),
 				pixel_format,
+				{ job_result::subresource(static_cast<const std::byte*>(loaded), 0) },
 				[ptr = loaded]() {
 					stbi_image_free(ptr);
 				}
@@ -270,27 +294,40 @@ namespace lotus::renderer::assets {
 		}
 		auto finished_jobs = _image_loader.get_completed_jobs();
 		for (auto &j : finished_jobs) {
-			if (j.data) {
+			if (!j.results.empty()) {
 				auto &tex = j.input.target._ptr->value;
 				const auto &format_props = gpu::format_properties::get(j.pixel_format);
 				auto usages = gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only;
 				if (!format_props.has_compressed_color()) {
 					usages |= gpu::image_usage_mask::shader_read_write;
 				}
+
+				// find out how many mips we've loaded
+				std::uint32_t highest_mip = j.results[0].mip;
+				std::uint32_t lowest_mip = j.results[0].mip;
+				std::uint32_t mip_mask = 0;
+				for (const auto &res : j.results) {
+					highest_mip = std::min(highest_mip, res.mip);
+					lowest_mip = std::max(lowest_mip, res.mip);
+					mip_mask |= 1 << res.mip;
+				}
+
 				tex.image = _context.request_image2d(
-					j.input.path.u8string(),
-					j.size, mipmap::get_levels(j.size.into<std::uint32_t>()), j.pixel_format, usages,
-					j.input.memory_pool
+					j.input.path.u8string(), j.size, lowest_mip + 1, j.pixel_format, usages, j.input.memory_pool
 				);
-				tex.highest_mip_loaded = 0;
+				tex.highest_mip_loaded = highest_mip;
 
 				// upload image
-				_context.upload_image(tex.image, j.data, u8"Upload image"); // TODO better label
+				for (const auto &res : j.results) {
+					auto view = tex.image.view_mips(gpu::mip_levels::only(res.mip));
+					_context.upload_image(view, res.data, u8"Upload image"); // TODO better label
+				}
+
 				j.destroy();
 
 				_context.write_image_descriptors(
 					_image2d_descriptors, tex.descriptor_index,
-					{ tex.image.view_mips(gpu::mip_levels::only_highest()) }
+					{ tex.image.view_mips(gpu::mip_levels::all_below(tex.highest_mip_loaded)) }
 				);
 				log().debug<u8"Texture {} loaded">(j.input.path.string());
 			}
@@ -303,7 +340,10 @@ namespace lotus::renderer::assets {
 			u8"Texture assets", gpu::descriptor_type::read_only_image, 1024
 		)),
 		_sampler_descriptors(ctx.create_cached_descriptor_set(u8"Samplers", resource_set_binding::descriptors({
-			resource_binding(descriptor_resource::sampler(), 0),
+			descriptor_resource::sampler(
+				gpu::filtering::linear, gpu::filtering::linear, gpu::filtering::linear,
+				0.0f, 0.0f, std::numeric_limits<float>::max(), 16.0f
+			).at_register(0),
 		}))),
 		_invalid_image(nullptr),
 		_image2d_descriptor_index_alloc({ 0 }) {

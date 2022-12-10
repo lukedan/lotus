@@ -141,10 +141,8 @@ namespace lotus::renderer::execution {
 				std::size_t first_barrier = image_barriers.size();
 				auto *surf = it->target;
 				for (auto first = it; it != _image2d_transitions.end() && it->target == first->target; ++it) {
-					auto max_mip = std::min(
-						static_cast<std::uint16_t>(it->target->num_mips), it->mip_levels.maximum
-					);
-					for (std::uint16_t mip = it->mip_levels.minimum; mip < max_mip; ++mip) {
+					auto max_mip = std::min(it->target->num_mips, it->mip_levels.maximum);
+					for (std::uint32_t mip = it->mip_levels.minimum; mip < max_mip; ++mip) {
 						// check if a transition is really necessary
 						auto &current_access = it->target->current_usages[mip];
 						// when these accesses are enabled, force a barrier

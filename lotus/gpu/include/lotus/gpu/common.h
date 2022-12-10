@@ -1181,6 +1181,12 @@ namespace lotus::gpu {
 		) {
 			return input_buffer_layout(elems, s, input_buffer_rate::per_vertex, buf_id);
 		}
+		/// \overload
+		[[nodiscard]] constexpr inline static input_buffer_layout create_vertex_buffer(
+			std::initializer_list<input_buffer_element> elems, std::size_t s, std::size_t buf_id
+		) {
+			return input_buffer_layout({ elems.begin(), elems.end() }, s, input_buffer_rate::per_vertex, buf_id);
+		}
 		/// Creates a new layout for instance buffers with the given arguments.
 		[[nodiscard]] constexpr inline static input_buffer_layout create_instance_buffer(
 			std::span<const input_buffer_element> elems, std::size_t s, std::size_t buf_id
@@ -1195,6 +1201,14 @@ namespace lotus::gpu {
 			std::span<const input_buffer_element> elems, std::size_t buf_id
 		) {
 			return create_vertex_buffer(elems, sizeof(Vertex), buf_id);
+		}
+		/// \overload
+		template <
+			typename Vertex
+		> [[nodiscard]] constexpr inline static input_buffer_layout create_vertex_buffer(
+			std::initializer_list<input_buffer_element> elems, std::size_t buf_id
+		) {
+			return create_vertex_buffer<Vertex>({ elems.begin(), elems.end() }, buf_id);
 		}
 		/// Creates a new layout for instance buffers with the given arguments, using the size of the element as
 		/// \ref stride.
@@ -1307,7 +1321,7 @@ namespace lotus::gpu {
 		subresource_index(uninitialized_t) {
 		}
 		/// Initializes all members of this struct.
-		constexpr subresource_index(std::uint16_t mip, std::uint32_t arr, image_aspect_mask asp) :
+		constexpr subresource_index(std::uint32_t mip, std::uint32_t arr, image_aspect_mask asp) :
 			mip_level(mip), array_slice(arr), aspects(asp) {
 		}
 		/// Creates an index pointing to the color aspect of the first subresource.
@@ -1323,21 +1337,21 @@ namespace lotus::gpu {
 			return subresource_index(0, 0, image_aspect_mask::depth | image_aspect_mask::stencil);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
-		[[nodiscard]] constexpr inline static subresource_index create_color(std::uint16_t mip, std::uint32_t arr) {
+		[[nodiscard]] constexpr inline static subresource_index create_color(std::uint32_t mip, std::uint32_t arr) {
 			return subresource_index(mip, arr, image_aspect_mask::color);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
-		[[nodiscard]] constexpr inline static subresource_index create_depth(std::uint16_t mip, std::uint32_t arr) {
+		[[nodiscard]] constexpr inline static subresource_index create_depth(std::uint32_t mip, std::uint32_t arr) {
 			return subresource_index(mip, arr, image_aspect_mask::depth);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
 		[[nodiscard]] constexpr inline static subresource_index create_stencil(
-			std::uint16_t mip, std::uint32_t arr
+			std::uint32_t mip, std::uint32_t arr
 		) {
 			return subresource_index(mip, arr, image_aspect_mask::stencil);
 		}
 
-		std::uint16_t mip_level; ///< Mip level.
+		std::uint32_t mip_level; ///< Mip level.
 		std::uint32_t array_slice; ///< Array slice.
 		image_aspect_mask aspects; ///< The aspects of the subresource.
 
@@ -1352,7 +1366,7 @@ namespace lotus::gpu {
 		}
 		/// Initializes all fields of this struct.
 		constexpr subresource_range(
-			std::uint16_t first_mip, std::uint16_t num_mips,
+			std::uint32_t first_mip, std::uint32_t num_mips,
 			std::uint32_t first_arr, std::uint32_t num_arrs,
 			image_aspect_mask asp
 		) :
@@ -1374,25 +1388,25 @@ namespace lotus::gpu {
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
 		[[nodiscard]] constexpr inline static subresource_range create_color(
-			std::uint16_t first_mip, std::uint16_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
+			std::uint32_t first_mip, std::uint32_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
 		) {
 			return subresource_range(first_mip, num_mips, first_arr, num_arrs, image_aspect_mask::color);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
 		[[nodiscard]] constexpr inline static subresource_range create_depth(
-			std::uint16_t first_mip, std::uint16_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
+			std::uint32_t first_mip, std::uint32_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
 		) {
 			return subresource_range(first_mip, num_mips, first_arr, num_arrs, image_aspect_mask::depth);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
 		[[nodiscard]] constexpr inline static subresource_range create_stencil(
-			std::uint16_t first_mip, std::uint16_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
+			std::uint32_t first_mip, std::uint32_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
 		) {
 			return subresource_range(first_mip, num_mips, first_arr, num_arrs, image_aspect_mask::stencil);
 		}
 
-		std::uint16_t first_mip_level; ///< First mip level.
-		std::uint16_t num_mip_levels;  ///< Number of mip levels.
+		std::uint32_t first_mip_level; ///< First mip level.
+		std::uint32_t num_mip_levels;  ///< Number of mip levels.
 		std::uint32_t first_array_slice; ///< First array slice.
 		std::uint32_t num_array_slices;  ///< Number of array slices.
 		image_aspect_mask aspects; ///< The aspects of the subresource.
@@ -1404,7 +1418,7 @@ namespace lotus::gpu {
 	struct mip_levels {
 	public:
 		/// Use this for \ref maximum to indicate that all levels below \ref minimum can be used.
-		constexpr static std::uint16_t all_mip_levels = std::numeric_limits<std::uint16_t>::max();
+		constexpr static std::uint32_t all_mip_levels = std::numeric_limits<std::uint32_t>::max();
 
 		/// Returns zero mip levels.
 		[[nodiscard]] constexpr inline static mip_levels empty() {
@@ -1415,11 +1429,11 @@ namespace lotus::gpu {
 			return mip_levels(0, all_mip_levels);
 		}
 		/// Indicates that all mip levels below the given layer can be used.
-		[[nodiscard]] constexpr inline static mip_levels all_below(std::uint16_t layer) {
+		[[nodiscard]] constexpr inline static mip_levels all_below(std::uint32_t layer) {
 			return mip_levels(layer, all_mip_levels);
 		}
 		/// Indicates that only the given layer can be used.
-		[[nodiscard]] constexpr inline static mip_levels only(std::uint16_t layer) {
+		[[nodiscard]] constexpr inline static mip_levels only(std::uint32_t layer) {
 			return mip_levels(layer, layer + 1);
 		}
 		/// Indicates that only the highest layer can be used.
@@ -1427,17 +1441,17 @@ namespace lotus::gpu {
 			return only(0);
 		}
 		/// Creates an object indicating that mip levels in the given range can be used.
-		[[nodiscard]] constexpr inline static mip_levels create(std::uint16_t min, std::uint16_t num) {
+		[[nodiscard]] constexpr inline static mip_levels create(std::uint32_t min, std::uint32_t num) {
 			return mip_levels(min, min + num);
 		}
 
 		/// Returns the number of mip levels contained, or \p std::nullopt if this contains all mips below a certain
 		/// level.
-		[[nodiscard]] constexpr std::optional<std::uint16_t> get_num_levels() const {
+		[[nodiscard]] constexpr std::optional<std::uint32_t> get_num_levels() const {
 			if (maximum == all_mip_levels) {
 				return std::nullopt;
 			}
-			return static_cast<std::uint16_t>(maximum - minimum);
+			return static_cast<std::uint32_t>(maximum - minimum);
 		}
 
 		/// Returns whether this struct represents all mip levels about the specified one.
@@ -1451,16 +1465,19 @@ namespace lotus::gpu {
 
 		/// Finds the intersection of two mip ranges.
 		[[nodiscard]] constexpr inline static mip_levels intersection(mip_levels lhs, mip_levels rhs) {
-			std::uint16_t min = std::max(lhs.minimum, rhs.minimum);
-			std::uint16_t max = std::min(lhs.maximum, rhs.maximum);
+			std::uint32_t min = std::max(lhs.minimum, rhs.minimum);
+			std::uint32_t max = std::min(lhs.maximum, rhs.maximum);
 			return mip_levels(min, max);
 		}
 
-		std::uint16_t minimum; ///< Minimum (inclusive) mip level.
-		std::uint16_t maximum; ///< Maximum (exclusive) mip level.
+		/// Default equality comparisons.
+		[[nodiscard]] constexpr friend bool operator==(const mip_levels&, const mip_levels&) = default;
+
+		std::uint32_t minimum; ///< Minimum (inclusive) mip level.
+		std::uint32_t maximum; ///< Maximum (exclusive) mip level.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr mip_levels(std::uint16_t min, std::uint16_t max) : minimum(min), maximum(max) {
+		constexpr mip_levels(std::uint32_t min, std::uint32_t max) : minimum(min), maximum(max) {
 		}
 	};
 

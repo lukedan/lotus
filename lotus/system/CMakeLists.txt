@@ -7,6 +7,7 @@ target_sources(lotus_system
 	PUBLIC
 		"include/lotus/system/application.h"
 		"include/lotus/system/common.h"
+		"include/lotus/system/dear_imgui.h"
 		"include/lotus/system/window.h")
 
 target_include_directories(lotus_system PUBLIC "include/")

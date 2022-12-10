@@ -10,6 +10,7 @@
 #include "lotus/memory/stack_allocator.h"
 
 namespace lotus::system::platforms::windows {
+	/// Retrieves modifier key state from the given \p WPARAM.
 	[[nodiscard]] static modifier_key_mask _get_modifier_key_mask(WPARAM wparam) {
 		return
 			((wparam & MK_CONTROL)    ? modifier_key_mask::control : modifier_key_mask::none) |
@@ -21,11 +22,9 @@ namespace lotus::system::platforms::windows {
 		auto *sys_wnd = static_cast<system::window*>(wnd);
 		switch (msg) {
 		case WM_SIZE:
-			{
+			if (sys_wnd->on_resize) {
 				window_events::resize info(cvec2s(LOWORD(lparam), HIWORD(lparam)));
-				if (sys_wnd->on_resize) {
-					sys_wnd->on_resize(info);
-				}
+				sys_wnd->on_resize(info);
 			}
 			return 0;
 
@@ -39,11 +38,9 @@ namespace lotus::system::platforms::windows {
 			return 0;
 
 		case WM_CLOSE:
-			{
+			if (sys_wnd->on_close_request) {
 				window_events::close_request info;
-				if (sys_wnd->on_close_request) {
-					sys_wnd->on_close_request(info);
-				}
+				sys_wnd->on_close_request(info);
 				if (info.should_close) {
 					_details::assert_win32(DestroyWindow(wnd->_hwnd));
 					wnd->_hwnd = nullptr;
@@ -52,81 +49,88 @@ namespace lotus::system::platforms::windows {
 			return 0;
 
 		case WM_MOUSEMOVE:
-			{
+			if (sys_wnd->on_mouse_move) {
 				window_events::mouse::move info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)), _get_modifier_key_mask(wparam)
 				);
-				if (sys_wnd->on_mouse_move) {
-					sys_wnd->on_mouse_move(info);
-				}
+				sys_wnd->on_mouse_move(info);
 			}
 			return 0;
 
 		case WM_LBUTTONDOWN:
-			{
+			if (sys_wnd->on_mouse_button_down) {
 				window_events::mouse::button_down info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::primary, _get_modifier_key_mask(wparam)
 				);
-				if (sys_wnd->on_mouse_button_down) {
-					sys_wnd->on_mouse_button_down(info);
-				}
+				sys_wnd->on_mouse_button_down(info);
 			}
 			return 0;
 		case WM_LBUTTONUP:
-			{
+			if (sys_wnd->on_mouse_button_up) {
 				window_events::mouse::button_up info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::primary, _get_modifier_key_mask(wparam)
 				);
-				if (sys_wnd->on_mouse_button_up) {
-					sys_wnd->on_mouse_button_up(info);
-				}
+				sys_wnd->on_mouse_button_up(info);
 			}
 			return 0;
 
 		case WM_RBUTTONDOWN:
-			{
+			if (sys_wnd->on_mouse_button_down) {
 				window_events::mouse::button_down info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::secondary, _get_modifier_key_mask(wparam)
 				);
-				if (sys_wnd->on_mouse_button_down) {
-					sys_wnd->on_mouse_button_down(info);
-				}
+				sys_wnd->on_mouse_button_down(info);
 			}
 			return 0;
 		case WM_RBUTTONUP:
-			{
+			if (sys_wnd->on_mouse_button_up) {
 				window_events::mouse::button_up info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::secondary, _get_modifier_key_mask(wparam)
 				);
-				if (sys_wnd->on_mouse_button_up) {
-					sys_wnd->on_mouse_button_up(info);
-				}
+				sys_wnd->on_mouse_button_up(info);
 			}
 			return 0;
 		case WM_MBUTTONDOWN:
-			{
+			if (sys_wnd->on_mouse_button_down) {
 				window_events::mouse::button_down info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::middle, _get_modifier_key_mask(wparam)
 				);
-				if (sys_wnd->on_mouse_button_down) {
-					sys_wnd->on_mouse_button_down(info);
-				}
+				sys_wnd->on_mouse_button_down(info);
 			}
 			return 0;
 		case WM_MBUTTONUP:
-			{
+			if (sys_wnd->on_mouse_button_up) {
 				window_events::mouse::button_up info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
 					mouse_button::middle, _get_modifier_key_mask(wparam)
 				);
-				if (sys_wnd->on_mouse_button_up) {
-					sys_wnd->on_mouse_button_up(info);
-				}
+				sys_wnd->on_mouse_button_up(info);
+			}
+			return 0;
+
+		case WM_MOUSEWHEEL:
+			if (sys_wnd->on_mouse_scroll) {
+				window_events::mouse::scroll info(
+					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
+					cvec2f(0.0f, GET_WHEEL_DELTA_WPARAM(wparam) / static_cast<float>(WHEEL_DELTA)),
+					_get_modifier_key_mask(wparam)
+				);
+				sys_wnd->on_mouse_scroll(info);
+			}
+			return 0;
+		case WM_MOUSEHWHEEL:
+			if (sys_wnd->on_mouse_scroll) {
+				window_events::mouse::scroll info(
+					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
+					cvec2f(GET_WHEEL_DELTA_WPARAM(wparam) / static_cast<float>(WHEEL_DELTA), 0.0f),
+					_get_modifier_key_mask(wparam)
+				);
+				sys_wnd->on_mouse_scroll(info);
 			}
 			return 0;
 

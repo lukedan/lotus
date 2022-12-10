@@ -81,7 +81,7 @@ namespace lotus::system {
 			};
 			/// Information about a mouse button being released.
 			struct button_up {
-				/// Initializes \ref button.
+				/// Initializes all fields of this struct.
 				button_up(cvec2i pos, mouse_button btn, modifier_key_mask mods) :
 					position(pos), button(btn), modifiers(mods) {
 				}
@@ -89,6 +89,18 @@ namespace lotus::system {
 				/// The position of the mouse when the button is released, relative to the client are of the window.
 				const cvec2i position;
 				const mouse_button button; ///< The mouse button.
+				const modifier_key_mask modifiers; ///< Modifier keys that are pressed.
+			};
+			/// Information about scrolling.
+			struct scroll {
+				/// Initializes all fields of this struct.
+				scroll(cvec2i pos, cvec2f off, modifier_key_mask mods) :
+					position(pos), offset(off), modifiers(mods) {
+				}
+
+				/// The position of the mouse when scrolling happened, relative to the client area of the window.
+				const cvec2i position;
+				const cvec2f offset; ///< Scrolling offset.
 				const modifier_key_mask modifiers; ///< Modifier keys that are pressed.
 			};
 		}

@@ -99,7 +99,7 @@ namespace lotus::renderer::assets {
 					cvec2u32 num_fragments = vec::memberwise_divide(pixel_size + frag_size - one, frag_size);
 					std::size_t size = num_fragments[0] * num_fragments[1] * format_props.bytes_per_fragment;
 
-					if (raw_data.end() - current < size) {
+					if (raw_data.end() - current < static_cast<std::ptrdiff_t>(size)) {
 						log().error<u8"{}: Not enough space for mip {} and below">(j.path.string(), i);
 						break;
 					}

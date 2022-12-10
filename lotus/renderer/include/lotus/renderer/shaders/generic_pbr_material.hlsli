@@ -1,6 +1,7 @@
 #ifndef LOTUS_RENDERER_GENERIC_PBR_MATERIAL_HLSLI
 #define LOTUS_RENDERER_GENERIC_PBR_MATERIAL_HLSLI
 
+#include "common.hlsli"
 #include "types.hlsli"
 
 struct vs_input {
@@ -30,8 +31,7 @@ ConstantBuffer<generic_pbr_material::material> instance_material : register(b0, 
 ConstantBuffer<instance_data> instance                           : register(b1, space1);
 ConstantBuffer<view_data> view                                   : register(b2, space1);
 
-/*LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(space2);*/
-SamplerState linear_sampler : register(s0, space2);
+LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(space2);
 
 vs_output transform_geometry(vs_input input) {
 	vs_output result = (vs_output)0;

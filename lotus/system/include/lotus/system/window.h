@@ -67,6 +67,8 @@ namespace lotus::system {
 		static_function<void(window_events::mouse::button_down&)> on_mouse_button_down = nullptr;
 		/// Function that will be called when a mouse button is released over the window.
 		static_function<void(window_events::mouse::button_up&)> on_mouse_button_up = nullptr;
+		/// Function that will be called on a mouse scroll event.
+		static_function<void(window_events::mouse::scroll&)> on_mouse_scroll = nullptr;
 		/// Function that will be called when mouse capture is broken externally.
 		static_function<void()> on_capture_broken = nullptr;
 	protected:

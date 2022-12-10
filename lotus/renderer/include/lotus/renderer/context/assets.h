@@ -92,9 +92,17 @@ namespace lotus::renderer {
 				return &get_value();
 			}
 
+			/// Returns the unique ID of the assets.
+			[[nodiscard]] std::optional<assets::unique_id> get_unique_id() const {
+				if (_ptr) {
+					return _ptr->get_unique_id();
+				}
+				return std::nullopt;
+			}
+
 			/// Equality and inequality compares the unique ID.
 			[[nodiscard]] friend bool operator==(const handle &lhs, const handle &rhs) {
-				return lhs.get().get_unique_id() == rhs.get().get_unique_id();
+				return lhs.get_unique_id() == rhs.get_unique_id();
 			}
 
 			/// Returns whether this handle is valid.

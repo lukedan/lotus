@@ -102,7 +102,7 @@ namespace lotus::renderer {
 			[dev = &_device, memory_type](std::size_t sz) {
 				return dev->allocate_memory(sz, memory_type);
 			},
-			chunk_size, name
+			chunk_size, _allocate_resource_id(), name
 		);
 		auto pool_ptr = std::shared_ptr<_details::pool>(p, _details::context_managed_deleter(*this));
 		return pool(std::move(pool_ptr));
@@ -114,7 +114,7 @@ namespace lotus::renderer {
 	) {
 		gpu::image_tiling tiling = gpu::image_tiling::optimal;
 		auto *surf = new _details::image2d(
-			size, num_mips, fmt, tiling, usages, p._ptr, _resource_index++, name
+			size, num_mips, fmt, tiling, usages, p._ptr, _allocate_resource_id(), name
 		);
 		auto surf_ptr = std::shared_ptr<_details::image2d>(surf, _details::context_managed_deleter(*this));
 		return image2d_view(std::move(surf_ptr), fmt, gpu::mip_levels::all());
@@ -123,7 +123,7 @@ namespace lotus::renderer {
 	buffer context::request_buffer(
 		std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask usages, const pool &p
 	) {
-		auto *buf = new _details::buffer(size_bytes, usages, p._ptr, _resource_index++, name);
+		auto *buf = new _details::buffer(size_bytes, usages, p._ptr, _allocate_resource_id(), name);
 		auto buf_ptr = std::shared_ptr<_details::buffer>(buf, _details::context_managed_deleter(*this));
 		return buffer(std::move(buf_ptr));
 	}
@@ -133,7 +133,7 @@ namespace lotus::renderer {
 		std::uint32_t num_images, std::span<const gpu::format> formats
 	) {
 		auto *chain = new _details::swap_chain(
-			wnd, num_images, { formats.begin(), formats.end() }, name
+			wnd, num_images, { formats.begin(), formats.end() }, _allocate_resource_id(), name
 		);
 		auto chain_ptr = std::shared_ptr<_details::swap_chain>(chain, _details::context_managed_deleter(*this));
 		return swap_chain(std::move(chain_ptr));
@@ -142,7 +142,7 @@ namespace lotus::renderer {
 	image_descriptor_array context::request_image_descriptor_array(
 		std::u8string_view name, gpu::descriptor_type type, std::uint32_t capacity
 	) {
-		auto *arr = new _details::image_descriptor_array(type, capacity, name);
+		auto *arr = new _details::image_descriptor_array(type, capacity, _allocate_resource_id(), name);
 		auto arr_ptr = std::shared_ptr<_details::image_descriptor_array>(
 			arr, _details::context_managed_deleter(*this)
 		);
@@ -152,7 +152,7 @@ namespace lotus::renderer {
 	buffer_descriptor_array context::request_buffer_descriptor_array(
 		std::u8string_view name, gpu::descriptor_type type, std::uint32_t capacity
 	) {
-		auto *arr = new _details::buffer_descriptor_array(type, capacity, name);
+		auto *arr = new _details::buffer_descriptor_array(type, capacity, _allocate_resource_id(), name);
 		auto arr_ptr = std::shared_ptr<_details::buffer_descriptor_array>(
 			arr, _details::context_managed_deleter(*this)
 		);
@@ -162,7 +162,9 @@ namespace lotus::renderer {
 	blas context::request_blas(
 		std::u8string_view name, std::span<const geometry_buffers_view> geometries, const pool &p
 	) {
-		auto *blas_ptr = new _details::blas(std::vector(geometries.begin(), geometries.end()), p._ptr, name);
+		auto *blas_ptr = new _details::blas(
+			std::vector(geometries.begin(), geometries.end()), p._ptr, _allocate_resource_id(), name
+		);
 		auto ptr = std::shared_ptr<_details::blas>(blas_ptr, _details::context_managed_deleter(*this));
 		return blas(std::move(ptr));
 	}
@@ -177,7 +179,9 @@ namespace lotus::renderer {
 			));
 			references.emplace_back(b.acceleration_structure._ptr);
 		}
-		auto *tlas_ptr = new _details::tlas(std::move(instances), std::move(references), p._ptr, name);
+		auto *tlas_ptr = new _details::tlas(
+			std::move(instances), std::move(references), p._ptr, _allocate_resource_id(), name
+		);
 		auto ptr = std::shared_ptr<_details::tlas>(tlas_ptr, _details::context_managed_deleter(*this));
 		return tlas(std::move(ptr));
 	}
@@ -189,7 +193,7 @@ namespace lotus::renderer {
 		auto &layout = _cache.get_descriptor_set_layout(key);
 		auto set = _device.create_descriptor_set(_descriptor_pool, layout);
 		auto *set_ptr = new _details::cached_descriptor_set(
-			std::move(set), std::move(key.ranges), layout, name
+			std::move(set), std::move(key.ranges), layout, _allocate_resource_id(), name
 		);
 		for (const auto &binding : bindings.bindings) {
 			std::visit([&](const auto &rsrc) {

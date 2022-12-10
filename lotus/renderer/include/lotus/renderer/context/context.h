@@ -342,6 +342,12 @@ namespace lotus::renderer {
 		[[nodiscard]] buffer request_buffer(
 			std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask, const pool&
 		);
+		/// Shorthand for \ref request_buffer() and then viewing it as a structured buffer of the given type.
+		template <typename T> [[nodiscard]] structured_buffer_view request_structured_buffer(
+			std::u8string_view name, std::uint32_t num_elements, gpu::buffer_usage_mask usages, const pool &p
+		) {
+			return request_buffer(name, num_elements * sizeof(T), usages, p).get_view<T>(0, num_elements);
+		}
 		/// Creates a swap chain with the given properties.
 		[[nodiscard]] swap_chain request_swap_chain(
 			std::u8string_view name, system::window&,
@@ -566,12 +572,20 @@ namespace lotus::renderer {
 
 		execution::upload_buffers _uploads; ///< Upload buffers.
 
-		std::uint64_t _resource_index = 0; ///< Counter used to uniquely identify resources.
+		/// Counter used to uniquely identify resources.
+		unique_resource_id _resource_index = unique_resource_id::invalid;
 
 		/// Initializes all fields of the context.
 		context(
 			gpu::context&, const gpu::adapter_properties&, gpu::device&, gpu::command_queue&
 		);
+
+		/// Allocates a unique resource index.
+		[[nodiscard]] unique_resource_id _allocate_resource_id() {
+			using _int_type = std::underlying_type_t<unique_resource_id>;
+			_resource_index = static_cast<unique_resource_id>(static_cast<_int_type>(_resource_index) + 1);
+			return _resource_index;
+		}
 
 		/// Creates the backing image for the given \ref _details::image2d if it hasn't been created.
 		void _maybe_create_image(_details::image2d&);

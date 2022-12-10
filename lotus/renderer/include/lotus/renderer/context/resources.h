@@ -168,7 +168,7 @@ namespace lotus::renderer {
 		std::vector<gpu::input_buffer_element> elements; ///< Elements in this vertex buffer.
 		recorded_resources::buffer data; ///< The buffer.
 		std::uint32_t stride = 0; ///< The size of one vertex.
-		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer.
+		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer in bytes.
 		std::uint32_t buffer_index = 0; ///< Binding index for this input buffer.
 		/// Specifies how the buffer data is used.
 		gpu::input_buffer_rate input_rate = gpu::input_buffer_rate::per_vertex;
@@ -185,7 +185,7 @@ namespace lotus::renderer {
 		}
 
 		recorded_resources::buffer data; ///< The index buffer.
-		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer where indices start.
+		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer where indices start in bytes.
 		gpu::index_format format = gpu::index_format::uint32; ///< Format of indices.
 	};
 	/// A view into buffers related to a geometry used for ray tracing.
@@ -233,6 +233,12 @@ namespace lotus::renderer {
 	};
 
 
+	/// Used to uniquely identify a resource.
+	enum class unique_resource_id : std::uint64_t {
+		invalid = 0 ///< An invalid ID.
+	};
+
+
 	/// Internal data structures used by the rendering context.
 	namespace _details {
 		/// Returns the descriptor type that corresponds to the image binding.
@@ -254,7 +260,7 @@ namespace lotus::renderer {
 		struct resource : public std::enable_shared_from_this<resource> {
 		public:
 			/// Initializes common resource properties.
-			explicit resource(std::u8string_view n) : name(n) {
+			resource(unique_resource_id i, std::u8string_view n) : id(i), name(n) {
 			}
 			/// Default destructor.
 			virtual ~resource() = default;
@@ -262,6 +268,7 @@ namespace lotus::renderer {
 			/// Returns the type of this resource.
 			[[nodiscard]] virtual resource_type get_type() const = 0;
 
+			unique_resource_id id = unique_resource_id::invalid; ///< Unique ID of this resource.
 			// TODO make this debug only?
 			std::u8string name; ///< The name of this resource.
 		};
@@ -301,8 +308,8 @@ namespace lotus::renderer {
 
 			/// Initializes the pool.
 			explicit pool(
-				allocation_function alloc, std::uint32_t chunk_sz, std::u8string_view n
-			) : resource(n), allocate_memory(std::move(alloc)), chunk_size(chunk_sz) {
+				allocation_function alloc, std::uint32_t chunk_sz, unique_resource_id i, std::u8string_view n
+			) : resource(i, n), allocate_memory(std::move(alloc)), chunk_size(chunk_sz) {
 			}
 
 			/// Returns \ref resource_type::pool.
@@ -353,12 +360,12 @@ namespace lotus::renderer {
 				gpu::image_tiling tiling,
 				gpu::image_usage_mask usages,
 				std::shared_ptr<pool> p,
-				std::uint64_t i,
+				unique_resource_id i,
 				std::u8string_view n
 			) :
-				resource(n), image(nullptr), memory_pool(std::move(p)), memory(nullptr),
+				resource(i, n), image(nullptr), memory_pool(std::move(p)), memory(nullptr),
 				current_usages(mips, image_access::initial()), size(sz), num_mips(mips),
-				format(fmt), tiling(tiling), usages(usages), id(i) {
+				format(fmt), tiling(tiling), usages(usages) {
 			}
 
 			/// Returns \ref resource_type::image2d.
@@ -369,7 +376,7 @@ namespace lotus::renderer {
 			gpu::image2d image; ///< Image for the surface.
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this image out of.
 			pool::token memory; ///< Allocated memory for this image.
-			
+
 			std::vector<image_access> current_usages; ///< Current usage of each mip of the surface.
 
 			cvec2s size; ///< The size of this surface.
@@ -383,8 +390,6 @@ namespace lotus::renderer {
 			std::vector<
 				descriptor_array_reference<recorded_resources::image2d_view, gpu::image2d_view>
 			> array_references;
-
-			std::uint64_t id = 0; ///< Used to uniquely identify this surface.
 		};
 
 		/// A buffer.
@@ -392,10 +397,10 @@ namespace lotus::renderer {
 			/// Initializes this buffer to empty.
 			buffer(
 				std::uint32_t sz, gpu::buffer_usage_mask usg, std::shared_ptr<pool> p,
-				std::uint64_t i, std::u8string_view n
+				unique_resource_id i, std::u8string_view n
 			) :
-				resource(n), data(nullptr), memory_pool(std::move(p)), memory(nullptr),
-				access(buffer_access::initial()), size(sz), usages(usg), id(i) {
+				resource(i, n), data(nullptr), memory_pool(std::move(p)), memory(nullptr),
+				access(buffer_access::initial()), size(sz), usages(usg) {
 			}
 
 			/// Returns \ref resource_type::buffer.
@@ -417,8 +422,6 @@ namespace lotus::renderer {
 			std::vector<
 				descriptor_array_reference<recorded_resources::structured_buffer_view>
 			> array_references;
-
-			std::uint64_t id = 0; ///< Used to uniquely identify this buffer.
 		};
 
 		/// A swap chain associated with a window, managed by a context.
@@ -429,9 +432,10 @@ namespace lotus::renderer {
 
 			/// Initializes all fields of this structure without creating a swap chain.
 			swap_chain(
-				system::window &wnd, std::uint32_t imgs, std::vector<gpu::format> fmts, std::u8string_view n
+				system::window &wnd, std::uint32_t imgs, std::vector<gpu::format> fmts,
+				unique_resource_id i, std::u8string_view n
 			) :
-				resource(n),
+				resource(i, n),
 				chain(nullptr), current_size(zero), desired_size(zero), current_format(gpu::format::none),
 				next_image_index(invalid_image_index), window(wnd), num_images(imgs),
 				expected_formats(std::move(fmts)) {
@@ -473,8 +477,9 @@ namespace lotus::renderer {
 			};
 
 			/// Initializes all fields of this structure without creating a descriptor set.
-			descriptor_array(gpu::descriptor_type ty, std::uint32_t cap, std::u8string_view n) :
-				resource(n), set(nullptr), capacity(cap), type(ty) {
+			descriptor_array(
+				gpu::descriptor_type ty, std::uint32_t cap, unique_resource_id i, std::u8string_view n
+			) : resource(i, n), set(nullptr), capacity(cap), type(ty) {
 			}
 
 			/// Returns \ref resource_type::swap_chain.
@@ -510,8 +515,11 @@ namespace lotus::renderer {
 		struct blas : public resource {
 		public:
 			/// Initializes this structure.
-			blas(std::vector<geometry_buffers_view> in, std::shared_ptr<pool> p, std::u8string_view n) :
-				resource(n), handle(nullptr), geometry(nullptr), build_sizes(uninitialized),
+			blas(
+				std::vector<geometry_buffers_view> in, std::shared_ptr<pool> p,
+				unique_resource_id i, std::u8string_view n
+			) :
+				resource(i, n), handle(nullptr), geometry(nullptr), build_sizes(uninitialized),
 				memory_pool(std::move(p)), input(std::move(in)) {
 			}
 
@@ -542,9 +550,10 @@ namespace lotus::renderer {
 				std::vector<gpu::instance_description> in,
 				std::vector<std::shared_ptr<blas>> refs,
 				std::shared_ptr<pool> p,
+				unique_resource_id i,
 				std::u8string_view n
 			) :
-				resource(n), handle(nullptr), input_data(nullptr), build_sizes(uninitialized),
+				resource(i, n), handle(nullptr), input_data(nullptr), build_sizes(uninitialized),
 				memory_pool(std::move(p)), input_data_token(nullptr),
 				input(std::move(in)), input_references(std::move(refs)) {
 			}
@@ -578,9 +587,10 @@ namespace lotus::renderer {
 				gpu::descriptor_set s,
 				std::vector<gpu::descriptor_range_binding> rs,
 				const gpu::descriptor_set_layout &l,
+				unique_resource_id i,
 				std::u8string_view n
 			) :
-				resource(n),
+				resource(i, n),
 				set(std::move(s)), ranges(std::move(rs)), layout(&l), transitions(nullptr) {
 			}
 
@@ -657,6 +667,11 @@ namespace lotus::renderer {
 		basic_resource_handle(std::nullptr_t) {
 		}
 
+		/// Returns the unique ID of the resource.
+		[[nodiscard]] unique_resource_id get_unique_id() const {
+			return _ptr->id;
+		}
+
 		/// Returns whether this object holds a valid image view.
 		[[nodiscard]] bool is_valid() const {
 			return _ptr != nullptr;
@@ -665,6 +680,9 @@ namespace lotus::renderer {
 		[[nodiscard]] explicit operator bool() const {
 			return is_valid();
 		}
+
+		/// Default equality comparisons.
+		[[nodiscard]] friend bool operator==(const basic_resource_handle&, const basic_resource_handle&) = default;
 	protected:
 		/// Initializes this resource handle.
 		explicit basic_resource_handle(std::shared_ptr<Resource> p) : _ptr(std::move(p)) {
@@ -737,6 +755,9 @@ namespace lotus::renderer {
 		[[nodiscard]] const gpu::mip_levels &get_viewed_mip_levels() const {
 			return _mip_levels;
 		}
+
+		/// Default equality comparison.
+		[[nodiscard]] friend bool operator==(const image2d_view&, const image2d_view&) = default;
 	private:
 		/// Initializes all fields of this struct.
 		image2d_view(std::shared_ptr<_details::image2d> surf, gpu::format fmt, gpu::mip_levels mips) :
@@ -751,6 +772,7 @@ namespace lotus::renderer {
 	/// A reference of a buffer.
 	struct buffer : public basic_resource_handle<_details::buffer> {
 		friend context;
+		friend structured_buffer_view;
 	public:
 		/// Initializes the view to empty.
 		buffer(std::nullptr_t) : basic_resource_handle(nullptr) {
@@ -796,6 +818,19 @@ namespace lotus::renderer {
 		/// Returns the number of elements visible to this view.
 		[[nodiscard]] std::uint32_t get_num_elements() const {
 			return _count;
+		}
+
+		/// Returns the underlying raw buffer.
+		[[nodiscard]] buffer get_buffer() const {
+			return buffer(_ptr);
+		}
+		/// Returns the buffer viewed as another type. This function preseves the current viewed region.
+		template <typename T> [[nodiscard]] structured_buffer_view view_as() const {
+			std::uint32_t first_byte = _first * _stride;
+			std::uint32_t size_bytes = _count * _stride;
+			crash_if(first_byte % sizeof(T) != 0);
+			crash_if(size_bytes % sizeof(T) != 0);
+			return structured_buffer_view(_ptr, sizeof(T), first_byte / sizeof(T), size_bytes / sizeof(T));
 		}
 
 		/// Moves the range of visible elements and returns the new view.

@@ -12,6 +12,18 @@ struct view_data {
 	float4x4 projection_view;
 };
 
+struct debug_draw_data {
+	float4x4 projection;
+};
+
+struct dear_imgui_draw_data {
+	float4x4 projection;
+	// we haven't exposed scissor rects yet, so use this dirty hack for now
+	float2 scissor_min;
+	float2 scissor_max;
+	bool uses_texture;
+};
+
 
 namespace generic_pbr_material {
 	struct material_properties {

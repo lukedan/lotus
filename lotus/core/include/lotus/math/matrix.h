@@ -117,11 +117,29 @@ namespace lotus {
 			}
 			return result;
 		}
-		/// Returns a diagonal matrix with the given values on its diagonal.
-		template <typename ...Args> [[nodiscard]] inline static constexpr matrix diagonal(Args &&...args) {
+		/// Returns a diagonal matrix with the values in the given vector on its diagonal.
+		[[nodiscard]] inline static constexpr matrix diagonal(matrix<std::min(Rows, Cols), 1, T> values) {
 			matrix result = zero;
-			_fill_diagonal(result, std::make_index_sequence<std::min(Rows, Cols)>(), std::forward<Args>(args)...);
+			for (std::size_t i = 0; i < std::min(Rows, Cols); ++i) {
+				result(i, i) = std::move(values[i]);
+			}
 			return result;
+		}
+		/// \overload
+		template <typename U = int> [[nodiscard]] inline static constexpr std::enable_if_t<
+			std::is_same_v<U, U> && (std::min(Rows, Cols) > 1), matrix
+		> diagonal(matrix<1, std::min(Rows, Cols), T> values) {
+			matrix result = zero;
+			for (std::size_t i = 0; i < std::min(Rows, Cols); ++i) {
+				result(i, i) = std::move(values[i]);
+			}
+			return result;
+		}
+		/// Shorthand for constructing a new vector and calling \ref diagonal() with it.
+		template <typename ...Args> [[nodiscard]] inline static constexpr std::enable_if_t<
+			(sizeof...(Args) > 1), matrix
+		> diagonal(Args &&...args) {
+			return diagonal(matrix<std::min(Rows, Cols), 1, T>(std::forward<Args>(args)...));
 		}
 
 		/// Returns if any element of this matrix is \p NaN.
@@ -293,14 +311,6 @@ namespace lotus {
 		> constexpr static void _fill_vector(matrix &m, U &&first, OtherArgs &&...other_args) {
 			m[Index] = std::forward<U>(first);
 			_fill_vector<Index + 1>(m, std::forward<OtherArgs>(other_args)...);
-		}
-
-		/// Fills this matrix's diagonal.
-		template <typename ...Args, std::size_t ...Is> constexpr static void _fill_diagonal(
-			matrix &m, std::index_sequence<Is...>, Args &&...args
-		) {
-			static_assert(sizeof...(Args) == std::min(Rows, Cols), "incorrect number of diagonal entries");
-			((m(Is, Is) = std::forward<Args>(args)), ...);
 		}
 	};
 

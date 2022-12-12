@@ -288,10 +288,11 @@ namespace lotus::renderer::assimp {
 					log().warn<u8"Area light treated as a point light: {}">(light->mName.C_Str());
 					break;
 				}
-				loaded_light.position = cvec3f(light->mPosition.x, light->mPosition.y, light->mPosition.z);
-				loaded_light.direction = cvec3f(light->mDirection.x, light->mDirection.y, light->mDirection.z);
+				loaded_light.position   = cvec3f(light->mPosition.x, light->mPosition.y, light->mPosition.z);
+				loaded_light.direction  = cvec3f(light->mDirection.x, light->mDirection.y, light->mDirection.z);
 				// mColorSpecular is ignored
-				loaded_light.color = cvec3f(light->mColorDiffuse.r, light->mColorDiffuse.g, light->mColorDiffuse.b);
+				loaded_light.irradiance =
+					cvec3f(light->mColorDiffuse.r, light->mColorDiffuse.g, light->mColorDiffuse.b);
 			}
 		}
 

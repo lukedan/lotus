@@ -1,8 +1,8 @@
 #include "common.hlsli"
 #include "material_common.hlsli"
+#include "pcg32.hlsli"
 
 #include "types.hlsli"
-#include "pcg32.hlsl"
 #include "brdf.hlsl"
 
 #define RT_USE_PCG32
@@ -42,7 +42,7 @@ struct ray_payload {
 	float3 light;
 	uint bounces;
 #ifdef RT_USE_PCG32
-	pcg32 rand;
+	pcg32::state rand;
 #endif
 };
 
@@ -227,8 +227,8 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 
 #ifdef RT_SKYVIS_DEBUG
 #ifdef RT_USE_PCG32
-	float xi1 = pcg32_random_01(payload.rand);
-	float xi2 = pcg32_random_01(payload.rand) * 2.0f * pi;
+	float xi1 = pcg32::random_01(payload.rand);
+	float xi2 = pcg32::random_01(payload.rand) * 2.0f * pi;
 #else
 	float xi1 = rd(payload.bounces * 2 + 2, globals.frame_index);
 	float xi2 = rd(payload.bounces * 2 + 3, globals.frame_index) * 2.0f * pi;
@@ -311,8 +311,8 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	if (payload.bounces == 1) {
 		{ // evaluate diffuse lobe
 #ifdef RT_USE_PCG32
-			float xi1 = pcg32_random_01(payload.rand);
-			float xi2 = pcg32_random_01(payload.rand);
+			float xi1 = pcg32::random_01(payload.rand);
+			float xi2 = pcg32::random_01(payload.rand);
 #else
 			float xi1 = rd(3, globals.frame_index);
 			float xi2 = rd(4, globals.frame_index);
@@ -334,8 +334,8 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 
 		{ // evaluate specular lobe
 #ifdef RT_USE_PCG32
-			float xi1 = pcg32_random_01(payload.rand);
-			float xi2 = pcg32_random_01(payload.rand);
+			float xi1 = pcg32::random_01(payload.rand);
+			float xi2 = pcg32::random_01(payload.rand);
 #else
 			float xi1 = rd(5, globals.frame_index);
 			float xi2 = rd(6, globals.frame_index);
@@ -394,8 +394,8 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 		}
 	} else {
 #ifdef RT_USE_PCG32
-		float xi1 = pcg32_random_01(payload.rand);
-		float xi2 = pcg32_random_01(payload.rand);
+		float xi1 = pcg32::random_01(payload.rand);
+		float xi2 = pcg32::random_01(payload.rand);
 #else
 		float xi1 = rd(payload.bounces * 2 + 3, globals.frame_index);
 		float xi2 = rd(payload.bounces * 2 + 4, globals.frame_index);
@@ -452,7 +452,7 @@ void main_raygen() {
 	ray_payload payload = (ray_payload)0;
 	payload.light = (float3)1.0f;
 #ifdef RT_USE_PCG32
-	payload.rand = pcg32_seed(DispatchRaysIndex().y * 10000 + DispatchRaysIndex().x, globals.frame_index);
+	payload.rand = pcg32::seed(DispatchRaysIndex().y * 10000 + DispatchRaysIndex().x, globals.frame_index);
 #endif
 
 	float2 jitter;

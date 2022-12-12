@@ -3,9 +3,10 @@
 
 static const float pi = 3.141592653589793;
 
-static const int  max_int_v  =  0x7FFFFFFF;
-static const int  min_int_v  = -0x80000000;
-static const uint max_uint_v =  0xFFFFFFFFu;
+static const int   max_int_v   =  0x7FFFFFFF;
+static const int   min_int_v   = -0x80000000;
+static const uint  max_uint_v  =  0xFFFFFFFFu;
+static const float max_float_v = 3.4028234664e+38f;
 
 float squared(float x) {
 	return x * x;

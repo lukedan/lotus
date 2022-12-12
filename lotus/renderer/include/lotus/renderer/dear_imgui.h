@@ -32,10 +32,10 @@ namespace lotus::renderer::dear_imgui {
 		[[nodiscard]] inline static context create(assets::manager &man) {
 			context result(man);
 			result._vertex_shader = man.compile_shader_in_filesystem(
-				man.shader_library_path / "dear_imgui.hlsl", gpu::shader_stage::vertex_shader, u8"main_vs"
+				man.shader_library_path / "utils/dear_imgui.hlsl", gpu::shader_stage::vertex_shader, u8"main_vs"
 			);
 			result._pixel_shader = man.compile_shader_in_filesystem(
-				man.shader_library_path / "dear_imgui.hlsl", gpu::shader_stage::pixel_shader, u8"main_ps"
+				man.shader_library_path / "utils/dear_imgui.hlsl", gpu::shader_stage::pixel_shader, u8"main_ps"
 			);
 
 			auto &io = ImGui::GetIO();

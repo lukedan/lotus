@@ -182,6 +182,12 @@ namespace lotus::renderer::assets {
 			[[nodiscard]] virtual std::u8string_view get_material_include() const = 0;
 			/// Creates resource bindings for this material.
 			[[nodiscard]] virtual all_resource_bindings create_resource_bindings() const = 0;
+			/// No additional defines by default.
+			[[nodiscard]] virtual std::vector<
+				std::pair<std::u8string_view, std::u8string_view>
+			> get_additional_ps_defines() const {
+				return {};
+			}
 		};
 
 		/// Initializes this material to empty.

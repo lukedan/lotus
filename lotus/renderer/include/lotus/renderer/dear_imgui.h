@@ -133,7 +133,7 @@ namespace lotus::renderer::dear_imgui {
 					data.scissor_min = cvec2f(cmd.ClipRect.x, cmd.ClipRect.y) - pos;
 					data.scissor_max = cvec2f(cmd.ClipRect.z, cmd.ClipRect.w) - pos;
 					data.uses_texture = texture_index > 0;
-					all_resource_bindings bindings = all_resource_bindings::from_unsorted({
+					auto resources = all_resource_bindings::assume_sorted({
 						resource_set_binding::descriptors({
 							descriptor_resource::immediate_constant_buffer::create_for(data).at_register(0),
 							descriptor_resource::image2d::create_read_only(
@@ -157,7 +157,7 @@ namespace lotus::renderer::dear_imgui {
 						index_buffer_binding(
 							idx_buffer, cmd.IdxOffset * sizeof(index), gpu::index_format::uint32
 						), cmd.ElemCount,
-						gpu::primitive_topology::triangle_list, std::move(bindings),
+						gpu::primitive_topology::triangle_list, std::move(resources),
 						_vertex_shader, _pixel_shader, pipeline, 1, u8"Dear ImGui Draw Call"
 					);
 				}

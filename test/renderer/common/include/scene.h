@@ -4,6 +4,7 @@
 /// Simple scene loader and storage.
 
 #include <lotus/renderer/loaders/assimp_loader.h>
+#include <lotus/renderer/loaders/gltf_loader.h>
 
 #include "lotus.h"
 
@@ -128,17 +129,31 @@ public:
 	}
 
 	void load(const std::filesystem::path &path) {
-		lren::assimp::context ctx(_assets);
-		ctx.load(
-			path,
-			[this](lren::assets::handle<lren::assets::image2d> h) { on_texture_loaded(std::move(h)); },
-			[this](lren::assets::handle<lren::assets::geometry> h) { on_geometry_loaded(std::move(h)); },
-			[this](lren::assets::handle<lren::assets::material> h) { on_material_loaded(std::move(h)); },
-			[this](lren::instance h) { on_instance_loaded(std::move(h)); },
-			[this](lren::shader_types::light l) { on_light_loaded(l); },
-			geom_buffer_pool,
-			geom_texture_pool
-		);
+		if (path.extension() == ".gltf") {
+			lren::gltf::context ctx(_assets);
+			ctx.load(
+				path,
+				[this](lren::assets::handle<lren::assets::image2d> h) { on_texture_loaded(std::move(h)); },
+				[this](lren::assets::handle<lren::assets::geometry> h) { on_geometry_loaded(std::move(h)); },
+				[this](lren::assets::handle<lren::assets::material> h) { on_material_loaded(std::move(h)); },
+				[this](lren::instance h) { on_instance_loaded(std::move(h)); },
+				[this](lren::shader_types::light l) { on_light_loaded(l); },
+				geom_buffer_pool,
+				geom_texture_pool
+			);
+		} else {
+			lren::assimp::context ctx(_assets);
+			ctx.load(
+				path,
+				[this](lren::assets::handle<lren::assets::image2d> h) { on_texture_loaded(std::move(h)); },
+				[this](lren::assets::handle<lren::assets::geometry> h) { on_geometry_loaded(std::move(h)); },
+				[this](lren::assets::handle<lren::assets::material> h) { on_material_loaded(std::move(h)); },
+				[this](lren::instance h) { on_instance_loaded(std::move(h)); },
+				[this](lren::shader_types::light l) { on_light_loaded(l); },
+				geom_buffer_pool,
+				geom_texture_pool
+			);
+		}
 	}
 	void finish_loading() {
 		auto &rctx = _assets.get_context();

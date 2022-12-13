@@ -76,11 +76,11 @@ namespace lotus::renderer::g_buffer {
 	assets::handle<assets::shader> pass_context::get_pixel_shader(
 		context&, const assets::material::context_data &mat_ctx
 	) {
+		auto defines = mat_ctx.get_additional_ps_defines();
+		defines.emplace_back(u8"LOTUS_MATERIAL_INCLUDE", mat_ctx.get_material_include());
 		return _man.compile_shader_in_filesystem(
 			_man.shader_library_path / "gbuffer_pixel_shader.hlsl",
-			gpu::shader_stage::pixel_shader,
-			u8"main_ps",
-			{ { u8"LOTUS_MATERIAL_INCLUDE", mat_ctx.get_material_include() } }
+			gpu::shader_stage::pixel_shader, u8"main_ps", defines
 		);
 	}
 
@@ -115,8 +115,9 @@ namespace lotus::renderer::g_buffer {
 				resource_binding(descriptor_resource::immediate_constant_buffer::create_for(instance), 1),
 				resource_binding(descriptor_resource::immediate_constant_buffer::create_for(view_data), 2),
 			});
-			all_resource_bindings additional_resources = nullptr;
-			additional_resources.sets.emplace_back(std::move(bindings).at_space(1));
+			auto additional_resources = all_resource_bindings::create_unsorted({
+				std::move(bindings).at_space(1),
+			});
 			pass.draw_instanced(
 				inst.geometry, inst.material, pass_ctx,
 				{}, additional_resources, state, 1, u8"GBuffer instance"

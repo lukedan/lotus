@@ -23,6 +23,7 @@ namespace lotus::renderer::gltf {
 			static_function<void(assets::handle<assets::geometry>)> geometry_loaded_callback,
 			static_function<void(assets::handle<assets::material>)> material_loaded_callback,
 			static_function<void(instance)> instance_loaded_callback,
+			static_function<void(shader_types::light)> light_loaded_callback,
 			const pool &buf_pool, const pool &tex_pool
 		);
 	private:

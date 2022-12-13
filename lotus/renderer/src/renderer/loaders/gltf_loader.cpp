@@ -133,6 +133,7 @@ namespace lotus::renderer::gltf {
 		static_function<void(assets::handle<assets::geometry>)> geometry_loaded_callback,
 		static_function<void(assets::handle<assets::material>)> material_loaded_callback,
 		static_function<void(instance)> instance_loaded_callback,
+		static_function<void(shader_types::light)> light_loaded_callback,
 		const pool &buf_pool, const pool &tex_pool
 	) {
 		tinygltf::TinyGLTF loader;
@@ -295,7 +296,8 @@ namespace lotus::renderer::gltf {
 			mat_data->properties.normal_scale         = static_cast<float>(mat.normalTexture.scale);
 			mat_data->properties.metalness_multiplier = static_cast<float>(mat.pbrMetallicRoughness.metallicFactor);
 			mat_data->properties.roughness_multiplier = static_cast<float>(mat.pbrMetallicRoughness.roughnessFactor);
-			mat_data->properties.alpha_cutoff         = static_cast<float>(mat.alphaCutoff);
+			mat_data->properties.alpha_cutoff         =
+				mat.alphaMode == "MASK" ? static_cast<float>(mat.alphaCutoff) : 0.0f;
 
 			mat_data->albedo_texture =
 				mat.pbrMetallicRoughness.baseColorTexture.index < 0 ?
@@ -372,6 +374,33 @@ namespace lotus::renderer::gltf {
 						inst.material = materials[prim.material];
 						inst.geometry = prim_handle;
 						instance_loaded_callback(inst);
+					}
+				}
+
+				if (light_loaded_callback) {
+					auto light = node.extensions.find("KHR_lights_punctual");
+					if (light != node.extensions.end() && light->second.IsObject()) {
+						if (const auto &index_val = light->second.Get("light"); index_val.IsInt()) {
+							const auto &light_def = model.lights[index_val.GetNumberAsInt()];
+
+							cvec3d light_color(1.0f, 1.0f, 1.0f);
+							for (std::size_t i = 0; i < std::min<std::size_t>(light_def.color.size(), 3); ++i) {
+								light_color[i] = light_def.color[i];
+							}
+
+							shader_types::light light_data;
+							if (light_def.type == "directional") {
+								light_data.type = shader_types::light_type::directional_light;
+							} else if (light_def.type == "point") {
+								light_data.type = shader_types::light_type::point_light;
+							} else if (light_def.type == "spot") {
+								light_data.type = shader_types::light_type::spot_light;
+							}
+							light_data.position   = trans.block<3, 1>(0, 3);
+							light_data.direction  = (trans * cvec4f(0.0f, 0.0f, -1.0f, 0.0f)).block<3, 1>(0, 0);
+							light_data.irradiance = (light_def.intensity * light_color).into<float>();
+							light_loaded_callback(light_data);
+						}
 					}
 				}
 

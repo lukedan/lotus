@@ -8,7 +8,7 @@
 #include "shader_types.h"
 
 namespace lotus::renderer {
-	/// Generic single-layer PBR material parameters.
+	/// Generic single-layer opaque PBR material parameters.
 	class generic_pbr_material_data : public assets::material::context_data {
 	public:
 		/// Initializes this material to empty.
@@ -26,6 +26,10 @@ namespace lotus::renderer {
 		}
 		/// Creates resource bindings for this material.
 		[[nodiscard]] all_resource_bindings create_resource_bindings() const override;
+		/// Adds alpha cutoff related macros.
+		[[nodiscard]] std::vector<
+			std::pair<std::u8string_view, std::u8string_view>
+		> get_additional_ps_defines() const override;
 
 		shader_types::generic_pbr_material::material_properties properties; ///< Properties of this material.
 		assets::handle<assets::image2d> albedo_texture;      ///< Albedo texture.

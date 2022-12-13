@@ -6,6 +6,7 @@
 namespace material {
 	struct basic_properties {
 		float3 albedo;
+		float  presence;
 		float  glossiness;
 		float  metalness;
 

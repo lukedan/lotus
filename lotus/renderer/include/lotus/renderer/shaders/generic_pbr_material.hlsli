@@ -28,8 +28,8 @@ struct vs_output {
 Texture2D<float4> material_textures[] : register(t0, space0);
 
 ConstantBuffer<generic_pbr_material::material> instance_material : register(b0, space1);
-ConstantBuffer<instance_data> instance                           : register(b1, space1);
-ConstantBuffer<view_data> view                                   : register(b2, space1);
+ConstantBuffer<instance_data>                  instance          : register(b1, space1);
+ConstantBuffer<view_data>                      view              : register(b2, space1);
 
 LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(space2);
 
@@ -67,6 +67,11 @@ material::basic_properties evaluate_material(vs_output input) {
 
 	material::basic_properties result = (material::basic_properties)0;
 	result.albedo    = albedo_sample.rgb;
+#ifdef MATERIAL_IS_MASKED
+	result.presence  = albedo_sample.a < instance_material.properties.alpha_cutoff ? 0.0f : 1.0f;
+#else
+	result.presence  = 1.0f;
+#endif
 	result.normal_ts = normal_sample.rgb * 2.0f - 1.0f;
 	result.normal_ts.z = sqrt(1.0f - dot(result.normal_ts.xy, result.normal_ts.xy));
 

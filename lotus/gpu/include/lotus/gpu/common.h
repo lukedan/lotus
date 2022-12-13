@@ -1552,13 +1552,13 @@ namespace lotus::gpu {
 	struct descriptor_range {
 	public:
 		/// Indicates that the number of descriptors is unbounded.
-		constexpr static std::size_t unbounded_count = std::numeric_limits<std::size_t>::max();
+		constexpr static std::uint32_t unbounded_count = std::numeric_limits<std::uint32_t>::max();
 
 		/// No initialization.
 		descriptor_range(uninitialized_t) {
 		}
 		/// Creates a new \ref descriptor_range object.
-		[[nodiscard]] constexpr inline static descriptor_range create(descriptor_type ty, std::size_t c) {
+		[[nodiscard]] constexpr inline static descriptor_range create(descriptor_type ty, std::uint32_t c) {
 			return descriptor_range(ty, c);
 		}
 		/// Creates a \ref descriptor_range with unbounded descriptor count.
@@ -1570,10 +1570,10 @@ namespace lotus::gpu {
 		[[nodiscard]] friend bool operator==(const descriptor_range&, const descriptor_range&) = default;
 
 		descriptor_type type; ///< The type of the descriptors.
-		std::size_t count; ///< The number of descriptors.
+		std::uint32_t count; ///< The number of descriptors.
 	protected:
 		/// Initializes all fields.
-		constexpr descriptor_range(descriptor_type ty, std::size_t c) : type(ty), count(c) {
+		constexpr descriptor_range(descriptor_type ty, std::uint32_t c) : type(ty), count(c) {
 		}
 	};
 	/// A range of descriptors and its register binding.
@@ -1583,17 +1583,18 @@ namespace lotus::gpu {
 		descriptor_range_binding(uninitialized_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr descriptor_range_binding(descriptor_range rng, std::size_t reg) : range(rng), register_index(reg) {
+		constexpr descriptor_range_binding(descriptor_range rng, std::uint32_t reg) :
+			range(rng), register_index(reg) {
 		}
 		/// \overload
 		[[nodiscard]] constexpr inline static descriptor_range_binding create(
-			descriptor_type ty, std::size_t count, std::size_t reg
+			descriptor_type ty, std::uint32_t count, std::uint32_t reg
 		) {
 			return descriptor_range_binding(descriptor_range::create(ty, count), reg);
 		}
 		/// Creates a new \ref descriptor_range_binding object with unbounded size.
 		[[nodiscard]] constexpr inline static descriptor_range_binding create_unbounded(
-			descriptor_type ty, std::size_t reg
+			descriptor_type ty, std::uint32_t reg
 		) {
 			return descriptor_range_binding(descriptor_range::create_unbounded(ty), reg);
 		}
@@ -1604,7 +1605,7 @@ namespace lotus::gpu {
 		) = default;
 
 		/// Returns the register index of the last binding in this range.
-		[[nodiscard]] constexpr std::size_t get_last_register_index() const {
+		[[nodiscard]] constexpr std::uint32_t get_last_register_index() const {
 			return register_index + range.count - 1;
 		}
 
@@ -1642,7 +1643,7 @@ namespace lotus::gpu {
 		}
 
 		descriptor_range range = uninitialized; ///< The type and number of descriptors.
-		std::size_t register_index; ///< Register index corresponding to the first descriptor.
+		std::uint32_t register_index; ///< Register index corresponding to the first descriptor.
 	};
 
 	/// An image resource barrier.
@@ -1866,9 +1867,9 @@ namespace lotus::gpu {
 		shader_resource_binding(uninitialized_t) {
 		}
 
-		std::size_t first_register; ///< Index of the first register.
-		std::size_t register_count; ///< The number of registers.
-		std::size_t register_space; ///< Register space.
+		std::uint32_t first_register; ///< Index of the first register.
+		std::uint32_t register_count; ///< The number of registers.
+		std::uint32_t register_space; ///< Register space.
 		descriptor_type type; ///< The type of this descriptor binding.
 		// TODO allocator
 		std::u8string name; ///< Variable name of this binding.

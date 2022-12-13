@@ -220,8 +220,7 @@ int main(int argc, char **argv) {
 					);
 					state.blend_options.emplace_back(lgpu::render_target_blend_options::disabled());
 				}
-				lren::all_resource_bindings resource_bindings = nullptr;
-				resource_bindings.sets = {
+				auto resource_bindings = lren::all_resource_bindings::assume_sorted({
 					lren::resource_set_binding::descriptors({
 						lren::resource_binding(
 							lren::descriptor_resource::immediate_constant_buffer::create_for(globals_buf_data), 0
@@ -235,14 +234,14 @@ int main(int argc, char **argv) {
 							lren::descriptor_resource::sampler(), 2
 						),
 					}).at_space(1)
-				};
+				});
 				for (const auto &in : pit->second.inputs) {
 					if (in.register_index) {
 						if (std::holds_alternative<pass::input::pass_output>(in.value)) {
 							const auto &out = std::get<pass::input::pass_output>(in.value);
 							const auto *target = proj.find_target(out.name, error_callback);
 							if (target) {
-								resource_bindings.sets.emplace_back(lren::resource_set_binding::descriptors({
+								resource_bindings.append_set(lren::resource_set_binding::descriptors({
 									lren::resource_binding(
 										lren::descriptor_resource::image2d::create_read_only(
 											out.previous_frame ? target->previous_frame : target->current_frame
@@ -254,7 +253,6 @@ int main(int argc, char **argv) {
 						}
 					}
 				}
-				resource_bindings.consolidate();
 
 				auto pass = rctx.begin_pass(std::move(color_surfaces), nullptr, window_size, pit->first);
 				pass.draw_instanced(
@@ -276,8 +274,7 @@ int main(int argc, char **argv) {
 				),
 				lgpu::depth_stencil_options::all_disabled()
 			);
-			lren::all_resource_bindings resource_bindings = nullptr;
-			resource_bindings.sets = {
+			auto resource_bindings = lren::all_resource_bindings::assume_sorted({
 				lren::resource_set_binding::descriptors({
 					lren::resource_binding(
 						lren::descriptor_resource::image2d::create_read_only(main_out->current_frame), 0
@@ -288,7 +285,7 @@ int main(int argc, char **argv) {
 						), 1
 					),
 				}).at_space(0)
-			};
+			});
 
 			auto pass = rctx.begin_pass(
 				{
@@ -299,7 +296,7 @@ int main(int argc, char **argv) {
 				nullptr, window_size, u8"Main blit pass"
 			);
 			pass.draw_instanced(
-				{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list, resource_bindings,
+				{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list, std::move(resource_bindings),
 				vert_shader, blit_pix_shader, state, 1, u8"Main blit pass"
 			);
 			pass.end();

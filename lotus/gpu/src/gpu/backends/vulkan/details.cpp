@@ -544,8 +544,11 @@ namespace lotus::gpu::backends::vulkan::_details {
 					descriptor_type::read_write_buffer :
 					descriptor_type::read_only_buffer;
 				break;
+			case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+				result.type = descriptor_type::acceleration_structure;
+				break;
 			default:
-				assert(false); // not supported
+				crash_if(true); // not supported
 			}
 			return result;
 		}

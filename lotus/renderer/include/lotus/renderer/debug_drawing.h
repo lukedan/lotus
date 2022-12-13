@@ -180,7 +180,7 @@ namespace lotus::renderer {
 			shader_types::debug_draw_data data;
 			data.projection = projection;
 			if constexpr (std::is_same_v<Vert, vertex_untextured>) {
-				resource_bindings = all_resource_bindings::from_unsorted({
+				resource_bindings = all_resource_bindings::assume_sorted({
 					resource_set_binding::descriptors({
 						descriptor_resource::immediate_constant_buffer::create_for(data).at_register(0),
 					}).at_space(0),
@@ -194,7 +194,7 @@ namespace lotus::renderer {
 				vs = _vertex_shader_untextured;
 				ps = _pixel_shader_untextured;
 			} else if constexpr (std::is_same_v<Vert, vertex_textured>) {
-				resource_bindings = all_resource_bindings::from_unsorted({
+				resource_bindings = all_resource_bindings::assume_sorted({
 					resource_set_binding::descriptors({
 						descriptor_resource::immediate_constant_buffer::create_for(data).at_register(0),
 						descriptor_resource::image2d::create_read_only(texture).at_register(1),

@@ -52,6 +52,8 @@ namespace lotus::renderer {
 			/// CRTP base class of descriptor resources.
 			template <typename Resource> struct resource_base {
 				/// Shorthand for \ref resource_binding::resource_binding().
+				[[nodiscard]] resource_binding at_register(std::uint32_t) const&;
+				/// \overload
 				[[nodiscard]] resource_binding at_register(std::uint32_t) &&;
 			};
 		}
@@ -208,19 +210,85 @@ namespace lotus::renderer {
 	};
 	/// Contains information about all resource bindings used during a compute shader dispatch or a pass.
 	struct all_resource_bindings {
+	public:
 		/// Initializes the struct to empty.
 		all_resource_bindings(std::nullptr_t) {
 		}
+		/// Initializes the resource sets without sorting them.
+		[[nodiscard]] static all_resource_bindings create_unsorted(std::vector<resource_set_binding>);
 		/// Initializes the resource sets and sorts them based on their register space.
-		[[nodiscard]] static all_resource_bindings from_unsorted(std::vector<resource_set_binding>);
+		[[nodiscard]] static all_resource_bindings create_and_sort(std::vector<resource_set_binding>);
 		/// Initializes the resource sets using the given data, assuming that all the registers and register spaces
 		/// have been properly sorted.
 		[[nodiscard]] static all_resource_bindings assume_sorted(std::vector<resource_set_binding>);
+		/// Merges two sets of descriptors.
+		[[nodiscard]] static all_resource_bindings merge(all_resource_bindings, all_resource_bindings);
+
+		/// Appends a set of resources.
+		void append_set(resource_set_binding);
 
 		/// Removes duplicate sets and sorts all sets and bindings.
-		void consolidate();
+		void maybe_consolidate();
 
-		std::vector<resource_set_binding> sets; ///< Sets of resource bindings.
+		/// Returns all resource bindings.
+		[[nodiscard]] const std::vector<resource_set_binding> &get_sets() const {
+			return _sets;
+		}
+		/// Returns whether the bindings have been consolidated.
+		[[nodiscard]] bool is_consolidated() const {
+			return _is_consolidated;
+		}
+	private:
+		std::vector<resource_set_binding> _sets; ///< Sets of resource bindings.
+		bool _is_consolidated = false; ///< Indicates whether the sets have been consolidated.
+	};
+
+	/// Named resource bindings.
+	struct named_bindings {
+		/// A single named binding.
+		struct binding {
+			/// All possible binding types.
+			using value_type = std::variant<
+				descriptor_resource::image2d,
+				descriptor_resource::swap_chain_image,
+				descriptor_resource::structured_buffer,
+				descriptor_resource::immediate_constant_buffer,
+				descriptor_resource::tlas,
+				descriptor_resource::sampler,
+				recorded_resources::image_descriptor_array,
+				recorded_resources::buffer_descriptor_array
+			>;
+
+			/// Initializes this binding.
+			template <typename T> binding(std::u8string_view n, T &&b) :
+				name(n), value(std::in_place_type<std::decay_t<T>>, std::forward<T>(b)) {
+			}
+
+			std::u8string_view name; ///< The name of this binding.
+			value_type value; ///< The value of the binding.
+		};
+
+		/// Initializes this struct to empty.
+		named_bindings(std::nullptr_t) {
+		}
+		/// Initializes all bindings.
+		explicit named_bindings(std::vector<binding> bs) : bindings(std::move(bs)) {
+		}
+
+		/// Converts this struct into unnamed bindings based on reflection data from the given shaders. Bindings
+		/// that are not in the shaders or optimized out will be ignored.
+		[[nodiscard]] all_resource_bindings into_unnamed_bindings(
+			std::span<const gpu::shader_reflection *const>, all_resource_bindings additional_bindings = nullptr
+		) const;
+		/// \overload
+		[[nodiscard]] all_resource_bindings into_unnamed_bindings(
+			std::initializer_list<const gpu::shader_reflection*> refls,
+			all_resource_bindings additional_bindings = nullptr
+		) const {
+			return into_unnamed_bindings({ refls.begin(), refls.end() }, std::move(additional_bindings));
+		}
+
+		std::vector<binding> bindings; ///< All bindings.
 	};
 
 
@@ -262,8 +330,12 @@ namespace std {
 // implementations
 namespace lotus::renderer {
 	namespace descriptor_resource::_details {
-		template <typename Resource> resource_binding resource_base<Resource>::at_register(std::uint32_t reg) && {
-			return resource_binding(std::move(*static_cast<Resource*>(this)), reg);
+		template <typename Resource> resource_binding resource_base<Resource>::at_register(std::uint32_t r) const& {
+			return resource_binding(*static_cast<const Resource*>(this), r);
+		}
+
+		template <typename Resource> resource_binding resource_base<Resource>::at_register(std::uint32_t r) && {
+			return resource_binding(std::move(*static_cast<Resource*>(this)), r);
 		}
 	}
 }

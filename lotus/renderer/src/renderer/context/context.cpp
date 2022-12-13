@@ -22,6 +22,7 @@ namespace lotus::renderer {
 		std::uint32_t num_insts,
 		std::u8string_view description
 	) {
+		resources.maybe_consolidate();
 		_command.commands.emplace_back(
 			description,
 			std::in_place_type<pass_commands::draw_instanced>,
@@ -52,12 +53,10 @@ namespace lotus::renderer {
 		for (const auto &in : additional_inputs) {
 			inputs.emplace_back(in);
 		}
-		auto resource_bindings = mat.data->create_resource_bindings();
-		resource_bindings.sets.reserve(resource_bindings.sets.size() + additional_resources.sets.size());
-		for (auto &s : additional_resources.sets) {
-			resource_bindings.sets.emplace_back(std::move(s));
-		}
-		resource_bindings.consolidate();
+		auto resource_bindings = all_resource_bindings::merge(
+			mat.data->create_resource_bindings(), additional_resources
+		);
+		resource_bindings.maybe_consolidate();
 		_command.commands.emplace_back(
 			description,
 			std::in_place_type<pass_commands::draw_instanced>,
@@ -275,11 +274,12 @@ namespace lotus::renderer {
 		std::uint32_t max_payload_size,
 		std::uint32_t max_attribute_size,
 		cvec3u32 num_threads,
-		all_resource_bindings bindings,
+		all_resource_bindings resources,
 		std::u8string_view description
 	) {
+		resources.maybe_consolidate();
 		_commands.emplace_back(description).value.emplace<context_commands::trace_rays>(
-			std::move(bindings),
+			std::move(resources),
 			std::vector(hit_group_shaders.begin(), hit_group_shaders.end()),
 			std::vector(hit_groups.begin(), hit_groups.end()),
 			std::vector(general_shaders.begin(), general_shaders.end()),
@@ -295,22 +295,23 @@ namespace lotus::renderer {
 
 	void context::run_compute_shader(
 		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_thread_groups,
-		all_resource_bindings bindings, std::u8string_view description
+		all_resource_bindings resources, std::u8string_view description
 	) {
+		resources.maybe_consolidate();
 		_commands.emplace_back(description).value.emplace<context_commands::dispatch_compute>(
-			std::move(bindings), std::move(shader), num_thread_groups
+			std::move(resources), std::move(shader), num_thread_groups
 		);
 	}
 
 	void context::run_compute_shader_with_thread_dimensions(
-		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_threads, all_resource_bindings bindings,
+		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_threads, all_resource_bindings resources,
 		std::u8string_view description
 	) {
 		auto thread_group_size = shader->reflection.get_thread_group_size().into<std::uint32_t>();
 		cvec3u32 groups = mat::memberwise_divide(
 			num_threads + thread_group_size - cvec3u32(1, 1, 1), thread_group_size
 		);
-		context::run_compute_shader(std::move(shader), groups, std::move(bindings), description);
+		context::run_compute_shader(std::move(shader), groups, std::move(resources), description);
 	}
 
 	context::pass context::begin_pass(
@@ -833,10 +834,12 @@ namespace lotus::renderer {
 	> context::_check_and_create_descriptor_set_bindings(
 		execution::context &ectx, const all_resource_bindings &resources
 	) {
+		crash_if(!resources.is_consolidated());
+
 		std::vector<_descriptor_set_info> sets;
 		cache_keys::pipeline_resources key;
 
-		for (const auto &set : resources.sets) {
+		for (const auto &set : resources.get_sets()) {
 			auto &&[layout_key, layout, desc_set] = std::visit([&, this](const auto &bindings) {
 				return _use_descriptor_set(ectx, bindings);
 			}, set.bindings);

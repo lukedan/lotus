@@ -18,5 +18,9 @@ ps_output material_to_gbuffer(vs_output input, material::basic_properties mat) {
 }
 
 ps_output main_ps(vs_output input) {
-	return material_to_gbuffer(input, evaluate_material(input));
+	material::basic_properties mat_props = evaluate_material(input);
+	if (mat_props.presence <= 0.0f) {
+		discard;
+	}
+	return material_to_gbuffer(input, mat_props);
 }

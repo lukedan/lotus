@@ -237,6 +237,9 @@ namespace lotus::renderer::assimp {
 			if (auto color = _get_material_property<aiColor4D>(mat, AI_MATKEY_BASE_COLOR)) {
 				data->properties.albedo_multiplier =
 					cvec4<ai_real>(color->r, color->g, color->b, color->a).into<float>();
+			} else if (auto dif_color = _get_material_property<aiColor3D>(mat, AI_MATKEY_COLOR_DIFFUSE)) {
+				data->properties.albedo_multiplier =
+					cvec4<ai_real>(dif_color->r, dif_color->g, dif_color->b, 1.0f).into<float>();
 			}
 			if (auto factor = _get_material_property<ai_real>(mat, AI_MATKEY_METALLIC_FACTOR)) {
 				data->properties.metalness_multiplier = static_cast<float>(factor.value());

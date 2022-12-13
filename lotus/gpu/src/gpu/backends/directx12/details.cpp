@@ -559,23 +559,33 @@ namespace lotus::gpu::backends::directx12::_details {
 				result.type = descriptor_type::constant_buffer;
 				break;
 			case D3D_SIT_TBUFFER:
-				result.type = descriptor_type::read_write_image;
+				result.type = descriptor_type::read_only_buffer;
 				break;
 			case D3D_SIT_TEXTURE:
 				result.type = descriptor_type::read_only_image;
 				break;
+			case D3D_SIT_UAV_RWTYPED:
+				if (desc.Dimension == D3D_SRV_DIMENSION_BUFFER || desc.Dimension == D3D_SRV_DIMENSION_BUFFEREX) {
+					result.type = descriptor_type::read_write_buffer;
+				} else {
+					result.type = descriptor_type::read_write_image;
+				}
+				break;
 			case D3D_SIT_SAMPLER:
 				result.type = descriptor_type::sampler;
-				break;
-			case D3D_SIT_UAV_RWTYPED: [[fallthrough]];
-			case D3D_SIT_UAV_RWSTRUCTURED:
-				result.type = descriptor_type::read_write_buffer;
 				break;
 			case D3D_SIT_STRUCTURED:
 				result.type = descriptor_type::read_only_buffer;
 				break;
+			case D3D_SIT_UAV_RWSTRUCTURED:
+				result.type = descriptor_type::read_write_buffer;
+				break;
+			case D3D_SIT_RTACCELERATIONSTRUCTURE:
+				result.type = descriptor_type::acceleration_structure;
+				break;
 			default:
-				assert(false); // not supported
+				crash_if(true); // not supported
+				break;
 			}
 
 			return result;

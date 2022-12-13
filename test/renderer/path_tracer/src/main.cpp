@@ -220,7 +220,7 @@ int main(int argc, char **argv) {
 
 #ifndef DISABLE_ALL_RT
 			{
-				auto resources = lren::all_resource_bindings::from_unsorted(
+				auto resources = lren::all_resource_bindings::create_unsorted(
 					{
 						lren::resource_set_binding::descriptors({
 							lren::descriptor_resource::tlas(scene.tlas).at_register(0),
@@ -281,7 +281,7 @@ int main(int argc, char **argv) {
 				);
 				pass.draw_instanced(
 					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list,
-					lren::all_resource_bindings::from_unsorted({
+					lren::all_resource_bindings::create_unsorted({
 						lren::resource_set_binding::descriptors({
 							lren::descriptor_resource::image2d(
 #ifdef DISABLE_ALL_RT

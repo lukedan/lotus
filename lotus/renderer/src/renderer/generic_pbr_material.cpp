@@ -21,4 +21,14 @@ namespace lotus::renderer {
 			resource_set_binding(manager->get_samplers(), 2),
 		});
 	}
+
+	std::vector<
+		std::pair<std::u8string_view, std::u8string_view>
+	> generic_pbr_material_data::get_additional_ps_defines() const {
+		auto result = context_data::get_additional_ps_defines();
+		if (properties.alpha_cutoff > 0.0f) {
+			result.emplace_back(u8"MATERIAL_IS_MASKED", u8"");
+		}
+		return result;
+	}
 }

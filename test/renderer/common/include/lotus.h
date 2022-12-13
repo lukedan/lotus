@@ -12,6 +12,7 @@ namespace lstr = lotus::string;
 namespace lsys = lotus::system;
 namespace lgpu = lotus::gpu;
 namespace lren = lotus::renderer;
+namespace lren_bds = lren::descriptor_resource;
 
 #include <lotus/renderer/shader_types_include_wrapper.h>
 namespace shader_types {

@@ -74,6 +74,7 @@ namespace lotus::gpu::backends::common {
 			{
 				L"-E", entry_wstr.c_str(),
 				L"-T", profile.c_str(),
+				L"-HV", L"2021",
 				L"-Zi",
 				L"-Qembed_debug",
 			}
@@ -90,6 +91,7 @@ namespace lotus::gpu::backends::common {
 			code, shader_path, include_paths, defines, args,
 			{
 				L"-T", L"lib_6_3",
+				L"-HV", L"2021",
 				L"-Zi",
 				L"-Qembed_debug",
 			}

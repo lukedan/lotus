@@ -95,14 +95,20 @@ public:
 		material_assets.emplace_back(std::move(mat));
 	}
 	void on_instance_loaded(lren::instance inst) {
-		if (inst.geometry) {
-			/*// hack to not load decals
-			if (inst.geometry.get().get_id().subpath.find(u8"decal") != std::u8string::npos) {
-				return;
-			}*/
-
+		if (inst.geometry && inst.material) {
 			auto geom_index = reinterpret_cast<std::uintptr_t>(inst.geometry.user_data());
-			auto mat_index = inst.material ? reinterpret_cast<std::uintptr_t>(inst.material.user_data()) : 0;
+			auto mat_index = reinterpret_cast<std::uintptr_t>(inst.material.user_data());
+
+			auto &gpu_inst = instance_data.emplace_back();
+			gpu_inst.geometry_index = geom_index;
+			gpu_inst.material_index = mat_index;
+			auto tangent_trans = inst.transform.block<3, 3>(0, 0);
+			auto decomp = lotus::mat::lup_decompose(inst.transform.block<3, 3>(0, 0).into<double>());
+			gpu_inst.determinant = std::pow(decomp.determinant(), 1.0f / 3.0f);
+			mat44f normal_trans = zero;
+			normal_trans.set_block(0, 0, (decomp.invert().transposed() * gpu_inst.determinant).into<float>());
+			gpu_inst.normal_transform = normal_trans;
+
 			auto inst_index = instances.size();
 			tlas_instances.emplace_back(
 				blases[geom_index],
@@ -113,15 +119,6 @@ public:
 				lgpu::raytracing_instance_flags::none
 			);
 			instances.emplace_back(std::move(inst));
-			auto &gpu_inst = instance_data.emplace_back();
-			gpu_inst.geometry_index = geom_index;
-			gpu_inst.material_index = mat_index;
-			auto tangent_trans = inst.transform.block<3, 3>(0, 0);
-			auto decomp = lotus::mat::lup_decompose(inst.transform.block<3, 3>(0, 0).into<double>());
-			gpu_inst.determinant = std::pow(decomp.determinant(), 1.0f / 3.0f);
-			mat44f normal_trans = zero;
-			normal_trans.set_block(0, 0, (decomp.invert().transposed() * gpu_inst.determinant).into<float>());
-			gpu_inst.normal_transform = normal_trans;
 		}
 	}
 	void on_light_loaded(lren::shader_types::light l) {

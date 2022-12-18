@@ -90,6 +90,10 @@ namespace lotus::renderer::g_buffer {
 	) {
 		pass_context pass_ctx(man);
 		for (const auto &inst : instances) {
+			if (!inst.material) {
+				continue;
+			}
+
 			graphics_pipeline_state state(
 				{
 					gpu::render_target_blend_options::disabled(),
@@ -99,6 +103,7 @@ namespace lotus::renderer::g_buffer {
 				gpu::rasterizer_options(gpu::depth_bias_options::disabled(), gpu::front_facing_mode::counter_clockwise, gpu::cull_mode::cull_back, false),
 				gpu::depth_stencil_options(true, true, gpu::comparison_function::greater, false, 0, 0, gpu::stencil_options::always_pass_no_op(), gpu::stencil_options::always_pass_no_op())
 			);
+
 			shader_types::instance_data instance;
 			instance.transform = inst.transform;
 			auto normal_trans_inv = mat::lup_decompose(inst.transform.block<3, 3>(0, 0));
@@ -107,20 +112,22 @@ namespace lotus::renderer::g_buffer {
 				0, 0, normal_trans_inv.invert().transposed() * pow(normal_trans_inv.determinant(), 2.0f / 3.0f)
 			);
 			instance.normal_transform = normal_trans;
+
 			shader_types::view_data view_data;
 			view_data.view = view;
 			view_data.projection = projection;
 			view_data.projection_view = projection * view;
-			resource_set_binding::descriptors bindings({
-				resource_binding(descriptor_resource::immediate_constant_buffer::create_for(instance), 1),
-				resource_binding(descriptor_resource::immediate_constant_buffer::create_for(view_data), 2),
+
+			auto additional_resources = all_resource_bindings::assume_sorted({
+				resource_set_binding::descriptors({
+					descriptor_resource::immediate_constant_buffer::create_for(instance).at_register(1),
+					descriptor_resource::immediate_constant_buffer::create_for(view_data).at_register(2),
+				}).at_space(1),
 			});
-			auto additional_resources = all_resource_bindings::create_unsorted({
-				std::move(bindings).at_space(1),
-			});
+
 			pass.draw_instanced(
 				inst.geometry, inst.material, pass_ctx,
-				{}, additional_resources, state, 1, u8"GBuffer instance"
+				{}, std::move(additional_resources), std::move(state), 1, u8"GBuffer instance"
 			);
 		}
 	}

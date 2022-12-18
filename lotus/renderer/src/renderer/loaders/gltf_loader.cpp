@@ -312,14 +312,16 @@ namespace lotus::renderer::gltf {
 				nullptr :
 				images[model.textures[mat.pbrMetallicRoughness.metallicRoughnessTexture.index].source];
 
-			materials[i] = _asset_manager.register_material(
-				assets::identifier(
-					path, std::u8string(string::assume_utf8(std::format("{}@{}", mat.name, i)))
-				),
-				assets::material(std::move(mat_data))
-			);
-			if (material_loaded_callback) {
-				material_loaded_callback(materials[i]);
+			if (mat.alphaMode != "BLEND") {
+				materials[i] = _asset_manager.register_material(
+					assets::identifier(
+						path, std::u8string(string::assume_utf8(std::format("{}@{}", mat.name, i)))
+					),
+					assets::material(std::move(mat_data))
+				);
+				if (material_loaded_callback) {
+					material_loaded_callback(materials[i]);
+				}
 			}
 		}
 
@@ -355,10 +357,18 @@ namespace lotus::renderer::gltf {
 						rvec4f(0.0f, 0.0f, 0.0f, 1.0f)
 					);
 				} else {
-					assert(node.matrix.size() == 16);
+					if (node.matrix.size() != 16) {
+						log().error<u8"Transformation matrix for node {} has {} elements">(
+							node.name, node.matrix.size()
+						);
+					}
 					for (std::size_t row = 0; row < 4; ++row) {
 						for (std::size_t col = 0; col < 4; ++col) {
-							trans(row, col) = static_cast<float>(node.matrix[row * 4 + col]);
+							std::size_t index = row * 4 + col;
+							if (index >= node.matrix.size()) {
+								break;
+							}
+							trans(row, col) = static_cast<float>(node.matrix[index]);
 						}
 					}
 				}

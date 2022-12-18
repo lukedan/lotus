@@ -13,9 +13,9 @@ namespace material {
 		float3 normal_ts;
 	};
 
-	float3 evaluate_normal_mikkt(float3 normal_ts, float3 normal_ws, float3 tangent_ws, float bitangent_sign) {
-		float3 bitangent_ws = bitangent_sign * cross(normal_ws, tangent_ws);
-		return normalize(mul(transpose(float3x3(tangent_ws, bitangent_ws, normal_ws)), normal_ts));
+	float3 evaluate_normal_mikkt(float3 normal_ts, float3 geom_normal_ws, float3 tangent_ws, float bitangent_sign) {
+		float3 bitangent_ws = bitangent_sign * cross(geom_normal_ws, tangent_ws);
+		return normalize(mul(transpose(float3x3(tangent_ws, bitangent_ws, geom_normal_ws)), normal_ts));
 	}
 }
 

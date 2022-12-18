@@ -98,7 +98,7 @@ namespace lotus {
 				int
 			> = 0
 		> constexpr matrix(Args &&...data) : elements{} {
-			_fill_vector<0>(*this, std::forward<Args>(data)...);
+			_set_vector<0>(*this, std::forward<Args>(data)...);
 		}
 		/// Default move constructor.
 		constexpr matrix(matrix&&) = default;
@@ -140,6 +140,16 @@ namespace lotus {
 			(sizeof...(Args) > 1), matrix
 		> diagonal(Args &&...args) {
 			return diagonal(matrix<std::min(Rows, Cols), 1, T>(std::forward<Args>(args)...));
+		}
+		/// Returns a matrix filled with the given value.
+		[[nodiscard]] inline static constexpr matrix filled(const T &val) {
+			matrix result = zero;
+			for (std::size_t y = 0; y < Rows; ++y) {
+				for (std::size_t x = 0; x < Cols; ++x) {
+					result(y, x) = val;
+				}
+			}
+			return result;
 		}
 
 		/// Returns if any element of this matrix is \p NaN.
@@ -289,28 +299,28 @@ namespace lotus {
 		std::array<std::array<T, Cols>, Rows> elements; ///< The elements of this matrix.
 	protected:
 		/// End of recursion.
-		template <std::size_t Index> constexpr static void _fill_vector(matrix&) {
+		template <std::size_t Index> constexpr static void _set_vector(matrix&) {
 			static_assert(Index == dimensionality, "Incorrect number of components");
 		}
 		/// Fills several components of the vector.
 		template <
 			std::size_t Index, std::size_t MyRows, std::size_t MyCols, typename U, typename ...OtherArgs
-		> constexpr static void _fill_vector(
+		> constexpr static void _set_vector(
 			matrix &m, const matrix<MyRows, MyCols, U> &first, OtherArgs &&...other_args
 		) {
 			constexpr std::size_t _current_dimensionality = std::max(MyRows, MyCols);
 			for (std::size_t i = 0; i < _current_dimensionality; ++i) {
 				m[i + Index] = first[i];
 			}
-			_fill_vector<Index + _current_dimensionality>(m, std::forward<OtherArgs>(other_args)...);
+			_set_vector<Index + _current_dimensionality>(m, std::forward<OtherArgs>(other_args)...);
 		}
 		/// Fills one component of the vector.
 		template <
 			std::size_t Index, typename U, typename ...OtherArgs,
 			std::enable_if_t<!_details::is_matrix_v<std::decay_t<U>>, int> = 0
-		> constexpr static void _fill_vector(matrix &m, U &&first, OtherArgs &&...other_args) {
+		> constexpr static void _set_vector(matrix &m, U &&first, OtherArgs &&...other_args) {
 			m[Index] = std::forward<U>(first);
-			_fill_vector<Index + 1>(m, std::forward<OtherArgs>(other_args)...);
+			_set_vector<Index + 1>(m, std::forward<OtherArgs>(other_args)...);
 		}
 	};
 

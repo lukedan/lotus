@@ -345,15 +345,34 @@ namespace lotus::renderer::assets {
 				0.0f, 0.0f, std::numeric_limits<float>::max(), 16.0f
 			).at_register(0),
 		}))),
+		_null_image(nullptr),
 		_invalid_image(nullptr),
 		_image2d_descriptor_index_alloc({ 0 }) {
+
+		{ // create "null" texture
+			{
+				image2d tex = nullptr;
+				tex.image = _context.request_image2d(
+					u8"Null", cvec2s(1, 1), 1, gpu::format::r8g8b8a8_unorm,
+					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only,
+					nullptr // TODO pool?
+				);
+				tex.descriptor_index = _allocate_descriptor_index();
+				tex.highest_mip_loaded = 0;
+				_context.write_image_descriptors(_image2d_descriptors, tex.descriptor_index, { tex.image });
+				_null_image = _register_asset<image2d>(assets::identifier({}, u8"null"), std::move(tex), _images);
+			}
+
+			linear_rgba_u8 tex_data(0, 0, 0, 0);
+			_context.upload_image(_null_image->image, reinterpret_cast<std::byte*>(&tex_data), u8"Null");
+		}
 
 		{ // create "invalid" texture
 			constexpr cvec2s size = cvec2s(128, 128);
 			{
 				image2d tex = nullptr;
 				tex.image = _context.request_image2d(
-					u8"Invalid", size, 1, gpu::format::b8g8r8a8_unorm,
+					u8"Invalid", size, 1, gpu::format::r8g8b8a8_unorm,
 					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only,
 					nullptr // TODO pool?
 				);

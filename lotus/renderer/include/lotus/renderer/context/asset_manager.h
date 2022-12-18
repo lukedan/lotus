@@ -173,6 +173,10 @@ namespace lotus::renderer {
 			[[nodiscard]] recorded_resources::cached_descriptor_set get_samplers() {
 				return _sampler_descriptors;
 			}
+			/// Returns a handle for the image that indicates a `null' image.
+			[[nodiscard]] const handle<image2d> &get_null_image() const {
+				return _null_image;
+			}
 			/// Returns a handle for the image that indicates an invalid image.
 			[[nodiscard]] const handle<image2d> &get_invalid_image() const {
 				return _invalid_image;
@@ -373,7 +377,8 @@ namespace lotus::renderer {
 
 			image_descriptor_array _image2d_descriptors; ///< Bindless descriptor array of all images.
 			cached_descriptor_set _sampler_descriptors; ///< Descriptors of all samplers.
-			handle<image2d> _invalid_image; ///< Index of a image indicating "invalid image".
+			handle<image2d> _null_image; ///< Handle of an image indicating "null image".
+			handle<image2d> _invalid_image; ///< Handle of an image indicating "invalid image".
 			std::vector<std::uint32_t> _image2d_descriptor_index_alloc; ///< Used to allocate descriptor indices.
 		};
 	}

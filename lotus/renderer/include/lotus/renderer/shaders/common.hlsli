@@ -1,7 +1,10 @@
 #ifndef LOTUS_RENDERER_COMMON_HLSLI
 #define LOTUS_RENDERER_COMMON_HLSLI
 
-static const float pi = 3.141592653589793;
+static const float pi      = 3.141592653589793;
+static const float sqrt_pi = 1.772453850905516;
+static const float sqrt_2  = 1.414213562373095;
+static const float sqrt_3  = 1.732050807568877;
 
 static const int   max_int_v   =  0x7FFFFFFF;
 static const int   min_int_v   = -0x80000000;
@@ -29,6 +32,26 @@ namespace tangent_frame {
 		result.bitangent = float3(b, sign + squared(n.y) * a, -n.y);
 		result.normal    = n;
 		return result;
+	}
+}
+
+// values are in [-1, 1]
+namespace octahedral_mapping {
+	float2 from_direction(float3 dir_normalized) {
+		float3 sgn = sign(dir_normalized);
+		float3 octa = dir_normalized / dot(abs(dir_normalized), 1.0f);
+		if (octa.z < 0.0f) {
+			octa.xy = sgn.xy * (1.0f - abs(octa.yx));
+		}
+		return octa.xy;
+	}
+
+	float3 to_direction_unnormalized(float2 octa) {
+		float3 pos = float3(octa, 1.0f - dot(abs(octa.xy), 1.0f));
+		if (pos.z < 0.0f) {
+			pos.xy = sign(pos.xy) * (1.0f - abs(pos.xy));
+		}
+		return pos;
 	}
 }
 

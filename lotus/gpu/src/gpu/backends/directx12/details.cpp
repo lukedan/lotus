@@ -194,8 +194,8 @@ namespace lotus::gpu::backends::directx12::_details {
 			constexpr static bit_mask_mapping<image_usage_mask, D3D12_RESOURCE_FLAGS> table{
 				std::pair(image_usage_mask::copy_source,                 D3D12_RESOURCE_FLAG_NONE                  ),
 				std::pair(image_usage_mask::copy_destination,            D3D12_RESOURCE_FLAG_NONE                  ),
-				std::pair(image_usage_mask::shader_read_only,            D3D12_RESOURCE_FLAG_NONE                  ),
-				std::pair(image_usage_mask::shader_read_write,           D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
+				std::pair(image_usage_mask::shader_read,                 D3D12_RESOURCE_FLAG_NONE                  ),
+				std::pair(image_usage_mask::shader_write,                D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
 				std::pair(image_usage_mask::color_render_target,         D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET   ),
 				std::pair(image_usage_mask::depth_stencil_render_target, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL   ),
 			};
@@ -206,8 +206,8 @@ namespace lotus::gpu::backends::directx12::_details {
 			constexpr static bit_mask_mapping<buffer_usage_mask, D3D12_RESOURCE_FLAGS> table{
 				std::pair(buffer_usage_mask::copy_source,                        D3D12_RESOURCE_FLAG_NONE                             ),
 				std::pair(buffer_usage_mask::copy_destination,                   D3D12_RESOURCE_FLAG_NONE                             ),
-				std::pair(buffer_usage_mask::shader_read_only,                   D3D12_RESOURCE_FLAG_NONE                             ),
-				std::pair(buffer_usage_mask::shader_read_write,                  D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS           ),
+				std::pair(buffer_usage_mask::shader_read,                        D3D12_RESOURCE_FLAG_NONE                             ),
+				std::pair(buffer_usage_mask::shader_write,                       D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS           ),
 				std::pair(buffer_usage_mask::index_buffer,                       D3D12_RESOURCE_FLAG_NONE                             ),
 				std::pair(buffer_usage_mask::vertex_buffer,                      D3D12_RESOURCE_FLAG_NONE                             ),
 				std::pair(buffer_usage_mask::acceleration_structure_build_input, D3D12_RESOURCE_FLAG_NONE                             ),
@@ -224,11 +224,14 @@ namespace lotus::gpu::backends::directx12::_details {
 				std::pair(image_access_mask::color_render_target,      D3D12_BARRIER_ACCESS_RENDER_TARGET      ),
 				std::pair(image_access_mask::depth_stencil_read_only,  D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ ),
 				std::pair(image_access_mask::depth_stencil_read_write, D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE),
-				std::pair(image_access_mask::shader_read_only,         D3D12_BARRIER_ACCESS_SHADER_RESOURCE    ),
-				std::pair(image_access_mask::shader_read_write,        D3D12_BARRIER_ACCESS_UNORDERED_ACCESS   ),
+				std::pair(image_access_mask::shader_read,              D3D12_BARRIER_ACCESS_SHADER_RESOURCE    ),
+				std::pair(image_access_mask::shader_write,             D3D12_BARRIER_ACCESS_UNORDERED_ACCESS   ),
 			};
 			if (mask == image_access_mask::none) {
 				return D3D12_BARRIER_ACCESS_NO_ACCESS; // not zero!
+			}
+			if (!is_empty(mask & image_access_mask::shader_write)) {
+				mask &= ~image_access_mask::shader_read;
 			}
 			return table.get_union(mask);
 		}
@@ -240,8 +243,8 @@ namespace lotus::gpu::backends::directx12::_details {
 				std::pair(buffer_access_mask::vertex_buffer,                      D3D12_BARRIER_ACCESS_VERTEX_BUFFER                          ),
 				std::pair(buffer_access_mask::index_buffer,                       D3D12_BARRIER_ACCESS_INDEX_BUFFER                           ),
 				std::pair(buffer_access_mask::constant_buffer,                    D3D12_BARRIER_ACCESS_CONSTANT_BUFFER                        ),
-				std::pair(buffer_access_mask::shader_read_only,                   D3D12_BARRIER_ACCESS_SHADER_RESOURCE                        ),
-				std::pair(buffer_access_mask::shader_read_write,                  D3D12_BARRIER_ACCESS_UNORDERED_ACCESS                       ),
+				std::pair(buffer_access_mask::shader_read,                        D3D12_BARRIER_ACCESS_SHADER_RESOURCE                        ),
+				std::pair(buffer_access_mask::shader_write,                       D3D12_BARRIER_ACCESS_UNORDERED_ACCESS                       ),
 				std::pair(buffer_access_mask::acceleration_structure_build_input, D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ ),
 				std::pair(buffer_access_mask::acceleration_structure_read,        D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ ),
 				std::pair(buffer_access_mask::acceleration_structure_write,       D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE),
@@ -671,7 +674,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			D3D12_HEAP_TYPE type, buffer_usage_mask usages, D3D12_HEAP_FLAGS *heap_flags
 		) {
 			if (heap_flags && type == D3D12_HEAP_TYPE_DEFAULT) {
-				if (!is_empty(usages & buffer_usage_mask::shader_read_write)) {
+				if (!is_empty(usages & buffer_usage_mask::shader_write)) {
 					*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;	
 				}
 			}
@@ -700,7 +703,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			format, image_usage_mask all_usages, D3D12_HEAP_FLAGS *heap_flags
 		) {
 			if (heap_flags) {
-				if (!is_empty(all_usages & image_usage_mask::shader_read_write)) {
+				if (!is_empty(all_usages & image_usage_mask::shader_write)) {
 					*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;
 				}
 			}

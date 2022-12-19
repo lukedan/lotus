@@ -319,7 +319,7 @@ namespace lotus::renderer::fbx {
 						std::span(in),
 						gpu::buffer_usage_mask::copy_destination |
 						gpu::buffer_usage_mask::vertex_buffer |
-						gpu::buffer_usage_mask::shader_read_only |
+						gpu::buffer_usage_mask::shader_read |
 						gpu::buffer_usage_mask::acceleration_structure_build_input,
 						buf_pool
 					)
@@ -339,7 +339,7 @@ namespace lotus::renderer::fbx {
 							std::span(in),
 							gpu::buffer_usage_mask::copy_destination |
 							gpu::buffer_usage_mask::vertex_buffer |
-							gpu::buffer_usage_mask::shader_read_only,
+							gpu::buffer_usage_mask::shader_read,
 							buf_pool
 						)
 					));
@@ -359,7 +359,7 @@ namespace lotus::renderer::fbx {
 							std::span(in),
 							gpu::buffer_usage_mask::copy_destination |
 							gpu::buffer_usage_mask::vertex_buffer |
-							gpu::buffer_usage_mask::shader_read_only,
+							gpu::buffer_usage_mask::shader_read,
 							buf_pool
 						)
 					));
@@ -377,7 +377,7 @@ namespace lotus::renderer::fbx {
 						std::span(in),
 						gpu::buffer_usage_mask::copy_destination |
 						gpu::buffer_usage_mask::index_buffer     |
-						gpu::buffer_usage_mask::shader_read_only |
+						gpu::buffer_usage_mask::shader_read      |
 						gpu::buffer_usage_mask::acceleration_structure_build_input,
 						buf_pool
 					));

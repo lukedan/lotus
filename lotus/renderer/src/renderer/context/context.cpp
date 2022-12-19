@@ -329,11 +329,12 @@ namespace lotus::renderer {
 		crash_if(std::this_thread::get_id() != _thread);
 
 		++_batch_index;
+		_all_resources.emplace_back(std::exchange(_deferred_delete_resources, {}));
+
 		if (_uploads) {
 			_uploads.flush();
 		}
 
-		_all_resources.emplace_back(std::exchange(_deferred_delete_resources, {}));
 		{
 			auto ectx = execution::context(*this, _all_resources.back());
 
@@ -449,6 +450,7 @@ namespace lotus::renderer {
 					surf.format, surf.tiling, surf.usages
 				);
 			}
+
 			if constexpr (should_register_debug_names) {
 				_device.set_debug_name(surf.image, surf.name);
 			}
@@ -549,7 +551,7 @@ namespace lotus::renderer {
 					_device.wait_for_fence(*back_buffer.on_presented);
 					_device.reset_fence(*back_buffer.on_presented);
 				}
-				assert(back_buffer.status == gpu::swap_chain_status::ok);
+				crash_if(back_buffer.status != gpu::swap_chain_status::ok);
 			}
 			chain_data.next_image_index = static_cast<std::uint32_t>(back_buffer.index);
 		}
@@ -668,7 +670,7 @@ namespace lotus::renderer {
 			_device.write_descriptor_set_read_only_images(set, layout, reg, { &img_view });
 			target_access = _details::image_access(
 				gpu::synchronization_point_mask::all,
-				gpu::image_access_mask::shader_read_only,
+				gpu::image_access_mask::shader_read,
 				gpu::image_layout::shader_read_only
 			);
 			break;
@@ -676,7 +678,7 @@ namespace lotus::renderer {
 			_device.write_descriptor_set_read_write_images(set, layout, reg, { &img_view });
 			target_access = _details::image_access(
 				gpu::synchronization_point_mask::all,
-				gpu::image_access_mask::shader_read_write,
+				gpu::image_access_mask::shader_read | gpu::image_access_mask::shader_write,
 				gpu::image_layout::shader_read_write
 			);
 			break;
@@ -694,8 +696,8 @@ namespace lotus::renderer {
 			*chain.image._ptr,
 			_details::image_access(
 				gpu::synchronization_point_mask::all,
-				gpu::image_access_mask::shader_read_write,
-				gpu::image_layout::shader_read_write
+				gpu::image_access_mask::shader_read,
+				gpu::image_layout::shader_read_only
 			)
 		);
 	}
@@ -719,7 +721,7 @@ namespace lotus::renderer {
 			transitions.stage_transition(
 				*buf.data._buffer,
 				_details::buffer_access(
-					gpu::synchronization_point_mask::all, gpu::buffer_access_mask::shader_read_only
+					gpu::synchronization_point_mask::all, gpu::buffer_access_mask::shader_read
 				)
 			);
 			break;
@@ -735,7 +737,8 @@ namespace lotus::renderer {
 			transitions.stage_transition(
 				*buf.data._buffer,
 				_details::buffer_access(
-					gpu::synchronization_point_mask::all, gpu::buffer_access_mask::shader_read_write
+					gpu::synchronization_point_mask::all,
+					gpu::buffer_access_mask::shader_read | gpu::buffer_access_mask::shader_write
 				)
 			);
 			break;
@@ -1060,7 +1063,7 @@ namespace lotus::renderer {
 				ectx.transitions.stage_transition(*chain._ptr, access);
 				assert(chain._ptr->current_size == cmd.render_target_size);
 			} else {
-				assert(false); // unhandled
+				std::abort(); // unhandled
 			}
 			color_rt_access.emplace_back(rt.access);
 		}
@@ -1142,7 +1145,8 @@ namespace lotus::renderer {
 
 		auto &scratch = ectx.create_buffer(
 			blas_ptr->build_sizes.build_scratch_size,
-			_device_memory_index, gpu::buffer_usage_mask::shader_read_write
+			_device_memory_index,
+			gpu::buffer_usage_mask::shader_read | gpu::buffer_usage_mask::shader_write
 		);
 		ectx.get_command_list().build_acceleration_structure(blas_ptr->geometry, blas_ptr->handle, scratch, 0);
 	}
@@ -1171,7 +1175,8 @@ namespace lotus::renderer {
 
 		auto &scratch = ectx.create_buffer(
 			tlas_ptr->build_sizes.build_scratch_size,
-			_device_memory_index, gpu::buffer_usage_mask::shader_read_write
+			_device_memory_index,
+			gpu::buffer_usage_mask::shader_read | gpu::buffer_usage_mask::shader_write
 		);
 		ectx.get_command_list().build_acceleration_structure(
 			tlas_ptr->input_data, 0, tlas_ptr->input.size(), tlas_ptr->handle, scratch, 0

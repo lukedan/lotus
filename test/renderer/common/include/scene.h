@@ -161,7 +161,7 @@ public:
 		auto geom_buf = rctx.request_buffer(
 			u8"Geometry buffer",
 			sizeof(shader_types::geometry_data) * geometries.size(),
-			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
+			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
 		rctx.upload_buffer<shader_types::geometry_data>(geom_buf, geometries, 0, u8"Upload geometry buffer");
@@ -173,7 +173,7 @@ public:
 		auto mat_buf = rctx.request_buffer(
 			u8"Material buffer",
 			sizeof(lren::shader_types::generic_pbr_material::material) * materials.size(),
-			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
+			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
 		rctx.upload_buffer<lren::shader_types::generic_pbr_material::material>(mat_buf, materials, 0, u8"Upload material buffer");
@@ -185,7 +185,7 @@ public:
 		auto inst_buf = rctx.request_buffer(
 			u8"Instance buffer",
 			sizeof(shader_types::rt_instance_data) * instance_data.size(),
-			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
+			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
 		rctx.upload_buffer<shader_types::rt_instance_data>(inst_buf, instance_data, 0, u8"Upload instance buffer");
@@ -197,7 +197,7 @@ public:
 		auto light_buf = rctx.request_buffer(
 			u8"Light buffer",
 			sizeof(lren::shader_types::light) * lights.size(),
-			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read_only,
+			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
 		rctx.upload_buffer<lren::shader_types::light>(light_buf, lights, 0, u8"Upload lights buffer");

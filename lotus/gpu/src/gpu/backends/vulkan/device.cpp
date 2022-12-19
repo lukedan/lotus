@@ -969,40 +969,29 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void device::set_debug_name(buffer &buf, const char8_t *name) {
-		if (!is_empty(_options & context_options::enable_validation)) {
-			vk::DebugMarkerObjectNameInfoEXT info;
-			info
-				.setObjectType(vk::DebugReportObjectTypeEXT::eBuffer)
-				.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkBuffer>(buf._buffer)))
-				.setPObjectName(reinterpret_cast<const char*>(name));
-			_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
-		}
+		_set_debug_name(
+			vk::DebugReportObjectTypeEXT::eBuffer,
+			reinterpret_cast<std::uint64_t>(static_cast<VkBuffer>(buf._buffer)),
+			name
+		);
 	}
 
 	void device::set_debug_name(image &img, const char8_t *name) {
-		if (!is_empty(_options & context_options::enable_validation)) {
-			vk::DebugMarkerObjectNameInfoEXT info;
-			info
-				.setObjectType(vk::DebugReportObjectTypeEXT::eImage)
-				.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkImage>(
-					static_cast<_details::image&>(img)._image
-				)))
-				.setPObjectName(reinterpret_cast<const char*>(name));
-			_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
-		}
+		_set_debug_name(
+			vk::DebugReportObjectTypeEXT::eImage,
+			reinterpret_cast<std::uint64_t>(static_cast<VkImage>(static_cast<_details::image&>(img)._image)),
+			name
+		);
 	}
 
 	void device::set_debug_name(image_view &img, const char8_t *name) {
-		if (!is_empty(_options & context_options::enable_validation)) {
-			vk::DebugMarkerObjectNameInfoEXT info;
-			info
-				.setObjectType(vk::DebugReportObjectTypeEXT::eImageView)
-				.setObject(reinterpret_cast<std::uint64_t>(static_cast<VkImageView>(
-					static_cast<_details::image_view&>(img)._view.get()
-				)))
-				.setPObjectName(reinterpret_cast<const char*>(name));
-			_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
-		}
+		_set_debug_name(
+			vk::DebugReportObjectTypeEXT::eImageView,
+			reinterpret_cast<std::uint64_t>(
+				static_cast<VkImageView>(static_cast<_details::image_view&>(img)._view.get())
+			),
+			name
+		);
 	}
 
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
@@ -1320,6 +1309,17 @@ namespace lotus::gpu::backends::vulkan {
 		_device->unmapMemory(mem);
 	}
 
+	void device::_set_debug_name(vk::DebugReportObjectTypeEXT ty, std::uint64_t obj, const char8_t *name) {
+		if (!is_empty(_options & context_options::enable_debug_info)) {
+			vk::DebugMarkerObjectNameInfoEXT info;
+			info
+				.setObjectType(ty)
+				.setObject(obj)
+				.setPObjectName(reinterpret_cast<const char*>(name));
+			_details::assert_vk(_device->debugMarkerSetObjectNameEXT(info, *_dispatch_loader));
+		}
+	}
+
 
 	device adapter::create_device() {
 		device result = nullptr;
@@ -1383,7 +1383,7 @@ namespace lotus::gpu::backends::vulkan {
 				}
 			);
 		}
-		if (!is_empty(_options & context_options::enable_validation)) {
+		if (!is_empty(_options & context_options::enable_debug_info)) {
 			extensions.emplace_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
 		}
 

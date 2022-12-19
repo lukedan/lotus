@@ -297,9 +297,9 @@ namespace lotus::renderer::assets {
 			if (!j.results.empty()) {
 				auto &tex = j.input.target._ptr->value;
 				const auto &format_props = gpu::format_properties::get(j.pixel_format);
-				auto usages = gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only;
+				auto usages = gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read;
 				if (!format_props.has_compressed_color()) {
-					usages |= gpu::image_usage_mask::shader_read_write;
+					usages |= gpu::image_usage_mask::shader_write;
 				}
 
 				// find out how many mips we've loaded
@@ -354,7 +354,7 @@ namespace lotus::renderer::assets {
 				image2d tex = nullptr;
 				tex.image = _context.request_image2d(
 					u8"Null", cvec2s(1, 1), 1, gpu::format::r8g8b8a8_unorm,
-					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only,
+					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read,
 					nullptr // TODO pool?
 				);
 				tex.descriptor_index = _allocate_descriptor_index();
@@ -373,7 +373,7 @@ namespace lotus::renderer::assets {
 				image2d tex = nullptr;
 				tex.image = _context.request_image2d(
 					u8"Invalid", size, 1, gpu::format::r8g8b8a8_unorm,
-					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only,
+					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read,
 					nullptr // TODO pool?
 				);
 				tex.descriptor_index = _allocate_descriptor_index();

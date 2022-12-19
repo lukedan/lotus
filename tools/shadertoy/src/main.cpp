@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
 					format_utf8<u8"Pass \"{}\" output #{} \"{}\" frame {}">(
 						lstr::to_generic(p.first), out_i, lstr::to_generic(out.name), frame_index
 					), window_size, 1, pass::output_image_format,
-					lgpu::image_usage_mask::color_render_target | lgpu::image_usage_mask::shader_read_only,
+					lgpu::image_usage_mask::color_render_target | lgpu::image_usage_mask::shader_read,
 					resource_pool
 				);
 			}

@@ -116,7 +116,7 @@ namespace lotus::renderer::assimp {
 				)))),
 				std::span<const aiVector3D>(mesh->mVertices, mesh->mNumVertices),
 				gpu::buffer_usage_mask::vertex_buffer |
-				gpu::buffer_usage_mask::shader_read_only |
+				gpu::buffer_usage_mask::shader_read |
 				gpu::buffer_usage_mask::acceleration_structure_build_input,
 				buf_pool,
 				nullptr
@@ -129,7 +129,7 @@ namespace lotus::renderer::assimp {
 					)))),
 					std::span<const aiVector3D>(mesh->mNormals, mesh->mNumVertices),
 					gpu::buffer_usage_mask::vertex_buffer |
-					gpu::buffer_usage_mask::shader_read_only,
+					gpu::buffer_usage_mask::shader_read,
 					buf_pool,
 					nullptr
 				);
@@ -142,7 +142,7 @@ namespace lotus::renderer::assimp {
 					)))),
 					std::span<const aiVector3D>(mesh->mTangents, mesh->mNumVertices),
 					gpu::buffer_usage_mask::vertex_buffer |
-					gpu::buffer_usage_mask::shader_read_only,
+					gpu::buffer_usage_mask::shader_read,
 					buf_pool,
 					[](aiVector3D v) {
 						return cvec4f(v.x, v.y, v.z, 1.0f);
@@ -157,7 +157,7 @@ namespace lotus::renderer::assimp {
 					)))),
 					std::span<const aiVector3D>(mesh->mTextureCoords[0], mesh->mNumVertices),
 					gpu::buffer_usage_mask::vertex_buffer |
-					gpu::buffer_usage_mask::shader_read_only,
+					gpu::buffer_usage_mask::shader_read,
 					buf_pool,
 					[](aiVector3D v) {
 						return cvec2f(v.x, 1.0f - v.y);
@@ -183,7 +183,7 @@ namespace lotus::renderer::assimp {
 				)))),
 				{ indices_data, indices_data + sizeof(std::uint32_t) * indices.size() },
 				gpu::buffer_usage_mask::index_buffer |
-				gpu::buffer_usage_mask::shader_read_only |
+				gpu::buffer_usage_mask::shader_read |
 				gpu::buffer_usage_mask::acceleration_structure_build_input,
 				buf_pool
 			);

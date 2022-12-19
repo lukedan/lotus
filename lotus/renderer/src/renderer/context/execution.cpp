@@ -147,7 +147,7 @@ namespace lotus::renderer::execution {
 						auto &current_access = it->target->current_usages[mip];
 						// when these accesses are enabled, force a barrier
 						constexpr auto force_sync_bits =
-							gpu::image_access_mask::shader_read_write |
+							gpu::image_access_mask::shader_write |
 							gpu::image_access_mask::copy_destination;
 						if (
 							current_access.access == it->access.access &&
@@ -254,7 +254,7 @@ namespace lotus::renderer::execution {
 				// for any of these accesses, we want to insert barriers even if the usage does not change
 				// basically all write accesses
 				constexpr auto force_sync_bits =
-					gpu::buffer_access_mask::shader_read_write            |
+					gpu::buffer_access_mask::shader_write                 |
 					gpu::buffer_access_mask::acceleration_structure_write |
 					gpu::buffer_access_mask::copy_destination;
 				if ( 
@@ -330,7 +330,7 @@ namespace lotus::renderer::execution {
 				immediate_constant_buffer_cache_size,
 				_ctx._device_memory_index,
 				gpu::buffer_usage_mask::copy_destination |
-				gpu::buffer_usage_mask::shader_read_only |
+				gpu::buffer_usage_mask::shader_read      |
 				gpu::buffer_usage_mask::shader_record_table
 			);
 			_immediate_constant_upload_buffer = _ctx._device.create_committed_buffer(
@@ -389,7 +389,7 @@ namespace lotus::renderer::execution {
 					gpu::synchronization_point_mask::cpu_access,
 					gpu::buffer_access_mask::cpu_write,
 					gpu::synchronization_point_mask::all,
-					gpu::buffer_access_mask::shader_read_only
+					gpu::buffer_access_mask::shader_read
 				),
 			});
 			cmd_list.finish();

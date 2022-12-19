@@ -23,7 +23,10 @@ namespace lotus::gpu::backends::vulkan {
 		auto bookmark = get_scratch_bookmark();
 		auto enabled_layers = bookmark.create_vector_array<const char*>();
 		if (!is_empty(opt & context_options::enable_validation)) {
-			enabled_layers.emplace_back("VK_LAYER_KHRONOS_validation");
+			enabled_layers.insert(enabled_layers.end(), {
+				"VK_LAYER_KHRONOS_validation",
+				/*"VK_LAYER_LUNARG_parameter_validation",*/
+			});
 		}
 		std::array enabled_extensions = {
 			VK_KHR_SURFACE_EXTENSION_NAME,

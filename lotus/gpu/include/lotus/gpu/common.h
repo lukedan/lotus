@@ -50,7 +50,8 @@ namespace lotus::gpu {
 	/// Options for context creation.
 	enum class context_options : std::uint8_t {
 		none = 0, ///< None.
-		enable_validation = 1 << 0, ///< Enables all validation.
+		enable_validation = 1 << 0, ///< Enables command list validation.
+		enable_debug_info = 1 << 1, ///< Enable additional debug information such as debug names.
 
 		num_enumerators = 1 ///< Total number of enumerators.
 	};
@@ -582,8 +583,8 @@ namespace lotus::gpu {
 		none                        = 0,      ///< No usage.
 		copy_source                 = 1 << 0, ///< The image can be used as a source of copy operations.
 		copy_destination            = 1 << 1, ///< The image can be used as a destination of copy operations.
-		shader_read_only            = 1 << 2, ///< Allow read-only access from shaders.
-		shader_read_write           = 1 << 3, ///< Allow read-write access from shaders.
+		shader_read                 = 1 << 2, ///< Allow read access from shaders.
+		shader_write                = 1 << 3, ///< Allow write access from shaders.
 		color_render_target         = 1 << 4, ///< Allow read-write color render target access.
 		depth_stencil_render_target = 1 << 5, ///< Allow read-write depth-stencil render target access.
 
@@ -605,8 +606,8 @@ namespace lotus::gpu {
 		none                               = 0,      ///< No usage.
 		copy_source                        = 1 << 0, ///< The buffer can be used as the source of copy operations.
 		copy_destination                   = 1 << 1, ///< The buffer can be used as the target of copy operations.
-		shader_read_only                   = 1 << 2, ///< Allow read-only access from shaders.
-		shader_read_write                  = 1 << 3, ///< Allow read-write access from shaders.
+		shader_read                        = 1 << 2, ///< Allow read access from shaders.
+		shader_write                       = 1 << 3, ///< Allow write access from shaders.
 		index_buffer                       = 1 << 4, ///< Allow usage as index buffer.
 		vertex_buffer                      = 1 << 5, ///< Allow usage as vertex buffer.
 		/// Allow usage as input to acceleration structure build operations.
@@ -635,8 +636,8 @@ namespace lotus::gpu {
 		color_render_target      = 1 << 2, ///< The image is used as a read-write color render target.
 		depth_stencil_read_only  = 1 << 3, ///< The image is used as a read-only depth-stencil render target.
 		depth_stencil_read_write = 1 << 4, ///< The image is used as a read-write depth-stencil render target.
-		shader_read_only         = 1 << 5, ///< The image is used as a read-only shader resource.
-		shader_read_write        = 1 << 6, ///< The image is used as a read-write shader resource.
+		shader_read              = 1 << 5, ///< The image is read from a shader.
+		shader_write             = 1 << 6, ///< The image is written to from a shader.
 
 		num_enumerators = 7 ///< Number of valid bits.
 	};
@@ -659,8 +660,8 @@ namespace lotus::gpu {
 		vertex_buffer                      = 1 << 2,  ///< The buffer is used as a vertex buffer.
 		index_buffer                       = 1 << 3,  ///< The buffer is used as an index buffer.
 		constant_buffer                    = 1 << 4,  ///< The buffer is used as a constant buffer.
-		shader_read_only                   = 1 << 5,  ///< The buffer is used as a read-only buffer.
-		shader_read_write                  = 1 << 6,  ///< The buffer is used as a read-write buffer.
+		shader_read                        = 1 << 5,  ///< The buffer is read from a shader.
+		shader_write                       = 1 << 6,  ///< The buffer is written to from a shader.
 		acceleration_structure_build_input = 1 << 7,  ///< The buffer is read as acceleration structure build input.
 		acceleration_structure_read        = 1 << 8,  ///< The buffer is read as an acceleration structure.
 		acceleration_structure_write       = 1 << 9,  ///< The buffer is written to as an acceleration structure.
@@ -766,9 +767,9 @@ namespace lotus::gpu {
 	[[nodiscard]] constexpr image_access_mask to_image_access_mask(descriptor_type ty) {
 		switch (ty) {
 		case descriptor_type::read_only_image:
-			return image_access_mask::shader_read_only;
+			return image_access_mask::shader_read;
 		case descriptor_type::read_write_image:
-			return image_access_mask::shader_read_write;
+			return image_access_mask::shader_read | image_access_mask::shader_write;
 		default:
 			return image_access_mask::none;
 		}
@@ -780,9 +781,9 @@ namespace lotus::gpu {
 		case descriptor_type::constant_buffer:
 			return buffer_access_mask::constant_buffer;
 		case descriptor_type::read_only_buffer:
-			return buffer_access_mask::shader_read_only;
+			return buffer_access_mask::shader_read;
 		case descriptor_type::read_write_buffer:
-			return buffer_access_mask::shader_read_write;
+			return buffer_access_mask::shader_read | buffer_access_mask::shader_write;
 		default:
 			return buffer_access_mask::none;
 		}

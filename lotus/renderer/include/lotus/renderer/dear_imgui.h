@@ -52,7 +52,7 @@ namespace lotus::renderer::dear_imgui {
 
 				result._font_texture = ctx.request_image2d(
 					u8"Dear ImGui Font Atlas", cvec2s(width, height), 1, gpu::format::r8g8b8a8_unorm,
-					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read_only, nullptr
+					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read, nullptr
 				);
 				ctx.upload_image(
 					result._font_texture, reinterpret_cast<const std::byte*>(tex_data),

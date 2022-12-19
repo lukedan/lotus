@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
 #ifndef DISABLE_ALL_RT
 		rt_result = rctx.request_image2d(
 			u8"Raytracing result", window_size, 1, lgpu::format::r32g32b32a32_float,
-			lgpu::image_usage_mask::shader_read_only | lgpu::image_usage_mask::shader_read_write,
+			lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write,
 			runtime_tex_pool
 		);
 #endif

@@ -211,11 +211,11 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::UniqueDevice::waitSemaphores().
 		void wait_for_timeline_semaphore(timeline_semaphore&, std::uint64_t);
 
-		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT().
+		/// Calls \ref _set_debug_name().
 		void set_debug_name(buffer&, const char8_t*);
-		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT().
+		/// Calls \ref _set_debug_name().
 		void set_debug_name(image&, const char8_t*);
-		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT().
+		/// Calls \ref _set_debug_name().
 		void set_debug_name(image_view&, const char8_t*);
 
 
@@ -297,6 +297,9 @@ namespace lotus::gpu::backends::vulkan {
 		[[nodiscard]] std::byte *_map_memory(vk::DeviceMemory, std::size_t beg, std::size_t len);
 		/// Unmaps the given memory, and flushes the given memory range.
 		void _unmap_memory(vk::DeviceMemory, std::size_t beg, std::size_t len);
+
+		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT() to set the debug name of an object.
+		void _set_debug_name(vk::DebugReportObjectTypeEXT, std::uint64_t, const char8_t*);
 	};
 
 	/// Contains a \p vk::PhysicalDevice.

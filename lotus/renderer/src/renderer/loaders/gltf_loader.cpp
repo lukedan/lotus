@@ -195,7 +195,7 @@ namespace lotus::renderer::gltf {
 					geom.vertex_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
 						gpu::buffer_usage_mask::vertex_buffer |
-						gpu::buffer_usage_mask::shader_read_only |
+						gpu::buffer_usage_mask::shader_read |
 						gpu::buffer_usage_mask::acceleration_structure_build_input,
 						buf_pool
 					);
@@ -203,21 +203,21 @@ namespace lotus::renderer::gltf {
 				if (auto it = prim.attributes.find("NORMAL"); it != prim.attributes.end()) {
 					geom.normal_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
-						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only,
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read,
 						buf_pool
 					);
 				}
 				if (auto it = prim.attributes.find("TANGENT"); it != prim.attributes.end()) {
 					geom.tangent_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
-						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only,
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read,
 						buf_pool
 					);
 				}
 				if (auto it = prim.attributes.find("TEXCOORD_0"); it != prim.attributes.end()) {
 					geom.uv_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 2,
-						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read_only,
+						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read,
 						buf_pool
 					);
 				}
@@ -225,7 +225,7 @@ namespace lotus::renderer::gltf {
 					geom.index_buffer = _load_data_buffer<std::uint32_t>(
 						_asset_manager, path, model, prim.indices, 1,
 						gpu::buffer_usage_mask::index_buffer |
-						gpu::buffer_usage_mask::shader_read_only |
+						gpu::buffer_usage_mask::shader_read |
 						gpu::buffer_usage_mask::acceleration_structure_build_input,
 						buf_pool
 					);

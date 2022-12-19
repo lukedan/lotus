@@ -920,26 +920,14 @@ namespace lotus::renderer {
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a 2D image.
 		void _deferred_delete(_details::image2d *surf) {
-			if (surf->image) {
-				_deferred_delete_resources.record(std::move(surf->image));
-			}
 			_deferred_delete_resources.image2d_meta.emplace_back(surf);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a buffer.
 		void _deferred_delete(_details::buffer *buf) {
-			if (buf->data) {
-				_deferred_delete_resources.record(std::move(buf->data));
-			}
 			_deferred_delete_resources.buffer_meta.emplace_back(buf);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a swap chain.
 		void _deferred_delete(_details::swap_chain *chain) {
-			if (chain->chain) {
-				_deferred_delete_resources.swap_chains.emplace_back(std::move(chain->chain));
-				for (auto &fence : chain->fences) {
-					_deferred_delete_resources.record(std::move(fence));
-				}
-			}
 			_deferred_delete_resources.swap_chain_meta.emplace_back(chain);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a descriptor array.
@@ -977,7 +965,6 @@ namespace lotus::renderer {
 
 
 	template <typename Type> void _details::context_managed_deleter::operator()(Type *ptr) const {
-		assert(_ctx);
 		_ctx->_deferred_delete(ptr);
 	}
 }

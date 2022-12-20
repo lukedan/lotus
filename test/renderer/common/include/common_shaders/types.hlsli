@@ -2,7 +2,7 @@
 #define COMMON_TYPES_HLSLI
 
 struct geometry_data {
-	uint index_buffer;
+	uint index_buffer; // max_uint_v indicates `no index buffer'
 	uint vertex_buffer;
 	uint normal_buffer;
 	uint tangent_buffer;

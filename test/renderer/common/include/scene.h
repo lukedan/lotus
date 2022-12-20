@@ -49,6 +49,8 @@ public:
 					geom->num_indices
 				)
 			});
+		} else {
+			inst.index_buffer = std::numeric_limits<std::uint32_t>::max();
 		}
 		inst.vertex_buffer = inst.normal_buffer = inst.tangent_buffer = inst.uv_buffer = _buffer_alloc++;
 		rctx.write_buffer_descriptors(vertex_buffers, inst.vertex_buffer, {

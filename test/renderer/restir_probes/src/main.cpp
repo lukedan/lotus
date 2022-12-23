@@ -114,7 +114,11 @@ int main(int argc, char **argv) {
 	bool update_probes_this_frame = false;
 	int gbuffer_visualization = 0;
 
+	std::uint32_t num_accumulated_frames = 0;
+
 	shader_types::probe_constants probe_constants;
+
+	lren::image2d_view path_tracer_accum = nullptr;
 
 	lren::structured_buffer_view direct_reservoirs = nullptr;
 	lren::structured_buffer_view indirect_reservoirs = nullptr;
@@ -185,6 +189,8 @@ int main(int argc, char **argv) {
 		cam_params.aspect_ratio = window_size[0] / static_cast<float>(window_size[1]);
 
 		imgui_sctx.on_resize(resize);
+
+		path_tracer_accum = rctx.request_image2d(u8"Path Tracer Accumulation Buffer", window_size, 1, lgpu::format::r32g32b32a32_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
 	};
 	wnd.on_resize = [&](lsys::window_events::resize &resize) {
 		on_resize(resize);
@@ -198,7 +204,9 @@ int main(int argc, char **argv) {
 	auto on_mouse_move = [&](lsys::window_events::mouse::move &move) {
 		imgui_sctx.on_mouse_move(move);
 		if (!ImGui::GetIO().WantCaptureMouse) {
-			cam_control.on_mouse_move(move.new_position);
+			if (cam_control.on_mouse_move(move.new_position)) {
+				num_accumulated_frames = 0;
+			}
 		}
 	};
 	wnd.on_mouse_move = [&](lsys::window_events::mouse::move &move) {
@@ -380,9 +388,11 @@ int main(int argc, char **argv) {
 				constants.camera      = cvec4f(cam_params.position, 1.0f);
 				constants.x           = cvec4f(pixel_x, 0.0f);
 				constants.y           = cvec4f(pixel_y, 0.0f);
-				constants.top_left    = cvec4f(cam.unit_forward - half_right - half_down + 0.5f * (pixel_x + pixel_y), 0.0f);
+				constants.top_left    = cvec4f(cam.unit_forward - half_right - half_down, 0.0f);
 				constants.window_size = window_size.into<std::uint32_t>();
+				constants.num_lights  = scene.lights.size();
 				constants.mode        = shade_point_debug_mode;
+				constants.num_frames  = ++num_accumulated_frames;
 
 				auto resources = lren::named_bindings({
 					{ u8"probe_consts",   lren_bds::immediate_constant_buffer::create_for(probe_constants) },
@@ -390,6 +400,7 @@ int main(int argc, char **argv) {
 					{ u8"direct_probes",  lren_bds::structured_buffer::create_read_only(direct_reservoirs) },
 					{ u8"indirect_sh",    lren_bds::structured_buffer::create_read_only(probe_sh) },
 					{ u8"out_irradiance", lren_bds::image2d::create_read_write(light_diffuse) },
+					{ u8"out_accum",      lren_bds::image2d::create_read_write(path_tracer_accum) },
 					{ u8"rtas",           lren_bds::tlas(scene.tlas) },
 					{ u8"textures",       lren::recorded_resources::image_descriptor_array(rassets.get_images()) },
 					{ u8"positions",      lren::recorded_resources::buffer_descriptor_array(scene.vertex_buffers) },
@@ -539,7 +550,9 @@ int main(int argc, char **argv) {
 					ImGui::Checkbox("Trace Reservoir Shadow Rays", &trace_shadow_rays_reservoir);
 					ImGui::Combo("Diffuse Lighting Mode", &diffuse_lighting_mode, "None\0Reservoir\0Naive\0");
 					ImGui::Checkbox("Show Indirect Lighting", &use_indirect);
-					ImGui::Combo("Shade Point Debug Mode", &shade_point_debug_mode, "Off\0Lighting\0Albedo\0Normal\0");
+					if (ImGui::Combo("Shade Point Debug Mode", &shade_point_debug_mode, "Off\0Lighting\0Albedo\0Normal\0Path Tracer\0")) {
+						num_accumulated_frames = 0;
+					}
 					ImGui::Separator();
 
 					ImGui::Combo("Visualize Probes", &visualize_probes_mode, "None\0Specular\0Diffuse\0Normal\0");

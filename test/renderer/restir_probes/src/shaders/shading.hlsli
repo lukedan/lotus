@@ -1,6 +1,8 @@
 #ifndef SHADING_HLSLI
 #define SHADING_HLSLI
 
+#include "math/sh.hlsli"
+
 #include "probes.hlsli"
 #include "reservoir.hlsli"
 
@@ -86,7 +88,6 @@ float3 shade_point(
 		}
 	}
 	diffuse_irradiance /= probe_consts.direct_reservoirs_per_probe;
-
 
 	// shade indirect lights
 	probe_data probe_sh = indirect_sh[use_probe_index];

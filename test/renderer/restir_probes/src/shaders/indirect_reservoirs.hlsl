@@ -89,7 +89,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		}
 
 		float probability = max(irradiance.r, max(irradiance.g, irradiance.b));
-		if (reservoirs::add_sample(reservoir.data, 0.25f * pi, probability, pcg32::random_01(rng), constants.sample_count_cap)) {
+		if (reservoirs::add_sample(reservoir.data, 0.25f / pi, probability, pcg32::random_01(rng), constants.sample_count_cap)) {
 			reservoir.irradiance           = irradiance;
 			reservoir.distance             = distance;
 			reservoir.direction_octahedral = octahedral_mapping::from_direction(direction);

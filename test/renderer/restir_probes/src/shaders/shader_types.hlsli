@@ -87,7 +87,9 @@ struct shade_point_debug_constants {
 	float4 x;
 	float4 y;
 	uint2 window_size;
+	uint num_lights;
 	uint mode;
+	uint num_frames;
 };
 
 #endif

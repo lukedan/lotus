@@ -207,8 +207,8 @@ namespace lotus::renderer {
 	void context::upload_image(const image2d_view &target, const std::byte *data, std::u8string_view description) {
 		cvec2s image_size = target.get_size();
 		std::uint32_t mip_index = target._mip_levels.minimum;
-		image_size[0] >>= mip_index;
-		image_size[1] >>= mip_index;
+		image_size[0] = std::max<std::size_t>(1, image_size[0] >> mip_index);
+		image_size[1] = std::max<std::size_t>(1, image_size[1] >> mip_index);
 
 		const auto &format_props = gpu::format_properties::get(target.get_original_format());
 		std::uint32_t bytes_per_fragment = format_props.bytes_per_fragment;

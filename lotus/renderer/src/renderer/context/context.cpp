@@ -22,7 +22,9 @@ namespace lotus::renderer {
 		std::uint32_t num_insts,
 		std::u8string_view description
 	) {
-		resources.maybe_consolidate();
+		_details::bindings_builder builder;
+		auto reflections = { &vs->reflection, &ps->reflection };
+		builder.add(std::move(resources), reflections);
 		_command.commands.emplace_back(
 			description,
 			std::in_place_type<pass_commands::draw_instanced>,
@@ -30,7 +32,7 @@ namespace lotus::renderer {
 			std::move(inputs), num_verts,
 			std::move(indices), num_indices,
 			topology,
-			std::move(resources),
+			builder.sort_and_take(),
 			std::move(vs), std::move(ps),
 			std::move(state)
 		);
@@ -53,10 +55,12 @@ namespace lotus::renderer {
 		for (const auto &in : additional_inputs) {
 			inputs.emplace_back(in);
 		}
-		auto resource_bindings = all_resource_bindings::merge(
-			mat.data->create_resource_bindings(), additional_resources
-		);
-		resource_bindings.maybe_consolidate();
+
+		_details::bindings_builder builder;
+		auto reflections = { &vs->reflection, &ps->reflection };
+		builder.add(mat.data->create_resource_bindings(), reflections);
+		builder.add(std::move(additional_resources), reflections);
+
 		_command.commands.emplace_back(
 			description,
 			std::in_place_type<pass_commands::draw_instanced>,
@@ -64,7 +68,7 @@ namespace lotus::renderer {
 			std::move(inputs), geom.num_vertices,
 			geom.get_index_buffer_binding(), geom.num_indices,
 			geom.topology,
-			std::move(resource_bindings),
+			builder.sort_and_take(),
 			std::move(vs), std::move(ps),
 			std::move(state)
 		);
@@ -186,7 +190,7 @@ namespace lotus::renderer {
 	}
 
 	cached_descriptor_set context::create_cached_descriptor_set(
-		std::u8string_view name, const resource_set_binding::descriptors &bindings
+		std::u8string_view name, std::span<const all_resource_bindings::numbered_binding> bindings
 	) {
 		auto key = _get_descriptor_set_layout_key(bindings);
 		auto &layout = _cache.get_descriptor_set_layout(key);
@@ -194,10 +198,10 @@ namespace lotus::renderer {
 		auto *set_ptr = new _details::cached_descriptor_set(
 			std::move(set), std::move(key.ranges), layout, _allocate_resource_id(), name
 		);
-		for (const auto &binding : bindings.bindings) {
+		for (const auto &binding : bindings) {
 			std::visit([&](const auto &rsrc) {
 				_create_descriptor_binding_cached(*set_ptr, binding.register_index, rsrc);
-			}, binding.resource);
+			}, binding.value);
 		}
 		return cached_descriptor_set(std::shared_ptr<_details::cached_descriptor_set>(
 			set_ptr, _details::context_managed_deleter(*this)
@@ -277,9 +281,22 @@ namespace lotus::renderer {
 		all_resource_bindings resources,
 		std::u8string_view description
 	) {
-		resources.maybe_consolidate();
+		_details::bindings_builder builder;
+		std::vector<gpu::shader_reflection> reflections;
+		for (const auto &sh : hit_group_shaders) {
+			reflections.emplace_back(sh.shader_library->reflection.find_shader(sh.entry_point, sh.stage));
+		}
+		for (const auto &sh : general_shaders) {
+			reflections.emplace_back(sh.shader_library->reflection.find_shader(sh.entry_point, sh.stage));
+		}
+		std::vector<const gpu::shader_reflection*> reflection_ptrs;
+		for (const auto &r : reflections) {
+			reflection_ptrs.emplace_back(&r);
+		}
+		builder.add(std::move(resources), reflection_ptrs);
+
 		_commands.emplace_back(description).value.emplace<context_commands::trace_rays>(
-			std::move(resources),
+			builder.sort_and_take(),
 			std::vector(hit_group_shaders.begin(), hit_group_shaders.end()),
 			std::vector(hit_groups.begin(), hit_groups.end()),
 			std::vector(general_shaders.begin(), general_shaders.end()),
@@ -297,9 +314,11 @@ namespace lotus::renderer {
 		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_thread_groups,
 		all_resource_bindings resources, std::u8string_view description
 	) {
-		resources.maybe_consolidate();
+		_details::bindings_builder builder;
+		builder.add(std::move(resources), { &shader->reflection });
+
 		_commands.emplace_back(description).value.emplace<context_commands::dispatch_compute>(
-			std::move(resources), std::move(shader), num_thread_groups
+			builder.sort_and_take(), std::move(shader), num_thread_groups
 		);
 	}
 
@@ -689,11 +708,11 @@ namespace lotus::renderer {
 	void context::_create_descriptor_binding_impl(
 		execution::transition_buffer &transitions, gpu::descriptor_set &set,
 		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
-		const descriptor_resource::swap_chain_image &chain, const gpu::image2d_view &img_view
+		const recorded_resources::swap_chain &chain, const gpu::image2d_view &img_view
 	) {
 		_device.write_descriptor_set_read_write_images(set, layout, reg, { &img_view });
 		transitions.stage_transition(
-			*chain.image._ptr,
+			*chain._ptr,
 			_details::image_access(
 				gpu::synchronization_point_mask::all,
 				gpu::image_access_mask::shader_read,
@@ -748,20 +767,20 @@ namespace lotus::renderer {
 	void context::_create_descriptor_binding_impl(
 		execution::transition_buffer &transitions, gpu::descriptor_set &set,
 		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
-		const descriptor_resource::tlas &as
+		const recorded_resources::tlas &as
 	) {
-		_maybe_initialize_tlas(*as.acceleration_structure._ptr);
+		_maybe_initialize_tlas(*as._ptr);
 		_device.write_descriptor_set_acceleration_structures(
-			set, layout, reg, { &as.acceleration_structure._ptr->handle }
+			set, layout, reg, { &as._ptr->handle }
 		);
 		transitions.stage_transition(
-			*as.acceleration_structure._ptr->memory,
+			*as._ptr->memory,
 			_details::buffer_access(
 				gpu::synchronization_point_mask::all,
 				gpu::buffer_access_mask::acceleration_structure_read
 			)
 		);
-		for (const auto &b : as.acceleration_structure._ptr->input_references) {
+		for (const auto &b : as._ptr->input_references) {
 			transitions.stage_transition(
 				*b->memory,
 				_details::buffer_access(
@@ -775,7 +794,7 @@ namespace lotus::renderer {
 	void context::_create_descriptor_binding_impl(
 		gpu::descriptor_set &set,
 		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
-		const descriptor_resource::sampler &samp
+		const sampler_state &samp
 	) {
 		_device.write_descriptor_set_samplers(set, layout, reg, { &_cache.get_sampler(samp) });
 	}
@@ -791,13 +810,13 @@ namespace lotus::renderer {
 	}
 
 	cache_keys::descriptor_set_layout context::_get_descriptor_set_layout_key(
-		const resource_set_binding::descriptors &bindings
+		std::span<const all_resource_bindings::numbered_binding> bindings
 	) {
 		cache_keys::descriptor_set_layout key = nullptr;
-		for (const auto &b : bindings.bindings) {
+		for (const auto &b : bindings) {
 			auto type = std::visit([this](const auto &rsrc) {
 				return _get_descriptor_type(rsrc);
-			}, b.resource);
+			}, b.value);
 			key.ranges.emplace_back(gpu::descriptor_range_binding::create(type, 1, b.register_index));
 		}
 		key.consolidate();
@@ -809,15 +828,15 @@ namespace lotus::renderer {
 		const gpu::descriptor_set_layout&,
 		gpu::descriptor_set&
 	> context::_use_descriptor_set(
-		execution::context &ectx, const resource_set_binding::descriptors &bindings
+		execution::context &ectx, std::span<const all_resource_bindings::numbered_binding> bindings
 	) {
 		auto key = _get_descriptor_set_layout_key(bindings);
 		auto &layout = _cache.get_descriptor_set_layout(key);
 		auto &set = ectx.record(_device.create_descriptor_set(_descriptor_pool, layout));
-		for (const auto &b : bindings.bindings) {
+		for (const auto &b : bindings) {
 			std::visit([&, this](const auto &rsrc) {
 				_create_descriptor_binding(ectx, set, layout, b.register_index, rsrc);
-			}, b.resource);
+			}, b.value);
 		}
 		return { std::move(key), layout, set };
 	}
@@ -835,20 +854,18 @@ namespace lotus::renderer {
 		const gpu::pipeline_resources&,
 		std::vector<context::_descriptor_set_info>
 	> context::_check_and_create_descriptor_set_bindings(
-		execution::context &ectx, const all_resource_bindings &resources
+		execution::context &ectx, _details::numbered_bindings_view resources
 	) {
-		crash_if(!resources.is_consolidated());
-
 		std::vector<_descriptor_set_info> sets;
 		cache_keys::pipeline_resources key;
 
-		for (const auto &set : resources.get_sets()) {
+		for (const auto &set : resources) {
 			auto &&[layout_key, layout, desc_set] = std::visit([&, this](const auto &bindings) {
 				return _use_descriptor_set(ectx, bindings);
-			}, set.bindings);
+			}, set.value);
 
-			sets.emplace_back(desc_set, set.space);
-			key.sets.emplace_back(std::move(layout_key), set.space);
+			sets.emplace_back(desc_set, set.register_space);
+			key.sets.emplace_back(std::move(layout_key), set.register_space);
 		}
 		key.sort();
 		auto &rsrc = _cache.get_pipeline_resources(key);

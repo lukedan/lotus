@@ -13,13 +13,16 @@ namespace lotus::renderer {
 		mat.assets.normal_texture     = normal_texture     ? normal_texture->descriptor_index     : manager->get_null_image()->descriptor_index;
 		mat.assets.properties_texture = properties_texture ? properties_texture->descriptor_index : manager->get_null_image()->descriptor_index;
 
-		return all_resource_bindings::assume_sorted({
-			resource_set_binding(manager->get_images(), 0),
-			resource_set_binding::descriptors({
-				resource_binding(descriptor_resource::immediate_constant_buffer::create_for(mat), 0),
-			}).at_space(1),
-			resource_set_binding(manager->get_samplers(), 2),
-		});
+		return all_resource_bindings(
+			{
+				{ 0, manager->get_images() },
+				{ 1, {
+					{ 0, descriptor_resource::immediate_constant_buffer::create_for(mat) },
+				} },
+				{ 2, manager->get_samplers() },
+			},
+			{}
+		);
 	}
 
 	std::vector<

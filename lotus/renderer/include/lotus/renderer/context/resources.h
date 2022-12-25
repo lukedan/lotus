@@ -11,228 +11,9 @@
 #include "lotus/gpu/resources.h"
 #include "lotus/renderer/common.h"
 #include "execution.h"
+#include "resource_bindings.h"
 
 namespace lotus::renderer {
-	class context;
-	struct input_buffer_binding;
-	struct index_buffer_binding;
-	struct all_resource_bindings;
-
-	template <typename> struct basic_resource_handle;
-	struct image2d_view;
-	struct buffer;
-	struct structured_buffer_view;
-	struct swap_chain;
-	template <typename, typename> struct descriptor_array;
-	struct blas;
-	struct tlas;
-	struct cached_descriptor_set;
-
-	namespace assets {
-		class manager;
-		template <typename> struct handle;
-	}
-
-
-	/// Recorded resources. These objects don't hold ownership of the underlying objects, but otherwise they're
-	/// exactly the same.
-	namespace recorded_resources {
-		/// Template for resources that requires only one pointer to a type.
-		template <typename Resource> class basic_handle {
-			friend context;
-			friend execution::context;
-		public:
-			/// Initializes this resource handle to empty.
-			basic_handle(std::nullptr_t) {
-			}
-			/// Conversion from a non-recorded resource.
-			basic_handle(const basic_resource_handle<Resource>&);
-
-			/// Returns whether this handle points to a valid object.
-			[[nodiscard]] bool is_valid() const {
-				return _ptr != nullptr;
-			}
-			/// \overload
-			[[nodiscard]] explicit operator bool() const {
-				return is_valid();
-			}
-		private:
-			Resource *_ptr = nullptr; ///< Pointer to the resource.
-		};
-
-
-		/// \ref renderer::image2d_view.
-		struct image2d_view {
-			friend context;
-			friend execution::transition_buffer;
-			friend execution::context;
-		public:
-			/// Initializes this struct to empty.
-			image2d_view(std::nullptr_t) : _mip_levels(gpu::mip_levels::all()) {
-			}
-			/// Conversion from a non-recorded \ref renderer::image2d_view.
-			image2d_view(const renderer::image2d_view&);
-
-			/// Returns a copy of this structure that ensures only the first specified mip is used, and logs a
-			/// warning if that's not currently the case.
-			[[nodiscard]] image2d_view highest_mip_with_warning() const;
-
-			/// Returns whether this object holds a valid image.
-			[[nodiscard]] bool is_valid() const {
-				return _image;
-			}
-			/// \overload
-			[[nodiscard]] explicit operator bool() const {
-				return is_valid();
-			}
-		private:
-			_details::image2d *_image = nullptr; ///< The image.
-			gpu::format _view_format = gpu::format::none; ///< The format of this surface.
-			gpu::mip_levels _mip_levels; ///< Mip levels.
-		};
-
-		/// \ref renderer::buffer.
-		using buffer = basic_handle<_details::buffer>;
-
-		/// \ref renderer::structured_buffer_view.
-		struct structured_buffer_view {
-			friend context;
-			friend execution::transition_buffer;
-			friend execution::context;
-		public:
-			/// Initializes this struct to empty.
-			structured_buffer_view(std::nullptr_t) {
-			}
-			/// Conversion from a non-recorded \ref renderer::structured_buffer_view.
-			structured_buffer_view(const renderer::structured_buffer_view&);
-
-			/// Returns whether this object holds a valid buffer.
-			[[nodiscard]] bool is_valid() const {
-				return _buffer;
-			}
-			/// \overload
-			[[nodiscard]] explicit operator bool() const {
-				return is_valid();
-			}
-		private:
-			_details::buffer *_buffer = nullptr; ///< The buffer.
-			std::uint32_t _stride = 0; ///< Byte stride between elements.
-			std::uint32_t _first = 0; ///< The first buffer element.
-			std::uint32_t _count = 0; ///< Number of visible buffer elements.
-		};
-
-		/// \ref renderer::swap_chain.
-		using swap_chain = basic_handle<_details::swap_chain>;
-
-		/// \ref renderer::descriptor_array.
-		template <typename RecordedResource, typename View = std::nullopt_t> using descriptor_array = basic_handle<
-			_details::descriptor_array<RecordedResource, View>
-		>;
-
-		/// \ref renderer::blas.
-		using blas = basic_handle<_details::blas>;
-
-		/// \ref renderer::tlas.
-		using tlas = basic_handle<_details::tlas>;
-
-		/// \ref renderer::cached_descriptor_set.
-		using cached_descriptor_set = basic_handle<_details::cached_descriptor_set>;
-	}
-
-
-	/// An input buffer binding. Largely similar to \ref gpu::input_buffer_layout.
-	struct input_buffer_binding {
-		/// Initializes this buffer to empty.
-		input_buffer_binding(std::nullptr_t) : data(nullptr) {
-		}
-		/// Initializes all fields of this struct.
-		input_buffer_binding(
-			std::uint32_t index,
-			recorded_resources::buffer d, std::uint32_t off, std::uint32_t str,
-			gpu::input_buffer_rate rate, std::vector<gpu::input_buffer_element> elems
-		) :
-			elements(std::move(elems)), data(d), stride(str), offset(off),
-			buffer_index(index), input_rate(rate) {
-		}
-		/// Creates a buffer corresponding to the given input.
-		[[nodiscard]] inline static input_buffer_binding create(
-			recorded_resources::buffer buf, std::uint32_t off, gpu::input_buffer_layout layout
-		) {
-			return input_buffer_binding(
-				static_cast<std::uint32_t>(layout.buffer_index),
-				buf, off, static_cast<std::uint32_t>(layout.stride),
-				layout.input_rate, { layout.elements.begin(), layout.elements.end() }
-			);
-		}
-
-		std::vector<gpu::input_buffer_element> elements; ///< Elements in this vertex buffer.
-		recorded_resources::buffer data; ///< The buffer.
-		std::uint32_t stride = 0; ///< The size of one vertex.
-		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer in bytes.
-		std::uint32_t buffer_index = 0; ///< Binding index for this input buffer.
-		/// Specifies how the buffer data is used.
-		gpu::input_buffer_rate input_rate = gpu::input_buffer_rate::per_vertex;
-	};
-	/// An index buffer binding.
-	struct index_buffer_binding {
-		/// Initializes this binding to empty.
-		index_buffer_binding(std::nullptr_t) : data(nullptr) {
-		}
-		/// Initializes all fields of this struct.
-		index_buffer_binding(
-			recorded_resources::buffer buf, std::uint32_t off, gpu::index_format fmt
-		) : data(buf), offset(off), format(fmt) {
-		}
-
-		recorded_resources::buffer data; ///< The index buffer.
-		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer where indices start in bytes.
-		gpu::index_format format = gpu::index_format::uint32; ///< Format of indices.
-	};
-	/// A view into buffers related to a geometry used for ray tracing.
-	struct geometry_buffers_view {
-		/// Initializes this structure to empty.
-		geometry_buffers_view(std::nullptr_t) : vertex_data(nullptr), index_data(nullptr) {
-		}
-		/// Initializes all fields of this struct.
-		geometry_buffers_view(
-			recorded_resources::buffer verts,
-			gpu::format vert_fmt,
-			std::uint32_t vert_off,
-			std::uint32_t vert_stride,
-			std::uint32_t vert_count,
-			recorded_resources::buffer indices,
-			gpu::index_format idx_fmt,
-			std::uint32_t idx_off,
-			std::uint32_t idx_count,
-			gpu::raytracing_geometry_flags f
-		) :
-			vertex_data(verts),
-			vertex_format(vert_fmt),
-			vertex_offset(vert_off),
-			vertex_stride(vert_stride),
-			vertex_count(vert_count),
-			index_data(indices),
-			index_format(idx_fmt),
-			index_offset(idx_off),
-			index_count(idx_count),
-			flags(f) {
-		}
-
-		recorded_resources::buffer vertex_data; ///< Vertex position buffer.
-		gpu::format vertex_format = gpu::format::none; ///< Vertex format.
-		std::uint32_t vertex_offset = 0; ///< Offset to the first vertex in bytes.
-		std::uint32_t vertex_stride = 0; ///< Stride of a vertex in bytes.
-		std::uint32_t vertex_count  = 0; ///< Number of vertices.
-
-		recorded_resources::buffer index_data; ///< Index buffer.
-		gpu::index_format index_format = gpu::index_format::uint16; ///< Index format.
-		std::uint32_t index_offset = 0; ///< Offset to the first index in bytes.
-		std::uint32_t index_count  = 0; ///< Number of indices in the buffer.
-
-		gpu::raytracing_geometry_flags flags = gpu::raytracing_geometry_flags::none; ///< Flags.
-	};
-
-
 	/// Used to uniquely identify a resource.
 	enum class unique_resource_id : std::uint64_t {
 		invalid = 0 ///< An invalid ID.
@@ -756,6 +537,19 @@ namespace lotus::renderer {
 			return _mip_levels;
 		}
 
+		/// Shorthand for creating a \ref descriptor_resource::image2d.
+		[[nodiscard]] descriptor_resource::image2d bind(image_binding_type ty) const {
+			return descriptor_resource::image2d(*this, ty);
+		}
+		/// Shorthand for creating a read-only \ref descriptor_resource::image2d.
+		[[nodiscard]] descriptor_resource::image2d bind_as_read_only() const {
+			return bind(image_binding_type::read_only);
+		}
+		/// Shorthand for creating a read-write \ref descriptor_resource::image2d.
+		[[nodiscard]] descriptor_resource::image2d bind_as_read_write() const {
+			return bind(image_binding_type::read_write);
+		}
+
 		/// Default equality comparison.
 		[[nodiscard]] friend bool operator==(const image2d_view&, const image2d_view&) = default;
 	private:
@@ -838,6 +632,19 @@ namespace lotus::renderer {
 			assert((first + count) * _stride <= _ptr->size);
 			return structured_buffer_view(_ptr, _stride, first, count);
 		}
+
+		/// Shorthand for creating a \ref descriptor_resource::structured_buffer.
+		[[nodiscard]] descriptor_resource::structured_buffer bind(buffer_binding_type ty) const {
+			return descriptor_resource::structured_buffer(*this, ty);
+		};
+		/// Shorthand for creating a read-only \ref descriptor_resource::structured_buffer.
+		[[nodiscard]] descriptor_resource::structured_buffer bind_as_read_only() const {
+			return bind(buffer_binding_type::read_only);
+		};
+		/// Shorthand for creating a read-write \ref descriptor_resource::structured_buffer.
+		[[nodiscard]] descriptor_resource::structured_buffer bind_as_read_write() const {
+			return bind(buffer_binding_type::read_write);
+		};
 	private:
 		/// Initializes all fields of this struct.
 		structured_buffer_view(
@@ -867,7 +674,7 @@ namespace lotus::renderer {
 	};
 
 	/// A bindless descriptor array.
-	template <typename RecordedResource, typename View = std::nullopt_t> struct descriptor_array :
+	template <typename RecordedResource, typename View> struct descriptor_array :
 		public basic_resource_handle<_details::descriptor_array<RecordedResource, View>> {
 		friend context;
 	public:
@@ -882,16 +689,6 @@ namespace lotus::renderer {
 		) : _base(std::move(arr)) {
 		}
 	};
-	/// An array of image descriptors.
-	using image_descriptor_array = descriptor_array<recorded_resources::image2d_view, gpu::image2d_view>;
-	/// An array of buffer descriptors.
-	using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view>;
-	namespace recorded_resources {
-		/// \ref renderer::image_descriptor_array.
-		using image_descriptor_array = descriptor_array<image2d_view, gpu::image2d_view>;
-		/// \ref renderer::buffer_descriptor_array.
-		using buffer_descriptor_array = descriptor_array<structured_buffer_view>;
-	}
 
 	/// A bottom level acceleration structure.
 	struct blas : public basic_resource_handle<_details::blas> {

@@ -44,7 +44,7 @@ namespace lotus::renderer {
 				std::vector<input_buffer_binding> in, std::uint32_t num_verts,
 				index_buffer_binding indices, std::uint32_t num_indices,
 				gpu::primitive_topology t,
-				all_resource_bindings resources,
+				_details::numbered_bindings resources,
 				assets::handle<assets::shader> vs,
 				assets::handle<assets::shader> ps,
 				graphics_pipeline_state s
@@ -57,7 +57,7 @@ namespace lotus::renderer {
 			std::vector<input_buffer_binding> inputs;       ///< Input buffers.
 			index_buffer_binding              index_buffer; ///< Index buffer, if applicable.
 
-			all_resource_bindings resource_bindings; ///< Resource bindings.
+			_details::numbered_bindings resource_bindings; ///< Resource bindings.
 			// TODO more shaders
 			assets::handle<assets::shader> vertex_shader; ///< Vertex shader.
 			assets::handle<assets::shader> pixel_shader;  ///< Pixel shader.
@@ -121,7 +121,7 @@ namespace lotus::renderer {
 		struct dispatch_compute {
 			/// Initializes all fields of this struct.
 			dispatch_compute(
-				all_resource_bindings rsrc,
+				_details::numbered_bindings rsrc,
 				assets::handle<assets::shader> compute_shader,
 				cvec3u32 numgroups
 			) : resources(std::move(rsrc)),
@@ -129,7 +129,7 @@ namespace lotus::renderer {
 				num_thread_groups(numgroups) {
 			}
 
-			all_resource_bindings resources; ///< All resource bindings.
+			_details::numbered_bindings resources; ///< All resource bindings.
 			assets::handle<assets::shader> shader; ///< The shader.
 			cvec3u32 num_thread_groups = uninitialized; ///< Number of thread groups.
 		};
@@ -170,7 +170,7 @@ namespace lotus::renderer {
 		struct trace_rays {
 			/// Initializes all fields of this struct.
 			trace_rays(
-				all_resource_bindings b,
+				_details::numbered_bindings b,
 				std::vector<shader_function> hg_shaders,
 				std::vector<gpu::hit_shader_group> groups,
 				std::vector<shader_function> gen_shaders,
@@ -195,7 +195,7 @@ namespace lotus::renderer {
 				num_threads(threads) {
 			}
 
-			all_resource_bindings resource_bindings; ///< All resource bindings.
+			_details::numbered_bindings resource_bindings; ///< All resource bindings.
 			
 			std::vector<shader_function> hit_group_shaders; ///< Ray tracing shaders.
 			std::vector<gpu::hit_shader_group> hit_groups;  ///< Hit groups.
@@ -382,8 +382,14 @@ namespace lotus::renderer {
 		[[nodiscard]] tlas request_tlas(std::u8string_view name, std::span<const blas_reference>, const pool&);
 		/// Creates a cached descriptor set.
 		[[nodiscard]] cached_descriptor_set create_cached_descriptor_set(
-			std::u8string_view name, const resource_set_binding::descriptors&
+			std::u8string_view name, std::span<const all_resource_bindings::numbered_binding>
 		);
+		/// \overload
+		[[nodiscard]] cached_descriptor_set create_cached_descriptor_set(
+			std::u8string_view name, std::initializer_list<all_resource_bindings::numbered_binding> bindings
+		) {
+			return create_cached_descriptor_set(name, { bindings.begin(), bindings.end() });
+		}
 
 
 		/// Uploads image data to the GPU. This function immediately creates and fills the staging buffer, but actual
@@ -671,7 +677,7 @@ namespace lotus::renderer {
 		}
 		/// Returns the descriptor type of a swap chain.
 		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(
-			const descriptor_resource::swap_chain_image&
+			const recorded_resources::swap_chain&
 		) const {
 			return gpu::descriptor_type::read_write_image;
 		}
@@ -694,11 +700,11 @@ namespace lotus::renderer {
 			return gpu::descriptor_type::constant_buffer;
 		}
 		/// Returns \ref gpu::descriptor_type::acceleration_structure.
-		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::tlas&) const {
+		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const recorded_resources::tlas&) const {
 			return gpu::descriptor_type::acceleration_structure;
 		}
 		/// Returns \ref gpu::descriptor_type::sampler.
-		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::sampler&) const {
+		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const sampler_state&) const {
 			return gpu::descriptor_type::sampler;
 		}
 
@@ -712,7 +718,7 @@ namespace lotus::renderer {
 		void _create_descriptor_binding_impl(
 			execution::transition_buffer&, gpu::descriptor_set&,
 			const gpu::descriptor_set_layout&, std::uint32_t reg,
-			const descriptor_resource::swap_chain_image&, const gpu::image2d_view&
+			const recorded_resources::swap_chain&, const gpu::image2d_view&
 		);
 		/// Creates a descriptor binding for a buffer.
 		void _create_descriptor_binding_impl(
@@ -724,13 +730,13 @@ namespace lotus::renderer {
 		void _create_descriptor_binding_impl(
 			execution::transition_buffer&, gpu::descriptor_set&,
 			const gpu::descriptor_set_layout&, std::uint32_t reg,
-			const descriptor_resource::tlas&
+			const recorded_resources::tlas&
 		);
 		/// Creates a descriptor binding for a sampler.
 		void _create_descriptor_binding_impl(
 			gpu::descriptor_set&,
 			const gpu::descriptor_set_layout&, std::uint32_t reg,
-			const descriptor_resource::sampler&
+			const sampler_state&
 		);
 
 		/// \overload
@@ -747,10 +753,10 @@ namespace lotus::renderer {
 		void _create_descriptor_binding(
 			execution::context &ectx, gpu::descriptor_set &set,
 			const gpu::descriptor_set_layout &layout, std::uint32_t reg,
-			const descriptor_resource::swap_chain_image &img
+			const recorded_resources::swap_chain &img
 		) {
 			_create_descriptor_binding_impl(
-				ectx.transitions, set, layout, reg, img, _request_image_view(ectx, img.image)
+				ectx.transitions, set, layout, reg, img, _request_image_view(ectx, img)
 			);
 		}
 		/// \overload
@@ -771,7 +777,7 @@ namespace lotus::renderer {
 		void _create_descriptor_binding(
 			execution::context &ectx, gpu::descriptor_set &set,
 			const gpu::descriptor_set_layout &layout, std::uint32_t reg,
-			const descriptor_resource::tlas &as
+			const recorded_resources::tlas &as
 		) {
 			_create_descriptor_binding_impl(ectx.transitions, set, layout, reg, as);
 		}
@@ -779,7 +785,7 @@ namespace lotus::renderer {
 		void _create_descriptor_binding(
 			execution::context&, gpu::descriptor_set &set,
 			const gpu::descriptor_set_layout &layout, std::uint32_t reg,
-			const descriptor_resource::sampler &s
+			const sampler_state &s
 		) {
 			_create_descriptor_binding_impl(set, layout, reg, s);
 		}
@@ -798,9 +804,9 @@ namespace lotus::renderer {
 		/// \overload
 		void _create_descriptor_binding_cached(
 			_details::cached_descriptor_set&, std::uint32_t,
-			const descriptor_resource::swap_chain_image&
+			const recorded_resources::swap_chain&
 		) {
-			std::abort(); // not implemented
+			std::abort(); // swap chain images are not allowed
 		}
 		/// \overload
 		void _create_descriptor_binding_cached(
@@ -820,22 +826,22 @@ namespace lotus::renderer {
 		/// \overload
 		void _create_descriptor_binding_cached(
 			_details::cached_descriptor_set &set, std::uint32_t reg,
-			const descriptor_resource::tlas &as
+			const recorded_resources::tlas &as
 		) {
-			set.resource_references.emplace_back(as.acceleration_structure._ptr->shared_from_this());
+			set.resource_references.emplace_back(as._ptr->shared_from_this());
 			_create_descriptor_binding_impl(set.transitions, set.set, *set.layout, reg, as);
 		}
 		/// \overload
 		void _create_descriptor_binding_cached(
 			_details::cached_descriptor_set &set, std::uint32_t reg,
-			const descriptor_resource::sampler &s
+			const sampler_state &s
 		) {
 			_create_descriptor_binding_impl(set.set, *set.layout, reg, s);
 		}
 
 		/// Collects all descriptor ranges and returns a key for a descriptor set layout.
 		[[nodiscard]] cache_keys::descriptor_set_layout _get_descriptor_set_layout_key(
-			const resource_set_binding::descriptors&
+			std::span<const all_resource_bindings::numbered_binding>
 		);
 
 		/// Creates a new descriptor set from the given bindings.
@@ -843,7 +849,7 @@ namespace lotus::renderer {
 			cache_keys::descriptor_set_layout,
 			const gpu::descriptor_set_layout&,
 			gpu::descriptor_set&
-		> _use_descriptor_set(execution::context&, const resource_set_binding::descriptors&);
+		> _use_descriptor_set(execution::context&, std::span<const all_resource_bindings::numbered_binding>);
 		/// Returns the descriptor set of the given bindless descriptor array, and flushes all pending operations.
 		template <typename RecordedResource, typename View> [[nodiscard]] std::tuple<
 			cache_keys::descriptor_set_layout, const gpu::descriptor_set_layout&, gpu::descriptor_set&
@@ -872,7 +878,7 @@ namespace lotus::renderer {
 			const gpu::pipeline_resources&,
 			std::vector<context::_descriptor_set_info>
 		> _check_and_create_descriptor_set_bindings(
-			execution::context&, const all_resource_bindings&
+			execution::context&, _details::numbered_bindings_view
 		);
 		/// Binds the given descriptor sets.
 		void _bind_descriptor_sets(

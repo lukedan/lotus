@@ -274,3 +274,45 @@ namespace lotus::renderer::assets {
 		gpu::primitive_topology topology = gpu::primitive_topology::num_enumerators;
 	};
 }
+
+
+namespace lotus::renderer {
+	/// References a function in a shader library.
+	struct shader_function {
+		/// Initializes this object to empty.
+		shader_function(std::nullptr_t) : shader_library(nullptr) {
+		}
+		/// Initializes all fields of this struct.
+		shader_function(assets::handle<assets::shader_library> lib, const char8_t *entry, gpu::shader_stage s) :
+			shader_library(std::move(lib)), entry_point(entry), stage(s) {
+		}
+
+		/// Equality and inequality comparisons.
+		[[nodiscard]] friend bool operator==(const shader_function &lhs, const shader_function &rhs) {
+			return
+				lhs.shader_library == rhs.shader_library &&
+				std::strcmp(
+					reinterpret_cast<const char*>(lhs.entry_point),
+					reinterpret_cast<const char*>(rhs.entry_point)
+				) == 0 &&
+				lhs.stage == rhs.stage;
+		}
+
+		assets::handle<assets::shader_library> shader_library; ///< The shader library.
+		const char8_t *entry_point = nullptr; ///< Entry point.
+		gpu::shader_stage stage = gpu::shader_stage::all; ///< Shader stage of the entry point.
+	};
+}
+namespace std {
+	/// Hash function for \ref lotus::renderer::shader_function.
+	template <> struct hash<lotus::renderer::shader_function> {
+		/// Hashes the given object.
+		[[nodiscard]] size_t operator()(const lotus::renderer::shader_function &func) const {
+			return lotus::hash_combine({
+				lotus::compute_hash(func.shader_library),
+				lotus::compute_hash(std::u8string_view(func.entry_point)),
+				lotus::compute_hash(func.stage),
+			});
+		}
+	};
+}

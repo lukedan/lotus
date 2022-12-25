@@ -118,12 +118,15 @@ namespace lotus::renderer::g_buffer {
 			view_data.projection = projection;
 			view_data.projection_view = projection * view;
 
-			auto additional_resources = all_resource_bindings::assume_sorted({
-				resource_set_binding::descriptors({
-					descriptor_resource::immediate_constant_buffer::create_for(instance).at_register(1),
-					descriptor_resource::immediate_constant_buffer::create_for(view_data).at_register(2),
-				}).at_space(1),
-			});
+			auto additional_resources = all_resource_bindings(
+				{
+					{ 1, {
+						{ 1, descriptor_resource::immediate_constant_buffer::create_for(instance) },
+						{ 2, descriptor_resource::immediate_constant_buffer::create_for(view_data) },
+					} },
+				},
+				{}
+			);
 
 			pass.draw_instanced(
 				inst.geometry, inst.material, pass_ctx,

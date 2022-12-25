@@ -220,26 +220,27 @@ int main(int argc, char **argv) {
 
 #ifndef DISABLE_ALL_RT
 			{
-				auto resources = lren::all_resource_bindings::create_unsorted(
+				lren::all_resource_bindings resources(
 					{
-						lren::resource_set_binding::descriptors({
-							lren::descriptor_resource::tlas(scene.tlas).at_register(0),
-							lren::descriptor_resource::immediate_constant_buffer::create_for(globals).at_register(1),
-							lren::descriptor_resource::image2d::create_read_write(rt_result).at_register(2),
-							lren::descriptor_resource::sampler().at_register(3),
-						}).at_space(0),
-						lren::resource_set_binding(asset_man.get_images(), 1),
-						lren::resource_set_binding(scene.vertex_buffers, 2),
-						lren::resource_set_binding(scene.normal_buffers, 3),
-						lren::resource_set_binding(scene.tangent_buffers, 4),
-						lren::resource_set_binding(scene.uv_buffers, 5),
-						lren::resource_set_binding(scene.index_buffers, 6),
-						lren::resource_set_binding::descriptors({
-							lren::descriptor_resource::structured_buffer::create_read_only(scene.instances_buffer).at_register(0),
-							lren::descriptor_resource::structured_buffer::create_read_only(scene.geometries_buffer).at_register(1),
-							lren::descriptor_resource::structured_buffer::create_read_only(scene.materials_buffer).at_register(2),
-						}).at_space(7),
-					}
+						{ 0, {
+							{ 0, scene.tlas },
+							{ 1, lren::descriptor_resource::immediate_constant_buffer::create_for(globals) },
+							{ 2, rt_result.bind_as_read_write() },
+							{ 3, lren::sampler_state() },
+						} },
+						{ 1, asset_man.get_images() },
+						{ 2, scene.vertex_buffers },
+						{ 3, scene.normal_buffers },
+						{ 4, scene.tangent_buffers },
+						{ 5, scene.uv_buffers },
+						{ 6, scene.index_buffers },
+						{ 7, {
+							{ 0, scene.instances_buffer.bind_as_read_only() },
+							{ 1, scene.geometries_buffer.bind_as_read_only() },
+							{ 2, scene.materials_buffer.bind_as_read_only() },
+						} },
+					},
+					{}
 				);
 				rctx.trace_rays(
 					{
@@ -281,19 +282,20 @@ int main(int argc, char **argv) {
 				);
 				pass.draw_instanced(
 					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list,
-					lren::all_resource_bindings::create_unsorted({
-						lren::resource_set_binding::descriptors({
-							lren::descriptor_resource::image2d(
+					lren::all_resource_bindings(
+						{
+							{ 0, {
 #ifdef DISABLE_ALL_RT
-								gbuffer.normal, lren::image_binding_type::read_only
+								{ 0, gbuffer.normal.bind_as_read_only() },
 #else
-								rt_result, lren::image_binding_type::read_only
+								{ 0, rt_result.bind_as_read_only() },
 #endif
-							).at_register(0),
-							lren::descriptor_resource::sampler().at_register(1),
-							lren::descriptor_resource::immediate_constant_buffer::create_for(globals).at_register(2),
-						}).at_space(0),
-					}),
+								{ 1, lren::sampler_state() },
+								{ 2, lren::descriptor_resource::immediate_constant_buffer::create_for(globals) },
+							} },
+						},
+						{}
+					),
 					blit_vs, resolve_ps, state, 1, u8"Final blit"
 				);
 				pass.end();

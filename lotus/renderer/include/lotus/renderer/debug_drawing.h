@@ -180,11 +180,14 @@ namespace lotus::renderer {
 			shader_types::debug_draw_data data;
 			data.projection = projection;
 			if constexpr (std::is_same_v<Vert, vertex_untextured>) {
-				resource_bindings = all_resource_bindings::assume_sorted({
-					resource_set_binding::descriptors({
-						descriptor_resource::immediate_constant_buffer::create_for(data).at_register(0),
-					}).at_space(0),
-				});
+				resource_bindings = all_resource_bindings(
+					{
+						{ 0, {
+							{ 0, descriptor_resource::immediate_constant_buffer::create_for(data) },
+						} },
+					},
+					{}
+				);
 				input_bindings = input_buffer_binding(
 					0, vert_buf, 0, sizeof(Vert), gpu::input_buffer_rate::per_vertex, {
 						{ u8"POSITION", 0, gpu::format::r32g32b32_float,    offsetof(Vert, position) },
@@ -194,13 +197,16 @@ namespace lotus::renderer {
 				vs = _vertex_shader_untextured;
 				ps = _pixel_shader_untextured;
 			} else if constexpr (std::is_same_v<Vert, vertex_textured>) {
-				resource_bindings = all_resource_bindings::assume_sorted({
-					resource_set_binding::descriptors({
-						descriptor_resource::immediate_constant_buffer::create_for(data).at_register(0),
-						descriptor_resource::image2d::create_read_only(texture).at_register(1),
-					}).at_space(0),
-					resource_set_binding(_asset_man.get_samplers(), 1),
-				});
+				resource_bindings = all_resource_bindings(
+					{
+						{ 0, {
+							{ 0, descriptor_resource::immediate_constant_buffer::create_for(data) },
+							{ 1, texture.bind_as_read_only() },
+						} },
+						{ 1, _asset_man.get_samplers() },
+					},
+					{}
+				);
 				input_bindings = input_buffer_binding::create(
 					vert_buf, 0, gpu::input_buffer_layout::create_vertex_buffer<Vert>({
 						{ u8"POSITION", 0, gpu::format::r32g32b32_float,    offsetof(Vert, position) },

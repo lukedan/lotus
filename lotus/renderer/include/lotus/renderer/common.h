@@ -10,11 +10,7 @@
 #include "lotus/gpu/resources.h"
 
 namespace lotus::renderer {
-	// forward declaration of resource types
-	namespace recorded_resources {
-		struct image2d_view;
-		struct structured_buffer_view;
-	}
+	// forward declaration
 	namespace _details {
 		struct image2d;
 		struct buffer;
@@ -24,11 +20,59 @@ namespace lotus::renderer {
 		struct blas;
 		struct tlas;
 		struct cached_descriptor_set;
+	}
 
+	namespace recorded_resources {
+		template <typename> class basic_handle;
+
+		struct image2d_view;
+		struct structured_buffer_view;
+
+		/// \ref renderer::descriptor_array.
+		template <typename RecordedResource, typename View = std::nullopt_t> using descriptor_array = basic_handle<
+			_details::descriptor_array<RecordedResource, View>
+		>;
+
+		/// \ref renderer::image_descriptor_array.
+		using image_descriptor_array = descriptor_array<image2d_view, gpu::image2d_view>;
+		/// \ref renderer::buffer_descriptor_array.
+		using buffer_descriptor_array = descriptor_array<structured_buffer_view>;
+	}
+
+	class context;
+	struct input_buffer_binding;
+	struct index_buffer_binding;
+	struct all_resource_bindings;
+
+	template <typename> struct basic_resource_handle;
+	struct image2d_view;
+	struct buffer;
+	struct structured_buffer_view;
+	struct swap_chain;
+	template <typename, typename = std::nullopt_t> struct descriptor_array;
+	/// An array of image descriptors.
+	using image_descriptor_array = descriptor_array<recorded_resources::image2d_view, gpu::image2d_view>;
+	/// An array of buffer descriptors.
+	using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view>;
+	struct blas;
+	struct tlas;
+	struct cached_descriptor_set;
+
+	namespace assets {
+		class manager;
+		template <typename> struct handle;
+	}
+
+	namespace _details {
 		/// Array of image descriptors.
 		using image_descriptor_array = descriptor_array<recorded_resources::image2d_view, gpu::image2d_view>;
 		/// Array of buffer descriptors.
 		using buffer_descriptor_array = descriptor_array<recorded_resources::structured_buffer_view>;
+	}
+
+	namespace execution {
+		class context;
+		class transition_buffer;
 	}
 
 

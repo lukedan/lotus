@@ -220,39 +220,34 @@ int main(int argc, char **argv) {
 					);
 					state.blend_options.emplace_back(lgpu::render_target_blend_options::disabled());
 				}
-				auto resource_bindings = lren::all_resource_bindings::assume_sorted({
-					lren::resource_set_binding::descriptors({
-						lren::resource_binding(
-							lren::descriptor_resource::immediate_constant_buffer::create_for(globals_buf_data), 0
-						),
-						lren::resource_binding(
-							lren::descriptor_resource::sampler(
-								lgpu::filtering::nearest, lgpu::filtering::nearest, lgpu::filtering::nearest
-							), 1
-						),
-						lren::resource_binding(
-							lren::descriptor_resource::sampler(), 2
-						),
-					}).at_space(1)
-				});
+				lren::all_resource_bindings::numbered_descriptor_bindings custom_bindings;
 				for (const auto &in : pit->second.inputs) {
 					if (in.register_index) {
 						if (std::holds_alternative<pass::input::pass_output>(in.value)) {
 							const auto &out = std::get<pass::input::pass_output>(in.value);
 							const auto *target = proj.find_target(out.name, error_callback);
 							if (target) {
-								resource_bindings.append_set(lren::resource_set_binding::descriptors({
-									lren::resource_binding(
-										lren::descriptor_resource::image2d::create_read_only(
-											out.previous_frame ? target->previous_frame : target->current_frame
-										),
-										in.register_index.value()
-									)
-								}).at_space(0));
+								custom_bindings.emplace_back(
+									in.register_index.value(),
+									(out.previous_frame ? target->previous_frame : target->current_frame).bind_as_read_only()
+								);
 							}
 						}
 					}
 				}
+				lren::all_resource_bindings resource_bindings(
+					{
+						{ 0, std::move(custom_bindings) },
+						{ 1, {
+							{ 0, lren::descriptor_resource::immediate_constant_buffer::create_for(globals_buf_data) },
+							{ 1, lren::sampler_state(
+									lgpu::filtering::nearest, lgpu::filtering::nearest, lgpu::filtering::nearest
+							) },
+							{ 2, lren::sampler_state() },
+						} },
+					},
+					{}
+				);
 
 				auto pass = rctx.begin_pass(std::move(color_surfaces), nullptr, window_size, pit->first);
 				pass.draw_instanced(
@@ -274,18 +269,17 @@ int main(int argc, char **argv) {
 				),
 				lgpu::depth_stencil_options::all_disabled()
 			);
-			auto resource_bindings = lren::all_resource_bindings::assume_sorted({
-				lren::resource_set_binding::descriptors({
-					lren::resource_binding(
-						lren::descriptor_resource::image2d::create_read_only(main_out->current_frame), 0
-					),
-					lren::resource_binding(
-						lren::descriptor_resource::sampler(
+			lren::all_resource_bindings resource_bindings(
+				{
+					{ 0, {
+						{ 0, main_out->current_frame.bind_as_read_only() },
+						{ 1, lren::sampler_state(
 							lgpu::filtering::nearest, lgpu::filtering::nearest, lgpu::filtering::nearest
-						), 1
-					),
-				}).at_space(0)
-			});
+						) },
+					} },
+				},
+				{}
+			);
 
 			auto pass = rctx.begin_pass(
 				{

@@ -131,12 +131,15 @@ int main(int argc, char **argv) {
 		data.value = value;
 		rctx.run_compute_shader_with_thread_dimensions(
 			fill_buffer_cs, cvec3u32(data.size, 1, 1),
-			lren::all_resource_bindings::assume_sorted({
-				lren::resource_set_binding::descriptors({
-					lren_bds::structured_buffer::create_read_write(buf).at_register(0),
-					lren_bds::immediate_constant_buffer::create_for(data).at_register(1),
-				}).at_space(0),
-			}),
+			lren::all_resource_bindings(
+				{
+					{ 0, {
+						{ 0, buf.bind_as_read_write() },
+						{ 1, lren_bds::immediate_constant_buffer::create_for(data) },
+					} },
+				},
+				{}
+			),
 			description
 		);
 	};
@@ -300,13 +303,16 @@ int main(int argc, char **argv) {
 					direct_update_constants.sample_count_cap = direct_sample_count_cap;
 					direct_update_constants.frame_index      = frame_index;
 
-					auto resources = lren::named_bindings({
-						{ u8"probe_consts",      lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-						{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(direct_update_constants) },
-						{ u8"direct_reservoirs", lren_bds::structured_buffer::create_read_write(direct_reservoirs) },
-						{ u8"all_lights",        lren_bds::structured_buffer::create_read_only(scene.lights_buffer) },
-						{ u8"rtas",              lren_bds::tlas(scene.tlas) },
-					}).into_unnamed_bindings({ &direct_update_cs->reflection });
+					lren::all_resource_bindings resources(
+						{},
+						{
+							{ u8"probe_consts",      lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+							{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(direct_update_constants) },
+							{ u8"direct_reservoirs", direct_reservoirs.bind_as_read_write() },
+							{ u8"all_lights",        scene.lights_buffer.bind_as_read_only() },
+							{ u8"rtas",              scene.tlas },
+						}
+					);
 					rctx.run_compute_shader_with_thread_dimensions(
 						direct_update_cs, probe_density, std::move(resources), u8"Update Direct Probes"
 					);
@@ -317,27 +323,28 @@ int main(int argc, char **argv) {
 					indirect_update_constants.frame_index      = frame_index;
 					indirect_update_constants.sample_count_cap = indirect_sample_count_cap;
 
-					auto resources = lren::named_bindings({
-						{ u8"probe_consts",    lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-						{ u8"constants",       lren_bds::immediate_constant_buffer::create_for(indirect_update_constants) },
-						{ u8"direct_probes",   lren_bds::structured_buffer::create_read_only(direct_reservoirs) },
-						{ u8"indirect_sh",     lren_bds::structured_buffer::create_read_only(probe_sh) },
-						{ u8"indirect_probes", lren_bds::structured_buffer::create_read_write(indirect_reservoirs) },
-						{ u8"rtas",            lren_bds::tlas(scene.tlas) },
-						{ u8"textures",        lren::recorded_resources::image_descriptor_array(rassets.get_images()) },
-						{ u8"positions",       lren::recorded_resources::buffer_descriptor_array(scene.vertex_buffers) },
-						{ u8"normals",         lren::recorded_resources::buffer_descriptor_array(scene.normal_buffers) },
-						{ u8"tangents",        lren::recorded_resources::buffer_descriptor_array(scene.tangent_buffers) },
-						{ u8"uvs",             lren::recorded_resources::buffer_descriptor_array(scene.uv_buffers) },
-						{ u8"indices",         lren::recorded_resources::buffer_descriptor_array(scene.index_buffers) },
-						{ u8"instances",       lren_bds::structured_buffer::create_read_only(scene.instances_buffer) },
-						{ u8"geometries",      lren_bds::structured_buffer::create_read_only(scene.geometries_buffer) },
-						{ u8"materials",       lren_bds::structured_buffer::create_read_only(scene.materials_buffer) },
-						{ u8"all_lights",      lren_bds::structured_buffer::create_read_only(scene.lights_buffer) },
-					}).into_unnamed_bindings(
-						{ &indirect_update_cs->reflection }, lren::all_resource_bindings::assume_sorted({
-							lren::resource_set_binding(rassets.get_samplers(), 8),
-						})
+					lren::all_resource_bindings resources(
+						{
+							{ 8, rassets.get_samplers() },
+						},
+						{
+							{ u8"probe_consts",    lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+							{ u8"constants",       lren_bds::immediate_constant_buffer::create_for(indirect_update_constants) },
+							{ u8"direct_probes",   direct_reservoirs.bind_as_read_only() },
+							{ u8"indirect_sh",     probe_sh.bind_as_read_only() },
+							{ u8"indirect_probes", indirect_reservoirs.bind_as_read_write() },
+							{ u8"rtas",            scene.tlas },
+							{ u8"textures",        rassets.get_images() },
+							{ u8"positions",       scene.vertex_buffers },
+							{ u8"normals",         scene.normal_buffers },
+							{ u8"tangents",        scene.tangent_buffers },
+							{ u8"uvs",             scene.uv_buffers },
+							{ u8"indices",         scene.index_buffers },
+							{ u8"instances",       scene.instances_buffer.bind_as_read_only() },
+							{ u8"geometries",      scene.geometries_buffer.bind_as_read_only() },
+							{ u8"materials",       scene.materials_buffer.bind_as_read_only() },
+							{ u8"all_lights",      scene.lights_buffer.bind_as_read_only() },
+						}
 					);
 					rctx.run_compute_shader_with_thread_dimensions(
 						indirect_update_cs, probe_density, std::move(resources), u8"Update Indirect Probes"
@@ -345,11 +352,14 @@ int main(int argc, char **argv) {
 				}
 
 				{ // summarize probes
-					auto resources = lren::named_bindings({
-						{ u8"indirect_reservoirs", lren_bds::structured_buffer::create_read_only(indirect_reservoirs) },
-						{ u8"probe_sh",              lren_bds::structured_buffer::create_read_write(probe_sh) },
-						{ u8"probe_consts",        lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-					}).into_unnamed_bindings({ &summarize_probes_cs->reflection });
+					lren::all_resource_bindings resources(
+						{},
+						{
+							{ u8"indirect_reservoirs", indirect_reservoirs.bind_as_read_only() },
+							{ u8"probe_sh",            probe_sh.bind_as_read_write() },
+							{ u8"probe_consts",        lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+						}
+					);
 					rctx.run_compute_shader_with_thread_dimensions(
 						summarize_probes_cs, probe_density, std::move(resources), u8"Summarize Probes"
 					);
@@ -357,20 +367,23 @@ int main(int argc, char **argv) {
 			}
 
 			{ // lighting
-				auto resources = lren::named_bindings({
-					{ u8"gbuffer_albedo_glossiness", lren_bds::image2d::create_read_only(g_buf.albedo_glossiness) },
-					{ u8"gbuffer_normal",            lren_bds::image2d::create_read_only(g_buf.normal) },
-					{ u8"gbuffer_metalness",         lren_bds::image2d::create_read_only(g_buf.metalness) },
-					{ u8"gbuffer_depth",             lren_bds::image2d::create_read_only(g_buf.depth_stencil) },
-					{ u8"out_diffuse",               lren_bds::image2d::create_read_write(light_diffuse) },
-					{ u8"out_specular",              lren_bds::image2d::create_read_write(light_specular) },
-					{ u8"all_lights",                lren_bds::structured_buffer::create_read_only(scene.lights_buffer) },
-					{ u8"direct_reservoirs",         lren_bds::structured_buffer::create_read_only(direct_reservoirs) },
-					{ u8"indirect_probes",           lren_bds::structured_buffer::create_read_only(probe_sh) },
-					{ u8"rtas",                      lren_bds::tlas(scene.tlas) },
-					{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
-					{ u8"probe_consts",              lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-				}).into_unnamed_bindings({ &lighting_cs->reflection });
+				lren::all_resource_bindings resources(
+					{},
+					{
+						{ u8"gbuffer_albedo_glossiness", g_buf.albedo_glossiness.bind_as_read_only() },
+						{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
+						{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
+						{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
+						{ u8"out_diffuse",               light_diffuse.bind_as_read_write() },
+						{ u8"out_specular",              light_specular.bind_as_read_write() },
+						{ u8"all_lights",                scene.lights_buffer.bind_as_read_only() },
+						{ u8"direct_reservoirs",         direct_reservoirs.bind_as_read_only() },
+						{ u8"indirect_probes",           probe_sh.bind_as_read_only() },
+						{ u8"rtas",                      scene.tlas },
+						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
+						{ u8"probe_consts",              lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+					}
+				);
 				rctx.run_compute_shader_with_thread_dimensions(
 					lighting_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
 					std::move(resources), u8"Lighting"
@@ -394,28 +407,29 @@ int main(int argc, char **argv) {
 				constants.mode        = shade_point_debug_mode;
 				constants.num_frames  = ++num_accumulated_frames;
 
-				auto resources = lren::named_bindings({
-					{ u8"probe_consts",   lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-					{ u8"constants",      lren_bds::immediate_constant_buffer::create_for(constants) },
-					{ u8"direct_probes",  lren_bds::structured_buffer::create_read_only(direct_reservoirs) },
-					{ u8"indirect_sh",    lren_bds::structured_buffer::create_read_only(probe_sh) },
-					{ u8"out_irradiance", lren_bds::image2d::create_read_write(light_diffuse) },
-					{ u8"out_accum",      lren_bds::image2d::create_read_write(path_tracer_accum) },
-					{ u8"rtas",           lren_bds::tlas(scene.tlas) },
-					{ u8"textures",       lren::recorded_resources::image_descriptor_array(rassets.get_images()) },
-					{ u8"positions",      lren::recorded_resources::buffer_descriptor_array(scene.vertex_buffers) },
-					{ u8"normals",        lren::recorded_resources::buffer_descriptor_array(scene.normal_buffers) },
-					{ u8"tangents",       lren::recorded_resources::buffer_descriptor_array(scene.tangent_buffers) },
-					{ u8"uvs",            lren::recorded_resources::buffer_descriptor_array(scene.uv_buffers) },
-					{ u8"indices",        lren::recorded_resources::buffer_descriptor_array(scene.index_buffers) },
-					{ u8"instances",      lren_bds::structured_buffer::create_read_only(scene.instances_buffer) },
-					{ u8"geometries",     lren_bds::structured_buffer::create_read_only(scene.geometries_buffer) },
-					{ u8"materials",      lren_bds::structured_buffer::create_read_only(scene.materials_buffer) },
-					{ u8"all_lights",     lren_bds::structured_buffer::create_read_only(scene.lights_buffer) },
-				}).into_unnamed_bindings(
-					{ &shade_point_debug_cs->reflection }, lren::all_resource_bindings::assume_sorted({
-						lren::resource_set_binding(rassets.get_samplers(), 8),
-					})
+				lren::all_resource_bindings resources(
+					{
+						{ 8, rassets.get_samplers() },
+					},
+					{
+						{ u8"probe_consts",   lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+						{ u8"constants",      lren_bds::immediate_constant_buffer::create_for(constants) },
+						{ u8"direct_probes",  direct_reservoirs.bind_as_read_only() },
+						{ u8"indirect_sh",    probe_sh.bind_as_read_only() },
+						{ u8"out_irradiance", light_diffuse.bind_as_read_write() },
+						{ u8"out_accum",      path_tracer_accum.bind_as_read_write() },
+						{ u8"rtas",           scene.tlas },
+						{ u8"textures",       rassets.get_images() },
+						{ u8"positions",      scene.vertex_buffers },
+						{ u8"normals",        scene.normal_buffers },
+						{ u8"tangents",       scene.tangent_buffers },
+						{ u8"uvs",            scene.uv_buffers },
+						{ u8"indices",        scene.index_buffers },
+						{ u8"instances",      scene.instances_buffer.bind_as_read_only() },
+						{ u8"geometries",     scene.geometries_buffer.bind_as_read_only() },
+						{ u8"materials",      scene.materials_buffer.bind_as_read_only() },
+						{ u8"all_lights",     scene.lights_buffer.bind_as_read_only() },
+					}
 				);
 				rctx.run_compute_shader_with_thread_dimensions(
 					shade_point_debug_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
@@ -431,14 +445,15 @@ int main(int argc, char **argv) {
 				);
 				shader_types::lighting_combine_constants constants;
 				constants.lighting_scale = lighting_scale;
-				auto resources = lren::named_bindings({
-					{ u8"diffuse_lighting",  lren_bds::image2d::create_read_only(light_diffuse) },
-					{ u8"specular_lighting", lren_bds::image2d::create_read_only(light_specular) },
-					{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(constants) },
-				}).into_unnamed_bindings(
-					{ &fs_quad_vs->reflection, &lighting_combine_ps->reflection }, lren::all_resource_bindings::create_unsorted({
-						lren::resource_set_binding(rassets.get_samplers(), 1),
-					})
+				lren::all_resource_bindings resources(
+					{
+						{ 1, rassets.get_samplers() },
+					},
+					{
+						{ u8"diffuse_lighting",  light_diffuse.bind_as_read_only() },
+						{ u8"specular_lighting", light_specular.bind_as_read_only() },
+						{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(constants) },
+					}
 				);
 
 				auto pass = rctx.begin_pass(
@@ -459,17 +474,17 @@ int main(int argc, char **argv) {
 				);
 				shader_types::gbuffer_visualization_constants constants;
 				constants.mode = gbuffer_visualization;
-				auto resources = lren::named_bindings({
-					{ u8"gbuffer_albedo_glossiness", lren_bds::image2d::create_read_only(g_buf.albedo_glossiness) },
-					{ u8"gbuffer_normal",            lren_bds::image2d::create_read_only(g_buf.normal) },
-					{ u8"gbuffer_metalness",         lren_bds::image2d::create_read_only(g_buf.metalness) },
-					{ u8"gbuffer_depth",             lren_bds::image2d::create_read_only(g_buf.depth_stencil) },
-					{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(constants) },
-				}).into_unnamed_bindings(
-					{ &fs_quad_vs->reflection, &show_gbuffer_ps->reflection },
-					lren::all_resource_bindings::create_unsorted({
-						lren::resource_set_binding(rassets.get_samplers(), 1),
-					})
+				lren::all_resource_bindings resources(
+					{
+						{ 1, rassets.get_samplers() },
+					},
+					{
+						{ u8"gbuffer_albedo_glossiness", g_buf.albedo_glossiness.bind_as_read_only() },
+						{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
+						{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
+						{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
+						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(constants) },
+					}
 				);
 
 				auto pass = rctx.begin_pass(
@@ -501,11 +516,14 @@ int main(int argc, char **argv) {
 				constants.unit_forward    = cam.unit_forward;
 				constants.lighting_scale  = lighting_scale;
 
-				auto resources = lren::named_bindings({
-					{ u8"probe_consts", lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-					{ u8"constants",    lren_bds::immediate_constant_buffer::create_for(constants) },
-					{ u8"probe_values", lren_bds::structured_buffer::create_read_only(probe_sh) },
-				}).into_unnamed_bindings({ &visualize_probes_vs->reflection, &visualize_probes_ps->reflection });
+				lren::all_resource_bindings resources(
+					{},
+					{
+						{ u8"probe_consts", lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+						{ u8"constants",    lren_bds::immediate_constant_buffer::create_for(constants) },
+						{ u8"probe_values", probe_sh.bind_as_read_only() },
+					}
+				);
 
 				std::uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
 

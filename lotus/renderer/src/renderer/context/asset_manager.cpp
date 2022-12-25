@@ -339,12 +339,12 @@ namespace lotus::renderer::assets {
 		_image2d_descriptors(ctx.request_image_descriptor_array(
 			u8"Texture assets", gpu::descriptor_type::read_only_image, 1024
 		)),
-		_sampler_descriptors(ctx.create_cached_descriptor_set(u8"Samplers", resource_set_binding::descriptors({
-			descriptor_resource::sampler(
+		_sampler_descriptors(ctx.create_cached_descriptor_set(u8"Samplers", {
+			{ 0, sampler_state(
 				gpu::filtering::linear, gpu::filtering::linear, gpu::filtering::linear,
 				0.0f, 0.0f, std::numeric_limits<float>::max(), 16.0f
-			).at_register(0),
-		}))),
+			) },
+		})),
 		_null_image(nullptr),
 		_invalid_image(nullptr),
 		_image2d_descriptor_index_alloc({ 0 }) {

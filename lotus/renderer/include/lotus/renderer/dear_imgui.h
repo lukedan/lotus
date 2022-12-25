@@ -133,15 +133,19 @@ namespace lotus::renderer::dear_imgui {
 					data.scissor_min = cvec2f(cmd.ClipRect.x, cmd.ClipRect.y) - pos;
 					data.scissor_max = cvec2f(cmd.ClipRect.z, cmd.ClipRect.w) - pos;
 					data.uses_texture = texture_index > 0;
-					auto resources = all_resource_bindings::assume_sorted({
-						resource_set_binding::descriptors({
-							descriptor_resource::immediate_constant_buffer::create_for(data).at_register(0),
-							descriptor_resource::image2d::create_read_only(
-								texture_index > 0 ? _registered_images[texture_index - 1] : nullptr
-							).at_register(1),
-						}).at_space(0),
-						resource_set_binding(_asset_man.get_samplers(), 1),
-					});
+					all_resource_bindings resources(
+						{
+							{ 0, {
+								{ 0, descriptor_resource::immediate_constant_buffer::create_for(data) },
+								{ 1, descriptor_resource::image2d(
+									texture_index > 0 ? _registered_images[texture_index - 1] : nullptr,
+									image_binding_type::read_only
+								) },
+							} },
+							{ 1, _asset_man.get_samplers() },
+						},
+						{}
+					);
 
 					pass.draw_instanced(
 						{

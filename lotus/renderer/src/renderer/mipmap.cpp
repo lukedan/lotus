@@ -24,16 +24,15 @@ namespace lotus::renderer::mipmap {
 			img.get_viewed_mip_levels()
 		);
 		for (std::uint32_t i = mips.minimum + 1; i < mips.maximum; ++i) {
-			auto rsrc = all_resource_bindings::assume_sorted({
-				resource_set_binding::descriptors({
-					resource_binding(descriptor_resource::image2d::create_read_only(
-						img.view_mips(gpu::mip_levels::only(i - 1))
-					), 0),
-					resource_binding(descriptor_resource::image2d::create_read_write(
-						img.view_mips(gpu::mip_levels::only(i))
-					), 1),
-				}).at_space(0),
-			});
+			all_resource_bindings rsrc(
+				{
+					{ 0, {
+						{ 0, img.view_mips(gpu::mip_levels::only(i - 1)).bind_as_read_only() },
+						{ 1, img.view_mips(gpu::mip_levels::only(i)).bind_as_read_write() },
+					} },
+				},
+				{}
+			);
 
 			auto size = (img.get_size() / 2).into<std::uint32_t>();
 			// TODO better description

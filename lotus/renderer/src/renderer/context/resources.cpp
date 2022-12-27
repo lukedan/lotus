@@ -43,7 +43,6 @@ namespace lotus::renderer {
 
 
 		pool::token pool::allocate(memory::size_alignment size_align) {
-			crash_if(size_align.size > chunk_size);
 			for (std::size_t i = 0; i < _chunks.size(); ++i) {
 				if (auto res = _chunks[i].allocator.allocate(size_align, 0)) {
 					if (debug_log_allocations) {
@@ -55,7 +54,10 @@ namespace lotus::renderer {
 				}
 			}
 			std::size_t index = _chunks.size();
-			auto new_chunk_size = std::max(static_cast<std::uint32_t>(size_align.size), chunk_size);
+			auto new_chunk_size = chunk_size;
+			while (new_chunk_size < size_align.size) {
+				new_chunk_size *= 2;
+			}
 			auto &chk = _chunks.emplace_back(
 				allocate_memory(new_chunk_size), _chunk::allocator_t::create(new_chunk_size)
 			);

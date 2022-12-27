@@ -4,6 +4,11 @@
 #include "math/sh.hlsli"
 #include "brdf/fresnel.hlsli"
 #include "brdf/trowbridge_reitz.hlsli"
+#include "material_common.hlsli"
+#include "lights.hlsli"
+#include "types.hlsli"
+
+#include "common_shaders/types.hlsli"
 
 #include "probes.hlsli"
 #include "reservoir.hlsli"
@@ -138,7 +143,7 @@ float3 shade_point(
 	specular_irradiance /= probe_consts.direct_reservoirs_per_probe;
 
 
-	// shade indirect lights
+	// indirect diffuse
 	probe_data probe_sh = indirect_sh[use_probe_index];
 	sh::sh2 cosine_lobe = sh::clamped_cosine::eval_sh2(frag.normal_ws);
 	float3 color = float3(
@@ -146,7 +151,7 @@ float3 shade_point(
 		sh::integrate((sh::sh2)probe_sh.irradiance_sh2_g, cosine_lobe),
 		sh::integrate((sh::sh2)probe_sh.irradiance_sh2_b, cosine_lobe)
 	) / pi;
-	diffuse_irradiance += max(0.0f, color) * frag.albedo;
+	diffuse_irradiance += max(0.0f, color) * frag.albedo * (1.0f - frag.metalness);
 
 
 	return diffuse_irradiance + specular_irradiance;

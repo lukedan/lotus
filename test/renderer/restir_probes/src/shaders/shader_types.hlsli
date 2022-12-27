@@ -19,6 +19,11 @@ struct lighting_combine_constants {
 	float lighting_scale;
 };
 
+struct indirect_specular_constants {
+	bool enable_mis;
+	uint frame_index;
+};
+
 
 struct reservoir_common {
 	float sum_weights;

@@ -124,7 +124,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 			sh::integrate((sh::sh2)probe_sh.irradiance_sh2_g, cosine_lobe),
 			sh::integrate((sh::sh2)probe_sh.irradiance_sh2_b, cosine_lobe)
 		) / pi;
-		diffuse_color += color * gbuf.fragment.albedo;
+		diffuse_color += color * gbuf.fragment.albedo * (1.0f - gbuf.fragment.metalness);
 	}
 
 	out_diffuse [dispatch_thread_id] = float4(diffuse_color, 0.0f);

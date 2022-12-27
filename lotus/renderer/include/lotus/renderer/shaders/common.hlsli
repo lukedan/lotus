@@ -53,6 +53,10 @@ namespace octahedral_mapping {
 		}
 		return pos;
 	}
+
+	float3 to_direction_normalized(float2 octa) {
+		return normalize(to_direction_unnormalized(octa));
+	}
 }
 
 #define LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(SPACE)    \

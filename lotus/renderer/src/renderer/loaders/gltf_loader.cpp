@@ -407,7 +407,7 @@ namespace lotus::renderer::gltf {
 								light_data.type = shader_types::light_type::spot_light;
 							}
 							light_data.position   = trans.block<3, 1>(0, 3);
-							light_data.direction  = (trans * cvec4f(0.0f, 0.0f, -1.0f, 0.0f)).block<3, 1>(0, 0);
+							light_data.direction  = vec::unsafe_normalize((trans * cvec4f(0.0f, 0.0f, -1.0f, 0.0f)).block<3, 1>(0, 0));
 							light_data.irradiance = (light_def.intensity * light_color).into<float>();
 							light_loaded_callback(light_data);
 						}

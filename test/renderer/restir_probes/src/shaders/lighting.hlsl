@@ -8,6 +8,7 @@
 #include "common_shaders/types.hlsli"
 #include "shader_types.hlsli"
 #include "probes.hlsli"
+#include "shading.hlsli"
 
 Texture2D<float4> gbuffer_albedo_glossiness : register(t0, space0);
 Texture2D<float4> gbuffer_normal            : register(t1, space0);
@@ -40,6 +41,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		gbuffer_depth            [dispatch_thread_id],
 		uv, constants.inverse_projection_view, constants.depth_linearization_constants
 	);
+	float3 view_vec = normalize(constants.camera.xyz - gbuf.fragment.position_ws);
 
 	pcg32::state rng = pcg32::seed(dispatch_thread_id.y * 50000 + dispatch_thread_id.x * 3, 0);
 
@@ -54,7 +56,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 	float3 diffuse_color = (float3)0;
 	float3 specular_color = (float3)0;
 
-	if (constants.diffuse_mode == 1) {
+	if (constants.lighting_mode == 1) {
 		for (uint i = 0; i < probe_consts.direct_reservoirs_per_probe; ++i) {
 			direct_lighting_reservoir cur_res = direct_reservoirs[direct_reservoir_offset + i];
 			if (cur_res.light_index == 0) {
@@ -78,13 +80,14 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 				}
 			}
 
-			float n_l = -dot(gbuf.fragment.normal_ws, light_data.direction);
-			if (n_l > 0) {
-				diffuse_color += cur_res.data.contribution_weight * light_data.attenuation * n_l * cur_li.irradiance / pi;
-			}
+			float3 d, s;
+			shade_direct_light(gbuf.fragment, cur_li, light_data, view_vec, d, s);
+			diffuse_color += cur_res.data.contribution_weight * d;
+			specular_color += cur_res.data.contribution_weight * s;
 		}
 		diffuse_color /= probe_consts.direct_reservoirs_per_probe;
-	} else if (constants.diffuse_mode == 2) {
+		specular_color /= probe_consts.direct_reservoirs_per_probe;
+	} else if (constants.lighting_mode == 2) {
 		for (uint i = 0; i < constants.num_lights; ++i) {
 			light l = all_lights[i];
 			lights::derived_data light_data = lights::compute_derived_data(l, gbuf.fragment.position_ws);
@@ -103,12 +106,15 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 				}
 			}
 
-			float n_l = -dot(gbuf.fragment.normal_ws, light_data.direction);
-			if (n_l > 0) {
-				diffuse_color += light_data.attenuation * n_l * l.irradiance / pi;
-			}
+			float3 d, s;
+			shade_direct_light(gbuf.fragment, l, light_data, view_vec, d, s);
+			diffuse_color += d;
+			specular_color += s;
 		}
 	}
+
+	diffuse_color *= constants.direct_diffuse_multiplier;
+	specular_color *= constants.direct_specular_multiplier;
 
 	if (constants.use_indirect) {
 		probe_data probe_sh = indirect_probes[use_probe_index];
@@ -118,9 +124,9 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 			sh::integrate((sh::sh2)probe_sh.irradiance_sh2_g, cosine_lobe),
 			sh::integrate((sh::sh2)probe_sh.irradiance_sh2_b, cosine_lobe)
 		) / pi;
-		diffuse_color += color;
+		diffuse_color += color * gbuf.fragment.albedo;
 	}
 
-	out_diffuse [dispatch_thread_id] = float4(diffuse_color * gbuf.fragment.albedo, 0.0f);
+	out_diffuse [dispatch_thread_id] = float4(diffuse_color, 0.0f);
 	out_specular[dispatch_thread_id] = float4(specular_color, 0.0f);
 }

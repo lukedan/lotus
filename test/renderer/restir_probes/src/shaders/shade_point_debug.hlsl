@@ -93,6 +93,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 	if (constants.mode == 4) {
 		float3 total_light = (float3)0.0f;
 		float3 attenuation = (float3)1.0f;
+		float3 direction;
 
 		pcg32::state rng = pcg32::seed(dispatch_thread_id.y * 3001 + dispatch_thread_id.x * 5, constants.num_frames);
 
@@ -100,11 +101,11 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		material::shading_properties fragment;
 
 		{ // primary ray
-			float3 direction = (
+			direction = normalize((
 				constants.top_left +
 				(dispatch_thread_id.x + pcg32::random_01(rng)) * constants.x +
 				(dispatch_thread_id.y + pcg32::random_01(rng)) * constants.y
-			).xyz;
+			).xyz);
 
 			if (!cast_ray(constants.camera.xyz, direction, fragment)) {
 				terminated = true;
@@ -112,22 +113,41 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		}
 
 		for (uint i = 0; i < 20 && !terminated; ++i) {
-			attenuation *= fragment.albedo;
-
 			// random light sample
 			uint light_index = random_below_fast(constants.num_lights, rng);
 			light cur_li = all_lights[light_index];
 			lights::derived_data li_data = lights::compute_derived_data(cur_li, fragment.position_ws);
 			if (test_visibility(fragment.position_ws, -li_data.direction, li_data.distance)) {
-				float3 lighting = cur_li.irradiance * li_data.attenuation * max(0.0f, -dot(li_data.direction, fragment.normal_ws)) / pi;
-				total_light += attenuation * lighting * constants.num_lights;
+				float3 ld, ls;
+				shade_direct_light(fragment, cur_li, li_data, -direction, ld, ls);
+				total_light += attenuation * constants.num_lights * (ld + ls);
 			}
 
 			// indirect
-			float3 out_dir = normalize(fragment.normal_ws + distribution::unit_square_to_unit_sphere(float2(pcg32::random_01(rng), pcg32::random_01(rng))));
-			if (!cast_ray(fragment.position_ws, out_dir, fragment)) {
+			float3 new_dir;
+			float pdf;
+			/*if (pcg32::random(rng) & 1) {*/
+				new_dir = normalize(fragment.normal_ws + distribution::unit_square_to_unit_sphere(float2(pcg32::random_01(rng), pcg32::random_01(rng))));
+				pdf = dot(new_dir, fragment.normal_ws) / pi;
+			/*} else {
+				float alpha = squared(1.0f - fragment.glossiness);
+				tangent_frame::tbn ts = tangent_frame::any(fragment.normal_ws);
+				float2 smp = trowbridge_reitz::importance_sample_d(pcg32::random_01(rng), alpha);
+				float n_h = smp.x;
+				pdf = smp.y;
+				float theta = 2.0f * pi * pcg32::random_01(rng);
+				float3 h = ts.normal * n_h + sqrt(1.0f - n_h * n_h) * (cos(theta) * ts.tangent + sin(theta) * ts.bitangent);
+				new_dir = reflect(direction, h);
+			}
+			pdf *= 0.5f;*/
+
+			float3 bd, bs;
+			brdf(fragment, new_dir, -direction, bd, bs);
+			attenuation *= (bd + bs) * dot(new_dir, fragment.normal_ws) / pdf;
+			if (!cast_ray(fragment.position_ws, new_dir, fragment)) {
 				terminated = true;
 			}
+			direction = new_dir;
 		}
 
 		float3 accum;
@@ -141,13 +161,13 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		return;
 	}
 
-	float3 direction = (constants.top_left + (dispatch_thread_id.x + 0.5f) * constants.x + (dispatch_thread_id.y + 0.5f) * constants.y).xyz;
+	float3 direction = normalize((constants.top_left + (dispatch_thread_id.x + 0.5f) * constants.x + (dispatch_thread_id.y + 0.5f) * constants.y).xyz);
 
 	float3 irradiance = (float3)0.0f;
 	material::shading_properties fragment = (material::shading_properties)0;
 
 	if (cast_ray(constants.camera.xyz, direction, fragment)) {
-		irradiance = shade_point(fragment, direct_probes, indirect_sh, all_lights, probe_consts);
+		irradiance = shade_point(fragment, -direction, direct_probes, indirect_sh, all_lights, probe_consts);
 	}
 
 	float4 result = (float4)1.0f;

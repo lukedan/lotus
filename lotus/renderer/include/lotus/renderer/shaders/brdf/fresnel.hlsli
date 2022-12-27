@@ -7,7 +7,7 @@ namespace fresnel {
 	float dielectric_parallel(float eta_i, float eta_t, float cos_i, float cos_t) {
 		return (eta_t * cos_i - eta_i * cos_t) / (eta_t * cos_i + eta_i * cos_t);
 	}
-	float dlelectric_perpendicular(float eta_i, float eta_t, float cos_i, float cos_t) {
+	float dielectric_perpendicular(float eta_i, float eta_t, float cos_i, float cos_t) {
 		return (eta_i * cos_i - eta_t * cos_t) / (eta_i * cos_i + eta_t * cos_t);
 	}
 	float dielectric(float eta_i, float eta_t, float cos_i, float cos_t) {

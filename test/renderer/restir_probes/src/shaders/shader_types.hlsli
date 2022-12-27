@@ -3,13 +3,15 @@
 
 struct lighting_constants {
 	float4x4 inverse_projection_view;
+	float4   camera;
 	float2   depth_linearization_constants;
 	uint2    screen_size;
 	uint     num_lights;
 	bool     trace_shadow_rays_for_naive;
 	bool     trace_shadow_rays_for_reservoir;
-	uint     diffuse_mode;
-	uint     specular_mode;
+	uint     lighting_mode;
+	float    direct_diffuse_multiplier;
+	float    direct_specular_multiplier;
 	bool     use_indirect;
 };
 

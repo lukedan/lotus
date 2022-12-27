@@ -224,8 +224,17 @@ namespace lotus::renderer::assimp {
 			} else if (mat->GetTexture(aiTextureType_NORMAL_CAMERA, 0, &tex_path) == aiReturn_SUCCESS) {
 				data->normal_texture = current_texture();
 			}
-			if (mat->GetTexture(aiTextureType_METALNESS, 0, &tex_path) == aiReturn_SUCCESS) {
+			if (mat->GetTexture(aiTextureType_SHININESS, 0, &tex_path) == aiReturn_SUCCESS) {
 				data->properties_texture = current_texture();
+			} else if (mat->GetTexture(aiTextureType_SPECULAR, 0, &tex_path) == aiReturn_SUCCESS) {
+				data->properties_texture = current_texture();
+			} else {
+				if (mat->GetTexture(aiTextureType_METALNESS, 0, &tex_path) == aiReturn_SUCCESS) {
+					data->properties_texture = current_texture();
+				}
+				if (mat->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, 0, &tex_path) == aiReturn_SUCCESS) {
+					data->properties2_texture = current_texture();
+				}
 			}
 
 			// properties
@@ -330,7 +339,7 @@ namespace lotus::renderer::assimp {
 					if (it != lights_mapping.end()) {
 						auto &light = lights[it->second];
 						light.position = (trans * cvec4f(cvec3f(light.position), 1.0f)).block<3, 1>(0, 0);
-						light.direction = (trans * cvec4f(cvec3f(light.direction), 0.0f)).block<3, 1>(0, 0);
+						light.direction = vec::unsafe_normalize((trans * cvec4f(cvec3f(light.direction), 0.0f)).block<3, 1>(0, 0));
 						lights_mapping.erase(it);
 					}
 				}

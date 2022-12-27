@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 	camera_control<float> cam_control(cam_params);
 
 	float lighting_scale = 1.0f;
-	int diffuse_lighting_mode = 1;
+	int lighting_mode = 1;
 	cvec3u32 probe_density(10, 10, 10);
 	std::uint32_t direct_reservoirs_per_probe = 2;
 	std::uint32_t indirect_reservoirs_per_probe = 4;
@@ -109,6 +109,8 @@ int main(int argc, char **argv) {
 	int shade_point_debug_mode = 0;
 	bool trace_shadow_rays_naive = true;
 	bool trace_shadow_rays_reservoir = false;
+	float diffuse_mul = 1.0f;
+	float specular_mul = 1.0f;
 	bool use_indirect = true;
 	bool update_probes = true;
 	bool update_probes_this_frame = false;
@@ -286,12 +288,15 @@ int main(int argc, char **argv) {
 
 			shader_types::lighting_constants lighting_constants;
 			lighting_constants.inverse_projection_view         = cam.inverse_projection_view_matrix;
+			lighting_constants.camera                          = cvec4f(cam_params.position, 1.0f);
 			lighting_constants.depth_linearization_constants   = cam.depth_linearization_constants;
 			lighting_constants.screen_size                     = window_size.into<std::uint32_t>();
 			lighting_constants.num_lights                      = scene.lights.size();
 			lighting_constants.trace_shadow_rays_for_naive     = trace_shadow_rays_naive;
 			lighting_constants.trace_shadow_rays_for_reservoir = trace_shadow_rays_reservoir;
-			lighting_constants.diffuse_mode                    = diffuse_lighting_mode;
+			lighting_constants.lighting_mode                   = lighting_mode;
+			lighting_constants.direct_diffuse_multiplier       = diffuse_mul;
+			lighting_constants.direct_specular_multiplier      = specular_mul;
 			lighting_constants.use_indirect                    = use_indirect;
 
 			if (update_probes || update_probes_this_frame) {
@@ -566,7 +571,9 @@ int main(int argc, char **argv) {
 					}
 					ImGui::Checkbox("Trace Naive Shadow Rays", &trace_shadow_rays_naive);
 					ImGui::Checkbox("Trace Reservoir Shadow Rays", &trace_shadow_rays_reservoir);
-					ImGui::Combo("Diffuse Lighting Mode", &diffuse_lighting_mode, "None\0Reservoir\0Naive\0");
+					ImGui::Combo("Lighting Mode", &lighting_mode, "None\0Reservoir\0Naive\0");
+					ImGui::SliderFloat("Direct Diffuse Multiplier", &diffuse_mul, 0.0f, 1.0f);
+					ImGui::SliderFloat("Direct Specular Multiplier", &specular_mul, 0.0f, 1.0f);
 					ImGui::Checkbox("Show Indirect Lighting", &use_indirect);
 					if (ImGui::Combo("Shade Point Debug Mode", &shade_point_debug_mode, "Off\0Lighting\0Albedo\0Normal\0Path Tracer\0")) {
 						num_accumulated_frames = 0;

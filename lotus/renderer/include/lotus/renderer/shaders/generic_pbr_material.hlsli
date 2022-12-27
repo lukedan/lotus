@@ -62,18 +62,21 @@ vs_output transform_geometry(vs_input input) {
 }
 
 material::basic_properties evaluate_material(vs_output input) {
-	float4 albedo_sample = material_textures[instance_material.assets.albedo_texture].Sample(linear_sampler, input.uv);
-	float4 normal_sample = material_textures[instance_material.assets.normal_texture].Sample(linear_sampler, input.uv);
+	float4 albedo_sample = material_textures[instance_material.assets.albedo_texture    ].Sample(linear_sampler, input.uv);
+	float4 normal_sample = material_textures[instance_material.assets.normal_texture    ].Sample(linear_sampler, input.uv);
+	float4 props_sample  = material_textures[instance_material.assets.properties_texture].Sample(linear_sampler, input.uv);
 
 	material::basic_properties result = (material::basic_properties)0;
-	result.albedo    = albedo_sample.rgb;
+	result.albedo      = albedo_sample.rgb * instance_material.properties.albedo_multiplier.rgb;
 #ifdef MATERIAL_IS_MASKED
-	result.presence  = albedo_sample.a < instance_material.properties.alpha_cutoff ? 0.0f : 1.0f;
+	result.presence    = albedo_sample.a < instance_material.properties.alpha_cutoff ? 0.0f : 1.0f;
 #else
-	result.presence  = 1.0f;
+	result.presence    = 1.0f;
 #endif
-	result.normal_ts = normal_sample.rgb * 2.0f - 1.0f;
+	result.normal_ts   = normal_sample.rgb * 2.0f - 1.0f;
 	result.normal_ts.z = sqrt(1.0f - dot(result.normal_ts.xy, result.normal_ts.xy));
+	result.glossiness  = 1.0f - props_sample.g * instance_material.properties.roughness_multiplier;
+	result.metalness   = props_sample.b * instance_material.properties.metalness_multiplier;
 
 	return result;
 }

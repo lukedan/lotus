@@ -83,7 +83,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 					linear_sampler
 				);
 
-				irradiance = shade_point(frag, direct_probes, indirect_sh, all_lights, probe_consts);
+				irradiance = shade_point(frag, -direction, direct_probes, indirect_sh, all_lights, probe_consts);
 				distance   = ray_query.CommittedRayT();
 			}
 		}

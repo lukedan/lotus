@@ -47,7 +47,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		uv, lighting_consts.inverse_projection_view, lighting_consts.depth_linearization_constants
 	);
 	float3 view_vec = normalize(lighting_consts.camera.xyz - gbuf.fragment.position_ws);
-	float alpha = squared(1.0f - gbuf.fragment.glossiness);
+	float alpha = max(0.01f, squared(1.0f - gbuf.fragment.glossiness));
 
 	pcg32::state rng = pcg32::seed(dispatch_thread_id.y * 5003 + dispatch_thread_id.x * 3, constants.frame_index);
 
@@ -88,7 +88,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 				linear_sampler
 			);
 
-			irradiance = shade_point(frag, view_vec, direct_probes, indirect_sh, all_lights, probe_consts);
+			irradiance = shade_point(frag, -out_dir, direct_probes, indirect_sh, all_lights, probe_consts);
 		}
 	}
 
@@ -105,29 +105,35 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		uint use_probe_index = probes::coord_to_index(use_probe, probe_consts);
 		uint indirect_reservoir_index = use_probe_index * probe_consts.indirect_reservoirs_per_probe;
 
-		indirect_lighting_reservoir reservoir = indirect_probes[indirect_reservoir_index];
-		float3 reservoir_pos = probe_pos + octahedral_mapping::to_direction_normalized(reservoir.direction_octahedral) * reservoir.distance;
-		float3 reservoir_dir = normalize(reservoir_pos - gbuf.fragment.position_ws);
-		float3 reservoir_h = normalize(view_vec + reservoir_dir);
-		float reservoir_n_h = saturate(dot(reservoir_h, gbuf.fragment.normal_ws));
-		float reservoir_pdf_d = trowbridge_reitz::d(reservoir_n_h, alpha);
-		float reservoir_pdf_l = rcp(reservoir.data.contribution_weight);
-		float3 reservoir_irr = reservoir.irradiance;
+		float w = 1.0f;
+		float3 res_lighting = (float3)0.0f;
+		for (uint i = 0; i < probe_consts.indirect_reservoirs_per_probe; ++i) {
+			indirect_lighting_reservoir reservoir = indirect_probes[indirect_reservoir_index + i];
+			float3 reservoir_pos = probe_pos + octahedral_mapping::to_direction_normalized(reservoir.direction_octahedral) * reservoir.distance;
+			float3 reservoir_dir = normalize(reservoir_pos - gbuf.fragment.position_ws);
+			float3 reservoir_h = normalize(view_vec + reservoir_dir);
+			float reservoir_n_h = saturate(dot(reservoir_h, gbuf.fragment.normal_ws));
+			float reservoir_pdf_d = trowbridge_reitz::d(reservoir_n_h, alpha);
+			float reservoir_pdf_l = rcp(reservoir.data.contribution_weight);
+			float3 reservoir_irr = reservoir.irradiance;
 
-		float direct_pdf =
-			reservoir_pdf_l *
-			max(irradiance.r, max(irradiance.g, irradiance.b)) /
-			max(reservoir_irr.r, max(reservoir_irr.g, reservoir_irr.b));
+			float direct_pdf =
+				reservoir_pdf_l *
+				max(irradiance.r, max(irradiance.g, irradiance.b)) /
+				max(reservoir_irr.r, max(reservoir_irr.g, reservoir_irr.b));
 
-		float w1 = smp.y / (smp.y + direct_pdf);
-		float w2 = reservoir_pdf_l / (reservoir_pdf_l + reservoir_pdf_d);
 
-		float3 brdf_d2, brdf_s2;
-		brdf(gbuf.fragment, reservoir_dir, view_vec, brdf_d2, brdf_s2);
+			float w1 = smp.y / (smp.y + direct_pdf);
+			float w2 = reservoir_pdf_l / (reservoir_pdf_l + reservoir_pdf_d);
 
-		float3 lighting_res = saturate(dot(gbuf.fragment.normal_ws, reservoir_dir)) * brdf_s2 * reservoir_irr * reservoir.data.contribution_weight;
+			float3 brdf_d2, brdf_s2;
+			brdf(gbuf.fragment, reservoir_dir, view_vec, brdf_d2, brdf_s2);
 
-		lighting = lighting * w1 + lighting_res * w2;
+			w += w1;
+			res_lighting += w2 * saturate(dot(gbuf.fragment.normal_ws, reservoir_dir)) * brdf_s2 * reservoir_irr * reservoir.data.contribution_weight;
+		}
+
+		lighting = (lighting * w + res_lighting) / (probe_consts.indirect_reservoirs_per_probe + 1);
 	}
 
 	out_specular[dispatch_thread_id] = float4(lighting, 1.0f);

@@ -99,6 +99,12 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p ID3D12GraphicsCommandList4::EndRenderPass().
 		void end_pass();
 
+		/// Calls \p ID3D12GraphicsCommandList::EndQuery().
+		void query_timestamp(timestamp_query_heap&, std::uint32_t index);
+		/// Transitions the barrier to the \p COPY_DEST state, calls
+		/// \ref ID3D12GraphicsCommandList::ResolveQueryData(), then transitions it back to the \p COMMON state.
+		void resolve_queries(timestamp_query_heap&, std::uint32_t first, std::uint32_t count);
+
 		/// Calls \p PIXSetMarker().
 		void insert_marker(const char8_t*, linear_rgba_u8);
 		/// Calls \p PIXBeginEvent().
@@ -150,6 +156,9 @@ namespace lotus::gpu::backends::directx12 {
 		friend device;
 		friend context;
 	protected:
+		/// Calls \p ID3D12CommandQueue::GetTimestampFrequency().
+		[[nodiscard]] double get_timestamp_frequency();
+
 		/// Calls \p ID3D12CommandQueue::Wait() for any synchronization primitives, submit all command lists using
 		/// \p ID3D12CommandQueue::ExecuteCommandLists(), then signals any synchronization primitives using
 		/// \p ID3D12CommandQueue::Signal().

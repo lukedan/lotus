@@ -322,4 +322,26 @@ namespace lotus::gpu {
 		shader_group_handle(backend::shader_group_handle &&base) : backend::shader_group_handle(std::move(base)) {
 		}
 	};
+
+	/// A heap used to store timestamp query results.
+	class timestamp_query_heap : public backend::timestamp_query_heap {
+		friend device;
+	public:
+		/// Initializes this heap to empty.
+		timestamp_query_heap(std::nullptr_t) : backend::timestamp_query_heap(nullptr) {
+		}
+
+		/// Tests if this object holds a valid heap.
+		[[nodiscard]] bool is_valid() const {
+			return backend::timestamp_query_heap::is_valid();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
+		}
+	private:
+		/// Initializes the base object.
+		timestamp_query_heap(backend::timestamp_query_heap &&base) : backend::timestamp_query_heap(std::move(base)) {
+		}
+	};
 }

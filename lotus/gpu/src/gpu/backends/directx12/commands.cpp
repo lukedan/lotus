@@ -334,6 +334,36 @@ namespace lotus::gpu::backends::directx12 {
 		_list->EndRenderPass();
 	}
 
+	void command_list::query_timestamp(timestamp_query_heap &h, std::uint32_t index) {
+		_list->EndQuery(h._heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, index);
+	}
+
+	void command_list::resolve_queries(timestamp_query_heap &h, std::uint32_t first, std::uint32_t count) {
+		D3D12_BUFFER_BARRIER barrier;
+		barrier.SyncBefore   = D3D12_BARRIER_SYNC_ALL;
+		barrier.SyncAfter    = D3D12_BARRIER_SYNC_COPY;
+		barrier.AccessBefore = D3D12_BARRIER_ACCESS_COMMON;
+		barrier.AccessAfter  = D3D12_BARRIER_ACCESS_COPY_DEST;
+		barrier.pResource    = h._resource.Get();
+		barrier.Offset       = sizeof(std::uint64_t) * first;
+		barrier.Size         = sizeof(std::uint64_t) * count;
+		D3D12_BARRIER_GROUP group;
+		group.Type            = D3D12_BARRIER_TYPE_BUFFER;
+		group.NumBarriers     = 1;
+		group.pBufferBarriers = &barrier;
+		_list->Barrier(1, &group);
+
+		_list->ResolveQueryData(
+			h._heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, first, count, h._resource.Get(), sizeof(std::uint64_t) * first
+		);
+
+		barrier.SyncBefore   = D3D12_BARRIER_SYNC_COPY;
+		barrier.SyncAfter    = D3D12_BARRIER_SYNC_ALL;
+		barrier.AccessBefore = D3D12_BARRIER_ACCESS_COPY_DEST;
+		barrier.AccessAfter  = D3D12_BARRIER_ACCESS_COMMON;
+		_list->Barrier(1, &group);
+	}
+
 	void command_list::insert_marker(const char8_t *name, linear_rgba_u8 color) {
 #ifdef USE_PIX
 		PIXSetMarker(_list.Get(), PIX_COLOR(color.r, color.g, color.b), "%s", reinterpret_cast<PCSTR>(name));
@@ -416,12 +446,10 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 
-	void command_queue::signal(fence &f) {
-		_details::assert_dx(_queue->Signal(f._fence.Get(), static_cast<UINT64>(synchronization_state::set)));
-	}
-
-	void command_queue::signal(timeline_semaphore &sem, std::uint64_t val) {
-		_details::assert_dx(_queue->Signal(sem._semaphore.Get(), val));
+	double command_queue::get_timestamp_frequency() {
+		UINT64 freq = 0;
+		_details::assert_dx(_queue->GetTimestampFrequency(&freq));
+		return static_cast<double>(freq);
 	}
 
 	void command_queue::submit_command_lists(
@@ -457,5 +485,13 @@ namespace lotus::gpu::backends::directx12 {
 			_queue->Signal(sync.notify_fence->_fence.Get(), static_cast<UINT64>(synchronization_state::set));
 		}
 		return swap_chain_status::ok;
+	}
+
+	void command_queue::signal(fence &f) {
+		_details::assert_dx(_queue->Signal(f._fence.Get(), static_cast<UINT64>(synchronization_state::set)));
+	}
+
+	void command_queue::signal(timeline_semaphore &sem, std::uint64_t val) {
+		_details::assert_dx(_queue->Signal(sem._semaphore.Get(), val));
 	}
 }

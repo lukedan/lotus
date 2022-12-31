@@ -187,6 +187,15 @@ namespace lotus::gpu {
 			backend::command_list::end_pass();
 		}
 
+		/// Queries the timestamp when all preceeding commands have finished executing.
+		void query_timestamp(timestamp_query_heap &h, std::uint32_t index) {
+			backend::command_list::query_timestamp(h, index);
+		}
+		/// Resolves the given range of queries.
+		void resolve_queries(timestamp_query_heap &h, std::uint32_t first, std::uint32_t count) {
+			backend::command_list::resolve_queries(h, first, count);
+		}
+
 		/// Inserts a marker in the command list.
 		void insert_marker(const char8_t *name, linear_rgba_u8 color) {
 			backend::command_list::insert_marker(name, color);
@@ -272,6 +281,11 @@ namespace lotus::gpu {
 		command_queue(const command_queue&) = delete;
 		/// No copy assignment.
 		command_queue &operator=(const command_queue&) = delete;
+
+		/// Returns the number of ticks per second for timestamp queries on this queue.
+		[[nodiscard]] double get_timestamp_frequency() {
+			return backend::command_queue::get_timestamp_frequency();
+		}
 
 		/// Submits all given command lists for execution. These command lists are guaranteed to execute after all
 		/// command lists in the last call to this function has finished, but multiple command lists in a single call

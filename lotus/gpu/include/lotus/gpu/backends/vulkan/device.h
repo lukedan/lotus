@@ -211,6 +211,11 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::UniqueDevice::waitSemaphores().
 		void wait_for_timeline_semaphore(timeline_semaphore&, std::uint64_t);
 
+		/// Calls \p vk::UniqueDevice::createQueryPoolUnique().
+		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(std::uint32_t size);
+		/// Calls \p vk::UniqueDevice::getQueryPoolResults().
+		void fetch_query_results(timestamp_query_heap&, std::uint32_t first, std::span<std::uint64_t>);
+
 		/// Calls \ref _set_debug_name().
 		void set_debug_name(buffer&, const char8_t*);
 		/// Calls \ref _set_debug_name().

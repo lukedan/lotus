@@ -467,6 +467,17 @@ namespace lotus::gpu {
 		}
 
 
+		/// Creates a timestamp query heap with the specified size.
+		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(std::uint32_t size) {
+			return backend::device::create_timestamp_query_heap(size);
+		}
+		/// Reads all timestamp results back to the given buffer. \ref command_list::resolve_timestamp_queries() must
+		/// have been called for the results to be valid.
+		void fetch_query_results(timestamp_query_heap &h, std::uint32_t first, std::span<std::uint64_t> timestamps) {
+			return backend::device::fetch_query_results(h, first, timestamps);
+		}
+
+
 		/// Sets the debug name of the given object.
 		void set_debug_name(buffer &buf, const char8_t *name) {
 			backend::device::set_debug_name(buf, name);

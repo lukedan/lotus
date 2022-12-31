@@ -240,4 +240,22 @@ namespace lotus::gpu::backends::directx12 {
 	private:
 		std::array<std::byte, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES> _id; ///< Shader identifier data.
 	};
+
+	///	Holds a \p ID3D12QueryHeap, as well as a buffer for holding results.
+	class timestamp_query_heap {
+		friend device;
+		friend command_list;
+	protected:
+		/// Initializes this heap to empty.
+		timestamp_query_heap(std::nullptr_t) {
+		}
+
+		/// Tests if this object holds a valid heap.
+		[[nodiscard]] bool is_valid() const {
+			return _heap;
+		}
+	private:
+		_details::com_ptr<ID3D12QueryHeap> _heap; ///< The query heap.
+		_details::com_ptr<ID3D12Resource> _resource; ///< Buffer for holding results.
+	};
 }

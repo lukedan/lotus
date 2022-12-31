@@ -109,6 +109,12 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::CommandBuffer::endRendering().
 		void end_pass();
 
+		/// Calls \p vk::CommandBuffer::writeTimestamp().
+		void query_timestamp(timestamp_query_heap&, std::uint32_t index);
+		/// No-op.
+		void resolve_queries(timestamp_query_heap&, std::uint32_t, std::uint32_t) {
+		}
+
 		/// Calls \p vk::CommandBuffer::debugMarkerInsertEXT().
 		void insert_marker(const char8_t*, linear_rgba_u8);
 		/// Calls \p vk::CommandBuffer::debugMarkerBeginEXT().
@@ -159,6 +165,11 @@ namespace lotus::gpu::backends::vulkan {
 	class command_queue {
 		friend device;
 	protected:
+		/// Returns \ref _timestamp_frequency.
+		[[nodiscard]] double get_timestamp_frequency() {
+			return _timestamp_frequency;
+		}
+
 		/// Calls \p vk::Queue::submit().
 		void submit_command_lists(std::span<const gpu::command_list *const>, queue_synchronization synch);
 		/// Calls \p vk::Queue::presentKHR().
@@ -170,5 +181,6 @@ namespace lotus::gpu::backends::vulkan {
 		void signal(timeline_semaphore&, std::uint64_t);
 	private:
 		vk::Queue _queue; ///< The queue.
+		double _timestamp_frequency = 0.0f; ///< Timestamp frequency.
 	};
 }

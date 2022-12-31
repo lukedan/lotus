@@ -76,6 +76,7 @@ namespace lotus::gpu::backends::vulkan {
 	command_queue device::create_command_queue() {
 		command_queue result;
 		result._queue = _device->getQueue(_graphics_compute_queue_family_index, 0);
+		result._timestamp_frequency = 1000000.0 / static_cast<double>(_device_limits.timestampPeriod);
 		return result;
 	}
 
@@ -469,8 +470,8 @@ namespace lotus::gpu::backends::vulkan {
 		auto add_shader = [&](const shader_binary *s, vk::ShaderStageFlagBits stage) {
 			if (s) {
 				auto spv_stage = static_cast<SpvReflectShaderStageFlagBits>(stage);
-				assert(s->_reflection.GetEntryPointCount() == 1);
-				assert(s->_reflection.GetShaderStage() == spv_stage);
+				crash_if(s->_reflection.GetEntryPointCount() != 1);
+				crash_if(s->_reflection.GetShaderStage() != spv_stage);
 				stages[count]
 					.setStage(stage)
 					.setModule(s->_module.get())
@@ -966,6 +967,24 @@ namespace lotus::gpu::backends::vulkan {
 			.setSemaphores(sem._semaphore.get())
 			.setValues(val);
 		_details::assert_vk(_device->waitSemaphores(info, std::numeric_limits<std::uint64_t>::max()));
+	}
+
+	timestamp_query_heap device::create_timestamp_query_heap(std::uint32_t size) {
+		timestamp_query_heap result = nullptr;
+		vk::QueryPoolCreateInfo info;
+		info
+			.setQueryType(vk::QueryType::eTimestamp)
+			.setQueryCount(size);
+		// TODO allocator
+		result._pool = _details::unwrap(_device->createQueryPoolUnique(info));
+		return result;
+	}
+
+	void device::fetch_query_results(timestamp_query_heap &h, std::uint32_t first, std::span<std::uint64_t> results) {
+		_details::assert_vk(_device->getQueryPoolResults(
+			h._pool.get(), first, static_cast<std::uint32_t>(results.size()), results.size_bytes(), results.data(),
+			sizeof(decltype(results)::value_type), vk::QueryResultFlagBits::e64
+		));
 	}
 
 	void device::set_debug_name(buffer &buf, const char8_t *name) {

@@ -287,6 +287,10 @@ namespace lotus::gpu::backends::vulkan {
 		_buffer.endRendering();
 	}
 
+	void command_list::query_timestamp(timestamp_query_heap &h, std::uint32_t index) {
+		_buffer.writeTimestamp(vk::PipelineStageFlagBits::eAllCommands, h._pool.get(), index);
+	}
+
 	void command_list::insert_marker(const char8_t *name, linear_rgba_u8 color) {
 		if (!is_empty(_device->_options & context_options::enable_debug_info)) {
 			auto color_f = color.into<float>();

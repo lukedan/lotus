@@ -857,6 +857,42 @@ namespace lotus::gpu::backends::directx12 {
 		_details::assert_dx(sem._semaphore->SetEventOnCompletion(val, nullptr));
 	}
 
+	timestamp_query_heap device::create_timestamp_query_heap(std::uint32_t size) {
+		timestamp_query_heap result = nullptr;
+
+		D3D12_QUERY_HEAP_DESC desc = {};
+		desc.Type     = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+		desc.Count    = size;
+		desc.NodeMask = 0;
+		_details::assert_dx(_device->CreateQueryHeap(&desc, IID_PPV_ARGS(&result._heap)), _device.Get());
+
+		D3D12_HEAP_PROPERTIES heap_properties = _details::default_heap_properties(D3D12_HEAP_TYPE_READBACK);
+		D3D12_RESOURCE_DESC1 buf_desc =
+			_details::resource_desc::for_buffer(size, buffer_usage_mask::copy_destination);
+		_details::assert_dx(_device->CreateCommittedResource3(
+			&heap_properties, D3D12_HEAP_FLAG_NONE, &buf_desc, D3D12_BARRIER_LAYOUT_COMMON, nullptr,
+			nullptr, 0, nullptr, IID_PPV_ARGS(&result._resource)
+		), _device.Get());
+
+		return result;
+	}
+
+	void device::fetch_query_results(
+		timestamp_query_heap &h, std::uint32_t first, std::span<std::uint64_t> results
+	) {
+		D3D12_RANGE read_range;
+		read_range.Begin = sizeof(std::uint64_t) * first;
+		read_range.End   = sizeof(std::uint64_t) * (first + results.size());
+		void *data = nullptr;
+		_details::assert_dx(h._resource->Map(0, &read_range, &data), _device.Get());
+
+		for (std::size_t i = 0; i < results.size(); ++i) {
+			results[i] = static_cast<const std::uint64_t*>(data)[i + first];
+		}
+
+		h._resource->Unmap(0, nullptr);
+	}
+
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
 		std::span<const raytracing_geometry_view> data
 	) {

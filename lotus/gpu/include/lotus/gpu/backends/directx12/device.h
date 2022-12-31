@@ -200,6 +200,12 @@ namespace lotus::gpu::backends::directx12 {
 		/// reach the given value.
 		void wait_for_timeline_semaphore(timeline_semaphore &sem, std::uint64_t);
 
+		/// Calls \p ID3D12Device::CreateQueryHeap() to create the heap, then creates a buffer for receiving query
+		/// results.
+		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(std::uint32_t size);
+		/// Maps the buffer and copies over the results of the queries.
+		void fetch_query_results(timestamp_query_heap&, std::uint32_t first, std::span<std::uint64_t>);
+
 
 		/// Calls \ref _set_debug_name().
 		void set_debug_name(image &img, const char8_t *name) {

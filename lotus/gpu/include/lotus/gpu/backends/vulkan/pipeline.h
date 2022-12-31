@@ -181,4 +181,21 @@ namespace lotus::gpu::backends::vulkan {
 		// unfortunately, for vulkan this can be dynamic
 		std::vector<std::byte> _data; ///< Shader group handle data.
 	};
+
+	/// Holds a \p vk::UniqueQueryPool.
+	class timestamp_query_heap {
+		friend command_list;
+		friend device;
+	protected:
+		/// Initializes this heap to empty.
+		timestamp_query_heap(std::nullptr_t) {
+		}
+
+		/// Tests if this object holds a valid query pool.
+		[[nodiscard]] bool is_valid() const {
+			return _pool.get();
+		}
+	private:
+		vk::UniqueQueryPool _pool; ///< The query pool.
+	};
 }

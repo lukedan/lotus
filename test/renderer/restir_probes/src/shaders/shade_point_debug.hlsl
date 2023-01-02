@@ -126,20 +126,20 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 			// indirect
 			float3 new_dir;
 			float pdf;
-			/*if (pcg32::random(rng) & 1) {*/
+			if (pcg32::random(rng) & 1) {
 				new_dir = normalize(fragment.normal_ws + distribution::unit_square_to_unit_sphere(float2(pcg32::random_01(rng), pcg32::random_01(rng))));
 				pdf = dot(new_dir, fragment.normal_ws) / pi;
-			/*} else {
+			} else {
 				float alpha = squared(1.0f - fragment.glossiness);
 				tangent_frame::tbn ts = tangent_frame::any(fragment.normal_ws);
 				float2 smp = trowbridge_reitz::importance_sample_d(pcg32::random_01(rng), alpha);
 				float n_h = smp.x;
-				pdf = smp.y;
 				float theta = 2.0f * pi * pcg32::random_01(rng);
 				float3 h = ts.normal * n_h + sqrt(1.0f - n_h * n_h) * (cos(theta) * ts.tangent + sin(theta) * ts.bitangent);
 				new_dir = reflect(direction, h);
+				pdf = smp.y / (4.0f * dot(new_dir, h));
 			}
-			pdf *= 0.5f;*/
+			pdf *= 0.5f;
 
 			float3 bd, bs;
 			brdf(fragment, new_dir, -direction, bd, bs);

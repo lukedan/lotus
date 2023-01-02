@@ -80,6 +80,10 @@ struct indirect_spatial_reuse_constants {
 	uint visibility_test_mode;
 };
 
+struct summarize_probe_constants {
+	float ra_alpha;
+};
+
 
 struct gbuffer_visualization_constants {
 	uint mode;

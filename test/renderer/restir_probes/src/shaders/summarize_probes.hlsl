@@ -6,7 +6,8 @@
 StructuredBuffer<indirect_lighting_reservoir> indirect_reservoirs : register(t0, space0);
 RWStructuredBuffer<probe_data>                probe_sh            : register(u1, space0);
 
-ConstantBuffer<probe_constants> probe_consts : register(b2, space0);
+ConstantBuffer<probe_constants>           probe_consts : register(b2, space0);
+ConstantBuffer<summarize_probe_constants> constants    : register(b3, space0);
 
 [numthreads(4, 4, 4)]
 void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
@@ -30,9 +31,11 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		irr_b += scale.b * (float4)direction;
 	}
 
+	probe_data old_probe = probe_sh[probe_index];
+
 	probe_data result;
-	result.irradiance_sh2_r = irr_r;
-	result.irradiance_sh2_g = irr_g;
-	result.irradiance_sh2_b = irr_b;
+	result.irradiance_sh2_r = lerp(old_probe.irradiance_sh2_r, irr_r, constants.ra_alpha);
+	result.irradiance_sh2_g = lerp(old_probe.irradiance_sh2_g, irr_g, constants.ra_alpha);
+	result.irradiance_sh2_b = lerp(old_probe.irradiance_sh2_b, irr_b, constants.ra_alpha);
 	probe_sh[probe_index] = result;
 }

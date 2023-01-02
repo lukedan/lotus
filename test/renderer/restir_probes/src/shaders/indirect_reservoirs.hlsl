@@ -57,7 +57,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		{
 			RayDesc ray;
 			ray.Origin    = probe_position;
-			ray.TMin      = 0.0f;
+			ray.TMin      = 0.01f;
 			ray.Direction = direction;
 			ray.TMax      = max_float_v;
 

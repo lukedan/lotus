@@ -56,6 +56,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 	float theta = pcg32::random_01(rng) * 2.0f * pi;
 	float3 h = ts.normal * smp.x + sqrt(1.0f - smp.x * smp.x) * (ts.tangent * cos(theta) + ts.bitangent * sin(theta));
 	float3 out_dir = reflect(-view_vec, h);
+	smp.y /= 4.0f * dot(h, view_vec);
 
 	float3 irradiance = (float3)0.0f;
 	{
@@ -113,7 +114,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 			float3 reservoir_dir = normalize(reservoir_pos - gbuf.fragment.position_ws);
 			float3 reservoir_h = normalize(view_vec + reservoir_dir);
 			float reservoir_n_h = saturate(dot(reservoir_h, gbuf.fragment.normal_ws));
-			float reservoir_pdf_d = trowbridge_reitz::d(reservoir_n_h, alpha);
+			float reservoir_pdf_d = trowbridge_reitz::d(reservoir_n_h, alpha) / (4.0f * dot(reservoir_h, view_vec));
 			float reservoir_pdf_l = rcp(max(0.01f, reservoir.data.contribution_weight));
 			float3 reservoir_irr = reservoir.irradiance;
 

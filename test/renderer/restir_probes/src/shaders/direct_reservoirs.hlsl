@@ -38,7 +38,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> ray_query;
 		RayDesc ray;
 		ray.Origin    = probe_position;
-		ray.TMin      = 0.0f;
+		ray.TMin      = 0.01f;
 		ray.Direction = -light_data.direction;
 		ray.TMax      = light_data.distance;
 		ray_query.TraceRayInline(rtas, 0, 0xFF, ray);

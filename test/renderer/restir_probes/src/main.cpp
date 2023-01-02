@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
 
 	float lighting_scale = 1.0f;
 	int lighting_mode = 1;
-	cvec3u32 probe_density(10, 10, 10);
+	cvec3u32 probe_density(50, 50, 50);
 	std::uint32_t direct_reservoirs_per_probe = 2;
 	std::uint32_t indirect_reservoirs_per_probe = 4;
 	std::uint32_t direct_sample_count_cap = 100;
@@ -113,13 +113,14 @@ int main(int argc, char **argv) {
 	bool trace_shadow_rays_reservoir = false;
 	float diffuse_mul = 1.0f;
 	float specular_mul = 1.0f;
+	float sh_ra_alpha = 0.05f;
 	bool use_indirect_diffuse = true;
 	bool use_indirect_specular = true;
 	bool enable_indirect_specular_mis = true;
 	bool update_probes = true;
 	bool update_probes_this_frame = false;
 	bool indirect_spatial_reuse = true;
-	int indirect_spatial_reuse_visibility_test_mode = 0;
+	int indirect_spatial_reuse_visibility_test_mode = 1;
 	int gbuffer_visualization = 0;
 
 	std::uint32_t num_accumulated_frames = 0;
@@ -401,12 +402,16 @@ int main(int argc, char **argv) {
 				}
 
 				{ // summarize probes
+					shader_types::summarize_probe_constants constants;
+					constants.ra_alpha = sh_ra_alpha;
+
 					lren::all_resource_bindings resources(
 						{},
 						{
 							{ u8"indirect_reservoirs", indirect_reservoirs.bind_as_read_only() },
 							{ u8"probe_sh",            probe_sh.bind_as_read_write() },
 							{ u8"probe_consts",        lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+							{ u8"constants",           lren_bds::immediate_constant_buffer::create_for(constants) },
 						}
 					);
 					rctx.run_compute_shader_with_thread_dimensions(
@@ -653,18 +658,11 @@ int main(int argc, char **argv) {
 				if (ImGui::Begin("Controls")) {
 					ImGui::SliderFloat("Lighting Scale", &lighting_scale, 0.01f, 100.0f, "%.02f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
 					ImGui::Combo("Show G-Buffer", &gbuffer_visualization, "Disabled\0Albedo\0Glossiness\0Normal\0Metalness\0Emissive\0");
-					ImGui::Checkbox("Update Probes", &update_probes);
-					if (ImGui::Button("Update Probes This Frame")) {
-						update_probes_this_frame = true;
-					}
 					ImGui::Checkbox("Trace Naive Shadow Rays", &trace_shadow_rays_naive);
 					ImGui::Checkbox("Trace Reservoir Shadow Rays", &trace_shadow_rays_reservoir);
 					ImGui::Combo("Lighting Mode", &lighting_mode, "None\0Reservoir\0Naive\0");
 					ImGui::SliderFloat("Direct Diffuse Multiplier", &diffuse_mul, 0.0f, 1.0f);
 					ImGui::SliderFloat("Direct Specular Multiplier", &specular_mul, 0.0f, 1.0f);
-					ImGui::Checkbox("Show Indirect Diffuse", &use_indirect_diffuse);
-					ImGui::Checkbox("Show Indirect Specular", &use_indirect_specular);
-					ImGui::Checkbox("Use Indirect Specular MIS", &enable_indirect_specular_mis);
 					if (ImGui::Combo("Shade Point Debug Mode", &shade_point_debug_mode, "Off\0Lighting\0Albedo\0Normal\0Path Tracer\0")) {
 						num_accumulated_frames = 0;
 					}
@@ -672,9 +670,6 @@ int main(int argc, char **argv) {
 
 					ImGui::Combo("Visualize Probes", &visualize_probes_mode, "None\0Specular\0Diffuse\0Normal\0");
 					ImGui::SliderFloat("Visualize Probes Size", &visualize_probe_size, 0.0f, 1.0f);
-					if (ImGui::Button("Reset Probes")) {
-						needs_resizing = true;
-					}
 					{
 						auto probes_int = probe_density.into<int>();
 						int probes[3] = { probes_int[0], probes_int[1], probes_int[2] };
@@ -692,8 +687,21 @@ int main(int argc, char **argv) {
 						needs_resizing = ImGui::SliderFloat2("Range Z", rz, -20.0f, 20.0f) || needs_resizing;
 						probe_bounds = lotus::aab3f::create_from_min_max({ rx[0], ry[0], rz[0] }, { rx[1], ry[1], rz[1] });
 					}
+					ImGui::Separator();
+
+					if (ImGui::Button("Reset Probes")) {
+						needs_resizing = true;
+					}
+					ImGui::Checkbox("Update Probes", &update_probes);
+					if (ImGui::Button("Update Probes This Frame")) {
+						update_probes_this_frame = true;
+					}
+					ImGui::Checkbox("Show Indirect Diffuse", &use_indirect_diffuse);
+					ImGui::Checkbox("Show Indirect Specular", &use_indirect_specular);
+					ImGui::Checkbox("Use Indirect Specular MIS", &enable_indirect_specular_mis);
 					ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
 					ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");
+					ImGui::SliderFloat("SH RA Alpha", &sh_ra_alpha, 0.0f, 1.0f);
 					ImGui_SliderT<std::uint32_t>("Direct Sample Count Cap", &direct_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
 					ImGui_SliderT<std::uint32_t>("Indirect Sample Count Cap", &indirect_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
 				}

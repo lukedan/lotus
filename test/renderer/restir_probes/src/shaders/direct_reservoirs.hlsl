@@ -31,6 +31,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		lights::derived_data light_data = lights::compute_derived_data(cur_light, probe_position);
 
 		direct_lighting_reservoir cur_res = direct_reservoirs[first_reservoir + i];
+		cur_res.data.num_samples = min(cur_res.data.num_samples, constants.sample_count_cap);
 		reservoir_common new_res_data = cur_res.data;
 
 		// test visibility
@@ -49,7 +50,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		float pdf =
 			light_data.attenuation *
 			max(cur_light.irradiance.r, max(cur_light.irradiance.g, cur_light.irradiance.b));
-		if (reservoirs::add_sample(new_res_data, 1.0f / constants.num_lights, pdf, pcg32::random_01(rng), constants.sample_count_cap)) {
+		if (reservoirs::add_sample(new_res_data, 1.0f / constants.num_lights, pdf, pcg32::random_01(rng))) {
 			cur_res.light_index = light_index + 1;
 		}
 		cur_res.data = new_res_data;

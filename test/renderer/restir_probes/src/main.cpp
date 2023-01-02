@@ -88,11 +88,12 @@ int main(int argc, char **argv) {
 	auto direct_update_cs = rassets.compile_shader_in_filesystem("src/shaders/direct_reservoirs.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto indirect_update_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_reservoirs.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto summarize_probes_cs = rassets.compile_shader_in_filesystem("src/shaders/summarize_probes.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto indirect_spatial_reuse_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_spatial_reuse.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto indirect_specular_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto lighting_cs = rassets.compile_shader_in_filesystem("src/shaders/lighting.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
 
-	auto runtime_tex_pool = rctx.request_pool(u8"Run-time Textures", rctx.get_device_memory_type_index());
-	auto runtime_buf_pool = rctx.request_pool(u8"Run-time Buffers", rctx.get_device_memory_type_index());
+	auto runtime_tex_pool = rctx.request_pool(u8"Run-time Textures");
+	auto runtime_buf_pool = rctx.request_pool(u8"Run-time Buffers");
 
 	auto cam_params = lotus::camera_parameters<float>::create_look_at(zero, cvec3f(100.0f, 100.0f, 100.0f));
 	camera_control<float> cam_control(cam_params);
@@ -112,10 +113,13 @@ int main(int argc, char **argv) {
 	bool trace_shadow_rays_reservoir = false;
 	float diffuse_mul = 1.0f;
 	float specular_mul = 1.0f;
-	bool use_indirect = true;
+	bool use_indirect_diffuse = true;
+	bool use_indirect_specular = true;
 	bool enable_indirect_specular_mis = true;
 	bool update_probes = true;
 	bool update_probes_this_frame = false;
+	bool indirect_spatial_reuse = true;
+	int indirect_spatial_reuse_visibility_test_mode = 0;
 	int gbuffer_visualization = 0;
 
 	std::uint32_t num_accumulated_frames = 0;
@@ -299,7 +303,7 @@ int main(int argc, char **argv) {
 			lighting_constants.lighting_mode                   = lighting_mode;
 			lighting_constants.direct_diffuse_multiplier       = diffuse_mul;
 			lighting_constants.direct_specular_multiplier      = specular_mul;
-			lighting_constants.use_indirect                    = use_indirect;
+			lighting_constants.use_indirect                    = use_indirect_diffuse;
 
 			if (update_probes || update_probes_this_frame) {
 				update_probes_this_frame = false;
@@ -358,6 +362,44 @@ int main(int argc, char **argv) {
 					);
 				}
 
+				if (indirect_spatial_reuse) { // indirect spatial reuse
+					uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
+					std::uint32_t num_indirect_reservoirs = num_probes * indirect_reservoirs_per_probe;
+					auto new_indirect_reservoirs = rctx.request_structured_buffer<shader_types::indirect_lighting_reservoir>(
+						u8"Indirect Lighting Reservoirs", num_indirect_reservoirs,
+						lgpu::buffer_usage_mask::shader_read | lgpu::buffer_usage_mask::shader_write,
+						runtime_buf_pool
+					);
+
+					cvec3i offsets[6] = {
+						{  1,  0,  0 },
+						{  0,  1,  0 },
+						{  0,  0,  1 },
+						{ -1,  0,  0 },
+						{  0, -1,  0 },
+						{  0,  0, -1 },
+					};
+
+					shader_types::indirect_spatial_reuse_constants reuse_constants;
+					reuse_constants.offset = offsets[frame_index % 6];
+					reuse_constants.frame_index = frame_index;
+					reuse_constants.visibility_test_mode = indirect_spatial_reuse_visibility_test_mode;
+
+					lren::all_resource_bindings resources(
+						{},
+						{
+							{ u8"rtas",              scene.tlas },
+							{ u8"input_reservoirs",  indirect_reservoirs.bind_as_read_only() },
+							{ u8"output_reservoirs", new_indirect_reservoirs.bind_as_read_write() },
+							{ u8"probe_consts",      lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+							{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(reuse_constants) },
+						}
+					);
+					rctx.run_compute_shader_with_thread_dimensions(indirect_spatial_reuse_cs, probe_density, std::move(resources), u8"Spatial Indirect Reuse");
+
+					indirect_reservoirs = new_indirect_reservoirs;
+				}
+
 				{ // summarize probes
 					lren::all_resource_bindings resources(
 						{},
@@ -394,6 +436,48 @@ int main(int argc, char **argv) {
 				rctx.run_compute_shader_with_thread_dimensions(
 					lighting_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
 					std::move(resources), u8"Lighting"
+				);
+			}
+
+			auto indirect_specular = rctx.request_image2d(u8"Indirect Specular", window_size, 1, lgpu::format::r32g32b32a32_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
+
+			{ // indirect specular
+				shader_types::indirect_specular_constants constants;
+				constants.enable_mis = enable_indirect_specular_mis;
+				constants.frame_index = frame_index;
+				lren::all_resource_bindings resources(
+					{
+						{ 8, rassets.get_samplers() },
+					},
+					{
+						{ u8"probe_consts",              lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(constants) },
+						{ u8"lighting_consts",           lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
+						{ u8"direct_probes",             direct_reservoirs.bind_as_read_only() },
+						{ u8"indirect_probes",           indirect_reservoirs.bind_as_read_only() },
+						{ u8"indirect_sh",               probe_sh.bind_as_read_only() },
+						{ u8"out_specular",              indirect_specular.bind_as_read_write() },
+						{ u8"rtas",                      scene.tlas },
+						{ u8"gbuffer_albedo_glossiness", g_buf.albedo_glossiness.bind_as_read_only() },
+						{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
+						{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
+						{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
+						{ u8"textures",                  rassets.get_images() },
+						{ u8"positions",                 scene.vertex_buffers },
+						{ u8"normals",                   scene.normal_buffers },
+						{ u8"tangents",                  scene.tangent_buffers },
+						{ u8"uvs",                       scene.uv_buffers },
+						{ u8"indices",                   scene.index_buffers },
+						{ u8"instances",                 scene.instances_buffer.bind_as_read_only() },
+						{ u8"geometries",                scene.geometries_buffer.bind_as_read_only() },
+						{ u8"materials",                 scene.materials_buffer.bind_as_read_only() },
+						{ u8"all_lights",                scene.lights_buffer.bind_as_read_only() },
+					}
+				);
+
+				rctx.run_compute_shader_with_thread_dimensions(
+					indirect_specular_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
+					std::move(resources), u8"Indirect Specular"
 				);
 			}
 
@@ -444,48 +528,6 @@ int main(int argc, char **argv) {
 				);
 			}
 
-			auto indirect_specular = rctx.request_image2d(u8"Indirect Specular", window_size, 1, lgpu::format::r32g32b32a32_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
-
-			{ // indirect specular
-				shader_types::indirect_specular_constants constants;
-				constants.enable_mis = enable_indirect_specular_mis;
-				constants.frame_index = frame_index;
-				lren::all_resource_bindings resources(
-					{
-						{ 8, rassets.get_samplers() },
-					},
-					{
-						{ u8"probe_consts",              lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(constants) },
-						{ u8"lighting_consts",           lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
-						{ u8"direct_probes",             direct_reservoirs.bind_as_read_only() },
-						{ u8"indirect_probes",           indirect_reservoirs.bind_as_read_only() },
-						{ u8"indirect_sh",               probe_sh.bind_as_read_only() },
-						{ u8"out_specular",              indirect_specular.bind_as_read_write() },
-						{ u8"rtas",                      scene.tlas },
-						{ u8"gbuffer_albedo_glossiness", g_buf.albedo_glossiness.bind_as_read_only() },
-						{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
-						{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
-						{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
-						{ u8"textures",                  rassets.get_images() },
-						{ u8"positions",                 scene.vertex_buffers },
-						{ u8"normals",                   scene.normal_buffers },
-						{ u8"tangents",                  scene.tangent_buffers },
-						{ u8"uvs",                       scene.uv_buffers },
-						{ u8"indices",                   scene.index_buffers },
-						{ u8"instances",                 scene.instances_buffer.bind_as_read_only() },
-						{ u8"geometries",                scene.geometries_buffer.bind_as_read_only() },
-						{ u8"materials",                 scene.materials_buffer.bind_as_read_only() },
-						{ u8"all_lights",                scene.lights_buffer.bind_as_read_only() },
-					}
-				);
-
-				rctx.run_compute_shader_with_thread_dimensions(
-					indirect_specular_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
-					std::move(resources), u8"Indirect Specular"
-				);
-			}
-
 			{ // lighting combine
 				lren::graphics_pipeline_state state(
 					{ lgpu::render_target_blend_options::disabled() },
@@ -494,6 +536,7 @@ int main(int argc, char **argv) {
 				);
 				shader_types::lighting_combine_constants constants;
 				constants.lighting_scale = lighting_scale;
+				constants.use_indirect_specular = use_indirect_specular;
 				lren::all_resource_bindings resources(
 					{
 						{ 1, rassets.get_samplers() },
@@ -619,7 +662,8 @@ int main(int argc, char **argv) {
 					ImGui::Combo("Lighting Mode", &lighting_mode, "None\0Reservoir\0Naive\0");
 					ImGui::SliderFloat("Direct Diffuse Multiplier", &diffuse_mul, 0.0f, 1.0f);
 					ImGui::SliderFloat("Direct Specular Multiplier", &specular_mul, 0.0f, 1.0f);
-					ImGui::Checkbox("Show Indirect Lighting", &use_indirect);
+					ImGui::Checkbox("Show Indirect Diffuse", &use_indirect_diffuse);
+					ImGui::Checkbox("Show Indirect Specular", &use_indirect_specular);
 					ImGui::Checkbox("Use Indirect Specular MIS", &enable_indirect_specular_mis);
 					if (ImGui::Combo("Shade Point Debug Mode", &shade_point_debug_mode, "Off\0Lighting\0Albedo\0Normal\0Path Tracer\0")) {
 						num_accumulated_frames = 0;
@@ -648,8 +692,10 @@ int main(int argc, char **argv) {
 						needs_resizing = ImGui::SliderFloat2("Range Z", rz, -20.0f, 20.0f) || needs_resizing;
 						probe_bounds = lotus::aab3f::create_from_min_max({ rx[0], ry[0], rz[0] }, { rx[1], ry[1], rz[1] });
 					}
-					ImGui_SliderT<std::uint32_t>("Direct Sample Count Cap", &direct_sample_count_cap, 1, 1000000000, "%d", ImGuiSliderFlags_Logarithmic);
-					ImGui_SliderT<std::uint32_t>("Indirect Sample Count Cap", &indirect_sample_count_cap, 1, 1000000000, "%d", ImGuiSliderFlags_Logarithmic);
+					ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
+					ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");
+					ImGui_SliderT<std::uint32_t>("Direct Sample Count Cap", &direct_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
+					ImGui_SliderT<std::uint32_t>("Indirect Sample Count Cap", &indirect_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
 				}
 				ImGui::End();
 

@@ -74,8 +74,8 @@ int main(int argc, char **argv) {
 		"D:/Documents/Projects/lotus/test/renderer/common/include",
 	};
 
-	auto runtime_buf_pool = rctx.request_pool(u8"Run-time Buffers", rctx.get_device_memory_type_index());
-	auto runtime_tex_pool = rctx.request_pool(u8"Run-time Textures", rctx.get_device_memory_type_index());
+	auto runtime_buf_pool = rctx.request_pool(u8"Run-time Buffers");
+	auto runtime_tex_pool = rctx.request_pool(u8"Run-time Textures");
 
 	auto mip_gen = lren::mipmap::generator::create(asset_man);
 	lren::gltf::context gltf_ctx(asset_man);

@@ -10,7 +10,6 @@ struct geometry_data {
 };
 struct rt_instance_data {
 	float4x4 normal_transform;
-	float determinant;
 	uint geometry_index;
 	uint material_index;
 };

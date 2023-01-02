@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
 		"D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders",
 	};
 
-	auto resource_pool = rctx.request_pool(u8"Resource Pool", rctx.get_device_memory_type_index());
+	auto resource_pool = rctx.request_pool(u8"Resource Pool");
 
 	// swap chain
 	auto swapchain = rctx.request_swap_chain(

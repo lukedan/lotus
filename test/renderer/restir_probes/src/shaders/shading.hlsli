@@ -113,12 +113,13 @@ float3 shade_point(
 	StructuredBuffer<direct_lighting_reservoir> direct_probes,
 	StructuredBuffer<probe_data> indirect_sh,
 	StructuredBuffer<light> all_lights,
-	probe_constants probe_consts
+	probe_constants probe_consts,
+	inout pcg32::state rng
 ) {
 	// probe information
 	float3 cell_f = probes::coord_from_position(frag.position_ws, probe_consts);
 	uint3 cell_index = (uint3)clamp((int3)cell_f, 0, (int3)probe_consts.grid_size - 2);
-	uint3 use_probe = probes::get_nearest_coord(frag.position_ws, frag.normal_ws, cell_index, probe_consts);
+	uint3 use_probe = probes::get_random_coord(frag.position_ws, frag.normal_ws, cell_index, probe_consts, pcg32::random_01(rng));
 	uint use_probe_index = probes::coord_to_index(use_probe, probe_consts);
 	uint direct_reservoir_index = use_probe_index * probe_consts.direct_reservoirs_per_probe;
 

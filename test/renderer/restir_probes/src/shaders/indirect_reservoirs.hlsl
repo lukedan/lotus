@@ -49,6 +49,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 
 	for (uint i = 0; i < indirect_reservoirs_per_probe; ++i) {
 		indirect_lighting_reservoir reservoir = indirect_probes[reservoir_offset + i];
+		reservoir.data.num_samples = min(reservoir.data.num_samples, constants.sample_count_cap);
 
 		float3 direction = distribution::unit_square_to_unit_sphere(float2(pcg32::random_01(rng), pcg32::random_01(rng)));
 		float3 irradiance = (float3)0.0f;
@@ -83,13 +84,13 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 					linear_sampler
 				);
 
-				irradiance = shade_point(frag, -direction, direct_probes, indirect_sh, all_lights, probe_consts);
+				irradiance = shade_point(frag, -direction, direct_probes, indirect_sh, all_lights, probe_consts, rng);
 				distance   = ray_query.CommittedRayT();
 			}
 		}
 
 		float probability = max(irradiance.r, max(irradiance.g, irradiance.b));
-		if (reservoirs::add_sample(reservoir.data, 0.25f / pi, probability, pcg32::random_01(rng), constants.sample_count_cap)) {
+		if (reservoirs::add_sample(reservoir.data, 0.25f / pi, probability, pcg32::random_01(rng))) {
 			reservoir.irradiance           = irradiance;
 			reservoir.distance             = distance;
 			reservoir.direction_octahedral = octahedral_mapping::from_direction(direction);

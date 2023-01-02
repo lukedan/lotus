@@ -20,9 +20,9 @@ public:
 		uv_buffers = rctx.request_buffer_descriptor_array(u8"UV buffers", lgpu::descriptor_type::read_only_buffer, 16384);
 		index_buffers = rctx.request_buffer_descriptor_array(u8"Index buffers", lgpu::descriptor_type::read_only_buffer, 16384);
 
-		geom_buffer_pool = rctx.request_pool(u8"Geometry Buffers", rctx.get_device_memory_type_index());
-		geom_texture_pool = rctx.request_pool(u8"Geometry Textures", rctx.get_device_memory_type_index());
-		as_pool = rctx.request_pool(u8"Acceleration Structures", rctx.get_device_memory_type_index());
+		geom_buffer_pool = rctx.request_pool(u8"Geometry Buffers");
+		geom_texture_pool = rctx.request_pool(u8"Geometry Textures");
+		as_pool = rctx.request_pool(u8"Acceleration Structures");
 	}
 
 	void on_texture_loaded(lren::assets::handle<lren::assets::image2d> tex) {
@@ -106,9 +106,8 @@ public:
 			gpu_inst.material_index = mat_index;
 			auto tangent_trans = inst.transform.block<3, 3>(0, 0);
 			auto decomp = lotus::mat::lup_decompose(inst.transform.block<3, 3>(0, 0).into<double>());
-			gpu_inst.determinant = std::pow(decomp.determinant(), 1.0f / 3.0f);
 			mat44f normal_trans = zero;
-			normal_trans.set_block(0, 0, (decomp.invert().transposed() * gpu_inst.determinant).into<float>());
+			normal_trans.set_block(0, 0, (decomp.invert().transposed() * std::pow(decomp.determinant(), 2.0f / 3.0f)).into<float>());
 			gpu_inst.normal_transform = normal_trans;
 
 			auto inst_index = instances.size();

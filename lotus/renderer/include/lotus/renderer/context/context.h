@@ -329,9 +329,12 @@ namespace lotus::renderer {
 		/// Disposes of all resources.
 		~context();
 
-		/// Creates a new memory pool.
+		/// Creates a new memory pool. If no valid memory type index is specified, the pool is created for device
+		/// memory by default.
 		[[nodiscard]] pool request_pool(
-			std::u8string_view name, gpu::memory_type_index, std::uint32_t chunk_size = pool::default_chunk_size
+			std::u8string_view name,
+			gpu::memory_type_index = gpu::memory_type_index::invalid,
+			std::uint32_t chunk_size = pool::default_chunk_size
 		);
 		/// Creates a 2D image with the given properties.
 		[[nodiscard]] image2d_view request_image2d(
@@ -518,6 +521,10 @@ namespace lotus::renderer {
 		[[nodiscard]] gpu::memory_type_index get_device_memory_type_index() const {
 			return _device_memory_index;
 		}
+		/// Returns the memory type index for reading data back from the GPU.
+		[[nodiscard]] gpu::memory_type_index get_readback_memory_type_index() const {
+			return _readback_memory_index;
+		}
 	private:
 		/// Indicates a descriptor set bind point.
 		enum class _bind_point {
@@ -563,8 +570,10 @@ namespace lotus::renderer {
 
 		/// Index of a memory type suitable for uploading to the device.
 		gpu::memory_type_index _upload_memory_index = gpu::memory_type_index::invalid;
-		/// Index of a memory type best for resources that are resident on the device.
+		/// Index of the memory type best for resources that are resident on the device.
 		gpu::memory_type_index _device_memory_index = gpu::memory_type_index::invalid;
+		/// Index of a memory type suitable for reading data back from the device.
+		gpu::memory_type_index _readback_memory_index = gpu::memory_type_index::invalid;
 
 		context_cache _cache; ///< Cached objects.
 

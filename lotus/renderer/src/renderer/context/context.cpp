@@ -101,6 +101,10 @@ namespace lotus::renderer {
 	pool context::request_pool(
 		std::u8string_view name, gpu::memory_type_index memory_type, std::uint32_t chunk_size
 	) {
+		if (memory_type == gpu::memory_type_index::invalid) {
+			memory_type = _device_memory_index;
+		}
+
 		auto *p = new _details::pool(
 			[dev = &_device, memory_type](std::size_t sz) {
 				return dev->allocate_memory(sz, memory_type);
@@ -447,6 +451,14 @@ namespace lotus::renderer {
 				!is_empty(type.second & gpu::memory_properties::host_visible)
 			) {
 				_upload_memory_index = type.first;
+			}
+			constexpr gpu::memory_properties _readback_properties =
+				gpu::memory_properties::host_visible | gpu::memory_properties::host_cached;
+			if (
+				_readback_memory_index == gpu::memory_type_index::invalid &&
+				(type.second & _readback_properties) == _readback_properties
+			) {
+				_readback_memory_index = type.first;
 			}
 		}
 	}

@@ -90,12 +90,12 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		return;
 	}
 
+	pcg32::state rng = pcg32::seed(dispatch_thread_id.y * 3001 + dispatch_thread_id.x * 5, constants.num_frames);
+
 	if (constants.mode == 4) {
 		float3 total_light = (float3)0.0f;
 		float3 attenuation = (float3)1.0f;
 		float3 direction;
-
-		pcg32::state rng = pcg32::seed(dispatch_thread_id.y * 3001 + dispatch_thread_id.x * 5, constants.num_frames);
 
 		bool terminated = false;
 		material::shading_properties fragment;
@@ -167,7 +167,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 	material::shading_properties fragment = (material::shading_properties)0;
 
 	if (cast_ray(constants.camera.xyz, direction, fragment)) {
-		irradiance = shade_point(fragment, -direction, direct_probes, indirect_sh, all_lights, probe_consts);
+		irradiance = shade_point(fragment, -direction, direct_probes, indirect_sh, all_lights, probe_consts, rng);
 	}
 
 	float4 result = (float4)1.0f;

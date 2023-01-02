@@ -47,7 +47,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 
 	float3 cell_pos = probes::coord_from_position(gbuf.fragment.position_ws, probe_consts);
 	uint3 cell_coord = (uint3)clamp((int3)floor(cell_pos), 0, (int3)probe_consts.grid_size - 2);
-	cell_coord = probes::get_nearest_coord(gbuf.fragment.position_ws, gbuf.fragment.normal_ws, cell_coord, probe_consts);
+	cell_coord = probes::get_random_coord(gbuf.fragment.position_ws, gbuf.fragment.normal_ws, cell_coord, probe_consts, pcg32::random_01(rng));
 
 	uint use_probe_index = probes::coord_to_index(cell_coord, probe_consts);
 	uint direct_reservoir_offset = use_probe_index * probe_consts.direct_reservoirs_per_probe;

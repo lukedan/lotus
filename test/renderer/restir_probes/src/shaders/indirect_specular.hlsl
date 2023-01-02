@@ -88,7 +88,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 				linear_sampler
 			);
 
-			irradiance = shade_point(frag, -out_dir, direct_probes, indirect_sh, all_lights, probe_consts);
+			irradiance = shade_point(frag, -out_dir, direct_probes, indirect_sh, all_lights, probe_consts, rng);
 		}
 	}
 
@@ -100,7 +100,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		// probe information
 		float3 cell_f = probes::coord_from_position(gbuf.fragment.position_ws, probe_consts);
 		uint3 cell_index = (uint3)clamp((int3)cell_f, 0, (int3)probe_consts.grid_size - 2);
-		uint3 use_probe = probes::get_nearest_coord(gbuf.fragment.position_ws, gbuf.fragment.normal_ws, cell_index, probe_consts);
+		uint3 use_probe = probes::get_random_coord(gbuf.fragment.position_ws, gbuf.fragment.normal_ws, cell_index, probe_consts, pcg32::random_01(rng));
 		float3 probe_pos = probes::coord_to_position(use_probe, probe_consts);
 		uint use_probe_index = probes::coord_to_index(use_probe, probe_consts);
 		uint indirect_reservoir_index = use_probe_index * probe_consts.indirect_reservoirs_per_probe;
@@ -114,13 +114,13 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 			float3 reservoir_h = normalize(view_vec + reservoir_dir);
 			float reservoir_n_h = saturate(dot(reservoir_h, gbuf.fragment.normal_ws));
 			float reservoir_pdf_d = trowbridge_reitz::d(reservoir_n_h, alpha);
-			float reservoir_pdf_l = rcp(reservoir.data.contribution_weight);
+			float reservoir_pdf_l = rcp(max(0.01f, reservoir.data.contribution_weight));
 			float3 reservoir_irr = reservoir.irradiance;
 
 			float direct_pdf =
 				reservoir_pdf_l *
 				max(irradiance.r, max(irradiance.g, irradiance.b)) /
-				max(reservoir_irr.r, max(reservoir_irr.g, reservoir_irr.b));
+				max(0.01f, max(reservoir_irr.r, max(reservoir_irr.g, reservoir_irr.b)));
 
 
 			float w1 = smp.y / (smp.y + direct_pdf);

@@ -1,6 +1,11 @@
 #ifndef TYPES_HLSLI
 #define TYPES_HLSLI
 
+struct fill_buffer_constants {
+	uint value;
+	uint size;
+};
+
 struct lighting_constants {
 	float4x4 inverse_projection_view;
 	float4   camera;
@@ -17,6 +22,7 @@ struct lighting_constants {
 
 struct lighting_combine_constants {
 	float lighting_scale;
+	bool use_indirect_specular;
 };
 
 struct indirect_specular_constants {
@@ -68,11 +74,12 @@ struct indirect_reservoir_update_constants {
 	uint sample_count_cap;
 };
 
-
-struct fill_buffer_constants {
-	uint value;
-	uint size;
+struct indirect_spatial_reuse_constants {
+	int3 offset;
+	uint frame_index;
+	uint visibility_test_mode;
 };
+
 
 struct gbuffer_visualization_constants {
 	uint mode;

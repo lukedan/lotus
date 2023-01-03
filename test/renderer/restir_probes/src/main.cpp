@@ -270,13 +270,20 @@ int main(int argc, char **argv) {
 			continue;
 		}
 
-		rassets.update();
-
 		{
+			auto frame_tmr = rctx.start_timer(u8"Frame");
+
+			{
+				auto tmr = rctx.start_timer(u8"Update Assets");
+				rassets.update();
+			}
+
 			auto cam = cam_params.into_camera();
 
 			auto g_buf = lren::g_buffer::view::create(rctx, window_size, runtime_tex_pool);
 			{ // g-buffer
+				auto tmr = rctx.start_timer(u8"G-Buffer");
+
 				auto pass = g_buf.begin_pass(rctx);
 				lren::g_buffer::render_instances(pass, rassets, scene.instances, cam.view_matrix, cam.projection_matrix);
 				pass.end();
@@ -310,6 +317,8 @@ int main(int argc, char **argv) {
 				update_probes_this_frame = false;
 
 				{ // direct probes
+					auto tmr = rctx.start_timer(u8"Update Direct Probes");
+
 					shader_types::direct_reservoir_update_constants direct_update_constants;
 					direct_update_constants.num_lights       = scene.lights.size();
 					direct_update_constants.sample_count_cap = direct_sample_count_cap;
@@ -331,6 +340,8 @@ int main(int argc, char **argv) {
 				}
 
 				{ // indirect probes
+					auto tmr = rctx.start_timer(u8"Update Indirect Probes");
+
 					shader_types::indirect_reservoir_update_constants indirect_update_constants;
 					indirect_update_constants.frame_index      = frame_index;
 					indirect_update_constants.sample_count_cap = indirect_sample_count_cap;
@@ -364,6 +375,8 @@ int main(int argc, char **argv) {
 				}
 
 				if (indirect_spatial_reuse) { // indirect spatial reuse
+					auto tmr = rctx.start_timer(u8"Indirect Spatial Reuse");
+
 					uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
 					std::uint32_t num_indirect_reservoirs = num_probes * indirect_reservoirs_per_probe;
 					auto new_indirect_reservoirs = rctx.request_structured_buffer<shader_types::indirect_lighting_reservoir>(
@@ -402,6 +415,8 @@ int main(int argc, char **argv) {
 				}
 
 				{ // summarize probes
+					auto tmr = rctx.start_timer(u8"Summarize Probes");
+
 					shader_types::summarize_probe_constants constants;
 					constants.ra_alpha = sh_ra_alpha;
 
@@ -421,6 +436,8 @@ int main(int argc, char **argv) {
 			}
 
 			{ // lighting
+				auto tmr = rctx.start_timer(u8"Direct & Indirect Diffuse");
+
 				lren::all_resource_bindings resources(
 					{},
 					{
@@ -447,6 +464,8 @@ int main(int argc, char **argv) {
 			auto indirect_specular = rctx.request_image2d(u8"Indirect Specular", window_size, 1, lgpu::format::r32g32b32a32_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
 
 			{ // indirect specular
+				auto tmr = rctx.start_timer(u8"Indirect Specular");
+
 				shader_types::indirect_specular_constants constants;
 				constants.enable_mis = enable_indirect_specular_mis;
 				constants.frame_index = frame_index;
@@ -704,6 +723,27 @@ int main(int argc, char **argv) {
 					ImGui::SliderFloat("SH RA Alpha", &sh_ra_alpha, 0.0f, 1.0f);
 					ImGui_SliderT<std::uint32_t>("Direct Sample Count Cap", &direct_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
 					ImGui_SliderT<std::uint32_t>("Indirect Sample Count Cap", &indirect_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
+				}
+				ImGui::End();
+
+				if (ImGui::Begin("Timers")) {
+					if (ImGui::BeginTable("TimersTable", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY, ImGui::GetContentRegionAvail())) {
+						ImGui::TableSetupScrollFreeze(0, 1);
+						ImGui::TableSetupColumn("Name");
+						ImGui::TableSetupColumn("Duration (ms)");
+						ImGui::TableHeadersRow();
+
+						for (const auto &t : rctx.get_timer_results()) {
+							ImGui::TableNextRow();
+							ImGui::TableNextColumn();
+							std::string n(lstr::to_generic(t.name));
+							ImGui::Text("%s", n.c_str());
+
+							ImGui::TableNextColumn();
+							ImGui::Text("%f", t.duration_ms);
+						}
+						ImGui::EndTable();
+					}
 				}
 				ImGui::End();
 

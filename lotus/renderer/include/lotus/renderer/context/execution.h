@@ -22,8 +22,23 @@ namespace lotus::renderer {
 }
 
 namespace lotus::renderer::execution {
+	/// Timestamp information of a timer.
+	struct timestamp_data {
+		/// Initializes this struct to empty.
+		timestamp_data(std::nullptr_t) {
+		}
+
+		std::uint32_t first_timestamp = 0; ///< Index of the first timestamp in the heap.
+		std::uint32_t second_timestamp = 0; ///< Index of the second timestamp in the heap.
+		std::u8string_view name; ///< The name of this timer.
+	};
+
 	/// A batch of resources.
 	struct batch_resources {
+		/// Initializes this object to empty.
+		batch_resources(std::nullptr_t) : timestamp_heap(nullptr) {
+		}
+
 		std::deque<gpu::descriptor_set>            descriptor_sets;        ///< Descriptor sets.
 		std::deque<gpu::descriptor_set_layout>     descriptor_set_layouts; ///< Descriptor set layouts.
 		std::deque<gpu::pipeline_resources>        pipeline_resources;     ///< Pipeline resources.
@@ -41,6 +56,10 @@ namespace lotus::renderer::execution {
 		std::vector<std::unique_ptr<_details::image2d>>    image2d_meta;    ///< Images to be disposed next frame.
 		std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain to be disposed next frame.
 		std::vector<std::unique_ptr<_details::buffer>>     buffer_meta;     ///< Buffers to be disposed next frame.
+
+		gpu::timestamp_query_heap timestamp_heap; ///< Timestamp query heap for this batch.
+		std::vector<timestamp_data> timestamps; ///< All recorded timers.
+		std::uint32_t num_timestamps = 0; ///< Number of timestamps recorded.
 
 		/// Registers the given object as a resource.
 		template <typename T> T &record(T &&obj) {

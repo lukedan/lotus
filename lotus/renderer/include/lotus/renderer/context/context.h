@@ -319,6 +319,63 @@ namespace lotus::renderer {
 				_description(description) {
 			}
 		};
+		/// Object whose lifetime marks the duration of a timer.
+		class timer {
+			friend context;
+		public:
+			/// Initializes this object to empty.
+			timer(std::nullptr_t) {
+			}
+			/// Move construction.
+			timer(timer &&src) noexcept : _ctx(std::exchange(src._ctx, nullptr)), _index(src._index) {
+			}
+			/// No copy construction.
+			timer(const timer&) = delete;
+			/// Move assignment.
+			timer &operator=(timer &&src) noexcept {
+				if (&src != this) {
+					end();
+					_ctx = std::exchange(src._ctx, nullptr);
+					_index = src._index;
+				}
+				return *this;
+			}
+			/// No copy assignment.
+			timer &operator=(const timer&) = delete;
+			/// Ends the timer.
+			~timer() {
+				end();
+			}
+
+			/// Ends this timer if it's ongoing.
+			void end() {
+				if (_ctx) {
+					_ctx->_timers[_index].last_command = static_cast<std::uint32_t>(_ctx->_commands.size());
+					_ctx = nullptr;
+				}
+			}
+
+			/// Returns whether this object is valid.
+			[[nodiscard]] bool is_valid() const {
+				return _ctx != nullptr;
+			}
+		private:
+			/// Initializes all fields of this struct.
+			timer(context *c, std::uint32_t i) : _ctx(c), _index(i) {
+			}
+
+			context *_ctx = nullptr; ///< Associated context.
+			std::uint32_t _index = 0; ///< Index of the timer.
+		};
+		/// Result of a single timer.
+		struct timer_result {
+			/// Initializes this object to empty.
+			timer_result(std::nullptr_t) {
+			}
+
+			float duration_ms = 0.0f; ///< Duration of the timer in milliseconds.
+			std::u8string_view name; ///< The name of this timer.
+		};
 
 		/// Creates a new context object.
 		[[nodiscard]] static context create(
@@ -392,6 +449,18 @@ namespace lotus::renderer {
 			std::u8string_view name, std::initializer_list<all_resource_bindings::numbered_binding> bindings
 		) {
 			return create_cached_descriptor_set(name, { bindings.begin(), bindings.end() });
+		}
+
+
+		/// Starts a new timer.
+		[[nodiscard]] timer start_timer(std::u8string_view name) {
+			auto index = static_cast<std::uint32_t>(_timers.size());
+			_timers.emplace_back(static_cast<std::uint32_t>(_commands.size()), name);
+			return timer(this, index);
+		}
+		/// Returns timer results from the last finished batch.
+		[[nodiscard]] const std::vector<timer_result> &get_timer_results() const {
+			return _timer_results;
 		}
 
 
@@ -555,6 +624,20 @@ namespace lotus::renderer {
 			const gpu::graphics_pipeline_state *pipeline_state = nullptr; ///< Pipeline state.
 			std::vector<_descriptor_set_info> descriptor_sets; ///< Descriptor sets.
 		};
+		/// Holds data about a timer.
+		struct _timer_data {
+			/// Initializes this structure to empty.
+			_timer_data(std::nullptr_t) {
+			}
+			/// Initializes this timer with the index of the first command and the timer's name.
+			_timer_data(std::uint32_t start, std::u8string_view n) : first_command(start), name(n) {
+			}
+
+			std::uint32_t first_command = 0; ///< Index of the first command to time.
+			/// Index past the last command to time.
+			std::uint32_t last_command = std::numeric_limits<std::uint32_t>::max();
+			std::u8string_view name; ///< The name of this timer.
+		};
 
 		gpu::context &_context;     ///< Associated graphics context.
 		gpu::device &_device;       ///< Associated device.
@@ -580,6 +663,8 @@ namespace lotus::renderer {
 		std::thread::id _thread; ///< \ref flush() can only be called from the thread that created this object.
 
 		std::vector<context_command> _commands; ///< Recorded commands.
+		std::vector<_timer_data> _timers; ///< All timers.
+		std::vector<timer_result> _timer_results; ///< Timer results from the last finished batch.
 
 		std::deque<execution::batch_resources> _all_resources; ///< Resources that are in use by previous operations.
 		execution::batch_resources _deferred_delete_resources; ///< Resources that are marked for deferred deletion.
@@ -926,7 +1011,7 @@ namespace lotus::renderer {
 		/// Handles a present command.
 		void _handle_command(execution::context&, const context_commands::present&);
 
-		/// Cleans up all unused resources.
+		/// Cleans up all unused resources, and updates timestamp information to latest.
 		void _cleanup();
 
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a pool.

@@ -870,7 +870,7 @@ namespace lotus::gpu::backends::directx12 {
 		D3D12_RESOURCE_DESC1 buf_desc =
 			_details::resource_desc::for_buffer(size, buffer_usage_mask::copy_destination);
 		_details::assert_dx(_device->CreateCommittedResource3(
-			&heap_properties, D3D12_HEAP_FLAG_NONE, &buf_desc, D3D12_BARRIER_LAYOUT_COMMON, nullptr,
+			&heap_properties, D3D12_HEAP_FLAG_NONE, &buf_desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
 			nullptr, 0, nullptr, IID_PPV_ARGS(&result._resource)
 		), _device.Get());
 

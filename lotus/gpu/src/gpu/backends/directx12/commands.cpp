@@ -345,8 +345,8 @@ namespace lotus::gpu::backends::directx12 {
 		barrier.AccessBefore = D3D12_BARRIER_ACCESS_COMMON;
 		barrier.AccessAfter  = D3D12_BARRIER_ACCESS_COPY_DEST;
 		barrier.pResource    = h._resource.Get();
-		barrier.Offset       = sizeof(std::uint64_t) * first;
-		barrier.Size         = sizeof(std::uint64_t) * count;
+		barrier.Offset       = 0;
+		barrier.Size         = UINT64_MAX;
 		D3D12_BARRIER_GROUP group;
 		group.Type            = D3D12_BARRIER_TYPE_BUFFER;
 		group.NumBarriers     = 1;

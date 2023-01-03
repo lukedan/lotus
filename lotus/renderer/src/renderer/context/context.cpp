@@ -4,6 +4,7 @@
 /// Implementation of scene loading and rendering.
 
 #include <unordered_map>
+#include <queue>
 
 #include "lotus/logging.h"
 #include "lotus/memory/stack_allocator.h"
@@ -348,11 +349,27 @@ namespace lotus::renderer {
 		_commands.emplace_back(description).value.emplace<context_commands::present>(std::move(sc));
 	}
 
+	/// Run-time data of a timer.
+	struct _timer_runtime_data {
+		/// Initializes all fields of this struct.
+		_timer_runtime_data(std::uint32_t last_cmd, std::uint32_t i) : last_command(last_cmd), index(i) {
+		}
+
+		std::uint32_t last_command = 0; ///< Past last command of this timer.
+		std::uint32_t index = 0; ///< Index of this timer.
+	};
+	/// Used to compare timers so that ones ending earlier will be ordered before ones ending later.
+	struct _timer_compare {
+		/// Comparison function.
+		[[nodiscard]] bool operator()(const _timer_runtime_data &lhs, const _timer_runtime_data &rhs) const {
+			return lhs.last_command > rhs.last_command;
+		}
+	};
 	void context::flush() {
 		crash_if(std::this_thread::get_id() != _thread);
 
 		++_batch_index;
-		_all_resources.emplace_back(std::exchange(_deferred_delete_resources, {}));
+		_all_resources.emplace_back(std::exchange(_deferred_delete_resources, nullptr));
 
 		if (_uploads) {
 			_uploads.flush();
@@ -361,11 +378,42 @@ namespace lotus::renderer {
 		{
 			auto ectx = execution::context(*this, _all_resources.back());
 
+			// prepare timers
+			auto timers = std::exchange(_timers, {});
+			std::vector<execution::timestamp_data> timestamps(timers.size(), nullptr);
+			std::priority_queue<
+				_timer_runtime_data, std::vector<_timer_runtime_data>, _timer_compare
+			> running_timers;
+			std::uint32_t next_timer = 0;
+			std::uint32_t next_timestamp = 0;
+			for (std::size_t i = 0; i < timestamps.size(); ++i) {
+				timestamps[i].name = timers[i].name;
+			}
+			// conservative size
+			auto timestamp_heap = _device.create_timestamp_query_heap(static_cast<std::uint32_t>(timers.size() * 2));
+
 			auto cmds = std::exchange(_commands, {});
-			for (auto &cmd : cmds) {
+			for (std::size_t i = 0; i < cmds.size(); ++i) {
+				// start timers
+				bool insert_timestamp = false;
+				for (; next_timer < timers.size() && timers[next_timer].first_command == i; ++next_timer) {
+					insert_timestamp = true;
+					crash_if(timers[next_timer].last_command > cmds.size()); // not ended properly
+					running_timers.emplace(timers[next_timer].last_command, next_timer);
+					timestamps[next_timer].first_timestamp = next_timestamp;
+				}
+				for (; !running_timers.empty() && running_timers.top().last_command == i; running_timers.pop()) {
+					insert_timestamp = true;
+					timestamps[running_timers.top().index].second_timestamp = next_timestamp;
+				}
+				if (insert_timestamp) {
+					ectx.get_command_list().query_timestamp(timestamp_heap, next_timestamp);
+					++next_timestamp;
+				}
+
 				std::visit([&, this](auto &cmd_val) {
 					_handle_command(ectx, cmd_val);
-				}, cmd.value);
+				}, cmds[i].value);
 
 				constexpr bool _debug_separate_commands = false;
 				if constexpr (_debug_separate_commands) {
@@ -375,6 +423,19 @@ namespace lotus::renderer {
 				}
 			}
 			ectx.flush_transitions();
+
+			// finish collecting timestamps
+			if (!running_timers.empty()) { // insert last timestamp
+				for (; !running_timers.empty(); running_timers.pop()) {
+					timestamps[running_timers.top().index].second_timestamp = next_timestamp;
+				}
+				ectx.get_command_list().query_timestamp(timestamp_heap, next_timestamp);
+				++next_timestamp;
+			}
+			ectx.get_command_list().resolve_queries(timestamp_heap, 0, next_timestamp);
+			_all_resources.back().timestamp_heap = std::move(timestamp_heap);
+			_all_resources.back().timestamps = std::move(timestamps);
+			_all_resources.back().num_timestamps = next_timestamp;
 
 			auto signal_semaphores = {
 				gpu::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)
@@ -436,6 +497,7 @@ namespace lotus::renderer {
 		_adapter_properties(adap_prop),
 		_cache(_device),
 		_thread(std::this_thread::get_id()),
+		_deferred_delete_resources(nullptr),
 		_uploads(nullptr) {
 
 		const auto &memory_types = _device.enumerate_memory_types();
@@ -1300,7 +1362,7 @@ namespace lotus::renderer {
 		auto first_batch = static_cast<std::uint32_t>(_batch_index + 1 - _all_resources.size());
 		std::uint64_t finished_batch = _device.query_timeline_semaphore(_batch_semaphore);
 		while (first_batch <= finished_batch) {
-			const auto &batch = _all_resources.front();
+			auto &batch = _all_resources.front();
 			
 			for (const auto &surf : batch.image2d_meta) {
 				for (const auto &array_ref : surf->array_references) {
@@ -1333,6 +1395,21 @@ namespace lotus::renderer {
 				for (auto &img : rsrc.image_views) {
 					img = nullptr;
 				}
+			}
+
+			if (first_batch == finished_batch) { // read back timer information
+				std::vector<timer_result> results;
+				results.reserve(batch.timestamps.size());
+				double frequency = _queue.get_timestamp_frequency();
+				std::vector<std::uint64_t> raw_results(batch.num_timestamps);
+				_device.fetch_query_results(batch.timestamp_heap, 0, raw_results);
+				for (const auto &t : batch.timestamps) {
+					std::uint64_t ticks = raw_results[t.second_timestamp] - raw_results[t.first_timestamp];
+					auto &res = results.emplace_back(nullptr);
+					res.name = t.name;
+					res.duration_ms = static_cast<float>((ticks * 1000) / frequency);
+				}
+				_timer_results = std::move(results);
 			}
 
 			_all_resources.pop_front();

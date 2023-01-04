@@ -51,12 +51,25 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 
 	pcg32::state rng = pcg32::seed(dispatch_thread_id.y * 5003 + dispatch_thread_id.x * 3, constants.frame_index);
 
-	float2 smp = trowbridge_reitz::importance_sample_d(pcg32::random_01(rng), alpha);
-	tangent_frame::tbn ts = tangent_frame::any(gbuf.fragment.normal_ws);
-	float theta = pcg32::random_01(rng) * 2.0f * pi;
-	float3 h = ts.normal * smp.x + sqrt(1.0f - smp.x * smp.x) * (ts.tangent * cos(theta) + ts.bitangent * sin(theta));
-	float3 out_dir = reflect(-view_vec, h);
-	smp.y /= 4.0f * dot(h, view_vec);
+	float3 out_dir;
+	float canonical_pdf;
+	float3 h;
+	{
+		tangent_frame::tbn ts = tangent_frame::any(gbuf.fragment.normal_ws);
+#ifdef SAMPLE_VISIBLE_NORMALS
+		float3 projected = float3(dot(view_vec, ts.tangent), dot(view_vec, ts.bitangent), dot(view_vec, ts.normal));
+		float3 h_projected = trowbridge_reitz::importance_sample_d_visible(float2(pcg32::random_01(rng), pcg32::random_01(rng)), projected, alpha);
+		h = h_projected.x * ts.tangent + h_projected.y * ts.bitangent + h_projected.z * ts.normal;
+		canonical_pdf = trowbridge_reitz::importance_sample_d_visible_pdf(dot(ts.normal, view_vec), h_projected.z, saturate(dot(view_vec, h)), alpha);
+#else
+		float2 smp = trowbridge_reitz::importance_sample_d(pcg32::random_01(rng), alpha);
+		float theta = pcg32::random_01(rng) * 2.0f * pi;
+		h = ts.normal * smp.x + sqrt(1.0f - smp.x * smp.x) * (ts.tangent * cos(theta) + ts.bitangent * sin(theta));
+		canonical_pdf = smp.y;
+#endif
+	}
+	out_dir = reflect(-view_vec, h);
+	canonical_pdf /= 4.0f * dot(h, view_vec);
 
 	float3 irradiance = (float3)0.0f;
 	{
@@ -95,7 +108,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 
 	float3 brdf_d, brdf_s;
 	brdf(gbuf.fragment, out_dir, view_vec, brdf_d, brdf_s);
-	float3 lighting = saturate(dot(gbuf.fragment.normal_ws, out_dir)) * brdf_s * irradiance / smp.y;
+	float3 lighting = saturate(dot(gbuf.fragment.normal_ws, out_dir)) * brdf_s * irradiance / canonical_pdf;
 
 	if (constants.enable_mis) {
 		// probe information
@@ -114,7 +127,17 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 			float3 reservoir_dir = normalize(reservoir_pos - gbuf.fragment.position_ws);
 			float3 reservoir_h = normalize(view_vec + reservoir_dir);
 			float reservoir_n_h = saturate(dot(reservoir_h, gbuf.fragment.normal_ws));
-			float reservoir_pdf_d = trowbridge_reitz::d(reservoir_n_h, alpha) / (4.0f * dot(reservoir_h, view_vec));
+#ifdef SAMPLE_VISIBLE_NORMALS
+			float reservoir_pdf_d = trowbridge_reitz::d(reservoir_n_h, alpha);
+#else
+			float reservoir_pdf_d = trowbridge_reitz::importance_sample_d_visible_pdf(
+				dot(gbuf.fragment.normal_ws, view_vec),
+				reservoir_n_h,
+				dot(reservoir_h, view_vec),
+				alpha
+			);
+#endif
+			reservoir_pdf_d /= 4.0f * dot(reservoir_h, view_vec);
 			float reservoir_pdf_l = rcp(max(0.01f, reservoir.data.contribution_weight));
 			float3 reservoir_irr = reservoir.irradiance;
 
@@ -124,7 +147,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 				max(0.01f, max(reservoir_irr.r, max(reservoir_irr.g, reservoir_irr.b)));
 
 
-			float w1 = smp.y / (smp.y + direct_pdf);
+			float w1 = canonical_pdf / (canonical_pdf + direct_pdf);
 			float w2 = reservoir_pdf_l / (reservoir_pdf_l + reservoir_pdf_d);
 
 			float3 brdf_d2, brdf_s2;

@@ -90,6 +90,7 @@ int main(int argc, char **argv) {
 	auto summarize_probes_cs = rassets.compile_shader_in_filesystem("src/shaders/summarize_probes.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto indirect_spatial_reuse_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_spatial_reuse.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto indirect_specular_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto indirect_specular_visible_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs", { { u8"SAMPLE_VISIBLE_NORMALS", u8""} });
 	auto lighting_cs = rassets.compile_shader_in_filesystem("src/shaders/lighting.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
 
 	auto runtime_tex_pool = rctx.request_pool(u8"Run-time Textures");
@@ -103,8 +104,8 @@ int main(int argc, char **argv) {
 	cvec3u32 probe_density(50, 50, 50);
 	std::uint32_t direct_reservoirs_per_probe = 2;
 	std::uint32_t indirect_reservoirs_per_probe = 4;
-	std::uint32_t direct_sample_count_cap = 100;
-	std::uint32_t indirect_sample_count_cap = 100;
+	std::uint32_t direct_sample_count_cap = 10;
+	std::uint32_t indirect_sample_count_cap = 10;
 	auto probe_bounds = lotus::aab3f::create_from_min_max({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f });
 	float visualize_probe_size = 0.1f;
 	int visualize_probes_mode = 0;
@@ -116,6 +117,7 @@ int main(int argc, char **argv) {
 	float sh_ra_alpha = 0.05f;
 	bool use_indirect_diffuse = true;
 	bool use_indirect_specular = true;
+	bool indirect_specular_use_visible_normals = true;
 	bool enable_indirect_specular_mis = true;
 	bool update_probes = true;
 	bool update_probes_this_frame = false;
@@ -529,7 +531,8 @@ int main(int argc, char **argv) {
 				);
 
 				rctx.run_compute_shader_with_thread_dimensions(
-					indirect_specular_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
+					indirect_specular_use_visible_normals ? indirect_specular_visible_cs : indirect_specular_cs,
+					cvec3u32(window_size.into<std::uint32_t>(), 1),
 					std::move(resources), u8"Indirect Specular"
 				);
 			}
@@ -746,6 +749,7 @@ int main(int argc, char **argv) {
 					}
 					ImGui::Checkbox("Show Indirect Diffuse", &use_indirect_diffuse);
 					ImGui::Checkbox("Show Indirect Specular", &use_indirect_specular);
+					ImGui::Checkbox("Indirect Specular: Sample Visible Normals", &indirect_specular_use_visible_normals);
 					ImGui::Checkbox("Use Indirect Specular MIS", &enable_indirect_specular_mis);
 					ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
 					ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");

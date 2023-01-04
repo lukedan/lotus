@@ -24,8 +24,8 @@ namespace lotus::system::platforms::windows {
 	protected:
 		using native_handle_t = HWND; ///< Native handle type.
 
-		/// Initializes \ref _hwnd to \p nullptr.
-		window(std::nullptr_t) : _hwnd(nullptr) {
+		/// Initializes this object to empty.
+		window(std::nullptr_t) {
 		}
 		/// Calls \ref _update_address().
 		window(window&&);
@@ -43,6 +43,8 @@ namespace lotus::system::platforms::windows {
 
 		/// Calls \p SetCapture() to acquire capture for this window.
 		void acquire_mouse_capture();
+		/// Calls \p GetCapture() to determine if the current window has captured the mouse.
+		[[nodiscard]] bool has_mouse_capture() const;
 		/// Calls \p ReleaseCapture().
 		void release_mouse_capture();
 
@@ -56,12 +58,16 @@ namespace lotus::system::platforms::windows {
 			return _hwnd;
 		}
 	private:
-		native_handle_t _hwnd; ///< The window handle.
+		native_handle_t _hwnd = nullptr; ///< The window handle.
+		wchar_t _queued_surrogate = 0; ///< Queued surrogate character input.
+		bool _mouse_tracked = false; ///< Whether \p TrackMouseEvent() has been called for this window.
 
 		/// Initializes \ref _hwnd and calls \ref _update_address().
 		explicit window(native_handle_t);
 
 		/// Updates the address stored with \p SetWindowLongPtr().
 		void _update_address();
+		/// Calls \p TrackMouseEvent() to set up additional mouse events.
+		void _update_mouse_tracking();
 	};
 }

@@ -37,6 +37,10 @@ namespace lotus::system {
 		void acquire_mouse_capture() {
 			platform::window::acquire_mouse_capture();
 		}
+		/// Returns whether this window currently captures the mouse.
+		[[nodiscard]] bool has_mouse_capture() const {
+			return platform::window::has_mouse_capture();
+		}
 		/// Explicitly releases mouse capture.
 		void release_mouse_capture() {
 			platform::window::release_mouse_capture();
@@ -63,6 +67,8 @@ namespace lotus::system {
 		static_function<void(window_events::resize&)> on_resize = nullptr;
 		/// Function that will be called when mouse movement is detected over the window.
 		static_function<void(window_events::mouse::move&)> on_mouse_move = nullptr;
+		/// Function that will be called when the mouse leaves this window.
+		static_function<void()> on_mouse_leave = nullptr;
 		/// Function that will be called when a mouse button is pressed over the window.
 		static_function<void(window_events::mouse::button_down&)> on_mouse_button_down = nullptr;
 		/// Function that will be called when a mouse button is released over the window.
@@ -71,6 +77,12 @@ namespace lotus::system {
 		static_function<void(window_events::mouse::scroll&)> on_mouse_scroll = nullptr;
 		/// Function that will be called when mouse capture is broken externally.
 		static_function<void()> on_capture_broken = nullptr;
+		/// Function that will be called when a key is pressed.
+		static_function<void(window_events::key_down&)> on_key_down = nullptr;
+		/// Function that will be called when a key is released.
+		static_function<void(window_events::key_up&)> on_key_up = nullptr;
+		/// Function that will be called when text input is detected.
+		static_function<void(window_events::text_input&)> on_text_input = nullptr;
 	protected:
 		/// Implicit conversion from a base window.
 		window(platform::window base) : platform::window(std::move(base)) {

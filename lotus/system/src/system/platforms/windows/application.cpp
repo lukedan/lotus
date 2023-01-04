@@ -13,9 +13,36 @@ namespace lotus::system::platforms::windows {
 	/// Retrieves modifier key state from the given \p WPARAM.
 	[[nodiscard]] static modifier_key_mask _get_modifier_key_mask(WPARAM wparam) {
 		return
-			((wparam & MK_CONTROL)    ? modifier_key_mask::control : modifier_key_mask::none) |
-			((wparam & MK_SHIFT)      ? modifier_key_mask::shift   : modifier_key_mask::none) |
-			(GetKeyState(VK_MENU) < 0 ? modifier_key_mask::alt     : modifier_key_mask::none);
+			((wparam & MK_CONTROL)           ? modifier_key_mask::control : modifier_key_mask::none) |
+			((wparam & MK_SHIFT)             ? modifier_key_mask::shift   : modifier_key_mask::none) |
+			((GetKeyState(VK_MENU) & 0x8000) ? modifier_key_mask::alt     : modifier_key_mask::none);
+	}
+	/// Retrieves modifier key state from the system.
+	[[nodiscard]] static modifier_key_mask _get_modifier_key_mask() {
+		return
+			((GetKeyState(VK_CONTROL) & 0x8000) ? modifier_key_mask::control : modifier_key_mask::none) |
+			((GetKeyState(VK_SHIFT)   & 0x8000) ? modifier_key_mask::shift   : modifier_key_mask::none) |
+			((GetKeyState(VK_MENU)    & 0x8000) ? modifier_key_mask::alt     : modifier_key_mask::none);
+	}
+	/// Returns the mouse button associated with the given message.
+	[[nodiscard]] static mouse_button _get_mouse_button_from_message(UINT msg) {
+		switch (msg) {
+		case WM_LBUTTONDOWN:
+			[[fallthrough]];
+		case WM_LBUTTONUP:
+			return mouse_button::primary;
+		case WM_RBUTTONDOWN:
+			[[fallthrough]];
+		case WM_RBUTTONUP:
+			return mouse_button::secondary;
+		case WM_MBUTTONDOWN:
+			[[fallthrough]];
+		case WM_MBUTTONUP:
+			return mouse_button::middle;
+		default:
+			std::abort(); // not implemented
+			return mouse_button::primary;
+		}
 	}
 	LRESULT CALLBACK _window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 		auto *wnd = reinterpret_cast<window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
@@ -49,6 +76,9 @@ namespace lotus::system::platforms::windows {
 			return 0;
 
 		case WM_MOUSEMOVE:
+			if (!sys_wnd->_mouse_tracked) {
+				sys_wnd->_update_mouse_tracking();
+			}
 			if (sys_wnd->on_mouse_move) {
 				window_events::mouse::move info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)), _get_modifier_key_mask(wparam)
@@ -56,58 +86,40 @@ namespace lotus::system::platforms::windows {
 				sys_wnd->on_mouse_move(info);
 			}
 			return 0;
+		case WM_MOUSEHOVER:
+			sys_wnd->_update_mouse_tracking();
+			// TODO event?
+			return 0;
+		case WM_MOUSELEAVE:
+			sys_wnd->_mouse_tracked = false;
+			if (sys_wnd->on_mouse_leave) {
+				sys_wnd->on_mouse_leave();
+			}
+			return 0;
 
 		case WM_LBUTTONDOWN:
-			if (sys_wnd->on_mouse_button_down) {
-				window_events::mouse::button_down info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
-					mouse_button::primary, _get_modifier_key_mask(wparam)
-				);
-				sys_wnd->on_mouse_button_down(info);
-			}
-			return 0;
-		case WM_LBUTTONUP:
-			if (sys_wnd->on_mouse_button_up) {
-				window_events::mouse::button_up info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
-					mouse_button::primary, _get_modifier_key_mask(wparam)
-				);
-				sys_wnd->on_mouse_button_up(info);
-			}
-			return 0;
-
+			[[fallthrough]];
 		case WM_RBUTTONDOWN:
-			if (sys_wnd->on_mouse_button_down) {
-				window_events::mouse::button_down info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
-					mouse_button::secondary, _get_modifier_key_mask(wparam)
-				);
-				sys_wnd->on_mouse_button_down(info);
-			}
-			return 0;
-		case WM_RBUTTONUP:
-			if (sys_wnd->on_mouse_button_up) {
-				window_events::mouse::button_up info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
-					mouse_button::secondary, _get_modifier_key_mask(wparam)
-				);
-				sys_wnd->on_mouse_button_up(info);
-			}
-			return 0;
+			[[fallthrough]];
 		case WM_MBUTTONDOWN:
 			if (sys_wnd->on_mouse_button_down) {
 				window_events::mouse::button_down info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
-					mouse_button::middle, _get_modifier_key_mask(wparam)
+					_get_mouse_button_from_message(msg), _get_modifier_key_mask(wparam)
 				);
 				sys_wnd->on_mouse_button_down(info);
 			}
 			return 0;
+
+		case WM_LBUTTONUP:
+			[[fallthrough]];
+		case WM_RBUTTONUP:
+			[[fallthrough]];
 		case WM_MBUTTONUP:
 			if (sys_wnd->on_mouse_button_up) {
 				window_events::mouse::button_up info(
 					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
-					mouse_button::middle, _get_modifier_key_mask(wparam)
+					_get_mouse_button_from_message(msg), _get_modifier_key_mask(wparam)
 				);
 				sys_wnd->on_mouse_button_up(info);
 			}
@@ -115,8 +127,10 @@ namespace lotus::system::platforms::windows {
 
 		case WM_MOUSEWHEEL:
 			if (sys_wnd->on_mouse_scroll) {
+				POINT pos = { GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam) };
+				_details::assert_win32(ScreenToClient(sys_wnd->_hwnd, &pos));
 				window_events::mouse::scroll info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
+					cvec2i(pos.x, pos.y),
 					cvec2f(0.0f, GET_WHEEL_DELTA_WPARAM(wparam) / static_cast<float>(WHEEL_DELTA)),
 					_get_modifier_key_mask(wparam)
 				);
@@ -125,8 +139,10 @@ namespace lotus::system::platforms::windows {
 			return 0;
 		case WM_MOUSEHWHEEL:
 			if (sys_wnd->on_mouse_scroll) {
+				POINT pos = { GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam) };
+				_details::assert_win32(ScreenToClient(sys_wnd->_hwnd, &pos));
 				window_events::mouse::scroll info(
-					cvec2i(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)),
+					cvec2i(pos.x, pos.y),
 					cvec2f(GET_WHEEL_DELTA_WPARAM(wparam) / static_cast<float>(WHEEL_DELTA), 0.0f),
 					_get_modifier_key_mask(wparam)
 				);
@@ -134,10 +150,58 @@ namespace lotus::system::platforms::windows {
 			}
 			return 0;
 
+		case WM_KEYDOWN:
+			[[fallthrough]];
+		case WM_SYSKEYDOWN:
+			if (sys_wnd->on_key_down) {
+				window_events::key_down info(
+					_details::virtual_keycode_to_key(static_cast<int>(wparam)), _get_modifier_key_mask()
+				);
+				sys_wnd->on_key_down(info);
+			}
+			return 0;
+
+		case WM_KEYUP:
+			[[fallthrough]];
+		case WM_SYSKEYUP:
+			if (sys_wnd->on_key_up) {
+				window_events::key_up info(
+					_details::virtual_keycode_to_key(static_cast<int>(wparam)), _get_modifier_key_mask()
+				);
+				sys_wnd->on_key_up(info);
+			}
+			return 0;
+
+		case WM_CHAR:
+			if (IS_HIGH_SURROGATE(wparam)) {
+				if (sys_wnd->_queued_surrogate != 0) {
+					if (sys_wnd->on_text_input) {
+						window_events::text_input info(u8"\uFFFD");
+						sys_wnd->on_text_input(info);
+					}
+				}
+				sys_wnd->_queued_surrogate = static_cast<wchar_t>(wparam);
+				return 0;
+			} else if (IS_LOW_SURROGATE(wparam)) {
+				if (sys_wnd->on_text_input) {
+					std::wstring str({ sys_wnd->_queued_surrogate, static_cast<wchar_t>(wparam) });
+					window_events::text_input info(_details::wstring_to_u8string<std::allocator<char8_t>>(str));
+					sys_wnd->on_text_input(info);
+				}
+				sys_wnd->_queued_surrogate = 0;
+				return 0;
+			}
+			if (sys_wnd->on_text_input) {
+				std::wstring str({ static_cast<wchar_t>(wparam) });
+				window_events::text_input info(_details::wstring_to_u8string<std::allocator<char8_t>>(str));
+				sys_wnd->on_text_input(info);
+			}
+			return 0;
+
 		default:
 			return DefWindowProc(hwnd, msg, wparam, lparam);
 		}
-		assert(false); // event not properly handled
+		std::abort(); // event not properly handled
 	}
 
 
@@ -176,14 +240,16 @@ namespace lotus::system::platforms::windows {
 	message_type application::process_message_blocking() {
 		MSG msg;
 		_details::assert_win32(GetMessage(&msg, nullptr, 0, 0) != -1);
-		CallWindowProc(_window_proc, msg.hwnd, msg.message, msg.wParam, msg.lParam);
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 		return msg.message == WM_QUIT ? message_type::quit : message_type::normal;
 	}
 
 	message_type application::process_message_nonblocking() {
 		MSG msg;
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-			CallWindowProc(_window_proc, msg.hwnd, msg.message, msg.wParam, msg.lParam);
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
 			return msg.message == WM_QUIT ? message_type::quit : message_type::normal;
 		}
 		return message_type::none;

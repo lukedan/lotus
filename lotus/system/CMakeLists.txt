@@ -23,6 +23,7 @@ if(WIN32)
 			"include/lotus/system/platforms/windows.h"
 		PRIVATE
 			"src/system/platforms/windows/application.cpp"
+			"src/system/platforms/windows/details.cpp"
 			"src/system/platforms/windows/window.cpp")
 	target_compile_definitions(lotus_system
 		PUBLIC

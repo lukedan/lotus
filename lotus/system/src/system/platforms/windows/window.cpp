@@ -34,6 +34,10 @@ namespace lotus::system::platforms::windows {
 		SetCapture(_hwnd);
 	}
 
+	bool window::has_mouse_capture() const {
+		return GetCapture() == _hwnd;
+	}
+
 	void window::release_mouse_capture() {
 		_details::assert_win32(ReleaseCapture());
 	}
@@ -61,5 +65,15 @@ namespace lotus::system::platforms::windows {
 			SetWindowLongPtr(_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 			_details::assert_win32(GetLastError() == 0);
 		}
+	}
+
+	void window::_update_mouse_tracking() {
+		TRACKMOUSEEVENT tme = {};
+		tme.cbSize      = sizeof(tme);
+		tme.dwFlags     = TME_HOVER | TME_LEAVE;
+		tme.hwndTrack   = _hwnd;
+		tme.dwHoverTime = HOVER_DEFAULT;
+		_details::assert_win32(TrackMouseEvent(&tme));
+		_mouse_tracked = true;
 	}
 }

@@ -226,7 +226,7 @@ int main(int argc, char **argv) {
 	};
 
 	auto on_mouse_down = [&](lsys::window_events::mouse::button_down &down) {
-		imgui_sctx.on_mouse_down(down);
+		imgui_sctx.on_mouse_down(wnd, down);
 		if (!ImGui::GetIO().WantCaptureMouse) {
 			if (cam_control.on_mouse_down(down.button)) {
 				wnd.acquire_mouse_capture();
@@ -238,7 +238,7 @@ int main(int argc, char **argv) {
 	};
 
 	auto on_mouse_up = [&](lsys::window_events::mouse::button_up &up) {
-		imgui_sctx.on_mouse_up(up);
+		imgui_sctx.on_mouse_up(wnd, up);
 		if (!ImGui::GetIO().WantCaptureMouse) {
 			if (cam_control.on_mouse_up(up.button)) {
 				wnd.release_mouse_capture();
@@ -257,15 +257,44 @@ int main(int argc, char **argv) {
 	};
 
 	auto on_capture_broken = [&]() {
+		imgui_sctx.on_capture_broken();
 		cam_control.on_capture_broken();
 	};
 	wnd.on_capture_broken = [&]() {
 		on_capture_broken();
 	};
 
+	auto on_key_down = [&](lsys::window_events::key_down &down) {
+		imgui_sctx.on_key_down(down);
+	};
+	wnd.on_key_down = [&](lsys::window_events::key_down &down) {
+		on_key_down(down);
+	};
+
+	auto on_key_up = [&](lsys::window_events::key_up &up) {
+		imgui_sctx.on_key_up(up);
+	};
+	wnd.on_key_up = [&](lsys::window_events::key_up &up) {
+		on_key_up(up);
+	};
+
+	auto on_text_input = [&](lsys::window_events::text_input &text) {
+		imgui_sctx.on_text_input(text);
+	};
+	wnd.on_text_input = [&](lsys::window_events::text_input &text) {
+		on_text_input(text);
+	};
+
 
 	wnd.show_and_activate();
-	while (app.process_message_nonblocking() != lsys::message_type::quit) {
+	bool quit = false;
+	while (!quit) {
+		lsys::message_type msg_type;
+		do {
+			msg_type = app.process_message_nonblocking();
+			quit = quit || msg_type == lsys::message_type::quit;
+		} while (msg_type != lsys::message_type::none);
+
 		if (window_size == zero) {
 			continue;
 		}

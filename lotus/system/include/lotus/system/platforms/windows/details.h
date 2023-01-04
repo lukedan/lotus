@@ -8,6 +8,7 @@
 #include <Windows.h>
 
 #include "lotus/logging.h"
+#include "lotus/system/common.h"
 
 namespace lotus::system::platforms::windows::_details {
 	/// Aborts if the given value is zero.
@@ -67,8 +68,6 @@ namespace lotus::system::platforms::windows::_details {
 			CP_UTF8, 0, view.data(), static_cast<int>(view.size()),
 			reinterpret_cast<LPSTR>(res.data()), len, nullptr, nullptr
 		) == len);
-		// remove duplicate null terminator that WideCharToMultiByte() introduces when cchWideChar is -1
-		res.pop_back();
 		return res;
 	}
 	/// \overload
@@ -109,4 +108,8 @@ namespace lotus::system::platforms::windows::_details {
 		);
 #endif
 	}
+
+
+	/// Converts a virtual key code to a \ref key.
+	[[nodiscard]] key virtual_keycode_to_key(int);
 }

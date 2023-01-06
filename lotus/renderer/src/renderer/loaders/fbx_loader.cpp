@@ -580,7 +580,7 @@ namespace lotus::renderer::fbx {
 						instance inst = nullptr;
 						inst.geometry  = mesh_it->second[i];
 						inst.material  = mat_it->second;
-						inst.transform = node_trans;
+						inst.transform = inst.prev_transform = node_trans;
 						instance_loaded_callback(std::move(inst));
 					}
 				}

@@ -329,7 +329,7 @@ namespace lotus::renderer::assimp {
 					unsigned mesh_id = node->mMeshes[i_mesh];
 					inst.geometry  = geometries[mesh_id];
 					inst.material  = materials[scene->mMeshes[mesh_id]->mMaterialIndex];
-					inst.transform = trans;
+					inst.transform = inst.prev_transform = trans;
 					instance_loaded_callback(std::move(inst));
 				}
 

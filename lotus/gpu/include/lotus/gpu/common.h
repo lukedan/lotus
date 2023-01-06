@@ -806,13 +806,13 @@ namespace lotus::gpu {
 	struct color_clear_value {
 	public:
 		/// Initializes the value to integer zero.
-		color_clear_value(zero_t) : value(std::in_place_type<cvec4<std::uint64_t>>, 0, 0, 0, 0) {
+		constexpr color_clear_value(zero_t) : value(std::in_place_type<cvec4<std::uint64_t>>, 0, 0, 0, 0) {
 		}
 		/// Initializes this struct with the given integral value.
-		color_clear_value(cvec4<std::uint64_t> v) : value(v) {
+		constexpr color_clear_value(cvec4<std::uint64_t> v) : value(v) {
 		}
 		/// Initializes this struct with the given floating-point value.
-		color_clear_value(cvec4d v) : value(v) {
+		constexpr color_clear_value(cvec4d v) : value(v) {
 		}
 
 		/// The clear color value that can be either floating-point or integral.
@@ -1762,42 +1762,35 @@ namespace lotus::gpu {
 			load_operation(pass_load_operation::discard),
 			store_operation(pass_store_operation::discard) {
 		}
-		/// Returns a struct with the specified access.
-		[[nodiscard]] constexpr inline static render_target_access create_custom(
-			ClearValue clear, pass_load_operation load, pass_store_operation store
-		) {
-			return render_target_access(clear, load, store);
-		}
-		/// Returns a struct indicating that the contents of the render target is irrelevant both before and after
-		/// the pass.
-		[[nodiscard]] constexpr inline static render_target_access create_discard() {
-			return create_custom(zero, pass_load_operation::discard, pass_store_operation::discard);
-		}
-		/// Returns a struct indicating that the render target is cleared before the pass and the contents produced
-		/// by the pass are preserved.
-		[[nodiscard]] constexpr inline static render_target_access create_clear(ClearValue clear) {
-			return create_custom(clear, pass_load_operation::clear, pass_store_operation::preserve);
-		}
-		/// Returns a struct indicating that the original contents of the render target should be preserved and newly
-		/// rendered contents should be written back to the render target.
-		[[nodiscard]] constexpr inline static render_target_access create_preserve_and_write() {
-			return create_custom(zero, pass_load_operation::preserve, pass_store_operation::preserve);
-		}
-		/// Returns a struct indicating that the original contents of the render target should be ignored and newly
-		/// rendered contents should be written back to the render target.
-		[[nodiscard]] constexpr inline static render_target_access create_discard_then_write() {
-			return create_custom(zero, pass_load_operation::discard, pass_store_operation::preserve);
-		}
-
-		ClearValue           clear_value;     ///< Clear value.
-		pass_load_operation  load_operation;  ///< Load opepration.
-		pass_store_operation store_operation; ///< Store operation.
-	protected:
 		/// Initializes all fields of this struct.
 		constexpr render_target_access(
 			ClearValue clear, pass_load_operation load, pass_store_operation store
 		) : clear_value(clear), load_operation(load), store_operation(store) {
 		}
+		/// Returns a struct indicating that the contents of the render target is irrelevant both before and after
+		/// the pass.
+		[[nodiscard]] constexpr inline static render_target_access create_discard() {
+			return render_target_access(zero, pass_load_operation::discard, pass_store_operation::discard);
+		}
+		/// Returns a struct indicating that the render target is cleared before the pass and the contents produced
+		/// by the pass are preserved.
+		[[nodiscard]] constexpr inline static render_target_access create_clear(ClearValue clear) {
+			return render_target_access(clear, pass_load_operation::clear, pass_store_operation::preserve);
+		}
+		/// Returns a struct indicating that the original contents of the render target should be preserved and newly
+		/// rendered contents should be written back to the render target.
+		[[nodiscard]] constexpr inline static render_target_access create_preserve_and_write() {
+			return render_target_access(zero, pass_load_operation::preserve, pass_store_operation::preserve);
+		}
+		/// Returns a struct indicating that the original contents of the render target should be ignored and newly
+		/// rendered contents should be written back to the render target.
+		[[nodiscard]] constexpr inline static render_target_access create_discard_then_write() {
+			return render_target_access(zero, pass_load_operation::discard, pass_store_operation::preserve);
+		}
+
+		ClearValue           clear_value;     ///< Clear value.
+		pass_load_operation  load_operation;  ///< Load opepration.
+		pass_store_operation store_operation; ///< Store operation.
 	};
 	/// Access of a color render target by a pass.
 	using color_render_target_access = render_target_access<color_clear_value>;
@@ -1805,6 +1798,7 @@ namespace lotus::gpu {
 	using depth_render_target_access = render_target_access<double>;
 	/// Access of a stencil render target by a pass.
 	using stencil_render_target_access = render_target_access<std::uint32_t>;
+
 	/// Describes how a frame buffer is accessed during a render pass.
 	struct frame_buffer_access {
 	public:

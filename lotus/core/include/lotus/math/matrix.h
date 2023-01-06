@@ -450,16 +450,18 @@ namespace lotus {
 		/// This class only contains utility functions.
 		mat() = delete;
 
-		/// Applies the memberwise operator to the two matrices and returns the result.
+		/// Applies the memberwise operator to the given matrices and returns the result.
 		template <
-			std::size_t R, std::size_t C, typename T, typename Operator
-		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_operation(
-			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs, Operator op
+			std::size_t R, std::size_t C, typename ...Types, typename Operator
+		> [[nodiscard]] constexpr inline static matrix<
+			R, C, std::invoke_result_t<Operator, const Types&...>
+		> memberwise_operation(
+			Operator op, const matrix<R, C, Types> &...mats
 		) {
-			matrix<R, C, T> result = zero;
+			matrix<R, C, std::invoke_result_t<Operator, const Types&...>> result = zero;
 			for (std::size_t y = 0; y < R; ++y) {
 				for (std::size_t x = 0; x < C; ++x) {
-					result(y, x) = op(lhs(y, x), rhs(y, x));
+					result(y, x) = op(mats(y, x)...);
 				}
 			}
 			return result;
@@ -470,9 +472,9 @@ namespace lotus {
 		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_multiply(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
-			return memberwise_operation(lhs, rhs, [](const T &lhs, const T &rhs) {
+			return memberwise_operation([](const T &lhs, const T &rhs) {
 				return lhs * rhs;
-			});
+			}, lhs, rhs);
 		}
 		/// Memberwise multiplication of the two matrices.
 		template <
@@ -480,9 +482,9 @@ namespace lotus {
 		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_divide(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
-			return memberwise_operation(lhs, rhs, [](const T &lhs, const T &rhs) {
+			return memberwise_operation([](const T &lhs, const T &rhs) {
 				return lhs / rhs;
-			});
+			}, lhs, rhs);
 		}
 		/// Memberwise minimum of the two matrices.
 		template <
@@ -490,9 +492,9 @@ namespace lotus {
 		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_min(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
-			return memberwise_operation(lhs, rhs, [](const T &lhs, const T &rhs) {
+			return memberwise_operation([](const T &lhs, const T &rhs) {
 				return std::min(lhs, rhs);
-			});
+			}, lhs, rhs);
 		}
 		/// Memberwise minimum of the two matrices.
 		template <
@@ -500,9 +502,17 @@ namespace lotus {
 		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_max(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
-			return memberwise_operation(lhs, rhs, [](const T &lhs, const T &rhs) {
+			return memberwise_operation([](const T &lhs, const T &rhs) {
 				return std::max(lhs, rhs);
-			});
+			}, lhs, rhs);
+		}
+		/// Memberwise reciprocal of the given matrix.
+		template <
+			std::size_t R, std::size_t C, typename T
+		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_reciprocal(const matrix<R, C, T> &m) {
+			return memberwise_operation([](const T &v) {
+				return static_cast<T>(1.0f / v);
+			}, m);
 		}
 
 	protected:

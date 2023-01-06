@@ -349,6 +349,10 @@ namespace lotus::renderer {
 		_commands.emplace_back(description).value.emplace<context_commands::present>(std::move(sc));
 	}
 
+	void context::pause_for_debugging(std::u8string_view description) {
+		_commands.emplace_back(description).value.emplace<context_commands::pause_for_debugging>();
+	}
+
 	/// Run-time data of a timer.
 	struct _timer_runtime_data {
 		/// Initializes all fields of this struct.
@@ -1356,6 +1360,10 @@ namespace lotus::renderer {
 		}
 		// do this last, since handling transitions needs the index of the image
 		cmd.target._ptr->next_image_index = _details::swap_chain::invalid_image_index;
+	}
+
+	void context::_handle_command(execution::context&, const context_commands::pause_for_debugging&) {
+		pause_for_debugger();
 	}
 
 	void context::_cleanup() {

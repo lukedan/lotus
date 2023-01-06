@@ -44,7 +44,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		gbuffer_normal           [dispatch_thread_id],
 		gbuffer_metalness        [dispatch_thread_id],
 		gbuffer_depth            [dispatch_thread_id],
-		uv, lighting_consts.inverse_projection_view, lighting_consts.depth_linearization_constants
+		uv, lighting_consts.inverse_jittered_projection_view, lighting_consts.depth_linearization_constants
 	);
 	float3 view_vec = normalize(lighting_consts.camera.xyz - gbuf.fragment.position_ws);
 	float alpha = max(0.01f, squared(1.0f - gbuf.fragment.glossiness));

@@ -6,34 +6,11 @@ struct fill_buffer_constants {
 	uint size;
 };
 
-struct lighting_constants {
-	float4x4 inverse_projection_view;
-	float4   camera;
-	float2   depth_linearization_constants;
-	uint2    screen_size;
-	uint     num_lights;
-	bool     trace_shadow_rays_for_naive;
-	bool     trace_shadow_rays_for_reservoir;
-	uint     lighting_mode;
-	float    direct_diffuse_multiplier;
-	float    direct_specular_multiplier;
-	bool     use_indirect;
-};
-
-struct lighting_combine_constants {
-	float lighting_scale;
-	bool use_indirect_specular;
-};
-
-struct indirect_specular_constants {
-	bool enable_mis;
-	uint frame_index;
-};
-
 
 struct reservoir_common {
 	float sum_weights;
-	float contribution_weight;
+	float rcp_pdf;
+	float contribution_weight; // may not need to store this
 	uint num_samples;
 };
 
@@ -43,10 +20,10 @@ struct direct_lighting_reservoir {
 };
 
 struct indirect_lighting_reservoir {
+	reservoir_common data;
 	float3 irradiance;
 	float distance;
 	float2 direction_octahedral;
-	reservoir_common data;
 };
 
 struct probe_data {
@@ -82,6 +59,36 @@ struct indirect_spatial_reuse_constants {
 
 struct summarize_probe_constants {
 	float ra_alpha;
+};
+
+struct lighting_constants {
+	float4x4 inverse_jittered_projection_view;
+	float4   camera;
+	float2   depth_linearization_constants;
+	uint2    screen_size;
+	uint     num_lights;
+	bool     trace_shadow_rays_for_naive;
+	bool     trace_shadow_rays_for_reservoir;
+	uint     lighting_mode;
+	float    direct_diffuse_multiplier;
+	float    direct_specular_multiplier;
+	bool     use_indirect;
+};
+
+struct indirect_specular_constants {
+	bool enable_mis;
+	uint frame_index;
+};
+
+struct taa_constants {
+	float2 rcp_viewport_size;
+	bool use_indirect_specular;
+	float ra_factor;
+	bool enable_taa;
+};
+
+struct lighting_blit_constants {
+	float lighting_scale;
 };
 
 

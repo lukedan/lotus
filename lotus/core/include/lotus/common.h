@@ -38,6 +38,15 @@ namespace lotus {
 		assert(!value);
 	}
 
+	/// Pauses program execution for debugging.
+	inline void pause_for_debugger() {
+#ifdef _MSC_VER
+		__debugbreak();
+#else
+		std::abort(); // not implemented
+#endif
+	}
+
 
 	/// A type indicating a specific object should not be initialized.
 	struct uninitialized_t {

@@ -17,7 +17,6 @@
 #include <lotus/renderer/context/asset_manager.h>
 #include <lotus/renderer/context/context.h>
 
-#include <lotus/renderer/g_buffer.h>
 #include <lotus/renderer/mipmap.h>
 
 #include <lotus/renderer/loaders/assimp_loader.h>
@@ -194,13 +193,6 @@ int main(int argc, char **argv) {
 
 			cam = cam_params.into_camera();
 
-			auto gbuffer = lren::g_buffer::view::create(rctx, window_size, runtime_tex_pool);
-			{
-				auto pass = gbuffer.begin_pass(rctx);
-				lren::g_buffer::render_instances(pass, asset_man, scene.instances, cam.view_matrix, cam.projection_matrix);
-				pass.end();
-			}
-
 			float tan_half_fovy = tan(cam_params.fov_y_radians * 0.5);
 			auto right_half = cam.unit_right * tan_half_fovy * cam_params.aspect_ratio;
 			auto up_half = cam.unit_up * tan_half_fovy;
@@ -285,11 +277,7 @@ int main(int argc, char **argv) {
 					lren::all_resource_bindings(
 						{
 							{ 0, {
-#ifdef DISABLE_ALL_RT
-								{ 0, gbuffer.normal.bind_as_read_only() },
-#else
 								{ 0, rt_result.bind_as_read_only() },
-#endif
 								{ 1, lren::sampler_state() },
 								{ 2, lren::descriptor_resource::immediate_constant_buffer::create_for(globals) },
 							} },

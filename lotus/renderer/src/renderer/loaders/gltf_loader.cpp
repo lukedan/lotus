@@ -380,9 +380,9 @@ namespace lotus::renderer::gltf {
 						const auto &prim = model.meshes[node.mesh].primitives[j];
 
 						instance inst = nullptr;
-						inst.transform = trans;
-						inst.material = materials[prim.material];
-						inst.geometry = prim_handle;
+						inst.material  = materials[prim.material];
+						inst.geometry  = prim_handle;
+						inst.transform = inst.prev_transform = trans;
 						instance_loaded_callback(inst);
 					}
 				}

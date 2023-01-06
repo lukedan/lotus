@@ -220,6 +220,10 @@ namespace lotus::renderer {
 
 			swap_chain target; ///< The swap chain to present.
 		};
+
+		/// Breaks the program when attached to a debugger.
+		struct pause_for_debugging {
+		};
 	}
 	/// A union of all context command types.
 	struct context_command {
@@ -242,7 +246,9 @@ namespace lotus::renderer {
 			context_commands::build_blas,
 			context_commands::build_tlas,
 			context_commands::trace_rays,
-			context_commands::present
+			context_commands::present,
+
+			context_commands::pause_for_debugging
 		> value; ///< The value of this command.
 		/// Debug description of this command.
 		[[no_unique_address]] static_optional<std::u8string, should_register_debug_names> description;
@@ -551,6 +557,9 @@ namespace lotus::renderer {
 
 		/// Presents the given swap chain.
 		void present(swap_chain, std::u8string_view description);
+
+		/// Pauses command processing.
+		void pause_for_debugging(std::u8string_view description);
 
 
 		/// Analyzes and executes all pending commands. This is the only place where that happens - it doesn't happen
@@ -1010,6 +1019,8 @@ namespace lotus::renderer {
 		void _handle_command(execution::context&, const context_commands::trace_rays&);
 		/// Handles a present command.
 		void _handle_command(execution::context&, const context_commands::present&);
+		/// Handles a pause command.
+		void _handle_command(execution::context&, const context_commands::pause_for_debugging&);
 
 		/// Cleans up all unused resources, and updates timestamp information to latest.
 		void _cleanup();
@@ -1055,12 +1066,14 @@ namespace lotus::renderer {
 	/// An instance in a scene.
 	struct instance {
 		/// Initializes this instance to empty.
-		instance(std::nullptr_t) : material(nullptr), geometry(nullptr), transform(uninitialized) {
+		instance(std::nullptr_t) :
+			material(nullptr), geometry(nullptr), transform(uninitialized), prev_transform(uninitialized) {
 		}
 
 		assets::handle<assets::material> material; ///< The material of this instance.
 		assets::handle<assets::geometry> geometry; ///< Geometry of this instance.
 		mat44f transform; ///< Transform of this instance.
+		mat44f prev_transform; ///< Transform of this instance for the previous frame.
 	};
 
 

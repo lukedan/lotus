@@ -15,12 +15,18 @@ namespace lotus::renderer::g_buffer {
 		constexpr static gpu::format normal_format            = gpu::format::r16g16b16a16_snorm;
 		/// Format of \ref metalness.
 		constexpr static gpu::format metalness_format         = gpu::format::r8_unorm;
+		/// Format of \ref velocity.
+		constexpr static gpu::format velocity_format          = gpu::format::r16g16_float;
 		/// Format of \ref depth_stencil.
 		constexpr static gpu::format depth_stencil_format     = gpu::format::d24_unorm_s8;
 
 		/// Initializes this storage to empty.
 		view(std::nullptr_t) :
-			albedo_glossiness(nullptr), normal(nullptr), metalness(nullptr), depth_stencil(nullptr) {
+			albedo_glossiness(nullptr),
+			normal(nullptr),
+			metalness(nullptr),
+			velocity(nullptr),
+			depth_stencil(nullptr) {
 		}
 		/// Creates a storage with the given size.
 		[[nodiscard]] static view create(context&, cvec2s size, const pool&);
@@ -31,6 +37,7 @@ namespace lotus::renderer::g_buffer {
 		image2d_view albedo_glossiness; ///< Albedo and glossiness buffer.
 		image2d_view normal;            ///< Normal buffer.
 		image2d_view metalness;         ///< Metalness buffer.
+		image2d_view velocity;          ///< Velocity buffer.
 		image2d_view depth_stencil;     ///< Depth-stencil buffer.
 	};
 
@@ -54,5 +61,8 @@ namespace lotus::renderer::g_buffer {
 	};
 
 	/// Renders the given instances in the given pass.
-	void render_instances(context::pass&, assets::manager&, std::span<const instance>, mat44f view, mat44f projection);
+	void render_instances(
+		context::pass&, assets::manager&, std::span<const instance>,
+		cvec2u32 viewport_size, mat44f view, mat44f projection, mat44f jitter, mat44f prev_view_projection
+	);
 }

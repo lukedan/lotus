@@ -4,12 +4,17 @@
 struct instance_data {
 	float4x4 transform;
 	float4x4 normal_transform;
+	float4x4 prev_transform;
 };
 
 struct view_data {
 	float4x4 view;
 	float4x4 projection;
+	float4x4 jitter;
 	float4x4 projection_view;
+	float4x4 jittered_projection_view;
+	float4x4 prev_projection_view;
+	float2 rcp_viewport_size;
 };
 
 struct debug_draw_data {

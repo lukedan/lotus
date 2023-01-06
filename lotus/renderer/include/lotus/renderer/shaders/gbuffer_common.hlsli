@@ -14,7 +14,7 @@ namespace g_buffer {
 
 	contents decode(
 		float4 sample1, float4 sample2, float4 sample3, float4 sample4,
-		float2 uv, float4x4 inverse_projection_view, float2 depth_linearize
+		float2 uv, float4x4 inverse_jittered_projection_view, float2 depth_linearize
 	) {
 		contents result = (contents)0;
 		result.fragment.albedo     = sample1.rgb;
@@ -27,7 +27,7 @@ namespace g_buffer {
 		result.linear_depth = rcp(result.raw_depth * depth_linearize.x + depth_linearize.y);
 
 		float4 position_cs = float4(uv * float2(2.0f, -2.0f) + float2(-1.0f, 1.0f), result.raw_depth, 1.0f);
-		result.fragment.position_ws = mul(inverse_projection_view, position_cs).xyz * result.linear_depth;
+		result.fragment.position_ws = mul(inverse_jittered_projection_view, position_cs).xyz * result.linear_depth;
 
 		return result;
 	}

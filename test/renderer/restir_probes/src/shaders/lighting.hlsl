@@ -39,7 +39,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		gbuffer_normal           [dispatch_thread_id],
 		gbuffer_metalness        [dispatch_thread_id],
 		gbuffer_depth            [dispatch_thread_id],
-		uv, constants.inverse_projection_view, constants.depth_linearization_constants
+		uv, constants.inverse_jittered_projection_view, constants.depth_linearization_constants
 	);
 	float3 view_vec = normalize(constants.camera.xyz - gbuf.fragment.position_ws);
 

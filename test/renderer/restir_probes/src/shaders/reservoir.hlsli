@@ -10,10 +10,11 @@ namespace reservoirs {
 
 		r.num_samples += num_samples;
 		r.sum_weights = sum_weights / r.num_samples;
-
 		if (replace) {
-			r.contribution_weight = rcp(target_pdf) * r.sum_weights;
+			r.rcp_pdf = rcp(target_pdf);
 		}
+
+		r.contribution_weight = r.rcp_pdf * r.sum_weights;
 
 		return replace;
 	}

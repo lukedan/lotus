@@ -19,10 +19,11 @@ struct vs_input {
 
 struct vs_output {
 	float4 position       : SV_Position;
-	float2 uv             : TEXCOORD0;
-	float3 normal         : TEXCOORD1;
-	float3 tangent        : TEXCOORD2;
-	float  bitangent_sign : TEXCOORD3;
+	float4 prev_position  : TEXCOORD0;
+	float2 uv             : TEXCOORD1;
+	float3 normal         : TEXCOORD2;
+	float3 tangent        : TEXCOORD3;
+	float  bitangent_sign : TEXCOORD4;
 };
 
 Texture2D<float4> material_textures[] : register(t0, space0);
@@ -36,7 +37,8 @@ LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(space2);
 vs_output transform_geometry(vs_input input) {
 	vs_output result = (vs_output)0;
 
-	result.position = mul(view.projection_view, mul(instance.transform, float4(input.position, 1.0f)));
+	result.position      = mul(view.jittered_projection_view, mul(instance.transform,      float4(input.position, 1.0f)));
+	result.prev_position = mul(view.prev_projection_view,     mul(instance.prev_transform, float4(input.position, 1.0f)));
 
 #ifdef VERTEX_INPUT_HAS_UV
 	result.uv = input.uv;

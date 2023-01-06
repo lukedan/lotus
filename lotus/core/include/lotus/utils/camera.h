@@ -12,20 +12,27 @@ namespace lotus {
 
 	/// Camera matrices and direction vectors.
 	template <typename T> struct camera {
-		friend camera camera_parameters<T>::into_camera() const;
+		friend camera_parameters<T>;
 	public:
 		/// No initialization.
 		camera(uninitialized_t) {
 		}
 
 		/// Transforms objects from world space to camera space.
-		mat44<T> view_matrix                    = uninitialized;
+		mat44<T> view_matrix                             = uninitialized;
 		/// Projects objects from camera space onto a 2D plane.
-		mat44<T> projection_matrix              = uninitialized;
+		mat44<T> projection_matrix                       = uninitialized;
+		/// Optional TAA jitter applied on top of everything else.
+		mat44<T> jitter_matrix                           = uninitialized;
 		/// Product of \ref projection_matrix and \ref view_matrix.
-		mat44<T> projection_view_matrix         = uninitialized;
-		mat44<T> inverse_view_matrix            = uninitialized; ///< Inverse of \ref view_matrix.
-		mat44<T> inverse_projection_view_matrix = uninitialized; ///< Inverse of \ref projection_view_matrix.
+		mat44<T> projection_view_matrix                  = uninitialized;
+		/// Product of \ref jitter_matrix and \ref projection_view_matrix.
+		mat44<T> jittered_projection_view_matrix         = uninitialized;
+		mat44<T> inverse_view_matrix                     = uninitialized; ///< Inverse of \ref view_matrix.
+		/// Inverse of \ref projection_view_matrix.
+		mat44<T> inverse_projection_view_matrix          = uninitialized;
+		/// Inverse of \ref jittered_projection_view_matrix.
+		mat44<T> inverse_jittered_projection_view_matrix = uninitialized;
 		cvec3<T> unit_forward = uninitialized; ///< Unit vector corresponding to the forward direction.
 		cvec3<T> unit_right   = uninitialized; ///< Unit vector corresponding to the right direction.
 		cvec3<T> unit_up      = uninitialized; ///< Unit vector corresponding to the up direction.
@@ -34,14 +41,19 @@ namespace lotus {
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr camera(
-			cvec3<T> forward, cvec3<T> right, cvec3<T> up, mat44<T> view, mat44<T> proj, cvec2<T> depth_linearize
+			cvec3<T> forward, cvec3<T> right, cvec3<T> up,
+			mat44<T> view, mat44<T> proj, mat44<T> jitter,
+			cvec2<T> depth_linearize
 		) :
-			view_matrix(view), projection_matrix(proj), projection_view_matrix(proj * view),
+			view_matrix(view), projection_matrix(proj), jitter_matrix(jitter),
+			projection_view_matrix(proj * view),
+			jittered_projection_view_matrix(jitter * projection_view_matrix),
 			unit_forward(forward), unit_right(right), unit_up(up),
 			depth_linearization_constants(depth_linearize) {
 
 			inverse_view_matrix = view_matrix.inverse();
 			inverse_projection_view_matrix = projection_view_matrix.inverse();
+			inverse_jittered_projection_view_matrix = jittered_projection_view_matrix.inverse();
 		}
 	};
 
@@ -70,7 +82,10 @@ namespace lotus {
 		}
 
 		/// Creates a camera that correspond to this set of parameters, using reversed depth.
-		[[nodiscard]] /*constexpr*/ camera<T> into_camera() const {
+		///
+		/// \param jitter_offset Optional TAA jitter offset. This is applied in clip space, so pixel values need to
+		///                      be divided by <tt>screen_size * 2</tt>.
+		[[nodiscard]] /*constexpr*/ camera<T> into_camera(cvec2<T> jitter_offset = zero) const {
 			cvec3<T> unit_forward = vec::unsafe_normalize(look_at - position);
 			cvec3<T> unit_right = vec::unsafe_normalize(vec::cross(unit_forward, world_up));
 			cvec3<T> unit_up = vec::cross(unit_right, unit_forward);
@@ -90,14 +105,20 @@ namespace lotus {
 				{ 0.0f,             0.0f, -near_plane / (far_plane - near_plane), near_plane * far_plane / (far_plane - near_plane) },
 				{ 0.0f,             0.0f, 1.0f,                                   0.0f                                              },
 			});
+			mat44<T> jitter({
+				{ 1.0f, 0.0f, 0.0f, jitter_offset[0] },
+				{ 0.0f, 1.0f, 0.0f, jitter_offset[1] },
+				{ 0.0f, 0.0f, 1.0f, 0.0f             },
+				{ 0.0f, 0.0f, 0.0f, 1.0f             },
+			});
 
 			cvec2<T> depth_linearize((far_plane - near_plane) / (near_plane * far_plane), 1.0f / far_plane);
 
-			return camera(unit_forward, unit_right, unit_up, view, projection, depth_linearize);
+			return camera(unit_forward, unit_right, unit_up, view, projection, jitter, depth_linearize);
 		}
 
-		/// Rotates the camera around the \ref world_up axis, which may be negated to ensure that the behavior is
-		/// desirable when the camera is inverted vertically.
+		/// Rotates the camera around the \ref world_up axis. \ref world_up may be negated to ensure that the
+		/// behavior is desirable when the camera is inverted vertically.
 		constexpr void rotate_around_world_up(cvec2<T> angles) {
 			auto offset = position - look_at;
 

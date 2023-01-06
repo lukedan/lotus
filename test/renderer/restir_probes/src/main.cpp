@@ -76,28 +76,30 @@ int main(int argc, char **argv) {
 
 	auto swapchain = rctx.request_swap_chain(u8"Main Swap Chain", wnd, 2, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb });
 
-	auto fill_buffer_cs = rassets.compile_shader_in_filesystem("src/shaders/fill_buffer.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
-	auto fs_quad_vs = rassets.compile_shader_in_filesystem(rassets.shader_library_path / "utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs");
-	auto blit_ps = rassets.compile_shader_in_filesystem(rassets.shader_library_path / "utils/blit_ps.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps");
-	auto show_gbuffer_ps = rassets.compile_shader_in_filesystem("src/shaders/gbuffer_visualization.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps");
-	auto visualize_probes_vs = rassets.compile_shader_in_filesystem("src/shaders/visualize_probes.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs");
-	auto visualize_probes_ps = rassets.compile_shader_in_filesystem("src/shaders/visualize_probes.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps");
-	auto shade_point_debug_cs = rassets.compile_shader_in_filesystem("src/shaders/shade_point_debug.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
-	auto lighting_combine_ps = rassets.compile_shader_in_filesystem("src/shaders/combine_lighting_ps.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps");
+	auto fs_quad_vs           = rassets.compile_shader_in_filesystem(rassets.shader_library_path / "utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs");
+	auto blit_ps              = rassets.compile_shader_in_filesystem(rassets.shader_library_path / "utils/blit_ps.hlsl",            lgpu::shader_stage::pixel_shader, u8"main_ps");
+	auto fill_buffer_cs       = rassets.compile_shader_in_filesystem("src/shaders/fill_buffer.hlsl",           lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto show_gbuffer_ps      = rassets.compile_shader_in_filesystem("src/shaders/gbuffer_visualization.hlsl", lgpu::shader_stage::pixel_shader,   u8"main_ps");
+	auto visualize_probes_vs  = rassets.compile_shader_in_filesystem("src/shaders/visualize_probes.hlsl",      lgpu::shader_stage::vertex_shader,  u8"main_vs");
+	auto visualize_probes_ps  = rassets.compile_shader_in_filesystem("src/shaders/visualize_probes.hlsl",      lgpu::shader_stage::pixel_shader,   u8"main_ps");
+	auto shade_point_debug_cs = rassets.compile_shader_in_filesystem("src/shaders/shade_point_debug.hlsl",     lgpu::shader_stage::compute_shader, u8"main_cs");
 
-	auto direct_update_cs = rassets.compile_shader_in_filesystem("src/shaders/direct_reservoirs.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
-	auto indirect_update_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_reservoirs.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
-	auto summarize_probes_cs = rassets.compile_shader_in_filesystem("src/shaders/summarize_probes.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto direct_update_cs          = rassets.compile_shader_in_filesystem("src/shaders/direct_reservoirs.hlsl",      lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto indirect_update_cs        = rassets.compile_shader_in_filesystem("src/shaders/indirect_reservoirs.hlsl",    lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto summarize_probes_cs       = rassets.compile_shader_in_filesystem("src/shaders/summarize_probes.hlsl",       lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto indirect_spatial_reuse_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_spatial_reuse.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
-	auto indirect_specular_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
-	auto indirect_specular_visible_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs", { { u8"SAMPLE_VISIBLE_NORMALS", u8""} });
-	auto lighting_cs = rassets.compile_shader_in_filesystem("src/shaders/lighting.hlsl", lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto indirect_specular_cs      = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl",      lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto indirect_specular_vndf_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl",      lgpu::shader_stage::compute_shader, u8"main_cs", { { u8"SAMPLE_VISIBLE_NORMALS", u8""} });
+	auto lighting_cs               = rassets.compile_shader_in_filesystem("src/shaders/lighting.hlsl",               lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto taa_cs                    = rassets.compile_shader_in_filesystem("src/shaders/taa.hlsl",                    lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto lighting_blit_ps          = rassets.compile_shader_in_filesystem("src/shaders/lighting_blit.hlsl",          lgpu::shader_stage::pixel_shader,   u8"main_ps");
 
 	auto runtime_tex_pool = rctx.request_pool(u8"Run-time Textures");
 	auto runtime_buf_pool = rctx.request_pool(u8"Run-time Buffers");
 
 	auto cam_params = lotus::camera_parameters<float>::create_look_at(zero, cvec3f(100.0f, 100.0f, 100.0f));
 	camera_control<float> cam_control(cam_params);
+	mat44f prev_projection_view = uninitialized;
 
 	float lighting_scale = 1.0f;
 	int lighting_mode = 1;
@@ -114,7 +116,7 @@ int main(int argc, char **argv) {
 	bool trace_shadow_rays_reservoir = false;
 	float diffuse_mul = 1.0f;
 	float specular_mul = 1.0f;
-	float sh_ra_alpha = 0.05f;
+	float sh_ra_factor = 0.05f;
 	bool use_indirect_diffuse = true;
 	bool use_indirect_specular = true;
 	bool indirect_specular_use_visible_normals = true;
@@ -123,6 +125,8 @@ int main(int argc, char **argv) {
 	bool update_probes_this_frame = false;
 	bool indirect_spatial_reuse = true;
 	int indirect_spatial_reuse_visibility_test_mode = 1;
+	bool enable_taa = true;
+	float taa_ra_factor = 0.1f;
 	int gbuffer_visualization = 0;
 
 	std::uint32_t num_accumulated_frames = 0;
@@ -130,6 +134,7 @@ int main(int argc, char **argv) {
 	shader_types::probe_constants probe_constants;
 
 	lren::image2d_view path_tracer_accum = nullptr;
+	lren::image2d_view prev_irradiance = nullptr;
 
 	lren::structured_buffer_view direct_reservoirs = nullptr;
 	lren::structured_buffer_view indirect_reservoirs = nullptr;
@@ -288,6 +293,9 @@ int main(int argc, char **argv) {
 	};
 
 
+	std::default_random_engine random(std::random_device{}());
+
+
 	wnd.show_and_activate();
 	bool quit = false;
 	while (!quit) {
@@ -309,14 +317,20 @@ int main(int argc, char **argv) {
 				rassets.update();
 			}
 
-			auto cam = cam_params.into_camera();
+			std::uniform_real_distribution<float> taa_jitter_dist(-0.5f, 0.5f);
+			cvec2f taa_jitter(taa_jitter_dist(random), taa_jitter_dist(random));
+			/*cvec2f taa_jitter(0.0f, 0.0f);*/
+			auto cam = cam_params.into_camera(lotus::vec::memberwise_divide(taa_jitter, (2 * window_size).into<float>()));
 
 			auto g_buf = lren::g_buffer::view::create(rctx, window_size, runtime_tex_pool);
 			{ // g-buffer
 				auto tmr = rctx.start_timer(u8"G-Buffer");
 
 				auto pass = g_buf.begin_pass(rctx);
-				lren::g_buffer::render_instances(pass, rassets, scene.instances, cam.view_matrix, cam.projection_matrix);
+				lren::g_buffer::render_instances(
+					pass, rassets, scene.instances, window_size.into<std::uint32_t>(),
+					cam.view_matrix, cam.projection_matrix, cam.jitter_matrix, prev_projection_view
+				);
 				pass.end();
 			}
 
@@ -332,17 +346,17 @@ int main(int argc, char **argv) {
 			);
 
 			shader_types::lighting_constants lighting_constants;
-			lighting_constants.inverse_projection_view         = cam.inverse_projection_view_matrix;
-			lighting_constants.camera                          = cvec4f(cam_params.position, 1.0f);
-			lighting_constants.depth_linearization_constants   = cam.depth_linearization_constants;
-			lighting_constants.screen_size                     = window_size.into<std::uint32_t>();
-			lighting_constants.num_lights                      = scene.lights.size();
-			lighting_constants.trace_shadow_rays_for_naive     = trace_shadow_rays_naive;
-			lighting_constants.trace_shadow_rays_for_reservoir = trace_shadow_rays_reservoir;
-			lighting_constants.lighting_mode                   = lighting_mode;
-			lighting_constants.direct_diffuse_multiplier       = diffuse_mul;
-			lighting_constants.direct_specular_multiplier      = specular_mul;
-			lighting_constants.use_indirect                    = use_indirect_diffuse;
+			lighting_constants.inverse_jittered_projection_view = cam.inverse_jittered_projection_view_matrix;
+			lighting_constants.camera                           = cvec4f(cam_params.position, 1.0f);
+			lighting_constants.depth_linearization_constants    = cam.depth_linearization_constants;
+			lighting_constants.screen_size                      = window_size.into<std::uint32_t>();
+			lighting_constants.num_lights                       = scene.lights.size();
+			lighting_constants.trace_shadow_rays_for_naive      = trace_shadow_rays_naive;
+			lighting_constants.trace_shadow_rays_for_reservoir  = trace_shadow_rays_reservoir;
+			lighting_constants.lighting_mode                    = lighting_mode;
+			lighting_constants.direct_diffuse_multiplier        = diffuse_mul;
+			lighting_constants.direct_specular_multiplier       = specular_mul;
+			lighting_constants.use_indirect                     = use_indirect_diffuse;
 
 			if (update_probes || update_probes_this_frame) {
 				update_probes_this_frame = false;
@@ -449,7 +463,7 @@ int main(int argc, char **argv) {
 					auto tmr = rctx.start_timer(u8"Summarize Probes");
 
 					shader_types::summarize_probe_constants constants;
-					constants.ra_alpha = sh_ra_alpha;
+					constants.ra_alpha = sh_ra_factor;
 
 					lren::all_resource_bindings resources(
 						{},
@@ -498,7 +512,7 @@ int main(int argc, char **argv) {
 				auto tmr = rctx.start_timer(u8"Indirect Specular");
 
 				shader_types::indirect_specular_constants constants;
-				constants.enable_mis = enable_indirect_specular_mis;
+				constants.enable_mis  = enable_indirect_specular_mis;
 				constants.frame_index = frame_index;
 				lren::all_resource_bindings resources(
 					{
@@ -531,7 +545,7 @@ int main(int argc, char **argv) {
 				);
 
 				rctx.run_compute_shader_with_thread_dimensions(
-					indirect_specular_use_visible_normals ? indirect_specular_visible_cs : indirect_specular_cs,
+					indirect_specular_use_visible_normals ? indirect_specular_vndf_cs : indirect_specular_cs,
 					cvec3u32(window_size.into<std::uint32_t>(), 1),
 					std::move(resources), u8"Indirect Specular"
 				);
@@ -584,15 +598,21 @@ int main(int argc, char **argv) {
 				);
 			}
 
-			{ // lighting combine
+			auto irradiance = rctx.request_image2d(u8"Previous Irradiance", window_size, 1, lgpu::format::r16g16b16a16_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
+
+			{ // TAA
+				auto tmr = rctx.start_timer(u8"TAA");
+
 				lren::graphics_pipeline_state state(
 					{ lgpu::render_target_blend_options::disabled() },
 					nullptr,
 					nullptr
 				);
-				shader_types::lighting_combine_constants constants;
-				constants.lighting_scale = lighting_scale;
+				shader_types::taa_constants constants;
 				constants.use_indirect_specular = use_indirect_specular;
+				constants.rcp_viewport_size     = lotus::vec::memberwise_reciprocal(window_size.into<float>());
+				constants.ra_factor             = taa_ra_factor;
+				constants.enable_taa            = enable_taa && prev_irradiance.is_valid();
 				lren::all_resource_bindings resources(
 					{
 						{ 1, rassets.get_samplers() },
@@ -601,201 +621,235 @@ int main(int argc, char **argv) {
 						{ u8"diffuse_lighting",  light_diffuse.bind_as_read_only() },
 						{ u8"specular_lighting", light_specular.bind_as_read_only() },
 						{ u8"indirect_specular", indirect_specular.bind_as_read_only() },
+						{ u8"prev_irradiance",   prev_irradiance ? prev_irradiance.bind_as_read_only() : rassets.get_invalid_image()->image.bind_as_read_only() },
+						{ u8"motion_vectors",    g_buf.velocity.bind_as_read_only() },
+						{ u8"out_irradiance",    irradiance.bind_as_read_write() },
 						{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(constants) },
 					}
 				);
 
-				auto pass = rctx.begin_pass(
-					{ lren::image2d_color(swapchain, lgpu::color_render_target_access::create_discard_then_write()) },
-					nullptr, window_size, u8"Lighting Combine Pass"
+				rctx.run_compute_shader_with_thread_dimensions(
+					taa_cs, cvec3u32(window_size.into<std::uint32_t>(), 1), std::move(resources), u8"TAA"
 				);
-				pass.draw_instanced(
-					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list,
-					std::move(resources), fs_quad_vs, lighting_combine_ps, std::move(state), 1, u8"Lighting Combine");
-				pass.end();
+
+				prev_irradiance = irradiance;
 			}
 
-			if (gbuffer_visualization > 0) {
-				lren::graphics_pipeline_state state(
-					{ lgpu::render_target_blend_options::disabled() },
-					nullptr,
-					nullptr
-				);
-				shader_types::gbuffer_visualization_constants constants;
-				constants.mode = gbuffer_visualization;
-				lren::all_resource_bindings resources(
-					{
-						{ 1, rassets.get_samplers() },
-					},
-					{
-						{ u8"gbuffer_albedo_glossiness", g_buf.albedo_glossiness.bind_as_read_only() },
-						{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
-						{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
-						{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
-						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(constants) },
-					}
-				);
-
-				auto pass = rctx.begin_pass(
-					{ lren::image2d_color(swapchain, lgpu::color_render_target_access::create_discard_then_write()) },
-					nullptr, window_size, u8"GBuffer Visualization Pass"
-				);
-				pass.draw_instanced(
-					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list,
-					std::move(resources), fs_quad_vs, show_gbuffer_ps, std::move(state), 1, u8"GBuffer Visualization");
-				pass.end();
-			}
-
-			if (visualize_probes_mode != 0) {
-				lren::graphics_pipeline_state state(
-					{ lgpu::render_target_blend_options::disabled() },
-					nullptr,
-					lgpu::depth_stencil_options(
-						true, true, lgpu::comparison_function::greater,
-						false, 0, 0, lgpu::stencil_options::always_pass_no_op(), lgpu::stencil_options::always_pass_no_op()
-					)
-				);
-
-				shader_types::visualize_probes_constants constants;
-				constants.projection_view = cam.projection_view_matrix;
-				constants.unit_right      = cam.unit_right;
-				constants.size            = visualize_probe_size;
-				constants.unit_down       = cam.unit_up;
-				constants.mode            = visualize_probes_mode;
-				constants.unit_forward    = cam.unit_forward;
-				constants.lighting_scale  = lighting_scale;
-
+			{ // lighting blit
+				shader_types::lighting_blit_constants constants;
+				constants.lighting_scale = lighting_scale;
 				lren::all_resource_bindings resources(
 					{},
 					{
-						{ u8"probe_consts", lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-						{ u8"constants",    lren_bds::immediate_constant_buffer::create_for(constants) },
-						{ u8"probe_values", probe_sh.bind_as_read_only() },
+						{ u8"constants",  lren_bds::immediate_constant_buffer::create_for(constants) },
+						{ u8"irradiance", irradiance.bind_as_read_only() },
 					}
 				);
 
-				std::uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
+				lren::graphics_pipeline_state pipeline(
+					{ lgpu::render_target_blend_options::disabled() },
+					lgpu::rasterizer_options(lgpu::depth_bias_options::disabled(), lgpu::front_facing_mode::clockwise, lgpu::cull_mode::none, false),
+					lgpu::depth_stencil_options(false, false, lgpu::comparison_function::always, false, 0, 0, lgpu::stencil_options::always_pass_no_op(), lgpu::stencil_options::always_pass_no_op())
+				);
 
 				auto pass = rctx.begin_pass(
-					{ lren::image2d_color(swapchain, lgpu::color_render_target_access::create_preserve_and_write()) },
-					lren::image2d_depth_stencil(g_buf.depth_stencil, lgpu::depth_render_target_access::create_preserve_and_write()),
-					window_size, u8"Probe Visualization Pass"
+					{ lren::image2d_color(swapchain, lgpu::color_render_target_access::create_discard_then_write()) },
+					nullptr,
+					window_size, u8"Lighting Blit"
 				);
-				pass.draw_instanced(
-					{}, 6, nullptr, 0, lgpu::primitive_topology::triangle_list,
-					std::move(resources), visualize_probes_vs, visualize_probes_ps, std::move(state),
-					num_probes, u8"Probe Visualization"
-				);
+				pass.draw_instanced({}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list, std::move(resources), fs_quad_vs, lighting_blit_ps, std::move(pipeline), 1, u8"Lighting Blit");
 				pass.end();
 			}
 
-			for (const auto &l : scene.lights) {
-				debug_render.add_locator(l.position, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
-			}
-
-			{ // debug drawing
-				debug_render.flush(
-					lren::image2d_color(swapchain, lgpu::color_render_target_access::create_preserve_and_write()),
-					lren::image2d_depth_stencil(g_buf.depth_stencil, lgpu::depth_render_target_access::create_preserve_and_write()),
-					window_size, cam.projection_view_matrix
-				);
-			}
-
-			{ // dear ImGui
-				ImGui::NewFrame();
-
-				bool needs_resizing = false;
-
-				if (ImGui::Begin("Controls")) {
-					ImGui::SliderFloat("Lighting Scale", &lighting_scale, 0.01f, 100.0f, "%.02f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
-					ImGui::Combo("Show G-Buffer", &gbuffer_visualization, "Disabled\0Albedo\0Glossiness\0Normal\0Metalness\0Emissive\0");
-					ImGui::Checkbox("Trace Naive Shadow Rays", &trace_shadow_rays_naive);
-					ImGui::Checkbox("Trace Reservoir Shadow Rays", &trace_shadow_rays_reservoir);
-					ImGui::Combo("Lighting Mode", &lighting_mode, "None\0Reservoir\0Naive\0");
-					ImGui::SliderFloat("Direct Diffuse Multiplier", &diffuse_mul, 0.0f, 1.0f);
-					ImGui::SliderFloat("Direct Specular Multiplier", &specular_mul, 0.0f, 1.0f);
-					if (ImGui::Combo("Shade Point Debug Mode", &shade_point_debug_mode, "Off\0Lighting\0Albedo\0Normal\0Path Tracer\0")) {
-						num_accumulated_frames = 0;
-					}
-					ImGui::Separator();
-
-					ImGui::Combo("Visualize Probes", &visualize_probes_mode, "None\0Specular\0Diffuse\0Normal\0");
-					ImGui::SliderFloat("Visualize Probes Size", &visualize_probe_size, 0.0f, 1.0f);
-					{
-						auto probes_int = probe_density.into<int>();
-						int probes[3] = { probes_int[0], probes_int[1], probes_int[2] };
-						needs_resizing = ImGui::SliderInt3("Num Probes", probes, 2, 100) || needs_resizing;
-						probe_density = cvec3u32(probes[0], probes[1], probes[2]);
-					}
-					needs_resizing = ImGui_SliderT<std::uint32_t>("Direct Reservoirs Per Probe", &direct_reservoirs_per_probe, 1, 20) || needs_resizing;
-					needs_resizing = ImGui_SliderT<std::uint32_t>("Indirect Reservoirs Per Probe", &indirect_reservoirs_per_probe, 1, 20) || needs_resizing;
-					{
-						float rx[2] = { probe_bounds.min[0], probe_bounds.max[0] };
-						float ry[2] = { probe_bounds.min[1], probe_bounds.max[1] };
-						float rz[2] = { probe_bounds.min[2], probe_bounds.max[2] };
-						needs_resizing = ImGui::SliderFloat2("Range X", rx, -20.0f, 20.0f) || needs_resizing;
-						needs_resizing = ImGui::SliderFloat2("Range Y", ry, -20.0f, 20.0f) || needs_resizing;
-						needs_resizing = ImGui::SliderFloat2("Range Z", rz, -20.0f, 20.0f) || needs_resizing;
-						probe_bounds = lotus::aab3f::create_from_min_max({ rx[0], ry[0], rz[0] }, { rx[1], ry[1], rz[1] });
-					}
-					ImGui::Separator();
-
-					if (ImGui::Button("Reset Probes")) {
-						needs_resizing = true;
-					}
-					ImGui::Checkbox("Update Probes", &update_probes);
-					if (ImGui::Button("Update Probes This Frame")) {
-						update_probes_this_frame = true;
-					}
-					ImGui::Checkbox("Show Indirect Diffuse", &use_indirect_diffuse);
-					ImGui::Checkbox("Show Indirect Specular", &use_indirect_specular);
-					ImGui::Checkbox("Indirect Specular: Sample Visible Normals", &indirect_specular_use_visible_normals);
-					ImGui::Checkbox("Use Indirect Specular MIS", &enable_indirect_specular_mis);
-					ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
-					ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");
-					ImGui::SliderFloat("SH RA Alpha", &sh_ra_alpha, 0.0f, 1.0f);
-					ImGui_SliderT<std::uint32_t>("Direct Sample Count Cap", &direct_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
-					ImGui_SliderT<std::uint32_t>("Indirect Sample Count Cap", &indirect_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
-				}
-				ImGui::End();
-
-				if (ImGui::Begin("Timers")) {
-					if (ImGui::BeginTable("TimersTable", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY, ImGui::GetContentRegionAvail())) {
-						ImGui::TableSetupScrollFreeze(0, 1);
-						ImGui::TableSetupColumn("Name");
-						ImGui::TableSetupColumn("Duration (ms)");
-						ImGui::TableHeadersRow();
-
-						for (const auto &t : rctx.get_timer_results()) {
-							ImGui::TableNextRow();
-							ImGui::TableNextColumn();
-							std::string n(lstr::to_generic(t.name));
-							ImGui::Text("%s", n.c_str());
-
-							ImGui::TableNextColumn();
-							ImGui::Text("%f", t.duration_ms);
+			{ // debug views
+				if (gbuffer_visualization > 0) {
+					lren::graphics_pipeline_state state(
+						{ lgpu::render_target_blend_options::disabled() },
+						nullptr,
+						nullptr
+					);
+					shader_types::gbuffer_visualization_constants constants;
+					constants.mode = gbuffer_visualization;
+					lren::all_resource_bindings resources(
+						{
+							{ 1, rassets.get_samplers() },
+						},
+						{
+							{ u8"gbuffer_albedo_glossiness", g_buf.albedo_glossiness.bind_as_read_only() },
+							{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
+							{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
+							{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
+							{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(constants) },
 						}
-						ImGui::EndTable();
+					);
+
+					auto pass = rctx.begin_pass(
+						{ lren::image2d_color(swapchain, lgpu::color_render_target_access::create_discard_then_write()) },
+						nullptr, window_size, u8"GBuffer Visualization Pass"
+					);
+					pass.draw_instanced(
+						{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list,
+						std::move(resources), fs_quad_vs, show_gbuffer_ps, std::move(state), 1, u8"GBuffer Visualization");
+					pass.end();
+				}
+
+				if (visualize_probes_mode != 0) {
+					lren::graphics_pipeline_state state(
+						{ lgpu::render_target_blend_options::disabled() },
+						nullptr,
+						lgpu::depth_stencil_options(
+							true, true, lgpu::comparison_function::greater,
+							false, 0, 0, lgpu::stencil_options::always_pass_no_op(), lgpu::stencil_options::always_pass_no_op()
+						)
+					);
+
+					shader_types::visualize_probes_constants constants;
+					constants.projection_view = cam.projection_view_matrix;
+					constants.unit_right      = cam.unit_right;
+					constants.size            = visualize_probe_size;
+					constants.unit_down       = cam.unit_up;
+					constants.mode            = visualize_probes_mode;
+					constants.unit_forward    = cam.unit_forward;
+					constants.lighting_scale  = lighting_scale;
+
+					lren::all_resource_bindings resources(
+						{},
+						{
+							{ u8"probe_consts", lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+							{ u8"constants",    lren_bds::immediate_constant_buffer::create_for(constants) },
+							{ u8"probe_values", probe_sh.bind_as_read_only() },
+						}
+					);
+
+					std::uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
+
+					auto pass = rctx.begin_pass(
+						{ lren::image2d_color(swapchain, lgpu::color_render_target_access::create_preserve_and_write()) },
+						lren::image2d_depth_stencil(g_buf.depth_stencil, lgpu::depth_render_target_access::create_preserve_and_write()),
+						window_size, u8"Probe Visualization Pass"
+					);
+					pass.draw_instanced(
+						{}, 6, nullptr, 0, lgpu::primitive_topology::triangle_list,
+						std::move(resources), visualize_probes_vs, visualize_probes_ps, std::move(state),
+						num_probes, u8"Probe Visualization"
+					);
+					pass.end();
+				}
+
+				for (const auto &l : scene.lights) {
+					debug_render.add_locator(l.position, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
+				}
+
+				{ // debug drawing
+					debug_render.flush(
+						lren::image2d_color(swapchain, lgpu::color_render_target_access::create_preserve_and_write()),
+						lren::image2d_depth_stencil(g_buf.depth_stencil, lgpu::depth_render_target_access::create_preserve_and_write()),
+						window_size, cam.projection_view_matrix
+					);
+				}
+
+				{ // dear ImGui
+					ImGui::NewFrame();
+
+					bool needs_resizing = false;
+
+					if (ImGui::Begin("Controls")) {
+						ImGui::SliderFloat("Lighting Scale", &lighting_scale, 0.01f, 100.0f, "%.02f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
+						ImGui::Combo("Show G-Buffer", &gbuffer_visualization, "Disabled\0Albedo\0Glossiness\0Normal\0Metalness\0Emissive\0");
+						ImGui::Checkbox("Trace Naive Shadow Rays", &trace_shadow_rays_naive);
+						ImGui::Checkbox("Trace Reservoir Shadow Rays", &trace_shadow_rays_reservoir);
+						ImGui::Combo("Lighting Mode", &lighting_mode, "None\0Reservoir\0Naive\0");
+						ImGui::SliderFloat("Direct Diffuse Multiplier", &diffuse_mul, 0.0f, 1.0f);
+						ImGui::SliderFloat("Direct Specular Multiplier", &specular_mul, 0.0f, 1.0f);
+						ImGui::Checkbox("Enable TAA", &enable_taa);
+						ImGui::SliderFloat("TAA RA Factor", &taa_ra_factor, 0.0f, 1.0f);
+						if (ImGui::Combo("Shade Point Debug Mode", &shade_point_debug_mode, "Off\0Lighting\0Albedo\0Normal\0Path Tracer\0")) {
+							num_accumulated_frames = 0;
+						}
+						ImGui::Separator();
+
+						ImGui::Combo("Visualize Probes", &visualize_probes_mode, "None\0Specular\0Diffuse\0Normal\0");
+						ImGui::SliderFloat("Visualize Probes Size", &visualize_probe_size, 0.0f, 1.0f);
+						{
+							auto probes_int = probe_density.into<int>();
+							int probes[3] = { probes_int[0], probes_int[1], probes_int[2] };
+							needs_resizing = ImGui::SliderInt3("Num Probes", probes, 2, 100) || needs_resizing;
+							probe_density = cvec3u32(probes[0], probes[1], probes[2]);
+						}
+						needs_resizing = ImGui_SliderT<std::uint32_t>("Direct Reservoirs Per Probe", &direct_reservoirs_per_probe, 1, 20) || needs_resizing;
+						needs_resizing = ImGui_SliderT<std::uint32_t>("Indirect Reservoirs Per Probe", &indirect_reservoirs_per_probe, 1, 20) || needs_resizing;
+						{
+							float rx[2] = { probe_bounds.min[0], probe_bounds.max[0] };
+							float ry[2] = { probe_bounds.min[1], probe_bounds.max[1] };
+							float rz[2] = { probe_bounds.min[2], probe_bounds.max[2] };
+							needs_resizing = ImGui::SliderFloat2("Range X", rx, -20.0f, 20.0f) || needs_resizing;
+							needs_resizing = ImGui::SliderFloat2("Range Y", ry, -20.0f, 20.0f) || needs_resizing;
+							needs_resizing = ImGui::SliderFloat2("Range Z", rz, -20.0f, 20.0f) || needs_resizing;
+							probe_bounds = lotus::aab3f::create_from_min_max({ rx[0], ry[0], rz[0] }, { rx[1], ry[1], rz[1] });
+						}
+						ImGui::Separator();
+
+						if (ImGui::Button("Reset Probes")) {
+							needs_resizing = true;
+						}
+						ImGui::Checkbox("Update Probes", &update_probes);
+						if (ImGui::Button("Update Probes This Frame")) {
+							update_probes_this_frame = true;
+						}
+						ImGui::Checkbox("Show Indirect Diffuse", &use_indirect_diffuse);
+						ImGui::Checkbox("Show Indirect Specular", &use_indirect_specular);
+						ImGui::Checkbox("Indirect Specular: Sample Visible Normals", &indirect_specular_use_visible_normals);
+						ImGui::Checkbox("Use Indirect Specular MIS", &enable_indirect_specular_mis);
+						ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
+						ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");
+						ImGui::SliderFloat("SH RA Factor", &sh_ra_factor, 0.0f, 1.0f);
+						ImGui_SliderT<std::uint32_t>("Direct Sample Count Cap", &direct_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
+						ImGui_SliderT<std::uint32_t>("Indirect Sample Count Cap", &indirect_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
 					}
-				}
-				ImGui::End();
+					ImGui::End();
 
-				if (needs_resizing) {
-					resize_probe_buffers();
-				}
+					if (ImGui::Begin("Timers")) {
+						if (ImGui::BeginTable("TimersTable", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY, ImGui::GetContentRegionAvail())) {
+							ImGui::TableSetupScrollFreeze(0, 1);
+							ImGui::TableSetupColumn("Name");
+							ImGui::TableSetupColumn("Duration (ms)");
+							ImGui::TableHeadersRow();
 
-				ImGui::Render();
-				imgui_rctx.render(
-					lren::image2d_color(swapchain, lgpu::color_render_target_access::create_preserve_and_write()),
-					window_size, runtime_buf_pool
-				);
+							for (const auto &t : rctx.get_timer_results()) {
+								ImGui::TableNextRow();
+								ImGui::TableNextColumn();
+								std::string n(lstr::to_generic(t.name));
+								ImGui::Text("%s", n.c_str());
+
+								ImGui::TableNextColumn();
+								ImGui::Text("%f", t.duration_ms);
+							}
+							ImGui::EndTable();
+						}
+					}
+					ImGui::End();
+
+					if (needs_resizing) {
+						resize_probe_buffers();
+					}
+
+					ImGui::Render();
+					imgui_rctx.render(
+						lren::image2d_color(swapchain, lgpu::color_render_target_access::create_preserve_and_write()),
+						window_size, runtime_buf_pool
+					);
+				}
 			}
 
 			rctx.present(swapchain, u8"Present");
+
+
+			// update
+			prev_projection_view = cam.projection_view_matrix;
+			++frame_index;
 		}
 
 		rctx.flush();
-		++frame_index;
 	}
 
 	return 0;

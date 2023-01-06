@@ -1,7 +1,7 @@
 #include "common.hlsli"
 #include "types.hlsli"
-#include "pcg32.hlsli"
 #include "material_common.hlsli"
+#include "utils/pcg32.hlsli"
 #include "math/distribution.hlsli"
 #include "math/sh.hlsli"
 #include "lights.hlsli"

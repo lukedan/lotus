@@ -81,6 +81,7 @@ struct indirect_specular_constants {
 };
 
 struct taa_constants {
+	uint2 viewport_size;
 	float2 rcp_viewport_size;
 	bool use_indirect_specular;
 	float ra_factor;

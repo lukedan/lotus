@@ -1,6 +1,6 @@
 #include "types.hlsli"
-#include "pcg32.hlsli"
 #include "lights.hlsli"
+#include "utils/pcg32.hlsli"
 
 #include "probes.hlsli"
 #include "reservoir.hlsli"

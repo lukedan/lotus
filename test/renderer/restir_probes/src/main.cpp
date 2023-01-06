@@ -609,8 +609,9 @@ int main(int argc, char **argv) {
 					nullptr
 				);
 				shader_types::taa_constants constants;
-				constants.use_indirect_specular = use_indirect_specular;
+				constants.viewport_size         = window_size.into<std::uint32_t>();
 				constants.rcp_viewport_size     = lotus::vec::memberwise_reciprocal(window_size.into<float>());
+				constants.use_indirect_specular = use_indirect_specular;
 				constants.ra_factor             = taa_ra_factor;
 				constants.enable_taa            = enable_taa && prev_irradiance.is_valid();
 				lren::all_resource_bindings resources(

@@ -2,7 +2,7 @@
 #include "common.hlsli"
 #include "gbuffer_common.hlsli"
 #include "lights.hlsli"
-#include "pcg32.hlsli"
+#include "utils/pcg32.hlsli"
 #include "math/sh.hlsli"
 
 #include "common_shaders/types.hlsli"

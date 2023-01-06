@@ -1,4 +1,4 @@
-#include "pcg32.hlsli"
+#include "utils/pcg32.hlsli"
 
 #include "shader_types.hlsli"
 #include "probes.hlsli"

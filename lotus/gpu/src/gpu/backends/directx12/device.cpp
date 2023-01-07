@@ -28,7 +28,7 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
-	void device::resize_swap_chain_buffers(swap_chain &s, cvec2s size) {
+	void device::resize_swap_chain_buffers(swap_chain &s, cvec2u32 size) {
 		_details::assert_dx(s._swap_chain->ResizeBuffers(
 			static_cast<UINT>(s.get_image_count()), static_cast<UINT>(size[0]), static_cast<UINT>(size[1]),
 			DXGI_FORMAT_UNKNOWN, 0
@@ -401,7 +401,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_read_only_images(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		std::size_t first_register, std::span<const image_view *const> images
+		std::size_t first_register, std::span<const image_view_base *const> images
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, images.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -411,7 +411,7 @@ namespace lotus::gpu::backends::directx12 {
 			));
 		for (auto *base_view : images) {
 			if (base_view) {
-				auto *view = static_cast<const _details::image_view*>(base_view);
+				auto *view = static_cast<const _details::image_view_base*>(base_view);
 				D3D12_SHADER_RESOURCE_VIEW_DESC desc = view->_srv_desc;
 				// make sure we're viewing depth textures with the correct format
 				switch (desc.Format) {
@@ -436,7 +436,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_read_write_images(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		std::size_t first_register, std::span<const image_view *const> images
+		std::size_t first_register, std::span<const image_view_base *const> images
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, first_register, images.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -446,7 +446,7 @@ namespace lotus::gpu::backends::directx12 {
 			));
 		for (auto *base_view : images) {
 			if (base_view) {
-				auto *view = static_cast<const _details::image_view*>(base_view);
+				auto *view = static_cast<const _details::image_view_base*>(base_view);
 				D3D12_UNORDERED_ACCESS_VIEW_DESC desc = view->_uav_desc;
 				// make sure we're viewing depth textures with the correct format
 				switch (desc.Format) {
@@ -622,16 +622,30 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	image2d device::create_committed_image2d(
-		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+		cvec2u32 size, std::uint32_t mip_levels,
 		format fmt, image_tiling tiling, image_usage_mask all_usages
 	) {
 		image2d result = nullptr;
 		D3D12_HEAP_PROPERTIES heap_properties = _details::default_heap_properties(D3D12_HEAP_TYPE_DEFAULT);
-		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image2d(
-			width, height, array_slices, mip_levels, fmt, tiling, all_usages
-		);
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image2d(size, mip_levels, fmt, tiling, all_usages);
 		D3D12_HEAP_FLAGS heap_flags = D3D12_HEAP_FLAG_NONE;
-		_details::resource_desc::adjust_resource_flags_for_image2d(fmt, all_usages, &heap_flags);
+		_details::resource_desc::adjust_resource_flags_for_image(fmt, all_usages, &heap_flags);
+		_details::assert_dx(_device->CreateCommittedResource3(
+			&heap_properties, heap_flags, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
+			nullptr, 0, nullptr, IID_PPV_ARGS(&result._image)
+		), _device.Get());
+		return result;
+	}
+
+	image3d device::create_committed_image3d(
+		cvec3u32 size, std::uint32_t mip_levels,
+		format fmt, image_tiling tiling, image_usage_mask all_usages
+	) {
+		image3d result = nullptr;
+		D3D12_HEAP_PROPERTIES heap_properties = _details::default_heap_properties(D3D12_HEAP_TYPE_DEFAULT);
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image3d(size, mip_levels, fmt, tiling, all_usages);
+		D3D12_HEAP_FLAGS heap_flags = D3D12_HEAP_FLAG_NONE;
+		_details::resource_desc::adjust_resource_flags_for_image(fmt, all_usages, &heap_flags);
 		_details::assert_dx(_device->CreateCommittedResource3(
 			&heap_properties, heap_flags, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
 			nullptr, 0, nullptr, IID_PPV_ARGS(&result._image)
@@ -640,11 +654,11 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	std::tuple<buffer, staging_buffer_metadata, std::size_t> device::create_committed_staging_buffer(
-		std::size_t width, std::size_t height, format fmt, memory_type_index mem_id, buffer_usage_mask all_usages
+		cvec2u32 size, format fmt, memory_type_index mem_id, buffer_usage_mask all_usages
 	) {
 		// TODO will different usages affect size calculation?
 		D3D12_RESOURCE_DESC1 image_desc = _details::resource_desc::for_image2d(
-			width, height, 1, 1, fmt, image_tiling::row_major, image_usage_mask::copy_destination
+			size, 1, fmt, image_tiling::row_major, image_usage_mask::copy_destination
 		);
 		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 		UINT64 total_bytes = 0;
@@ -654,27 +668,33 @@ namespace lotus::gpu::backends::directx12 {
 		buffer result = create_committed_buffer(static_cast<std::size_t>(total_bytes), mem_id, all_usages);
 		staging_buffer_metadata result_meta = uninitialized;
 		result_meta._pitch  = footprint.Footprint.RowPitch;
-		result_meta._size   = cvec2s(width, height).into<std::uint32_t>();
+		result_meta._size   = size;
 		result_meta._format = fmt;
 		return std::make_tuple(std::move(result), result_meta, total_bytes);
 	}
 
-	memory::size_alignment device::get_image_memory_requirements(
-		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-		format fmt, image_tiling tiling, image_usage_mask usages
+	memory::size_alignment device::get_image2d_memory_requirements(
+		cvec2u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
 	) {
-		D3D12_RESOURCE_DESC1 image_desc = _details::resource_desc::for_image2d(
-			width, height, array_slices, mip_levels, fmt, tiling, usages
-		);
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image2d(size, mip_levels, fmt, tiling, usages);
 		D3D12_RESOURCE_ALLOCATION_INFO1 info = {};
-		_device->GetResourceAllocationInfo2(0, 1, &image_desc, &info);
+		_device->GetResourceAllocationInfo2(0, 1, &desc, &info);
+		return memory::size_alignment(info.SizeInBytes, info.Alignment);
+	}
+
+	memory::size_alignment device::get_image3d_memory_requirements(
+		cvec3u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
+	) {
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image3d(size, mip_levels, fmt, tiling, usages);
+		D3D12_RESOURCE_ALLOCATION_INFO1 info = {};
+		_device->GetResourceAllocationInfo2(0, 1, &desc, &info);
 		return memory::size_alignment(info.SizeInBytes, info.Alignment);
 	}
 
 	memory::size_alignment device::get_buffer_memory_requirements(std::size_t size, buffer_usage_mask usages) {
-		D3D12_RESOURCE_DESC1 image_desc = _details::resource_desc::for_buffer(size, usages);
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_buffer(size, usages);
 		D3D12_RESOURCE_ALLOCATION_INFO1 info = {};
-		_device->GetResourceAllocationInfo2(0, 1, &image_desc, &info);
+		_device->GetResourceAllocationInfo2(0, 1, &desc, &info);
 		return memory::size_alignment(info.SizeInBytes, info.Alignment);
 	}
 
@@ -691,13 +711,24 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	image2d device::create_placed_image2d(
-		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+		cvec2u32 size, std::uint32_t mip_levels,
 		format fmt, image_tiling tiling, image_usage_mask usages, const memory_block &mem, std::size_t offset
 	) {
 		image2d result = nullptr;
-		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image2d(
-			width, height, array_slices, mip_levels, fmt, tiling, usages
-		);
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image2d(size, mip_levels, fmt, tiling, usages);
+		_details::assert_dx(_device->CreatePlacedResource2(
+			mem._heap.Get(), offset, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
+			0, nullptr, IID_PPV_ARGS(&result._image)
+		));
+		return result;
+	}
+
+	image3d device::create_placed_image3d(
+		cvec3u32 size, std::uint32_t mip_levels,
+		format fmt, image_tiling tiling, image_usage_mask usages, const memory_block &mem, std::size_t offset
+	) {
+		image3d result = nullptr;
+		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image3d(size, mip_levels, fmt, tiling, usages);
 		_details::assert_dx(_device->CreatePlacedResource2(
 			mem._heap.Get(), offset, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
 			0, nullptr, IID_PPV_ARGS(&result._image)
@@ -765,6 +796,30 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
+	image3d_view device::create_image3d_view_from(const image3d &img, format fmt, mip_levels mip) {
+		auto mips = mip.get_num_levels();
+		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+		srv_desc.Format                        = _details::conversions::to_format(fmt);
+		srv_desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE3D;
+		srv_desc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srv_desc.Texture3D.MostDetailedMip     = static_cast<UINT>(mip.minimum);
+		srv_desc.Texture3D.MipLevels           = mips ? static_cast<UINT>(mips.value()) : static_cast<UINT>(-1);
+		srv_desc.Texture3D.ResourceMinLODClamp = 0.0f;
+
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
+		uav_desc.Format                = srv_desc.Format;
+		uav_desc.ViewDimension         = D3D12_UAV_DIMENSION_TEXTURE2D;
+		uav_desc.Texture3D.MipSlice    = srv_desc.Texture3D.MostDetailedMip;
+		uav_desc.Texture3D.FirstWSlice = 0;
+		uav_desc.Texture3D.WSize       = static_cast<UINT>(-1);
+
+		image3d_view result = nullptr;
+		result._image = img._image;
+		result._srv_desc = srv_desc;
+		result._uav_desc = uav_desc;
+		return result;
+	}
+
 	sampler device::create_sampler(
 		filtering minification, filtering magnification, filtering mipmapping,
 		float mip_lod_bias, float min_lod, float max_lod, std::optional<float> max_anisotropy,
@@ -797,14 +852,18 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	frame_buffer device::create_frame_buffer(
-		std::span<const gpu::image2d_view *const> color, const image2d_view *depth_stencil, cvec2s
+		std::span<const gpu::image2d_view *const> color, const image2d_view *depth_stencil, cvec2u32
 	) {
 		frame_buffer result(*this);
 		result._color_formats.resize(color.size());
 		result._color = _rtv_descriptors.allocate(static_cast<_details::descriptor_range::index_t>(color.size()));
 		for (std::size_t i = 0; i < color.size(); ++i) {
+			crash_if(color[i]->_srv_desc.Texture2D.MipLevels != 1);
 			D3D12_RENDER_TARGET_VIEW_DESC desc = {};
-			color[i]->_fill_rtv_desc(desc);
+			desc.Format               = color[i]->_srv_desc.Format;
+			desc.ViewDimension        = D3D12_RTV_DIMENSION_TEXTURE2D;
+			desc.Texture2D.MipSlice   = color[i]->_srv_desc.Texture2D.MostDetailedMip;
+			desc.Texture2D.PlaneSlice = color[i]->_srv_desc.Texture2D.PlaneSlice;
 			_device->CreateRenderTargetView(
 				color[i]->_image.Get(), &desc,
 				result._color.get_cpu(static_cast<_details::descriptor_range::index_t>(i))
@@ -813,8 +872,12 @@ namespace lotus::gpu::backends::directx12 {
 		}
 		if (depth_stencil) {
 			result._depth_stencil = _dsv_descriptors.allocate(1);
+			crash_if(depth_stencil->_srv_desc.Texture2D.MipLevels != 1);
 			D3D12_DEPTH_STENCIL_VIEW_DESC desc = {};
-			depth_stencil->_fill_dsv_desc(desc);
+			desc.Format             = depth_stencil->_srv_desc.Format;
+			desc.ViewDimension      = D3D12_DSV_DIMENSION_TEXTURE2D;
+			desc.Flags              = D3D12_DSV_FLAG_NONE;
+			desc.Texture2D.MipSlice = depth_stencil->_srv_desc.Texture2D.MostDetailedMip;
 			_device->CreateDepthStencilView(depth_stencil->_image.Get(), &desc, result._depth_stencil.get_cpu(0));
 			result._depth_stencil_format = depth_stencil->_srv_desc.Format;
 		}

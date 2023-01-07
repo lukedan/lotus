@@ -42,7 +42,7 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p IDXGISwapChain3::GetCurrentBackBufferIndex().
 		[[nodiscard]] back_buffer_info acquire_back_buffer(swap_chain&);
 		/// Calls \p IDXGISwapChain3::ResizeBuffers().
-		void resize_swap_chain_buffers(swap_chain&, cvec2s);
+		void resize_swap_chain_buffers(swap_chain&, cvec2u32);
 
 		/// Calls \p ID3D12Device::CreateCommandQueue().
 		[[nodiscard]] command_queue create_command_queue();
@@ -94,11 +94,11 @@ namespace lotus::gpu::backends::directx12 {
 
 		/// Calls \p ID3D12Device::CreateShaderResourceView().
 		void write_descriptor_set_read_only_images(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view *const>
+			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view_base *const>
 		);
 		/// Calls \p ID3D12Device::CreateUnorderedAccessView().
 		void write_descriptor_set_read_write_images(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view *const>
+			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view_base *const>
 		);
 		/// Calls \p ID3D12Device::CreateShaderResourceView().
 		void write_descriptor_set_read_only_structured_buffers(
@@ -131,19 +131,25 @@ namespace lotus::gpu::backends::directx12 {
 		[[nodiscard]] buffer create_committed_buffer(std::size_t size, memory_type_index, buffer_usage_mask);
 		/// Calls \p ID3D12Device::CreateCommittedResource3().
 		[[nodiscard]] image2d create_committed_image2d(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format, image_tiling, image_usage_mask
+			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+		);
+		/// Calls \p ID3D12Device::CreateCommittedResource3().
+		[[nodiscard]] image3d create_committed_image3d(
+			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Computes the layout of the image using \p ID3D12Device::GetCopyableFootprints(), then creates a buffer
 		/// that can hold it.
 		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, std::size_t> create_committed_staging_buffer(
-			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage_mask
+			cvec2u32 size, format, memory_type_index, buffer_usage_mask
 		);
 
 		/// Calls \p ID3D12Device::GetResourceAllocationInfo2().
-		[[nodiscard]] memory::size_alignment get_image_memory_requirements(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format, image_tiling, image_usage_mask
+		[[nodiscard]] memory::size_alignment get_image2d_memory_requirements(
+			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+		);
+		/// Calls \p ID3D12Device::GetResourceAllocationInfo2().
+		[[nodiscard]] memory::size_alignment get_image3d_memory_requirements(
+			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Calls \p ID3D12Device::GetResourceAllocationInfo2().
 		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(std::size_t size, buffer_usage_mask);
@@ -153,7 +159,12 @@ namespace lotus::gpu::backends::directx12 {
 		);
 		/// Calls \p ID3D12Device::CreatePlacedResource2().
 		[[nodiscard]] image2d create_placed_image2d(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			cvec2u32 size, std::uint32_t mip_levels,
+			format, image_tiling, image_usage_mask, const memory_block&, std::size_t offset
+		);
+		/// Calls \p ID3D12Device::CreatePlacedResource2().
+		[[nodiscard]] image3d create_placed_image3d(
+			cvec3u32 size, std::uint32_t mip_levels,
 			format, image_tiling, image_usage_mask, const memory_block&, std::size_t offset
 		);
 
@@ -168,6 +179,8 @@ namespace lotus::gpu::backends::directx12 {
 
 		/// Fills out all fields in an \ref image2d_view.
 		[[nodiscard]] image2d_view create_image2d_view_from(const image2d&, format, mip_levels);
+		/// Fills out all fields in an \ref image3d_view.
+		[[nodiscard]] image3d_view create_image3d_view_from(const image3d&, format, mip_levels);
 
 		/// Fills out all fields in a \ref sampler.
 		[[nodiscard]] sampler create_sampler(
@@ -179,7 +192,7 @@ namespace lotus::gpu::backends::directx12 {
 
 		/// Fills out all fields in a \ref frame_buffer.
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::span<const gpu::image2d_view *const>, const image2d_view*, cvec2s
+			std::span<const gpu::image2d_view *const>, const image2d_view*, cvec2u32
 		);
 
 		/// Calls \p ID3D12Device::CreateFence().
@@ -208,16 +221,16 @@ namespace lotus::gpu::backends::directx12 {
 
 
 		/// Calls \ref _set_debug_name().
-		void set_debug_name(image &img, const char8_t *name) {
-			_set_debug_name(*static_cast<_details::image*>(&img)->_image.Get(), name);
+		void set_debug_name(image_base &img, const char8_t *name) {
+			_set_debug_name(*static_cast<_details::image_base*>(&img)->_image.Get(), name);
 		}
 		/// Calls \ref _set_debug_name().
 		void set_debug_name(buffer &buf, const char8_t *name) {
 			_set_debug_name(*buf._buffer.Get(), name);
 		}
 		/// Calls \ref _set_debug_name().
-		void set_debug_name(image_view &buf, const char8_t *name) {
-			_set_debug_name(*static_cast<_details::image_view*>(&buf)->_image.Get(), name);
+		void set_debug_name(image_view_base &buf, const char8_t *name) {
+			_set_debug_name(*static_cast<_details::image_view_base*>(&buf)->_image.Get(), name);
 		}
 
 

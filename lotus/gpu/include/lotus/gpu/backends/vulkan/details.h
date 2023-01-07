@@ -133,8 +133,11 @@ namespace lotus::gpu::backends::vulkan::_details {
 	namespace create_info {
 		/// Creates a \p vk::ImageCreateInfo for a 2D image from the given parameters.
 		[[nodiscard]] vk::ImageCreateInfo for_image2d(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format fmt, image_tiling tiling, image_usage_mask usages
+			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+		);
+		/// Creates a \p vk::ImageCreateInfo for a 3D image from the given parameters.
+		[[nodiscard]] vk::ImageCreateInfo for_image3d(
+			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
 		);
 	}
 }

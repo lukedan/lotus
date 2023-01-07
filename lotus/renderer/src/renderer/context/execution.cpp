@@ -308,7 +308,7 @@ namespace lotus::renderer::execution {
 	gpu::frame_buffer &context::create_frame_buffer(
 		std::span<const gpu::image2d_view *const> color_rts,
 		const gpu::image2d_view *ds_rt,
-		cvec2s size
+		cvec2u32 size
 	) {
 		return _resources.frame_buffers.emplace_back(
 			_ctx._device.create_frame_buffer(color_rts, ds_rt, size)
@@ -431,7 +431,7 @@ namespace lotus::renderer::execution {
 					);
 					_ctx._device.set_debug_name(rsrc.view.value, rsrc.resource._image->name);
 				}
-				std::initializer_list<const gpu::image_view*> views = { &rsrc.view.value };
+				std::initializer_list<const gpu::image_view_base*> views = { &rsrc.view.value };
 				(_ctx._device.*write_func)(arr.set, layout, index, views);
 			}
 		}

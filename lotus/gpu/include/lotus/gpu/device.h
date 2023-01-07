@@ -46,7 +46,7 @@ namespace lotus::gpu {
 			return backend::device::acquire_back_buffer(swapchain);
 		}
 		/// Resizes all buffers in the swap chain.
-		void resize_swap_chain_buffers(swap_chain &swapchain, cvec2s size) {
+		void resize_swap_chain_buffers(swap_chain &swapchain, cvec2u32 size) {
 			backend::device::resize_swap_chain_buffers(swapchain, size);
 		}
 
@@ -92,34 +92,34 @@ namespace lotus::gpu {
 		/// Updates the descriptors in the set with the given read-only images.
 		void write_descriptor_set_read_only_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::span<const image_view *const> images
+			std::size_t first_register, std::span<const image_view_base *const> images
 		) {
 			backend::device::write_descriptor_set_read_only_images(set, layout, first_register, images);
 		}
 		/// \overload
 		void write_descriptor_set_read_only_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::initializer_list<const image_view*> images
+			std::size_t first_register, std::initializer_list<const image_view_base*> images
 		) {
 			write_descriptor_set_read_only_images(set, layout, first_register, { images.begin(), images.end() });
 		}
 		/// Updates the descriptors in the set with the given read-write images.
 		void write_descriptor_set_read_write_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::span<const image_view *const> images
+			std::size_t first_register, std::span<const image_view_base *const> images
 		) {
 			backend::device::write_descriptor_set_read_write_images(set, layout, first_register, images);
 		}
 		/// \overload
 		void write_descriptor_set_read_write_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::initializer_list<const image_view*> images
+			std::size_t first_register, std::initializer_list<const image_view_base*> images
 		) {
 			write_descriptor_set_read_write_images(set, layout, first_register, { images.begin(), images.end() });
 		}
 		/// Retrieves a member function pointer to the function that writes image descriptors of the specified type.
 		inline static void (device::*get_write_image_descriptor_function(descriptor_type type))(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view *const>
+			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view_base *const>
 		) {
 			switch (type) {
 			case descriptor_type::read_only_image:
@@ -329,12 +329,20 @@ namespace lotus::gpu {
 		}
 		/// Creates a \ref image2d with a dedicated memory allocation. This image can only be created on the GPU.
 		[[nodiscard]] image2d create_committed_image2d(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			cvec2u32 size, std::uint32_t mip_levels,
 			format fmt, image_tiling tiling, image_usage_mask allowed_usages
 		) {
 			return backend::device::create_committed_image2d(
-				width, height, array_slices, mip_levels,
-				fmt, tiling, allowed_usages
+				size, mip_levels, fmt, tiling, allowed_usages
+			);
+		}
+		/// Creates a \ref image3d with a dedicated memory allocation. This image can only be created on the GPU.
+		[[nodiscard]] image3d create_committed_image3d(
+			cvec3u32 size, std::uint32_t mip_levels,
+			format fmt, image_tiling tiling, image_usage_mask allowed_usages
+		) {
+			return backend::device::create_committed_image3d(
+				size, mip_levels, fmt, tiling, allowed_usages
 			);
 		}
 		/// Creates a buffer that can be used to upload/download image data to/from the GPU. The image data is
@@ -342,27 +350,32 @@ namespace lotus::gpu {
 		/// 
 		/// \return The buffer and its layout properties.
 		[[nodiscard]] staging_buffer create_committed_staging_buffer(
-			std::size_t width, std::size_t height, format fmt, memory_type_index mem_type,
+			cvec2u32 size, format fmt, memory_type_index mem_type,
 			buffer_usage_mask allowed_usages
 		) {
 			staging_buffer result = nullptr;
-			auto [buf, meta, size] = backend::device::create_committed_staging_buffer(
-				width, height, fmt, mem_type, allowed_usages
+			auto [buf, meta, size_bytes] = backend::device::create_committed_staging_buffer(
+				size, fmt, mem_type, allowed_usages
 			);
 			result.data = std::move(buf);
 			result.meta = meta;
-			result.total_size = size;
+			result.total_size = size_bytes;
 			return result;
 		}
 
-		/// Queries the memory requirements of the given image.
-		[[nodiscard]] memory::size_alignment get_image_memory_requirements(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+		/// Queries the memory requirements of the given 2D image.
+		[[nodiscard]] memory::size_alignment get_image2d_memory_requirements(
+			cvec2u32 size, std::uint32_t mip_levels,
 			format fmt, image_tiling tiling, image_usage_mask usages
 		) {
-			return backend::device::get_image_memory_requirements(
-				width, height, array_slices, mip_levels, fmt, tiling, usages
-			);
+			return backend::device::get_image2d_memory_requirements(size, mip_levels, fmt, tiling, usages);
+		}
+		/// Queries the memory requirements of the given 3D image.
+		[[nodiscard]] memory::size_alignment get_image3d_memory_requirements(
+			cvec3u32 size, std::uint32_t mip_levels,
+			format fmt, image_tiling tiling, image_usage_mask usages
+		) {
+			return backend::device::get_image3d_memory_requirements(size, mip_levels, fmt, tiling, usages);
 		}
 		/// Queries the memory requirements of the given buffer.
 		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(
@@ -378,12 +391,22 @@ namespace lotus::gpu {
 		}
 		/// Creates a 2D image placed at the given memory location.
 		[[nodiscard]] image2d create_placed_image2d(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+			cvec2u32 size, std::uint32_t mip_levels,
 			format fmt, image_tiling tiling, image_usage_mask allowed_usages,
 			const memory_block &mem, std::size_t offset
 		) {
 			return backend::device::create_placed_image2d(
-				width, height, array_slices, mip_levels, fmt, tiling, allowed_usages, mem, offset
+				size, mip_levels, fmt, tiling, allowed_usages, mem, offset
+			);
+		}
+		/// Creates a 3D image placed at the given memory location.
+		[[nodiscard]] image3d create_placed_image3d(
+			cvec3u32 size, std::uint32_t mip_levels,
+			format fmt, image_tiling tiling, image_usage_mask allowed_usages,
+			const memory_block &mem, std::size_t offset
+		) {
+			return backend::device::create_placed_image3d(
+				size, mip_levels, fmt, tiling, allowed_usages, mem, offset
 			);
 		}
 
@@ -416,20 +439,26 @@ namespace lotus::gpu {
 
 		/// Creates a view for an \ref image2d.
 		[[nodiscard]] image2d_view create_image2d_view_from(
-			const image2d &img, format format, mip_levels mip
+			const image2d &img, format fmt, mip_levels mip
 		) {
-			return backend::device::create_image2d_view_from(img, format, mip);
+			return backend::device::create_image2d_view_from(img, fmt, mip);
+		}
+		/// Creates a view for an \ref image3d.
+		[[nodiscard]] image3d_view create_image3d_view_from(
+			const image3d &img, format fmt, mip_levels mip
+		) {
+			return backend::device::create_image3d_view_from(img, fmt, mip);
 		}
 
 		/// Creates a \ref frame_buffer.
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::span<const image2d_view *const> color, const image2d_view *depth_stencil, cvec2s size
+			std::span<const image2d_view *const> color, const image2d_view *depth_stencil, cvec2u32 size
 		) {
 			return backend::device::create_frame_buffer(color, depth_stencil, size);
 		}
 		/// \overload
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::initializer_list<const image2d_view*> color, const image2d_view *depth_stencil, cvec2s size
+			std::initializer_list<const image2d_view*> color, const image2d_view *depth_stencil, cvec2u32 size
 		) {
 			return create_frame_buffer({ color.begin(), color.end() }, depth_stencil, size);
 		}
@@ -487,19 +516,19 @@ namespace lotus::gpu {
 			set_debug_name(buf, name.c_str());
 		}
 		/// Sets the debug name of the given object.
-		void set_debug_name(image &img, const char8_t *name) {
+		void set_debug_name(image_base &img, const char8_t *name) {
 			backend::device::set_debug_name(img, name);
 		}
 		/// \overload
-		void set_debug_name(image &img, const std::u8string &name) {
+		void set_debug_name(image_base &img, const std::u8string &name) {
 			set_debug_name(img, name.c_str());
 		}
 		/// Sets the debug name of the given object.
-		void set_debug_name(image_view &img, const char8_t *name) {
+		void set_debug_name(image_view_base &img, const char8_t *name) {
 			backend::device::set_debug_name(img, name);
 		}
 		/// \overload
-		void set_debug_name(image_view &img, const std::u8string &name) {
+		void set_debug_name(image_view_base &img, const std::u8string &name) {
 			set_debug_name(img, name.c_str());
 		}
 

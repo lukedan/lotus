@@ -51,7 +51,7 @@ namespace lotus::gpu::backends::vulkan {
 		return result;
 	}
 
-	void device::resize_swap_chain_buffers(swap_chain &s, cvec2s size) {
+	void device::resize_swap_chain_buffers(swap_chain &s, cvec2u32 size) {
 		vk::UniqueSwapchainKHR old_swapchain = std::move(s._swapchain);
 		vk::SwapchainCreateInfoKHR info;
 		info
@@ -59,7 +59,7 @@ namespace lotus::gpu::backends::vulkan {
 			.setMinImageCount(static_cast<std::uint32_t>(s.get_image_count()))
 			.setImageFormat(s._format.format)
 			.setImageColorSpace(s._format.colorSpace)
-			.setImageExtent(vk::Extent2D(static_cast<std::uint32_t>(size[0]), static_cast<std::uint32_t>(size[1])))
+			.setImageExtent(vk::Extent2D(size[0], size[1]))
 			.setImageArrayLayers(1)
 			.setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
 			.setImageSharingMode(vk::SharingMode::eExclusive)
@@ -196,13 +196,13 @@ namespace lotus::gpu::backends::vulkan {
 
 	void device::write_descriptor_set_read_only_images(
 		descriptor_set &set, const descriptor_set_layout&,
-		std::size_t first_register, std::span<const gpu::image_view *const> images
+		std::size_t first_register, std::span<const gpu::image_view_base *const> images
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto imgs = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
 		for (const auto *img : images) {
 			imgs.emplace_back()
-				.setImageView(img ? static_cast<const _details::image_view*>(img)->_view.get() : nullptr)
+				.setImageView(img ? static_cast<const _details::image_view_base*>(img)->_view.get() : nullptr)
 				.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 		}
 
@@ -217,13 +217,13 @@ namespace lotus::gpu::backends::vulkan {
 
 	void device::write_descriptor_set_read_write_images(
 		descriptor_set &set, const descriptor_set_layout&,
-		std::size_t first_register, std::span<const image_view *const> images
+		std::size_t first_register, std::span<const image_view_base *const> images
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto imgs = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
 		for (const auto *img : images) {
 			imgs.emplace_back()
-				.setImageView(img ? static_cast<const _details::image_view*>(img)->_view.get() : nullptr)
+				.setImageView(img ? static_cast<const _details::image_view_base*>(img)->_view.get() : nullptr)
 				.setImageLayout(vk::ImageLayout::eGeneral);
 		}
 
@@ -708,47 +708,40 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	image2d device::create_committed_image2d(
-		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-		format fmt, image_tiling tiling, image_usage_mask usages
+		cvec2u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
 	) {
+		auto [img, mem] = _create_committed_image(_details::create_info::for_image2d(
+			size, mip_levels, fmt, tiling, usages
+		));
+
 		image2d result = nullptr;
 		result._device = _device.get();
+		result._image  = img;
+		result._memory = mem;
+		return result;
+	}
 
-		// TODO allocator
-		result._image = _details::unwrap(_device->createImage(_details::create_info::for_image2d(
-			width, height, array_slices, mip_levels, fmt, tiling, usages
-		)));
+	image3d device::create_committed_image3d(
+		cvec3u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
+	) {
+		auto [img, mem] = _create_committed_image(_details::create_info::for_image3d(
+			size, mip_levels, fmt, tiling, usages
+		));
 
-		auto req = _device->getImageMemoryRequirements(result._image);
-
-		vk::MemoryDedicatedAllocateInfo dedicated_info;
-		dedicated_info
-			.setImage(result._image);
-
-		vk::MemoryAllocateInfo info;
-		info
-			.setPNext(&dedicated_info)
-			.setAllocationSize(_device->getImageMemoryRequirements(result._image).size)
-			.setMemoryTypeIndex(_find_memory_type_index(
-				req.memoryTypeBits,
-				vk::MemoryPropertyFlagBits::eDeviceLocal, vk::MemoryPropertyFlags(),
-				vk::MemoryPropertyFlags(), vk::MemoryPropertyFlags()
-			));
-		// TODO allocator
-		result._memory = _details::unwrap(_device->allocateMemory(info));
-		_details::assert_vk(_device->bindImageMemory(result._image, result._memory, 0));
-
+		image3d result = nullptr;
+		result._device = _device.get();
+		result._image  = img;
+		result._memory = mem;
 		return result;
 	}
 
 	std::tuple<buffer, staging_buffer_metadata, std::size_t> device::create_committed_staging_buffer(
-		std::size_t width, std::size_t height, format fmt, memory_type_index mem_id,
-		buffer_usage_mask allowed_usage
+		cvec2u32 size, format fmt, memory_type_index mem_id, buffer_usage_mask allowed_usage
 	) {
 		vk::SubresourceLayout layout;
 		{
 			auto img = _details::unwrap(_device->createImageUnique(_details::create_info::for_image2d(
-				width, height, 1, 1, fmt, image_tiling::row_major, image_usage_mask::copy_source
+				size, 1, fmt, image_tiling::row_major, image_usage_mask::copy_source
 			)));
 			vk::ImageSubresource subresource;
 			const auto &format_props = format_properties::get(fmt);
@@ -766,24 +759,27 @@ namespace lotus::gpu::backends::vulkan {
 		buffer result_buf = create_committed_buffer(layout.size, mem_id, allowed_usage);
 
 		staging_buffer_metadata result_pitch = uninitialized;
-		result_pitch._size   = cvec2s(width, height).into<std::uint32_t>();
+		result_pitch._size   = size;
 		result_pitch._bytes  = static_cast<std::uint32_t>(layout.rowPitch);
 		result_pitch._format = fmt;
 
 		return std::make_tuple(std::move(result_buf), result_pitch, layout.size);
 	}
 
-	memory::size_alignment device::get_image_memory_requirements(
-		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-		format fmt, image_tiling tiling, image_usage_mask usages
+	memory::size_alignment device::get_image2d_memory_requirements(
+		cvec2u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
 	) {
-		auto img = _details::unwrap(_device->createImageUnique(_details::create_info::for_image2d(
-			width, height, array_slices, mip_levels, fmt, tiling, usages
-		)));
-		vk::ImageMemoryRequirementsInfo2 req_info;
-		req_info.setImage(img.get());
-		auto req = _device->getImageMemoryRequirements2(req_info);
-		return memory::size_alignment(req.memoryRequirements.size, req.memoryRequirements.alignment);
+		return _get_image_memory_requirements(_details::create_info::for_image2d(
+			size, mip_levels, fmt, tiling, usages
+		));
+	}
+
+	memory::size_alignment device::get_image3d_memory_requirements(
+		cvec3u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
+	) {
+		return _get_image_memory_requirements(_details::create_info::for_image3d(
+			size, mip_levels, fmt, tiling, usages
+		));
 	}
 
 	memory::size_alignment device::get_buffer_memory_requirements(std::size_t size, buffer_usage_mask usages) {
@@ -825,21 +821,28 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	image2d device::create_placed_image2d(
-		std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
+		cvec2u32 size, std::uint32_t mip_levels,
 		format fmt, image_tiling tiling, image_usage_mask allowed_usage, const memory_block &mem, std::size_t offset
 	) {
 		image2d result = nullptr;
 		result._device = _device.get();
-		result._image = _details::unwrap(_device->createImage(_details::create_info::for_image2d(
-			width, height, array_slices, mip_levels, fmt, tiling, allowed_usage
-		))); // TODO allocator
-		
-		vk::BindImageMemoryInfo bind_info;
-		bind_info
-			.setImage(result._image)
-			.setMemory(mem._memory.get())
-			.setMemoryOffset(offset);
-		_details::assert_vk(_device->bindImageMemory2(bind_info));
+		result._image  = _create_placed_image(
+			_details::create_info::for_image2d(size, mip_levels, fmt, tiling, allowed_usage),
+			mem._memory.get(), offset
+		);
+		return result;
+	}
+
+	image3d device::create_placed_image3d(
+		cvec3u32 size, std::uint32_t mip_levels,
+		format fmt, image_tiling tiling, image_usage_mask allowed_usages, const memory_block &mem, std::size_t offset
+	) {
+		image3d result = nullptr;
+		result._device = _device.get();
+		result._image  = _create_placed_image(
+			_details::create_info::for_image3d(size, mip_levels, fmt, tiling, allowed_usages),
+			mem._memory.get(), offset
+		);
 		return result;
 	}
 
@@ -873,7 +876,7 @@ namespace lotus::gpu::backends::vulkan {
 		_unmap_memory(img._memory, begin, length);
 	}
 
-	image2d_view device::create_image2d_view_from(const image2d &img, format f, mip_levels mip) {
+	image2d_view device::create_image2d_view_from(const image2d &img, format f, mip_levels mips) {
 		image2d_view result = nullptr;
 
 		vk::ImageAspectFlags aspects =
@@ -887,7 +890,25 @@ namespace lotus::gpu::backends::vulkan {
 			.setViewType(vk::ImageViewType::e2D)
 			.setFormat(_details::conversions::to_format(f))
 			.setComponents(vk::ComponentMapping())
-			.setSubresourceRange(_details::conversions::to_image_subresource_range(mip, aspects));
+			.setSubresourceRange(_details::conversions::to_image_subresource_range(mips, aspects));
+		// TODO allocator
+		result._view = _details::unwrap(_device->createImageViewUnique(info));
+
+		return result;
+	}
+
+	image3d_view device::create_image3d_view_from(const image3d &img, format fmt, mip_levels mips) {
+		image3d_view result = nullptr;
+
+		vk::ImageViewCreateInfo info;
+		info
+			.setImage(img._image)
+			.setViewType(vk::ImageViewType::e3D)
+			.setFormat(_details::conversions::to_format(fmt))
+			.setComponents(vk::ComponentMapping())
+			.setSubresourceRange(_details::conversions::to_image_subresource_range(
+				mips, vk::ImageAspectFlagBits::eColor
+			));
 		// TODO allocator
 		result._view = _details::unwrap(_device->createImageViewUnique(info));
 
@@ -895,7 +916,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	frame_buffer device::create_frame_buffer(
-		std::span<const gpu::image2d_view *const> color, const image2d_view *ds, cvec2s size
+		std::span<const gpu::image2d_view *const> color, const image2d_view *ds, cvec2u32 size
 	) {
 		frame_buffer result = nullptr;
 		result._color_views.reserve(color.size());
@@ -995,19 +1016,19 @@ namespace lotus::gpu::backends::vulkan {
 		);
 	}
 
-	void device::set_debug_name(image &img, const char8_t *name) {
+	void device::set_debug_name(image_base &img, const char8_t *name) {
 		_set_debug_name(
 			vk::DebugReportObjectTypeEXT::eImage,
-			reinterpret_cast<std::uint64_t>(static_cast<VkImage>(static_cast<_details::image&>(img)._image)),
+			reinterpret_cast<std::uint64_t>(static_cast<VkImage>(static_cast<_details::image_base&>(img)._image)),
 			name
 		);
 	}
 
-	void device::set_debug_name(image_view &img, const char8_t *name) {
+	void device::set_debug_name(image_view_base &img, const char8_t *name) {
 		_set_debug_name(
 			vk::DebugReportObjectTypeEXT::eImageView,
 			reinterpret_cast<std::uint64_t>(
-				static_cast<VkImageView>(static_cast<_details::image_view&>(img)._view.get())
+				static_cast<VkImageView>(static_cast<_details::image_view_base&>(img)._view.get())
 			),
 			name
 		);
@@ -1264,6 +1285,55 @@ namespace lotus::gpu::backends::vulkan {
 			nullptr, nullptr, info, nullptr, *_dispatch_loader
 		));
 		return result;
+	}
+
+	std::pair<vk::Image, vk::DeviceMemory> device::_create_committed_image(const vk::ImageCreateInfo &img_info) {
+		// TODO allocator
+		vk::Image img = _details::unwrap(_device->createImage(img_info));
+
+		auto req = _device->getImageMemoryRequirements(img);
+
+		vk::MemoryDedicatedAllocateInfo dedicated_info;
+		dedicated_info
+			.setImage(img);
+
+		vk::MemoryAllocateInfo mem_info;
+		mem_info
+			.setPNext(&dedicated_info)
+			.setAllocationSize(_device->getImageMemoryRequirements(img).size)
+			.setMemoryTypeIndex(_find_memory_type_index(
+				req.memoryTypeBits,
+				vk::MemoryPropertyFlagBits::eDeviceLocal, vk::MemoryPropertyFlags(),
+				vk::MemoryPropertyFlags(), vk::MemoryPropertyFlags()
+			));
+		// TODO allocator
+		vk::DeviceMemory mem = _details::unwrap(_device->allocateMemory(mem_info));
+		_details::assert_vk(_device->bindImageMemory(img, mem, 0));
+
+		return { img, mem };
+	}
+
+	vk::Image device::_create_placed_image(
+		const vk::ImageCreateInfo &img_info, vk::DeviceMemory mem, std::size_t offset
+	) {
+		vk::Image img = _details::unwrap(_device->createImage(img_info)); // TODO allocator
+
+		vk::BindImageMemoryInfo bind_info;
+		bind_info
+			.setImage(img)
+			.setMemory(mem)
+			.setMemoryOffset(offset);
+		_details::assert_vk(_device->bindImageMemory2(bind_info));
+
+		return img;
+	}
+
+	memory::size_alignment device::_get_image_memory_requirements(const vk::ImageCreateInfo &info) {
+		auto img = _details::unwrap(_device->createImageUnique(info)); // TODO allocator
+		vk::ImageMemoryRequirementsInfo2 req_info;
+		req_info.setImage(img.get());
+		auto req = _device->getImageMemoryRequirements2(req_info);
+		return memory::size_alignment(req.memoryRequirements.size, req.memoryRequirements.alignment);
 	}
 
 	std::uint32_t device::_find_memory_type_index(

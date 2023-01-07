@@ -259,7 +259,7 @@ namespace lotus::renderer {
 
 					/// Initializes all fields of this struct.
 					job_result(
-						job j, loader_type t, cvec2s sz, gpu::format f, std::vector<subresource> res, destroy_func d
+						job j, loader_type t, cvec2u32 sz, gpu::format f, std::vector<subresource> res, destroy_func d
 					) :
 						input(std::move(j)), type(t), size(sz), pixel_format(f),
 						results(std::move(res)), destroy(std::move(d)) {
@@ -271,7 +271,7 @@ namespace lotus::renderer {
 					job input; ///< Original job description.
 
 					loader_type type = loader_type::invalid; ///< Job result.
-					cvec2s size; ///< Size of the loaded image.
+					cvec2u32 size; ///< Size of the loaded image.
 					gpu::format pixel_format = gpu::format::none; ///< Format of the loaded image.
 
 					std::vector<subresource> results; ///< Successfully loaded subresources.

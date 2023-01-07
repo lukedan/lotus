@@ -117,8 +117,8 @@ namespace lotus::renderer {
 	}
 
 	image2d_view context::request_image2d(
-		std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format fmt,
-		gpu::image_usage_mask usages, const pool &p
+		std::u8string_view name,
+		cvec2u32 size, std::uint32_t num_mips, gpu::format fmt, gpu::image_usage_mask usages, const pool &p
 	) {
 		gpu::image_tiling tiling = gpu::image_tiling::optimal;
 		auto *surf = new _details::image2d(
@@ -214,21 +214,21 @@ namespace lotus::renderer {
 	}
 
 	void context::upload_image(const image2d_view &target, const std::byte *data, std::u8string_view description) {
-		cvec2s image_size = target.get_size();
+		cvec2u32 image_size = target.get_size();
 		std::uint32_t mip_index = target._mip_levels.minimum;
-		image_size[0] = std::max<std::size_t>(1, image_size[0] >> mip_index);
-		image_size[1] = std::max<std::size_t>(1, image_size[1] >> mip_index);
+		image_size = vec::memberwise_operation([&](std::uint32_t s) {
+			return std::max<std::uint32_t>(1, s >> mip_index);
+		}, image_size);
 
 		const auto &format_props = gpu::format_properties::get(target.get_original_format());
 		std::uint32_t bytes_per_fragment = format_props.bytes_per_fragment;
 
 		auto staging_buffer = _device.create_committed_staging_buffer(
-			image_size[0], image_size[1], target.get_original_format(),
+			image_size, target.get_original_format(),
 			_upload_memory_index, gpu::buffer_usage_mask::copy_source
 		);
-		cvec2s frag_size = format_props.fragment_size.into<std::size_t>();
-		// TODO we can't do this - Vulkan doesn't play well with it
-		cvec2s num_fragments = mat::memberwise_divide(image_size + frag_size - cvec2s(1, 1), frag_size);
+		auto frag_size = format_props.fragment_size.into<std::uint32_t>();
+		auto num_fragments = mat::memberwise_divide(image_size + frag_size - cvec2u32(1, 1), frag_size);
 
 		// copy to device
 		auto *src = data;
@@ -339,7 +339,7 @@ namespace lotus::renderer {
 	}
 
 	context::pass context::begin_pass(
-		std::vector<image2d_color> color_rts, image2d_depth_stencil ds_rt, cvec2s sz,
+		std::vector<image2d_color> color_rts, image2d_depth_stencil ds_rt, cvec2u32 sz,
 		std::u8string_view description
 	) {
 		return context::pass(*this, std::move(color_rts), std::move(ds_rt), sz, description);
@@ -533,18 +533,17 @@ namespace lotus::renderer {
 		if (!surf.image) {
 			// create resource if it's not initialized
 			if (surf.memory_pool) {
-				memory::size_alignment size_align = _device.get_image_memory_requirements(
-					surf.size[0], surf.size[1], 1, surf.num_mips, surf.format, surf.tiling, surf.usages
+				memory::size_alignment size_align = _device.get_image2d_memory_requirements(
+					surf.size, surf.num_mips, surf.format, surf.tiling, surf.usages
 				);
 				surf.memory = surf.memory_pool->allocate(size_align);
 				auto &&[blk, off] = surf.memory_pool->get_memory_and_offset(surf.memory);
 				surf.image = _device.create_placed_image2d(
-					surf.size[0], surf.size[1], 1, surf.num_mips, surf.format, surf.tiling, surf.usages, blk, off
+					surf.size, surf.num_mips, surf.format, surf.tiling, surf.usages, blk, off
 				);
 			} else {
 				surf.image = _device.create_committed_image2d(
-					surf.size[0], surf.size[1], 1, surf.num_mips,
-					surf.format, surf.tiling, surf.usages
+					surf.size, surf.num_mips, surf.format, surf.tiling, surf.usages
 				);
 			}
 
@@ -1073,9 +1072,10 @@ namespace lotus::renderer {
 
 		auto mip_level = dest._mip_levels.minimum;
 
-		cvec2s size = dest._image->size;
-		size[0] = std::max<std::size_t>(1, size[0] >> mip_level);
-		size[1] = std::max<std::size_t>(1, size[1] >> mip_level);
+		cvec2u32 size = dest._image->size;
+		size = vec::memberwise_operation([&](std::uint32_t v) {
+			return std::max<std::uint32_t>(1, v >> mip_level);
+		}, size);
 
 		ectx.transitions.stage_transition(
 			img.source.data,
@@ -1375,7 +1375,7 @@ namespace lotus::renderer {
 			for (const auto &surf : batch.image2d_meta) {
 				for (const auto &array_ref : surf->array_references) {
 					if (array_ref.array->set) {
-						std::initializer_list<const gpu::image_view*> images = { nullptr };
+						std::initializer_list<const gpu::image_view_base*> images = { nullptr };
 						(_device.*_device.get_write_image_descriptor_function(array_ref.array->type))(
 							array_ref.array->set,
 							_cache.get_descriptor_set_layout(

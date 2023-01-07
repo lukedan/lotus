@@ -25,7 +25,6 @@ namespace lotus::gpu {
 	class descriptor_set_layout;
 	class descriptor_set;
 	class fence;
-	class image2d_view;
 	class sampler;
 	class shader_binary;
 	class staging_buffer;
@@ -34,18 +33,28 @@ namespace lotus::gpu {
 
 
 	/// Base class of all image types.
-	class image {
+	class image_base {
 	protected:
 		/// Prevent objects of this type from being created directly.
-		~image() = default;
+		~image_base() = default;
 	};
 	/// Base class of all image view types.
-	class image_view {
+	class image_view_base {
 	protected:
 		/// Prevent objects of this type from being created directly.
-		~image_view() = default;
+		~image_view_base() = default;
 	};
 
+
+	/// Indicates which GPU backend is being used.
+	enum class backend_type {
+		directx12, ///< DirectX 12 backend.
+		vulkan,    ///< Vulkan backend.
+
+		num_enumerators ///< Total number of enumerators.
+	};
+	/// Returns the name of the given backend.
+	[[nodiscard]] std::u8string_view get_backend_name(backend_type);
 
 	/// Options for context creation.
 	enum class context_options : std::uint8_t {
@@ -295,6 +304,16 @@ namespace lotus::gpu {
 		/// slices.
 		row_major,
 		optimal, ///< The image is stored in an undefined tiling that's optimal for rendering.
+
+		num_enumerators ///< The number of enumerators.
+	};
+
+	/// Specifies the type of an image.
+	enum class image_type {
+		type_2d,       ///< 2D image.
+		type_2d_array, ///< Array of 2D images.
+		type_3d,       ///< 3D image.
+		type_cubemap,  ///< Cubemap image.
 
 		num_enumerators ///< The number of enumerators.
 	};
@@ -1654,7 +1673,7 @@ namespace lotus::gpu {
 		}
 		/// Initializes all fields of this struct.
 		constexpr image_barrier(
-			subresource_range sub, image &i,
+			subresource_range sub, image_base &i,
 			synchronization_point_mask fp, image_access_mask fa, image_layout fl,
 			synchronization_point_mask tp, image_access_mask ta, image_layout tl
 		) :
@@ -1663,7 +1682,7 @@ namespace lotus::gpu {
 			to_point(tp), to_access(ta), to_layout(tl) {
 		}
 
-		image *target; ///< Target image.
+		image_base *target; ///< Target image.
 		subresource_range subresources = uninitialized; ///< Subresources.
 		synchronization_point_mask from_point;  ///< Where this resource is used in the previous operation.
 		image_access_mask          from_access; ///< How this resource is used in the previous operation.
@@ -2002,4 +2021,15 @@ namespace std {
 			);
 		}
 	};
+}
+
+
+namespace lotus::gpu {
+	template <image_type> class basic_image;
+	using image2d = basic_image<image_type::type_2d>; ///< 2D images.
+	using image3d = basic_image<image_type::type_3d>; ///< 3D images.
+
+	template <image_type> class basic_image_view;
+	using image2d_view = basic_image_view<image_type::type_2d>; ///< 2D image views.
+	using image3d_view = basic_image_view<image_type::type_3d>; ///< 3D image views.
 }

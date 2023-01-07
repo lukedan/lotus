@@ -104,7 +104,7 @@ namespace lotus::renderer {
 	}
 
 
-	void swap_chain::resize(cvec2s sz) {
+	void swap_chain::resize(cvec2u32 sz) {
 		_ptr->desired_size = sz;
 	}
 }

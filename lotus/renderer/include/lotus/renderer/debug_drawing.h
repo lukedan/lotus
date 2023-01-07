@@ -87,7 +87,7 @@ namespace lotus::renderer {
 
 		/// Renders all accumulated contents to the given target and resets the vertex buffers.
 		void flush(
-			image2d_color target, image2d_depth_stencil depth_stencil, cvec2s size,
+			image2d_color target, image2d_depth_stencil depth_stencil, cvec2u32 size,
 			mat44f projection, std::u8string_view description = u8"Debug Draw"
 		) {
 			_do_flush(
@@ -156,7 +156,7 @@ namespace lotus::renderer {
 		/// Flushes the given vertex buffer with the given topology.
 		template <typename Vert> void _do_flush(
 			std::vector<Vert> &vertices, gpu::primitive_topology topology,
-			image2d_color target, image2d_depth_stencil depth_stencil, cvec2s size,
+			image2d_color target, image2d_depth_stencil depth_stencil, cvec2u32 size,
 			mat44f projection, image2d_view texture,
 			std::u8string_view description = u8"Debug Draw"
 		) {

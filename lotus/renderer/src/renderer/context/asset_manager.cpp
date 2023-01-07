@@ -112,7 +112,7 @@ namespace lotus::renderer::assets {
 				return job_result(
 					std::move(j),
 					loader_type::dds,
-					cvec2s(loaded->get_width(), loaded->get_height()),
+					cvec2u32(loaded->get_width(), loaded->get_height()),
 					loaded->get_format(),
 					std::move(mips),
 					[blob = std::move(image_mem)]() mutable {
@@ -172,7 +172,7 @@ namespace lotus::renderer::assets {
 			return job_result(
 				std::move(j),
 				loader_type::stbi,
-				cvec2s(width, height),
+				cvec2i(width, height).into<std::uint32_t>(),
 				pixel_format,
 				{ job_result::subresource(static_cast<const std::byte*>(loaded), 0) },
 				[ptr = loaded]() {
@@ -353,7 +353,7 @@ namespace lotus::renderer::assets {
 			{
 				image2d tex = nullptr;
 				tex.image = _context.request_image2d(
-					u8"Null", cvec2s(1, 1), 1, gpu::format::r8g8b8a8_unorm,
+					u8"Null", cvec2u32(1, 1), 1, gpu::format::r8g8b8a8_unorm,
 					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read,
 					nullptr // TODO pool?
 				);
@@ -368,7 +368,7 @@ namespace lotus::renderer::assets {
 		}
 
 		{ // create "invalid" texture
-			constexpr cvec2s size = cvec2s(128, 128);
+			constexpr cvec2u32 size(128, 128);
 			{
 				image2d tex = nullptr;
 				tex.image = _context.request_image2d(
@@ -383,8 +383,8 @@ namespace lotus::renderer::assets {
 			}
 
 			std::vector<linear_rgba_u8> tex_data(size[0] * size[1], zero);
-			for (std::size_t y = 0; y < size[1]; ++y) {
-				for (std::size_t x = 0; x < size[0]; ++x) {
+			for (std::uint32_t y = 0; y < size[1]; ++y) {
+				for (std::uint32_t x = 0; x < size[0]; ++x) {
 					tex_data[y * size[1] + x] =
 						(x ^ y) & 1 ? linear_rgba_u8(255, 0, 255, 255) : linear_rgba_u8(0, 255, 0, 255);
 				}

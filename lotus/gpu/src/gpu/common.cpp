@@ -6,9 +6,17 @@
 #include "lotus/common.h"
 
 namespace lotus::gpu {
-	constexpr static const std::uint8_t o = 0; // zero for visibility
+	constexpr static enum_mapping<backend_type, std::u8string_view> _backend_name_table{
+		std::pair(backend_type::directx12, u8"DirectX 12"),
+		std::pair(backend_type::vulkan,    u8"Vulkan"    ),
+	};
+	std::u8string_view get_backend_name(backend_type ty) {
+		return _backend_name_table[ty];
+	}
+
+	constexpr static std::uint8_t o = 0; // zero for visibility
 	constexpr static cvec2u8 _bc7_block_size = cvec2i(4, 4).into<std::uint8_t>();
-	constexpr static const enum_mapping<format, format_properties> format_property_table{
+	constexpr static enum_mapping<format, format_properties> _format_property_table{
 		std::pair(format::none,               zero),
 		std::pair(format::d32_float_s8,       format_properties::create_depth_stencil(32, 8, format_properties::data_type::floating_point)),
 		std::pair(format::d32_float,          format_properties::create_depth_stencil(32, o, format_properties::data_type::floating_point)),
@@ -73,14 +81,14 @@ namespace lotus::gpu {
 	};
 
 	const format_properties &format_properties::get(format fmt) {
-		return format_property_table[fmt];
+		return _format_property_table[fmt];
 	}
 
 	format format_properties::find_exact_rgba(
 		std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type type
 	) {
 		format result = format::none;
-		for (const auto [value, key] : format_property_table.get_raw_table()) {
+		for (const auto [value, key] : _format_property_table.get_raw_table()) {
 			if (key.depth_bits > 0 || key.stencil_bits > 0) {
 				continue;
 			}

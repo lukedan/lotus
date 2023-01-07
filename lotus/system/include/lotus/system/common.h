@@ -75,10 +75,10 @@ namespace lotus::system {
 		/// Information about the user resizing the window.
 		struct resize {
 			/// Initializes \ref new_size.
-			explicit resize(cvec2s size) : new_size(size) {
+			explicit resize(cvec2u32 size) : new_size(size) {
 			}
 
-			const cvec2s new_size; ///< New size of this window.
+			const cvec2u32 new_size; ///< New size of this window.
 		};
 
 		namespace mouse {

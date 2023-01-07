@@ -50,7 +50,7 @@ namespace lotus::system::platforms::windows {
 		switch (msg) {
 		case WM_SIZE:
 			if (sys_wnd->on_resize) {
-				window_events::resize info(cvec2s(LOWORD(lparam), HIWORD(lparam)));
+				window_events::resize info(cvec2u32(LOWORD(lparam), HIWORD(lparam)));
 				sys_wnd->on_resize(info);
 			}
 			return 0;

@@ -29,7 +29,7 @@ namespace lotus::renderer::g_buffer {
 			depth_stencil(nullptr) {
 		}
 		/// Creates a storage with the given size.
-		[[nodiscard]] static view create(context&, cvec2s size, const pool&);
+		[[nodiscard]] static view create(context&, cvec2u32 size, const pool&);
 
 		/// Starts a pass rendering to this view.
 		[[nodiscard]] context::pass begin_pass(context&);

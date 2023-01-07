@@ -93,6 +93,6 @@ namespace lotus::gpu::backends::vulkan {
 	private:
 		std::vector<vk::ImageView> _color_views; ///< Color views.
 		vk::ImageView _depth_stencil_view; ///< Deptn stencil view.
-		cvec2s _size = zero; ///< The size of this frame buffer.
+		cvec2u32 _size = zero; ///< The size of this frame buffer.
 	};
 }

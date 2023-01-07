@@ -51,7 +51,8 @@ namespace lotus::renderer::dear_imgui {
 				io.Fonts->GetTexDataAsRGBA32(&tex_data, &width, &height);
 
 				result._font_texture = ctx.request_image2d(
-					u8"Dear ImGui Font Atlas", cvec2s(width, height), 1, gpu::format::r8g8b8a8_unorm,
+					u8"Dear ImGui Font Atlas", cvec2i(width, height).into<std::uint32_t>(), 1,
+					gpu::format::r8g8b8a8_unorm,
 					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read, nullptr
 				);
 				ctx.upload_image(
@@ -65,7 +66,7 @@ namespace lotus::renderer::dear_imgui {
 		}
 
 		/// Renders the current ImGui draw data.
-		void render(image2d_color target, cvec2s target_size, pool buffers_pool) {
+		void render(image2d_color target, cvec2u32 target_size, pool buffers_pool) {
 			auto *draw_data = ImGui::GetDrawData();
 			if (!draw_data) {
 				return;

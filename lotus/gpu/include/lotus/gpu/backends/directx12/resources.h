@@ -61,8 +61,8 @@ namespace lotus::gpu::backends::directx12 {
 
 
 	namespace _details {
-		/// Base class containing a \p ID3D12Resource.
-		class image : public gpu::image {
+		/// Base class for images.
+		class image_base : public gpu::image_base {
 			friend command_list;
 			friend device;
 		protected:
@@ -74,22 +74,21 @@ namespace lotus::gpu::backends::directx12 {
 			_details::com_ptr<ID3D12Resource> _image; ///< The image.
 		};
 	}
-
-
-	/// A \p ID3D12Resource that represents a 2D image.
-	class image2d : public _details::image {
+	/// Base class containing a \p ID3D12Resource.
+	template <image_type Type> class basic_image : public _details::image_base {
 		friend device;
 		friend swap_chain;
 	protected:
-		/// Creates an empty object.
-		image2d(std::nullptr_t) {
+		/// Initializes this object to empty.
+		basic_image(std::nullptr_t) {
 		}
 	};
+	using image2d = basic_image<image_type::type_2d>; ///< 2D images.
 
 
 	namespace _details {
-		/// Base class of all image views.
-		class image_view : public gpu::image_view {
+		/// Base class for image views.
+		class image_view_base : public gpu::image_view_base {
 			friend device;
 		protected:
 			/// Returns whether \ref _image is empty.
@@ -102,35 +101,15 @@ namespace lotus::gpu::backends::directx12 {
 			D3D12_UNORDERED_ACCESS_VIEW_DESC _uav_desc; ///< Unordered access view description.
 		};
 	}
-
-	/// Wraps around a \p D3D12_TEX2D_SRV.
-	class image2d_view : public _details::image_view {
+	/// Base class of all image views.
+	template <image_type Type> class basic_image_view : public _details::image_view_base {
 		friend device;
 	protected:
 		/// Creates an empty image view object.
-		image2d_view(std::nullptr_t) {
-		}
-	private:
-		constexpr static D3D12_SRV_DIMENSION _srv_dimension = D3D12_SRV_DIMENSION_TEXTURE2D; ///< SRV dimension.
-		constexpr static D3D12_RTV_DIMENSION _rtv_dimension = D3D12_RTV_DIMENSION_TEXTURE2D; ///< RTV dimension.
-
-		/// Fills a \p D3D12_RENDER_TARGET_VIEW_DESC.
-		void _fill_rtv_desc(D3D12_RENDER_TARGET_VIEW_DESC &desc) const {
-			assert(_srv_desc.Texture2D.MipLevels == 1);
-			desc.Format               = _srv_desc.Format;
-			desc.ViewDimension        = D3D12_RTV_DIMENSION_TEXTURE2D;
-			desc.Texture2D.MipSlice   = _srv_desc.Texture2D.MostDetailedMip;
-			desc.Texture2D.PlaneSlice = _srv_desc.Texture2D.PlaneSlice;
-		}
-		/// Fills a \p D3D12_DEPTH_STENCIL_VIEW_DESC.
-		void _fill_dsv_desc(D3D12_DEPTH_STENCIL_VIEW_DESC &desc) const {
-			assert(_srv_desc.Texture2D.MipLevels == 1);
-			desc.Format             = _srv_desc.Format;
-			desc.ViewDimension      = D3D12_DSV_DIMENSION_TEXTURE2D;
-			desc.Flags              = D3D12_DSV_FLAG_NONE;
-			desc.Texture2D.MipSlice = _srv_desc.Texture2D.MostDetailedMip;
+		basic_image_view(std::nullptr_t) {
 		}
 	};
+	using image2d_view = basic_image_view<image_type::type_2d>; ///< 2D image views.
 
 
 	/// Wraps around a \p D3D12_SAMPLER_DESC.

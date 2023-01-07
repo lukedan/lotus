@@ -16,5 +16,5 @@
 namespace lotus::gpu::backend {
 	using namespace backends::vulkan;
 
-	constexpr static std::u8string_view backend_name = u8"Vulkan"; ///< Backend name.
+	constexpr static backend_type type = backend_type::vulkan; ///< Backend type.
 }

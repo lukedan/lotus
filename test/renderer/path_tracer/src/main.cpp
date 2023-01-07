@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	log().debug<u8"Backend: {}">(lstr::to_generic(lgpu::backend_name));
+	log().debug<u8"Backend: {}">(lstr::to_generic(lgpu::get_backend_name(lgpu::current_backend)));
 	log().debug<u8"Working dir: {}">(std::filesystem::current_path().string());
 
 	lsys::application app(u8"test");
@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
 	auto cam = cam_params.into_camera();
 	camera_control<float> cam_control(cam_params);
 
-	cvec2s window_size = zero;
+	cvec2u32 window_size = zero;
 #ifndef DISABLE_ALL_RT
 	lren::image2d_view rt_result = nullptr;
 #endif

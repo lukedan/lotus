@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
 
 
 	bool is_mouse_down = false;
-	lotus::cvec2s window_size = zero;
+	lotus::cvec2u32 window_size = zero;
 	lotus::cvec2i mouse_pos = zero;
 	lotus::cvec2i mouse_down_pos = zero;
 	lotus::cvec2i mouse_drag_pos = zero;

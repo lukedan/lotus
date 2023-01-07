@@ -681,15 +681,14 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_RESOURCE_DESC1 for_image2d(
-			std::size_t width, std::size_t height, std::size_t array_slices,
-			std::size_t mip_levels, format fmt, image_tiling tiling, image_usage_mask all_usages
+			cvec2u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask all_usages
 		) {
 			D3D12_RESOURCE_DESC1 desc = {};
 			desc.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 			desc.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-			desc.Width              = static_cast<UINT64>(width);
-			desc.Height             = static_cast<UINT>(height);
-			desc.DepthOrArraySize   = static_cast<UINT16>(array_slices);
+			desc.Width              = static_cast<UINT64>(size[0]);
+			desc.Height             = static_cast<UINT>(size[1]);
+			desc.DepthOrArraySize   = 1;
 			desc.MipLevels          = static_cast<UINT16>(mip_levels);
 			desc.Format             = conversions::to_format(fmt);
 			desc.SampleDesc.Count   = 1;
@@ -699,7 +698,26 @@ namespace lotus::gpu::backends::directx12::_details {
 			return desc;
 		}
 
-		void adjust_resource_flags_for_image2d(
+		D3D12_RESOURCE_DESC1 for_image3d(
+			cvec3u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask all_usages
+		) {
+			D3D12_RESOURCE_DESC1 desc = {};
+			desc.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE3D;
+			desc.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+			desc.Width              = static_cast<UINT64>(size[0]);
+			desc.Height             = static_cast<UINT>(size[1]);
+			crash_if(size[2] > std::numeric_limits<UINT16>::max());
+			desc.DepthOrArraySize   = static_cast<UINT16>(size[2]);
+			desc.MipLevels          = static_cast<UINT16>(mip_levels);
+			desc.Format             = conversions::to_format(fmt);
+			desc.SampleDesc.Count   = 1;
+			desc.SampleDesc.Quality = 0;
+			desc.Layout             = conversions::to_texture_layout(tiling);
+			desc.Flags              = conversions::to_resource_flags(all_usages);
+			return desc;
+		}
+
+		void adjust_resource_flags_for_image(
 			format, image_usage_mask all_usages, D3D12_HEAP_FLAGS *heap_flags
 		) {
 			if (heap_flags) {

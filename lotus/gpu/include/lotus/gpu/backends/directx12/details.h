@@ -426,10 +426,13 @@ namespace lotus::gpu::backends::directx12::_details {
 
 		/// Description for a 2D image.
 		[[nodiscard]] D3D12_RESOURCE_DESC1 for_image2d(
-			std::size_t width, std::size_t height, std::size_t array_slices,
-			std::size_t mip_levels, format, image_tiling, image_usage_mask
+			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
 		);
-		/// Adjusts various flags of 2D image properties.
-		void adjust_resource_flags_for_image2d(format, image_usage_mask, D3D12_HEAP_FLAGS* = nullptr);
+		/// Description for a 3D image.
+		[[nodiscard]] D3D12_RESOURCE_DESC1 for_image3d(
+			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+		);
+		/// Adjusts various flags of image properties.
+		void adjust_resource_flags_for_image(format, image_usage_mask, D3D12_HEAP_FLAGS* = nullptr);
 	}
 }

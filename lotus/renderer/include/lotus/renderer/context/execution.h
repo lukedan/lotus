@@ -305,7 +305,7 @@ namespace lotus::renderer::execution {
 		[[nodiscard]] gpu::frame_buffer &create_frame_buffer(
 			std::span<const gpu::image2d_view *const> color_rts,
 			const gpu::image2d_view *ds_rt,
-			cvec2s size
+			cvec2u32 size
 		);
 
 		/// Allocates space for an immediate constant buffer.

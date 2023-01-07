@@ -576,19 +576,35 @@ namespace lotus::gpu::backends::vulkan::_details {
 
 	namespace create_info {
 		vk::ImageCreateInfo for_image2d(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format fmt, image_tiling tiling, image_usage_mask usages
+			cvec2u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
 		) {
 			vk::ImageCreateInfo img_info;
 			img_info
 				.setImageType(vk::ImageType::e2D)
-				.setFormat(_details::conversions::to_format(fmt))
-				.setExtent(vk::Extent3D(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1))
-				.setMipLevels(static_cast<std::uint32_t>(mip_levels))
-				.setArrayLayers(static_cast<std::uint32_t>(array_slices))
+				.setFormat(conversions::to_format(fmt))
+				.setExtent(vk::Extent3D(size[0], size[1], 1))
+				.setMipLevels(mip_levels)
+				.setArrayLayers(1)
 				.setSamples(vk::SampleCountFlagBits::e1)
-				.setTiling(_details::conversions::to_image_tiling(tiling))
-				.setUsage(_details::conversions::to_image_usage_flags(usages))
+				.setTiling(conversions::to_image_tiling(tiling))
+				.setUsage(conversions::to_image_usage_flags(usages))
+				.setInitialLayout(vk::ImageLayout::eUndefined);
+			return img_info;
+		}
+
+		vk::ImageCreateInfo for_image3d(
+			cvec3u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
+		) {
+			vk::ImageCreateInfo img_info;
+			img_info
+				.setImageType(vk::ImageType::e3D)
+				.setFormat(conversions::to_format(fmt))
+				.setExtent(vk::Extent3D(size[0], size[1], size[2]))
+				.setMipLevels(mip_levels)
+				.setArrayLayers(1)
+				.setSamples(vk::SampleCountFlagBits::e1)
+				.setTiling(conversions::to_image_tiling(tiling))
+				.setUsage(conversions::to_image_usage_flags(usages))
 				.setInitialLayout(vk::ImageLayout::eUndefined);
 			return img_info;
 		}

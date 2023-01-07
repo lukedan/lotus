@@ -12,8 +12,8 @@
 #include "frame_buffer.h"
 
 namespace lotus::gpu {
-	/// The name of this backend.
-	constexpr static std::u8string_view backend_name = backend::backend_name;
+	/// The name of the backend that is currently active.
+	constexpr static backend_type current_backend = backend::type;
 
 	/// Represents a generic interface to the underlying graphics library.
 	class context : public backend::context {

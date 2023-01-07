@@ -96,7 +96,7 @@ namespace lotus::gpu::backends::directx12 {
 				barrier.AccessAfter  = _details::conversions::to_barrier_access(img.to_access);
 				barrier.LayoutBefore = _details::conversions::to_barrier_layout(img.from_layout);
 				barrier.LayoutAfter  = _details::conversions::to_barrier_layout(img.to_layout);
-				barrier.pResource    = static_cast<_details::image*>(img.target)->_image.Get();
+				barrier.pResource    = static_cast<_details::image_base*>(img.target)->_image.Get();
 				barrier.Subresources = _details::conversions::to_barrier_subresource_range(img.subresources);
 			}
 			auto &group = groups.emplace_back();

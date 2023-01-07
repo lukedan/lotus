@@ -99,34 +99,34 @@ namespace lotus::gpu {
 
 
 	/// 2D images.
-	class image2d : public backend::image2d {
+	template <image_type Type> class basic_image : public backend::basic_image<Type> {
 		friend device;
 		friend swap_chain;
 	public:
 		static_assert(
-			std::is_base_of_v<image, backend::image2d>,
-			"Image types must be derived from the base image type"
+			std::is_base_of_v<gpu::image_base, backend::basic_image<Type>>,
+			"Backend image types must derive from the base image type"
 		);
 
 		/// Creates an empty object.
-		image2d(std::nullptr_t) : backend::image2d(nullptr) {
+		basic_image(std::nullptr_t) : backend::basic_image<Type>(nullptr) {
 		}
 		/// Move constructor.
-		image2d(image2d &&src) noexcept : backend::image2d(std::move(src)) {
+		basic_image(basic_image &&src) noexcept : backend::basic_image<Type>(std::move(src)) {
 		}
 		/// No copy construction.
-		image2d(const image2d&) = delete;
+		basic_image(const basic_image&) = delete;
 		/// Move assignment.
-		image2d &operator=(image2d &&src) noexcept {
-			backend::image2d::operator=(std::move(src));
+		basic_image &operator=(basic_image &&src) noexcept {
+			backend::basic_image<Type>::operator=(std::move(src));
 			return *this;
 		}
 		/// No copy assignment.
-		image2d &operator=(const image2d&) = delete;
+		basic_image &operator=(const basic_image&) = delete;
 
 		/// Returns whether this is a valid image.
 		[[nodiscard]] bool is_valid() const {
-			return backend::image2d::is_valid();
+			return backend::basic_image<Type>::is_valid();
 		}
 		/// \overload
 		[[nodiscard]] explicit operator bool() const {
@@ -134,39 +134,39 @@ namespace lotus::gpu {
 		}
 	protected:
 		/// Initializes the base class.
-		image2d(backend::image2d base) : backend::image2d(std::move(base)) {
+		basic_image(backend::basic_image<Type> base) : backend::basic_image<Type>(std::move(base)) {
 		}
 	};
 
 
 	/// 2D image views.
-	class image2d_view : public backend::image2d_view {
+	template <image_type Type> class basic_image_view : public backend::basic_image_view<Type> {
 		friend device;
 	public:
 		static_assert(
-			std::is_base_of_v<image_view, backend::image2d_view>,
-			"Image types must be derived from the base image type"
+			std::is_base_of_v<gpu::image_view_base, backend::basic_image_view<Type>>,
+			"Backend image view types must be derived from the base image view type"
 		);
 
 		/// Initializes this view to an empty object.
-		image2d_view(std::nullptr_t) : backend::image2d_view(nullptr) {
+		basic_image_view(std::nullptr_t) : backend::basic_image_view<Type>(nullptr) {
 		}
 		/// Move constructor.
-		image2d_view(image2d_view &&src) noexcept : backend::image2d_view(std::move(src)) {
+		basic_image_view(basic_image_view &&src) noexcept : backend::basic_image_view<Type>(std::move(src)) {
 		}
 		/// No copy construction.
-		image2d_view(const image2d_view&) = delete;
+		basic_image_view(const basic_image_view&) = delete;
 		/// Move assignment.
-		image2d_view &operator=(image2d_view &&src) noexcept {
-			backend::image2d_view::operator=(std::move(src));
+		basic_image_view &operator=(basic_image_view &&src) noexcept {
+			backend::basic_image_view<Type>::operator=(std::move(src));
 			return *this;
 		}
 		/// No copy assignment.
-		image2d_view &operator=(const image2d_view&) = delete;
+		basic_image_view &operator=(const basic_image_view&) = delete;
 
 		/// Returns whether this holds a valid object.
 		[[nodiscard]] bool is_valid() const {
-			return backend::image2d_view::is_valid();
+			return backend::basic_image_view<Type>::is_valid();
 		}
 		/// \override
 		[[nodiscard]] explicit operator bool() const {
@@ -174,7 +174,7 @@ namespace lotus::gpu {
 		}
 	protected:
 		/// Initializes the base class.
-		image2d_view(backend::image2d_view base) : backend::image2d_view(std::move(base)) {
+		basic_image_view(backend::basic_image_view<Type> base) : backend::basic_image_view<Type>(std::move(base)) {
 		}
 	};
 

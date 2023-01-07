@@ -260,7 +260,7 @@ namespace lotus::gpu::backends::vulkan {
 				.setNewLayout(_details::conversions::to_image_layout(i.to_layout))
 				.setSrcQueueFamilyIndex(0) // TODO
 				.setDstQueueFamilyIndex(0)
-				.setImage(static_cast<_details::image*>(i.target)->_image)
+				.setImage(static_cast<_details::image_base*>(i.target)->_image)
 				.setSubresourceRange(_details::conversions::to_image_subresource_range(i.subresources));
 		}
 		for (const auto &b : bufs) {

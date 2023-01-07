@@ -135,7 +135,7 @@ namespace lotus::renderer {
 		public:
 			/// Initializes this surface to empty.
 			image2d(
-				cvec2s sz,
+				cvec2u32 sz,
 				std::uint32_t mips,
 				gpu::format fmt,
 				gpu::image_tiling tiling,
@@ -160,7 +160,7 @@ namespace lotus::renderer {
 
 			std::vector<image_access> current_usages; ///< Current usage of each mip of the surface.
 
-			cvec2s size; ///< The size of this surface.
+			cvec2u32 size; ///< The size of this surface.
 			std::uint32_t num_mips = 0; ///< Number of mips.
 			gpu::format format = gpu::format::none; ///< Original pixel format.
 			// TODO are these necessary?
@@ -232,8 +232,8 @@ namespace lotus::renderer {
 			std::vector<gpu::image2d> images; ///< Images in this swap chain.
 			std::vector<image_access> current_usages; ///< Current usages of all back buffers.
 
-			cvec2s current_size; ///< Current size of swap chain images.
-			cvec2s desired_size; ///< Desired size of swap chain images.
+			cvec2u32 current_size; ///< Current size of swap chain images.
+			cvec2u32 desired_size; ///< Desired size of swap chain images.
 			gpu::format current_format; ///< Format of the swap chain images.
 
 			std::uint32_t next_image_index = 0; ///< Index of the next image.
@@ -516,7 +516,7 @@ namespace lotus::renderer {
 		}
 
 		/// Returns the size of the top mip of this image.
-		[[nodiscard]] cvec2s get_size() const {
+		[[nodiscard]] cvec2u32 get_size() const {
 			return _ptr->size;
 		}
 		/// Returns the format that this image is viewed as.
@@ -666,7 +666,7 @@ namespace lotus::renderer {
 		}
 
 		/// Resizes this swap chain.
-		void resize(cvec2s);
+		void resize(cvec2u32);
 	private:
 		/// Initializes this swap chain.
 		explicit swap_chain(std::shared_ptr<_details::swap_chain> chain) : basic_resource_handle(std::move(chain)) {

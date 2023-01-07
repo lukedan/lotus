@@ -97,21 +97,21 @@ namespace lotus::gpu::backends::vulkan {
 
 	namespace _details {
 		/// Base class of all image types, contains a \p vk::Image and the \p vk::Device that created it.
-		class image : public gpu::image {
+		class image_base : public gpu::image_base {
 			friend command_list;
 			friend device;
 			friend swap_chain;
 		public:
 			/// Move construction.
-			image(image &&src) :
+			image_base(image_base &&src) :
 				_device(std::exchange(src._device, nullptr)),
 				_memory(std::exchange(src._memory, nullptr)),
 				_image(std::exchange(src._image, nullptr)) {
 			}
 			/// No copy construction.
-			image(const image&) = delete;
+			image_base(const image_base&) = delete;
 			/// Move assignment.
-			image &operator=(image &&src) {
+			image_base &operator=(image_base &&src) {
 				if (&src != this) {
 					_free();
 					_device = std::exchange(src._device, nullptr);
@@ -121,14 +121,14 @@ namespace lotus::gpu::backends::vulkan {
 				return *this;
 			}
 			/// No copy assignment.
-			image &operator=(const image&) = delete;
+			image_base &operator=(const image_base&) = delete;
 			/// Calls \ref _free().
-			~image() {
+			~image_base() {
 				_free();
 			}
 		protected:
 			/// Creates an empty object.
-			image(std::nullptr_t) {
+			image_base(std::nullptr_t) {
 			}
 
 			/// Returns whether this refers to a valid image object.
@@ -155,11 +155,11 @@ namespace lotus::gpu::backends::vulkan {
 		};
 
 		/// Base class of all image view types - contains a \p vk::UniqueImageView.
-		class image_view : public gpu::image_view {
+		class image_view_base : public gpu::image_view_base {
 			friend device;
 		protected:
 			/// Creates an empty object.
-			image_view(std::nullptr_t) {
+			image_view_base(std::nullptr_t) {
 			}
 
 			/// Returns whether \ref _view is empty.
@@ -172,25 +172,25 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	/// A 2D image.
-	class image2d : public _details::image {
+	template <image_type Type> class basic_image : public _details::image_base {
 		friend swap_chain;
 		friend device;
 	protected:
 		/// Creates an empty object.
-		image2d(std::nullptr_t) : _details::image(nullptr) {
+		basic_image(std::nullptr_t) : _details::image_base(nullptr) {
 		}
-	private:
 	};
+	using image2d = basic_image<image_type::type_2d>; ///< 2D images.
 
 	/// A 2D image view.
-	class image2d_view : public _details::image_view {
+	template <image_type Type> class basic_image_view : public _details::image_view_base {
 		friend device;
 	protected:
 		/// Creates an empty object.
-		image2d_view(std::nullptr_t) : _details::image_view(nullptr) {
+		basic_image_view(std::nullptr_t) : _details::image_view_base(nullptr) {
 		}
-	private:
 	};
+	using image2d_view = basic_image_view<image_type::type_2d>; ///< 2D image views.
 
 	/// Contains a \p vk::UniqueSampler.
 	class sampler {

@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
 	lsys::application app(u8"ReSTIR Probes");
 	auto wnd = app.create_window();
 
-	//auto options = lgpu::context_options::enable_validation | lgpu::context_options::enable_debug_info;
+	/*auto options = lgpu::context_options::enable_validation | lgpu::context_options::enable_debug_info;*/
 	auto options = lgpu::context_options::none;
 	auto gctx = lgpu::context::create(options);
 	lgpu::device gdev = nullptr;
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
 	auto imgui_rctx = lren::dear_imgui::context::create(rassets);
 	auto imgui_sctx = lsys::dear_imgui::context::create();
 
-	cvec2s window_size = zero;
+	cvec2u32 window_size = zero;
 	std::uint32_t frame_index = 0;
 
 	auto swapchain = rctx.request_swap_chain(u8"Main Swap Chain", wnd, 2, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb });
@@ -294,6 +294,7 @@ int main(int argc, char **argv) {
 
 
 	std::default_random_engine random(std::random_device{}());
+	float cpu_frame_time = 0.0f;
 
 
 	wnd.show_and_activate();
@@ -308,6 +309,8 @@ int main(int argc, char **argv) {
 		if (window_size == zero) {
 			continue;
 		}
+
+		auto frame_cpu_begin = std::chrono::high_resolution_clock::now();
 
 		{
 			auto frame_tmr = rctx.start_timer(u8"Frame");
@@ -825,6 +828,13 @@ int main(int argc, char **argv) {
 								ImGui::TableNextColumn();
 								ImGui::Text("%f", t.duration_ms);
 							}
+
+							ImGui::TableNextRow();
+							ImGui::TableNextColumn();
+							ImGui::Text("CPU");
+							ImGui::TableNextColumn();
+							ImGui::Text("%f", cpu_frame_time);
+
 							ImGui::EndTable();
 						}
 					}
@@ -851,6 +861,9 @@ int main(int argc, char **argv) {
 		}
 
 		rctx.flush();
+
+		auto frame_cpu_end = std::chrono::high_resolution_clock::now();
+		cpu_frame_time = std::chrono::duration<float, std::milli>(frame_cpu_end - frame_cpu_begin).count();
 	}
 
 	return 0;

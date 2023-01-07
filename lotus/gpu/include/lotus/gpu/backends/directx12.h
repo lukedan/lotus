@@ -16,5 +16,5 @@
 namespace lotus::gpu::backend {
 	using namespace backends::directx12;
 
-	constexpr static std::u8string_view backend_name = u8"DirectX 12"; ///< Name of this backend.
+	constexpr static backend_type type = backend_type::directx12; ///< Backend type.
 }

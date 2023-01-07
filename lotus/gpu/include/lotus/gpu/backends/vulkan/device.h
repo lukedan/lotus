@@ -33,7 +33,7 @@ namespace lotus::gpu::backends::vulkan {
 		[[nodiscard]] back_buffer_info acquire_back_buffer(swap_chain&);
 		/// Calls \p vk::UniqueDevice::createSwapchainKHRUnique() to create a new swap chain reusing the old swap
 		/// chain.
-		void resize_swap_chain_buffers(swap_chain&, cvec2s);
+		void resize_swap_chain_buffers(swap_chain&, cvec2u32);
 
 		/// Calls \p vk::UniqueDevice::getQueue();
 		[[nodiscard]] command_queue create_command_queue();
@@ -58,12 +58,12 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_only_images(
 			descriptor_set&, const descriptor_set_layout&,
-			std::size_t first_register, std::span<const image_view *const>
+			std::size_t first_register, std::span<const image_view_base *const>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_write_images(
 			descriptor_set&, const descriptor_set_layout&,
-			std::size_t first_register, std::span<const image_view *const>
+			std::size_t first_register, std::span<const image_view_base *const>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_only_structured_buffers(
@@ -141,23 +141,27 @@ namespace lotus::gpu::backends::vulkan {
 		[[nodiscard]] buffer create_committed_buffer(
 			std::size_t size, memory_type_index, buffer_usage_mask allowed_usage
 		);
-		/// Calls \p vk::UniqueDevice::createImage() to create the image, then calls
-		/// \p vk::UniqueDevice::allocateMemory() to allocate memory for it.
+		/// Creates a new 2D image using \ref _create_committed_image().
 		[[nodiscard]] image2d create_committed_image2d(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format, image_tiling, image_usage_mask allowed_usage
+			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask allowed_usage
+		);
+		/// Creates a new 3D image using \ref _create_committed_image().
+		[[nodiscard]] image3d create_committed_image3d(
+			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask allowed_usage
 		);
 		/// Obtains the layout of the buffer by creating a dummy image object, then calls
 		/// \ref create_committed_buffer() to create the buffer.
 		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, std::size_t> create_committed_staging_buffer(
-			std::size_t width, std::size_t height, format, memory_type_index, buffer_usage_mask allowed_usage
+			cvec2u32 size, format, memory_type_index, buffer_usage_mask allowed_usage
 		);
 
-		/// Creates a temporary \p vk::UniqueImage, then calls \p vk::UniqueDevice::getImageMemoryRequirements2() to
-		/// obtain the memory requirements.
-		[[nodiscard]] memory::size_alignment get_image_memory_requirements(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format, image_tiling, image_usage_mask
+		/// Retrieves the memory requirements of the 2D image using \ref _get_image_memory_requirements().
+		[[nodiscard]] memory::size_alignment get_image2d_memory_requirements(
+			cvec2u32, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+		);
+		/// Retrieves the memory requirements of the 3D image using \ref _get_image_memory_requirements().
+		[[nodiscard]] memory::size_alignment get_image3d_memory_requirements(
+			cvec3u32, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Creates a temporary \p vk::UniqueBuffer, then calls \p vk::UniqueDevice::getBufferMemoryRequirements2()
 		/// to obtain the memory requirements.
@@ -167,11 +171,15 @@ namespace lotus::gpu::backends::vulkan {
 		[[nodiscard]] buffer create_placed_buffer(
 			std::size_t size, buffer_usage_mask allowed_usage, const memory_block &mem, std::size_t offset
 		);
-		/// Calls \p vk::UniqueDevice::createImage() to create the image, then calls
-		/// \p vk::UniqueDevice::bindImageMemory2() to bind it to the given \ref memory_block.
+		/// Creates a new 2D image using \ref _create_placed_image().
 		[[nodiscard]] image2d create_placed_image2d(
-			std::size_t width, std::size_t height, std::size_t array_slices, std::size_t mip_levels,
-			format, image_tiling, image_usage_mask allowed_usage, const memory_block &mem, std::size_t offset
+			cvec2u32 size, std::uint32_t mip_levels,
+			format, image_tiling, image_usage_mask allowed_usages, const memory_block &mem, std::size_t offset
+		);
+		/// Creates a new 3D image using \ref _create_placed_image().
+		[[nodiscard]] image3d create_placed_image3d(
+			cvec3u32 size, std::uint32_t mip_levels,
+			format, image_tiling, image_usage_mask allowed_usages, const memory_block &mem, std::size_t offset
 		);
 
 		/// Calls \ref _map_memory().
@@ -189,9 +197,11 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Calls \p vk::UniqueDevice::createImageViewUnique().
 		[[nodiscard]] image2d_view create_image2d_view_from(const image2d&, format, mip_levels);
+		/// Calls \p vk::UniqueDevice::createImageViewUnique().
+		[[nodiscard]] image3d_view create_image3d_view_from(const image3d&, format, mip_levels);
 		/// Fills in the frame buffer structure.
 		[[nodiscard]] frame_buffer create_frame_buffer(
-			std::span<const gpu::image2d_view *const> color, const image2d_view *depth_stencil, cvec2s size
+			std::span<const gpu::image2d_view *const> color, const image2d_view *depth_stencil, cvec2u32 size
 		);
 
 		/// Calls \p vk::UniqueDevice::createFenceUnique().
@@ -219,9 +229,9 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \ref _set_debug_name().
 		void set_debug_name(buffer&, const char8_t*);
 		/// Calls \ref _set_debug_name().
-		void set_debug_name(image&, const char8_t*);
+		void set_debug_name(image_base&, const char8_t*);
 		/// Calls \ref _set_debug_name().
-		void set_debug_name(image_view&, const char8_t*);
+		void set_debug_name(image_view_base&, const char8_t*);
 
 
 		// ray-tracing related
@@ -288,6 +298,18 @@ namespace lotus::gpu::backends::vulkan {
 		context_options _options = context_options::none; ///< Context options.
 		const vk::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< The dispatch loader.
 
+
+		/// Calls \p vk::UniqueDevice::createImage() to create the image, then calls
+		/// \p vk::UniqueDevice::allocateMemory() to allocate memory for it.
+		[[nodiscard]] std::pair<vk::Image, vk::DeviceMemory> _create_committed_image(const vk::ImageCreateInfo&);
+		/// Calls \p vk::UniqueDevice::createImage() to create the image, then calls
+		/// \p vk::UniqueDevice::bindImageMemory2() to bind it to the given \ref memory_block.
+		[[nodiscard]] vk::Image _create_placed_image(
+			const vk::ImageCreateInfo&, vk::DeviceMemory, std::size_t offset
+		);
+		/// Creates a temporary \p vk::UniqueImage, then calls \p vk::UniqueDevice::getImageMemoryRequirements2() to
+		/// obtain the memory requirements.
+		[[nodiscard]] memory::size_alignment _get_image_memory_requirements(const vk::ImageCreateInfo&);
 
 		/// Finds the best memory type fit for the given requirements and \ref heap_type.
 		[[nodiscard]] std::uint32_t _find_memory_type_index(std::uint32_t requirements, memory_properties) const;

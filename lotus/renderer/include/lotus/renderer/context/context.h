@@ -137,14 +137,14 @@ namespace lotus::renderer {
 		/// Executes a render pass.
 		struct render_pass {
 			/// Initializes the render target.
-			render_pass(std::vector<image2d_color> color_rts, image2d_depth_stencil ds_rt, cvec2s sz) :
+			render_pass(std::vector<image2d_color> color_rts, image2d_depth_stencil ds_rt, cvec2u32 sz) :
 				color_render_targets(std::move(color_rts)), depth_stencil_target(std::move(ds_rt)),
 				render_target_size(sz) {
 			}
 
 			std::vector<image2d_color> color_render_targets; ///< Color render targets.
 			image2d_depth_stencil depth_stencil_target; ///< Depth stencil render target.
-			cvec2s render_target_size; ///< The size of the render target.
+			cvec2u32 render_target_size; ///< The size of the render target.
 			std::vector<pass_command> commands; ///< Commands within this pass.
 		};
 
@@ -317,7 +317,7 @@ namespace lotus::renderer {
 
 			/// Initializes the pass.
 			pass(
-				context &ctx, std::vector<image2d_color> color_rts, image2d_depth_stencil ds_rt, cvec2s sz,
+				context &ctx, std::vector<image2d_color> color_rts, image2d_depth_stencil ds_rt, cvec2u32 sz,
 				std::u8string_view description
 			) :
 				_context(&ctx),
@@ -401,7 +401,7 @@ namespace lotus::renderer {
 		);
 		/// Creates a 2D image with the given properties.
 		[[nodiscard]] image2d_view request_image2d(
-			std::u8string_view name, cvec2s size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask,
+			std::u8string_view name, cvec2u32 size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask,
 			const pool&
 		);
 		/// Creates a buffer with the given size.
@@ -552,7 +552,7 @@ namespace lotus::renderer {
 
 		/// Starts rendering to the given surfaces. No other operations can be performed until the pass finishes.
 		[[nodiscard]] pass begin_pass(
-			std::vector<image2d_color>, image2d_depth_stencil, cvec2s sz, std::u8string_view description
+			std::vector<image2d_color>, image2d_depth_stencil, cvec2u32 sz, std::u8string_view description
 		);
 
 		/// Presents the given swap chain.

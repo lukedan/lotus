@@ -20,12 +20,17 @@ RWTexture2D<float4> out_specular : register(u5, space0);
 
 StructuredBuffer<light>                     all_lights        : register(t6, space0);
 StructuredBuffer<direct_lighting_reservoir> direct_reservoirs : register(t7, space0);
-StructuredBuffer<probe_data>                indirect_probes   : register(t8, space0);
+Texture3D<float4>                           indirect_sh0      : register(t8, space0);
+Texture3D<float4>                           indirect_sh1      : register(t9, space0);
+Texture3D<float4>                           indirect_sh2      : register(t10, space0);
+Texture3D<float4>                           indirect_sh3      : register(t11, space0);
 
-RaytracingAccelerationStructure rtas : register(t9, space0);
+RaytracingAccelerationStructure rtas : register(t12, space0);
 
-ConstantBuffer<lighting_constants> constants    : register(b10, space0);
-ConstantBuffer<probe_constants>    probe_consts : register(b11, space0);
+ConstantBuffer<lighting_constants> constants    : register(b13, space0);
+ConstantBuffer<probe_constants>    probe_consts : register(b14, space0);
+
+LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(space1);
 
 [numthreads(8, 8, 1)]
 void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
@@ -117,14 +122,12 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 	specular_color *= constants.direct_specular_multiplier;
 
 	if (constants.use_indirect) {
-		probe_data probe_sh = indirect_probes[use_probe_index];
-		sh::sh2 cosine_lobe = sh::clamped_cosine::eval_sh2(gbuf.fragment.normal_ws);
-		float3 color = float3(
-			sh::integrate((sh::sh2)probe_sh.irradiance_sh2_r, cosine_lobe),
-			sh::integrate((sh::sh2)probe_sh.irradiance_sh2_g, cosine_lobe),
-			sh::integrate((sh::sh2)probe_sh.irradiance_sh2_b, cosine_lobe)
-		) / pi;
-		diffuse_color += color * gbuf.fragment.albedo * (1.0f - gbuf.fragment.metalness);
+		float3 indirect_diffuse = evaluate_indirect_diffuse(
+			gbuf.fragment.position_ws, gbuf.fragment.normal_ws,
+			indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
+			linear_clamp_sampler, probe_consts
+		);
+		diffuse_color += indirect_diffuse * gbuf.fragment.albedo * (1.0f - gbuf.fragment.metalness);
 	}
 
 	out_diffuse [dispatch_thread_id] = float4(diffuse_color, 0.0f);

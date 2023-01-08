@@ -808,7 +808,7 @@ namespace lotus::gpu::backends::directx12 {
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 		uav_desc.Format                = srv_desc.Format;
-		uav_desc.ViewDimension         = D3D12_UAV_DIMENSION_TEXTURE2D;
+		uav_desc.ViewDimension         = D3D12_UAV_DIMENSION_TEXTURE3D;
 		uav_desc.Texture3D.MipSlice    = srv_desc.Texture3D.MostDetailedMip;
 		uav_desc.Texture3D.FirstWSlice = 0;
 		uav_desc.Texture3D.WSize       = static_cast<UINT>(-1);

@@ -5,27 +5,6 @@
 
 namespace lotus::renderer {
 	namespace recorded_resources {
-		image2d_view::image2d_view(const renderer::image2d_view &view) :
-			_image(view._ptr.get()), _view_format(view._view_format), _mip_levels(view._mip_levels) {
-		}
-
-		image2d_view image2d_view::highest_mip_with_warning() const {
-			image2d_view result = *this;
-			if (result._mip_levels.get_num_levels() != 1) {
-				if (result._image->num_mips - result._mip_levels.minimum > 1) {
-					auto num_levels =
-						std::min<std::uint32_t>(result._image->num_mips, result._mip_levels.maximum) -
-						result._mip_levels.minimum;
-					log().error<u8"More than one ({}) mip specified for render target for texture {}">(
-						num_levels, string::to_generic(result._image->name)
-					);
-				}
-				result._mip_levels = gpu::mip_levels::only(result._mip_levels.minimum);
-			}
-			return result;
-		}
-
-
 		structured_buffer_view::structured_buffer_view(const renderer::structured_buffer_view &view) :
 			_buffer(view._ptr.get()), _stride(view._stride), _first(view._first), _count(view._count) {
 		}

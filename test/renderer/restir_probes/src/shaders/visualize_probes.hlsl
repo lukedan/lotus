@@ -15,7 +15,10 @@ static const float2 vertex_uv[6] = {
 
 ConstantBuffer<probe_constants>            probe_consts : register(b0, space0);
 ConstantBuffer<visualize_probes_constants> constants    : register(b1, space0);
-StructuredBuffer<probe_data>               probe_values : register(t2, space0);
+Texture3D<float4>                          probe_sh0    : register(t2, space0);
+Texture3D<float4>                          probe_sh1    : register(t3, space0);
+Texture3D<float4>                          probe_sh2    : register(t4, space0);
+Texture3D<float4>                          probe_sh3    : register(t5, space0);
 
 struct ps_input {
 	float4 pos : SV_Position;
@@ -54,11 +57,13 @@ float4 main_ps(ps_input input) : SV_Target0 {
 	normal = normal.x * constants.unit_right + normal.y * constants.unit_down - normal.z * constants.unit_forward;
 
 	uint3 probe_coord = get_probe_coord_from_flat_id(input.instance_id, probe_consts.grid_size);
-	uint probe_index = probes::coord_to_index(probe_coord, probe_consts);
-	probe_data probe_sh = probe_values[probe_index];
-	sh::sh2 sh_r = (sh::sh2)probe_sh.irradiance_sh2_r;
-	sh::sh2 sh_g = (sh::sh2)probe_sh.irradiance_sh2_g;
-	sh::sh2 sh_b = (sh::sh2)probe_sh.irradiance_sh2_b;
+	float4 sh0 = probe_sh0[probe_coord];
+	float4 sh1 = probe_sh1[probe_coord];
+	float4 sh2 = probe_sh2[probe_coord];
+	float4 sh3 = probe_sh3[probe_coord];
+	sh::sh2 sh_r = (sh::sh2)float4(sh0.r, sh1.r, sh2.r, sh3.r);
+	sh::sh2 sh_g = (sh::sh2)float4(sh0.g, sh1.g, sh2.g, sh3.g);
+	sh::sh2 sh_b = (sh::sh2)float4(sh0.b, sh1.b, sh2.b, sh3.b);
 
 	sh::sh2 conv;
 	if (constants.mode == 1) {

@@ -46,14 +46,16 @@ namespace lotus::renderer::execution {
 		std::deque<gpu::graphics_pipeline_state>   graphics_pipelines;     ///< Graphics pipeline states.
 		std::deque<gpu::raytracing_pipeline_state> raytracing_pipelines;   ///< Raytracing pipeline states.
 		std::deque<gpu::image2d>                   images;                 ///< Images.
-		std::deque<gpu::image2d_view>              image_views;            ///< Image views.
+		std::deque<gpu::image2d_view>              image2d_views;          ///< 2D image views.
+		std::deque<gpu::image3d_view>              image3d_views;          ///< 3D image views.
 		std::deque<gpu::buffer>                    buffers;                ///< Constant buffers.
 		std::deque<gpu::command_list>              command_lists;          ///< Command lists.
 		std::deque<gpu::frame_buffer>              frame_buffers;          ///< Frame buffers.
 		std::deque<gpu::swap_chain>                swap_chains;            ///< Swap chains.
 		std::deque<gpu::fence>                     fences;                 ///< Fences.
 
-		std::vector<std::unique_ptr<_details::image2d>>    image2d_meta;    ///< Images to be disposed next frame.
+		std::vector<std::unique_ptr<_details::image2d>>    image2d_meta;    ///< 2D images to be disposed next frame.
+		std::vector<std::unique_ptr<_details::image3d>>    image3d_meta;    ///< 3D images to be disposed next frame.
 		std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain to be disposed next frame.
 		std::vector<std::unique_ptr<_details::buffer>>     buffer_meta;     ///< Buffers to be disposed next frame.
 
@@ -78,7 +80,9 @@ namespace lotus::renderer::execution {
 			} else if constexpr (std::is_same_v<T, gpu::image2d>) {
 				return images.emplace_back(std::move(obj));
 			} else if constexpr (std::is_same_v<T, gpu::image2d_view>) {
-				return image_views.emplace_back(std::move(obj));
+				return image2d_views.emplace_back(std::move(obj));
+			} else if constexpr (std::is_same_v<T, gpu::image3d_view>) {
+				return image3d_views.emplace_back(std::move(obj));
 			} else if constexpr (std::is_same_v<T, gpu::buffer>) {
 				return buffers.emplace_back(std::move(obj));
 			} else if constexpr (std::is_same_v<T, gpu::command_list>) {
@@ -166,19 +170,21 @@ namespace lotus::renderer::execution {
 	/// Structures recording resource transition operations.
 	namespace transition_records {
 		/// Contains information about a layout transition operation.
-		struct image2d {
+		template <gpu::image_type Type> struct basic_image {
 			/// Initializes this structure to empty.
-			image2d(std::nullptr_t) : mip_levels(gpu::mip_levels::all()) {
+			basic_image(std::nullptr_t) : mip_levels(gpu::mip_levels::all()) {
 			}
 			/// Initializes all fields of this struct.
-			image2d(_details::image2d &img, gpu::mip_levels mips, _details::image_access acc) :
+			basic_image(_details::image_data_t<Type> &img, gpu::mip_levels mips, _details::image_access acc) :
 				target(&img), mip_levels(mips), access(acc) {
 			}
 
-			_details::image2d *target = nullptr; ///< The surface to transition.
+			_details::image_data_t<Type> *target = nullptr; ///< The surface to transition.
 			gpu::mip_levels mip_levels; ///< Mip levels to transition.
 			_details::image_access access = uninitialized; ///< Access to transition to.
 		};
+		using image2d = basic_image<gpu::image_type::type_2d>; ///< 2D image transition.
+		using image3d = basic_image<gpu::image_type::type_3d>; ///< 3D image transition.
 		/// Contains information about a buffer transition operation.
 		struct buffer {
 			/// Initializes this structure to empty.
@@ -217,8 +223,10 @@ namespace lotus::renderer::execution {
 		transition_buffer(std::nullptr_t) {
 		}
 
-		/// Stages a image transition operation, and notifies any descriptor arrays affected.
+		/// Stages a 2D image transition operation, and notifies any descriptor arrays affected.
 		void stage_transition(_details::image2d&, gpu::mip_levels, _details::image_access);
+		/// Stages a 3D image transition operation.
+		void stage_transition(_details::image3d&, gpu::mip_levels, _details::image_access);
 		/// Stages a buffer transition operation.
 		void stage_transition(_details::buffer&, _details::buffer_access);
 		/// Stages a swap chain transition operation.
@@ -245,8 +253,10 @@ namespace lotus::renderer::execution {
 			std::vector<gpu::image_barrier>, std::vector<gpu::buffer_barrier>
 		> collect_transitions() const;
 	private:
-		/// Staged image transition operations.
+		/// Staged 2D image transition operations.
 		std::vector<transition_records::image2d> _image2d_transitions;
+		/// Staged 3D image transition operations.
+		std::vector<transition_records::image3d> _image3d_transitions;
 		/// Staged buffer transition operations.
 		std::vector<transition_records::buffer> _buffer_transitions;
 		/// Staged swap chain transition operations.

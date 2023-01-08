@@ -79,10 +79,11 @@ int main(int argc, char **argv) {
 	auto fs_quad_vs           = rassets.compile_shader_in_filesystem(rassets.shader_library_path / "utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs");
 	auto blit_ps              = rassets.compile_shader_in_filesystem(rassets.shader_library_path / "utils/blit_ps.hlsl",            lgpu::shader_stage::pixel_shader, u8"main_ps");
 	auto fill_buffer_cs       = rassets.compile_shader_in_filesystem("src/shaders/fill_buffer.hlsl",           lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto fill_texture3d_cs    = rassets.compile_shader_in_filesystem("src/shaders/fill_texture3d.hlsl",        lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto show_gbuffer_ps      = rassets.compile_shader_in_filesystem("src/shaders/gbuffer_visualization.hlsl", lgpu::shader_stage::pixel_shader,   u8"main_ps");
 	auto visualize_probes_vs  = rassets.compile_shader_in_filesystem("src/shaders/visualize_probes.hlsl",      lgpu::shader_stage::vertex_shader,  u8"main_vs");
 	auto visualize_probes_ps  = rassets.compile_shader_in_filesystem("src/shaders/visualize_probes.hlsl",      lgpu::shader_stage::pixel_shader,   u8"main_ps");
-	auto shade_point_debug_cs = rassets.compile_shader_in_filesystem("src/shaders/shade_point_debug.hlsl",     lgpu::shader_stage::compute_shader, u8"main_cs");
+	/*auto shade_point_debug_cs = rassets.compile_shader_in_filesystem("src/shaders/shade_point_debug.hlsl",     lgpu::shader_stage::compute_shader, u8"main_cs");*/
 
 	auto direct_update_cs          = rassets.compile_shader_in_filesystem("src/shaders/direct_reservoirs.hlsl",      lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto indirect_update_cs        = rassets.compile_shader_in_filesystem("src/shaders/indirect_reservoirs.hlsl",    lgpu::shader_stage::compute_shader, u8"main_cs");
@@ -138,7 +139,10 @@ int main(int argc, char **argv) {
 
 	lren::structured_buffer_view direct_reservoirs = nullptr;
 	lren::structured_buffer_view indirect_reservoirs = nullptr;
-	lren::structured_buffer_view probe_sh = nullptr;
+	lren::image3d_view probe_sh0 = nullptr;
+	lren::image3d_view probe_sh1 = nullptr;
+	lren::image3d_view probe_sh2 = nullptr;
+	lren::image3d_view probe_sh3 = nullptr;
 
 	auto fill_buffer = [&](lren::structured_buffer_view buf, std::uint32_t value, std::u8string_view description) {
 		buf = buf.view_as<std::uint32_t>();
@@ -152,6 +156,24 @@ int main(int argc, char **argv) {
 					{ 0, {
 						{ 0, buf.bind_as_read_write() },
 						{ 1, lren_bds::immediate_constant_buffer::create_for(data) },
+					} },
+				},
+				{}
+			),
+			description
+		);
+	};
+	auto fill_texture3d = [&](lren::image3d_view img, cvec4f value, std::u8string_view description) {
+		shader_types::fill_texture3d_constants data;
+		data.value = value;
+		data.size = img.get_size();
+		rctx.run_compute_shader_with_thread_dimensions(
+			fill_texture3d_cs, img.get_size(),
+			lren::all_resource_bindings(
+				{
+					{ 0, {
+						{ 0, lren_bds::immediate_constant_buffer::create_for(data) },
+						{ 1, img.bind_as_read_write() },
 					} },
 				},
 				{}
@@ -175,15 +197,33 @@ int main(int argc, char **argv) {
 			lgpu::buffer_usage_mask::shader_read | lgpu::buffer_usage_mask::shader_write,
 			runtime_buf_pool
 		);
-		probe_sh = rctx.request_structured_buffer<shader_types::probe_data>(
-			u8"Probe Data", num_probes,
-			lgpu::buffer_usage_mask::shader_read | lgpu::buffer_usage_mask::shader_write,
-			runtime_buf_pool
+		probe_sh0 = rctx.request_image3d(
+			u8"Probe SH0", probe_density, 1, lgpu::format::r16g16b16a16_float,
+			lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write,
+			runtime_tex_pool
+		);
+		probe_sh1 = rctx.request_image3d(
+			u8"Probe SH1", probe_density, 1, lgpu::format::r16g16b16a16_float,
+			lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write,
+			runtime_tex_pool
+		);
+		probe_sh2 = rctx.request_image3d(
+			u8"Probe SH2", probe_density, 1, lgpu::format::r16g16b16a16_float,
+			lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write,
+			runtime_tex_pool
+		);
+		probe_sh3 = rctx.request_image3d(
+			u8"Probe SH3", probe_density, 1, lgpu::format::r16g16b16a16_float,
+			lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write,
+			runtime_tex_pool
 		);
 
 		fill_buffer(direct_reservoirs, 0, u8"Clear Direct Reservoir Buffer");
 		fill_buffer(indirect_reservoirs, 0, u8"Clear Indirect Reservoir Buffer");
-		fill_buffer(probe_sh, 0, u8"Clear Probes Buffer");
+		fill_texture3d(probe_sh0, zero, u8"Clear Probe SH0");
+		fill_texture3d(probe_sh1, zero, u8"Clear Probe SH1");
+		fill_texture3d(probe_sh2, zero, u8"Clear Probe SH2");
+		fill_texture3d(probe_sh3, zero, u8"Clear Probe SH3");
 
 		// compute transformation matrices
 		cvec3f grid_size = probe_bounds.signed_size();
@@ -402,7 +442,10 @@ int main(int argc, char **argv) {
 							{ u8"probe_consts",    lren_bds::immediate_constant_buffer::create_for(probe_constants) },
 							{ u8"constants",       lren_bds::immediate_constant_buffer::create_for(indirect_update_constants) },
 							{ u8"direct_probes",   direct_reservoirs.bind_as_read_only() },
-							{ u8"indirect_sh",     probe_sh.bind_as_read_only() },
+							{ u8"indirect_sh0",    probe_sh0.bind_as_read_only() },
+							{ u8"indirect_sh1",    probe_sh1.bind_as_read_only() },
+							{ u8"indirect_sh2",    probe_sh2.bind_as_read_only() },
+							{ u8"indirect_sh3",    probe_sh3.bind_as_read_only() },
 							{ u8"indirect_probes", indirect_reservoirs.bind_as_read_write() },
 							{ u8"rtas",            scene.tlas },
 							{ u8"textures",        rassets.get_images() },
@@ -472,7 +515,10 @@ int main(int argc, char **argv) {
 						{},
 						{
 							{ u8"indirect_reservoirs", indirect_reservoirs.bind_as_read_only() },
-							{ u8"probe_sh",            probe_sh.bind_as_read_write() },
+							{ u8"probe_sh0",           probe_sh0.bind_as_read_write() },
+							{ u8"probe_sh1",           probe_sh1.bind_as_read_write() },
+							{ u8"probe_sh2",           probe_sh2.bind_as_read_write() },
+							{ u8"probe_sh3",           probe_sh3.bind_as_read_write() },
 							{ u8"probe_consts",        lren_bds::immediate_constant_buffer::create_for(probe_constants) },
 							{ u8"constants",           lren_bds::immediate_constant_buffer::create_for(constants) },
 						}
@@ -487,7 +533,9 @@ int main(int argc, char **argv) {
 				auto tmr = rctx.start_timer(u8"Direct & Indirect Diffuse");
 
 				lren::all_resource_bindings resources(
-					{},
+					{
+						{ 1, rassets.get_samplers() },
+					},
 					{
 						{ u8"gbuffer_albedo_glossiness", g_buf.albedo_glossiness.bind_as_read_only() },
 						{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
@@ -497,7 +545,10 @@ int main(int argc, char **argv) {
 						{ u8"out_specular",              light_specular.bind_as_read_write() },
 						{ u8"all_lights",                scene.lights_buffer.bind_as_read_only() },
 						{ u8"direct_reservoirs",         direct_reservoirs.bind_as_read_only() },
-						{ u8"indirect_probes",           probe_sh.bind_as_read_only() },
+						{ u8"indirect_sh0",              probe_sh0.bind_as_read_only() },
+						{ u8"indirect_sh1",              probe_sh1.bind_as_read_only() },
+						{ u8"indirect_sh2",              probe_sh2.bind_as_read_only() },
+						{ u8"indirect_sh3",              probe_sh3.bind_as_read_only() },
 						{ u8"rtas",                      scene.tlas },
 						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
 						{ u8"probe_consts",              lren_bds::immediate_constant_buffer::create_for(probe_constants) },
@@ -527,7 +578,10 @@ int main(int argc, char **argv) {
 						{ u8"lighting_consts",           lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
 						{ u8"direct_probes",             direct_reservoirs.bind_as_read_only() },
 						{ u8"indirect_probes",           indirect_reservoirs.bind_as_read_only() },
-						{ u8"indirect_sh",               probe_sh.bind_as_read_only() },
+						{ u8"indirect_sh0",              probe_sh0.bind_as_read_only() },
+						{ u8"indirect_sh1",              probe_sh1.bind_as_read_only() },
+						{ u8"indirect_sh2",              probe_sh2.bind_as_read_only() },
+						{ u8"indirect_sh3",              probe_sh3.bind_as_read_only() },
 						{ u8"out_specular",              indirect_specular.bind_as_read_write() },
 						{ u8"rtas",                      scene.tlas },
 						{ u8"gbuffer_albedo_glossiness", g_buf.albedo_glossiness.bind_as_read_only() },
@@ -554,7 +608,7 @@ int main(int argc, char **argv) {
 				);
 			}
 
-			if (shade_point_debug_mode != 0) {
+			/*if (shade_point_debug_mode != 0) {
 				float tan_half_fovy = std::tan(0.5f * cam_params.fov_y_radians);
 				cvec3f half_right = cam.unit_right * cam_params.aspect_ratio * tan_half_fovy;
 				cvec3f half_down = cam.unit_up * -tan_half_fovy;
@@ -599,7 +653,7 @@ int main(int argc, char **argv) {
 					shade_point_debug_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
 					std::move(resources), u8"Shade Point Debug"
 				);
-			}
+			}*/
 
 			auto irradiance = rctx.request_image2d(u8"Previous Irradiance", window_size, 1, lgpu::format::r16g16b16a16_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
 
@@ -721,7 +775,10 @@ int main(int argc, char **argv) {
 						{
 							{ u8"probe_consts", lren_bds::immediate_constant_buffer::create_for(probe_constants) },
 							{ u8"constants",    lren_bds::immediate_constant_buffer::create_for(constants) },
-							{ u8"probe_values", probe_sh.bind_as_read_only() },
+							{ u8"probe_sh0",    probe_sh0.bind_as_read_only() },
+							{ u8"probe_sh1",    probe_sh1.bind_as_read_only() },
+							{ u8"probe_sh2",    probe_sh2.bind_as_read_only() },
+							{ u8"probe_sh3",    probe_sh3.bind_as_read_only() },
 						}
 					);
 

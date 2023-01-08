@@ -13,7 +13,7 @@ namespace lotus::renderer {
 	/// exactly the same.
 	namespace recorded_resources {
 		/// Template for resources that requires only one pointer to a type.
-		template <typename Resource> class basic_handle {
+		template <typename Resource> struct basic_handle {
 			friend context;
 			friend execution::context;
 		public:
@@ -36,21 +36,21 @@ namespace lotus::renderer {
 		};
 
 
-		/// \ref renderer::image2d_view.
-		struct image2d_view {
+		/// \ref renderer::basic_image_view.
+		template <gpu::image_type Type> struct basic_image_view {
 			friend context;
 			friend execution::transition_buffer;
 			friend execution::context;
 		public:
 			/// Initializes this struct to empty.
-			image2d_view(std::nullptr_t) : _mip_levels(gpu::mip_levels::all()) {
+			basic_image_view(std::nullptr_t) : _mip_levels(gpu::mip_levels::all()) {
 			}
-			/// Conversion from a non-recorded \ref renderer::image2d_view.
-			image2d_view(const renderer::image2d_view&);
+			/// Conversion from a non-recorded \ref renderer::basic_image_view.
+			basic_image_view(const renderer::image_view_base<Type>&);
 
 			/// Returns a copy of this structure that ensures only the first specified mip is used, and logs a
-			/// warning if that's not currently the case.
-			[[nodiscard]] image2d_view highest_mip_with_warning() const;
+			/// warning if that's not the case.
+			[[nodiscard]] basic_image_view highest_mip_with_warning() const;
 
 			/// Returns whether this object holds a valid image.
 			[[nodiscard]] bool is_valid() const {
@@ -61,8 +61,8 @@ namespace lotus::renderer {
 				return is_valid();
 			}
 		private:
-			_details::image2d *_image = nullptr; ///< The image.
-			gpu::format _view_format = gpu::format::none; ///< The format of this surface.
+			_details::image_data_t<Type> *_image = nullptr; ///< The image.
+			gpu::format _view_format = gpu::format::none; ///< The format of this image.
 			gpu::mip_levels _mip_levels; ///< Mip levels.
 		};
 
@@ -268,15 +268,18 @@ namespace lotus::renderer {
 	};
 
 	namespace descriptor_resource {
-		/// A 2D image.
-		struct image2d {
+		/// An image.
+		template <gpu::image_type Type> struct basic_image {
 			/// Initializes all fields of this struct.
-			image2d(recorded_resources::image2d_view v, image_binding_type type) : view(v), binding_type(type) {
+			basic_image(recorded_resources::basic_image_view<Type> v, image_binding_type type) :
+				view(v), binding_type(type) {
 			}
 
-			recorded_resources::image2d_view view; ///< A view of the image.
-			image_binding_type binding_type = image_binding_type::read_only; ///< Usage of the bound image.
+			recorded_resources::basic_image_view<Type> view; ///< A view of the image.
+			image_binding_type binding_type = image_binding_type::num_enumerators; ///< Usage of the bound image.
 		};
+		using image2d = basic_image<gpu::image_type::type_2d>; ///< A 2D image.
+		using image3d = basic_image<gpu::image_type::type_3d>; ///< A 2D image.
 		/// A structured buffer.
 		struct structured_buffer {
 			/// Initializes all fields of this struct.
@@ -313,6 +316,7 @@ namespace lotus::renderer {
 		struct numbered_binding {
 			using value_type = std::variant<
 				descriptor_resource::image2d,
+				descriptor_resource::image3d,
 				recorded_resources::swap_chain,
 				descriptor_resource::structured_buffer,
 				descriptor_resource::immediate_constant_buffer,
@@ -358,6 +362,7 @@ namespace lotus::renderer {
 		struct named_binding {
 			using value_type = std::variant<
 				descriptor_resource::image2d,
+				descriptor_resource::image3d,
 				recorded_resources::swap_chain,
 				descriptor_resource::structured_buffer,
 				descriptor_resource::immediate_constant_buffer,

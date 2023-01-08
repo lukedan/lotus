@@ -12,7 +12,9 @@
 namespace lotus::renderer {
 	// forward declaration
 	namespace _details {
+		template <gpu::image_type> struct image_base;
 		struct image2d;
+		struct image3d;
 		struct buffer;
 		struct structured_buffer_view;
 		struct swap_chain;
@@ -20,12 +22,27 @@ namespace lotus::renderer {
 		struct blas;
 		struct tlas;
 		struct cached_descriptor_set;
+
+		/// Image data type associated with a specific \ref gpu::image_type.
+		template <gpu::image_type> struct image_data;
+		/// \ref image_data for 2D images.
+		template <> struct image_data<gpu::image_type::type_2d> {
+			using type = image2d; ///< 2D images.
+		};
+		/// \ref image_data for 3D images.
+		template <> struct image_data<gpu::image_type::type_3d> {
+			using type = image3d; ///< 3D images.
+		};
+		/// Shorthand for \ref image_data::type.
+		template <gpu::image_type Type> using image_data_t = image_data<Type>::type;
 	}
 
 	namespace recorded_resources {
-		template <typename> class basic_handle;
+		template <typename> struct basic_handle;
 
-		struct image2d_view;
+		template <gpu::image_type> struct basic_image_view;
+		using image2d_view = basic_image_view<gpu::image_type::type_2d>; ///< \ref renderer::image2d_view.
+		using image3d_view = basic_image_view<gpu::image_type::type_3d>; ///< \ref renderer::image3d_view.
 		struct structured_buffer_view;
 
 		/// \ref renderer::descriptor_array.
@@ -45,7 +62,7 @@ namespace lotus::renderer {
 	struct all_resource_bindings;
 
 	template <typename> struct basic_resource_handle;
-	struct image2d_view;
+	template <gpu::image_type> struct image_view_base;
 	struct buffer;
 	struct structured_buffer_view;
 	struct swap_chain;
@@ -106,6 +123,7 @@ namespace lotus::renderer {
 	enum class resource_type {
 		pool,                     ///< A memory pool.
 		image2d,                  ///< A 2D image.
+		image3d,                  ///< A 3D image.
 		buffer,                   ///< A buffer.
 		swap_chain,               ///< A swap chain.
 		image2d_descriptor_array, ///< An array of image2d descriptors.

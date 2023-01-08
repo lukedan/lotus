@@ -130,23 +130,47 @@ namespace lotus::renderer {
 			std::deque<_chunk> _chunks; ///< Allocated chunks.
 		};
 
-		/// A 2D image managed by a context.
-		struct image2d : public resource {
+		/// Base class of images managed by a context.
+		template <gpu::image_type Type> struct image_base : public resource {
 		public:
-			/// Initializes this surface to empty.
+			/// Initializes this image to empty.
+			image_base(
+				std::shared_ptr<pool> p,
+				std::uint32_t mips, gpu::format fmt, gpu::image_tiling t, gpu::image_usage_mask u,
+				unique_resource_id i, std::u8string_view n
+			) :
+				resource(i, n),
+				image(nullptr), memory_pool(std::move(p)), memory(nullptr),
+				num_mips(mips), format(fmt), tiling(t), usages(u) {
+			}
+
+			gpu::basic_image<Type> image; ///< The image.
+			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this image out of.
+			pool::token memory; ///< Allocated memory for this image.
+
+			std::uint32_t num_mips = 0; ///< Number of allocated mips.
+			gpu::format format = gpu::format::none; ///< Original pixel format.
+			// TODO are these necessary?
+			gpu::image_tiling tiling = gpu::image_tiling::optimal; ///< Tiling of this image.
+			gpu::image_usage_mask usages = gpu::image_usage_mask::none; ///< Possible usages.
+		};
+
+		/// A 2D image managed by a context.
+		struct image2d : public image_base<gpu::image_type::type_2d> {
+		public:
+			/// Initializes this image to empty.
 			image2d(
 				cvec2u32 sz,
 				std::uint32_t mips,
 				gpu::format fmt,
-				gpu::image_tiling tiling,
-				gpu::image_usage_mask usages,
+				gpu::image_tiling t,
+				gpu::image_usage_mask u,
 				std::shared_ptr<pool> p,
 				unique_resource_id i,
 				std::u8string_view n
 			) :
-				resource(i, n), image(nullptr), memory_pool(std::move(p)), memory(nullptr),
-				current_usages(mips, image_access::initial()), size(sz), num_mips(mips),
-				format(fmt), tiling(tiling), usages(usages) {
+				image_base(std::move(p), mips, fmt, t, u, i, n),
+				size(sz), current_usages(mips, image_access::initial()) {
 			}
 
 			/// Returns \ref resource_type::image2d.
@@ -154,23 +178,41 @@ namespace lotus::renderer {
 				return resource_type::image2d;
 			}
 
-			gpu::image2d image; ///< Image for the surface.
-			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this image out of.
-			pool::token memory; ///< Allocated memory for this image.
+			cvec2u32 size; ///< The size of this image.
 
-			std::vector<image_access> current_usages; ///< Current usage of each mip of the surface.
-
-			cvec2u32 size; ///< The size of this surface.
-			std::uint32_t num_mips = 0; ///< Number of mips.
-			gpu::format format = gpu::format::none; ///< Original pixel format.
-			// TODO are these necessary?
-			gpu::image_tiling tiling = gpu::image_tiling::optimal; ///< Tiling of this image.
-			gpu::image_usage_mask usages = gpu::image_usage_mask::none; ///< Possible usages.
-
+			std::vector<image_access> current_usages; ///< Current usage of each mip of the image.
 			/// References in descriptor arrays.
 			std::vector<
 				descriptor_array_reference<recorded_resources::image2d_view, gpu::image2d_view>
 			> array_references;
+		};
+
+		/// A 3D image managed by a context.
+		struct image3d : public image_base<gpu::image_type::type_3d> {
+		public:
+			/// Initializes this image to empty.
+			image3d(
+				cvec3u32 sz,
+				std::uint32_t mips,
+				gpu::format fmt,
+				gpu::image_tiling t,
+				gpu::image_usage_mask u,
+				std::shared_ptr<pool> p,
+				unique_resource_id i,
+				std::u8string_view n
+			) :
+				image_base(std::move(p), mips, fmt, t, u, i, n),
+				size(sz), current_usages(mips, image_access::initial()) {
+			}
+
+			/// Returns \ref resource_type::image3d.
+			[[nodiscard]] resource_type get_type() const override {
+				return resource_type::image3d;
+			}
+
+			cvec3u32 size; ///< The size of this image.
+
+			std::vector<image_access> current_usages; ///< Current usage of each mip of the image.
 		};
 
 		/// A buffer.
@@ -387,7 +429,8 @@ namespace lotus::renderer {
 
 			/// Records all transitions that are needed when using this descriptor set.
 			execution::transition_buffer transitions;
-			std::vector<gpu::image2d_view> image_views; ///< Image views used by this descriptor set.
+			std::vector<gpu::image2d_view> image2d_views; ///< 2D image views used by this descriptor set.
+			std::vector<gpu::image3d_view> image3d_views; ///< 3D image views used by this descriptor set.
 			std::vector<gpu::sampler> samplers; ///< Samplers used by this descriptor set.
 			/// All resources referenced by this descriptor set.
 			std::vector<std::shared_ptr<resource>> resource_references;
@@ -493,74 +536,121 @@ namespace lotus::renderer {
 		}
 	};
 
-	/// A reference of a view into a 2D image.
-	struct image2d_view : public basic_resource_handle<_details::image2d> {
-		friend context;
-		friend recorded_resources::image2d_view;
+	/// A reference of a view into an image.
+	template <gpu::image_type Type> struct image_view_base :
+		public basic_resource_handle<_details::image_data_t<Type>> {
+
+		friend recorded_resources::basic_image_view<Type>;
 	public:
-		/// Initializes this view to empty.
-		image2d_view(std::nullptr_t) : basic_resource_handle(nullptr), _mip_levels(gpu::mip_levels::all()) {
-		}
-
-		/// Creates another view of the image in another format.
-		[[nodiscard]] image2d_view view_as(gpu::format fmt) const {
-			return image2d_view(_ptr, fmt, _mip_levels);
-		}
-		/// Creates another view of the given mip levels of this image.
-		[[nodiscard]] image2d_view view_mips(gpu::mip_levels mips) const {
-			return image2d_view(_ptr, _view_format, mips);
-		}
-		/// Creates another view of the given mip levels of this image in another format.
-		[[nodiscard]] image2d_view view_mips_as(gpu::format fmt, gpu::mip_levels mips) const {
-			return image2d_view(_ptr, fmt, mips);
-		}
-
-		/// Returns the size of the top mip of this image.
-		[[nodiscard]] cvec2u32 get_size() const {
-			return _ptr->size;
-		}
 		/// Returns the format that this image is viewed as.
 		[[nodiscard]] gpu::format get_viewed_as_format() const {
 			return _view_format;
 		}
 		/// Returns the original format of this image.
 		[[nodiscard]] gpu::format get_original_format() const {
-			return _ptr->format;
+			return this->_ptr->format;
 		}
 
 		/// Returns the number of mip levels allocated for this texture.
 		[[nodiscard]] std::uint32_t get_num_mip_levels() const {
-			return _ptr->num_mips;
+			return this->_ptr->num_mips;
 		}
 		/// Returns the mip levels that are visible for this image view.
 		[[nodiscard]] const gpu::mip_levels &get_viewed_mip_levels() const {
 			return _mip_levels;
 		}
 
-		/// Shorthand for creating a \ref descriptor_resource::image2d.
-		[[nodiscard]] descriptor_resource::image2d bind(image_binding_type ty) const {
-			return descriptor_resource::image2d(*this, ty);
+		/// Shorthand for creating a \ref descriptor_resource::basic_image.
+		[[nodiscard]] descriptor_resource::basic_image<Type> bind(image_binding_type ty) const {
+			return descriptor_resource::basic_image<Type>(*this, ty);
 		}
-		/// Shorthand for creating a read-only \ref descriptor_resource::image2d.
-		[[nodiscard]] descriptor_resource::image2d bind_as_read_only() const {
+		/// Shorthand for creating a read-only \ref descriptor_resource::basic_image.
+		[[nodiscard]] descriptor_resource::basic_image<Type> bind_as_read_only() const {
 			return bind(image_binding_type::read_only);
 		}
-		/// Shorthand for creating a read-write \ref descriptor_resource::image2d.
-		[[nodiscard]] descriptor_resource::image2d bind_as_read_write() const {
+		/// Shorthand for creating a read-write \ref descriptor_resource::basic_image.
+		[[nodiscard]] descriptor_resource::basic_image<Type> bind_as_read_write() const {
 			return bind(image_binding_type::read_write);
 		}
 
 		/// Default equality comparison.
-		[[nodiscard]] friend bool operator==(const image2d_view&, const image2d_view&) = default;
-	private:
-		/// Initializes all fields of this struct.
-		image2d_view(std::shared_ptr<_details::image2d> surf, gpu::format fmt, gpu::mip_levels mips) :
-			basic_resource_handle(std::move(surf)), _view_format(fmt), _mip_levels(mips) {
+		[[nodiscard]] friend bool operator==(const image_view_base&, const image_view_base&) = default;
+	protected:
+		using _image_ptr = std::shared_ptr<_details::image_data_t<Type>>; ///< Handle type.
+		/// Initializes this view to empty.
+		image_view_base(std::nullptr_t) :
+			basic_resource_handle<_details::image_data_t<Type>>(nullptr), _mip_levels(gpu::mip_levels::all()) {
 		}
+		/// Initializes all fields of this struct.
+		image_view_base(_image_ptr img, gpu::format fmt, gpu::mip_levels mips) :
+			basic_resource_handle<_details::image_data_t<Type>>(std::move(img)),
+			_view_format(fmt), _mip_levels(mips) {
+		}
+		/// Prevents objects of this type from being created directly.
+		~image_view_base() = default;
 
-		/// The format to view as; may be different from the original format of the surface.
+		/// The format to view as; may be different from the original format of the image.
 		gpu::format _view_format = gpu::format::none;
 		gpu::mip_levels _mip_levels; ///< Mip levels that are included in this view.
+	};
+	/// Implements conversions between different views of the same image. This is necessary because we don't want the
+	/// CRTP parameter in other (templated) parts of the interface.
+	template <gpu::image_type Type, typename Derived> struct image_view_base2 : public image_view_base<Type> {
+	public:
+		/// Creates another view of the image in another format.
+		[[nodiscard]] Derived view_as(gpu::format fmt) const {
+			return Derived(this->_ptr, fmt, this->_mip_levels);
+		}
+		/// Creates another view of the given mip levels of this image.
+		[[nodiscard]] Derived view_mips(gpu::mip_levels mips) const {
+			return Derived(this->_ptr, this->_view_format, mips);
+		}
+		/// Creates another view of the given mip levels of this image in another format.
+		[[nodiscard]] Derived view_mips_as(gpu::format fmt, gpu::mip_levels mips) const {
+			return Derived(this->_ptr, fmt, mips);
+		}
+	protected:
+		using image_view_base<Type>::image_view_base;
+		/// Prevents objects of this type from being created directly.
+		~image_view_base2() = default;
+	};
+	/// 2D image views.
+	struct image2d_view : public image_view_base2<gpu::image_type::type_2d, image2d_view> {
+		friend context;
+		friend image_view_base2;
+	public:
+		/// Initializes this view to empty.
+		image2d_view(std::nullptr_t) : image_view_base2(nullptr) {
+		}
+
+		/// Returns the size of the top mip of this image.
+		[[nodiscard]] cvec2u32 get_size() const {
+			return _ptr->size;
+		}
+	private:
+		/// Initializes all fields of this struct.
+		image2d_view(_image_ptr img, gpu::format fmt, gpu::mip_levels mips) :
+			image_view_base2(std::move(img), fmt, mips) {
+		}
+	};
+	/// 3D image views.
+	struct image3d_view : public image_view_base2<gpu::image_type::type_3d, image3d_view> {
+		friend context;
+		friend image_view_base2;
+	public:
+		/// Initializes this view to empty.
+		image3d_view(std::nullptr_t) : image_view_base2(nullptr) {
+		}
+
+		/// Returns the size of the top mip of this image.
+		[[nodiscard]] cvec3u32 get_size() const {
+			return _ptr->size;
+		}
+	private:
+		/// Initializes all fields of this struct.
+		image3d_view(_image_ptr img, gpu::format fmt, gpu::mip_levels mips) :
+			image_view_base2(std::move(img), fmt, mips) {
+		}
 	};
 
 	/// A reference of a buffer.
@@ -760,6 +850,30 @@ namespace lotus::renderer {
 			typename Resource
 		> basic_handle<Resource>::basic_handle(const basic_resource_handle<Resource> &arr) :
 			_ptr(arr._ptr.get()) {
+		}
+
+
+		template <gpu::image_type Type> basic_image_view<Type>::basic_image_view(
+			const renderer::image_view_base<Type> &view
+		) : _image(view._ptr.get()), _view_format(view._view_format), _mip_levels(view._mip_levels) {
+		}
+
+		template <
+			gpu::image_type Type
+		> basic_image_view<Type> basic_image_view<Type>::highest_mip_with_warning() const {
+			basic_image_view<Type> result = *this;
+			if (result._mip_levels.get_num_levels() != 1) {
+				if (result._image->num_mips - result._mip_levels.minimum > 1) {
+					auto num_levels =
+						std::min<std::uint32_t>(result._image->num_mips, result._mip_levels.maximum) -
+						result._mip_levels.minimum;
+					log().error<u8"More than one ({}) mip specified for render target for texture {}">(
+						num_levels, string::to_generic(result._image->name)
+					);
+				}
+				result._mip_levels = gpu::mip_levels::only(result._mip_levels.minimum);
+			}
+			return result;
 		}
 	}
 

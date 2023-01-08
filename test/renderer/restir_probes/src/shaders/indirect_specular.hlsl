@@ -9,14 +9,17 @@ ConstantBuffer<indirect_specular_constants>   constants       : register(b1, spa
 ConstantBuffer<lighting_constants>            lighting_consts : register(b2, space0);
 StructuredBuffer<direct_lighting_reservoir>   direct_probes   : register(t3, space0);
 StructuredBuffer<indirect_lighting_reservoir> indirect_probes : register(t4, space0);
-StructuredBuffer<probe_data>                  indirect_sh     : register(t5, space0);
-RWTexture2D<float4>                           out_specular    : register(u6, space0);
-RaytracingAccelerationStructure               rtas            : register(t7, space0);
+Texture3D<float4>                             indirect_sh0    : register(t5, space0);
+Texture3D<float4>                             indirect_sh1    : register(t6, space0);
+Texture3D<float4>                             indirect_sh2    : register(t7, space0);
+Texture3D<float4>                             indirect_sh3    : register(t8, space0);
+RWTexture2D<float4>                           out_specular    : register(u9, space0);
+RaytracingAccelerationStructure               rtas            : register(t10, space0);
 
-Texture2D<float4> gbuffer_albedo_glossiness : register(t8, space0);
-Texture2D<float4> gbuffer_normal            : register(t9, space0);
-Texture2D<float4> gbuffer_metalness         : register(t10, space0);
-Texture2D<float>  gbuffer_depth             : register(t11, space0);
+Texture2D<float4> gbuffer_albedo_glossiness : register(t11, space0);
+Texture2D<float4> gbuffer_normal            : register(t12, space0);
+Texture2D<float4> gbuffer_metalness         : register(t13, space0);
+Texture2D<float>  gbuffer_depth             : register(t14, space0);
 
 Texture2D<float4>        textures[]  : register(t0, space1);
 StructuredBuffer<float3> positions[] : register(t0, space2);
@@ -102,7 +105,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 				linear_sampler
 			);
 
-			irradiance = shade_point(frag, -out_dir, direct_probes, indirect_sh, all_lights, probe_consts, rng);
+			irradiance = shade_point(frag, -out_dir, direct_probes, indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3, linear_clamp_sampler, all_lights, probe_consts, rng);
 		}
 	}
 

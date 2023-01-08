@@ -48,16 +48,22 @@ namespace lotus::renderer::execution {
 
 
 	void transition_buffer::stage_transition(
-		_details::image2d &surf, gpu::mip_levels mips, _details::image_access access
+		_details::image2d &img, gpu::mip_levels mips, _details::image_access access
 	) {
-		_image2d_transitions.emplace_back(surf, mips, access);
-		for (const auto &ref : surf.array_references) {
-			const auto &img = ref.array->resources[ref.index].resource;
-			assert(img._image == &surf);
-			if (!gpu::mip_levels::intersection(img._mip_levels, mips).is_empty()) {
+		_image2d_transitions.emplace_back(img, mips, access);
+		for (const auto &ref : img.array_references) {
+			const auto &arr_img = ref.array->resources[ref.index].resource;
+			crash_if(arr_img._image != &img);
+			if (!gpu::mip_levels::intersection(arr_img._mip_levels, mips).is_empty()) {
 				ref.array->staged_transitions.emplace_back(ref.index);
 			}
 		}
+	}
+
+	void transition_buffer::stage_transition(
+		_details::image3d &img, gpu::mip_levels mips, _details::image_access access
+	) {
+		_image3d_transitions.emplace_back(img, mips, access);
 	}
 
 	void transition_buffer::stage_transition(_details::buffer &buf, _details::buffer_access access) {
@@ -100,17 +106,24 @@ namespace lotus::renderer::execution {
 		}
 	}
 
+	/// Used for sorting image transitions.
+	template <gpu::image_type Type> static bool _image_transition_compare(
+		const transition_records::basic_image<Type> &lhs, const transition_records::basic_image<Type> &rhs
+	) {
+		if (lhs.target == rhs.target) {
+			return lhs.mip_levels.minimum < rhs.mip_levels.minimum;
+		}
+		return lhs.target->id < rhs.target->id;
+	}
 	void transition_buffer::prepare() {
 		// sort image transitions
 		std::sort(
 			_image2d_transitions.begin(), _image2d_transitions.end(),
-			[](const transition_records::image2d &lhs, const transition_records::image2d &rhs) {
-				if (lhs.target == rhs.target) {
-					return lhs.mip_levels.minimum < rhs.mip_levels.minimum;
-				}
-				assert(lhs.target->id != rhs.target->id);
-				return lhs.target->id < rhs.target->id;
-			}
+			_image_transition_compare<gpu::image_type::type_2d>
+		);
+		std::sort(
+			_image3d_transitions.begin(), _image3d_transitions.end(),
+			_image_transition_compare<gpu::image_type::type_3d>
 		);
 
 		// sort buffer transitions
@@ -129,99 +142,105 @@ namespace lotus::renderer::execution {
 		);
 	}
 
+	/// Collects image transitions.
+	template <gpu::image_type Type> [[nodiscard]] static void _collect_image_transitions(
+		std::vector<gpu::image_barrier> &barriers, std::span<const transition_records::basic_image<Type>> transitions
+	) {
+		for (auto it = transitions.begin(); it != transitions.end(); ) {
+			// transition resources
+			std::size_t first_barrier = barriers.size();
+			auto *surf = it->target;
+			for (auto first = it; it != transitions.end() && it->target == first->target; ++it) {
+				auto max_mip = std::min(it->target->num_mips, it->mip_levels.maximum);
+				for (std::uint32_t mip = it->mip_levels.minimum; mip < max_mip; ++mip) {
+					// check if a transition is really necessary
+					auto &current_access = it->target->current_usages[mip];
+					// when these accesses are enabled, force a barrier
+					constexpr auto force_sync_bits =
+						gpu::image_access_mask::shader_write |
+						gpu::image_access_mask::copy_destination;
+					if (
+						current_access.access == it->access.access &&
+						current_access.layout == it->access.layout &&
+						is_empty(current_access.access & force_sync_bits)
+					) {
+						current_access.sync_points |= it->access.sync_points;
+						continue;
+					}
+
+					gpu::subresource_range sub_index(mip, 1, 0, 1, gpu::image_aspect_mask::none);
+					const auto &fmt_prop = gpu::format_properties::get(it->target->format);
+					// TODO more intelligent aspect mask?
+					if (fmt_prop.has_color()) {
+						sub_index.aspects |= gpu::image_aspect_mask::color;
+					}
+					if (fmt_prop.depth_bits > 0) {
+						sub_index.aspects |= gpu::image_aspect_mask::depth;
+					}
+					if (fmt_prop.stencil_bits > 0) {
+						sub_index.aspects |= gpu::image_aspect_mask::stencil;
+					}
+					barriers.emplace_back(
+						sub_index,
+						it->target->image,
+						current_access.sync_points,
+						current_access.access,
+						current_access.layout,
+						it->access.sync_points,
+						it->access.access,
+						it->access.layout
+					);
+				}
+			}
+			// deduplicate & warn about any conflicts
+			std::sort(
+				barriers.begin() + first_barrier, barriers.end(),
+				[](const gpu::image_barrier &lhs, const gpu::image_barrier &rhs) {
+					if (lhs.subresources.first_array_slice == rhs.subresources.first_array_slice) {
+						if (lhs.subresources.first_mip_level == rhs.subresources.first_mip_level) {
+							return lhs.subresources.aspects < rhs.subresources.aspects;
+						}
+						return lhs.subresources.first_mip_level < rhs.subresources.first_mip_level;
+					}
+					return lhs.subresources.first_array_slice < rhs.subresources.first_array_slice;
+				}
+			);
+			if (barriers.size() > first_barrier) {
+				// TODO deduplicate
+				auto last = barriers.begin() + first_barrier;
+				for (auto cur = last; cur != barriers.end(); ++cur) {
+					if (cur->subresources == last->subresources) {
+						if (cur->to_access != last->to_access) {
+							log().error<
+								u8"Multiple transition targets for image resource {} slice {} mip {}. "
+								u8"Maybe a flush_transitions() call is missing?"
+							>(
+								string::to_generic(surf->name),
+								last->subresources.first_array_slice, last->subresources.first_mip_level
+							);
+						}
+					} else {
+						*++last = *cur;
+					}
+				}
+				barriers.erase(last + 1, barriers.end());
+				for (auto cur = barriers.begin() + first_barrier; cur != barriers.end(); ++cur) {
+					surf->current_usages[cur->subresources.first_mip_level] = _details::image_access(
+						cur->to_point, cur->to_access, cur->to_layout
+					);
+				}
+			}
+		}
+	}
 	std::pair<
 		std::vector<gpu::image_barrier>, std::vector<gpu::buffer_barrier>
 	> transition_buffer::collect_transitions() const {
 		std::vector<gpu::image_barrier> image_barriers;
 		std::vector<gpu::buffer_barrier> buffer_barriers;
 
-		{ // handle image transitions
-			for (auto it = _image2d_transitions.begin(); it != _image2d_transitions.end(); ) {
-				// transition resources
-				std::size_t first_barrier = image_barriers.size();
-				auto *surf = it->target;
-				for (auto first = it; it != _image2d_transitions.end() && it->target == first->target; ++it) {
-					auto max_mip = std::min(it->target->num_mips, it->mip_levels.maximum);
-					for (std::uint32_t mip = it->mip_levels.minimum; mip < max_mip; ++mip) {
-						// check if a transition is really necessary
-						auto &current_access = it->target->current_usages[mip];
-						// when these accesses are enabled, force a barrier
-						constexpr auto force_sync_bits =
-							gpu::image_access_mask::shader_write |
-							gpu::image_access_mask::copy_destination;
-						if (
-							current_access.access == it->access.access &&
-							current_access.layout == it->access.layout &&
-							is_empty(current_access.access & force_sync_bits)
-						) {
-							current_access.sync_points |= it->access.sync_points;
-							continue;
-						}
-
-						gpu::subresource_range sub_index(mip, 1, 0, 1, gpu::image_aspect_mask::none);
-						const auto &fmt_prop = gpu::format_properties::get(it->target->format);
-						// TODO more intelligent aspect mask?
-						if (fmt_prop.has_color()) {
-							sub_index.aspects |= gpu::image_aspect_mask::color;
-						}
-						if (fmt_prop.depth_bits > 0) {
-							sub_index.aspects |= gpu::image_aspect_mask::depth;
-						}
-						if (fmt_prop.stencil_bits > 0) {
-							sub_index.aspects |= gpu::image_aspect_mask::stencil;
-						}
-						image_barriers.emplace_back(
-							sub_index,
-							it->target->image,
-							current_access.sync_points,
-							current_access.access,
-							current_access.layout,
-							it->access.sync_points,
-							it->access.access,
-							it->access.layout
-						);
-					}
-				}
-				// deduplicate & warn about any conflicts
-				std::sort(
-					image_barriers.begin() + first_barrier, image_barriers.end(),
-					[](const gpu::image_barrier &lhs, const gpu::image_barrier &rhs) {
-						if (lhs.subresources.first_array_slice == rhs.subresources.first_array_slice) {
-							if (lhs.subresources.first_mip_level == rhs.subresources.first_mip_level) {
-								return lhs.subresources.aspects < rhs.subresources.aspects;
-							}
-							return lhs.subresources.first_mip_level < rhs.subresources.first_mip_level;
-						}
-						return lhs.subresources.first_array_slice < rhs.subresources.first_array_slice;
-					}
-				);
-				if (image_barriers.size() > first_barrier) {
-					// TODO deduplicate
-					auto last = image_barriers.begin() + first_barrier;
-					for (auto cur = last; cur != image_barriers.end(); ++cur) {
-						if (cur->subresources == last->subresources) {
-							if (cur->to_access != last->to_access) {
-								log().error<
-									u8"Multiple transition targets for image resource {} slice {} mip {}. "
-									u8"Maybe a flush_transitions() call is missing?"
-								>(
-									string::to_generic(surf->name),
-									last->subresources.first_array_slice, last->subresources.first_mip_level
-								);
-							}
-						} else {
-							*++last = *cur;
-						}
-					}
-					image_barriers.erase(last + 1, image_barriers.end());
-					for (auto cur = image_barriers.begin() + first_barrier; cur != image_barriers.end(); ++cur) {
-						surf->current_usages[cur->subresources.first_mip_level] = _details::image_access(
-							cur->to_point, cur->to_access, cur->to_layout
-						);
-					}
-				}
-			}
-		}
+		// handle image transitions
+		_collect_image_transitions<gpu::image_type::type_2d>(image_barriers, _image2d_transitions);
+		_collect_image_transitions<gpu::image_type::type_3d>(image_barriers, _image3d_transitions);
 
 		{ // handle swap chain image transitions
 			// TODO check for conflicts

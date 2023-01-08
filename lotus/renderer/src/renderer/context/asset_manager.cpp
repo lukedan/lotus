@@ -344,6 +344,11 @@ namespace lotus::renderer::assets {
 				gpu::filtering::linear, gpu::filtering::linear, gpu::filtering::linear,
 				0.0f, 0.0f, std::numeric_limits<float>::max(), 16.0f
 			) },
+			{ 1, sampler_state(
+				gpu::filtering::linear, gpu::filtering::linear, gpu::filtering::linear,
+				0.0f, 0.0f, std::numeric_limits<float>::max(), 16.0f,
+				gpu::sampler_address_mode::clamp, gpu::sampler_address_mode::clamp, gpu::sampler_address_mode::clamp
+			) },
 		})),
 		_null_image(nullptr),
 		_invalid_image(nullptr),

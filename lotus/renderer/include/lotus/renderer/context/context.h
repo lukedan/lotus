@@ -404,6 +404,11 @@ namespace lotus::renderer {
 			std::u8string_view name, cvec2u32 size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask,
 			const pool&
 		);
+		/// Creates a 3D image with the given properties.
+		[[nodiscard]] image3d_view request_image3d(
+			std::u8string_view name, cvec3u32 size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask,
+			const pool&
+		);
 		/// Creates a buffer with the given size.
 		[[nodiscard]] buffer request_buffer(
 			std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask, const pool&
@@ -698,16 +703,26 @@ namespace lotus::renderer {
 
 		/// Creates the backing image for the given \ref _details::image2d if it hasn't been created.
 		void _maybe_create_image(_details::image2d&);
+		/// Creates the backing image for the given \ref _details::image3d if it hasn't been created.
+		void _maybe_create_image(_details::image3d&);
 		/// Creates the backing buffer for the given \ref _details::buffer if it hasn't been created.
 		void _maybe_create_buffer(_details::buffer&);
 
 		/// Creates an \ref gpu::image2d_view, without recording it anywhere, and returns the object itself.
 		/// This function is used when we need to keep the view between render commands and flushes.
 		[[nodiscard]] gpu::image2d_view _create_image_view(const recorded_resources::image2d_view&);
+		/// Creates an \ref gpu::image3d_view, without recording it anywhere, and returns the object itself.
+		/// This function is used when we need to keep the view between render commands and flushes.
+		[[nodiscard]] gpu::image3d_view _create_image_view(const recorded_resources::image3d_view&);
 		/// Creates or finds a \ref gpu::image2d_view from the given \ref renderer::image2d_view, allocating
 		/// storage for then image if necessary.
 		[[nodiscard]] gpu::image2d_view &_request_image_view(
 			execution::context&, const recorded_resources::image2d_view&
+		);
+		/// Creates or finds a \ref gpu::image3d_view from the given \ref renderer::image3d_view, allocating
+		/// storage for then image if necessary.
+		[[nodiscard]] gpu::image3d_view &_request_image_view(
+			execution::context&, const recorded_resources::image3d_view&
 		);
 		/// Creates or finds a \ref gpu::image2d_view from the next image in the given \ref swap_chain.
 		[[nodiscard]] gpu::image2d_view &_request_image_view(
@@ -769,7 +784,9 @@ namespace lotus::renderer {
 		}
 
 		/// Returns the descriptor type of an image binding.
-		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::image2d &img) const {
+		template <gpu::image_type Type> [[nodiscard]] gpu::descriptor_type _get_descriptor_type(
+			const descriptor_resource::basic_image<Type> &img
+		) const {
 			switch (img.binding_type) {
 			case image_binding_type::read_only:
 				return gpu::descriptor_type::read_only_image;
@@ -811,11 +828,17 @@ namespace lotus::renderer {
 			return gpu::descriptor_type::sampler;
 		}
 
-		/// Creates a descriptor binding for an image.
+		/// Creates a descriptor binding for an 2D image.
 		void _create_descriptor_binding_impl(
 			execution::transition_buffer&, gpu::descriptor_set&,
 			const gpu::descriptor_set_layout&, std::uint32_t reg,
 			const descriptor_resource::image2d&, const gpu::image2d_view&
+		);
+		/// Creates a descriptor binding from a 3D image.
+		void _create_descriptor_binding_impl(
+			execution::transition_buffer&, gpu::descriptor_set&,
+			const gpu::descriptor_set_layout&, std::uint32_t reg,
+			const descriptor_resource::image3d&, const gpu::image3d_view&
 		);
 		/// Creates a descriptor binding for a swap chain image.
 		void _create_descriptor_binding_impl(
@@ -847,6 +870,16 @@ namespace lotus::renderer {
 			execution::context &ectx, gpu::descriptor_set &set,
 			const gpu::descriptor_set_layout &layout, std::uint32_t reg,
 			const descriptor_resource::image2d &img
+		) {
+			_create_descriptor_binding_impl(
+				ectx.transitions, set, layout, reg, img, _request_image_view(ectx, img.view)
+			);
+		}
+		/// \overload
+		void _create_descriptor_binding(
+			execution::context &ectx, gpu::descriptor_set &set,
+			const gpu::descriptor_set_layout &layout, std::uint32_t reg,
+			const descriptor_resource::image3d &img
 		) {
 			_create_descriptor_binding_impl(
 				ectx.transitions, set, layout, reg, img, _request_image_view(ectx, img.view)
@@ -898,7 +931,18 @@ namespace lotus::renderer {
 			_details::cached_descriptor_set &set, std::uint32_t reg,
 			const descriptor_resource::image2d &img
 		) {
-			auto &view = set.image_views.emplace_back(_create_image_view(img.view));
+			auto &view = set.image2d_views.emplace_back(_create_image_view(img.view));
+			set.resource_references.emplace_back(img.view._image->shared_from_this());
+			_create_descriptor_binding_impl(
+				set.transitions, set.set, *set.layout, reg, img, view
+			);
+		}
+		/// \overload
+		void _create_descriptor_binding_cached(
+			_details::cached_descriptor_set &set, std::uint32_t reg,
+			const descriptor_resource::image3d &img
+		) {
+			auto &view = set.image3d_views.emplace_back(_create_image_view(img.view));
 			set.resource_references.emplace_back(img.view._image->shared_from_this());
 			_create_descriptor_binding_impl(
 				set.transitions, set.set, *set.layout, reg, img, view
@@ -1032,6 +1076,10 @@ namespace lotus::renderer {
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a 2D image.
 		void _deferred_delete(_details::image2d *surf) {
 			_deferred_delete_resources.image2d_meta.emplace_back(surf);
+		}
+		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a 3D image.
+		void _deferred_delete(_details::image3d *surf) {
+			_deferred_delete_resources.image3d_meta.emplace_back(surf);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a buffer.
 		void _deferred_delete(_details::buffer *buf) {

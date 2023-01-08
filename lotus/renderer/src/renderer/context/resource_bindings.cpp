@@ -31,9 +31,9 @@ namespace lotus::renderer::_details {
 	}
 
 	/// Collects an image binding.
-	static void _collect_binding(
+	template <gpu::image_type Type> static void _collect_binding(
 		numbered_bindings &bindings,
-		const descriptor_resource::image2d &img, const gpu::shader_resource_binding &bd
+		const descriptor_resource::basic_image<Type> &img, const gpu::shader_resource_binding &bd
 	) {
 		crash_if(bd.register_count != 1);
 		switch (img.binding_type) {

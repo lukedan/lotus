@@ -108,10 +108,39 @@ void shade_direct_light(
 	specular = li.irradiance * li_data.attenuation * n_l * brdf_s;
 }
 
+float3 evaluate_indirect_diffuse(
+	float3 pos, float3 normal,
+	Texture3D<float4> tex_sh0,
+	Texture3D<float4> tex_sh1,
+	Texture3D<float4> tex_sh2,
+	Texture3D<float4> tex_sh3,
+	SamplerState linear_clamp_sampler,
+	probe_constants probe_consts
+) {
+	pos += normal;
+	float3 cell_f = probes::uv_from_position(pos, probe_consts);
+
+	float4 sh0 = tex_sh0.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
+	float4 sh1 = tex_sh1.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
+	float4 sh2 = tex_sh2.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
+	float4 sh3 = tex_sh3.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
+	sh::sh2 cosine_lobe = sh::clamped_cosine::eval_sh2(normal);
+	float3 color = float3(
+		sh::integrate((sh::sh2)float4(sh0.r, sh1.r, sh2.r, sh3.r), cosine_lobe),
+		sh::integrate((sh::sh2)float4(sh0.g, sh1.g, sh2.g, sh3.g), cosine_lobe),
+		sh::integrate((sh::sh2)float4(sh0.b, sh1.b, sh2.b, sh3.b), cosine_lobe)
+	) / pi;
+	return max(0.0f, color);
+}
+
 float3 shade_point(
 	material::shading_properties frag, float3 view,
 	StructuredBuffer<direct_lighting_reservoir> direct_probes,
-	StructuredBuffer<probe_data> indirect_sh,
+	Texture3D<float4> indirect_sh0,
+	Texture3D<float4> indirect_sh1,
+	Texture3D<float4> indirect_sh2,
+	Texture3D<float4> indirect_sh3,
+	SamplerState linear_clamp_sampler,
 	StructuredBuffer<light> all_lights,
 	probe_constants probe_consts,
 	inout pcg32::state rng
@@ -145,15 +174,12 @@ float3 shade_point(
 
 
 	// indirect diffuse
-	probe_data probe_sh = indirect_sh[use_probe_index];
-	sh::sh2 cosine_lobe = sh::clamped_cosine::eval_sh2(frag.normal_ws);
-	float3 color = float3(
-		sh::integrate((sh::sh2)probe_sh.irradiance_sh2_r, cosine_lobe),
-		sh::integrate((sh::sh2)probe_sh.irradiance_sh2_g, cosine_lobe),
-		sh::integrate((sh::sh2)probe_sh.irradiance_sh2_b, cosine_lobe)
-	) / pi;
-	diffuse_irradiance += max(0.0f, color) * frag.albedo * (1.0f - frag.metalness);
-
+	float3 indirect_diffuse = evaluate_indirect_diffuse(
+		frag.position_ws, frag.normal_ws,
+		indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
+		linear_clamp_sampler, probe_consts
+	);
+	diffuse_irradiance += indirect_diffuse * frag.albedo * (1.0f - frag.metalness);
 
 	return diffuse_irradiance + specular_irradiance;
 }

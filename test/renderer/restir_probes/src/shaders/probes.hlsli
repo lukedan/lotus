@@ -10,8 +10,12 @@ namespace probes {
 		return coord.x + data.grid_size.x * (coord.y + data.grid_size.y * coord.z);
 	}
 
+	float3 uv_from_position(float3 position, probe_constants data) {
+		return mul(data.world_to_grid, float4(position, 1.0f)).xyz;
+	}
+
 	float3 coord_from_position(float3 position, probe_constants data) {
-		float3 pos = mul(data.world_to_grid, float4(position, 1.0f)).xyz;
+		float3 pos = uv_from_position(position, data);
 		return pos * (data.grid_size - 1);
 	}
 

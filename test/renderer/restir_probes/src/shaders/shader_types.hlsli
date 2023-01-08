@@ -6,6 +6,11 @@ struct fill_buffer_constants {
 	uint size;
 };
 
+struct fill_texture3d_constants {
+	float4 value;
+	uint3 size;
+};
+
 
 struct reservoir_common {
 	float sum_weights;
@@ -24,12 +29,6 @@ struct indirect_lighting_reservoir {
 	float3 irradiance;
 	float distance;
 	float2 direction_octahedral;
-};
-
-struct probe_data {
-	float4 irradiance_sh2_r;
-	float4 irradiance_sh2_g;
-	float4 irradiance_sh2_b;
 };
 
 struct probe_constants {

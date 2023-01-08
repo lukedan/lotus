@@ -128,6 +128,18 @@ namespace lotus::renderer {
 		return image2d_view(std::move(surf_ptr), fmt, gpu::mip_levels::all());
 	}
 
+	image3d_view context::request_image3d(
+		std::u8string_view name,
+		cvec3u32 size, std::uint32_t num_mips, gpu::format fmt, gpu::image_usage_mask usages, const pool &p
+	) {
+		gpu::image_tiling tiling = gpu::image_tiling::optimal;
+		auto *surf = new _details::image3d(
+			size, num_mips, fmt, tiling, usages, p._ptr, _allocate_resource_id(), name
+		);
+		auto surf_ptr = std::shared_ptr<_details::image3d>(surf, _details::context_managed_deleter(*this));
+		return image3d_view(std::move(surf_ptr), fmt, gpu::mip_levels::all());
+	}
+
 	buffer context::request_buffer(
 		std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask usages, const pool &p
 	) {
@@ -529,26 +541,48 @@ namespace lotus::renderer {
 		}
 	}
 
-	void context::_maybe_create_image(_details::image2d &surf) {
-		if (!surf.image) {
-			// create resource if it's not initialized
-			if (surf.memory_pool) {
+	void context::_maybe_create_image(_details::image2d &img) {
+		if (!img.image) {
+			if (img.memory_pool) {
 				memory::size_alignment size_align = _device.get_image2d_memory_requirements(
-					surf.size, surf.num_mips, surf.format, surf.tiling, surf.usages
+					img.size, img.num_mips, img.format, img.tiling, img.usages
 				);
-				surf.memory = surf.memory_pool->allocate(size_align);
-				auto &&[blk, off] = surf.memory_pool->get_memory_and_offset(surf.memory);
-				surf.image = _device.create_placed_image2d(
-					surf.size, surf.num_mips, surf.format, surf.tiling, surf.usages, blk, off
+				img.memory = img.memory_pool->allocate(size_align);
+				auto &&[blk, off] = img.memory_pool->get_memory_and_offset(img.memory);
+				img.image = _device.create_placed_image2d(
+					img.size, img.num_mips, img.format, img.tiling, img.usages, blk, off
 				);
 			} else {
-				surf.image = _device.create_committed_image2d(
-					surf.size, surf.num_mips, surf.format, surf.tiling, surf.usages
+				img.image = _device.create_committed_image2d(
+					img.size, img.num_mips, img.format, img.tiling, img.usages
 				);
 			}
 
 			if constexpr (should_register_debug_names) {
-				_device.set_debug_name(surf.image, surf.name);
+				_device.set_debug_name(img.image, img.name);
+			}
+		}
+	}
+
+	void context::_maybe_create_image(_details::image3d &img) {
+		if (!img.image) {
+			if (img.memory_pool) {
+				memory::size_alignment size_align = _device.get_image3d_memory_requirements(
+					img.size, img.num_mips, img.format, img.tiling, img.usages
+				);
+				img.memory = img.memory_pool->allocate(size_align);
+				auto &&[blk, off] = img.memory_pool->get_memory_and_offset(img.memory);
+				img.image = _device.create_placed_image3d(
+					img.size, img.num_mips, img.format, img.tiling, img.usages, blk, off
+				);
+			} else {
+				img.image = _device.create_committed_image3d(
+					img.size, img.num_mips, img.format, img.tiling, img.usages
+				);
+			}
+
+			if constexpr (should_register_debug_names) {
+				_device.set_debug_name(img.image, img.name);
 			}
 		}
 	}
@@ -573,12 +607,29 @@ namespace lotus::renderer {
 	gpu::image2d_view context::_create_image_view(const recorded_resources::image2d_view &view) {
 		_maybe_create_image(*view._image);
 		auto result = _device.create_image2d_view_from(view._image->image, view._view_format, view._mip_levels);
-		_device.set_debug_name(result, view._image->name);
+		if constexpr (should_register_debug_names) {
+			_device.set_debug_name(result, view._image->name);
+		}
+		return result;
+	}
+
+	gpu::image3d_view context::_create_image_view(const recorded_resources::image3d_view &view) {
+		_maybe_create_image(*view._image);
+		auto result = _device.create_image3d_view_from(view._image->image, view._view_format, view._mip_levels);
+		if constexpr (should_register_debug_names) {
+			_device.set_debug_name(result, view._image->name);
+		}
 		return result;
 	}
 
 	gpu::image2d_view &context::_request_image_view(
 		execution::context &ectx, const recorded_resources::image2d_view &view
+	) {
+		return ectx.record(_create_image_view(view));
+	}
+
+	gpu::image3d_view &context::_request_image_view(
+		execution::context &ectx, const recorded_resources::image3d_view &view
 	) {
 		return ectx.record(_create_image_view(view));
 	}
@@ -759,6 +810,33 @@ namespace lotus::renderer {
 		execution::transition_buffer &transitions, gpu::descriptor_set &set,
 		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
 		const descriptor_resource::image2d &img, const gpu::image2d_view &img_view
+	) {
+		_details::image_access target_access = uninitialized;
+		switch (img.binding_type) {
+		case image_binding_type::read_only:
+			_device.write_descriptor_set_read_only_images(set, layout, reg, { &img_view });
+			target_access = _details::image_access(
+				gpu::synchronization_point_mask::all,
+				gpu::image_access_mask::shader_read,
+				gpu::image_layout::shader_read_only
+			);
+			break;
+		case image_binding_type::read_write:
+			_device.write_descriptor_set_read_write_images(set, layout, reg, { &img_view });
+			target_access = _details::image_access(
+				gpu::synchronization_point_mask::all,
+				gpu::image_access_mask::shader_read | gpu::image_access_mask::shader_write,
+				gpu::image_layout::shader_read_write
+			);
+			break;
+		}
+		transitions.stage_transition(*img.view._image, img.view._mip_levels, target_access);
+	}
+
+	void context::_create_descriptor_binding_impl(
+		execution::transition_buffer &transitions, gpu::descriptor_set &set,
+		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
+		const descriptor_resource::image3d &img, const gpu::image3d_view &img_view
 	) {
 		_details::image_access target_access = uninitialized;
 		switch (img.binding_type) {
@@ -1372,8 +1450,8 @@ namespace lotus::renderer {
 		while (first_batch <= finished_batch) {
 			auto &batch = _all_resources.front();
 			
-			for (const auto &surf : batch.image2d_meta) {
-				for (const auto &array_ref : surf->array_references) {
+			for (const auto &img : batch.image2d_meta) {
+				for (const auto &array_ref : img->array_references) {
 					if (array_ref.array->set) {
 						std::initializer_list<const gpu::image_view_base*> images = { nullptr };
 						(_device.*_device.get_write_image_descriptor_function(array_ref.array->type))(
@@ -1386,8 +1464,14 @@ namespace lotus::renderer {
 						);
 					}
 				}
-				if (surf->memory) {
-					surf->memory_pool->free(surf->memory);
+				if (img->memory) {
+					img->memory_pool->free(img->memory);
+				}
+			}
+
+			for (const auto &img : batch.image3d_meta) {
+				if (img->memory) {
+					img->memory_pool->free(img->memory);
 				}
 			}
 
@@ -1400,7 +1484,7 @@ namespace lotus::renderer {
 			constexpr bool _debug_resource_disposal = false;
 			if constexpr (_debug_resource_disposal) {
 				auto rsrc = std::move(_all_resources.front());
-				for (auto &img : rsrc.image_views) {
+				for (auto &img : rsrc.image2d_views) {
 					img = nullptr;
 				}
 			}

@@ -109,7 +109,7 @@ void shade_direct_light(
 }
 
 float3 evaluate_indirect_diffuse(
-	float3 pos, float3 normal,
+	material::shading_properties frag,
 	Texture3D<float4> tex_sh0,
 	Texture3D<float4> tex_sh1,
 	Texture3D<float4> tex_sh2,
@@ -117,20 +117,55 @@ float3 evaluate_indirect_diffuse(
 	SamplerState linear_clamp_sampler,
 	probe_constants probe_consts
 ) {
-	pos += normal;
+	float3 pos = frag.position_ws + frag.normal_ws; // TODO better normal offset
 	float3 cell_f = probes::uv_from_position(pos, probe_consts);
 
 	float4 sh0 = tex_sh0.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
 	float4 sh1 = tex_sh1.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
 	float4 sh2 = tex_sh2.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
 	float4 sh3 = tex_sh3.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
-	sh::sh2 cosine_lobe = sh::clamped_cosine::eval_sh2(normal);
+	sh::sh2 cosine_lobe = sh::clamped_cosine::eval_sh2(frag.normal_ws);
 	float3 color = float3(
 		sh::integrate((sh::sh2)float4(sh0.r, sh1.r, sh2.r, sh3.r), cosine_lobe),
 		sh::integrate((sh::sh2)float4(sh0.g, sh1.g, sh2.g, sh3.g), cosine_lobe),
 		sh::integrate((sh::sh2)float4(sh0.b, sh1.b, sh2.b, sh3.b), cosine_lobe)
-	) / pi;
-	return max(0.0f, color);
+	);
+	return max(0.0f, color) * frag.albedo * ((1.0f - frag.metalness) / pi);
+}
+
+void evaluate_reservoir_direct_lighting(
+	material::shading_properties frag, float3 view,
+	StructuredBuffer<direct_lighting_reservoir> direct_probes,
+	StructuredBuffer<light> all_lights,
+	probe_constants probe_consts,
+	inout pcg32::state rng,
+	out float3 diffuse,
+	out float3 specular
+) {
+	// probe information
+	float3 cell_f = probes::coord_from_position(frag.position_ws, probe_consts);
+	uint3 cell_index = (uint3)clamp((int3)cell_f, 0, (int3)probe_consts.grid_size - 2);
+	uint3 use_probe = probes::get_random_coord(frag.position_ws, frag.normal_ws, cell_index, probe_consts, pcg32::random_01(rng));
+	uint use_probe_index = probes::coord_to_index(use_probe, probe_consts);
+	uint direct_reservoir_index = use_probe_index * probe_consts.direct_reservoirs_per_probe;
+
+	diffuse = (float3)0.0f;
+	specular = (float3)0.0f;
+	for (uint i = 0; i < probe_consts.direct_reservoirs_per_probe; ++i) {
+		direct_lighting_reservoir cur_res = direct_probes[direct_reservoir_index + i];
+		if (cur_res.light_index == 0) {
+			continue;
+		}
+
+		light cur_li = all_lights[cur_res.light_index - 1];
+		lights::derived_data light_data = lights::compute_derived_data(cur_li, frag.position_ws);
+		float3 d, s;
+		shade_direct_light(frag, cur_li, light_data, view, d, s);
+		diffuse += cur_res.data.contribution_weight * d;
+		specular += cur_res.data.contribution_weight * s;
+	}
+	diffuse /= probe_consts.direct_reservoirs_per_probe;
+	specular /= probe_consts.direct_reservoirs_per_probe;
 }
 
 float3 shade_point(
@@ -145,43 +180,22 @@ float3 shade_point(
 	probe_constants probe_consts,
 	inout pcg32::state rng
 ) {
-	// probe information
-	float3 cell_f = probes::coord_from_position(frag.position_ws, probe_consts);
-	uint3 cell_index = (uint3)clamp((int3)cell_f, 0, (int3)probe_consts.grid_size - 2);
-	uint3 use_probe = probes::get_random_coord(frag.position_ws, frag.normal_ws, cell_index, probe_consts, pcg32::random_01(rng));
-	uint use_probe_index = probes::coord_to_index(use_probe, probe_consts);
-	uint direct_reservoir_index = use_probe_index * probe_consts.direct_reservoirs_per_probe;
-
-
-	// shade direct lights
-	float3 diffuse_irradiance = (float3)0.0f;
-	float3 specular_irradiance = (float3)0.0f;
-	for (uint i = 0; i < probe_consts.direct_reservoirs_per_probe; ++i) {
-		direct_lighting_reservoir cur_res = direct_probes[direct_reservoir_index + i];
-		if (cur_res.light_index == 0) {
-			continue;
-		}
-
-		light cur_li = all_lights[cur_res.light_index - 1];
-		lights::derived_data light_data = lights::compute_derived_data(cur_li, frag.position_ws);
-		float3 d, s;
-		shade_direct_light(frag, cur_li, light_data, view, d, s);
-		diffuse_irradiance += cur_res.data.contribution_weight * d;
-		specular_irradiance += cur_res.data.contribution_weight * s;
-	}
-	diffuse_irradiance /= probe_consts.direct_reservoirs_per_probe;
-	specular_irradiance /= probe_consts.direct_reservoirs_per_probe;
-
+	// direct
+	float3 direct_diffuse;
+	float3 direct_specular;
+	evaluate_reservoir_direct_lighting(
+		frag, view, direct_probes, all_lights, probe_consts, rng,
+		direct_diffuse, direct_specular
+	);
 
 	// indirect diffuse
 	float3 indirect_diffuse = evaluate_indirect_diffuse(
-		frag.position_ws, frag.normal_ws,
+		frag,
 		indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
 		linear_clamp_sampler, probe_consts
 	);
-	diffuse_irradiance += indirect_diffuse * frag.albedo * (1.0f - frag.metalness);
 
-	return diffuse_irradiance + specular_irradiance;
+	return direct_diffuse + direct_specular + indirect_diffuse;
 }
 
 #endif

@@ -61,6 +61,7 @@ struct summarize_probe_constants {
 };
 
 struct lighting_constants {
+	float4x4 jittered_projection_view;
 	float4x4 inverse_jittered_projection_view;
 	float4   camera;
 	float2   depth_linearization_constants;
@@ -76,6 +77,7 @@ struct lighting_constants {
 
 struct indirect_specular_constants {
 	bool enable_mis;
+	bool use_screenspace_samples;
 	uint frame_index;
 };
 
@@ -94,6 +96,7 @@ struct lighting_blit_constants {
 
 struct gbuffer_visualization_constants {
 	uint mode;
+	bool exclude_sky;
 };
 
 struct visualize_probes_constants {

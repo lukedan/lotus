@@ -10,6 +10,7 @@ target_sources(lotus_core
 		"include/lotus/math/constants.h"
 		"include/lotus/math/matrix.h"
 		"include/lotus/math/quaternion.h"
+		"include/lotus/math/sequences.h"
 		"include/lotus/math/vector.h"
 
 		"include/lotus/containers/intrusive_linked_list.h"

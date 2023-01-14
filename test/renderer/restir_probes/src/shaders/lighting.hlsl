@@ -122,12 +122,11 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 	specular_color *= constants.direct_specular_multiplier;
 
 	if (constants.use_indirect) {
-		float3 indirect_diffuse = evaluate_indirect_diffuse(
-			gbuf.fragment.position_ws, gbuf.fragment.normal_ws,
+		diffuse_color += evaluate_indirect_diffuse(
+			gbuf.fragment,
 			indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
 			linear_clamp_sampler, probe_consts
 		);
-		diffuse_color += indirect_diffuse * gbuf.fragment.albedo * (1.0f - gbuf.fragment.metalness);
 	}
 
 	out_diffuse [dispatch_thread_id] = float4(diffuse_color, 0.0f);

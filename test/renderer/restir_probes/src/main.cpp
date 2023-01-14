@@ -3,6 +3,7 @@
 #include <scene.h>
 #include <camera_control.h>
 
+#include <lotus/math/sequences.h>
 #include <lotus/utils/camera.h>
 #include <lotus/renderer/g_buffer.h>
 #include <lotus/renderer/debug_drawing.h>
@@ -122,13 +123,56 @@ int main(int argc, char **argv) {
 	bool use_indirect_specular = true;
 	bool indirect_specular_use_visible_normals = true;
 	bool enable_indirect_specular_mis = true;
+	bool use_ss_indirect_specular = true;
 	bool update_probes = true;
 	bool update_probes_this_frame = false;
 	bool indirect_spatial_reuse = true;
 	int indirect_spatial_reuse_visibility_test_mode = 1;
+	int gbuffer_visualization = 0;
+
 	bool enable_taa = true;
 	float taa_ra_factor = 0.1f;
-	int gbuffer_visualization = 0;
+	int taa_sequence_x = 1;
+	int taa_sequence_y = 1;
+	std::uint32_t taa_sample_count = 8;
+	std::uint32_t taa_sample_offset = 17;
+	std::uint32_t taa_sample_param_x = 2;
+	std::uint32_t taa_sample_param_y = 3;
+
+	std::vector<cvec2f> taa_samples;
+	std::uint32_t taa_phase = 0;
+	auto get_taa_sample = [](int mode, int index, int param) -> float {
+		switch (mode) {
+		case 0:
+			return 0.5f;
+		case 1:
+			{
+				auto seq = lotus::sequences::halton<float>::create(param);
+				return seq(index);
+			}
+		case 2:
+			{
+				auto seq = lotus::sequences::hammersley<float>::create();
+				return seq(param, index)[0];
+			}
+		case 3:
+			{
+				auto seq = lotus::sequences::hammersley<float>::create();
+				return seq(param, index)[1];
+			}
+		}
+		return 0.0f;
+	};
+	auto update_taa_samples = [&]() {
+		taa_samples.resize(taa_sample_count, zero);
+		for (std::uint32_t i = 0; i < taa_sample_count; ++i) {
+			taa_samples[i] = cvec2f(
+				get_taa_sample(taa_sequence_x, i + taa_sample_offset, taa_sample_param_x),
+				get_taa_sample(taa_sequence_y, i + taa_sample_offset, taa_sample_param_y)
+			);
+		}
+	};
+	update_taa_samples();
 
 	std::uint32_t num_accumulated_frames = 0;
 
@@ -360,9 +404,7 @@ int main(int argc, char **argv) {
 				rassets.update();
 			}
 
-			std::uniform_real_distribution<float> taa_jitter_dist(-0.5f, 0.5f);
-			cvec2f taa_jitter(taa_jitter_dist(random), taa_jitter_dist(random));
-			/*cvec2f taa_jitter(0.0f, 0.0f);*/
+			cvec2f taa_jitter = taa_samples[std::min<std::uint32_t>(taa_phase, taa_samples.size())] - cvec2f::filled(0.5f);
 			auto cam = cam_params.into_camera(lotus::vec::memberwise_divide(taa_jitter, (2 * window_size).into<float>()));
 
 			auto g_buf = lren::g_buffer::view::create(rctx, window_size, runtime_tex_pool);
@@ -389,6 +431,7 @@ int main(int argc, char **argv) {
 			);
 
 			shader_types::lighting_constants lighting_constants;
+			lighting_constants.jittered_projection_view         = cam.jittered_projection_view_matrix;
 			lighting_constants.inverse_jittered_projection_view = cam.inverse_jittered_projection_view_matrix;
 			lighting_constants.camera                           = cvec4f(cam_params.position, 1.0f);
 			lighting_constants.depth_linearization_constants    = cam.depth_linearization_constants;
@@ -566,8 +609,9 @@ int main(int argc, char **argv) {
 				auto tmr = rctx.start_timer(u8"Indirect Specular");
 
 				shader_types::indirect_specular_constants constants;
-				constants.enable_mis  = enable_indirect_specular_mis;
-				constants.frame_index = frame_index;
+				constants.enable_mis              = enable_indirect_specular_mis;
+				constants.use_screenspace_samples = use_ss_indirect_specular;
+				constants.frame_index             = frame_index;
 				lren::all_resource_bindings resources(
 					{
 						{ 8, rassets.get_samplers() },
@@ -588,6 +632,7 @@ int main(int argc, char **argv) {
 						{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
 						{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
 						{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
+						{ u8"diffuse_lighting",          light_diffuse.bind_as_read_only() },
 						{ u8"textures",                  rassets.get_images() },
 						{ u8"positions",                 scene.vertex_buffers },
 						{ u8"normals",                   scene.normal_buffers },
@@ -728,6 +773,7 @@ int main(int argc, char **argv) {
 					);
 					shader_types::gbuffer_visualization_constants constants;
 					constants.mode = gbuffer_visualization;
+					constants.exclude_sky = true;
 					lren::all_resource_bindings resources(
 						{
 							{ 1, rassets.get_samplers() },
@@ -822,10 +868,49 @@ int main(int argc, char **argv) {
 						ImGui::Combo("Lighting Mode", &lighting_mode, "None\0Reservoir\0Naive\0");
 						ImGui::SliderFloat("Direct Diffuse Multiplier", &diffuse_mul, 0.0f, 1.0f);
 						ImGui::SliderFloat("Direct Specular Multiplier", &specular_mul, 0.0f, 1.0f);
-						ImGui::Checkbox("Enable TAA", &enable_taa);
-						ImGui::SliderFloat("TAA RA Factor", &taa_ra_factor, 0.0f, 1.0f);
 						if (ImGui::Combo("Shade Point Debug Mode", &shade_point_debug_mode, "Off\0Lighting\0Albedo\0Normal\0Path Tracer\0")) {
 							num_accumulated_frames = 0;
+						}
+						ImGui::Separator();
+
+						ImGui::Checkbox("Enable TAA", &enable_taa);
+						ImGui::SliderFloat("TAA RA Factor", &taa_ra_factor, 0.0f, 1.0f);
+						{
+							bool regen_sequence = false;
+							const char *taa_sample_modes = "None\0Halton\0Hammersley X\0Hammersley Y\0";
+							regen_sequence = ImGui::Combo("TAA Sequence X", &taa_sequence_x, taa_sample_modes) || regen_sequence;
+							regen_sequence = ImGui::Combo("TAA Sequence Y", &taa_sequence_y, taa_sample_modes) || regen_sequence;
+							regen_sequence = ImGui_SliderT<std::uint32_t>("TAA Sequence Offset", &taa_sample_offset, 1, 512) || regen_sequence;
+							regen_sequence = ImGui_SliderT<std::uint32_t>("TAA Sequence X Param", &taa_sample_param_x, 1, 32) || regen_sequence;
+							regen_sequence = ImGui_SliderT<std::uint32_t>("TAA Sequence Y Param", &taa_sample_param_y, 1, 32) || regen_sequence;
+							regen_sequence = ImGui_SliderT<std::uint32_t>("TAA Sequence Length", &taa_sample_count, 1, 512, nullptr, ImGuiSliderFlags_Logarithmic) || regen_sequence;
+							if (regen_sequence) {
+								update_taa_samples();
+							}
+						}
+						{ // draw samples
+							constexpr cvec2f canvas_size(150.0f, 150.0f);
+							constexpr float dot_radius = 2.0f;
+
+							auto to_imvec2 = [](cvec2f p) {
+								return ImVec2(p[0], p[1]);
+							};
+							auto to_cvec2f = [](ImVec2 p) {
+								return cvec2f(p.x, p.y);
+							};
+
+							auto *list = ImGui::GetWindowDrawList();
+							auto pos = to_cvec2f(ImGui::GetCursorScreenPos());
+							list->AddRectFilled(to_imvec2(pos), to_imvec2(pos + canvas_size), ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
+
+							for (std::size_t i = 0; i < taa_samples.size(); ++i) {
+								cvec2f smp = taa_samples[i];
+								cvec2f dot_pos = pos + lotus::vec::memberwise_multiply(smp, canvas_size);
+								float seq_pos = i / static_cast<float>(taa_samples.size() - 1);
+								list->AddCircleFilled(to_imvec2(dot_pos), dot_radius, ImGui::ColorConvertFloat4ToU32(ImVec4(seq_pos, 0.0f, 1.0f - seq_pos, 1.0f)));
+							}
+
+							ImGui::SetCursorScreenPos(to_imvec2(pos + cvec2f(0.0f, canvas_size[1])));
 						}
 						ImGui::Separator();
 
@@ -861,6 +946,7 @@ int main(int argc, char **argv) {
 						ImGui::Checkbox("Show Indirect Specular", &use_indirect_specular);
 						ImGui::Checkbox("Indirect Specular: Sample Visible Normals", &indirect_specular_use_visible_normals);
 						ImGui::Checkbox("Use Indirect Specular MIS", &enable_indirect_specular_mis);
+						ImGui::Checkbox("Use Screen-space Samples For Indirect Specular", &use_ss_indirect_specular);
 						ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
 						ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");
 						ImGui::SliderFloat("SH RA Factor", &sh_ra_factor, 0.0f, 1.0f);
@@ -915,6 +1001,7 @@ int main(int argc, char **argv) {
 			// update
 			prev_projection_view = cam.projection_view_matrix;
 			++frame_index;
+			taa_phase = (taa_phase + 1) % taa_samples.size();
 		}
 
 		rctx.flush();

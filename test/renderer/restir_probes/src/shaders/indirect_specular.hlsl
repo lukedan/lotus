@@ -21,6 +21,8 @@ Texture2D<float4> gbuffer_normal            : register(t12, space0);
 Texture2D<float4> gbuffer_metalness         : register(t13, space0);
 Texture2D<float>  gbuffer_depth             : register(t14, space0);
 
+Texture2D<float3> diffuse_lighting          : register(t15, space0);
+
 Texture2D<float4>        textures[]  : register(t0, space1);
 StructuredBuffer<float3> positions[] : register(t0, space2);
 StructuredBuffer<float3> normals[]   : register(t0, space3);
@@ -105,7 +107,34 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 				linear_sampler
 			);
 
-			irradiance = shade_point(frag, -out_dir, direct_probes, indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3, linear_clamp_sampler, all_lights, probe_consts, rng);
+			// direct
+			float3 diffuse_irr;
+			float3 direct_specular;
+			evaluate_reservoir_direct_lighting(
+				frag, -out_dir, direct_probes, all_lights, probe_consts, rng,
+				diffuse_irr, direct_specular
+			);
+
+			// indirect diffuse
+			diffuse_irr += evaluate_indirect_diffuse(
+				frag,
+				indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
+				linear_clamp_sampler, probe_consts
+			);
+
+			if (constants.use_screenspace_samples) {
+				float4 ss_pos = mul(lighting_consts.jittered_projection_view, float4(hit_position, 1.0f));
+				ss_pos.xyz /= ss_pos.w;
+				if (all(ss_pos.xy > -1.0f) && all(ss_pos.xy < 1.0f) && ss_pos.z > 0.0f && ss_pos.z < 1.0f) {
+					ss_pos.xy = float2(ss_pos.x, -ss_pos.y) * 0.5f + 0.5f;
+					float screen_depth = gbuffer_depth.SampleLevel(linear_sampler, ss_pos.xy, 0.0f);
+					if (abs(screen_depth - ss_pos.z) < 0.01f) {
+						diffuse_irr = diffuse_lighting.SampleLevel(linear_sampler, ss_pos.xy, 0.0f);
+					}
+				}
+			}
+
+			irradiance = diffuse_irr + direct_specular;
 		}
 	}
 

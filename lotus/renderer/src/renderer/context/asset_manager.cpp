@@ -205,7 +205,7 @@ namespace lotus::renderer::assets {
 	) {
 		buffer buf = nullptr;
 		buf.data = _context.request_buffer(
-			id.path.u8string() + id.subpath,
+			id.path.u8string() + u8"|" + id.subpath,
 			static_cast<std::uint32_t>(data.size()),
 			usages | gpu::buffer_usage_mask::copy_destination,
 			p
@@ -350,27 +350,10 @@ namespace lotus::renderer::assets {
 				gpu::sampler_address_mode::clamp, gpu::sampler_address_mode::clamp, gpu::sampler_address_mode::clamp
 			) },
 		})),
-		_null_image(nullptr),
+		_image2d_descriptor_index_alloc({ 0 }),
 		_invalid_image(nullptr),
-		_image2d_descriptor_index_alloc({ 0 }) {
-
-		{ // create "null" texture
-			{
-				image2d tex = nullptr;
-				tex.image = _context.request_image2d(
-					u8"Null", cvec2u32(1, 1), 1, gpu::format::r8g8b8a8_unorm,
-					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read,
-					nullptr // TODO pool?
-				);
-				tex.descriptor_index = _allocate_descriptor_index();
-				tex.highest_mip_loaded = 0;
-				_context.write_image_descriptors(_image2d_descriptors, tex.descriptor_index, { tex.image });
-				_null_image = _register_asset<image2d>(assets::identifier({}, u8"null"), std::move(tex), _images);
-			}
-
-			linear_rgba_u8 tex_data(0, 0, 0, 0);
-			_context.upload_image(_null_image->image, reinterpret_cast<std::byte*>(&tex_data), u8"Null");
-		}
+		_null_image(nullptr),
+		_default_normal_image(nullptr) {
 
 		{ // create "invalid" texture
 			constexpr cvec2u32 size(128, 128);
@@ -395,6 +378,46 @@ namespace lotus::renderer::assets {
 				}
 			}
 			_context.upload_image(_invalid_image->image, reinterpret_cast<std::byte*>(tex_data.data()), u8"Invalid");
+		}
+
+		{ // create "null" texture
+			{
+				image2d tex = nullptr;
+				tex.image = _context.request_image2d(
+					u8"Null", cvec2u32(1, 1), 1, gpu::format::r8g8b8a8_unorm,
+					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read,
+					nullptr // TODO pool?
+				);
+				tex.descriptor_index = _allocate_descriptor_index();
+				tex.highest_mip_loaded = 0;
+				_context.write_image_descriptors(_image2d_descriptors, tex.descriptor_index, { tex.image });
+				_null_image = _register_asset<image2d>(assets::identifier({}, u8"null"), std::move(tex), _images);
+			}
+
+			linear_rgba_u8 tex_data(0, 0, 0, 0);
+			_context.upload_image(_null_image->image, reinterpret_cast<std::byte*>(&tex_data), u8"Null");
+		}
+
+		{ // create "null normal" texture
+			{
+				image2d tex = nullptr;
+				tex.image = _context.request_image2d(
+					u8"Default Normal", cvec2u32(1, 1), 1, gpu::format::r8g8b8a8_unorm,
+					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read,
+					nullptr // TODO pool?
+				);
+				tex.descriptor_index = _allocate_descriptor_index();
+				tex.highest_mip_loaded = 0;
+				_context.write_image_descriptors(_image2d_descriptors, tex.descriptor_index, { tex.image });
+				_default_normal_image = _register_asset<image2d>(
+					assets::identifier({}, u8"default_normal"), std::move(tex), _images
+				);
+			}
+
+			linear_rgba_u8 tex_data(127, 127, 255, 0);
+			_context.upload_image(
+				_default_normal_image->image, reinterpret_cast<std::byte*>(&tex_data), u8"Default Normal"
+			);
 		}
 	}
 

@@ -753,11 +753,11 @@ namespace lotus::renderer {
 		void _maybe_copy_tlas_build_input(execution::context&, _details::tlas&);
 
 		/// Writes one descriptor array element into the given array.
-		template <auto MemberPtr, typename RecordedResource, typename View> void _write_one_descriptor_array_element(
+		template <typename RecordedResource, typename View> void _write_one_descriptor_array_element(
 			_details::descriptor_array<RecordedResource, View> &arr, RecordedResource rsrc, std::uint32_t index
 		) {
 			auto &cur_ref = arr.resources[index];
-			if (auto *surf = cur_ref.resource.*MemberPtr) {
+			if (auto *surf = cur_ref.resource._ptr) {
 				auto old_index = cur_ref.reference_index;
 				surf->array_references[old_index] = surf->array_references.back();
 				auto new_ref = surf->array_references[old_index];
@@ -773,11 +773,13 @@ namespace lotus::renderer {
 			}
 			// update recorded image
 			cur_ref.resource = rsrc;
-			auto &new_surf = *(cur_ref.resource.*MemberPtr);
-			cur_ref.reference_index = static_cast<std::uint32_t>(new_surf.array_references.size());
-			auto &new_ref = new_surf.array_references.emplace_back(nullptr);
-			new_ref.array = &arr;
-			new_ref.index = index;
+			if (cur_ref.resource._ptr) {
+				auto &new_surf = *cur_ref.resource._ptr;
+				cur_ref.reference_index = static_cast<std::uint32_t>(new_surf.array_references.size());
+				auto &new_ref = new_surf.array_references.emplace_back(nullptr);
+				new_ref.array = &arr;
+				new_ref.index = index;
+			}
 			// stage the write
 			arr.staged_transitions.emplace_back(index);
 			arr.staged_writes.emplace_back(index);
@@ -932,7 +934,7 @@ namespace lotus::renderer {
 			const descriptor_resource::image2d &img
 		) {
 			auto &view = set.image2d_views.emplace_back(_create_image_view(img.view));
-			set.resource_references.emplace_back(img.view._image->shared_from_this());
+			set.resource_references.emplace_back(img.view._ptr->shared_from_this());
 			_create_descriptor_binding_impl(
 				set.transitions, set.set, *set.layout, reg, img, view
 			);
@@ -943,7 +945,7 @@ namespace lotus::renderer {
 			const descriptor_resource::image3d &img
 		) {
 			auto &view = set.image3d_views.emplace_back(_create_image_view(img.view));
-			set.resource_references.emplace_back(img.view._image->shared_from_this());
+			set.resource_references.emplace_back(img.view._ptr->shared_from_this());
 			_create_descriptor_binding_impl(
 				set.transitions, set.set, *set.layout, reg, img, view
 			);
@@ -960,7 +962,7 @@ namespace lotus::renderer {
 			_details::cached_descriptor_set &set, std::uint32_t reg,
 			const descriptor_resource::structured_buffer &buf
 		) {
-			set.resource_references.emplace_back(buf.data._buffer->shared_from_this());
+			set.resource_references.emplace_back(buf.data._ptr->shared_from_this());
 			_create_descriptor_binding_impl(set.transitions, set.set, *set.layout, reg, buf);
 		}
 		/// Creates a descriptor binding for an immediate constant buffer.
@@ -1005,6 +1007,18 @@ namespace lotus::renderer {
 		) {
 			auto key = cache_keys::descriptor_set_layout::for_descriptor_array(arr._ptr->type);
 			auto &layout = _cache.get_descriptor_set_layout(key);
+
+			constexpr bool _validate_descriptor_array = false;
+			if constexpr (_validate_descriptor_array) {
+				for (std::size_t i = 0; i < arr._ptr->resources.size(); ++i) {
+					const auto &rsrc = arr._ptr->resources[i];
+					if (rsrc.resource) {
+						crash_if(rsrc.resource._ptr->array_references.size() <= rsrc.reference_index);
+						crash_if(rsrc.resource._ptr->array_references[rsrc.reference_index].array != arr._ptr);
+						crash_if(rsrc.resource._ptr->array_references[rsrc.reference_index].index != i);
+					}
+				}
+			}
 
 			_maybe_initialize_descriptor_array(*arr._ptr);
 			ectx.transitions.stage_all_transitions_for(*arr._ptr);

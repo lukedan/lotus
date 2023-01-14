@@ -181,6 +181,10 @@ namespace lotus::renderer {
 			[[nodiscard]] const handle<image2d> &get_invalid_image() const {
 				return _invalid_image;
 			}
+			/// Returns a handle for the default normal map.
+			[[nodiscard]] const handle<image2d> &get_default_normal_image() const {
+				return _default_normal_image;
+			}
 
 			/// Updates resource loading.
 			void update();
@@ -377,9 +381,11 @@ namespace lotus::renderer {
 
 			image_descriptor_array _image2d_descriptors; ///< Bindless descriptor array of all images.
 			cached_descriptor_set _sampler_descriptors; ///< Descriptors of all samplers.
-			handle<image2d> _null_image; ///< Handle of an image indicating "null image".
-			handle<image2d> _invalid_image; ///< Handle of an image indicating "invalid image".
 			std::vector<std::uint32_t> _image2d_descriptor_index_alloc; ///< Used to allocate descriptor indices.
+
+			handle<image2d> _invalid_image; ///< Handle of an image indicating "invalid image".
+			handle<image2d> _null_image; ///< Handle of an image indicating "null image".
+			handle<image2d> _default_normal_image; ///< Handle of default normal map.
 		};
 	}
 }

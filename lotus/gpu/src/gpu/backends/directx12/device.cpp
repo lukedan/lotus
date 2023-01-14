@@ -412,23 +412,19 @@ namespace lotus::gpu::backends::directx12 {
 		for (auto *base_view : images) {
 			if (base_view) {
 				auto *view = static_cast<const _details::image_view_base*>(base_view);
-				D3D12_SHADER_RESOURCE_VIEW_DESC desc = view->_srv_desc;
-				// make sure we're viewing depth textures with the correct format
-				switch (desc.Format) {
-				case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-					desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
-					break;
-				case DXGI_FORMAT_D24_UNORM_S8_UINT:
-					desc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-					break;
+				if (view->_image) {
+					D3D12_SHADER_RESOURCE_VIEW_DESC desc = view->_srv_desc;
+					// make sure we're viewing depth textures with the correct format
+					switch (desc.Format) {
+					case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+						desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+						break;
+					case DXGI_FORMAT_D24_UNORM_S8_UINT:
+						desc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+						break;
+					}
+					_device->CreateShaderResourceView(view->_image.Get(), &desc, current_descriptor);
 				}
-				_device->CreateShaderResourceView(view->_image.Get(), &desc, current_descriptor);
-			} else {
-				D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
-				desc.Format                        = DXGI_FORMAT_R8G8B8A8_UNORM;
-				desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE2D;
-				desc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-				_device->CreateShaderResourceView(nullptr, &desc, current_descriptor);
 			}
 			current_descriptor.ptr += increment;
 		}
@@ -447,19 +443,16 @@ namespace lotus::gpu::backends::directx12 {
 		for (auto *base_view : images) {
 			if (base_view) {
 				auto *view = static_cast<const _details::image_view_base*>(base_view);
-				D3D12_UNORDERED_ACCESS_VIEW_DESC desc = view->_uav_desc;
-				// make sure we're viewing depth textures with the correct format
-				switch (desc.Format) {
-				case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-					desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
-					break;
+				if (view->_image) {
+					D3D12_UNORDERED_ACCESS_VIEW_DESC desc = view->_uav_desc;
+					// make sure we're viewing depth textures with the correct format
+					switch (desc.Format) {
+					case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+						desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+						break;
+					}
+					_device->CreateUnorderedAccessView(view->_image.Get(), nullptr, &desc, current_descriptor);
 				}
-				_device->CreateUnorderedAccessView(view->_image.Get(), nullptr, &desc, current_descriptor);
-			} else {
-				D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
-				desc.Format        = DXGI_FORMAT_R8G8B8A8_UNORM;
-				desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-				_device->CreateUnorderedAccessView(nullptr, nullptr, &desc, current_descriptor);
 			}
 			current_descriptor.ptr += increment;
 		}
@@ -478,21 +471,17 @@ namespace lotus::gpu::backends::directx12 {
 		for (const auto &buf : buffers) {
 			if (buf.data) {
 				auto *buf_data = static_cast<const buffer*>(buf.data);
-				D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
-				desc.Format                     = DXGI_FORMAT_UNKNOWN;
-				desc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
-				desc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-				desc.Buffer.FirstElement        = static_cast<UINT64>(buf.first);
-				desc.Buffer.NumElements         = static_cast<UINT>(buf.count);
-				desc.Buffer.StructureByteStride = static_cast<UINT>(buf.stride);
-				desc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
-				_device->CreateShaderResourceView(buf_data->_buffer.Get(), &desc, current_descriptor);
-			} else {
-				D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
-				desc.Format                  = DXGI_FORMAT_UNKNOWN;
-				desc.ViewDimension           = D3D12_SRV_DIMENSION_BUFFER;
-				desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-				_device->CreateShaderResourceView(nullptr, &desc, current_descriptor);
+				if (buf_data->_buffer) {
+					D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+					desc.Format                     = DXGI_FORMAT_UNKNOWN;
+					desc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
+					desc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+					desc.Buffer.FirstElement        = static_cast<UINT64>(buf.first);
+					desc.Buffer.NumElements         = static_cast<UINT>(buf.count);
+					desc.Buffer.StructureByteStride = static_cast<UINT>(buf.stride);
+					desc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
+					_device->CreateShaderResourceView(buf_data->_buffer.Get(), &desc, current_descriptor);
+				}
 			}
 			current_descriptor.ptr += increment;
 		}
@@ -511,20 +500,17 @@ namespace lotus::gpu::backends::directx12 {
 		for (const auto &buf : buffers) {
 			if (buf.data) {
 				auto *buf_data = static_cast<const buffer*>(buf.data);
-				D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
-				desc.Format                      = DXGI_FORMAT_UNKNOWN;
-				desc.ViewDimension               = D3D12_UAV_DIMENSION_BUFFER;
-				desc.Buffer.FirstElement         = static_cast<UINT64>(buf.first);
-				desc.Buffer.NumElements          = static_cast<UINT>(buf.count);
-				desc.Buffer.StructureByteStride  = static_cast<UINT>(buf.stride);
-				desc.Buffer.CounterOffsetInBytes = 0;
-				desc.Buffer.Flags                = D3D12_BUFFER_UAV_FLAG_NONE;
-				_device->CreateUnorderedAccessView(buf_data->_buffer.Get(), nullptr, &desc, current_descriptor);
-			} else {
-				D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
-				desc.Format        = DXGI_FORMAT_UNKNOWN;
-				desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-				_device->CreateUnorderedAccessView(nullptr, nullptr, &desc, current_descriptor);
+				if (buf_data->_buffer) {
+					D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
+					desc.Format                      = DXGI_FORMAT_UNKNOWN;
+					desc.ViewDimension               = D3D12_UAV_DIMENSION_BUFFER;
+					desc.Buffer.FirstElement         = static_cast<UINT64>(buf.first);
+					desc.Buffer.NumElements          = static_cast<UINT>(buf.count);
+					desc.Buffer.StructureByteStride  = static_cast<UINT>(buf.stride);
+					desc.Buffer.CounterOffsetInBytes = 0;
+					desc.Buffer.Flags                = D3D12_BUFFER_UAV_FLAG_NONE;
+					_device->CreateUnorderedAccessView(buf_data->_buffer.Get(), nullptr, &desc, current_descriptor);
+				}
 			}
 			current_descriptor.ptr += increment;
 		}

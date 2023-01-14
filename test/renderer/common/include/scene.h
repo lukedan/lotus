@@ -29,6 +29,10 @@ public:
 		/*mip_gen.generate_all(tex->image);*/
 	}
 	void on_geometry_loaded(lren::assets::handle<lren::assets::geometry> geom) {
+		if (geom->num_vertices == 0) {
+			return;
+		}
+
 		auto &rctx = _assets.get_context();
 
 		geom.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(blases.size()));
@@ -97,7 +101,7 @@ public:
 		material_assets.emplace_back(std::move(mat));
 	}
 	void on_instance_loaded(lren::instance inst) {
-		if (inst.geometry && inst.material) {
+		if (inst.geometry && inst.material && inst.geometry->num_vertices > 0) {
 			auto geom_index = reinterpret_cast<std::uintptr_t>(inst.geometry.user_data());
 			auto mat_index = reinterpret_cast<std::uintptr_t>(inst.material.user_data());
 

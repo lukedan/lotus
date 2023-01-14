@@ -473,7 +473,7 @@ namespace lotus::renderer {
 		auto &arr = *arr_handle._ptr;
 		_maybe_initialize_descriptor_array(arr);
 		for (std::size_t i = 0; i < imgs.size(); ++i) {
-			_write_one_descriptor_array_element<&recorded_resources::image2d_view::_image>(
+			_write_one_descriptor_array_element(
 				arr, recorded_resources::image2d_view(imgs[i]), static_cast<std::uint32_t>(i + first_index)
 			);
 		}
@@ -485,7 +485,7 @@ namespace lotus::renderer {
 		auto &arr = *arr_handle._ptr;
 		_maybe_initialize_descriptor_array(arr);
 		for (std::size_t i = 0; i < bufs.size(); ++i) {
-			_write_one_descriptor_array_element<&recorded_resources::structured_buffer_view::_buffer>(
+			_write_one_descriptor_array_element(
 				arr, recorded_resources::structured_buffer_view(bufs[i]), static_cast<std::uint32_t>(i + first_index)
 			);
 		}
@@ -605,19 +605,19 @@ namespace lotus::renderer {
 	}
 
 	gpu::image2d_view context::_create_image_view(const recorded_resources::image2d_view &view) {
-		_maybe_create_image(*view._image);
-		auto result = _device.create_image2d_view_from(view._image->image, view._view_format, view._mip_levels);
+		_maybe_create_image(*view._ptr);
+		auto result = _device.create_image2d_view_from(view._ptr->image, view._view_format, view._mip_levels);
 		if constexpr (should_register_debug_names) {
-			_device.set_debug_name(result, view._image->name);
+			_device.set_debug_name(result, view._ptr->name);
 		}
 		return result;
 	}
 
 	gpu::image3d_view context::_create_image_view(const recorded_resources::image3d_view &view) {
-		_maybe_create_image(*view._image);
-		auto result = _device.create_image3d_view_from(view._image->image, view._view_format, view._mip_levels);
+		_maybe_create_image(*view._ptr);
+		auto result = _device.create_image3d_view_from(view._ptr->image, view._view_format, view._mip_levels);
 		if constexpr (should_register_debug_names) {
-			_device.set_debug_name(result, view._image->name);
+			_device.set_debug_name(result, view._ptr->name);
 		}
 		return result;
 	}
@@ -830,7 +830,7 @@ namespace lotus::renderer {
 			);
 			break;
 		}
-		transitions.stage_transition(*img.view._image, img.view._mip_levels, target_access);
+		transitions.stage_transition(*img.view._ptr, img.view._mip_levels, target_access);
 	}
 
 	void context::_create_descriptor_binding_impl(
@@ -857,7 +857,7 @@ namespace lotus::renderer {
 			);
 			break;
 		}
-		transitions.stage_transition(*img.view._image, img.view._mip_levels, target_access);
+		transitions.stage_transition(*img.view._ptr, img.view._mip_levels, target_access);
 	}
 
 	void context::_create_descriptor_binding_impl(
@@ -881,19 +881,19 @@ namespace lotus::renderer {
 		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
 		const descriptor_resource::structured_buffer &buf
 	) {
-		_maybe_create_buffer(*buf.data._buffer);
+		_maybe_create_buffer(*buf.data._ptr);
 		switch (buf.binding_type) {
 		case buffer_binding_type::read_only:
 			_device.write_descriptor_set_read_only_structured_buffers(
 				set, layout, reg,
 				{
 					gpu::structured_buffer_view(
-						buf.data._buffer->data, buf.data._first, buf.data._count, buf.data._stride
+						buf.data._ptr->data, buf.data._first, buf.data._count, buf.data._stride
 					)
 				}
 			);
 			transitions.stage_transition(
-				*buf.data._buffer,
+				*buf.data._ptr,
 				_details::buffer_access(
 					gpu::synchronization_point_mask::all, gpu::buffer_access_mask::shader_read
 				)
@@ -904,12 +904,12 @@ namespace lotus::renderer {
 				set, layout, reg,
 				{
 					gpu::structured_buffer_view(
-						buf.data._buffer->data, buf.data._first, buf.data._count, buf.data._stride
+						buf.data._ptr->data, buf.data._first, buf.data._count, buf.data._stride
 					)
 				}
 			);
 			transitions.stage_transition(
-				*buf.data._buffer,
+				*buf.data._ptr,
 				_details::buffer_access(
 					gpu::synchronization_point_mask::all,
 					gpu::buffer_access_mask::shader_read | gpu::buffer_access_mask::shader_write
@@ -1146,11 +1146,11 @@ namespace lotus::renderer {
 	void context::_handle_command(execution::context &ectx, context_commands::upload_image &img) {
 		auto dest = img.destination;
 		dest._mip_levels = gpu::mip_levels::only(dest._mip_levels.minimum);
-		_maybe_create_image(*dest._image);
+		_maybe_create_image(*dest._ptr);
 
 		auto mip_level = dest._mip_levels.minimum;
 
-		cvec2u32 size = dest._image->size;
+		cvec2u32 size = dest._ptr->size;
 		size = vec::memberwise_operation([&](std::uint32_t v) {
 			return std::max<std::uint32_t>(1, v >> mip_level);
 		}, size);
@@ -1161,7 +1161,7 @@ namespace lotus::renderer {
 			{ gpu::synchronization_point_mask::copy, gpu::buffer_access_mask::copy_source }
 		);
 		ectx.transitions.stage_transition(
-			*dest._image,
+			*dest._ptr,
 			dest._mip_levels,
 			_details::image_access(
 				gpu::synchronization_point_mask::copy,
@@ -1172,7 +1172,7 @@ namespace lotus::renderer {
 		ectx.flush_transitions();
 		ectx.get_command_list().copy_buffer_to_image(
 			img.source.data, 0, img.source.meta,
-			dest._image->image, gpu::subresource_index::create_color(mip_level, 0), zero
+			dest._ptr->image, gpu::subresource_index::create_color(mip_level, 0), zero
 		);
 	}
 
@@ -1227,14 +1227,14 @@ namespace lotus::renderer {
 				auto img = std::get<recorded_resources::image2d_view>(rt.view).highest_mip_with_warning();
 				color_rts.emplace_back(&_request_image_view(ectx, img));
 				color_rt_formats.emplace_back(img._view_format);
-				ectx.transitions.stage_transition(*img._image, img._mip_levels, access);
-				assert(img._image->size == cmd.render_target_size);
+				ectx.transitions.stage_transition(*img._ptr, img._mip_levels, access);
+				crash_if(img._ptr->size != cmd.render_target_size);
 			} else if (std::holds_alternative<recorded_resources::swap_chain>(rt.view)) {
 				auto &chain = std::get<recorded_resources::swap_chain>(rt.view);
 				color_rts.emplace_back(&_request_image_view(ectx, chain));
 				color_rt_formats.emplace_back(chain._ptr->current_format);
 				ectx.transitions.stage_transition(*chain._ptr, access);
-				assert(chain._ptr->current_size == cmd.render_target_size);
+				crash_if(chain._ptr->current_size != cmd.render_target_size);
 			} else {
 				std::abort(); // unhandled
 			}
@@ -1242,12 +1242,12 @@ namespace lotus::renderer {
 		}
 		gpu::image2d_view *depth_stencil_rt = nullptr;
 		if (cmd.depth_stencil_target.view) {
-			assert(cmd.depth_stencil_target.view._image->size == cmd.render_target_size);
+			crash_if(cmd.depth_stencil_target.view._ptr->size != cmd.render_target_size);
 			auto img = cmd.depth_stencil_target.view.highest_mip_with_warning();
 			depth_stencil_rt = &_request_image_view(ectx, img);
 			ds_rt_format = img._view_format;
 			ectx.transitions.stage_transition(
-				*img._image,
+				*img._ptr,
 				img._mip_levels,
 				// TODO use depth_stencil_read_only if none of the draw calls write them
 				_details::image_access(
@@ -1451,18 +1451,12 @@ namespace lotus::renderer {
 			auto &batch = _all_resources.front();
 			
 			for (const auto &img : batch.image2d_meta) {
-				for (const auto &array_ref : img->array_references) {
-					if (array_ref.array->set) {
-						std::initializer_list<const gpu::image_view_base*> images = { nullptr };
-						(_device.*_device.get_write_image_descriptor_function(array_ref.array->type))(
-							array_ref.array->set,
-							_cache.get_descriptor_set_layout(
-								cache_keys::descriptor_set_layout::for_descriptor_array(array_ref.array->type)
-							),
-							array_ref.index,
-							images
-						);
-					}
+				while (!img->array_references.empty()) {
+					_write_one_descriptor_array_element(
+						*img->array_references.back().array,
+						recorded_resources::image2d_view(nullptr),
+						img->array_references.back().index
+					);
 				}
 				if (img->memory) {
 					img->memory_pool->free(img->memory);
@@ -1476,6 +1470,13 @@ namespace lotus::renderer {
 			}
 
 			for (const auto &buf : batch.buffer_meta) {
+				while (!buf->array_references.empty()) {
+					_write_one_descriptor_array_element(
+						*buf->array_references.back().array,
+						recorded_resources::structured_buffer_view(nullptr),
+						buf->array_references.back().index
+					);
+				}
 				if (buf->memory) {
 					buf->memory_pool->free(buf->memory);
 				}

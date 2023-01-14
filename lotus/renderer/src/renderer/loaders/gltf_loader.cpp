@@ -23,6 +23,9 @@ namespace lotus::renderer::gltf {
 		}
 
 		const auto &accessor = model.accessors[accessor_index];
+		if (accessor.count == 0) {
+			return nullptr;
+		}
 		const auto &buffer_view = model.bufferViews[accessor.bufferView];
 		int stride = accessor.ByteStride(buffer_view);
 		int component_type = accessor.componentType;
@@ -261,7 +264,8 @@ namespace lotus::renderer::gltf {
 					geom.topology = gpu::primitive_topology::triangle_strip;
 					break;
 				default:
-					assert(false); // unhandled
+					log().error<u8"Unhandled topology: {}, falling back to points">(prim.mode);
+					geom.topology = gpu::primitive_topology::point_list;
 					break;
 				}
 
@@ -305,7 +309,7 @@ namespace lotus::renderer::gltf {
 				images[model.textures[mat.pbrMetallicRoughness.baseColorTexture.index].source];
 			mat_data->normal_texture =
 				mat.normalTexture.index < 0 ?
-				nullptr :
+				_asset_manager.get_default_normal_image() :
 				images[model.textures[mat.normalTexture.index].source];
 			mat_data->properties_texture =
 				mat.pbrMetallicRoughness.metallicRoughnessTexture.index < 0 ?

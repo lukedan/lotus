@@ -512,12 +512,16 @@ namespace lotus::renderer::fbx {
 			// TODO can't use the static names provided by the library - link errors
 			mat_data->albedo_texture      = find_property_texture(mat, "DiffuseColor");
 			mat_data->normal_texture      = find_property_texture(mat, "NormalMap");
+			if (mat_data->normal_texture == nullptr) {
+				mat_data->normal_texture = _asset_manager.get_default_normal_image();
+			}
 			mat_data->properties_texture  = find_property_texture(mat, "ShininessExponent");
 			mat_data->properties2_texture = find_property_texture(mat, "TransparentColor");
 			if (auto diffuse = mat->FindProperty("DiffuseFactor"); diffuse.IsValid()) {
 				// TODO
 			}
 			// TODO
+
 			
 			mat_data->properties.albedo_multiplier    = cvec4f(1.0f, 1.0f, 1.0f, 1.0f);
 			mat_data->properties.normal_scale         = 1.0f;

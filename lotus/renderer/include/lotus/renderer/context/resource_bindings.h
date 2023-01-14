@@ -54,14 +54,14 @@ namespace lotus::renderer {
 
 			/// Returns whether this object holds a valid image.
 			[[nodiscard]] bool is_valid() const {
-				return _image;
+				return _ptr;
 			}
 			/// \overload
 			[[nodiscard]] explicit operator bool() const {
 				return is_valid();
 			}
 		private:
-			_details::image_data_t<Type> *_image = nullptr; ///< The image.
+			_details::image_data_t<Type> *_ptr = nullptr; ///< The image.
 			gpu::format _view_format = gpu::format::none; ///< The format of this image.
 			gpu::mip_levels _mip_levels; ///< Mip levels.
 		};
@@ -83,14 +83,14 @@ namespace lotus::renderer {
 
 			/// Returns whether this object holds a valid buffer.
 			[[nodiscard]] bool is_valid() const {
-				return _buffer;
+				return _ptr;
 			}
 			/// \overload
 			[[nodiscard]] explicit operator bool() const {
 				return is_valid();
 			}
 		private:
-			_details::buffer *_buffer = nullptr; ///< The buffer.
+			_details::buffer *_ptr = nullptr; ///< The buffer.
 			std::uint32_t _stride = 0; ///< Byte stride between elements.
 			std::uint32_t _first = 0; ///< The first buffer element.
 			std::uint32_t _count = 0; ///< Number of visible buffer elements.

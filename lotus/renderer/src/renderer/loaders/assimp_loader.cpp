@@ -223,6 +223,8 @@ namespace lotus::renderer::assimp {
 				data->normal_texture = current_texture();
 			} else if (mat->GetTexture(aiTextureType_NORMAL_CAMERA, 0, &tex_path) == aiReturn_SUCCESS) {
 				data->normal_texture = current_texture();
+			} else {
+				data->normal_texture = _asset_manager.get_default_normal_image();
 			}
 			if (mat->GetTexture(aiTextureType_SHININESS, 0, &tex_path) == aiReturn_SUCCESS) {
 				data->properties_texture = current_texture();

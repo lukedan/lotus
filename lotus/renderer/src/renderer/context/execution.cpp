@@ -53,7 +53,7 @@ namespace lotus::renderer::execution {
 		_image2d_transitions.emplace_back(img, mips, access);
 		for (const auto &ref : img.array_references) {
 			const auto &arr_img = ref.array->resources[ref.index].resource;
-			crash_if(arr_img._image != &img);
+			crash_if(arr_img._ptr != &img);
 			if (!gpu::mip_levels::intersection(arr_img._mip_levels, mips).is_empty()) {
 				ref.array->staged_transitions.emplace_back(ref.index);
 			}
@@ -69,7 +69,7 @@ namespace lotus::renderer::execution {
 	void transition_buffer::stage_transition(_details::buffer &buf, _details::buffer_access access) {
 		_buffer_transitions.emplace_back(buf, access);
 		for (const auto &ref : buf.array_references) {
-			crash_if(ref.array->resources[ref.index].resource._buffer != &buf);
+			crash_if(ref.array->resources[ref.index].resource._ptr != &buf);
 			ref.array->staged_transitions.emplace_back(ref.index);
 		}
 	}
@@ -84,11 +84,12 @@ namespace lotus::renderer::execution {
 		crash_if(layout == gpu::image_layout::undefined);
 		for (auto index : transitions) {
 			const auto &img = arr.resources[index].resource;
-			_image2d_transitions.emplace_back(
-				*img._image,
-				img._mip_levels,
-				_details::image_access(gpu::synchronization_point_mask::all, access, layout)
-			);
+			if (img._ptr) {
+				_image2d_transitions.emplace_back(
+					*img._ptr, img._mip_levels,
+					_details::image_access(gpu::synchronization_point_mask::all, access, layout)
+				);
+			}
 		}
 	}
 
@@ -97,12 +98,14 @@ namespace lotus::renderer::execution {
 		std::sort(transitions.begin(), transitions.end());
 		transitions.erase(std::unique(transitions.begin(), transitions.end()), transitions.end());
 		auto access = gpu::to_buffer_access_mask(arr.type);
-		assert(access != gpu::buffer_access_mask::none);
+		crash_if(access == gpu::buffer_access_mask::none);
 		for (auto index : transitions) {
 			const auto &buf = arr.resources[index].resource;
-			_buffer_transitions.emplace_back(
-				*buf._buffer, _details::buffer_access(gpu::synchronization_point_mask::all, access)
-			);
+			if (buf._ptr) {
+				_buffer_transitions.emplace_back(
+					*buf._ptr, _details::buffer_access(gpu::synchronization_point_mask::all, access)
+				);
+			}
 		}
 	}
 
@@ -446,9 +449,9 @@ namespace lotus::renderer::execution {
 				// TODO batch writes
 				if (rsrc.resource) {
 					rsrc.view.value = _ctx._device.create_image2d_view_from(
-						rsrc.resource._image->image, rsrc.resource._view_format, rsrc.resource._mip_levels
+						rsrc.resource._ptr->image, rsrc.resource._view_format, rsrc.resource._mip_levels
 					);
-					_ctx._device.set_debug_name(rsrc.view.value, rsrc.resource._image->name);
+					_ctx._device.set_debug_name(rsrc.view.value, rsrc.resource._ptr->name);
 				}
 				std::initializer_list<const gpu::image_view_base*> views = { &rsrc.view.value };
 				(_ctx._device.*write_func)(arr.set, layout, index, views);
@@ -478,8 +481,8 @@ namespace lotus::renderer::execution {
 				// TODO batch writes
 				gpu::structured_buffer_view view = nullptr;
 				if (buf) {
-					assert((buf._first + buf._count) * buf._stride <= buf._buffer->size);
-					view = gpu::structured_buffer_view(buf._buffer->data, buf._first, buf._count, buf._stride);
+					crash_if((buf._first + buf._count) * buf._stride > buf._ptr->size);
+					view = gpu::structured_buffer_view(buf._ptr->data, buf._first, buf._count, buf._stride);
 				}
 				std::initializer_list<gpu::structured_buffer_view> views = { view };
 				(_ctx._device.*write_func)(arr.set, layout, index, views);

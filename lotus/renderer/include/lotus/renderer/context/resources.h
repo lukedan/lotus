@@ -855,7 +855,7 @@ namespace lotus::renderer {
 
 		template <gpu::image_type Type> basic_image_view<Type>::basic_image_view(
 			const renderer::image_view_base<Type> &view
-		) : _image(view._ptr.get()), _view_format(view._view_format), _mip_levels(view._mip_levels) {
+		) : _ptr(view._ptr.get()), _view_format(view._view_format), _mip_levels(view._mip_levels) {
 		}
 
 		template <
@@ -863,12 +863,12 @@ namespace lotus::renderer {
 		> basic_image_view<Type> basic_image_view<Type>::highest_mip_with_warning() const {
 			basic_image_view<Type> result = *this;
 			if (result._mip_levels.get_num_levels() != 1) {
-				if (result._image->num_mips - result._mip_levels.minimum > 1) {
+				if (result._ptr->num_mips - result._mip_levels.minimum > 1) {
 					auto num_levels =
-						std::min<std::uint32_t>(result._image->num_mips, result._mip_levels.maximum) -
+						std::min<std::uint32_t>(result._ptr->num_mips, result._mip_levels.maximum) -
 						result._mip_levels.minimum;
 					log().error<u8"More than one ({}) mip specified for render target for texture {}">(
-						num_levels, string::to_generic(result._image->name)
+						num_levels, string::to_generic(result._ptr->name)
 					);
 				}
 				result._mip_levels = gpu::mip_levels::only(result._mip_levels.minimum);

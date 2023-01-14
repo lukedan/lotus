@@ -6,7 +6,7 @@
 namespace lotus::renderer {
 	namespace recorded_resources {
 		structured_buffer_view::structured_buffer_view(const renderer::structured_buffer_view &view) :
-			_buffer(view._ptr.get()), _stride(view._stride), _first(view._first), _count(view._count) {
+			_ptr(view._ptr.get()), _stride(view._stride), _first(view._first), _count(view._count) {
 		}
 	}
 

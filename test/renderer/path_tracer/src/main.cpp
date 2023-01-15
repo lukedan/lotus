@@ -67,10 +67,10 @@ int main(int argc, char **argv) {
 
 	auto rctx = lren::context::create(gctx, dev_prop, gdev, cmd_queue);
 	auto asset_man = lren::assets::manager::create(rctx, &shader_util);
-	asset_man.shader_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders";
+	asset_man.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets/";
 	asset_man.additional_shader_includes = {
-		"D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders",
-		"D:/Documents/Projects/lotus/test/renderer/common/include",
+		asset_man.asset_library_path / "shaders/",
+		"D:/Documents/Projects/lotus/test/renderer/common/include/",
 	};
 
 	auto runtime_buf_pool = rctx.request_pool(u8"Run-time Buffers");
@@ -96,10 +96,10 @@ int main(int argc, char **argv) {
 #endif
 
 	auto blit_vs = asset_man.compile_shader_in_filesystem(
-		asset_man.shader_library_path / "utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs", {}
+		asset_man.asset_library_path / "shaders/utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs", {}
 	);
 	auto blit_ps = asset_man.compile_shader_in_filesystem(
-		asset_man.shader_library_path / "utils/blit_ps.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps", {}
+		asset_man.asset_library_path / "shaders/utils/blit_ps.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps", {}
 	);
 
 	auto resolve_ps = asset_man.compile_shader_in_filesystem("src/shaders/rt_resolve.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps", {});

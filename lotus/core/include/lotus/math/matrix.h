@@ -453,18 +453,29 @@ namespace lotus {
 		/// Applies the memberwise operator to the given matrices and returns the result.
 		template <
 			std::size_t R, std::size_t C, typename ...Types, typename Operator
-		> [[nodiscard]] constexpr inline static matrix<
-			R, C, std::invoke_result_t<Operator, const Types&...>
+		> [[nodiscard]] constexpr inline static std::conditional_t<
+			std::is_same_v<std::invoke_result_t<Operator, const Types&...>, void>,
+			void,
+			matrix<R, C, std::invoke_result_t<Operator, const Types&...>>
 		> memberwise_operation(
 			Operator op, const matrix<R, C, Types> &...mats
 		) {
-			matrix<R, C, std::invoke_result_t<Operator, const Types&...>> result = zero;
-			for (std::size_t y = 0; y < R; ++y) {
-				for (std::size_t x = 0; x < C; ++x) {
-					result(y, x) = op(mats(y, x)...);
+			using _result_type = std::invoke_result_t<Operator, const Types&...>;
+			if constexpr (std::is_same_v<_result_type, void>) {
+				for (std::size_t y = 0; y < R; ++y) {
+					for (std::size_t x = 0; x < C; ++x) {
+						op(mats(y, x)...);
+					}
 				}
+			} else {
+				matrix<R, C, _result_type> result = zero;
+				for (std::size_t y = 0; y < R; ++y) {
+					for (std::size_t x = 0; x < C; ++x) {
+						result(y, x) = op(mats(y, x)...);
+					}
+				}
+				return result;
 			}
-			return result;
 		}
 		/// Memberwise multiplication of the two matrices.
 		template <

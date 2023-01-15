@@ -8,107 +8,6 @@
 #include "lotus/gpu/backends/common/dxgi_format.h"
 
 namespace lotus::dds {
-	// https://github.com/microsoft/DirectXTex/blob/main/DDSTextureLoader/DDSTextureLoader12.cpp, GetDXGIFormat()
-	gpu::format pixel_format::infer_format() const {
-		if (!is_empty(flags & pixel_format_flags::rgb)) {
-			switch (rgb_bit_count) {
-			case 32:
-				if (is_bit_mask(0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000)) {
-					return gpu::format::r8g8b8a8_unorm;
-				}
-				if (is_bit_mask(0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000)) {
-					return gpu::format::b8g8r8a8_unorm;
-				}
-				if (is_bit_mask(0x0000FFFF, 0xFFFF0000, 0, 0)) {
-					return gpu::format::r16g16_unorm;
-				}
-				if (is_bit_mask(0xFFFFFFFF, 0, 0, 0)) {
-					return gpu::format::r32_float;
-				}
-				// TODO
-				break;
-
-			case 16:
-				if (is_bit_mask(0x00FF, 0, 0, 0xFF00)) {
-					return gpu::format::r8g8_unorm;
-				}
-				if (is_bit_mask(0xFFFF, 0, 0, 0)) {
-					return gpu::format::r16_unorm;
-				}
-				// TODO
-				break;
-
-			case 8:
-				if (is_bit_mask(0xFF, 0, 0, 0)) {
-					return gpu::format::r8_unorm;
-				}
-				break;
-			}
-		} else if (!is_empty(flags & pixel_format_flags::luminance)) {
-			switch (rgb_bit_count) {
-			case 16:
-				if (is_bit_mask(0xFFFF, 0, 0, 0)) {
-					return gpu::format::r16_unorm;
-				}
-				if (is_bit_mask(0x00FF, 0, 0, 0xFF00)) {
-					return gpu::format::r8g8_unorm;
-				}
-				break;
-
-			case 8:
-				if (is_bit_mask(0xFF, 0, 0, 0)) {
-					return gpu::format::r8_unorm;
-				}
-				if (is_bit_mask(0x00FF, 0, 0, 0xFF00)) {
-					return gpu::format::r8g8_unorm;
-				}
-				break;
-			}
-		} else if (!is_empty(flags & pixel_format_flags::alpha)) {
-			if (rgb_bit_count == 8) {
-				// TODO
-			}
-		} else if (!is_empty(flags & pixel_format_flags::bump_dudv)) {
-			switch (rgb_bit_count) {
-			case 32:
-				if (is_bit_mask(0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000)) {
-					return gpu::format::r8g8b8a8_snorm;
-				}
-				if (is_bit_mask(0x0000FFFF, 0xFFFF0000, 0, 0)) {
-					return gpu::format::r16g16_snorm;
-				}
-				break;
-
-			case 16:
-				if (is_bit_mask(0x00FF, 0xFF00, 0, 0)) {
-					return gpu::format::r8g8_snorm;
-				}
-				break;
-			}
-		} else if (!is_empty(flags & pixel_format_flags::four_cc)) {
-			auto fmt = loader::four_cc_to_format(four_cc);
-			if (fmt == gpu::format::none) {
-				log().error<u8"Unsupported four-character code: {:X}, '{}{}{}{}'">(
-					four_cc,
-					static_cast<char>( four_cc        & 0xFF),
-					static_cast<char>((four_cc >> 8)  & 0xFF),
-					static_cast<char>((four_cc >> 16) & 0xFF),
-					static_cast<char>((four_cc >> 24) & 0xFF)
-				);
-			}
-			return fmt;
-		}
-		log().error<
-			u8"Unsupported pixel format, flags: {:X}, bit count: {}, "
-			u8"r: {:010X}, g: {:010X}, b: {:010X}, a: {:010X}"
-		>(
-			static_cast<std::underlying_type_t<pixel_format_flags>>(flags), rgb_bit_count,
-			r_bit_mask, g_bit_mask, b_bit_mask, a_bit_mask
-		);
-		return gpu::format::none;
-	}
-
-
 	gpu::format loader::four_cc_to_format(std::uint32_t four_cc) {
 		switch (four_cc) {
 		case 36:  return gpu::format::r16g16b16a16_unorm;
@@ -135,6 +34,106 @@ namespace lotus::dds {
 		case make_four_character_code(u8"YUV2"): return gpu::format::none; // TODO D3DFMT_YUV2
 		default: return gpu::format::none; // unknown
 		}
+	}
+
+	// https://github.com/microsoft/DirectXTex/blob/main/DDSTextureLoader/DDSTextureLoader12.cpp, GetDXGIFormat()
+	gpu::format loader::infer_format_from(const pixel_format &fmt) {
+		if (!is_empty(fmt.flags & pixel_format_flags::rgb)) {
+			switch (fmt.rgb_bit_count) {
+			case 32:
+				if (fmt.is_bit_mask(0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000)) {
+					return gpu::format::r8g8b8a8_unorm;
+				}
+				if (fmt.is_bit_mask(0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000)) {
+					return gpu::format::b8g8r8a8_unorm;
+				}
+				if (fmt.is_bit_mask(0x0000FFFF, 0xFFFF0000, 0, 0)) {
+					return gpu::format::r16g16_unorm;
+				}
+				if (fmt.is_bit_mask(0xFFFFFFFF, 0, 0, 0)) {
+					return gpu::format::r32_float;
+				}
+				// TODO
+				break;
+
+			case 16:
+				if (fmt.is_bit_mask(0x00FF, 0, 0, 0xFF00)) {
+					return gpu::format::r8g8_unorm;
+				}
+				if (fmt.is_bit_mask(0xFFFF, 0, 0, 0)) {
+					return gpu::format::r16_unorm;
+				}
+				// TODO
+				break;
+
+			case 8:
+				if (fmt.is_bit_mask(0xFF, 0, 0, 0)) {
+					return gpu::format::r8_unorm;
+				}
+				break;
+			}
+		} else if (!is_empty(fmt.flags & pixel_format_flags::luminance)) {
+			switch (fmt.rgb_bit_count) {
+			case 16:
+				if (fmt.is_bit_mask(0xFFFF, 0, 0, 0)) {
+					return gpu::format::r16_unorm;
+				}
+				if (fmt.is_bit_mask(0x00FF, 0, 0, 0xFF00)) {
+					return gpu::format::r8g8_unorm;
+				}
+				break;
+
+			case 8:
+				if (fmt.is_bit_mask(0xFF, 0, 0, 0)) {
+					return gpu::format::r8_unorm;
+				}
+				if (fmt.is_bit_mask(0x00FF, 0, 0, 0xFF00)) {
+					return gpu::format::r8g8_unorm;
+				}
+				break;
+			}
+		} else if (!is_empty(fmt.flags & pixel_format_flags::alpha)) {
+			if (fmt.rgb_bit_count == 8) {
+				// TODO
+			}
+		} else if (!is_empty(fmt.flags & pixel_format_flags::bump_dudv)) {
+			switch (fmt.rgb_bit_count) {
+			case 32:
+				if (fmt.is_bit_mask(0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000)) {
+					return gpu::format::r8g8b8a8_snorm;
+				}
+				if (fmt.is_bit_mask(0x0000FFFF, 0xFFFF0000, 0, 0)) {
+					return gpu::format::r16g16_snorm;
+				}
+				break;
+
+			case 16:
+				if (fmt.is_bit_mask(0x00FF, 0xFF00, 0, 0)) {
+					return gpu::format::r8g8_snorm;
+				}
+				break;
+			}
+		} else if (!is_empty(fmt.flags & pixel_format_flags::four_cc)) {
+			auto gpu_fmt = four_cc_to_format(fmt.four_cc);
+			if (gpu_fmt == gpu::format::none) {
+				log().error<u8"Unsupported four-character code: {:X}, '{}{}{}{}'">(
+					fmt.four_cc,
+					static_cast<char>( fmt.four_cc        & 0xFF),
+					static_cast<char>((fmt.four_cc >> 8)  & 0xFF),
+					static_cast<char>((fmt.four_cc >> 16) & 0xFF),
+					static_cast<char>((fmt.four_cc >> 24) & 0xFF)
+				);
+			}
+			return gpu_fmt;
+		}
+		log().error<
+			u8"Unsupported pixel format, flags: {:X}, bit count: {}, "
+			u8"r: {:010X}, g: {:010X}, b: {:010X}, a: {:010X}"
+		>(
+			static_cast<std::underlying_type_t<pixel_format_flags>>(fmt.flags), fmt.rgb_bit_count,
+			fmt.r_bit_mask, fmt.g_bit_mask, fmt.b_bit_mask, fmt.a_bit_mask
+		);
+		return gpu::format::none;
 	}
 
 	std::optional<loader> loader::create(std::span<const std::byte> data) {
@@ -220,7 +219,7 @@ namespace lotus::dds {
 				break;
 			}
 		} else {
-			result._format = dds_header.pixel_format.infer_format();
+			result._format = infer_format_from(dds_header.pixel_format);
 			if (result._format == gpu::format::none) {
 				log().debug<u8"Cannot deduce pixel format">();
 				return std::nullopt;

@@ -42,9 +42,9 @@ int main(int argc, char **argv) {
 
 	auto rctx = lren::context::create(gctx, gdev_props, gdev, cmd_queue);
 	auto ass_man = lren::assets::manager::create(rctx, &shader_utils);
-	ass_man.shader_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders";
+	ass_man.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets";
 	ass_man.additional_shader_includes = {
-		"D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders",
+		ass_man.asset_library_path / "shaders/",
 	};
 
 	auto resource_pool = rctx.request_pool(u8"Resource Pool");

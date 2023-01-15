@@ -52,9 +52,9 @@ int main(int argc, char **argv) {
 
 	auto rctx = lren::context::create(gctx, gprop, gdev, gcmdq);
 	auto rassets = lren::assets::manager::create(rctx, &gshu);
-	rassets.shader_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders";
+	rassets.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets";
 	rassets.additional_shader_includes = {
-		"D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/shaders",
+		rassets.asset_library_path / "shaders",
 		"D:/Documents/Projects/lotus/test/renderer/common/include",
 	};
 
@@ -75,10 +75,13 @@ int main(int argc, char **argv) {
 	cvec2u32 window_size = zero;
 	std::uint32_t frame_index = 0;
 
+	auto runtime_tex_pool = rctx.request_pool(u8"Run-time Textures");
+	auto runtime_buf_pool = rctx.request_pool(u8"Run-time Buffers");
+
 	auto swapchain = rctx.request_swap_chain(u8"Main Swap Chain", wnd, 2, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb });
 
-	auto fs_quad_vs           = rassets.compile_shader_in_filesystem(rassets.shader_library_path / "utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs");
-	auto blit_ps              = rassets.compile_shader_in_filesystem(rassets.shader_library_path / "utils/blit_ps.hlsl",            lgpu::shader_stage::pixel_shader, u8"main_ps");
+	auto fs_quad_vs           = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs");
+	auto blit_ps              = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/utils/blit_ps.hlsl",            lgpu::shader_stage::pixel_shader, u8"main_ps");
 	auto fill_buffer_cs       = rassets.compile_shader_in_filesystem("src/shaders/fill_buffer.hlsl",           lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto fill_texture3d_cs    = rassets.compile_shader_in_filesystem("src/shaders/fill_texture3d.hlsl",        lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto show_gbuffer_ps      = rassets.compile_shader_in_filesystem("src/shaders/gbuffer_visualization.hlsl", lgpu::shader_stage::pixel_shader,   u8"main_ps");
@@ -96,8 +99,7 @@ int main(int argc, char **argv) {
 	auto taa_cs                    = rassets.compile_shader_in_filesystem("src/shaders/taa.hlsl",                    lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto lighting_blit_ps          = rassets.compile_shader_in_filesystem("src/shaders/lighting_blit.hlsl",          lgpu::shader_stage::pixel_shader,   u8"main_ps");
 
-	auto runtime_tex_pool = rctx.request_pool(u8"Run-time Textures");
-	auto runtime_buf_pool = rctx.request_pool(u8"Run-time Buffers");
+	auto envmap_lut = rassets.get_image2d(lren::assets::identifier(rassets.asset_library_path / "envmap_lut.dds"), runtime_tex_pool);
 
 	auto cam_params = lotus::camera_parameters<float>::create_look_at(zero, cvec3f(100.0f, 100.0f, 100.0f));
 	camera_control<float> cam_control(cam_params);

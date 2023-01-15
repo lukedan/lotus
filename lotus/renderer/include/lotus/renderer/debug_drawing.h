@@ -43,17 +43,17 @@ namespace lotus::renderer {
 			debug_renderer result(man);
 
 			result._vertex_shader_untextured = man.compile_shader_in_filesystem(
-				man.shader_library_path / "utils/debug_untextured.hlsl", gpu::shader_stage::vertex_shader, u8"main_vs"
+				man.asset_library_path / "shaders/utils/debug_untextured.hlsl", gpu::shader_stage::vertex_shader, u8"main_vs"
 			);
 			result._pixel_shader_untextured = man.compile_shader_in_filesystem(
-				man.shader_library_path / "utils/debug_untextured.hlsl", gpu::shader_stage::pixel_shader, u8"main_ps"
+				man.asset_library_path / "shaders/utils/debug_untextured.hlsl", gpu::shader_stage::pixel_shader, u8"main_ps"
 			);
 
 			result._vertex_shader_textured = man.compile_shader_in_filesystem(
-				man.shader_library_path / "utils/debug_textured.hlsl", gpu::shader_stage::vertex_shader, u8"main_vs"
+				man.asset_library_path / "shaders/utils/debug_textured.hlsl", gpu::shader_stage::vertex_shader, u8"main_vs"
 			);
 			result._pixel_shader_textured = man.compile_shader_in_filesystem(
-				man.shader_library_path / "utils/debug_textured.hlsl", gpu::shader_stage::pixel_shader, u8"main_ps"
+				man.asset_library_path / "shaders/utils/debug_textured.hlsl", gpu::shader_stage::pixel_shader, u8"main_ps"
 			);
 
 			return result;

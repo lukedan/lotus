@@ -36,7 +36,8 @@ namespace lotus::renderer::execution {
 	/// A batch of resources.
 	struct batch_resources {
 		/// Initializes this object to empty.
-		batch_resources(std::nullptr_t) : timestamp_heap(nullptr) {
+		batch_resources(std::nullptr_t) :
+			main_cmd_alloc(nullptr), transient_cmd_alloc(nullptr), timestamp_heap(nullptr) {
 		}
 
 		std::deque<gpu::descriptor_set>            descriptor_sets;        ///< Descriptor sets.
@@ -58,6 +59,9 @@ namespace lotus::renderer::execution {
 		std::vector<std::unique_ptr<_details::image3d>>    image3d_meta;    ///< 3D images to be disposed next frame.
 		std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain to be disposed next frame.
 		std::vector<std::unique_ptr<_details::buffer>>     buffer_meta;     ///< Buffers to be disposed next frame.
+
+		gpu::command_allocator main_cmd_alloc; ///< Main command allocator.
+		gpu::command_allocator transient_cmd_alloc; ///< Transient command allocator.
 
 		gpu::timestamp_query_heap timestamp_heap; ///< Timestamp query heap for this batch.
 		std::vector<timestamp_data> timestamps; ///< All recorded timers.

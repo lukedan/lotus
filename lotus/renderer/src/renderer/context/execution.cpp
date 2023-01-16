@@ -316,7 +316,7 @@ namespace lotus::renderer::execution {
 
 	gpu::command_list &context::get_command_list() {
 		if (!_list) {
-			_list = &record(_ctx._device.create_and_start_command_list(_ctx._cmd_alloc));
+			_list = &record(_ctx._device.create_and_start_command_list(_resources.main_cmd_alloc));
 		}
 		return *_list;
 	}
@@ -397,7 +397,7 @@ namespace lotus::renderer::execution {
 			// use these constant buffers
 			// alternatively, we can scan all commands for immediate constant buffers
 			auto &cmd_list = _resources.record(
-				_ctx._device.create_and_start_command_list(_ctx._transient_cmd_alloc)
+				_ctx._device.create_and_start_command_list(_resources.transient_cmd_alloc)
 			);
 			cmd_list.insert_marker(u8"Flush immediate constant buffers", linear_rgba_u8(255, 255, 0, 255));
 			cmd_list.copy_buffer(

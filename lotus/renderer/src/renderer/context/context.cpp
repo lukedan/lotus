@@ -382,10 +382,14 @@ namespace lotus::renderer {
 		}
 	};
 	void context::flush() {
+		constexpr bool _insert_pass_markers = decltype(context_command::description)::is_enabled;
+
 		crash_if(std::this_thread::get_id() != _thread);
 
 		++_batch_index;
 		_all_resources.emplace_back(std::exchange(_deferred_delete_resources, nullptr));
+		_all_resources.back().main_cmd_alloc = _device.create_command_allocator();
+		_all_resources.back().transient_cmd_alloc = _device.create_command_allocator();
 
 		if (_uploads) {
 			_uploads.flush();
@@ -427,9 +431,18 @@ namespace lotus::renderer {
 					++next_timestamp;
 				}
 
+				if constexpr (_insert_pass_markers) {
+					ectx.get_command_list().begin_marker_scope(
+						std::u8string(cmds[i].description.value),
+						linear_rgba_u8(128, 128, 255, 255)
+					);
+				}
 				std::visit([&, this](auto &cmd_val) {
 					_handle_command(ectx, cmd_val);
 				}, cmds[i].value);
+				if constexpr (_insert_pass_markers) {
+					ectx.get_command_list().end_marker_scope();
+				}
 
 				constexpr bool _debug_separate_commands = false;
 				if constexpr (_debug_separate_commands) {
@@ -498,8 +511,6 @@ namespace lotus::renderer {
 		gpu::command_queue &queue
 	) :
 		_device(dev), _context(ctx), _queue(queue),
-		_cmd_alloc(_device.create_command_allocator()),
-		_transient_cmd_alloc(_device.create_command_allocator()),
 		_descriptor_pool(_device.create_descriptor_pool({
 			gpu::descriptor_range::create(gpu::descriptor_type::acceleration_structure, 10240),
 			gpu::descriptor_range::create(gpu::descriptor_type::constant_buffer, 10240),
@@ -1081,6 +1092,7 @@ namespace lotus::renderer {
 		result.resources = &rsrc;
 
 		std::vector<cache_keys::graphics_pipeline::input_buffer_layout> input_layouts;
+		input_layouts.reserve(cmd.inputs.size());
 		for (const auto &input : cmd.inputs) {
 			input_layouts.emplace_back(input.elements, input.stride, input.buffer_index, input.input_rate);
 			ectx.transitions.stage_transition(

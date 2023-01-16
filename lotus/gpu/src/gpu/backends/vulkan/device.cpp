@@ -81,13 +81,12 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	command_allocator device::create_command_allocator() {
-		command_allocator alloc;
+		command_allocator alloc = nullptr;
 
 		vk::CommandPoolCreateInfo info;
 		info
 			.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
 			.setQueueFamilyIndex(_graphics_compute_queue_family_index);
-
 		// TODO allocator
 		alloc._pool = _details::unwrap(_device->createCommandPoolUnique(info));
 

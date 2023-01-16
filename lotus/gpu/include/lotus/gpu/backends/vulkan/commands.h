@@ -19,6 +19,10 @@ namespace lotus::gpu::backends::vulkan {
 	class command_allocator {
 		friend device;
 	protected:
+		/// Initializes this object to empty.
+		command_allocator(std::nullptr_t) {
+		}
+
 		/// Calls \p vk::Device::resetCommandPool().
 		void reset(device&);
 	private:

@@ -25,6 +25,10 @@ namespace lotus::gpu::backends::directx12 {
 		friend device;
 		friend command_list;
 	protected:
+		/// Initializes this object to empty.
+		command_allocator(std::nullptr_t) {
+		}
+
 		/// Calls \p ID3D12CommandAllocator::Reset().
 		void reset(device&);
 	private:

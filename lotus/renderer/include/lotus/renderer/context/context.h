@@ -657,9 +657,6 @@ namespace lotus::renderer {
 		gpu::device &_device;       ///< Associated device.
 		gpu::command_queue &_queue; ///< Associated command queue.
 
-		gpu::command_allocator _cmd_alloc; ///< Command allocator.
-		/// Command allocator for all command lists that are recorded and submitted immediately.
-		gpu::command_allocator _transient_cmd_alloc;
 		gpu::descriptor_pool _descriptor_pool; ///< Descriptor pool to allocate descriptors out of.
 		gpu::timeline_semaphore _batch_semaphore; ///< A semaphore that is signaled after each batch.
 

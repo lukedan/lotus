@@ -24,8 +24,19 @@ namespace lotus::gpu {
 	class command_allocator : public backend::command_allocator {
 		friend device;
 	public:
+		/// Initializes the object to empty.
+		command_allocator(std::nullptr_t) : backend::command_allocator(nullptr) {
+		}
+		/// Move constructor.
+		command_allocator(command_allocator &&src) : backend::command_allocator(std::move(src)) {
+		}
 		/// No copy construction.
 		command_allocator(const command_allocator&) = delete;
+		/// Move assignment.
+		command_allocator &operator=(command_allocator &&src) {
+			backend::command_allocator::operator=(std::move(src));
+			return *this;
+		}
 		/// No copy assignment.
 		command_allocator &operator=(const command_allocator&) = delete;
 
@@ -200,9 +211,17 @@ namespace lotus::gpu {
 		void insert_marker(const char8_t *name, linear_rgba_u8 color) {
 			backend::command_list::insert_marker(name, color);
 		}
+		/// \overload
+		void insert_marker(const std::u8string &name, linear_rgba_u8 color) {
+			insert_marker(name.c_str(), color);
+		}
 		/// Starts a scoped marker in the command list.
 		void begin_marker_scope(const char8_t *name, linear_rgba_u8 color) {
 			backend::command_list::begin_marker_scope(name, color);
+		}
+		/// \overload
+		void begin_marker_scope(const std::u8string &name, linear_rgba_u8 color) {
+			begin_marker_scope(name.c_str(), color);
 		}
 		/// Ends the current marker scope in the command list.
 		void end_marker_scope() {

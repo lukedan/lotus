@@ -51,7 +51,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	command_allocator device::create_command_allocator() {
-		command_allocator result;
+		command_allocator result = nullptr;
 		_details::assert_dx(_device->CreateCommandAllocator(
 			D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&result._allocator)
 		));

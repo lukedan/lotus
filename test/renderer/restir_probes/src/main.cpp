@@ -126,6 +126,8 @@ int main(int argc, char **argv) {
 	bool indirect_specular_use_visible_normals = true;
 	bool enable_indirect_specular_mis = true;
 	bool use_ss_indirect_specular = true;
+	bool approx_indirect_indirect_specular = true;
+	bool debug_approx_for_indirect = false;
 	bool update_probes = true;
 	bool update_probes_this_frame = false;
 	bool indirect_spatial_reuse = true;
@@ -445,6 +447,12 @@ int main(int argc, char **argv) {
 			lighting_constants.direct_diffuse_multiplier        = diffuse_mul;
 			lighting_constants.direct_specular_multiplier       = specular_mul;
 			lighting_constants.use_indirect                     = use_indirect_diffuse;
+			{
+				cvec2f envmaplut_size = envmap_lut->image.get_size().into<float>();
+				cvec2f rcp_size = lotus::vec::memberwise_reciprocal(envmaplut_size);
+				lighting_constants.envmaplut_uvscale = lotus::vec::memberwise_multiply(envmaplut_size - cvec2f::filled(1.0f), rcp_size);
+				lighting_constants.envmaplut_uvbias  = lotus::vec::memberwise_multiply(cvec2f::filled(0.5f), rcp_size);
+			}
 
 			if (update_probes || update_probes_this_frame) {
 				update_probes_this_frame = false;
@@ -611,9 +619,11 @@ int main(int argc, char **argv) {
 				auto tmr = rctx.start_timer(u8"Indirect Specular");
 
 				shader_types::indirect_specular_constants constants;
-				constants.enable_mis              = enable_indirect_specular_mis;
-				constants.use_screenspace_samples = use_ss_indirect_specular;
-				constants.frame_index             = frame_index;
+				constants.enable_mis                        = enable_indirect_specular_mis;
+				constants.use_screenspace_samples           = use_ss_indirect_specular;
+				constants.frame_index                       = frame_index;
+				constants.approx_indirect_indirect_specular = approx_indirect_indirect_specular;
+				constants.use_approx_for_everything         = debug_approx_for_indirect;
 				lren::all_resource_bindings resources(
 					{
 						{ 8, rassets.get_samplers() },
@@ -628,13 +638,14 @@ int main(int argc, char **argv) {
 						{ u8"indirect_sh1",              probe_sh1.bind_as_read_only() },
 						{ u8"indirect_sh2",              probe_sh2.bind_as_read_only() },
 						{ u8"indirect_sh3",              probe_sh3.bind_as_read_only() },
+						{ u8"diffuse_lighting",          light_diffuse.bind_as_read_only() },
+						{ u8"envmap_lut",                envmap_lut->image.bind_as_read_only() },
 						{ u8"out_specular",              indirect_specular.bind_as_read_write() },
 						{ u8"rtas",                      scene.tlas },
 						{ u8"gbuffer_albedo_glossiness", g_buf.albedo_glossiness.bind_as_read_only() },
 						{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
 						{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
 						{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
-						{ u8"diffuse_lighting",          light_diffuse.bind_as_read_only() },
 						{ u8"textures",                  rassets.get_images() },
 						{ u8"positions",                 scene.vertex_buffers },
 						{ u8"normals",                   scene.normal_buffers },
@@ -949,6 +960,8 @@ int main(int argc, char **argv) {
 						ImGui::Checkbox("Indirect Specular: Sample Visible Normals", &indirect_specular_use_visible_normals);
 						ImGui::Checkbox("Use Indirect Specular MIS", &enable_indirect_specular_mis);
 						ImGui::Checkbox("Use Screen-space Samples For Indirect Specular", &use_ss_indirect_specular);
+						ImGui::Checkbox("Approximation Indirect Indirect Specular", &approx_indirect_indirect_specular);
+						ImGui::Checkbox("Debug Use Approximation For All Indirect Specular", &debug_approx_for_indirect);
 						ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
 						ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");
 						ImGui::SliderFloat("SH RA Factor", &sh_ra_factor, 0.0f, 1.0f);

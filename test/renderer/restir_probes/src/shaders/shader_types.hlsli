@@ -65,6 +65,8 @@ struct lighting_constants {
 	float4x4 inverse_jittered_projection_view;
 	float4   camera;
 	float2   depth_linearization_constants;
+	float2   envmaplut_uvscale;
+	float2   envmaplut_uvbias;
 	uint2    screen_size;
 	uint     num_lights;
 	bool     trace_shadow_rays_for_naive;
@@ -78,6 +80,8 @@ struct lighting_constants {
 struct indirect_specular_constants {
 	bool enable_mis;
 	bool use_screenspace_samples;
+	bool approx_indirect_indirect_specular;
+	bool use_approx_for_everything;
 	uint frame_index;
 };
 

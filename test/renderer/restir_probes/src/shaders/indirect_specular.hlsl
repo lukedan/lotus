@@ -4,24 +4,24 @@
 
 #include "shading.hlsli"
 
-ConstantBuffer<probe_constants>               probe_consts    : register(b0, space0);
-ConstantBuffer<indirect_specular_constants>   constants       : register(b1, space0);
-ConstantBuffer<lighting_constants>            lighting_consts : register(b2, space0);
-StructuredBuffer<direct_lighting_reservoir>   direct_probes   : register(t3, space0);
-StructuredBuffer<indirect_lighting_reservoir> indirect_probes : register(t4, space0);
-Texture3D<float4>                             indirect_sh0    : register(t5, space0);
-Texture3D<float4>                             indirect_sh1    : register(t6, space0);
-Texture3D<float4>                             indirect_sh2    : register(t7, space0);
-Texture3D<float4>                             indirect_sh3    : register(t8, space0);
-RWTexture2D<float4>                           out_specular    : register(u9, space0);
-RaytracingAccelerationStructure               rtas            : register(t10, space0);
+ConstantBuffer<probe_constants>               probe_consts     : register(b0, space0);
+ConstantBuffer<indirect_specular_constants>   constants        : register(b1, space0);
+ConstantBuffer<lighting_constants>            lighting_consts  : register(b2, space0);
+StructuredBuffer<direct_lighting_reservoir>   direct_probes    : register(t3, space0);
+StructuredBuffer<indirect_lighting_reservoir> indirect_probes  : register(t4, space0);
+Texture3D<float4>                             indirect_sh0     : register(t5, space0);
+Texture3D<float4>                             indirect_sh1     : register(t6, space0);
+Texture3D<float4>                             indirect_sh2     : register(t7, space0);
+Texture3D<float4>                             indirect_sh3     : register(t8, space0);
+Texture2D<float3>                             diffuse_lighting : register(t9, space0);
+Texture2D<float2>                             envmap_lut       : register(t10, space0);
+RWTexture2D<float4>                           out_specular     : register(u11, space0);
+RaytracingAccelerationStructure               rtas             : register(t12, space0);
 
-Texture2D<float4> gbuffer_albedo_glossiness : register(t11, space0);
-Texture2D<float4> gbuffer_normal            : register(t12, space0);
-Texture2D<float4> gbuffer_metalness         : register(t13, space0);
-Texture2D<float>  gbuffer_depth             : register(t14, space0);
-
-Texture2D<float3> diffuse_lighting          : register(t15, space0);
+Texture2D<float4> gbuffer_albedo_glossiness : register(t13, space0);
+Texture2D<float4> gbuffer_normal            : register(t14, space0);
+Texture2D<float4> gbuffer_metalness         : register(t15, space0);
+Texture2D<float>  gbuffer_depth             : register(t16, space0);
 
 Texture2D<float4>        textures[]  : register(t0, space1);
 StructuredBuffer<float3> positions[] : register(t0, space2);
@@ -53,6 +53,20 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 	);
 	float3 view_vec = normalize(lighting_consts.camera.xyz - gbuf.fragment.position_ws);
 	float alpha = max(0.01f, squared(1.0f - gbuf.fragment.glossiness));
+
+	if (constants.use_approx_for_everything) {
+		sh::sh2 shr, shg, shb;
+		fetch_indirect_sh(
+			gbuf.fragment, indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
+			linear_clamp_sampler, probe_consts, shr, shg, shb
+		);
+		float3 irr = approximate_indirect_specular(
+			gbuf.fragment, view_vec, shr, shg, shb,
+			envmap_lut, linear_sampler, lighting_consts.envmaplut_uvscale, lighting_consts.envmaplut_uvbias
+		);
+		out_specular[dispatch_thread_id] = float4(irr, 0.0f);
+		return;
+	}
 
 	pcg32::state rng = pcg32::seed(dispatch_thread_id.y * 5003 + dispatch_thread_id.x * 3, constants.frame_index);
 
@@ -109,18 +123,27 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 
 			// direct
 			float3 diffuse_irr;
-			float3 direct_specular;
+			float3 specular_irr;
 			evaluate_reservoir_direct_lighting(
 				frag, -out_dir, direct_probes, all_lights, probe_consts, rng,
-				diffuse_irr, direct_specular
+				diffuse_irr, specular_irr
+			);
+
+			sh::sh2 shr, shg, shb;
+			fetch_indirect_sh(
+				frag, indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
+				linear_clamp_sampler, probe_consts, shr, shg, shb
 			);
 
 			// indirect diffuse
-			diffuse_irr += evaluate_indirect_diffuse(
-				frag,
-				indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
-				linear_clamp_sampler, probe_consts
-			);
+			diffuse_irr += evaluate_indirect_diffuse(frag, shr, shg, shb);
+
+			if (constants.approx_indirect_indirect_specular) { // indirect specular
+				specular_irr += approximate_indirect_specular(
+					frag, -out_dir, shr, shg, shb,
+					envmap_lut, linear_sampler, lighting_consts.envmaplut_uvscale, lighting_consts.envmaplut_uvbias
+				);
+			}
 
 			if (constants.use_screenspace_samples) {
 				float4 ss_pos = mul(lighting_consts.jittered_projection_view, float4(hit_position, 1.0f));
@@ -134,7 +157,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 				}
 			}
 
-			irradiance = diffuse_irr + direct_specular;
+			irradiance = diffuse_irr + specular_irr;
 		}
 	}
 

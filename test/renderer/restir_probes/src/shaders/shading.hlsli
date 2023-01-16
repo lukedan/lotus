@@ -108,14 +108,17 @@ void shade_direct_light(
 	specular = li.irradiance * li_data.attenuation * n_l * brdf_s;
 }
 
-float3 evaluate_indirect_diffuse(
+void fetch_indirect_sh(
 	material::shading_properties frag,
 	Texture3D<float4> tex_sh0,
 	Texture3D<float4> tex_sh1,
 	Texture3D<float4> tex_sh2,
 	Texture3D<float4> tex_sh3,
 	SamplerState linear_clamp_sampler,
-	probe_constants probe_consts
+	probe_constants probe_consts,
+	out sh::sh2 shr,
+	out sh::sh2 shg,
+	out sh::sh2 shb
 ) {
 	float3 pos = frag.position_ws + frag.normal_ws; // TODO better normal offset
 	float3 cell_f = probes::uv_from_position(pos, probe_consts);
@@ -124,13 +127,60 @@ float3 evaluate_indirect_diffuse(
 	float4 sh1 = tex_sh1.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
 	float4 sh2 = tex_sh2.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
 	float4 sh3 = tex_sh3.SampleLevel(linear_clamp_sampler, cell_f, 0.0f);
+
+	shr = (sh::sh2)float4(sh0.r, sh1.r, sh2.r, sh3.r);
+	shg = (sh::sh2)float4(sh0.g, sh1.g, sh2.g, sh3.g);
+	shb = (sh::sh2)float4(sh0.b, sh1.b, sh2.b, sh3.b);
+}
+
+float3 evaluate_indirect_diffuse(
+	material::shading_properties frag,
+	sh::sh2 shr,
+	sh::sh2 shg,
+	sh::sh2 shb
+) {
 	sh::sh2 cosine_lobe = sh::clamped_cosine::eval_sh2(frag.normal_ws);
 	float3 color = float3(
-		sh::integrate((sh::sh2)float4(sh0.r, sh1.r, sh2.r, sh3.r), cosine_lobe),
-		sh::integrate((sh::sh2)float4(sh0.g, sh1.g, sh2.g, sh3.g), cosine_lobe),
-		sh::integrate((sh::sh2)float4(sh0.b, sh1.b, sh2.b, sh3.b), cosine_lobe)
+		sh::integrate(shr, cosine_lobe),
+		sh::integrate(shg, cosine_lobe),
+		sh::integrate(shb, cosine_lobe)
 	);
 	return max(0.0f, color) * frag.albedo * ((1.0f - frag.metalness) / pi);
+}
+
+float3 approximate_indirect_specular(
+	material::shading_properties frag, float3 view,
+	sh::sh2 shr,
+	sh::sh2 shg,
+	sh::sh2 shb,
+	Texture2D<float2> envmap_lut,
+	SamplerState linear_sampler,
+	float2 envlut_uvscale, float2 envlut_uvbias
+) {
+	float roughness = 1.0f - frag.glossiness;
+
+	float n_dot_v = saturate(dot(view, frag.normal_ws));
+	float3 f0 = lerp(0.04f, frag.albedo, frag.metalness);
+	float2 lut_uv = float2(roughness, n_dot_v);
+	float2 lut_value = envmap_lut.SampleLevel(linear_sampler, lut_uv * envlut_uvscale + envlut_uvbias, 0);
+	float3 term2 = f0 * lut_value.x + lut_value.y;
+
+	// https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/Mesh.hlsl, PrefilteredSHSpecular()
+	float l1scale = 1.66711256633276f / (1.65715038133932f + roughness);
+	shr.b1 = shr.b1 * l1scale;
+	shg.b1 = shg.b1 * l1scale;
+	shb.b1 = shb.b1 * l1scale;
+
+	float3 light = -reflect(view, frag.normal_ws);
+	float3 lookup_dir = normalize(lerp(light, frag.normal_ws, saturate(roughness - 0.25f)));
+	sh::sh2 coefficients = sh::impulse::eval_sh2(lookup_dir);
+	float3 term1 = float3(
+		sh::integrate(shr, coefficients),
+		sh::integrate(shg, coefficients),
+		sh::integrate(shb, coefficients)
+	);
+
+	return term1 * term2;
 }
 
 void evaluate_reservoir_direct_lighting(
@@ -189,11 +239,12 @@ float3 shade_point(
 	);
 
 	// indirect diffuse
-	float3 indirect_diffuse = evaluate_indirect_diffuse(
-		frag,
-		indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
-		linear_clamp_sampler, probe_consts
+	sh::sh2 shr, shg, shb;
+	fetch_indirect_sh(
+		frag, indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
+		linear_clamp_sampler, probe_consts, shr, shg, shb
 	);
+	float3 indirect_diffuse = evaluate_indirect_diffuse(frag, shr, shg, shb);
 
 	return direct_diffuse + direct_specular + indirect_diffuse;
 }

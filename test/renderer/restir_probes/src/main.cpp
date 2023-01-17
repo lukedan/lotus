@@ -96,6 +96,8 @@ int main(int argc, char **argv) {
 	auto indirect_specular_cs      = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl",      lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto indirect_specular_vndf_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl",      lgpu::shader_stage::compute_shader, u8"main_cs", { { u8"SAMPLE_VISIBLE_NORMALS", u8""} });
 	auto lighting_cs               = rassets.compile_shader_in_filesystem("src/shaders/lighting.hlsl",               lgpu::shader_stage::compute_shader, u8"main_cs");
+	auto sky_vs                    = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs", { { u8"FULLSCREEN_QUAD_DEPTH", u8"0.0" } });
+	auto sky_ps                    = rassets.compile_shader_in_filesystem("src/shaders/sky.hlsl",                    lgpu::shader_stage::pixel_shader,   u8"main_ps");
 	auto taa_cs                    = rassets.compile_shader_in_filesystem("src/shaders/taa.hlsl",                    lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto lighting_blit_ps          = rassets.compile_shader_in_filesystem("src/shaders/lighting_blit.hlsl",          lgpu::shader_stage::pixel_shader,   u8"main_ps");
 
@@ -133,6 +135,7 @@ int main(int argc, char **argv) {
 	bool debug_approx_for_indirect = false;
 	bool update_probes = true;
 	bool update_probes_this_frame = false;
+	bool indirect_temporal_reuse = true;
 	bool indirect_spatial_reuse = true;
 	int indirect_spatial_reuse_visibility_test_mode = 1;
 	int gbuffer_visualization = 0;
@@ -458,6 +461,14 @@ int main(int argc, char **argv) {
 				lighting_constants.envmaplut_uvbias  = lotus::vec::memberwise_multiply(cvec2f::filled(0.5f), rcp_size);
 			}
 
+			uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
+			std::uint32_t num_indirect_reservoirs = num_probes * indirect_reservoirs_per_probe;
+			auto spatial_indirect_reservoirs = rctx.request_structured_buffer<shader_types::indirect_lighting_reservoir>(
+				u8"Indirect Lighting Reservoirs", num_indirect_reservoirs,
+				lgpu::buffer_usage_mask::shader_read | lgpu::buffer_usage_mask::shader_write,
+				runtime_buf_pool
+			);
+
 			if (update_probes || update_probes_this_frame) {
 				update_probes_this_frame = false;
 
@@ -491,6 +502,7 @@ int main(int argc, char **argv) {
 					indirect_update_constants.frame_index      = frame_index;
 					indirect_update_constants.sample_count_cap = indirect_sample_count_cap;
 					indirect_update_constants.sky_scale        = sky_scale;
+					indirect_update_constants.temporal_reuse   = indirect_temporal_reuse;
 
 					lren::all_resource_bindings resources(
 						{
@@ -527,13 +539,6 @@ int main(int argc, char **argv) {
 				if (indirect_spatial_reuse) { // indirect spatial reuse
 					auto tmr = rctx.start_timer(u8"Indirect Spatial Reuse");
 
-					uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
-					std::uint32_t num_indirect_reservoirs = num_probes * indirect_reservoirs_per_probe;
-					auto new_indirect_reservoirs = rctx.request_structured_buffer<shader_types::indirect_lighting_reservoir>(
-						u8"Indirect Lighting Reservoirs", num_indirect_reservoirs,
-						lgpu::buffer_usage_mask::shader_read | lgpu::buffer_usage_mask::shader_write,
-						runtime_buf_pool
-					);
 
 					cvec3i offsets[6] = {
 						{  1,  0,  0 },
@@ -554,14 +559,12 @@ int main(int argc, char **argv) {
 						{
 							{ u8"rtas",              scene.tlas },
 							{ u8"input_reservoirs",  indirect_reservoirs.bind_as_read_only() },
-							{ u8"output_reservoirs", new_indirect_reservoirs.bind_as_read_write() },
+							{ u8"output_reservoirs", spatial_indirect_reservoirs.bind_as_read_write() },
 							{ u8"probe_consts",      lren_bds::immediate_constant_buffer::create_for(probe_constants) },
 							{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(reuse_constants) },
 						}
 					);
 					rctx.run_compute_shader_with_thread_dimensions(indirect_spatial_reuse_cs, probe_density, std::move(resources), u8"Spatial Indirect Reuse");
-
-					indirect_reservoirs = new_indirect_reservoirs;
 				}
 
 				{ // summarize probes
@@ -573,7 +576,7 @@ int main(int argc, char **argv) {
 					lren::all_resource_bindings resources(
 						{},
 						{
-							{ u8"indirect_reservoirs", indirect_reservoirs.bind_as_read_only() },
+							{ u8"indirect_reservoirs", spatial_indirect_reservoirs.bind_as_read_only() },
 							{ u8"probe_sh0",           probe_sh0.bind_as_read_write() },
 							{ u8"probe_sh1",           probe_sh1.bind_as_read_write() },
 							{ u8"probe_sh2",           probe_sh2.bind_as_read_write() },
@@ -620,6 +623,48 @@ int main(int argc, char **argv) {
 				);
 			}
 
+			{ // sky
+				auto tmr = rctx.start_timer(u8"Sky");
+
+				shader_types::sky_constants constants;
+				{
+					auto rot_only = mat44f::identity();
+					rot_only.set_block(0, 0, cam.view_matrix.block<3, 3>(0, 0));
+					constants.inverse_projection_view_no_translation = (cam.projection_matrix * rot_only).inverse();
+				}
+				constants.znear     = cam_params.near_plane;
+				constants.sky_scale = sky_scale;
+
+				lren::all_resource_bindings resources(
+					{
+						{ 1, rassets.get_samplers() },
+					},
+					{
+						{ u8"sky_latlong", sky_hdri->image.bind_as_read_only() },
+						{ u8"constants",   lren_bds::immediate_constant_buffer::create_for(constants) },
+					}
+				);
+				lren::graphics_pipeline_state pipeline(
+					{
+						lgpu::render_target_blend_options::disabled(),
+						lgpu::render_target_blend_options::disabled(),
+					},
+					lgpu::rasterizer_options(lgpu::depth_bias_options::disabled(), lgpu::front_facing_mode::clockwise, lgpu::cull_mode::none, false),
+					lgpu::depth_stencil_options(true, false, lgpu::comparison_function::equal, false, 0, 0, lgpu::stencil_options::always_pass_no_op(), lgpu::stencil_options::always_pass_no_op())
+				);
+				
+				auto pass = rctx.begin_pass(
+					{
+						lren::image2d_color(light_diffuse, lgpu::color_render_target_access::create_preserve_and_write()),
+						lren::image2d_color(g_buf.velocity, lgpu::color_render_target_access::create_preserve_and_write()),
+					},
+					lren::image2d_depth_stencil(g_buf.depth_stencil, lgpu::depth_render_target_access::create_preserve_and_write(), lgpu::stencil_render_target_access::create_discard()),
+					window_size, u8"Sky"
+				);
+				pass.draw_instanced({}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list, std::move(resources), sky_vs, sky_ps, std::move(pipeline), 1, u8"Sky");
+				pass.end();
+			}
+
 			auto indirect_specular = rctx.request_image2d(u8"Indirect Specular", window_size, 1, lgpu::format::r32g32b32a32_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
 
 			{ // indirect specular
@@ -640,7 +685,7 @@ int main(int argc, char **argv) {
 						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(constants) },
 						{ u8"lighting_consts",           lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
 						{ u8"direct_probes",             direct_reservoirs.bind_as_read_only() },
-						{ u8"indirect_probes",           indirect_reservoirs.bind_as_read_only() },
+						{ u8"indirect_probes",           spatial_indirect_reservoirs.bind_as_read_only() },
 						{ u8"indirect_sh0",              probe_sh0.bind_as_read_only() },
 						{ u8"indirect_sh1",              probe_sh1.bind_as_read_only() },
 						{ u8"indirect_sh2",              probe_sh2.bind_as_read_only() },
@@ -981,6 +1026,7 @@ int main(int argc, char **argv) {
 						ImGui::Checkbox("Use Screen-space Samples For Indirect Specular", &use_ss_indirect_specular);
 						ImGui::Checkbox("Approximate Indirect Indirect Specular", &approx_indirect_indirect_specular);
 						ImGui::Checkbox("Debug Use Approximation For All Indirect Specular", &debug_approx_for_indirect);
+						ImGui::Checkbox("Indirect Temporal Reuse", &indirect_temporal_reuse);
 						ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
 						ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");
 						ImGui::SliderFloat("SH RA Factor", &sh_ra_factor, 0.0f, 1.0f);

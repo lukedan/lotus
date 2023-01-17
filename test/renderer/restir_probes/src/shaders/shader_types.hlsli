@@ -49,6 +49,7 @@ struct indirect_reservoir_update_constants {
 	uint frame_index;
 	uint sample_count_cap;
 	float sky_scale;
+	bool temporal_reuse;
 };
 
 struct indirect_spatial_reuse_constants {
@@ -77,6 +78,12 @@ struct lighting_constants {
 	float    direct_specular_multiplier;
 	bool     use_indirect;
 	float    sky_scale;
+};
+
+struct sky_constants {
+	float4x4 inverse_projection_view_no_translation;
+	float znear;
+	float sky_scale;
 };
 
 struct indirect_specular_constants {

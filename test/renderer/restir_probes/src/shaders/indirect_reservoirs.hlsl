@@ -52,7 +52,10 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 	pcg32::state rng = pcg32::seed(dispatch_thread_id.z * 70000 + dispatch_thread_id.y * 500 + dispatch_thread_id.x * 3, constants.frame_index);
 
 	for (uint i = 0; i < indirect_reservoirs_per_probe; ++i) {
-		indirect_lighting_reservoir reservoir = indirect_probes[reservoir_offset + i];
+		indirect_lighting_reservoir reservoir = (indirect_lighting_reservoir)0;
+		if (constants.temporal_reuse) {
+			reservoir = indirect_probes[reservoir_offset + i];
+		}
 		reservoir.data.num_samples = min(reservoir.data.num_samples, constants.sample_count_cap);
 
 		float3 direction = distribution::unit_square_to_unit_sphere(float2(pcg32::random_01(rng), pcg32::random_01(rng)));

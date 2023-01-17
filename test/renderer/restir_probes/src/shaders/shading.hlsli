@@ -7,6 +7,7 @@
 #include "material_common.hlsli"
 #include "lights.hlsli"
 #include "types.hlsli"
+#include "utils/pcg32.hlsli"
 
 #include "common_shaders/types.hlsli"
 

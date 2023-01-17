@@ -135,7 +135,7 @@ namespace lotus::renderer::assets {
 				type = gpu::format_properties::data_type::floating_point;
 				bytes_per_channel = 4;
 				loaded = stbi_loadf_from_memory(
-					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 0
+					stbi_mem, static_cast<int>(image_size), &width, &height, &original_channels, 4
 				);
 			} else if (stbi_is_16_bit_from_memory(stbi_mem, static_cast<int>(image_size))) {
 				type = gpu::format_properties::data_type::unsigned_norm;

@@ -22,6 +22,7 @@ Texture3D<float4>                                   indirect_sh2    : register(t
 Texture3D<float4>                                   indirect_sh3    : register(t6, space0);
 RWStructuredBuffer<indirect_lighting_reservoir>     indirect_probes : register(u7, space0);
 RaytracingAccelerationStructure                     rtas            : register(t8, space0);
+Texture2D<float3>                                   sky_latlong     : register(t9, space0);
 
 Texture2D<float4>        textures[]  : register(t0, space1);
 StructuredBuffer<float3> positions[] : register(t0, space2);
@@ -89,6 +90,9 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 
 				irradiance = shade_point(frag, -direction, direct_probes, indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3, linear_clamp_sampler, all_lights, probe_consts, rng);
 				distance   = ray_query.CommittedRayT();
+			} else {
+				irradiance = fetch_sky_latlong(sky_latlong, linear_sampler, direction) * constants.sky_scale;
+				distance   = max_float_v;
 			}
 		}
 

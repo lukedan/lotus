@@ -54,13 +54,19 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		indirect_lighting_reservoir my_res = input_reservoirs[my_index + i];
 		indirect_lighting_reservoir their_res = input_reservoirs[their_index + i];
 
-		if (visible) {
+		bool cur_visible = visible;
+		if (cur_visible) {
 			float their_pdf = max(max(their_res.irradiance.r, their_res.irradiance.g), their_res.irradiance.b);
 			if (reservoirs::merge(my_res.data, their_res.data, their_pdf, pcg32::random_01(rng))) {
 				my_res.irradiance = their_res.irradiance;
-				float3 offset = their_pos + octahedral_mapping::to_direction_normalized(their_res.direction_octahedral) * their_res.distance - my_pos;
-				my_res.distance = length(offset);
-				my_res.direction_octahedral = octahedral_mapping::from_direction(offset / my_res.distance);
+				if (their_res.distance >= max_float_v) {
+					my_res.distance = their_res.distance;
+					my_res.direction_octahedral = their_res.direction_octahedral;
+				} else {
+					float3 offset = their_pos + octahedral_mapping::to_direction_normalized(their_res.direction_octahedral) * their_res.distance - my_pos;
+					my_res.distance = length(offset);
+					my_res.direction_octahedral = octahedral_mapping::from_direction(offset / my_res.distance);
+				}
 			}
 		}
 

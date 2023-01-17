@@ -1801,6 +1801,11 @@ namespace lotus::gpu {
 		[[nodiscard]] constexpr inline static render_target_access create_preserve_and_write() {
 			return render_target_access(zero, pass_load_operation::preserve, pass_store_operation::preserve);
 		}
+		/// Returns a struct indicating that the original contents of the render target should be preserved and newly
+		/// rendered contents should be discarded.
+		[[nodiscard]] constexpr inline static render_target_access create_preserve_and_discard() {
+			return render_target_access(zero, pass_load_operation::preserve, pass_store_operation::discard);
+		}
 		/// Returns a struct indicating that the original contents of the render target should be ignored and newly
 		/// rendered contents should be written back to the render target.
 		[[nodiscard]] constexpr inline static render_target_access create_discard_then_write() {

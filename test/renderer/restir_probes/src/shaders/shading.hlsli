@@ -20,6 +20,12 @@ template <typename T> T interpolate(StructuredBuffer<T> data, uint indices[3], f
 		data[indices[2]] * uv.y;
 }
 
+float3 fetch_sky_latlong(Texture2D<float3> tex, SamplerState linear_sampler, float3 dir) {
+	float x = atan2(dir.z, dir.x) / (2.0f * pi);
+	float y = -dir.y * 0.5f + 0.5f;
+	return tex.SampleLevel(linear_sampler, float2(x, y), 0);
+}
+
 material::shading_properties fetch_material_properties(
 	float3 position, uint triangle_index, float2 triangle_uv, float3x4 object_to_world,
 	rt_instance_data inst,

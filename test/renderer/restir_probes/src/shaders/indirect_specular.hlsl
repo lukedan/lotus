@@ -23,6 +23,8 @@ Texture2D<float4> gbuffer_normal            : register(t14, space0);
 Texture2D<float4> gbuffer_metalness         : register(t15, space0);
 Texture2D<float>  gbuffer_depth             : register(t16, space0);
 
+Texture2D<float3> sky_latlong : register(t17, space0);
+
 Texture2D<float4>        textures[]  : register(t0, space1);
 StructuredBuffer<float3> positions[] : register(t0, space2);
 StructuredBuffer<float3> normals[]   : register(t0, space3);
@@ -53,6 +55,11 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 	);
 	float3 view_vec = normalize(lighting_consts.camera.xyz - gbuf.fragment.position_ws);
 	float alpha = max(0.01f, squared(1.0f - gbuf.fragment.glossiness));
+
+	if (gbuf.raw_depth == 0.0f) {
+		out_specular[dispatch_thread_id] = (float4)0.0f;
+		return;
+	}
 
 	if (constants.use_approx_for_everything) {
 		sh::sh2 shr, shg, shb;
@@ -158,6 +165,8 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 			}
 
 			irradiance = diffuse_irr + specular_irr;
+		} else {
+			irradiance = fetch_sky_latlong(sky_latlong, linear_sampler, out_dir) * lighting_consts.sky_scale;
 		}
 	}
 
@@ -178,8 +187,13 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		float3 res_lighting = (float3)0.0f;
 		for (uint i = 0; i < probe_consts.indirect_reservoirs_per_probe; ++i) {
 			indirect_lighting_reservoir reservoir = indirect_probes[indirect_reservoir_index + i];
-			float3 reservoir_pos = probe_pos + octahedral_mapping::to_direction_normalized(reservoir.direction_octahedral) * reservoir.distance;
-			float3 reservoir_dir = normalize(reservoir_pos - gbuf.fragment.position_ws);
+			float3 reservoir_dir;
+			if (reservoir.distance >= max_float_v) {
+				reservoir_dir = octahedral_mapping::to_direction_normalized(reservoir.direction_octahedral);
+			} else {
+				float3 reservoir_pos = probe_pos + octahedral_mapping::to_direction_normalized(reservoir.direction_octahedral) * reservoir.distance;
+				reservoir_dir = normalize(reservoir_pos - gbuf.fragment.position_ws);
+			}
 			float3 reservoir_h = normalize(view_vec + reservoir_dir);
 			float reservoir_n_h = saturate(dot(reservoir_h, gbuf.fragment.normal_ws));
 #ifdef SAMPLE_VISIBLE_NORMALS

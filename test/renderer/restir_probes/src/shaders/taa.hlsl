@@ -75,7 +75,9 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 			// blend
 			irr = lerp(prev_irr, irr, constants.ra_factor);
 		}
+
+		irr = max(0.0f, irr); // filter out nan
 	}
 
-	out_irradiance[dispatch_thread_id] = max(0.0f, irr);
+	out_irradiance[dispatch_thread_id] = irr;
 }

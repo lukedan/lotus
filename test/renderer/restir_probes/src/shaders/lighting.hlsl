@@ -30,6 +30,8 @@ RaytracingAccelerationStructure rtas : register(t12, space0);
 ConstantBuffer<lighting_constants> constants    : register(b13, space0);
 ConstantBuffer<probe_constants>    probe_consts : register(b14, space0);
 
+Texture2D<float3> sky_latlong : register(t15, space0);
+
 LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(space1);
 
 [numthreads(8, 8, 1)]
@@ -47,6 +49,12 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		uv, constants.inverse_jittered_projection_view, constants.depth_linearization_constants
 	);
 	float3 view_vec = normalize(constants.camera.xyz - gbuf.fragment.position_ws);
+
+	if (gbuf.raw_depth == 0.0f) {
+		out_diffuse[dispatch_thread_id] = float4(fetch_sky_latlong(sky_latlong, linear_sampler, -view_vec) * constants.sky_scale, 0.0f);
+		out_specular[dispatch_thread_id] = (float4)0.0f;
+		return;
+	}
 
 	pcg32::state rng = pcg32::seed(dispatch_thread_id.y * 50000 + dispatch_thread_id.x * 3, 0);
 

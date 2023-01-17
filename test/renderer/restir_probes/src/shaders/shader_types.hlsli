@@ -48,6 +48,7 @@ struct direct_reservoir_update_constants {
 struct indirect_reservoir_update_constants {
 	uint frame_index;
 	uint sample_count_cap;
+	float sky_scale;
 };
 
 struct indirect_spatial_reuse_constants {
@@ -75,6 +76,7 @@ struct lighting_constants {
 	float    direct_diffuse_multiplier;
 	float    direct_specular_multiplier;
 	bool     use_indirect;
+	float    sky_scale;
 };
 
 struct indirect_specular_constants {

@@ -100,6 +100,7 @@ int main(int argc, char **argv) {
 	auto lighting_blit_ps          = rassets.compile_shader_in_filesystem("src/shaders/lighting_blit.hlsl",          lgpu::shader_stage::pixel_shader,   u8"main_ps");
 
 	auto envmap_lut = rassets.get_image2d(lren::assets::identifier(rassets.asset_library_path / "envmap_lut.dds"), runtime_tex_pool);
+	auto sky_hdri = rassets.get_null_image();
 
 	auto cam_params = lotus::camera_parameters<float>::create_look_at(zero, cvec3f(100.0f, 100.0f, 100.0f));
 	camera_control<float> cam_control(cam_params);
@@ -107,6 +108,8 @@ int main(int argc, char **argv) {
 
 	float lighting_scale = 1.0f;
 	int lighting_mode = 1;
+	char sky_hdri_path[1024] = { 0 };
+	float sky_scale = 1.0f;
 	cvec3u32 probe_density(50, 50, 50);
 	std::uint32_t direct_reservoirs_per_probe = 2;
 	std::uint32_t indirect_reservoirs_per_probe = 4;
@@ -425,7 +428,7 @@ int main(int argc, char **argv) {
 
 			auto light_diffuse = rctx.request_image2d(
 				u8"Lighting Diffuse", window_size, 1, lgpu::format::r16g16b16a16_float,
-				lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write,
+				lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write | lgpu::image_usage_mask::color_render_target,
 				runtime_tex_pool
 			);
 			auto light_specular = rctx.request_image2d(
@@ -447,6 +450,7 @@ int main(int argc, char **argv) {
 			lighting_constants.direct_diffuse_multiplier        = diffuse_mul;
 			lighting_constants.direct_specular_multiplier       = specular_mul;
 			lighting_constants.use_indirect                     = use_indirect_diffuse;
+			lighting_constants.sky_scale                        = sky_scale;
 			{
 				cvec2f envmaplut_size = envmap_lut->image.get_size().into<float>();
 				cvec2f rcp_size = lotus::vec::memberwise_reciprocal(envmaplut_size);
@@ -486,6 +490,7 @@ int main(int argc, char **argv) {
 					shader_types::indirect_reservoir_update_constants indirect_update_constants;
 					indirect_update_constants.frame_index      = frame_index;
 					indirect_update_constants.sample_count_cap = indirect_sample_count_cap;
+					indirect_update_constants.sky_scale        = sky_scale;
 
 					lren::all_resource_bindings resources(
 						{
@@ -501,6 +506,7 @@ int main(int argc, char **argv) {
 							{ u8"indirect_sh3",    probe_sh3.bind_as_read_only() },
 							{ u8"indirect_probes", indirect_reservoirs.bind_as_read_write() },
 							{ u8"rtas",            scene.tlas },
+							{ u8"sky_latlong",     sky_hdri->image.bind_as_read_only() },
 							{ u8"textures",        rassets.get_images() },
 							{ u8"positions",       scene.vertex_buffers },
 							{ u8"normals",         scene.normal_buffers },
@@ -605,6 +611,7 @@ int main(int argc, char **argv) {
 						{ u8"rtas",                      scene.tlas },
 						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
 						{ u8"probe_consts",              lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+						{ u8"sky_latlong",               sky_hdri->image.bind_as_read_only() },
 					}
 				);
 				rctx.run_compute_shader_with_thread_dimensions(
@@ -646,6 +653,7 @@ int main(int argc, char **argv) {
 						{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
 						{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
 						{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
+						{ u8"sky_latlong",               sky_hdri->image.bind_as_read_only() },
 						{ u8"textures",                  rassets.get_images() },
 						{ u8"positions",                 scene.vertex_buffers },
 						{ u8"normals",                   scene.normal_buffers },
@@ -875,6 +883,17 @@ int main(int argc, char **argv) {
 
 					if (ImGui::Begin("Controls")) {
 						ImGui::SliderFloat("Lighting Scale", &lighting_scale, 0.01f, 100.0f, "%.02f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
+						ImGui::InputText("Sky HDRI Path", sky_hdri_path, std::size(sky_hdri_path));
+						if (ImGui::Button("Load HDRI")) {
+							if (std::filesystem::exists(sky_hdri_path)) {
+								sky_hdri = rassets.get_image2d(lren::assets::identifier(sky_hdri_path), scene.geom_texture_pool);
+							}
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("Unload HDRI")) {
+							sky_hdri = rassets.get_null_image();
+						}
+						ImGui::SliderFloat("Sky Scale", &sky_scale, 0.01f, 10000.0f, "%.02f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat);
 						ImGui::Combo("Show G-Buffer", &gbuffer_visualization, "Disabled\0Albedo\0Glossiness\0Normal\0Metalness\0Emissive\0");
 						ImGui::Checkbox("Trace Naive Shadow Rays", &trace_shadow_rays_naive);
 						ImGui::Checkbox("Trace Reservoir Shadow Rays", &trace_shadow_rays_reservoir);
@@ -960,7 +979,7 @@ int main(int argc, char **argv) {
 						ImGui::Checkbox("Indirect Specular: Sample Visible Normals", &indirect_specular_use_visible_normals);
 						ImGui::Checkbox("Use Indirect Specular MIS", &enable_indirect_specular_mis);
 						ImGui::Checkbox("Use Screen-space Samples For Indirect Specular", &use_ss_indirect_specular);
-						ImGui::Checkbox("Approximation Indirect Indirect Specular", &approx_indirect_indirect_specular);
+						ImGui::Checkbox("Approximate Indirect Indirect Specular", &approx_indirect_indirect_specular);
 						ImGui::Checkbox("Debug Use Approximation For All Indirect Specular", &debug_approx_for_indirect);
 						ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
 						ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");

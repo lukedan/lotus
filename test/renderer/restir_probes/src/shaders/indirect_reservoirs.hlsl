@@ -15,14 +15,16 @@
 
 ConstantBuffer<probe_constants>                     probe_consts    : register(b0, space0);
 ConstantBuffer<indirect_reservoir_update_constants> constants       : register(b1, space0);
-StructuredBuffer<direct_lighting_reservoir>         direct_probes   : register(t2, space0);
-Texture3D<float4>                                   indirect_sh0    : register(t3, space0);
-Texture3D<float4>                                   indirect_sh1    : register(t4, space0);
-Texture3D<float4>                                   indirect_sh2    : register(t5, space0);
-Texture3D<float4>                                   indirect_sh3    : register(t6, space0);
-RWStructuredBuffer<indirect_lighting_reservoir>     indirect_probes : register(u7, space0);
-RaytracingAccelerationStructure                     rtas            : register(t8, space0);
-Texture2D<float3>                                   sky_latlong     : register(t9, space0);
+ConstantBuffer<lighting_constants>                  lighting_consts : register(b2, space0);
+StructuredBuffer<direct_lighting_reservoir>         direct_probes   : register(t3, space0);
+Texture3D<float4>                                   indirect_sh0    : register(t4, space0);
+Texture3D<float4>                                   indirect_sh1    : register(t5, space0);
+Texture3D<float4>                                   indirect_sh2    : register(t6, space0);
+Texture3D<float4>                                   indirect_sh3    : register(t7, space0);
+RWStructuredBuffer<indirect_lighting_reservoir>     indirect_probes : register(u8, space0);
+RaytracingAccelerationStructure                     rtas            : register(t9, space0);
+Texture2D<float3>                                   sky_latlong     : register(t10, space0);
+Texture2D<float2>                                   envmap_lut      : register(t11, space0);
 
 Texture2D<float4>        textures[]  : register(t0, space1);
 StructuredBuffer<float3> positions[] : register(t0, space2);
@@ -91,7 +93,10 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 					linear_sampler
 				);
 
-				irradiance = shade_point(frag, -direction, direct_probes, indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3, linear_clamp_sampler, all_lights, probe_consts, rng);
+				irradiance = shade_point(
+					frag, -direction, direct_probes, indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3, linear_clamp_sampler, all_lights,
+					envmap_lut, lighting_consts.envmaplut_uvscale, lighting_consts.envmaplut_uvbias, probe_consts, rng
+				);
 				distance   = ray_query.CommittedRayT();
 			} else {
 				irradiance = fetch_sky_latlong(sky_latlong, linear_sampler, direction) * constants.sky_scale;

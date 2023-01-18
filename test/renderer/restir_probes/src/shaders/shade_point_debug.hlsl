@@ -13,13 +13,18 @@
 #include "reservoir.hlsli"
 #include "shading.hlsli"
 
-ConstantBuffer<probe_constants>             probe_consts   : register(b0, space0);
-ConstantBuffer<shade_point_debug_constants> constants      : register(b1, space0);
-StructuredBuffer<direct_lighting_reservoir> direct_probes  : register(t2, space0);
-StructuredBuffer<probe_data>                indirect_sh    : register(t3, space0);
-RWTexture2D<float4>                         out_irradiance : register(u4, space0);
-RWTexture2D<float3>                         out_accum      : register(u5, space0);
-RaytracingAccelerationStructure             rtas           : register(t6, space0);
+ConstantBuffer<probe_constants>             probe_consts    : register(b0, space0);
+ConstantBuffer<shade_point_debug_constants> constants       : register(b1, space0);
+ConstantBuffer<lighting_constants>          lighting_consts : register(b2, space0);
+StructuredBuffer<direct_lighting_reservoir> direct_probes   : register(t3, space0);
+Texture3D<float4>                           indirect_sh0    : register(t4, space0);
+Texture3D<float4>                           indirect_sh1    : register(t5, space0);
+Texture3D<float4>                           indirect_sh2    : register(t6, space0);
+Texture3D<float4>                           indirect_sh3    : register(t7, space0);
+Texture2D<float2>                           envmap_lut      : register(t8, space0);
+RWTexture2D<float4>                         out_irradiance  : register(u9, space0);
+RWTexture2D<float3>                         out_accum       : register(u10, space0);
+RaytracingAccelerationStructure             rtas            : register(t11, space0);
 
 Texture2D<float4>        textures[]  : register(t0, space1);
 StructuredBuffer<float3> positions[] : register(t0, space2);
@@ -126,24 +131,27 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 			// indirect
 			float3 new_dir;
 			float pdf;
+			float alpha = squared(1.0f - fragment.glossiness);
 			if (pcg32::random(rng) & 1) {
 				new_dir = normalize(fragment.normal_ws + distribution::unit_square_to_unit_sphere(float2(pcg32::random_01(rng), pcg32::random_01(rng))));
-				pdf = dot(new_dir, fragment.normal_ws) / pi;
 			} else {
-				float alpha = squared(1.0f - fragment.glossiness);
 				tangent_frame::tbn ts = tangent_frame::any(fragment.normal_ws);
 				float2 smp = trowbridge_reitz::importance_sample_d(pcg32::random_01(rng), alpha);
 				float n_h = smp.x;
 				float theta = 2.0f * pi * pcg32::random_01(rng);
 				float3 h = ts.normal * n_h + sqrt(1.0f - n_h * n_h) * (cos(theta) * ts.tangent + sin(theta) * ts.bitangent);
 				new_dir = reflect(direction, h);
-				pdf = smp.y / (4.0f * dot(new_dir, h));
 			}
-			pdf *= 0.5f;
+			{
+				float pdf1 = dot(new_dir, fragment.normal_ws) / pi;
+				float3 h = normalize(new_dir - direction);
+				float pdf2 = trowbridge_reitz::d(dot(fragment.normal_ws, h), alpha) / (4.0f * dot(new_dir, h));
+				pdf = 0.5f * (pdf1 + pdf2);
+			}
 
 			float3 bd, bs;
 			brdf(fragment, new_dir, -direction, bd, bs);
-			attenuation *= (bd + bs) * dot(new_dir, fragment.normal_ws) / pdf;
+			attenuation *= (bd + bs) * dot(new_dir, fragment.normal_ws) / max(0.01f, pdf);
 			if (!cast_ray(fragment.position_ws, new_dir, fragment)) {
 				terminated = true;
 			}
@@ -167,7 +175,10 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 	material::shading_properties fragment = (material::shading_properties)0;
 
 	if (cast_ray(constants.camera.xyz, direction, fragment)) {
-		irradiance = shade_point(fragment, -direction, direct_probes, indirect_sh, all_lights, probe_consts, rng);
+		irradiance = shade_point(
+			fragment, -direction, direct_probes, indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3, linear_clamp_sampler, all_lights,
+			envmap_lut, lighting_consts.envmaplut_uvscale, lighting_consts.envmaplut_uvbias, probe_consts, rng
+		);
 	}
 
 	float4 result = (float4)1.0f;

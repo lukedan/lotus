@@ -82,6 +82,7 @@ struct lighting_constants {
 
 struct sky_constants {
 	float4x4 inverse_projection_view_no_translation;
+	float4x4 prev_projection_view_no_translation;
 	float znear;
 	float sky_scale;
 };

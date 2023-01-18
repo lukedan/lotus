@@ -51,7 +51,6 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 	float3 view_vec = normalize(constants.camera.xyz - gbuf.fragment.position_ws);
 
 	if (gbuf.raw_depth == 0.0f) {
-		out_diffuse[dispatch_thread_id] = float4(fetch_sky_latlong(sky_latlong, linear_sampler, -view_vec) * constants.sky_scale, 0.0f);
 		out_specular[dispatch_thread_id] = (float4)0.0f;
 		return;
 	}

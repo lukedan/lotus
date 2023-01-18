@@ -111,7 +111,7 @@ namespace lotus::renderer::g_buffer {
 			auto normal_trans_inv = mat::lup_decompose(inst.transform.block<3, 3>(0, 0));
 			mat44f normal_trans = zero;
 			normal_trans.set_block(
-				0, 0, normal_trans_inv.invert().transposed() * pow(normal_trans_inv.determinant(), 2.0f / 3.0f)
+				0, 0, normal_trans_inv.invert().transposed() * std::pow(normal_trans_inv.determinant(), 2.0f / 3.0f)
 			);
 			shader_types::instance_data instance;
 			instance.transform        = inst.transform;

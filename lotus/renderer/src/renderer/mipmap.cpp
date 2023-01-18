@@ -10,7 +10,7 @@ namespace lotus::renderer::mipmap {
 		return generator(
 			man.get_context(),
 			man.compile_shader_in_filesystem(
-				man.asset_library_path / "shaders/utils/downsample_mip.hlsl",
+				man.asset_library_path / "shaders/misc/downsample_mip.hlsl",
 				gpu::shader_stage::compute_shader,
 				u8"main",
 				{}

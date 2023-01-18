@@ -1093,13 +1093,15 @@ namespace lotus::renderer {
 
 		std::vector<cache_keys::graphics_pipeline::input_buffer_layout> input_layouts;
 		input_layouts.reserve(cmd.inputs.size());
+		// for all vertex/index buffers, we additionally mark them to be read in shaders
+		// in case we need to do raytracing
 		for (const auto &input : cmd.inputs) {
 			input_layouts.emplace_back(input.elements, input.stride, input.buffer_index, input.input_rate);
 			ectx.transitions.stage_transition(
 				*input.data._ptr,
 				_details::buffer_access(
 					gpu::synchronization_point_mask::vertex_input,
-					gpu::buffer_access_mask::vertex_buffer
+					gpu::buffer_access_mask::vertex_buffer | gpu::buffer_access_mask::shader_read
 				)
 			);
 		}
@@ -1108,7 +1110,7 @@ namespace lotus::renderer {
 				*cmd.index_buffer.data._ptr,
 				_details::buffer_access(
 					gpu::synchronization_point_mask::index_input,
-					gpu::buffer_access_mask::index_buffer
+					gpu::buffer_access_mask::index_buffer | gpu::buffer_access_mask::shader_read
 				)
 			);
 		}

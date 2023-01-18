@@ -80,14 +80,14 @@ int main(int argc, char **argv) {
 
 	auto swapchain = rctx.request_swap_chain(u8"Main Swap Chain", wnd, 2, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb });
 
-	auto fs_quad_vs           = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs");
-	auto blit_ps              = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/utils/blit_ps.hlsl",            lgpu::shader_stage::pixel_shader, u8"main_ps");
+	auto fs_quad_vs           = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/misc/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs");
+	auto blit_ps              = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/misc/blit_ps.hlsl",            lgpu::shader_stage::pixel_shader, u8"main_ps");
 	auto fill_buffer_cs       = rassets.compile_shader_in_filesystem("src/shaders/fill_buffer.hlsl",           lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto fill_texture3d_cs    = rassets.compile_shader_in_filesystem("src/shaders/fill_texture3d.hlsl",        lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto show_gbuffer_ps      = rassets.compile_shader_in_filesystem("src/shaders/gbuffer_visualization.hlsl", lgpu::shader_stage::pixel_shader,   u8"main_ps");
 	auto visualize_probes_vs  = rassets.compile_shader_in_filesystem("src/shaders/visualize_probes.hlsl",      lgpu::shader_stage::vertex_shader,  u8"main_vs");
 	auto visualize_probes_ps  = rassets.compile_shader_in_filesystem("src/shaders/visualize_probes.hlsl",      lgpu::shader_stage::pixel_shader,   u8"main_ps");
-	/*auto shade_point_debug_cs = rassets.compile_shader_in_filesystem("src/shaders/shade_point_debug.hlsl",     lgpu::shader_stage::compute_shader, u8"main_cs");*/
+	auto shade_point_debug_cs = rassets.compile_shader_in_filesystem("src/shaders/shade_point_debug.hlsl",     lgpu::shader_stage::compute_shader, u8"main_cs");
 
 	auto direct_update_cs          = rassets.compile_shader_in_filesystem("src/shaders/direct_reservoirs.hlsl",      lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto indirect_update_cs        = rassets.compile_shader_in_filesystem("src/shaders/indirect_reservoirs.hlsl",    lgpu::shader_stage::compute_shader, u8"main_cs");
@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
 	auto indirect_specular_cs      = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl",      lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto indirect_specular_vndf_cs = rassets.compile_shader_in_filesystem("src/shaders/indirect_specular.hlsl",      lgpu::shader_stage::compute_shader, u8"main_cs", { { u8"SAMPLE_VISIBLE_NORMALS", u8""} });
 	auto lighting_cs               = rassets.compile_shader_in_filesystem("src/shaders/lighting.hlsl",               lgpu::shader_stage::compute_shader, u8"main_cs");
-	auto sky_vs                    = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs", { { u8"FULLSCREEN_QUAD_DEPTH", u8"0.0" } });
+	auto sky_vs                    = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/misc/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs", { { u8"FULLSCREEN_QUAD_DEPTH", u8"0.0" } });
 	auto sky_ps                    = rassets.compile_shader_in_filesystem("src/shaders/sky.hlsl",                    lgpu::shader_stage::pixel_shader,   u8"main_ps");
 	auto taa_cs                    = rassets.compile_shader_in_filesystem("src/shaders/taa.hlsl",                    lgpu::shader_stage::compute_shader, u8"main_cs");
 	auto lighting_blit_ps          = rassets.compile_shader_in_filesystem("src/shaders/lighting_blit.hlsl",          lgpu::shader_stage::pixel_shader,   u8"main_ps");
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
 
 	auto cam_params = lotus::camera_parameters<float>::create_look_at(zero, cvec3f(100.0f, 100.0f, 100.0f));
 	camera_control<float> cam_control(cam_params);
-	mat44f prev_projection_view = uninitialized;
+	lotus::camera<float> prev_cam = uninitialized;
 
 	float lighting_scale = 1.0f;
 	int lighting_mode = 1;
@@ -424,7 +424,7 @@ int main(int argc, char **argv) {
 				auto pass = g_buf.begin_pass(rctx);
 				lren::g_buffer::render_instances(
 					pass, rassets, scene.instances, window_size.into<std::uint32_t>(),
-					cam.view_matrix, cam.projection_matrix, cam.jitter_matrix, prev_projection_view
+					cam.view_matrix, cam.projection_matrix, cam.jitter_matrix, prev_cam.projection_view_matrix
 				);
 				pass.end();
 			}
@@ -511,6 +511,7 @@ int main(int argc, char **argv) {
 						{
 							{ u8"probe_consts",    lren_bds::immediate_constant_buffer::create_for(probe_constants) },
 							{ u8"constants",       lren_bds::immediate_constant_buffer::create_for(indirect_update_constants) },
+							{ u8"lighting_consts", lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
 							{ u8"direct_probes",   direct_reservoirs.bind_as_read_only() },
 							{ u8"indirect_sh0",    probe_sh0.bind_as_read_only() },
 							{ u8"indirect_sh1",    probe_sh1.bind_as_read_only() },
@@ -519,6 +520,7 @@ int main(int argc, char **argv) {
 							{ u8"indirect_probes", indirect_reservoirs.bind_as_read_write() },
 							{ u8"rtas",            scene.tlas },
 							{ u8"sky_latlong",     sky_hdri->image.bind_as_read_only() },
+							{ u8"envmap_lut",      envmap_lut->image.bind_as_read_only() },
 							{ u8"textures",        rassets.get_images() },
 							{ u8"positions",       scene.vertex_buffers },
 							{ u8"normals",         scene.normal_buffers },
@@ -538,7 +540,6 @@ int main(int argc, char **argv) {
 
 				if (indirect_spatial_reuse) { // indirect spatial reuse
 					auto tmr = rctx.start_timer(u8"Indirect Spatial Reuse");
-
 
 					cvec3i offsets[6] = {
 						{  1,  0,  0 },
@@ -631,6 +632,10 @@ int main(int argc, char **argv) {
 					auto rot_only = mat44f::identity();
 					rot_only.set_block(0, 0, cam.view_matrix.block<3, 3>(0, 0));
 					constants.inverse_projection_view_no_translation = (cam.projection_matrix * rot_only).inverse();
+
+					auto prev_rot_only = mat44f::identity();
+					prev_rot_only.set_block(0, 0, prev_cam.view_matrix.block<3, 3>(0, 0));
+					constants.prev_projection_view_no_translation = prev_cam.projection_matrix * prev_rot_only;
 				}
 				constants.znear     = cam_params.near_plane;
 				constants.sky_scale = sky_scale;
@@ -719,7 +724,7 @@ int main(int argc, char **argv) {
 				);
 			}
 
-			/*if (shade_point_debug_mode != 0) {
+			if (shade_point_debug_mode != 0) {
 				float tan_half_fovy = std::tan(0.5f * cam_params.fov_y_radians);
 				cvec3f half_right = cam.unit_right * cam_params.aspect_ratio * tan_half_fovy;
 				cvec3f half_down = cam.unit_up * -tan_half_fovy;
@@ -741,30 +746,35 @@ int main(int argc, char **argv) {
 						{ 8, rassets.get_samplers() },
 					},
 					{
-						{ u8"probe_consts",   lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-						{ u8"constants",      lren_bds::immediate_constant_buffer::create_for(constants) },
-						{ u8"direct_probes",  direct_reservoirs.bind_as_read_only() },
-						{ u8"indirect_sh",    probe_sh.bind_as_read_only() },
-						{ u8"out_irradiance", light_diffuse.bind_as_read_write() },
-						{ u8"out_accum",      path_tracer_accum.bind_as_read_write() },
-						{ u8"rtas",           scene.tlas },
-						{ u8"textures",       rassets.get_images() },
-						{ u8"positions",      scene.vertex_buffers },
-						{ u8"normals",        scene.normal_buffers },
-						{ u8"tangents",       scene.tangent_buffers },
-						{ u8"uvs",            scene.uv_buffers },
-						{ u8"indices",        scene.index_buffers },
-						{ u8"instances",      scene.instances_buffer.bind_as_read_only() },
-						{ u8"geometries",     scene.geometries_buffer.bind_as_read_only() },
-						{ u8"materials",      scene.materials_buffer.bind_as_read_only() },
-						{ u8"all_lights",     scene.lights_buffer.bind_as_read_only() },
+						{ u8"probe_consts",    lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+						{ u8"constants",       lren_bds::immediate_constant_buffer::create_for(constants) },
+						{ u8"lighting_consts", lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
+						{ u8"direct_probes",   direct_reservoirs.bind_as_read_only() },
+						{ u8"indirect_sh0",    probe_sh0.bind_as_read_only() },
+						{ u8"indirect_sh1",    probe_sh1.bind_as_read_only() },
+						{ u8"indirect_sh2",    probe_sh2.bind_as_read_only() },
+						{ u8"indirect_sh3",    probe_sh3.bind_as_read_only() },
+						{ u8"envmap_lut",      envmap_lut->image.bind_as_read_only() },
+						{ u8"out_irradiance",  light_diffuse.bind_as_read_write() },
+						{ u8"out_accum",       path_tracer_accum.bind_as_read_write() },
+						{ u8"rtas",            scene.tlas },
+						{ u8"textures",        rassets.get_images() },
+						{ u8"positions",       scene.vertex_buffers },
+						{ u8"normals",         scene.normal_buffers },
+						{ u8"tangents",        scene.tangent_buffers },
+						{ u8"uvs",             scene.uv_buffers },
+						{ u8"indices",         scene.index_buffers },
+						{ u8"instances",       scene.instances_buffer.bind_as_read_only() },
+						{ u8"geometries",      scene.geometries_buffer.bind_as_read_only() },
+						{ u8"materials",       scene.materials_buffer.bind_as_read_only() },
+						{ u8"all_lights",      scene.lights_buffer.bind_as_read_only() },
 					}
 				);
 				rctx.run_compute_shader_with_thread_dimensions(
 					shade_point_debug_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
 					std::move(resources), u8"Shade Point Debug"
 				);
-			}*/
+			}
 
 			auto irradiance = rctx.request_image2d(u8"Previous Irradiance", window_size, 1, lgpu::format::r16g16b16a16_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
 
@@ -811,7 +821,7 @@ int main(int argc, char **argv) {
 					{},
 					{
 						{ u8"constants",  lren_bds::immediate_constant_buffer::create_for(constants) },
-						{ u8"irradiance", irradiance.bind_as_read_only() },
+						{ u8"irradiance", (shade_point_debug_mode != 0 ? light_diffuse : irradiance).bind_as_read_only() },
 					}
 				);
 
@@ -1079,7 +1089,7 @@ int main(int argc, char **argv) {
 
 
 			// update
-			prev_projection_view = cam.projection_view_matrix;
+			prev_cam = cam;
 			++frame_index;
 			taa_phase = (taa_phase + 1) % taa_samples.size();
 		}

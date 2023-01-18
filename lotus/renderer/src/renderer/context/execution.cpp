@@ -163,7 +163,7 @@ namespace lotus::renderer::execution {
 						gpu::image_access_mask::shader_write |
 						gpu::image_access_mask::copy_destination;
 					if (
-						current_access.access == it->access.access &&
+						(current_access.access | it->access.access) == current_access.access &&
 						current_access.layout == it->access.layout &&
 						is_empty(current_access.access & force_sync_bits)
 					) {
@@ -280,8 +280,8 @@ namespace lotus::renderer::execution {
 					gpu::buffer_access_mask::acceleration_structure_write |
 					gpu::buffer_access_mask::copy_destination;
 				if ( 
-					trans.access.access == trans.target->access.access &&
-					is_empty(trans.access.access & force_sync_bits)
+					(trans.access.access | trans.target->access.access) == trans.target->access.access &&
+					is_empty(trans.target->access.access & force_sync_bits)
 				) {
 					// record the extra sync points
 					trans.target->access.sync_points |= trans.access.sync_points;

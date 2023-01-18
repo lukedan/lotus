@@ -187,7 +187,7 @@ float3 approximate_indirect_specular(
 		sh::integrate(shb, coefficients)
 	);
 
-	return term1 * term2;
+	return max(0.0f, term1 * term2);
 }
 
 void evaluate_reservoir_direct_lighting(
@@ -234,6 +234,8 @@ float3 shade_point(
 	Texture3D<float4> indirect_sh3,
 	SamplerState linear_clamp_sampler,
 	StructuredBuffer<light> all_lights,
+	Texture2D<float2> envmap_lut,
+	float2 envlut_uvscale, float2 envlut_uvbias,
 	probe_constants probe_consts,
 	inout pcg32::state rng
 ) {
@@ -245,15 +247,21 @@ float3 shade_point(
 		direct_diffuse, direct_specular
 	);
 
-	// indirect diffuse
 	sh::sh2 shr, shg, shb;
 	fetch_indirect_sh(
 		frag, indirect_sh0, indirect_sh1, indirect_sh2, indirect_sh3,
 		linear_clamp_sampler, probe_consts, shr, shg, shb
 	);
+
+	// indirect diffuse
 	float3 indirect_diffuse = evaluate_indirect_diffuse(frag, shr, shg, shb);
 
-	return direct_diffuse + direct_specular + indirect_diffuse;
+	// indirect specular
+	float3 indirect_specular = approximate_indirect_specular(
+		frag, view, shr, shg, shb, envmap_lut, linear_clamp_sampler, envlut_uvscale, envlut_uvbias
+	);
+
+	return direct_diffuse + direct_specular + indirect_diffuse + indirect_specular;
 }
 
 #endif

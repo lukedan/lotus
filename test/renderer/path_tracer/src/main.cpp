@@ -96,10 +96,10 @@ int main(int argc, char **argv) {
 #endif
 
 	auto blit_vs = asset_man.compile_shader_in_filesystem(
-		asset_man.asset_library_path / "shaders/utils/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs", {}
+		asset_man.asset_library_path / "shaders/misc/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs", {}
 	);
 	auto blit_ps = asset_man.compile_shader_in_filesystem(
-		asset_man.asset_library_path / "shaders/utils/blit_ps.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps", {}
+		asset_man.asset_library_path / "shaders/misc/blit_ps.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps", {}
 	);
 
 	auto resolve_ps = asset_man.compile_shader_in_filesystem("src/shaders/rt_resolve.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps", {});

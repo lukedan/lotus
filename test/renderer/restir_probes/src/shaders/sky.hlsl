@@ -1,4 +1,4 @@
-#include "utils/fullscreen_quad_vs.hlsl"
+#include "misc/fullscreen_quad_vs.hlsl"
 
 #include "shader_types.hlsli"
 #include "shading.hlsli"
@@ -19,8 +19,13 @@ ps_output main_ps(ps_input input) {
 	float3 dir = normalize(mul(constants.inverse_projection_view_no_translation, after_xform * constants.znear).xyz);
 	float3 irr = fetch_sky_latlong(sky_latlong, linear_sampler, dir) * constants.sky_scale;
 
+	float4 prev_pos = mul(constants.prev_projection_view_no_translation, float4(dir, 0.0f));
+	prev_pos.xyz /= prev_pos.w;
+	prev_pos.xy = prev_pos.xy * float2(0.5f, -0.5f) + 0.5f;
+	float2 uv_diff = prev_pos.xy - input.uv;
+
 	ps_output result;
 	result.color         = irr;
-	result.motion_vector = (float2)0.0f;
+	result.motion_vector = uv_diff;
 	return result;
 }

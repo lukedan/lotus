@@ -31,7 +31,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 	}
 
 	/// Converts a Vulkan flags object back to its bits enum type.
-	template <typename Bits> [[nodiscard]] inline constexpr typename Bits flags_to_bits(vk::Flags<Bits> v) {
+	template <typename Bits> [[nodiscard]] inline constexpr Bits flags_to_bits(vk::Flags<Bits> v) {
 		return static_cast<Bits>(static_cast<std::underlying_type_t<Bits>>(v));
 	}
 

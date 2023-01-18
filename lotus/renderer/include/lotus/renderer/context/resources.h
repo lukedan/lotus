@@ -237,6 +237,10 @@ namespace lotus::renderer {
 
 			/// Current usage of this buffer.
 			buffer_access access;
+			/// Usage hint for this buffer - when transitioning to one of the states in this mask, this resource will
+			/// be instead transitioned to all usages in this mask, making it unnecessary to transition again when
+			/// switching between them.
+			gpu::buffer_access_mask usage_hint = gpu::buffer_access_mask::none;
 
 			std::uint32_t size; ///< The size of this buffer.
 			gpu::buffer_usage_mask usages = gpu::buffer_usage_mask::none; ///< Possible usages.
@@ -667,6 +671,13 @@ namespace lotus::renderer {
 			return _ptr->size;
 		}
 
+		/// Sets the usage hint of this buffer. Note that this method updates the value immediately; the value will
+		/// become effective before the next batch is executed and will not change during the execution of commands
+		/// unless modified using the \ref context.
+		void set_usage_hint(gpu::buffer_access_mask hint) const {
+			_ptr->usage_hint = hint;
+		}
+
 		/// Returns a view of this buffer as a structured buffer.
 		[[nodiscard]] structured_buffer_view get_view(
 			std::uint32_t stride, std::uint32_t first, std::uint32_t count
@@ -702,6 +713,11 @@ namespace lotus::renderer {
 		/// Returns the number of elements visible to this view.
 		[[nodiscard]] std::uint32_t get_num_elements() const {
 			return _count;
+		}
+
+		/// \sa buffer::set_usage_hint()
+		void set_usage_hint(gpu::buffer_access_mask hint) const {
+			_ptr->usage_hint = hint;
 		}
 
 		/// Returns the underlying raw buffer.

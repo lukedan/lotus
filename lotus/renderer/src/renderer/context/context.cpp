@@ -1101,7 +1101,7 @@ namespace lotus::renderer {
 				*input.data._ptr,
 				_details::buffer_access(
 					gpu::synchronization_point_mask::vertex_input,
-					gpu::buffer_access_mask::vertex_buffer | gpu::buffer_access_mask::shader_read
+					gpu::buffer_access_mask::vertex_buffer
 				)
 			);
 		}
@@ -1110,7 +1110,7 @@ namespace lotus::renderer {
 				*cmd.index_buffer.data._ptr,
 				_details::buffer_access(
 					gpu::synchronization_point_mask::index_input,
-					gpu::buffer_access_mask::index_buffer | gpu::buffer_access_mask::shader_read
+					gpu::buffer_access_mask::index_buffer
 				)
 			);
 		}

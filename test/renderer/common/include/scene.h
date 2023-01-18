@@ -53,6 +53,7 @@ public:
 					geom->num_indices
 				)
 			});
+			geom->index_buffer->data.set_usage_hint(lgpu::buffer_access_mask::index_buffer | lgpu::buffer_access_mask::shader_read);
 		} else {
 			inst.index_buffer = std::numeric_limits<std::uint32_t>::max();
 		}
@@ -62,12 +63,14 @@ public:
 				geom->vertex_buffer.stride, geom->vertex_buffer.offset, geom->num_vertices
 			)
 		});
+		geom->vertex_buffer.data->data.set_usage_hint(lgpu::buffer_access_mask::vertex_buffer | lgpu::buffer_access_mask::shader_read);
 		if (geom->normal_buffer.data) {
 			rctx.write_buffer_descriptors(normal_buffers, inst.normal_buffer, {
 				geom->normal_buffer.data->data.get_view(
 					geom->normal_buffer.stride, geom->normal_buffer.offset, geom->num_vertices
 				)
 			});
+			geom->normal_buffer.data->data.set_usage_hint(lgpu::buffer_access_mask::vertex_buffer | lgpu::buffer_access_mask::shader_read);
 		}
 		if (geom->tangent_buffer.data) {
 			rctx.write_buffer_descriptors(tangent_buffers, inst.tangent_buffer, {
@@ -75,6 +78,7 @@ public:
 					geom->tangent_buffer.stride, geom->tangent_buffer.offset, geom->num_vertices
 				)
 			});
+			geom->tangent_buffer.data->data.set_usage_hint(lgpu::buffer_access_mask::vertex_buffer | lgpu::buffer_access_mask::shader_read);
 		} else {
 			inst.tangent_buffer = std::numeric_limits<std::uint32_t>::max();
 		}
@@ -84,6 +88,7 @@ public:
 					geom->uv_buffer.stride, geom->uv_buffer.offset, geom->num_vertices
 				)
 			});
+			geom->uv_buffer.data->data.set_usage_hint(lgpu::buffer_access_mask::vertex_buffer | lgpu::buffer_access_mask::shader_read);
 		}
 	}
 	void on_material_loaded(lren::assets::handle<lren::assets::material> mat) {

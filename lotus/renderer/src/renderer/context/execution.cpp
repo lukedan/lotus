@@ -265,7 +265,7 @@ namespace lotus::renderer::execution {
 
 		{ // handle buffer transitions
 			_details::buffer *prev = nullptr;
-			for (const auto &trans : _buffer_transitions) {
+			for (auto trans : _buffer_transitions) {
 				if (trans.target == prev) {
 					log().error<u8"Multiple transitions staged for buffer {}">(
 						string::to_generic(trans.target->name)
@@ -273,6 +273,12 @@ namespace lotus::renderer::execution {
 					continue;
 				}
 				prev = trans.target;
+
+				if (!is_empty(trans.access.access & trans.target->usage_hint)) {
+					trans.access.access |= trans.target->usage_hint;
+				}
+
+				// check if a transition is necessary
 				// for any of these accesses, we want to insert barriers even if the usage does not change
 				// basically all write accesses
 				constexpr auto force_sync_bits =
@@ -287,6 +293,7 @@ namespace lotus::renderer::execution {
 					trans.target->access.sync_points |= trans.access.sync_points;
 					continue;
 				}
+
 				buffer_barriers.emplace_back(
 					trans.target->data,
 					trans.target->access.sync_points,

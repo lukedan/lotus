@@ -15,6 +15,7 @@ namespace lotus::renderer {
 		/// Template for resources that requires only one pointer to a type.
 		template <typename Resource> struct basic_handle {
 			friend context;
+			friend execution::transition_buffer;
 			friend execution::context;
 		public:
 			/// Initializes this resource handle to empty.
@@ -31,19 +32,21 @@ namespace lotus::renderer {
 			[[nodiscard]] explicit operator bool() const {
 				return is_valid();
 			}
-		private:
+		protected:
 			Resource *_ptr = nullptr; ///< Pointer to the resource.
 		};
 
 
 		/// \ref renderer::basic_image_view.
-		template <gpu::image_type Type> struct basic_image_view {
+		template <gpu::image_type Type> struct basic_image_view :
+			public basic_handle<_details::image_data_t<Type>> {
+
 			friend context;
 			friend execution::transition_buffer;
 			friend execution::context;
 		public:
 			/// Initializes this struct to empty.
-			basic_image_view(std::nullptr_t) : _mip_levels(gpu::mip_levels::all()) {
+			basic_image_view(std::nullptr_t) : _base(nullptr), _mip_levels(gpu::mip_levels::all()) {
 			}
 			/// Conversion from a non-recorded \ref renderer::basic_image_view.
 			basic_image_view(const renderer::image_view_base<Type>&);
@@ -51,17 +54,9 @@ namespace lotus::renderer {
 			/// Returns a copy of this structure that ensures only the first specified mip is used, and logs a
 			/// warning if that's not the case.
 			[[nodiscard]] basic_image_view highest_mip_with_warning() const;
-
-			/// Returns whether this object holds a valid image.
-			[[nodiscard]] bool is_valid() const {
-				return _ptr;
-			}
-			/// \overload
-			[[nodiscard]] explicit operator bool() const {
-				return is_valid();
-			}
 		private:
-			_details::image_data_t<Type> *_ptr = nullptr; ///< The image.
+			using _base = basic_handle<_details::image_data_t<Type>>; ///< Base type.
+
 			gpu::format _view_format = gpu::format::none; ///< The format of this image.
 			gpu::mip_levels _mip_levels; ///< Mip levels.
 		};
@@ -70,27 +65,17 @@ namespace lotus::renderer {
 		using buffer = basic_handle<_details::buffer>;
 
 		/// \ref renderer::structured_buffer_view.
-		struct structured_buffer_view {
+		struct structured_buffer_view : public basic_handle<_details::buffer> {
 			friend context;
 			friend execution::transition_buffer;
 			friend execution::context;
 		public:
 			/// Initializes this struct to empty.
-			structured_buffer_view(std::nullptr_t) {
+			structured_buffer_view(std::nullptr_t) : basic_handle(nullptr) {
 			}
 			/// Conversion from a non-recorded \ref renderer::structured_buffer_view.
 			structured_buffer_view(const renderer::structured_buffer_view&);
-
-			/// Returns whether this object holds a valid buffer.
-			[[nodiscard]] bool is_valid() const {
-				return _ptr;
-			}
-			/// \overload
-			[[nodiscard]] explicit operator bool() const {
-				return is_valid();
-			}
 		private:
-			_details::buffer *_ptr = nullptr; ///< The buffer.
 			std::uint32_t _stride = 0; ///< Byte stride between elements.
 			std::uint32_t _first = 0; ///< The first buffer element.
 			std::uint32_t _count = 0; ///< Number of visible buffer elements.

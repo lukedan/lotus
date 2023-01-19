@@ -40,8 +40,8 @@ namespace lotus::renderer {
 	}
 
 	void context::pass::draw_instanced(
-		assets::handle<assets::geometry> geom_asset,
-		assets::handle<assets::material> mat_asset,
+		assets::handle<assets::geometry> geom,
+		assets::handle<assets::material> mat,
 		pass_context &pass_ctx,
 		std::span<const input_buffer_binding> additional_inputs,
 		all_resource_bindings additional_resources,
@@ -49,26 +49,24 @@ namespace lotus::renderer {
 		std::uint32_t num_insts,
 		std::u8string_view description
 	) {
-		const auto &geom = geom_asset.get().value;
-		const auto &mat = mat_asset.get().value;
-		auto &&[vs, inputs] = pass_ctx.get_vertex_shader(*_context, *mat.data, geom);
-		auto ps = pass_ctx.get_pixel_shader(*_context, *mat.data);
+		auto &&[vs, inputs] = pass_ctx.get_vertex_shader(*_context, *mat->data, geom.get().value);
+		auto ps = pass_ctx.get_pixel_shader(*_context, *mat->data);
 		for (const auto &in : additional_inputs) {
 			inputs.emplace_back(in);
 		}
 
 		_details::bindings_builder builder;
 		auto reflections = { &vs->reflection, &ps->reflection };
-		builder.add(mat.data->create_resource_bindings(), reflections);
+		builder.add(mat->data->create_resource_bindings(), reflections);
 		builder.add(std::move(additional_resources), reflections);
 
 		_command.commands.emplace_back(
 			description,
 			std::in_place_type<pass_commands::draw_instanced>,
 			num_insts,
-			std::move(inputs), geom.num_vertices,
-			geom.get_index_buffer_binding(), geom.num_indices,
-			geom.topology,
+			std::move(inputs), geom->num_vertices,
+			geom->get_index_buffer_binding(), geom->num_indices,
+			geom->topology,
 			builder.sort_and_take(),
 			std::move(vs), std::move(ps),
 			std::move(state)

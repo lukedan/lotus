@@ -864,14 +864,13 @@ namespace lotus::renderer {
 	namespace recorded_resources {
 		template <
 			typename Resource
-		> basic_handle<Resource>::basic_handle(const basic_resource_handle<Resource> &arr) :
-			_ptr(arr._ptr.get()) {
+		> basic_handle<Resource>::basic_handle(const basic_resource_handle<Resource> &h) : _ptr(h._ptr.get()) {
 		}
 
 
 		template <gpu::image_type Type> basic_image_view<Type>::basic_image_view(
 			const renderer::image_view_base<Type> &view
-		) : _ptr(view._ptr.get()), _view_format(view._view_format), _mip_levels(view._mip_levels) {
+		) : _base(view), _view_format(view._view_format), _mip_levels(view._mip_levels) {
 		}
 
 		template <

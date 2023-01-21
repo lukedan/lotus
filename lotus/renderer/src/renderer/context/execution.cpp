@@ -110,7 +110,7 @@ namespace lotus::renderer::execution {
 	}
 
 	/// Used for sorting image transitions.
-	template <gpu::image_type Type> static bool _image_transition_compare(
+	template <gpu::image_type Type> [[nodiscard]] static bool _image_transition_compare(
 		const transition_records::basic_image<Type> &lhs, const transition_records::basic_image<Type> &rhs
 	) {
 		if (lhs.target == rhs.target) {
@@ -118,37 +118,13 @@ namespace lotus::renderer::execution {
 		}
 		return lhs.target->id < rhs.target->id;
 	}
-	void transition_buffer::prepare() {
-		// sort image transitions
-		std::sort(
-			_image2d_transitions.begin(), _image2d_transitions.end(),
-			_image_transition_compare<gpu::image_type::type_2d>
-		);
-		std::sort(
-			_image3d_transitions.begin(), _image3d_transitions.end(),
-			_image_transition_compare<gpu::image_type::type_3d>
-		);
-
-		// sort buffer transitions
-		std::sort(
-			_buffer_transitions.begin(), _buffer_transitions.end(),
-			[](const transition_records::buffer &lhs, const transition_records::buffer &rhs) {
-				if (lhs.target == rhs.target) {
-					return lhs.access < rhs.access;
-				}
-				return lhs.target->id < rhs.target->id;
-			}
-		);
-		// deduplicate
-		_buffer_transitions.erase(
-			std::unique(_buffer_transitions.begin(), _buffer_transitions.end()), _buffer_transitions.end()
-		);
-	}
-
 	/// Collects image transitions.
-	template <gpu::image_type Type> [[nodiscard]] static void _collect_image_transitions(
+	///
+	/// \return The number of new barriers added.
+	template <gpu::image_type Type> static std::size_t _collect_image_transitions(
 		std::vector<gpu::image_barrier> &barriers, std::span<const transition_records::basic_image<Type>> transitions
 	) {
+		std::size_t very_first = barriers.size();
 		for (auto it = transitions.begin(); it != transitions.end(); ) {
 			// transition resources
 			std::size_t first_barrier = barriers.size();
@@ -234,16 +210,54 @@ namespace lotus::renderer::execution {
 				}
 			}
 		}
+		return barriers.size() - very_first;
 	}
-	std::pair<
-		std::vector<gpu::image_barrier>, std::vector<gpu::buffer_barrier>
-	> transition_buffer::collect_transitions() const {
+	std::tuple<
+		std::vector<gpu::image_barrier>,
+		std::vector<gpu::buffer_barrier>,
+		transition_statistics
+	> transition_buffer::collect_transitions() && {
+		transition_statistics result_stats = _stats;
+		result_stats.requested_image2d_transitions = static_cast<std::uint32_t>(_image2d_transitions.size());
+		result_stats.requested_image3d_transitions = static_cast<std::uint32_t>(_image3d_transitions.size());
+		result_stats.requested_buffer_transitions  = static_cast<std::uint32_t>(_buffer_transitions.size());
+
+		// sort image transitions
+		std::sort(
+			_image2d_transitions.begin(), _image2d_transitions.end(),
+			_image_transition_compare<gpu::image_type::type_2d>
+		);
+		std::sort(
+			_image3d_transitions.begin(), _image3d_transitions.end(),
+			_image_transition_compare<gpu::image_type::type_3d>
+		);
+
+		// sort buffer transitions
+		std::sort(
+			_buffer_transitions.begin(), _buffer_transitions.end(),
+			[](const transition_records::buffer &lhs, const transition_records::buffer &rhs) {
+				if (lhs.target == rhs.target) {
+					return lhs.access < rhs.access;
+				}
+				return lhs.target->id < rhs.target->id;
+			}
+		);
+		// deduplicate
+		_buffer_transitions.erase(
+			std::unique(_buffer_transitions.begin(), _buffer_transitions.end()), _buffer_transitions.end()
+		);
+
+
 		std::vector<gpu::image_barrier> image_barriers;
 		std::vector<gpu::buffer_barrier> buffer_barriers;
 
 		// handle image transitions
-		_collect_image_transitions<gpu::image_type::type_2d>(image_barriers, _image2d_transitions);
-		_collect_image_transitions<gpu::image_type::type_3d>(image_barriers, _image3d_transitions);
+		result_stats.submitted_image2d_transitions = static_cast<std::uint32_t>(
+			_collect_image_transitions<gpu::image_type::type_2d>(image_barriers, _image2d_transitions)
+		);
+		result_stats.submitted_image3d_transitions = static_cast<std::uint32_t>(
+			_collect_image_transitions<gpu::image_type::type_3d>(image_barriers, _image3d_transitions)
+		);
 
 		{ // handle swap chain image transitions
 			// TODO check for conflicts
@@ -264,6 +278,7 @@ namespace lotus::renderer::execution {
 		}
 
 		{ // handle buffer transitions
+			std::size_t first = buffer_barriers.size();
 			_details::buffer *prev = nullptr;
 			for (auto trans : _buffer_transitions) {
 				if (trans.target == prev) {
@@ -303,8 +318,10 @@ namespace lotus::renderer::execution {
 				);
 				trans.target->access = trans.access;
 			}
+			result_stats.submitted_buffer_transitions = static_cast<std::uint32_t>(buffer_barriers.size() - first);
 		}
 
+		result_stats.submitted_raw_buffer_transitions = static_cast<std::uint32_t>(_raw_buffer_transitions.size());
 		{ // handle raw buffer barriers
 			for (auto trans : _raw_buffer_transitions) {
 				buffer_barriers.emplace_back(
@@ -317,7 +334,7 @@ namespace lotus::renderer::execution {
 			}
 		}
 
-		return { std::move(image_barriers), std::move(buffer_barriers) };
+		return { std::move(image_barriers), std::move(buffer_barriers), result_stats };
 	}
 
 
@@ -376,7 +393,11 @@ namespace lotus::renderer::execution {
 
 		crash_if(_immediate_constant_buffer_used + size_align.size > immediate_constant_buffer_cache_size);
 		std::byte *data_addr = _immediate_constant_upload_buffer_ptr + _immediate_constant_buffer_used;
-		_immediate_constant_buffer_used += size_align.size;
+		_immediate_constant_buffer_used += static_cast<std::uint32_t>(size_align.size);
+
+		_immediate_constant_buffer_stats.immediate_constant_buffer_size +=
+			static_cast<std::uint32_t>(size_align.size);
+		++_immediate_constant_buffer_stats.num_immediate_constant_buffers;
 
 		return { result, data_addr };
 	}
@@ -396,6 +417,10 @@ namespace lotus::renderer::execution {
 		if (!_immediate_constant_upload_buffer) {
 			return;
 		}
+
+		_immediate_constant_buffer_stats.immediate_constant_buffer_size_no_padding =
+			static_cast<std::uint32_t>(_immediate_constant_buffer_used);
+		statistics.immediate_constant_buffers.emplace_back(std::exchange(_immediate_constant_buffer_stats, zero));
 
 		_ctx._device.unmap_buffer(_immediate_constant_upload_buffer, 0, _immediate_constant_buffer_used);
 
@@ -498,9 +523,8 @@ namespace lotus::renderer::execution {
 	}
 
 	void context::flush_transitions() {
-		transitions.prepare();
-		auto [image_barriers, buffer_barriers] = transitions.collect_transitions();
-		transitions = nullptr;
+		auto [image_barriers, buffer_barriers, stats] = std::exchange(transitions, nullptr).collect_transitions();
+		statistics.transitions.emplace_back(stats);
 		if (image_barriers.size() > 0 || buffer_barriers.size() > 0) {
 			get_command_list().insert_marker(u8"Flush transitions", linear_rgba_u8(0, 0, 255, 255));
 

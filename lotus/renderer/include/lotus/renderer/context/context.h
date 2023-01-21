@@ -16,20 +16,27 @@
 #include "execution.h"
 
 namespace lotus::renderer {
+	/// Cached material and pass related instance data.
+	struct instance_render_details {
+		/// Initializes this object to empty.
+		instance_render_details(std::nullptr_t) : vertex_shader(nullptr), pixel_shader(nullptr), pipeline(nullptr) {
+		}
+
+		std::vector<input_buffer_binding> input_buffers; ///< Input buffer bindings.
+		assets::handle<assets::shader> vertex_shader; ///< Vertex shader.
+		assets::handle<assets::shader> pixel_shader; ///< Pixel shader.
+		graphics_pipeline_state pipeline; ///< Pipeline state.
+	};
+
 	/// Provides information about a pass's shader and input buffer layout.
 	class pass_context {
 	public:
 		/// Default virtual destructor.
 		virtual ~pass_context() = default;
 
-		/// Retrieves a vertex shader and corresponding input buffer bindings appropriate for this pass, and for the
-		/// given material and geometry.
-		[[nodiscard]] virtual std::pair<
-			assets::handle<assets::shader>, std::vector<input_buffer_binding>
-		> get_vertex_shader(context&, const assets::material::context_data&, const assets::geometry&) = 0;
-		/// Retrieves a pixel shader appropriate for this pass and the given material.
-		[[nodiscard]] virtual assets::handle<assets::shader> get_pixel_shader(
-			context&, const assets::material::context_data&
+		/// Computes derived render data for an instance.
+		[[nodiscard]] virtual instance_render_details get_render_details(
+			context&, const assets::material::context_data&, const assets::geometry&
 		) = 0;
 	};
 
@@ -301,7 +308,16 @@ namespace lotus::renderer {
 				pass_context&,
 				std::span<const input_buffer_binding> additional_inputs,
 				all_resource_bindings additional_resources,
-				graphics_pipeline_state,
+				std::uint32_t num_insts,
+				std::u8string_view description
+			);
+			/// \overload
+			void draw_instanced(
+				assets::handle<assets::geometry>,
+				assets::handle<assets::material>,
+				const instance_render_details&,
+				std::span<const input_buffer_binding> additional_inputs,
+				all_resource_bindings additional_resources,
 				std::uint32_t num_insts,
 				std::u8string_view description
 			);
@@ -372,15 +388,6 @@ namespace lotus::renderer {
 
 			context *_ctx = nullptr; ///< Associated context.
 			std::uint32_t _index = 0; ///< Index of the timer.
-		};
-		/// Result of a single timer.
-		struct timer_result {
-			/// Initializes this object to empty.
-			timer_result(std::nullptr_t) {
-			}
-
-			float duration_ms = 0.0f; ///< Duration of the timer in milliseconds.
-			std::u8string_view name; ///< The name of this timer.
 		};
 
 		/// Creates a new context object.
@@ -468,10 +475,6 @@ namespace lotus::renderer {
 			auto index = static_cast<std::uint32_t>(_timers.size());
 			_timers.emplace_back(static_cast<std::uint32_t>(_commands.size()), name);
 			return timer(this, index);
-		}
-		/// Returns timer results from the last finished batch.
-		[[nodiscard]] const std::vector<timer_result> &get_timer_results() const {
-			return _timer_results;
 		}
 
 
@@ -569,7 +572,7 @@ namespace lotus::renderer {
 
 		/// Analyzes and executes all pending commands. This is the only place where that happens - it doesn't happen
 		/// automatically.
-		void flush();
+		execution::batch_statistics_early flush();
 		/// Waits until all previous batches have finished executing.
 		void wait_idle();
 
@@ -608,6 +611,11 @@ namespace lotus::renderer {
 		[[nodiscard]] gpu::memory_type_index get_readback_memory_type_index() const {
 			return _readback_memory_index;
 		}
+
+		/// Callback function for when statistics for a new batch is available.
+		static_function<
+			void(std::uint32_t, execution::batch_statistics_late)
+		> on_batch_statistics_available = nullptr;
 	private:
 		/// Indicates a descriptor set bind point.
 		enum class _bind_point {
@@ -675,7 +683,6 @@ namespace lotus::renderer {
 
 		std::vector<context_command> _commands; ///< Recorded commands.
 		std::vector<_timer_data> _timers; ///< All timers.
-		std::vector<timer_result> _timer_results; ///< Timer results from the last finished batch.
 
 		std::deque<execution::batch_resources> _all_resources; ///< Resources that are in use by previous operations.
 		execution::batch_resources _deferred_delete_resources; ///< Resources that are marked for deferred deletion.

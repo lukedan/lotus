@@ -36,77 +36,91 @@ namespace lotus::renderer::g_buffer {
 	}
 
 
-	std::pair<assets::handle<assets::shader>, std::vector<input_buffer_binding>> pass_context::get_vertex_shader(
+	instance_render_details pass_context::get_render_details(
 		context&, const assets::material::context_data &mat_ctx, const assets::geometry &geom
 	) {
-		std::vector<std::pair<std::u8string_view, std::u8string_view>> defines = {
+		instance_render_details details = nullptr;
+
+		std::vector<std::pair<std::u8string_view, std::u8string_view>> vs_defines = {
 			{ u8"LOTUS_MATERIAL_INCLUDE", mat_ctx.get_material_include() },
 		};
-		std::vector<input_buffer_binding> inputs;
+		auto ps_defines = mat_ctx.get_additional_ps_defines();
+		ps_defines.emplace_back(u8"LOTUS_MATERIAL_INCLUDE", mat_ctx.get_material_include());
+
 		if (geom.vertex_buffer.data) {
-			inputs.emplace_back(geom.vertex_buffer.into_input_buffer_binding(
-				u8"POSITION", 0, static_cast<std::uint32_t>(inputs.size())
+			details.input_buffers.emplace_back(geom.vertex_buffer.into_input_buffer_binding(
+				u8"POSITION", 0, static_cast<std::uint32_t>(details.input_buffers.size())
 			));
 		}
 		if (geom.uv_buffer.data) {
-			inputs.emplace_back(geom.uv_buffer.into_input_buffer_binding(
-				u8"TEXCOORD", 0, static_cast<std::uint32_t>(inputs.size())
+			details.input_buffers.emplace_back(geom.uv_buffer.into_input_buffer_binding(
+				u8"TEXCOORD", 0, static_cast<std::uint32_t>(details.input_buffers.size())
 			));
-			defines.emplace_back(u8"VERTEX_INPUT_HAS_UV", u8"");
+			vs_defines.emplace_back(u8"VERTEX_INPUT_HAS_UV", u8"");
 		}
 		if (geom.normal_buffer.data) {
-			inputs.emplace_back(geom.normal_buffer.into_input_buffer_binding(
-				u8"NORMAL", 0, static_cast<std::uint32_t>(inputs.size())
+			details.input_buffers.emplace_back(geom.normal_buffer.into_input_buffer_binding(
+				u8"NORMAL", 0, static_cast<std::uint32_t>(details.input_buffers.size())
 			));
-			defines.emplace_back(u8"VERTEX_INPUT_HAS_NORMAL", u8"");
+			vs_defines.emplace_back(u8"VERTEX_INPUT_HAS_NORMAL", u8"");
 		}
 		if (geom.tangent_buffer.data) {
-			inputs.emplace_back(geom.tangent_buffer.into_input_buffer_binding(
-				u8"TANGENT", 0, static_cast<std::uint32_t>(inputs.size())
+			details.input_buffers.emplace_back(geom.tangent_buffer.into_input_buffer_binding(
+				u8"TANGENT", 0, static_cast<std::uint32_t>(details.input_buffers.size())
 			));
-			defines.emplace_back(u8"VERTEX_INPUT_HAS_TANGENT", u8"");
+			vs_defines.emplace_back(u8"VERTEX_INPUT_HAS_TANGENT", u8"");
 		}
-		auto shader = _man.compile_shader_in_filesystem(
+
+		details.vertex_shader = _man.compile_shader_in_filesystem(
 			_man.asset_library_path / "shaders/standard_vertex_shader.hlsl",
-			gpu::shader_stage::vertex_shader,
-			u8"main_vs",
-			defines
+			gpu::shader_stage::vertex_shader, u8"main_vs", vs_defines
 		);
-		return { std::move(shader), std::move(inputs) };
-	}
-
-	assets::handle<assets::shader> pass_context::get_pixel_shader(
-		context&, const assets::material::context_data &mat_ctx
-	) {
-		auto defines = mat_ctx.get_additional_ps_defines();
-		defines.emplace_back(u8"LOTUS_MATERIAL_INCLUDE", mat_ctx.get_material_include());
-		return _man.compile_shader_in_filesystem(
+		details.pixel_shader = _man.compile_shader_in_filesystem(
 			_man.asset_library_path / "shaders/gbuffer_pixel_shader.hlsl",
-			gpu::shader_stage::pixel_shader, u8"main_ps", defines
+			gpu::shader_stage::pixel_shader, u8"main_ps", ps_defines
 		);
+
+		details.pipeline = graphics_pipeline_state(
+			{
+				gpu::render_target_blend_options::disabled(),
+				gpu::render_target_blend_options::disabled(),
+				gpu::render_target_blend_options::disabled(),
+				gpu::render_target_blend_options::disabled(),
+			},
+			gpu::rasterizer_options(gpu::depth_bias_options::disabled(), gpu::front_facing_mode::counter_clockwise, gpu::cull_mode::cull_back, false),
+			gpu::depth_stencil_options(true, true, gpu::comparison_function::greater, false, 0, 0, gpu::stencil_options::always_pass_no_op(), gpu::stencil_options::always_pass_no_op())
+		);
+
+		return details;
 	}
 
 
-	void render_instances(
-		context::pass &pass, assets::manager &man, std::span<const instance> instances,
-		cvec2u32 viewport_size, mat44f view, mat44f projection, mat44f jitter, mat44f prev_projection_view
+	std::vector<instance_render_details> get_instance_render_details(
+		assets::manager &man, std::span<const instance> instances
 	) {
 		pass_context pass_ctx(man);
+		std::vector<instance_render_details> result;
+		result.reserve(instances.size());
 		for (const auto &inst : instances) {
+			result.emplace_back(pass_ctx.get_render_details(
+				man.get_context(), *inst.material->data, inst.geometry.get().value
+			));
+		}
+		return result;
+	}
+
+	void render_instances(
+		context::pass &pass, std::span<const instance> instances, std::span<const instance_render_details> details,
+		cvec2u32 viewport_size, mat44f view, mat44f projection, mat44f jitter, mat44f prev_projection_view
+	) {
+		crash_if(instances.size() != details.size());
+		for (std::size_t i = 0; i < instances.size(); ++i) {
+			const auto &inst = instances[i];
+			const auto &dets = details[i];
+
 			if (!inst.material) {
 				continue;
 			}
-
-			graphics_pipeline_state state(
-				{
-					gpu::render_target_blend_options::disabled(),
-					gpu::render_target_blend_options::disabled(),
-					gpu::render_target_blend_options::disabled(),
-					gpu::render_target_blend_options::disabled(),
-				},
-				gpu::rasterizer_options(gpu::depth_bias_options::disabled(), gpu::front_facing_mode::counter_clockwise, gpu::cull_mode::cull_back, false),
-				gpu::depth_stencil_options(true, true, gpu::comparison_function::greater, false, 0, 0, gpu::stencil_options::always_pass_no_op(), gpu::stencil_options::always_pass_no_op())
-			);
 
 			auto normal_trans_inv = mat::lup_decompose(inst.transform.block<3, 3>(0, 0));
 			mat44f normal_trans = zero;
@@ -138,9 +152,17 @@ namespace lotus::renderer::g_buffer {
 			);
 
 			pass.draw_instanced(
-				inst.geometry, inst.material, pass_ctx,
-				{}, std::move(additional_resources), std::move(state), 1, u8"GBuffer instance"
+				inst.geometry, inst.material, dets,
+				{}, std::move(additional_resources), 1, u8"GBuffer instance"
 			);
 		}
+	}
+
+	void render_instances(
+		context::pass &pass, assets::manager &man, std::span<const instance> instances,
+		cvec2u32 viewport_size, mat44f view, mat44f projection, mat44f jitter, mat44f prev_projection_view
+	) {
+		auto details = get_instance_render_details(man, instances);
+		render_instances(pass, instances, details, viewport_size, view, projection, jitter, prev_projection_view);
 	}
 }

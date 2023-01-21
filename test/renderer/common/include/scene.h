@@ -5,6 +5,7 @@
 
 #include <lotus/renderer/loaders/assimp_loader.h>
 #include <lotus/renderer/loaders/gltf_loader.h>
+#include <lotus/renderer/g_buffer.h>
 
 #include "lotus.h"
 
@@ -212,6 +213,8 @@ public:
 		);
 		rctx.upload_buffer<lren::shader_types::light>(light_buf, lights, 0, u8"Upload lights buffer");
 		lights_buffer = light_buf.get_view<lren::shader_types::light>(0, lights.size());
+
+		gbuffer_instance_render_details = lren::g_buffer::get_instance_render_details(_assets, instances);
 	}
 
 	lren::pool geom_buffer_pool = nullptr;
@@ -219,6 +222,7 @@ public:
 	lren::pool as_pool = nullptr;
 
 	std::vector<lren::instance> instances;
+	std::vector<lren::instance_render_details> gbuffer_instance_render_details;
 	std::vector<lren::blas_reference> tlas_instances;
 	std::vector<lren::assets::handle<lren::assets::material>> material_assets;
 	std::vector<lren::shader_types::generic_pbr_material::material> materials;

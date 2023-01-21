@@ -1,3 +1,4 @@
+#include <cinttypes>
 #include <random>
 
 #include <scene.h>
@@ -56,6 +57,12 @@ int main(int argc, char **argv) {
 	rassets.additional_shader_includes = {
 		rassets.asset_library_path / "shaders",
 		"D:/Documents/Projects/lotus/test/renderer/common/include",
+	};
+
+	lren::execution::batch_statistics_early batch_stats_early = zero;
+	lren::execution::batch_statistics_late batch_stats_late = zero;
+	rctx.on_batch_statistics_available = [&](std::uint32_t, lren::execution::batch_statistics_late stats) {
+		batch_stats_late = std::move(stats);
 	};
 
 	scene_representation scene(rassets);
@@ -423,7 +430,7 @@ int main(int argc, char **argv) {
 
 				auto pass = g_buf.begin_pass(rctx);
 				lren::g_buffer::render_instances(
-					pass, rassets, scene.instances, window_size.into<std::uint32_t>(),
+					pass, scene.instances, scene.gbuffer_instance_render_details, window_size.into<std::uint32_t>(),
 					cam.view_matrix, cam.projection_matrix, cam.jitter_matrix, prev_cam.projection_view_matrix
 				);
 				pass.end();
@@ -1045,14 +1052,18 @@ int main(int argc, char **argv) {
 					}
 					ImGui::End();
 
-					if (ImGui::Begin("Timers")) {
-						if (ImGui::BeginTable("TimersTable", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY, ImGui::GetContentRegionAvail())) {
+					if (ImGui::Begin("Statistics")) {
+						ImGui::Text("CPU: %f ms", cpu_frame_time);
+
+						ImGui::Separator();
+						ImGui::Text("GPU Timers");
+						if (ImGui::BeginTable("TimersTable", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableSetupColumn("Name");
 							ImGui::TableSetupColumn("Duration (ms)");
 							ImGui::TableHeadersRow();
 
-							for (const auto &t : rctx.get_timer_results()) {
+							for (const auto &t : batch_stats_late.timer_results) {
 								ImGui::TableNextRow();
 								ImGui::TableNextColumn();
 								std::string n(lstr::to_generic(t.name));
@@ -1062,11 +1073,57 @@ int main(int argc, char **argv) {
 								ImGui::Text("%f", t.duration_ms);
 							}
 
-							ImGui::TableNextRow();
-							ImGui::TableNextColumn();
-							ImGui::Text("CPU");
-							ImGui::TableNextColumn();
-							ImGui::Text("%f", cpu_frame_time);
+							ImGui::EndTable();
+						}
+
+						ImGui::Separator();
+						ImGui::Text("Constant Buffer Uploads");
+						if (ImGui::BeginTable("CBTable", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+							ImGui::TableSetupScrollFreeze(0, 1);
+							ImGui::TableSetupColumn("Size");
+							ImGui::TableSetupColumn("Size Without Padding");
+							ImGui::TableSetupColumn("Num Buffers");
+							ImGui::TableHeadersRow();
+
+							for (const auto &b : batch_stats_early.immediate_constant_buffers) {
+								ImGui::TableNextRow();
+								ImGui::TableNextColumn();
+								ImGui::Text("%" PRIu32, b.immediate_constant_buffer_size);
+
+								ImGui::TableNextColumn();
+								ImGui::Text("%" PRIu32, b.immediate_constant_buffer_size_no_padding);
+
+								ImGui::TableNextColumn();
+								ImGui::Text("%" PRIu32, b.num_immediate_constant_buffers);
+							}
+
+							ImGui::EndTable();
+						}
+
+						ImGui::Separator();
+						ImGui::Text("Transitions");
+						if (ImGui::BeginTable("TransitionTable", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+							ImGui::TableSetupScrollFreeze(0, 1);
+							ImGui::TableSetupColumn("Image2D");
+							ImGui::TableSetupColumn("Image3D");
+							ImGui::TableSetupColumn("Buffer");
+							ImGui::TableSetupColumn("Raw Buffer");
+							ImGui::TableHeadersRow();
+
+							for (const auto &t : batch_stats_early.transitions) {
+								ImGui::TableNextRow();
+								ImGui::TableNextColumn();
+								ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_image2d_transitions, t.requested_image2d_transitions);
+
+								ImGui::TableNextColumn();
+								ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_image3d_transitions, t.requested_image3d_transitions);
+
+								ImGui::TableNextColumn();
+								ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_buffer_transitions, t.requested_buffer_transitions);
+
+								ImGui::TableNextColumn();
+								ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_raw_buffer_transitions, t.requested_raw_buffer_transitions);
+							}
 
 							ImGui::EndTable();
 						}
@@ -1094,7 +1151,7 @@ int main(int argc, char **argv) {
 			taa_phase = (taa_phase + 1) % taa_samples.size();
 		}
 
-		rctx.flush();
+		batch_stats_early = rctx.flush();
 
 		auto frame_cpu_end = std::chrono::high_resolution_clock::now();
 		cpu_frame_time = std::chrono::duration<float, std::milli>(frame_cpu_end - frame_cpu_begin).count();

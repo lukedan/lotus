@@ -45,18 +45,38 @@ namespace lotus::renderer {
 		pass_context &pass_ctx,
 		std::span<const input_buffer_binding> additional_inputs,
 		all_resource_bindings additional_resources,
-		graphics_pipeline_state state,
 		std::uint32_t num_insts,
 		std::u8string_view description
 	) {
-		auto &&[vs, inputs] = pass_ctx.get_vertex_shader(*_context, *mat->data, geom.get().value);
-		auto ps = pass_ctx.get_pixel_shader(*_context, *mat->data);
-		for (const auto &in : additional_inputs) {
-			inputs.emplace_back(in);
-		}
+		instance_render_details details = pass_ctx.get_render_details(*_context, *mat->data, geom.get().value);
+
+		draw_instanced(
+			std::move(geom),
+			std::move(mat),
+			details,
+			additional_inputs,
+			std::move(additional_resources),
+			num_insts,
+			description
+		);
+	}
+
+	void context::pass::draw_instanced(
+		assets::handle<assets::geometry> geom,
+		assets::handle<assets::material> mat,
+		const instance_render_details &details,
+		std::span<const input_buffer_binding> additional_inputs,
+		all_resource_bindings additional_resources,
+		std::uint32_t num_insts,
+		std::u8string_view description
+	) {
+		std::vector<input_buffer_binding> inputs;
+		inputs.reserve(details.input_buffers.size() + additional_inputs.size());
+		inputs.insert(inputs.end(), details.input_buffers.begin(), details.input_buffers.end());
+		inputs.insert(inputs.end(), additional_inputs.begin(), additional_inputs.end());
 
 		_details::bindings_builder builder;
-		auto reflections = { &vs->reflection, &ps->reflection };
+		auto reflections = { &details.vertex_shader->reflection, &details.pixel_shader->reflection };
 		builder.add(mat->data->create_resource_bindings(), reflections);
 		builder.add(std::move(additional_resources), reflections);
 
@@ -68,8 +88,8 @@ namespace lotus::renderer {
 			geom->get_index_buffer_binding(), geom->num_indices,
 			geom->topology,
 			builder.sort_and_take(),
-			std::move(vs), std::move(ps),
-			std::move(state)
+			details.vertex_shader, details.pixel_shader,
+			details.pipeline
 		);
 	}
 
@@ -379,7 +399,7 @@ namespace lotus::renderer {
 			return lhs.last_command > rhs.last_command;
 		}
 	};
-	void context::flush() {
+	execution::batch_statistics_early context::flush() {
 		constexpr bool _insert_pass_markers = decltype(context_command::description)::is_enabled;
 
 		crash_if(std::this_thread::get_id() != _thread);
@@ -392,6 +412,8 @@ namespace lotus::renderer {
 		if (_uploads) {
 			_uploads.flush();
 		}
+
+		execution::batch_statistics_early stats = zero;
 
 		{
 			auto ectx = execution::context(*this, _all_resources.back());
@@ -468,9 +490,13 @@ namespace lotus::renderer {
 				gpu::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)
 			};
 			ectx.submit(_queue, gpu::queue_synchronization(nullptr, {}, signal_semaphores));
+
+			stats = std::move(ectx.statistics);
 		}
 
 		_cleanup();
+
+		return stats;
 	}
 
 	void context::wait_idle() {
@@ -1502,19 +1528,23 @@ namespace lotus::renderer {
 				}
 			}
 
-			if (first_batch == finished_batch) { // read back timer information
-				std::vector<timer_result> results;
-				results.reserve(batch.timestamps.size());
-				double frequency = _queue.get_timestamp_frequency();
-				std::vector<std::uint64_t> raw_results(batch.num_timestamps);
-				_device.fetch_query_results(batch.timestamp_heap, 0, raw_results);
-				for (const auto &t : batch.timestamps) {
-					std::uint64_t ticks = raw_results[t.second_timestamp] - raw_results[t.first_timestamp];
-					auto &res = results.emplace_back(nullptr);
-					res.name = t.name;
-					res.duration_ms = static_cast<float>((ticks * 1000) / frequency);
+			if (on_batch_statistics_available) {
+				execution::batch_statistics_late result = zero;
+				
+				{ // read back timer information
+					result.timer_results.reserve(batch.timestamps.size());
+					double frequency = _queue.get_timestamp_frequency();
+					std::vector<std::uint64_t> raw_results(batch.num_timestamps);
+					_device.fetch_query_results(batch.timestamp_heap, 0, raw_results);
+					for (const auto &t : batch.timestamps) {
+						std::uint64_t ticks = raw_results[t.second_timestamp] - raw_results[t.first_timestamp];
+						auto &res = result.timer_results.emplace_back(nullptr);
+						res.name = t.name;
+						res.duration_ms = static_cast<float>((ticks * 1000) / frequency);
+					}
 				}
-				_timer_results = std::move(results);
+
+				on_batch_statistics_available(first_batch, std::move(result));
 			}
 
 			_all_resources.pop_front();

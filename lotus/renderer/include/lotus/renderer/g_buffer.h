@@ -48,21 +48,26 @@ namespace lotus::renderer::g_buffer {
 		explicit pass_context(assets::manager &man) : _man(man) {
 		}
 
-		/// Retrieves a vertex shader and vertex inputs.
-		[[nodiscard]] std::pair<assets::handle<assets::shader>, std::vector<input_buffer_binding>> get_vertex_shader(
+		/// Computes derived render data.
+		[[nodiscard]] instance_render_details get_render_details(
 			context&, const assets::material::context_data&, const assets::geometry&
-		) override;
-		/// Retrieves a pixel shader.
-		[[nodiscard]] assets::handle<assets::shader> get_pixel_shader(
-			context&, const assets::material::context_data&
 		) override;
 	private:
 		assets::manager &_man; ///< The associated asset manager.
 	};
 
+	/// Computes render data for the given instances.
+	[[nodiscard]] std::vector<instance_render_details> get_instance_render_details(
+		assets::manager&, std::span<const instance>
+	);
 	/// Renders the given instances in the given pass.
 	void render_instances(
+		context::pass&, std::span<const instance>, std::span<const instance_render_details>,
+		cvec2u32 viewport_size, mat44f view, mat44f projection, mat44f jitter, mat44f prev_projection_view
+	);
+	/// \overload
+	void render_instances(
 		context::pass&, assets::manager&, std::span<const instance>,
-		cvec2u32 viewport_size, mat44f view, mat44f projection, mat44f jitter, mat44f prev_view_projection
+		cvec2u32 viewport_size, mat44f view, mat44f projection, mat44f jitter, mat44f prev_projection_view
 	);
 }

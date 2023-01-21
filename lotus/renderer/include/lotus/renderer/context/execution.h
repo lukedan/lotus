@@ -32,6 +32,62 @@ namespace lotus::renderer::execution {
 		std::uint32_t second_timestamp = 0; ///< Index of the second timestamp in the heap.
 		std::u8string_view name; ///< The name of this timer.
 	};
+	/// Result of a single timer.
+	struct timer_result {
+		/// Initializes this object to empty.
+		timer_result(std::nullptr_t) {
+		}
+
+		std::u8string_view name; ///< The name of this timer.
+		float duration_ms = 0.0f; ///< Duration of the timer in milliseconds.
+	};
+
+	/// Statistics about transitions.
+	struct transition_statistics {
+		/// Initializes all statistics to zero.
+		transition_statistics(zero_t) {
+		}
+
+		std::uint32_t requested_image2d_transitions    = 0; ///< Number of 2D image transitions requested.
+		std::uint32_t requested_image3d_transitions    = 0; ///< Number of 3D image transitions requested.
+		std::uint32_t requested_buffer_transitions     = 0; ///< Number of buffer transitions requested.
+		std::uint32_t requested_raw_buffer_transitions = 0; ///< Number of raw buffer transitions requested.
+
+		std::uint32_t submitted_image2d_transitions    = 0; ///< Number of 2D image transitions submitted.
+		std::uint32_t submitted_image3d_transitions    = 0; ///< Number of 3D image transitions submitted.
+		std::uint32_t submitted_buffer_transitions     = 0; ///< Number of buffer transitions submitted.
+		std::uint32_t submitted_raw_buffer_transitions = 0; ///< Number of raw buffer transitions submitted.
+	};
+	/// Statistics about immediate constant buffers.
+	struct immediate_constant_buffer_statistsics {
+		/// Initializes all statistics to zero.
+		immediate_constant_buffer_statistsics(zero_t) {
+		}
+
+		std::uint32_t num_immediate_constant_buffers = 0; ///< Number of immediate constant buffer instances.
+		std::uint32_t immediate_constant_buffer_size = 0; ///< Total size of all immediate constant buffers.
+		/// Total size of all immediate constant buffers without padding.
+		std::uint32_t immediate_constant_buffer_size_no_padding = 0;
+	};
+	/// Batch statistics that are available as soon as a batch has been submitted.
+	struct batch_statistics_early {
+		/// Initializes all statistics to zero.
+		batch_statistics_early(zero_t) {
+		}
+
+		std::vector<transition_statistics> transitions; ///< Transition statistics.
+		/// Immediate constant buffer statistics.
+		std::vector<immediate_constant_buffer_statistsics> immediate_constant_buffers;
+	};
+	/// Batch statistics that are only available once a batch has finished execution.
+	struct batch_statistics_late {
+		/// Initializes all statistics to zero.
+		batch_statistics_late(zero_t) {
+		}
+
+		std::vector<timer_result> timer_results; ///< Timer results.
+	};
+
 
 	/// A batch of resources.
 	struct batch_resources {
@@ -224,7 +280,7 @@ namespace lotus::renderer::execution {
 	class transition_buffer {
 	public:
 		/// Initializes this buffer to empty.
-		transition_buffer(std::nullptr_t) {
+		transition_buffer(std::nullptr_t) : _stats(zero) {
 		}
 
 		/// Stages a 2D image transition operation, and notifies any descriptor arrays affected.
@@ -240,22 +296,20 @@ namespace lotus::renderer::execution {
 		/// Stages a raw buffer transition operation. No state tracking is performed for such operations; this is
 		/// only intended to be used internally when the usage of a buffer is known.
 		void stage_transition(gpu::buffer &buf, _details::buffer_access from, _details::buffer_access to) {
+			++_stats.requested_raw_buffer_transitions;
 			std::pair<_details::buffer_access, _details::buffer_access> usage(from, to);
 			auto [it, inserted] = _raw_buffer_transitions.emplace(&buf, usage);
-			assert(inserted || it->second == usage);
+			crash_if(!inserted && it->second != usage);
 		}
 		/// Stages all pending transitions from the given image descriptor array.
 		void stage_all_transitions_for(_details::image_descriptor_array&);
 		/// Stages all pending transitions from the given buffer descriptor array.
 		void stage_all_transitions_for(_details::buffer_descriptor_array&);
 
-		/// Prepares this buffer for execution.
-		void prepare();
-		/// Collects all staged transition operations. \ref prepare() must have been called after all transitions
-		/// have been staged.
-		[[nodiscard]] std::pair<
-			std::vector<gpu::image_barrier>, std::vector<gpu::buffer_barrier>
-		> collect_transitions() const;
+		/// Collects all staged transition operations.
+		[[nodiscard]] std::tuple<
+			std::vector<gpu::image_barrier>, std::vector<gpu::buffer_barrier>, transition_statistics
+		> collect_transitions() &&;
 	private:
 		/// Staged 2D image transition operations.
 		std::vector<transition_records::image2d> _image2d_transitions;
@@ -269,6 +323,7 @@ namespace lotus::renderer::execution {
 		std::unordered_map<
 			gpu::buffer*, std::pair<_details::buffer_access, _details::buffer_access>
 		> _raw_buffer_transitions;
+		transition_statistics _stats; ///< Statistics.
 	};
 
 	/// Manages the execution of a series of commands.
@@ -280,9 +335,11 @@ namespace lotus::renderer::execution {
 		/// Initializes this context.
 		context(renderer::context &ctx, batch_resources &rsrc) :
 			transitions(nullptr),
+			statistics(zero),
 			_ctx(ctx), _resources(rsrc),
 			_immediate_constant_device_buffer(nullptr),
-			_immediate_constant_upload_buffer(nullptr) {
+			_immediate_constant_upload_buffer(nullptr),
+			_immediate_constant_buffer_stats(zero) {
 		}
 		/// No move construction.
 		context(const context&) = delete;
@@ -352,6 +409,7 @@ namespace lotus::renderer::execution {
 		void flush_transitions();
 
 		transition_buffer transitions; ///< Transitions.
+		batch_statistics_early statistics; ///< Statistics.
 	private:
 		renderer::context &_ctx; ///< The associated context.
 		batch_resources &_resources; ///< Where to record internal resources created during execution to.
@@ -365,5 +423,7 @@ namespace lotus::renderer::execution {
 		gpu::buffer _immediate_constant_upload_buffer;
 		/// Mapped pointer for \ref _immediate_constant_upload_buffer.
 		std::byte *_immediate_constant_upload_buffer_ptr = nullptr;
+		/// Immediate constant buffer statistics.
+		immediate_constant_buffer_statistsics _immediate_constant_buffer_stats;
 	};
 }

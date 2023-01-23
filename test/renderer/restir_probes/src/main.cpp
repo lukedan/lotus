@@ -1,4 +1,5 @@
 #include <cinttypes>
+#include <queue>
 #include <random>
 
 #include <scene.h>
@@ -28,6 +29,19 @@ template <typename T> constexpr static ImGuiDataType ImGuiAutoDataType_v = ImGui
 template <typename T> static bool ImGui_SliderT(const char *label, T *data, T min, T max, const char *format = nullptr, ImGuiSliderFlags flags = 0) {
 	return ImGui::SliderScalar(label, ImGuiAutoDataType_v<T>, data, &min, &max, format, flags);
 }
+
+struct sig_pair {
+	sig_pair(lren::execution::constant_buffer_signature sig, std::uint32_t c) :
+		signature(sig), count(c) {
+	}
+
+	[[nodiscard]] friend std::strong_ordering operator<=>(sig_pair lhs, sig_pair rhs) {
+		return lhs.count <=> rhs.count;
+	}
+
+	lren::execution::constant_buffer_signature signature;
+	std::uint32_t count;
+};
 
 int main(int argc, char **argv) {
 	lsys::application app(u8"ReSTIR Probes");
@@ -1095,6 +1109,44 @@ int main(int argc, char **argv) {
 
 								ImGui::TableNextColumn();
 								ImGui::Text("%" PRIu32, b.num_immediate_constant_buffers);
+							}
+
+							ImGui::EndTable();
+						}
+
+						ImGui::Separator();
+						ImGui::Text("Constant Buffers");
+						if (ImGui::BeginTable("CBSigTable", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+							ImGui::TableSetupScrollFreeze(0, 1);
+							ImGui::TableSetupColumn("Count");
+							ImGui::TableSetupColumn("Hash");
+							ImGui::TableSetupColumn("Size");
+							ImGui::TableHeadersRow();
+
+							std::size_t keep_count = 5;
+							std::vector<sig_pair> heap;
+							std::greater<sig_pair> pred;
+							for (auto &&[sig, count] : batch_stats_early.constant_buffer_counts) {
+								heap.emplace_back(sig, count);
+								std::push_heap(heap.begin(), heap.end(), pred);
+								if (heap.size() > keep_count) {
+									std::pop_heap(heap.begin(), heap.end(), pred);
+									heap.pop_back();
+								}
+							}
+
+							std::sort(heap.begin(), heap.end(), pred);
+
+							for (const auto &p : heap) {
+								ImGui::TableNextRow();
+								ImGui::TableNextColumn();
+								ImGui::Text("%" PRIu32, p.count);
+
+								ImGui::TableNextColumn();
+								ImGui::Text("0x%08" PRIX32, p.signature.hash);
+
+								ImGui::TableNextColumn();
+								ImGui::Text("%" PRIu32, p.signature.size);
 							}
 
 							ImGui::EndTable();

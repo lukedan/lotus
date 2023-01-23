@@ -1117,8 +1117,6 @@ namespace lotus::renderer {
 
 		std::vector<cache_keys::graphics_pipeline::input_buffer_layout> input_layouts;
 		input_layouts.reserve(cmd.inputs.size());
-		// for all vertex/index buffers, we additionally mark them to be read in shaders
-		// in case we need to do raytracing
 		for (const auto &input : cmd.inputs) {
 			input_layouts.emplace_back(input.elements, input.stride, input.buffer_index, input.input_rate);
 			ectx.transitions.stage_transition(
@@ -1413,37 +1411,44 @@ namespace lotus::renderer {
 			_adapter_properties.shader_group_handle_alignment
 		);
 
-		auto [raygen_cbuf, raygen_data] = ectx.stage_immediate_constant_buffer(memory::size_alignment(
-			record_size, _adapter_properties.shader_group_handle_table_alignment
-		));
-		{
+		auto copy_raygen_cbuf = [&](std::span<std::byte> data) {
 			auto rec = _device.get_shader_group_handle(state, cmd.raygen_shader_group_index);
-			std::memcpy(raygen_data, rec.data().data(), rec.data().size());
-		}
+			std::memcpy(data.data(), rec.data().data(), rec.data().size());
+		};
+		auto raygen_cbuf = ectx.stage_immediate_constant_buffer(
+			memory::size_alignment(record_size, _adapter_properties.shader_group_handle_table_alignment),
+			[&](std::span<std::byte> data) { copy_raygen_cbuf(data); }
+		);
 
-		auto [miss_cbuf, miss_data] = ectx.stage_immediate_constant_buffer(memory::size_alignment(
-			record_size * cmd.miss_group_indices.size(), _adapter_properties.shader_group_handle_table_alignment
-		));
-		{
-			auto *ptr = miss_data;
+		auto copy_miss_cbuf = [&](std::span<std::byte> data) {
+			auto *ptr = data.data();
 			for (const auto &id : cmd.miss_group_indices) {
 				auto rec = _device.get_shader_group_handle(state, id);
 				std::memcpy(ptr, rec.data().data(), rec.data().size());
 				ptr += record_size;
 			}
-		}
+		};
+		auto miss_cbuf = ectx.stage_immediate_constant_buffer(
+			memory::size_alignment(
+				record_size * cmd.miss_group_indices.size(), _adapter_properties.shader_group_handle_table_alignment
+			),
+			[&](std::span<std::byte> data) { copy_miss_cbuf(data); }
+		);
 
-		auto [hit_cbuf, hit_data] = ectx.stage_immediate_constant_buffer(memory::size_alignment(
-			record_size * cmd.hit_group_indices.size(), _adapter_properties.shader_group_handle_table_alignment
-		));
-		{
-			auto *ptr = hit_data;
+		auto copy_hit_cbuf = [&](std::span<std::byte> data) {
+			auto *ptr = data.data();
 			for (const auto &id : cmd.hit_group_indices) {
 				auto rec = _device.get_shader_group_handle(state, id);
 				std::memcpy(ptr, rec.data().data(), rec.data().size());
 				ptr += record_size;
 			}
-		}
+		};
+		auto hit_cbuf = ectx.stage_immediate_constant_buffer(
+			memory::size_alignment(
+				record_size * cmd.hit_group_indices.size(), _adapter_properties.shader_group_handle_table_alignment
+			),
+			[&](std::span<std::byte> data) { copy_hit_cbuf(data); }
+		);
 
 		ectx.get_command_list().bind_pipeline_state(state);
 		_bind_descriptor_sets(ectx, rsrc, sets, _bind_point::raytracing);

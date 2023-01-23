@@ -361,9 +361,9 @@ namespace lotus::renderer::execution {
 		);
 	}
 
-	std::pair<
-		gpu::constant_buffer_view, std::byte*
-	> context::stage_immediate_constant_buffer(memory::size_alignment size_align) {
+	gpu::constant_buffer_view context::stage_immediate_constant_buffer(
+		memory::size_alignment size_align, static_function<void(std::span<std::byte>)> fill_data
+	) {
 		if (_immediate_constant_device_buffer) {
 			_immediate_constant_buffer_used = memory::align_up(_immediate_constant_buffer_used, size_align.alignment);
 			if (_immediate_constant_buffer_used + size_align.size > immediate_constant_buffer_cache_size) {
@@ -395,11 +395,21 @@ namespace lotus::renderer::execution {
 		std::byte *data_addr = _immediate_constant_upload_buffer_ptr + _immediate_constant_buffer_used;
 		_immediate_constant_buffer_used += static_cast<std::uint32_t>(size_align.size);
 
-		_immediate_constant_buffer_stats.immediate_constant_buffer_size +=
+		_immediate_constant_buffer_stats.immediate_constant_buffer_size_no_padding +=
 			static_cast<std::uint32_t>(size_align.size);
 		++_immediate_constant_buffer_stats.num_immediate_constant_buffers;
 
-		return { result, data_addr };
+		auto span = std::span(data_addr, data_addr + size_align.size);
+		fill_data(span);
+
+		if constexpr (collect_constant_buffer_signature) {
+			constant_buffer_signature sig = zero;
+			sig.hash = fnv1a::hash_bytes(span);
+			sig.size = static_cast<std::uint32_t>(size_align.size);
+			++statistics.constant_buffer_counts[sig];
+		}
+
+		return result;
 	}
 
 	[[nodiscard]] gpu::constant_buffer_view context::stage_immediate_constant_buffer(
@@ -408,9 +418,12 @@ namespace lotus::renderer::execution {
 		if (alignment == 0) {
 			alignment = _ctx._adapter_properties.constant_buffer_alignment;
 		}
-		auto [res, dst] = stage_immediate_constant_buffer(memory::size_alignment(data.size(), alignment));
-		std::memcpy(dst, data.data(), data.size());
-		return res;
+		return stage_immediate_constant_buffer(
+			memory::size_alignment(data.size(), alignment),
+			[data_ptr = data.data()](std::span<std::byte> dst) {
+				std::memcpy(dst.data(), data_ptr, dst.size());
+			}
+		);
 	}
 
 	void context::flush_immediate_constant_buffers() {
@@ -418,7 +431,7 @@ namespace lotus::renderer::execution {
 			return;
 		}
 
-		_immediate_constant_buffer_stats.immediate_constant_buffer_size_no_padding =
+		_immediate_constant_buffer_stats.immediate_constant_buffer_size =
 			static_cast<std::uint32_t>(_immediate_constant_buffer_used);
 		statistics.immediate_constant_buffers.emplace_back(std::exchange(_immediate_constant_buffer_stats, zero));
 

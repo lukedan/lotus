@@ -22,6 +22,9 @@ namespace lotus::renderer {
 }
 
 namespace lotus::renderer::execution {
+	/// Whether or not to collect signatures of constant buffers.
+	constexpr bool collect_constant_buffer_signature = false;
+
 	/// Timestamp information of a timer.
 	struct timestamp_data {
 		/// Initializes this struct to empty.
@@ -69,6 +72,34 @@ namespace lotus::renderer::execution {
 		/// Total size of all immediate constant buffers without padding.
 		std::uint32_t immediate_constant_buffer_size_no_padding = 0;
 	};
+	/// Signature of a constant buffer.
+	struct constant_buffer_signature {
+		/// Initializes this object to zero.
+		constexpr constant_buffer_signature(zero_t) {
+		}
+
+		/// Default equality comparison.
+		[[nodiscard]] friend bool operator==(constant_buffer_signature, constant_buffer_signature) = default;
+
+		std::uint32_t hash = 0; ///< Hash of the buffer's data.
+		std::uint32_t size = 0; ///< Size of the buffer.
+	};
+}
+namespace std {
+	/// Hash function for \ref lotus::renderer::execution::constant_buffer_signature.
+	template <> struct hash<lotus::renderer::execution::constant_buffer_signature> {
+		/// The hash function.
+		[[nodiscard]] constexpr std::size_t operator()(
+			lotus::renderer::execution::constant_buffer_signature sig
+		) const {
+			return lotus::hash_combine({
+				lotus::compute_hash(sig.hash),
+				lotus::compute_hash(sig.size),
+			});
+		}
+	};
+}
+namespace lotus::renderer::execution {
 	/// Batch statistics that are available as soon as a batch has been submitted.
 	struct batch_statistics_early {
 		/// Initializes all statistics to zero.
@@ -78,6 +109,9 @@ namespace lotus::renderer::execution {
 		std::vector<transition_statistics> transitions; ///< Transition statistics.
 		/// Immediate constant buffer statistics.
 		std::vector<immediate_constant_buffer_statistsics> immediate_constant_buffers;
+		/// Constant buffer information. This is costly to gather, so it's only filled if
+		/// \ref collect_constant_buffer_signature is on.
+		std::unordered_map<constant_buffer_signature, std::uint32_t> constant_buffer_counts;
 	};
 	/// Batch statistics that are only available once a batch has finished execution.
 	struct batch_statistics_late {
@@ -379,17 +413,13 @@ namespace lotus::renderer::execution {
 			cvec2u32 size
 		);
 
-		/// Allocates space for an immediate constant buffer.
+		/// Allocates space for an immediate constant buffer, and calls the given callback to fill it.
 		///
-		/// \return A reference to the allocated region, and a pointer to the buffer data. The caller should
-		///         immediately copy over the buffer's data.
-		[[nodiscard]] std::pair<
-			gpu::constant_buffer_view, std::byte*
-		> stage_immediate_constant_buffer(memory::size_alignment);
-		/// Allocates an immediate constant buffer and copies the data over.
-		///
-		/// \param data Buffer data.
-		/// \param alignment Alignment of the buffer, or zero to use the default alignment.
+		/// \return A reference to the allocated region.
+		[[nodiscard]] gpu::constant_buffer_view stage_immediate_constant_buffer(
+			memory::size_alignment, static_function<void(std::span<std::byte>)> fill_buffer
+		);
+		/// \overload
 		[[nodiscard]] gpu::constant_buffer_view stage_immediate_constant_buffer(
 			std::span<const std::byte> data, std::size_t alignment = 0
 		);

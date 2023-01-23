@@ -281,6 +281,32 @@ namespace lotus {
 		});
 	}
 
+	/// The FNV-1a hash.
+	namespace fnv1a {
+		/// Constants for different hash sizes.
+		template <typename T> struct constants;
+		/// Constants for 32-bit FNV-1a hash.
+		template <> struct constants<std::uint32_t> {
+			constexpr static std::uint32_t prime  = 16777619;   ///< The multiplier.
+			constexpr static std::uint32_t offset = 2166136261; ///< The initial offset.
+		};
+		/// Constants for 64-bit FNV-1a hash.
+		template <> struct constants<std::uint64_t> {
+			constexpr static std::uint64_t prime  = 1099511628211;        ///< The multiplier.
+			constexpr static std::uint64_t offset = 14695981039346656037; ///< The initial offset.
+		};
+
+		/// Hashes the given range of bytes using FNV-1a.
+		template <typename T = std::uint32_t> [[nodiscard]] inline T hash_bytes(std::span<const std::byte> data) {
+			T hash = constants<T>::offset;
+			for (std::byte b : data) {
+				hash ^= static_cast<T>(b);
+				hash *= constants<T>::prime;
+			}
+			return hash;
+		}
+	}
+
 
 	/// Represents a linear range with beginning and end points. The end points can be either floating point or
 	/// integral, and when it's integral the range will be closed at the beginning and open at the end (i.e., [s, e)

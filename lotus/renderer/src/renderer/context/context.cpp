@@ -914,6 +914,23 @@ namespace lotus::renderer {
 	void context::_create_descriptor_binding_impl(
 		execution::transition_buffer &transitions, gpu::descriptor_set &set,
 		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
+		const descriptor_resource::constant_buffer &buf
+	) {
+		_maybe_create_buffer(*buf.data._ptr);
+		_device.write_descriptor_set_constant_buffers(set, layout, reg, {
+			gpu::constant_buffer_view(buf.data._ptr->data, buf.offset, buf.size)
+		});
+		transitions.stage_transition(
+			*buf.data._ptr,
+			_details::buffer_access(
+				gpu::synchronization_point_mask::all, gpu::buffer_access_mask::constant_buffer
+			)
+		);
+	}
+
+	void context::_create_descriptor_binding_impl(
+		execution::transition_buffer &transitions, gpu::descriptor_set &set,
+		const gpu::descriptor_set_layout &layout, std::uint32_t reg,
 		const descriptor_resource::structured_buffer &buf
 	) {
 		_maybe_create_buffer(*buf.data._ptr);
@@ -1036,6 +1053,7 @@ namespace lotus::renderer {
 		const gpu::descriptor_set_layout&,
 		gpu::descriptor_set&
 	> context::_use_descriptor_set(execution::context&, const recorded_resources::cached_descriptor_set &set) {
+		// TODO transitions
 		return { cache_keys::descriptor_set_layout(set._ptr->ranges), *set._ptr->layout, set._ptr->set };
 	}
 

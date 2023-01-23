@@ -111,9 +111,10 @@ namespace lotus::renderer::g_buffer {
 
 	void render_instances(
 		context::pass &pass, std::span<const instance> instances, std::span<const instance_render_details> details,
-		cvec2u32 viewport_size, mat44f view, mat44f projection, mat44f jitter, mat44f prev_projection_view
+		descriptor_resource::constant_buffer view_data
 	) {
 		crash_if(instances.size() != details.size());
+
 		for (std::size_t i = 0; i < instances.size(); ++i) {
 			const auto &inst = instances[i];
 			const auto &dets = details[i];
@@ -132,20 +133,11 @@ namespace lotus::renderer::g_buffer {
 			instance.normal_transform = normal_trans;
 			instance.prev_transform   = inst.prev_transform;
 
-			shader_types::view_data view_data;
-			view_data.view                     = view;
-			view_data.projection               = projection;
-			view_data.jitter                   = jitter;
-			view_data.projection_view          = projection * view;
-			view_data.jittered_projection_view = jitter * projection * view;
-			view_data.prev_projection_view     = prev_projection_view;
-			view_data.rcp_viewport_size        = vec::memberwise_reciprocal(viewport_size.into<float>());
-
 			auto additional_resources = all_resource_bindings(
 				{
 					{ 1, {
 						{ 1, descriptor_resource::immediate_constant_buffer::create_for(instance) },
-						{ 2, descriptor_resource::immediate_constant_buffer::create_for(view_data) },
+						{ 2, view_data },
 					} },
 				},
 				{}
@@ -160,9 +152,9 @@ namespace lotus::renderer::g_buffer {
 
 	void render_instances(
 		context::pass &pass, assets::manager &man, std::span<const instance> instances,
-		cvec2u32 viewport_size, mat44f view, mat44f projection, mat44f jitter, mat44f prev_projection_view
+		descriptor_resource::constant_buffer view_data
 	) {
 		auto details = get_instance_render_details(man, instances);
-		render_instances(pass, instances, details, viewport_size, view, projection, jitter, prev_projection_view);
+		render_instances(pass, instances, details, view_data);
 	}
 }

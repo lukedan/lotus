@@ -686,6 +686,11 @@ namespace lotus::renderer {
 		template <typename T> [[nodiscard]] structured_buffer_view get_view(
 			std::uint32_t first, std::uint32_t count
 		) const;
+
+		/// Binds the whole buffer as a constant buffer.
+		[[nodiscard]] descriptor_resource::constant_buffer bind_as_constant_buffer() const {
+			return descriptor_resource::constant_buffer(*this, 0, _ptr->size);
+		}
 	private:
 		/// Initializes all fields of this struct.
 		explicit buffer(std::shared_ptr<_details::buffer> buf) : basic_resource_handle(std::move(buf)) {
@@ -735,7 +740,7 @@ namespace lotus::renderer {
 
 		/// Moves the range of visible elements and returns the new view.
 		[[nodiscard]] structured_buffer_view move_view(std::uint32_t first, std::uint32_t count) const {
-			assert((first + count) * _stride <= _ptr->size);
+			crash_if((first + count) * _stride > _ptr->size);
 			return structured_buffer_view(_ptr, _stride, first, count);
 		}
 

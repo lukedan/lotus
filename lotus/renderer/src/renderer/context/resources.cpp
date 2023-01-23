@@ -79,6 +79,7 @@ namespace lotus::renderer {
 	structured_buffer_view buffer::get_view(
 		std::uint32_t stride, std::uint32_t first, std::uint32_t count
 	) const {
+		crash_if((first + count) * stride > _ptr->size);
 		return structured_buffer_view(_ptr, stride, first, count);
 	}
 

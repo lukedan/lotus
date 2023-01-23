@@ -442,10 +442,21 @@ int main(int argc, char **argv) {
 			{ // g-buffer
 				auto tmr = rctx.start_timer(u8"G-Buffer");
 
+				lren::shader_types::view_data view_data;
+				view_data.view                     = cam.view_matrix;
+				view_data.projection               = cam.projection_matrix;
+				view_data.jitter                   = cam.jitter_matrix;
+				view_data.projection_view          = cam.projection_view_matrix;
+				view_data.jittered_projection_view = cam.jittered_projection_view_matrix;
+				view_data.prev_projection_view     = prev_cam.projection_view_matrix;
+				view_data.rcp_viewport_size        = lotus::vec::memberwise_reciprocal(window_size.into<float>());
+
+				auto buf = rctx.request_buffer(u8"View Data Constant Buffer", sizeof(view_data), lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read, runtime_buf_pool);
+				rctx.upload_buffer<lren::shader_types::view_data>(buf, { &view_data, &view_data + 1 }, 0, u8"Upload View Data");
+
 				auto pass = g_buf.begin_pass(rctx);
 				lren::g_buffer::render_instances(
-					pass, scene.instances, scene.gbuffer_instance_render_details, window_size.into<std::uint32_t>(),
-					cam.view_matrix, cam.projection_matrix, cam.jitter_matrix, prev_cam.projection_view_matrix
+					pass, scene.instances, scene.gbuffer_instance_render_details, buf.bind_as_constant_buffer()
 				);
 				pass.end();
 			}

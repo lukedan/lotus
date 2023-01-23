@@ -807,6 +807,10 @@ namespace lotus::renderer {
 		) const {
 			return gpu::descriptor_type::read_write_image;
 		}
+		/// Returns the descriptor type of a constant buffer.
+		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(const descriptor_resource::constant_buffer&) const {
+			return gpu::descriptor_type::constant_buffer;
+		}
 		/// Returns the descriptor type of a buffer binding.
 		[[nodiscard]] gpu::descriptor_type _get_descriptor_type(
 			const descriptor_resource::structured_buffer &buf
@@ -852,7 +856,13 @@ namespace lotus::renderer {
 			const gpu::descriptor_set_layout&, std::uint32_t reg,
 			const recorded_resources::swap_chain&, const gpu::image2d_view&
 		);
-		/// Creates a descriptor binding for a buffer.
+		/// Creates a descriptor binding for a constant buffer.
+		void _create_descriptor_binding_impl(
+			execution::transition_buffer&, gpu::descriptor_set&,
+			const gpu::descriptor_set_layout&, std::uint32_t reg,
+			const descriptor_resource::constant_buffer&
+		);
+		/// Creates a descriptor binding for a structured buffer.
 		void _create_descriptor_binding_impl(
 			execution::transition_buffer&, gpu::descriptor_set&,
 			const gpu::descriptor_set_layout&, std::uint32_t reg,
@@ -900,6 +910,14 @@ namespace lotus::renderer {
 			_create_descriptor_binding_impl(
 				ectx.transitions, set, layout, reg, img, _request_image_view(ectx, img)
 			);
+		}
+		/// \overload
+		void _create_descriptor_binding(
+			execution::context &ectx, gpu::descriptor_set &set,
+			const gpu::descriptor_set_layout &layout, std::uint32_t reg,
+			const descriptor_resource::constant_buffer &buf
+		) {
+			_create_descriptor_binding_impl(ectx.transitions, set, layout, reg, buf);
 		}
 		/// \overload
 		void _create_descriptor_binding(
@@ -960,6 +978,14 @@ namespace lotus::renderer {
 			const recorded_resources::swap_chain&
 		) {
 			std::abort(); // swap chain images are not allowed
+		}
+		/// \overload
+		void _create_descriptor_binding_cached(
+			_details::cached_descriptor_set &set, std::uint32_t reg,
+			const descriptor_resource::constant_buffer &buf
+		) {
+			set.resource_references.emplace_back(buf.data._ptr->shared_from_this());
+			_create_descriptor_binding_impl(set.transitions, set.set, *set.layout, reg, buf);
 		}
 		/// \overload
 		void _create_descriptor_binding_cached(

@@ -57,6 +57,14 @@ namespace lotus::renderer::_details {
 		crash_if(bd.register_count != 1 || bd.type != gpu::descriptor_type::read_only_image);
 		_collect_single_descriptor(bindings, img, bd);
 	}
+	/// Collects a constant buffer binding.
+	static void _collect_binding(
+		numbered_bindings &bindings,
+		const descriptor_resource::constant_buffer &buf, const gpu::shader_resource_binding &bd
+	) {
+		crash_if(bd.register_count != 1 || bd.type != gpu::descriptor_type::constant_buffer);
+		_collect_single_descriptor(bindings, buf, bd);
+	}
 	/// Collects a structured buffer binding.
 	static void _collect_binding(
 		numbered_bindings &bindings,

@@ -265,6 +265,17 @@ namespace lotus::renderer {
 		};
 		using image2d = basic_image<gpu::image_type::type_2d>; ///< A 2D image.
 		using image3d = basic_image<gpu::image_type::type_3d>; ///< A 2D image.
+		/// A constant buffer.
+		struct constant_buffer {
+			/// Initializes all fields of this struct.
+			constant_buffer(recorded_resources::buffer d, std::uint32_t off, std::uint32_t sz) :
+				data(d), offset(off), size(sz) {
+			}
+
+			recorded_resources::buffer data; ///< Buffer data.
+			std::uint32_t offset = 0; ///< Byte offset of the constant buffer.
+			std::uint32_t size = 0; ///< Size of the constant buffer in bytes.
+		};
 		/// A structured buffer.
 		struct structured_buffer {
 			/// Initializes all fields of this struct.
@@ -303,6 +314,7 @@ namespace lotus::renderer {
 				descriptor_resource::image2d,
 				descriptor_resource::image3d,
 				recorded_resources::swap_chain,
+				descriptor_resource::constant_buffer,
 				descriptor_resource::structured_buffer,
 				descriptor_resource::immediate_constant_buffer,
 				recorded_resources::tlas,
@@ -349,6 +361,7 @@ namespace lotus::renderer {
 				descriptor_resource::image2d,
 				descriptor_resource::image3d,
 				recorded_resources::swap_chain,
+				descriptor_resource::constant_buffer,
 				descriptor_resource::structured_buffer,
 				descriptor_resource::immediate_constant_buffer,
 				recorded_resources::tlas,

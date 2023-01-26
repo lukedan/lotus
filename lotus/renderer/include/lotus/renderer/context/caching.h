@@ -121,7 +121,7 @@ namespace lotus::renderer {
 			std::vector<input_buffer_layout> input_buffers; ///< Input buffers.
 
 			// output frame buffer
-			std::vector<gpu::format> color_rt_formats; ///< Color render target formats.
+			short_vector<gpu::format, 8> color_rt_formats; ///< Color render target formats.
 			/// Depth-stencil render target format.
 			gpu::format dpeth_stencil_rt_format = gpu::format::none;
 

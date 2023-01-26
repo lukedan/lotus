@@ -17,6 +17,7 @@ target_sources(lotus_core
 		"include/lotus/containers/maybe_uninitialized.h"
 		"include/lotus/containers/pool.h"
 		"include/lotus/containers/pooled_hash_table.h"
+		"include/lotus/containers/short_vector.h"
 		"include/lotus/containers/static_optional.h"
 
 		"include/lotus/memory/block.h"

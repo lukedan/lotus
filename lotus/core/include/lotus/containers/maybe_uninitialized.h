@@ -7,10 +7,11 @@
 
 #include "lotus/common.h"
 #include "lotus/memory/common.h"
+#include "static_optional.h"
 
 namespace lotus {
 	/// Holds an object that may or may not be initialized. Holds additional data for debugging when in debug mode.
-	template <typename T> struct maybe_uninitialized {
+	template <typename T, bool UseDebugMarker = is_debugging> struct maybe_uninitialized {
 	public:
 		/// The object is not initialized.
 		maybe_uninitialized(uninitialized_t) : _is_initialized(false) {
@@ -31,6 +32,7 @@ namespace lotus {
 				crash_if_constexpr(_is_initialized.value_or(false));
 				_is_initialized.value = true;
 			}
+			_maybe_unpoison_storage();
 			new (&_value) T(std::forward<Args>(args)...);
 		}
 		/// Disposes of the value.
@@ -73,7 +75,8 @@ namespace lotus {
 		union {
 			T _value; ///< Value.
 		};
-		[[no_unique_address]] debug_value<bool> _is_initialized; ///< Whether \ref _value is a valid object.
+		/// Whether \ref _value is a valid object.
+		[[no_unique_address]] static_optional<bool, UseDebugMarker> _is_initialized;
 
 		/// Poisons this object if debugging.
 		void _maybe_poison_storage() {

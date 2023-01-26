@@ -195,9 +195,11 @@ namespace lotus::renderer::_details {
 					) {
 						auto &prev_descriptors = std::get<_bindigns_descriptors_t>(last->value);
 						auto &cur_descriptors = std::get<_bindigns_descriptors_t>(it->value);
-						for (auto &b : cur_descriptors) {
-							prev_descriptors.emplace_back(std::move(b));
-						}
+						prev_descriptors.insert(
+							prev_descriptors.end(),
+							std::make_move_iterator(cur_descriptors.begin()),
+							std::make_move_iterator(cur_descriptors.end())
+						);
 					} else {
 						log().error<
 							u8"Multiple incompatible bindings specified for space {}. "

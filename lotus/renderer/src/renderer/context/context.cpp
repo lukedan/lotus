@@ -1067,6 +1067,9 @@ namespace lotus::renderer {
 		std::vector<_descriptor_set_info> sets;
 		cache_keys::pipeline_resources key;
 
+		sets.reserve(resources.size());
+		key.sets.reserve(resources.size());
+
 		for (const auto &set : resources) {
 			auto &&[layout_key, layout, desc_set] = std::visit([&, this](const auto &bindings) {
 				return _use_descriptor_set(ectx, bindings);

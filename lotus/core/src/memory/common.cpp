@@ -18,13 +18,17 @@
 namespace lotus::memory {
 	namespace raw {
 		std::byte *allocate(size_alignment s) {
+			return static_cast<std::byte*>(
 #ifdef LOTUS_USE_MIMALLOC
-			return mi_aligned_alloc(s.alignment, s.size);
+				mi_aligned_alloc(s.alignment, s.size)
 #else
 #	ifdef _MSC_VER
-			return static_cast<std::byte*>(_aligned_malloc(s.size, s.alignment));
+				_aligned_malloc(s.size, s.alignment)
+#	else
+				std::aligned_alloc(s.alignment, s.size)
 #	endif
 #endif
+			);
 		}
 
 		void free(std::byte *ptr) {
@@ -33,6 +37,8 @@ namespace lotus::memory {
 #else
 #	ifdef _MSC_VER
 			_aligned_free(ptr);
+#	else
+			std::free(ptr);
 #	endif
 #endif
 		}

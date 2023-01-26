@@ -3,6 +3,7 @@
 /// \file
 /// Shader resource bindings.
 
+#include "lotus/containers/short_vector.h"
 #include "lotus/renderer/common.h"
 
 namespace lotus::renderer {
@@ -131,7 +132,7 @@ namespace lotus::renderer {
 		input_buffer_binding(
 			std::uint32_t index,
 			recorded_resources::buffer d, std::uint32_t off, std::uint32_t str,
-			gpu::input_buffer_rate rate, std::vector<gpu::input_buffer_element> elems
+			gpu::input_buffer_rate rate, short_vector<gpu::input_buffer_element, 4> elems
 		) :
 			elements(std::move(elems)), data(d), stride(str), offset(off),
 			buffer_index(index), input_rate(rate) {
@@ -147,7 +148,7 @@ namespace lotus::renderer {
 			);
 		}
 
-		std::vector<gpu::input_buffer_element> elements; ///< Elements in this vertex buffer.
+		short_vector<gpu::input_buffer_element, 4> elements; ///< Elements in this vertex buffer.
 		recorded_resources::buffer data; ///< The buffer.
 		std::uint32_t stride = 0; ///< The size of one vertex.
 		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer in bytes.

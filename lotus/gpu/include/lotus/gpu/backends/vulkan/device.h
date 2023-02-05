@@ -94,7 +94,7 @@ namespace lotus::gpu::backends::vulkan {
 			filtering minification, filtering magnification, filtering mipmapping,
 			float mip_lod_bias, float min_lod, float max_lod, std::optional<float> max_anisotropy,
 			sampler_address_mode addressing_u, sampler_address_mode addressing_v, sampler_address_mode addressing_w,
-			linear_rgba_f border_color, std::optional<comparison_function> comparison
+			linear_rgba_f border_color, comparison_function comparison
 		);
 
 		/// Calls \p vk::UniqueDevice::createDescriptorSetLayoutUnique().

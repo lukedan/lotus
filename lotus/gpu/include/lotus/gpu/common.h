@@ -495,6 +495,8 @@ namespace lotus::gpu {
 
 	/// Determines when a comparison returns \p true.
 	enum class comparison_function : std::uint8_t {
+		none,             ///< Not applicable.
+
 		never,            ///< Comparison result is always \p false.
 		less,             ///< Returns \p true if source data is less than destination data.
 		equal,            ///< Returns \p true if the two values are equal.

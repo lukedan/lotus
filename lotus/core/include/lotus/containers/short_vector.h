@@ -134,8 +134,11 @@ namespace lotus {
 		};
 	public:
 		/// Initializes this array to empty.
-		explicit short_vector(const Allocator &alloc = Allocator()) : _allocator(alloc) {
+		explicit short_vector(const Allocator &alloc) : _allocator(alloc) {
 			std::construct_at(&_short_storage, uninitialized);
+		}
+		/// Default initialization.
+		short_vector() : short_vector(Allocator()) {
 		}
 		/// Move constructor.
 		short_vector(short_vector &&src) : _allocator(src._allocator) {
@@ -176,6 +179,11 @@ namespace lotus {
 		/// Creates a vector with \p count copies of the given value.
 		short_vector(size_type count, const T &value, const Allocator &alloc = Allocator()) : short_vector(alloc) {
 			assign(count, value);
+		}
+		/// Creates a vector with \p count value-initialized objects.
+		explicit short_vector(size_type count, const Allocator &alloc = Allocator()) : short_vector(alloc) {
+			T *storage = _assign_impl(count);
+			std::uninitialized_value_construct(storage, storage + count);
 		}
 		/// Destructor.
 		~short_vector() {
@@ -275,11 +283,11 @@ namespace lotus {
 					);
 					// copy new data
 					It src = first;
-					T *dst = old_ptr + insert_index;
-					for (T *split = old_ptr + old_size; dst != split; ++src, ++dst) {
+					T *split = old_ptr + old_size;
+					for (T *dst = old_ptr + insert_index; dst != split; ++src, ++dst) {
 						*dst = *src;
 					}
-					std::uninitialized_copy(src, last, dst);
+					std::uninitialized_copy(src, last, split);
 				}
 				result = old_ptr + insert_index;
 			}
@@ -551,7 +559,7 @@ namespace lotus {
 		}
 
 		union {
-			_internal_array _short_storage; ///< Storage for short arrays.
+			[[no_unique_address]] _internal_array _short_storage; ///< Storage for short arrays.
 			_external_array _long_storage; ///< Storage for long arrays.
 		};
 		short_size_type _short_count = 0; ///< The number of elements in this conatiner.

@@ -290,20 +290,22 @@ namespace lotus::renderer {
 		};
 		/// Constant buffer with data that will be copied to VRAM when a command list is executed.
 		struct immediate_constant_buffer {
+			using storage = short_vector<std::byte, 39>; ///< Storage type.
+
 			/// Initializes all fields of this struct.
-			explicit immediate_constant_buffer(std::vector<std::byte> d) : data(std::move(d)) {
+			explicit immediate_constant_buffer(storage d) : data(std::move(d)) {
 			}
 			/// Creates a buffer with data from the given object.
 			template <typename T> [[nodiscard]] inline static std::enable_if_t<
 				std::is_trivially_copyable_v<std::decay_t<T>>, immediate_constant_buffer
 			> create_for(const T &obj) {
 				constexpr std::size_t size = sizeof(std::decay_t<T>);
-				std::vector<std::byte> data(size);
+				storage data(size);
 				std::memcpy(data.data(), &obj, size);
 				return immediate_constant_buffer(std::move(data));
 			}
 
-			std::vector<std::byte> data; ///< Constant buffer data.
+			storage data; ///< Constant buffer data.
 		};
 	}
 

@@ -286,6 +286,7 @@ namespace lotus::gpu::backends::directx12::_details {
 
 		D3D12_COMPARISON_FUNC to_comparison_function(comparison_function mode) {
 			constexpr static enum_mapping<comparison_function, D3D12_COMPARISON_FUNC> table{
+				std::pair(comparison_function::none,             D3D12_COMPARISON_FUNC_NONE         ),
 				std::pair(comparison_function::never,            D3D12_COMPARISON_FUNC_NEVER        ),
 				std::pair(comparison_function::less,             D3D12_COMPARISON_FUNC_LESS         ),
 				std::pair(comparison_function::equal,            D3D12_COMPARISON_FUNC_EQUAL        ),

@@ -4,6 +4,7 @@
 /// Material context.
 
 #include "lotus/memory/stack_allocator.h"
+#include "lotus/containers/short_vector.h"
 #include "lotus/gpu/descriptors.h"
 #include "lotus/gpu/device.h"
 #include "lotus/gpu/frame_buffer.h"
@@ -190,12 +191,15 @@ namespace lotus::renderer {
 
 	/// Aggregates graphics pipeline states that are not resource binding related.
 	struct graphics_pipeline_state {
+		/// Storage for blend options.
+		using blend_options_storage = short_vector<gpu::render_target_blend_options, 8>;
+
 		/// No initialization.
 		graphics_pipeline_state(std::nullptr_t) : rasterizer_options(nullptr), depth_stencil_options(nullptr) {
 		}
 		/// Initializes all fields of this struct.
 		graphics_pipeline_state(
-			std::vector<gpu::render_target_blend_options> b,
+			blend_options_storage b,
 			gpu::rasterizer_options r,
 			gpu::depth_stencil_options ds
 		) : blend_options(std::move(b)), rasterizer_options(r), depth_stencil_options(ds) {
@@ -207,7 +211,7 @@ namespace lotus::renderer {
 		) = default;
 
 		// TODO allocator
-		std::vector<gpu::render_target_blend_options> blend_options; ///< Blending options.
+		blend_options_storage blend_options; ///< Blending options.
 		gpu::rasterizer_options rasterizer_options; ///< Rasterizer options.
 		gpu::depth_stencil_options depth_stencil_options; ///< Depth stencil options.
 	};
@@ -216,7 +220,7 @@ namespace std {
 	/// Hash function for \ref lotus::renderer::gpu::pipeline_state.
 	template <> struct hash<lotus::renderer::graphics_pipeline_state> {
 		/// Hashes the given state object.
-		[[nodiscard]] constexpr size_t operator()(const lotus::renderer::graphics_pipeline_state &state) const {
+		[[nodiscard]] size_t operator()(const lotus::renderer::graphics_pipeline_state &state) const {
 			size_t hash = lotus::hash_combine({
 				lotus::compute_hash(state.rasterizer_options),
 				lotus::compute_hash(state.depth_stencil_options),
@@ -246,29 +250,31 @@ namespace lotus::renderer {
 			gpu::sampler_address_mode addr_v = gpu::sampler_address_mode::repeat,
 			gpu::sampler_address_mode addr_w = gpu::sampler_address_mode::repeat,
 			linear_rgba_f border = zero,
-			std::optional<gpu::comparison_function> comp = std::nullopt
+			gpu::comparison_function comp = gpu::comparison_function::none
 		) :
+			border_color(border),
+			mip_lod_bias(lod_bias), min_lod(minlod), max_lod(maxlod),
+			max_anisotropy(max_aniso),
 			minification(min), magnification(mag), mipmapping(mip),
-			mip_lod_bias(lod_bias), min_lod(minlod), max_lod(maxlod), max_anisotropy(max_aniso),
 			addressing_u(addr_u), addressing_v(addr_v), addressing_w(addr_w),
-			border_color(border), comparison(comp) {
+			comparison(comp) {
 		}
 
 		/// Default comparisons.
 		[[nodiscard]] friend constexpr bool operator==(const sampler_state&, const sampler_state&) = default;
 
-		gpu::filtering minification  = gpu::filtering::nearest;
-		gpu::filtering magnification = gpu::filtering::nearest;
-		gpu::filtering mipmapping    = gpu::filtering::nearest;
-		float mip_lod_bias = 0.0f;
-		float min_lod      = 0.0f;
-		float max_lod      = 0.0f;
-		std::optional<float> max_anisotropy;
-		gpu::sampler_address_mode addressing_u = gpu::sampler_address_mode::repeat;
-		gpu::sampler_address_mode addressing_v = gpu::sampler_address_mode::repeat;
-		gpu::sampler_address_mode addressing_w = gpu::sampler_address_mode::repeat;
-		linear_rgba_f border_color = zero;
-		std::optional<gpu::comparison_function> comparison;
+		linear_rgba_f border_color = zero; ///< Border color used when sampling outside of the image.
+		float mip_lod_bias = 0.0f; ///< LOD bias.
+		float min_lod      = 0.0f; ///< Minimum LOD of this sampler.
+		float max_lod      = 0.0f; ///< Maximum LOD of this sampler.
+		[[no_unique_address]] std::optional<float> max_anisotropy; ///< Maximum anisotropy.
+		gpu::filtering minification  = gpu::filtering::nearest; ///< Minification filtering.
+		gpu::filtering magnification = gpu::filtering::nearest; ///< Magnification filtering.
+		gpu::filtering mipmapping    = gpu::filtering::nearest; ///< Mipmapping filtering.
+		gpu::sampler_address_mode addressing_u = gpu::sampler_address_mode::repeat; ///< U addressing mode.
+		gpu::sampler_address_mode addressing_v = gpu::sampler_address_mode::repeat; ///< V addressing mode.
+		gpu::sampler_address_mode addressing_w = gpu::sampler_address_mode::repeat; ///< W addressing mode.
+		gpu::comparison_function comparison = gpu::comparison_function::none; ///< Depth comparison function.
 	};
 }
 namespace std {

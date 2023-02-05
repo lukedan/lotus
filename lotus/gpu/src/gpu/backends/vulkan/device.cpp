@@ -342,7 +342,7 @@ namespace lotus::gpu::backends::vulkan {
 		filtering minification, filtering magnification, filtering mipmapping,
 		float mip_lod_bias, float min_lod, float max_lod, std::optional<float> max_anisotropy,
 		sampler_address_mode addressing_u, sampler_address_mode addressing_v, sampler_address_mode addressing_w,
-		linear_rgba_f border_color, std::optional<comparison_function> comparison
+		linear_rgba_f border_color, comparison_function comparison
 	) {
 		sampler result = nullptr;
 
@@ -363,8 +363,8 @@ namespace lotus::gpu::backends::vulkan {
 			.setMipLodBias(mip_lod_bias)
 			.setAnisotropyEnable(max_anisotropy.has_value())
 			.setMaxAnisotropy(max_anisotropy.value_or(0.0f))
-			.setCompareEnable(comparison.has_value())
-			.setCompareOp(_details::conversions::to_compare_op(comparison.value_or(comparison_function::always)))
+			.setCompareEnable(comparison != comparison_function::none)
+			.setCompareOp(_details::conversions::to_compare_op(comparison))
 			.setMinLod(min_lod)
 			.setMaxLod(max_lod)
 			.setBorderColor(vk::BorderColor::eFloatCustomEXT);

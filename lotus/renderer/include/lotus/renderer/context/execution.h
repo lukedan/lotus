@@ -439,7 +439,7 @@ namespace lotus::renderer::execution {
 		void flush_transitions();
 
 		transition_buffer transitions; ///< Transitions.
-		batch_statistics_early statistics; ///< Statistics.
+		batch_statistics_early statistics; ///< Accumulated statistics.
 	private:
 		renderer::context &_ctx; ///< The associated context.
 		batch_resources &_resources; ///< Where to record internal resources created during execution to.

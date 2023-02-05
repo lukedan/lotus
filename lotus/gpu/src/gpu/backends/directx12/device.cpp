@@ -810,12 +810,13 @@ namespace lotus::gpu::backends::directx12 {
 		filtering minification, filtering magnification, filtering mipmapping,
 		float mip_lod_bias, float min_lod, float max_lod, std::optional<float> max_anisotropy,
 		sampler_address_mode addressing_u, sampler_address_mode addressing_v, sampler_address_mode addressing_w,
-		linear_rgba_f border_color, std::optional<comparison_function> comparison
+		linear_rgba_f border_color, comparison_function comparison
 	) {
 		sampler result = nullptr;
 		result._desc = {};
 		result._desc.Filter         = _details::conversions::to_filter(
-			minification, magnification, mipmapping, max_anisotropy.has_value(), comparison.has_value()
+			minification, magnification, mipmapping,
+			max_anisotropy.has_value(), comparison != comparison_function::none
 		);
 		result._desc.AddressU       = _details::conversions::to_texture_address_mode(addressing_u);
 		result._desc.AddressV       = _details::conversions::to_texture_address_mode(addressing_v);
@@ -824,10 +825,7 @@ namespace lotus::gpu::backends::directx12 {
 		result._desc.MaxAnisotropy  = std::clamp<UINT>(
 			static_cast<UINT>(std::round(max_anisotropy.value_or(0.0f))), 1, 16
 		);
-		result._desc.ComparisonFunc =
-			comparison.has_value() ?
-			_details::conversions::to_comparison_function(comparison.value()) :
-			D3D12_COMPARISON_FUNC_NONE;
+		result._desc.ComparisonFunc = _details::conversions::to_comparison_function(comparison);
 		result._desc.BorderColor[0] = border_color.r;
 		result._desc.BorderColor[1] = border_color.g;
 		result._desc.BorderColor[2] = border_color.b;

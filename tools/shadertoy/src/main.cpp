@@ -61,19 +61,6 @@ int main(int argc, char **argv) {
 		"shaders/vertex.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs"
 	);
 
-	auto nearest_sampler = gdev.create_sampler(
-		lgpu::filtering::nearest, lgpu::filtering::nearest, lgpu::filtering::nearest,
-		0.0f, 0.0f, 0.0f, 1.0f,
-		lgpu::sampler_address_mode::repeat, lgpu::sampler_address_mode::repeat, lgpu::sampler_address_mode::repeat,
-		lotus::linear_rgba_f(0.0f, 0.0f, 0.0f, 0.0f), std::nullopt
-	);
-	auto linear_sampler = gdev.create_sampler(
-		lgpu::filtering::linear, lgpu::filtering::linear, lgpu::filtering::nearest,
-		0.0f, 0.0f, 0.0f, 1.0f,
-		lgpu::sampler_address_mode::repeat, lgpu::sampler_address_mode::repeat, lgpu::sampler_address_mode::repeat,
-		lotus::linear_rgba_f(0.0f, 0.0f, 0.0f, 0.0f), std::nullopt
-	);
-
 	// blit pass
 	auto blit_pix_shader = ass_man.compile_shader_in_filesystem(
 		"shaders/blit.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps"

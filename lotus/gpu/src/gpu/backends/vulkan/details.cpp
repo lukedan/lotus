@@ -230,6 +230,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 
 		vk::CompareOp to_compare_op(comparison_function m) {
 			constexpr static enum_mapping<comparison_function, vk::CompareOp> table{
+				std::pair(comparison_function::none,             vk::CompareOp::eAlways        ),
 				std::pair(comparison_function::never,            vk::CompareOp::eNever         ),
 				std::pair(comparison_function::less,             vk::CompareOp::eLess          ),
 				std::pair(comparison_function::equal,            vk::CompareOp::eEqual         ),

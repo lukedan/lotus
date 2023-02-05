@@ -648,7 +648,7 @@ namespace lotus {
 
 namespace lotus::gpu {
 	/// Specifies how an image is accessed.
-	enum class image_access_mask : std::uint32_t {
+	enum class image_access_mask : std::uint16_t {
 		none                     = 0,      ///< No access.
 		copy_source              = 1 << 0, ///< The image is used as a source of a copy operation.
 		copy_destination         = 1 << 1, ///< The image is used as a destination of a copy operation.

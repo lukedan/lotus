@@ -205,6 +205,24 @@ namespace lotus {
 	};
 
 
+	/// The minimum-sized type that is able to hold the given value.
+	template <std::uint64_t Value> struct minimum_unsigned_type {
+		/// The type.
+		using type = std::conditional_t<
+			(Value < std::numeric_limits<std::uint8_t>::max()), std::uint8_t,
+			std::conditional_t<
+				(Value < std::numeric_limits<std::uint16_t>::max()), std::uint16_t,
+				std::conditional_t<
+					(Value < std::numeric_limits<std::uint32_t>::max()), std::uint32_t,
+					std::uint64_t
+				>
+			>
+		>;
+	};
+	/// Shorthand for \ref minimum_unsigned_type::type.
+	template <std::uint64_t Value> using minimum_unsigned_type_t = minimum_unsigned_type<Value>::type;
+
+
 	/// Used to obtain certain attributes of member pointers.
 	template <typename> struct member_pointer_type_traits;
 	/// Specialization for member object pointers.
@@ -297,7 +315,9 @@ namespace lotus {
 		};
 
 		/// Hashes the given range of bytes using FNV-1a.
-		template <typename T = std::uint32_t> [[nodiscard]] inline T hash_bytes(std::span<const std::byte> data) {
+		template <typename T = std::uint32_t> [[nodiscard]] inline constexpr T hash_bytes(
+			std::span<const std::byte> data
+		) {
 			T hash = constants<T>::offset;
 			for (std::byte b : data) {
 				hash ^= static_cast<T>(b);
@@ -361,6 +381,7 @@ namespace lotus {
 			dark_magenta = 35,
 			dark_cyan    = 36,
 			light_gray   = 37,
+
 			dark_gray    = 90,
 			red          = 91,
 			green        = 92,

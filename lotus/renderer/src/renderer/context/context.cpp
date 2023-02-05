@@ -201,7 +201,7 @@ namespace lotus::renderer {
 		std::u8string_view name, std::span<const geometry_buffers_view> geometries, const pool &p
 	) {
 		auto *blas_ptr = new _details::blas(
-			std::vector(geometries.begin(), geometries.end()), p._ptr, _allocate_resource_id(), name
+			{ geometries.begin(), geometries.end() }, p._ptr, _allocate_resource_id(), name
 		);
 		auto ptr = std::shared_ptr<_details::blas>(blas_ptr, _details::context_managed_deleter(*this));
 		return blas(std::move(ptr));

@@ -4,6 +4,7 @@
 
 #include "lotus/logging.h"
 #include "lotus/memory/managed_allocator.h"
+#include "lotus/containers/short_vector.h"
 #include "lotus/system/window.h"
 #include "lotus/gpu/descriptors.h"
 #include "lotus/gpu/frame_buffer.h"
@@ -180,10 +181,10 @@ namespace lotus::renderer {
 
 			cvec2u32 size; ///< The size of this image.
 
-			std::vector<image_access> current_usages; ///< Current usage of each mip of the image.
+			short_vector<image_access, 1> current_usages; ///< Current usage of each mip of the image.
 			/// References in descriptor arrays.
-			std::vector<
-				descriptor_array_reference<recorded_resources::image2d_view, gpu::image2d_view>
+			short_vector<
+				descriptor_array_reference<recorded_resources::image2d_view, gpu::image2d_view>, 4
 			> array_references;
 		};
 
@@ -212,7 +213,7 @@ namespace lotus::renderer {
 
 			cvec3u32 size; ///< The size of this image.
 
-			std::vector<image_access> current_usages; ///< Current usage of each mip of the image.
+			short_vector<image_access, 1> current_usages; ///< Current usage of each mip of the image.
 		};
 
 		/// A buffer.
@@ -246,8 +247,8 @@ namespace lotus::renderer {
 			gpu::buffer_usage_mask usages = gpu::buffer_usage_mask::none; ///< Possible usages.
 
 			/// References in descriptor arrays.
-			std::vector<
-				descriptor_array_reference<recorded_resources::structured_buffer_view>
+			short_vector<
+				descriptor_array_reference<recorded_resources::structured_buffer_view>, 4
 			> array_references;
 		};
 
@@ -343,7 +344,7 @@ namespace lotus::renderer {
 		public:
 			/// Initializes this structure.
 			blas(
-				std::vector<geometry_buffers_view> in, std::shared_ptr<pool> p,
+				short_vector<geometry_buffers_view, 1> in, std::shared_ptr<pool> p,
 				unique_resource_id i, std::u8string_view n
 			) :
 				resource(i, n), handle(nullptr), geometry(nullptr), build_sizes(uninitialized),
@@ -364,7 +365,7 @@ namespace lotus::renderer {
 			gpu::acceleration_structure_build_sizes build_sizes;
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate the BLAS out of.
 
-			std::vector<geometry_buffers_view> input; ///< Build input.
+			short_vector<geometry_buffers_view, 1> input; ///< Build input.
 
 			// TODO buffer references
 		};

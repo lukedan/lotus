@@ -1030,58 +1030,71 @@ namespace lotus::renderer {
 		return key;
 	}
 
-	std::tuple<
-		cache_keys::descriptor_set_layout,
-		const gpu::descriptor_set_layout&,
-		gpu::descriptor_set&
-	> context::_use_descriptor_set(
-		execution::context &ectx, std::span<const all_resource_bindings::numbered_binding> bindings
+	gpu::descriptor_set &context::_use_descriptor_set(
+		execution::context &ectx,
+		std::span<const all_resource_bindings::numbered_binding> bindings,
+		const cache_keys::descriptor_set_layout&,
+		const gpu::descriptor_set_layout &layout
 	) {
-		auto key = _get_descriptor_set_layout_key(bindings);
-		auto &layout = _cache.get_descriptor_set_layout(key);
 		auto &set = ectx.record(_device.create_descriptor_set(_descriptor_pool, layout));
 		for (const auto &b : bindings) {
 			std::visit([&, this](const auto &rsrc) {
 				_create_descriptor_binding(ectx, set, layout, b.register_index, rsrc);
 			}, b.value);
 		}
-		return { std::move(key), layout, set };
+		return set;
 	}
 
-	std::tuple<
-		cache_keys::descriptor_set_layout,
-		const gpu::descriptor_set_layout&,
-		gpu::descriptor_set&
-	> context::_use_descriptor_set(execution::context&, const recorded_resources::cached_descriptor_set &set) {
+	gpu::descriptor_set &context::_use_descriptor_set(
+		execution::context&,
+		const recorded_resources::cached_descriptor_set &set,
+		const cache_keys::descriptor_set_layout&,
+		const gpu::descriptor_set_layout&
+	) {
 		// TODO transitions
-		return { cache_keys::descriptor_set_layout(set._ptr->ranges), *set._ptr->layout, set._ptr->set };
+		return set._ptr->set;
 	}
 
-	std::tuple<
-		cache_keys::pipeline_resources,
-		const gpu::pipeline_resources&,
-		std::vector<context::_descriptor_set_info>
-	> context::_check_and_create_descriptor_set_bindings(
-		execution::context &ectx, _details::numbered_bindings_view resources
+	cache_keys::pipeline_resources context::_collect_all_pipeline_resources_overrides(
+		_details::numbered_bindings_view view
+	) {
+		cache_keys::pipeline_resources result;
+		for (const auto &set : view) {
+			std::visit([&](const auto &bindings) {
+				if (auto ovrd = _collect_pipeline_resources_override(bindings)) {
+					result.sets.emplace_back(std::move(ovrd.value()), set.register_space);
+				}
+			}, set.value);
+		}
+		return result;
+	}
+
+	std::vector<context::_descriptor_set_info> context::_check_and_create_descriptor_set_bindings(
+		execution::context &ectx,
+		_details::numbered_bindings_view resources,
+		const context_cache::shader_set_pipeline_resources &pipeline_rsrc
 	) {
 		std::vector<_descriptor_set_info> sets;
-		cache_keys::pipeline_resources key;
-
 		sets.reserve(resources.size());
-		key.sets.reserve(resources.size());
 
+		auto it = pipeline_rsrc.key->sets.begin();
 		for (const auto &set : resources) {
-			auto &&[layout_key, layout, desc_set] = std::visit([&, this](const auto &bindings) {
-				return _use_descriptor_set(ectx, bindings);
+			while (it != pipeline_rsrc.key->sets.end() && it->space < set.register_space) {
+				++it;
+			}
+			if (it == pipeline_rsrc.key->sets.end() || it->space != set.register_space) {
+				continue;
+			}
+			auto *layout = pipeline_rsrc.layouts[it - pipeline_rsrc.key->sets.begin()];
+
+			auto &desc_set = std::visit([&, this](const auto &bindings) -> gpu::descriptor_set& {
+				return _use_descriptor_set(ectx, bindings, it->layout, *layout);
 			}, set.value);
 
 			sets.emplace_back(desc_set, set.register_space);
-			key.sets.emplace_back(std::move(layout_key), set.register_space);
 		}
-		key.sort();
-		auto &rsrc = _cache.get_pipeline_resources(key);
 
-		return { std::move(key), rsrc, sets };
+		return sets;
 	}
 
 	void context::_bind_descriptor_sets(
@@ -1132,9 +1145,13 @@ namespace lotus::renderer {
 		const pass_commands::draw_instanced &cmd
 	) {
 		context::_pass_command_data result = nullptr;
-		auto &&[rsrc_key, rsrc, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resource_bindings);
+		const auto &pipeline_rsrc = _cache.get_pipeline_resources(
+			{ cmd.vertex_shader, cmd.pixel_shader },
+			_collect_all_pipeline_resources_overrides(cmd.resource_bindings)
+		);
+		auto sets = _check_and_create_descriptor_set_bindings(ectx, cmd.resource_bindings, pipeline_rsrc);
 		result.descriptor_sets = std::move(sets);
-		result.resources = &rsrc;
+		result.resources = pipeline_rsrc.value;
 
 		std::vector<cache_keys::graphics_pipeline::input_buffer_layout> input_layouts;
 		input_layouts.reserve(cmd.inputs.size());
@@ -1159,7 +1176,7 @@ namespace lotus::renderer {
 		}
 
 		cache_keys::graphics_pipeline key = nullptr;
-		key.pipeline_rsrc           = std::move(rsrc_key);
+		key.pipeline_rsrc           = *pipeline_rsrc.key;
 		key.input_buffers           = std::move(input_layouts);
 		key.color_rt_formats        =
 			{ fb_layout.color_render_target_formats.begin(), fb_layout.color_render_target_formats.end() };
@@ -1255,15 +1272,19 @@ namespace lotus::renderer {
 
 	void context::_handle_command(execution::context &ectx, const context_commands::dispatch_compute &cmd) {
 		// create descriptor bindings
-		auto &&[rsrc_key, pipeline_resources, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resources);
+		const auto &pipeline_rsrc = _cache.get_pipeline_resources(
+			{ cmd.shader },
+			_collect_all_pipeline_resources_overrides(cmd.resources)
+		);
+		auto sets = _check_and_create_descriptor_set_bindings(ectx, cmd.resources, pipeline_rsrc);
 		auto &pipeline = ectx.record(_device.create_compute_pipeline_state(
-			pipeline_resources, cmd.shader->binary
+			*pipeline_rsrc.value, cmd.shader->binary
 		));
 		ectx.flush_transitions();
 
 		auto &cmd_list = ectx.get_command_list();
 		cmd_list.bind_pipeline_state(pipeline);
-		_bind_descriptor_sets(ectx, pipeline_resources, std::move(sets), _bind_point::compute);
+		_bind_descriptor_sets(ectx, *pipeline_rsrc.value, std::move(sets), _bind_point::compute);
 		cmd_list.run_compute_shader(cmd.num_thread_groups[0], cmd.num_thread_groups[1], cmd.num_thread_groups[2]);
 	}
 
@@ -1414,10 +1435,35 @@ namespace lotus::renderer {
 	}
 
 	void context::_handle_command(execution::context &ectx, const context_commands::trace_rays &cmd) {
-		auto &&[rsrc_key, rsrc, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resource_bindings);
+		// TODO simplify
+		cache_keys::shader_set_pipeline_resources pipeline_rsrc_key = nullptr;
+		pipeline_rsrc_key.overrides = _collect_all_pipeline_resources_overrides(cmd.resource_bindings);
+
+		std::vector<gpu::shader_reflection> pipeline_rsrc_key_refl;
+		for (const auto &s : cmd.general_shaders) {
+			pipeline_rsrc_key.shaders.emplace_back(s.shader_library.get_unique_id());
+			pipeline_rsrc_key_refl.emplace_back(s.shader_library->reflection.find_shader(s.entry_point, s.stage));
+		}
+		for (const auto &s : cmd.hit_group_shaders) {
+			pipeline_rsrc_key.shaders.emplace_back(s.shader_library.get_unique_id());
+			pipeline_rsrc_key_refl.emplace_back(s.shader_library->reflection.find_shader(s.entry_point, s.stage));
+		}
+		std::sort(pipeline_rsrc_key.shaders.begin(), pipeline_rsrc_key.shaders.end());
+		pipeline_rsrc_key.shaders.erase(
+			std::unique(pipeline_rsrc_key.shaders.begin(), pipeline_rsrc_key.shaders.end()),
+			pipeline_rsrc_key.shaders.end()
+		);
+
+		std::vector<const gpu::shader_reflection*> pipeline_rsrc_key_refl_ptr;
+		for (const auto &r : pipeline_rsrc_key_refl) {
+			pipeline_rsrc_key_refl_ptr.emplace_back(&r);
+		}
+
+		const auto &pipeline_rsrc = _cache.get_pipeline_resources(pipeline_rsrc_key, pipeline_rsrc_key_refl_ptr);
+		auto sets = _check_and_create_descriptor_set_bindings(ectx, cmd.resource_bindings, pipeline_rsrc);
 
 		cache_keys::raytracing_pipeline pipeline_key = nullptr;
-		pipeline_key.pipeline_rsrc       = std::move(rsrc_key);
+		pipeline_key.pipeline_rsrc       = *pipeline_rsrc.key;
 		pipeline_key.hit_group_shaders   = cmd.hit_group_shaders;
 		pipeline_key.hit_groups          = cmd.hit_groups;
 		pipeline_key.general_shaders     = cmd.general_shaders;
@@ -1472,7 +1518,7 @@ namespace lotus::renderer {
 		);
 
 		ectx.get_command_list().bind_pipeline_state(state);
-		_bind_descriptor_sets(ectx, rsrc, sets, _bind_point::raytracing);
+		_bind_descriptor_sets(ectx, *pipeline_rsrc.value, sets, _bind_point::raytracing);
 		ectx.flush_transitions();
 		ectx.get_command_list().trace_rays(
 			raygen_cbuf,

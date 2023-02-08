@@ -172,14 +172,6 @@ namespace lotus::gpu::backends::directx12 {
 			std::size_t set_index = first + i;
 			auto *set = static_cast<const descriptor_set*>(sets[i]);
 			const auto &indices = rsrc._descriptor_table_binding[set_index];
-			/*assert(
-				set->_shader_resource_descriptors.is_empty() ==
-				(indices.resource_index == pipeline_resources::_invalid_root_param)
-			);
-			assert(
-				set->_sampler_descriptors.is_empty() ==
-				(indices.sampler_index == pipeline_resources::_invalid_root_param)
-			);*/
 			if (indices.resource_index != pipeline_resources::_invalid_root_param) {
 				_list->SetGraphicsRootDescriptorTable(
 					indices.resource_index, set->_shader_resource_descriptors.get_gpu(0)
@@ -200,14 +192,6 @@ namespace lotus::gpu::backends::directx12 {
 			std::size_t set_index = first + i;
 			auto *set = static_cast<const descriptor_set*>(sets[i]);
 			const auto &indices = rsrc._descriptor_table_binding[set_index];
-			assert(
-				set->_shader_resource_descriptors.is_empty() ==
-				(indices.resource_index == pipeline_resources::_invalid_root_param)
-			);
-			assert(
-				set->_sampler_descriptors.is_empty() ==
-				(indices.sampler_index == pipeline_resources::_invalid_root_param)
-			);
 			if (!set->_shader_resource_descriptors.is_empty()) {
 				_list->SetComputeRootDescriptorTable(
 					indices.resource_index, set->_shader_resource_descriptors.get_gpu(0)

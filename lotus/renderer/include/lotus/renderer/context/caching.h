@@ -22,16 +22,12 @@ namespace lotus::renderer {
 			}
 			/// Initializes the array of descriptor ranges without sorting or merging. Use \ref consolidate() when
 			/// necessary to ensure that the assumption with \ref ranges is kept.
-			explicit descriptor_set_layout(
-				std::vector<gpu::descriptor_range_binding> rs,
-				descriptor_set_type ty = descriptor_set_type::normal
-			) : ranges(std::move(rs)), type(ty) {
+			explicit descriptor_set_layout(std::vector<gpu::descriptor_range_binding> rs) : ranges(std::move(rs)) {
 			}
 			/// Initializes this key for a descriptor array of unbounded size.
 			[[nodiscard]] inline static descriptor_set_layout for_descriptor_array(gpu::descriptor_type type) {
 				return cache_keys::descriptor_set_layout(
-					{ gpu::descriptor_range_binding::create_unbounded(type, 0), },
-					descriptor_set_type::variable_descriptor_count
+					{ gpu::descriptor_range_binding::create_unbounded(type, 0), }
 				);
 			}
 
@@ -45,7 +41,6 @@ namespace lotus::renderer {
 
 			/// Descriptor ranges bound in this layout, that has been sorted and merged.
 			std::vector<gpu::descriptor_range_binding> ranges;
-			descriptor_set_type type = descriptor_set_type::normal; ///< The type of this descriptor set.
 		};
 		/// Key of pipeline resources.
 		struct pipeline_resources {
@@ -151,6 +146,23 @@ namespace lotus::renderer {
 			std::uint32_t max_payload_size    = 0; ///< Maximum payload size.
 			std::uint32_t max_attribute_size  = 0; ///< Maximum attribute size.
 		};
+
+		/// Pipeline resources specified for a set of shaders instead of fully manually.
+		struct shader_set_pipeline_resources {
+			using id_storage = short_vector<assets::unique_id, 4>; ///< Sets of shader IDs.
+
+			/// Initializes this object to empty.
+			shader_set_pipeline_resources(std::nullptr_t) {
+			}
+
+			/// Default equality and inequality comparisons.
+			[[nodiscard]] friend bool operator==(
+				const shader_set_pipeline_resources&, const shader_set_pipeline_resources&
+			) = default;
+
+			pipeline_resources overrides; ///< Overrides for sets that use custom descriptor set layouts.
+			id_storage shaders; ///< Shaders.
+		};
 	}
 }
 namespace std {
@@ -174,12 +186,35 @@ namespace std {
 		/// Hashes the given object.
 		[[nodiscard]] size_t operator()(const lotus::renderer::cache_keys::raytracing_pipeline&) const;
 	};
+	/// Hash function for \ref lotus::renderer::cache_keys::shader_set.
+	template <> struct hash<lotus::renderer::cache_keys::shader_set_pipeline_resources> {
+		/// Hashes the given object.
+		[[nodiscard]] size_t operator()(const lotus::renderer::cache_keys::shader_set_pipeline_resources&) const;
+	};
 }
 
 namespace lotus::renderer {
 	/// A cache for objects used in a context.
 	class context_cache {
 	public:
+		/// Pipeline resources associated with a shader set.
+		struct shader_set_pipeline_resources {
+			/// Initializes this object to empty.
+			shader_set_pipeline_resources(std::nullptr_t) {
+			}
+			/// Initializes all fields of this struct.
+			shader_set_pipeline_resources(
+				const cache_keys::pipeline_resources &k, const gpu::pipeline_resources &v
+			) : key(&k), value(&v) {
+			}
+
+			// TODO: so far we don't invalidate cache entries, but it will become problematic once we do
+			const cache_keys::pipeline_resources *key = nullptr; ///< Cache key.
+			/// Set layouts. Corresponds to entries in \ref key one-to-one.
+			std::vector<const gpu::descriptor_set_layout*> layouts;
+			const gpu::pipeline_resources *value = nullptr; ///< Pipeline resources object.
+		};
+
 		/// Initializes the pipeline cache.
 		explicit context_cache(gpu::device &dev) :
 			_device(dev), _empty_layout(dev.create_descriptor_set_layout({}, gpu::shader_stage::all)) {
@@ -193,8 +228,25 @@ namespace lotus::renderer {
 		);
 		/// Creates or retrieves a pipeline resources object matching the given key.
 		[[nodiscard]] const gpu::pipeline_resources &get_pipeline_resources(
-			const cache_keys::pipeline_resources&
+			const cache_keys::pipeline_resources &key
+		) {
+			return _get_pipeline_resources_impl(key)->second;
+		}
+		// TODO we don't always need reflection data
+		/// Returns the pipeline resource object associated with the given set of shaders.
+		[[nodiscard]] const shader_set_pipeline_resources &get_pipeline_resources(
+			const cache_keys::shader_set_pipeline_resources&, std::span<const gpu::shader_reflection* const>
 		);
+		/// \overload
+		[[nodiscard]] const shader_set_pipeline_resources &get_pipeline_resources(
+			std::span<const assets::handle<assets::shader>>, cache_keys::pipeline_resources overrides
+		);
+		/// \overload
+		[[nodiscard]] const shader_set_pipeline_resources &get_pipeline_resources(
+			std::initializer_list<assets::handle<assets::shader>> shaders, cache_keys::pipeline_resources overrides
+		) {
+			return get_pipeline_resources({ shaders.begin(), shaders.end() }, std::move(overrides));
+		}
 		/// Creates or retrieves a graphics pipeline state matching the given key.
 		[[nodiscard]] const gpu::graphics_pipeline_state &get_graphics_pipeline_state(
 			const cache_keys::graphics_pipeline&
@@ -213,9 +265,20 @@ namespace lotus::renderer {
 		std::unordered_map<cache_keys::descriptor_set_layout, gpu::descriptor_set_layout> _layouts;
 		/// Cached pipeline resources.
 		std::unordered_map<cache_keys::pipeline_resources, gpu::pipeline_resources> _pipeline_resources;
+		/// Cached pipeline resources, but based on shader sets.
+		std::unordered_map<
+			cache_keys::shader_set_pipeline_resources, shader_set_pipeline_resources
+		> _shader_pipeline_resources;
 		/// Cached graphics pipeline states.
 		std::unordered_map<cache_keys::graphics_pipeline, gpu::graphics_pipeline_state> _graphics_pipelines;
 		/// Cached raytracing pipeline states.
 		std::unordered_map<cache_keys::raytracing_pipeline, gpu::raytracing_pipeline_state> _raytracing_pipelines;
+
+		/// Creates or retrieves a pipeline resource object matching the given key.
+		[[nodiscard]] std::unordered_map<
+			cache_keys::pipeline_resources, gpu::pipeline_resources
+		>::const_iterator _get_pipeline_resources_impl(
+			const cache_keys::pipeline_resources&
+		);
 	};
 }

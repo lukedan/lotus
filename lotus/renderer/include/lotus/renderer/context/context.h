@@ -1023,21 +1023,41 @@ namespace lotus::renderer {
 			std::span<const all_resource_bindings::numbered_binding>
 		);
 
-		/// Creates a new descriptor set from the given bindings.
-		[[nodiscard]] std::tuple<
-			cache_keys::descriptor_set_layout,
-			const gpu::descriptor_set_layout&,
-			gpu::descriptor_set&
-		> _use_descriptor_set(execution::context&, std::span<const all_resource_bindings::numbered_binding>);
-		/// Returns the descriptor set of the given bindless descriptor array, and flushes all pending operations.
-		template <typename RecordedResource, typename View> [[nodiscard]] std::tuple<
-			cache_keys::descriptor_set_layout, const gpu::descriptor_set_layout&, gpu::descriptor_set&
-		> _use_descriptor_set(
-			execution::context &ectx, const recorded_resources::descriptor_array<RecordedResource, View> &arr
+		/// Collects set overrides for pipeline resources.
+		[[nodiscard]] std::optional<cache_keys::descriptor_set_layout> _collect_pipeline_resources_override(
+			std::span<const all_resource_bindings::numbered_binding>
 		) {
-			auto key = cache_keys::descriptor_set_layout::for_descriptor_array(arr._ptr->type);
-			auto &layout = _cache.get_descriptor_set_layout(key);
+			return std::nullopt;
+		}
+		/// \overload
+		template <
+			typename RecordedResource, typename View
+		> [[nodiscard]] std::optional<cache_keys::descriptor_set_layout> _collect_pipeline_resources_override(
+			const recorded_resources::descriptor_array<RecordedResource, View> &arr
+		) {
+			return cache_keys::descriptor_set_layout::for_descriptor_array(arr._ptr->type);
+		}
+		/// \overload
+		[[nodiscard]] std::optional<cache_keys::descriptor_set_layout> _collect_pipeline_resources_override(
+			const recorded_resources::cached_descriptor_set &set
+		) {
+			return cache_keys::descriptor_set_layout(set._ptr->ranges);
+		}
 
+		/// Creates a new descriptor set from the given bindings.
+		[[nodiscard]] gpu::descriptor_set &_use_descriptor_set(
+			execution::context&,
+			std::span<const all_resource_bindings::numbered_binding>,
+			const cache_keys::descriptor_set_layout&,
+			const gpu::descriptor_set_layout&
+		);
+		/// Returns the descriptor set of the given bindless descriptor array, and flushes all pending operations.
+		template <typename RecordedResource, typename View> [[nodiscard]] gpu::descriptor_set &_use_descriptor_set(
+			execution::context &ectx,
+			const recorded_resources::descriptor_array<RecordedResource, View> &arr,
+			const cache_keys::descriptor_set_layout&,
+			const gpu::descriptor_set_layout &layout
+		) {
 			constexpr bool _validate_descriptor_array = false;
 			if constexpr (_validate_descriptor_array) {
 				for (std::size_t i = 0; i < arr._ptr->resources.size(); ++i) {
@@ -1054,22 +1074,25 @@ namespace lotus::renderer {
 			ectx.transitions.stage_all_transitions_for(*arr._ptr);
 			ectx.flush_descriptor_array_writes(*arr._ptr, layout);
 
-			return { std::move(key), layout, arr._ptr->set };
+			return arr._ptr->set;
 		}
 		/// Returns the descriptor set of the given cached descriptor set.
-		[[nodiscard]] std::tuple<
-			cache_keys::descriptor_set_layout,
-			const gpu::descriptor_set_layout&,
-			gpu::descriptor_set&
-		> _use_descriptor_set(execution::context&, const recorded_resources::cached_descriptor_set&);
+		[[nodiscard]] gpu::descriptor_set &_use_descriptor_set(
+			execution::context&,
+			const recorded_resources::cached_descriptor_set&,
+			const cache_keys::descriptor_set_layout&,
+			const gpu::descriptor_set_layout&
+		);
 
+		/// Collects layout overrides for all given descriptor sets.
+		[[nodiscard]] cache_keys::pipeline_resources _collect_all_pipeline_resources_overrides(
+			_details::numbered_bindings_view
+		);
 		/// Checks and creates a descriptor set for the given resources.
-		[[nodiscard]] std::tuple<
-			cache_keys::pipeline_resources,
-			const gpu::pipeline_resources&,
-			std::vector<context::_descriptor_set_info>
-		> _check_and_create_descriptor_set_bindings(
-			execution::context&, _details::numbered_bindings_view
+		[[nodiscard]] std::vector<context::_descriptor_set_info> _check_and_create_descriptor_set_bindings(
+			execution::context&,
+			_details::numbered_bindings_view,
+			const context_cache::shader_set_pipeline_resources&
 		);
 		/// Binds the given descriptor sets.
 		void _bind_descriptor_sets(

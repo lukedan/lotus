@@ -429,7 +429,7 @@ namespace lotus::renderer {
 
 			gpu::descriptor_set set; ///< The descriptor set.
 
-			std::vector<gpu::descriptor_range_binding> ranges; ///< Sorted descriptor ranges.
+			std::vector<gpu::descriptor_range_binding> ranges; ///< Consolidated descriptor ranges.
 			const gpu::descriptor_set_layout *layout = nullptr; ///< Layout of this descriptor set.
 
 			/// Records all transitions that are needed when using this descriptor set.

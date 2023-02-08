@@ -46,7 +46,7 @@ namespace std {
 	size_t hash<lotus::renderer::cache_keys::descriptor_set_layout>::operator()(
 		const lotus::renderer::cache_keys::descriptor_set_layout &key
 	) const {
-		size_t result = lotus::compute_hash(key.type);
+		size_t result = 0;
 		for (const auto &r : key.ranges) {
 			result = lotus::hash_combine({
 				result,
@@ -125,6 +125,16 @@ namespace std {
 		});
 		return result;
 	}
+
+	size_t hash<lotus::renderer::cache_keys::shader_set_pipeline_resources>::operator()(
+		const lotus::renderer::cache_keys::shader_set_pipeline_resources &key
+	) const {
+		size_t result = lotus::compute_hash(key.overrides);
+		for (const auto &v : key.shaders) {
+			result = lotus::hash_combine(result, lotus::compute_hash(v));
+		}
+		return result;
+	}
 }
 
 
@@ -152,20 +162,111 @@ namespace lotus::renderer {
 		return it->second;
 	}
 
-	const gpu::pipeline_resources &context_cache::get_pipeline_resources(
-		const cache_keys::pipeline_resources &key
+	const context_cache::shader_set_pipeline_resources &context_cache::get_pipeline_resources(
+		const cache_keys::shader_set_pipeline_resources &key,
+		std::span<const gpu::shader_reflection* const> reflections
 	) {
-		auto [it, inserted] = _pipeline_resources.try_emplace(key, nullptr);
-		if (inserted) {
-			std::vector<const gpu::descriptor_set_layout*> layouts(
-				key.sets.empty() ? 0 : key.sets.back().space + 1, &_empty_layout
-			);
-			for (const auto &set : it->first.sets) {
-				layouts[set.space] = &get_descriptor_set_layout(set.layout);
+		auto [it, inserted] = _shader_pipeline_resources.try_emplace(key, nullptr);
+		if (inserted) { // create pipeline resources
+			std::vector<gpu::shader_resource_binding> bindings;
+			for (auto *refl : reflections) {
+				refl->enumerate_resource_bindings([&](const gpu::shader_resource_binding &bd) {
+					bindings.emplace_back(bd);
+				});
 			}
-			it->second = _device.create_pipeline_resources(layouts);
+
+			// sort
+			std::sort(
+				bindings.begin(), bindings.end(),
+				[](const gpu::shader_resource_binding &lhs, const gpu::shader_resource_binding &rhs) {
+					if (lhs.register_space == rhs.register_space) {
+						return lhs.first_register < rhs.first_register;
+					}
+					return lhs.register_space < rhs.register_space;
+				}
+			);
+
+			cache_keys::pipeline_resources rsrc;
+			{ // collect into sets
+				auto current_override = key.overrides.sets.begin();
+
+				auto first = bindings.begin();
+				auto last = first;
+				for (; last != bindings.end(); first = last) {
+					while (last != bindings.end() && last->register_space == first->register_space) {
+						++last;
+					}
+
+					// check for override
+					while (
+						current_override != key.overrides.sets.end() &&
+						current_override->space < first->register_space
+					) {
+						++current_override;
+					}
+					if (
+						current_override != key.overrides.sets.end() &&
+						current_override->space == first->register_space
+					) {
+						rsrc.sets.emplace_back(*current_override);
+						continue;
+					}
+
+					// no override
+					auto &set = rsrc.sets.emplace_back(nullptr, first->register_space);
+					for (auto i = first; i != last; ++i) {
+						set.layout.ranges.emplace_back(gpu::descriptor_range_binding::create(
+							i->type, i->register_count, i->first_register
+						));
+					}
+
+					using _it = std::vector<gpu::descriptor_range_binding>::const_iterator;
+					set.layout.ranges.erase(
+						std::unique(set.layout.ranges.begin(), set.layout.ranges.end()),
+						set.layout.ranges.end()
+					);
+					set.layout.ranges.erase(
+						gpu::descriptor_range_binding::merge_sorted_descriptor_ranges(
+							set.layout.ranges.begin(), set.layout.ranges.end(),
+							[](_it prev, _it next) {
+								log().error<u8"Detected overlapping descriptor ranges [{}, {}] and [{}, {}]">(
+									prev->register_index, prev->get_last_register_index(),
+									next->register_index, next->get_last_register_index()
+								);
+							}
+						),
+						set.layout.ranges.end()
+					);
+				}
+			}
+
+			auto rsrc_it = _get_pipeline_resources_impl(rsrc);
+			it->second.key = &rsrc_it->first;
+			it->second.value = &rsrc_it->second;
+
+			for (const auto &s : it->second.key->sets) {
+				it->second.layouts.emplace_back(&get_descriptor_set_layout(s.layout));
+			}
 		}
 		return it->second;
+	}
+
+	const context_cache::shader_set_pipeline_resources &context_cache::get_pipeline_resources(
+		std::span<const assets::handle<assets::shader>> shaders,
+		cache_keys::pipeline_resources overrides
+	) {
+		cache_keys::shader_set_pipeline_resources key = nullptr;
+		key.overrides = std::move(overrides);
+
+		std::vector<const gpu::shader_reflection*> refl;
+		for (const auto &s : shaders) {
+			key.shaders.emplace_back(s.get_unique_id());
+			refl.emplace_back(&s->reflection);
+		}
+		std::sort(key.shaders.begin(), key.shaders.end());
+		key.shaders.erase(std::unique(key.shaders.begin(), key.shaders.end()), key.shaders.end());
+
+		return get_pipeline_resources(key, refl);
 	}
 
 	const gpu::graphics_pipeline_state &context_cache::get_graphics_pipeline_state(
@@ -240,5 +341,23 @@ namespace lotus::renderer {
 			);
 		}
 		return it->second;
+	}
+
+	std::unordered_map<
+		cache_keys::pipeline_resources, gpu::pipeline_resources
+	>::const_iterator context_cache::_get_pipeline_resources_impl(
+		const cache_keys::pipeline_resources &key
+	) {
+		auto [it, inserted] = _pipeline_resources.try_emplace(key, nullptr);
+		if (inserted) {
+			std::vector<const gpu::descriptor_set_layout*> layouts(
+				key.sets.empty() ? 0 : key.sets.back().space + 1, &_empty_layout
+			);
+			for (const auto &set : it->first.sets) {
+				layouts[set.space] = &get_descriptor_set_layout(set.layout);
+			}
+			it->second = _device.create_pipeline_resources(layouts);
+		}
+		return it;
 	}
 }

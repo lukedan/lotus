@@ -336,7 +336,7 @@ namespace lotus::gpu::backends::directx12 {
 		// check that we don't have unbounded ranges
 		if constexpr (is_debugging) {
 			for (const auto &range : layout._ranges) {
-				assert(range.NumDescriptors != UINT_MAX);
+				crash_if(range.NumDescriptors == UINT_MAX);
 			}
 		}
 
@@ -522,7 +522,7 @@ namespace lotus::gpu::backends::directx12 {
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, first_register, buffers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = 
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor =
 			set._shader_resource_descriptors.get_cpu(static_cast<_details::descriptor_range::index_t>(
 				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
 			));

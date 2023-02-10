@@ -138,6 +138,7 @@ int main(int argc, char **argv) {
 	std::uint32_t indirect_reservoirs_per_probe = 4;
 	std::uint32_t direct_sample_count_cap = 10;
 	std::uint32_t indirect_sample_count_cap = 10;
+	std::uint32_t indirect_spatial_reuse_passes = 3;
 	auto probe_bounds = lotus::aab3f::create_from_min_max({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f });
 	float visualize_probe_size = 0.1f;
 	int visualize_probes_mode = 0;
@@ -495,7 +496,12 @@ int main(int argc, char **argv) {
 
 			uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
 			std::uint32_t num_indirect_reservoirs = num_probes * indirect_reservoirs_per_probe;
-			auto spatial_indirect_reservoirs = rctx.request_structured_buffer<shader_types::indirect_lighting_reservoir>(
+			auto spatial_indirect_reservoirs1 = rctx.request_structured_buffer<shader_types::indirect_lighting_reservoir>(
+				u8"Indirect Lighting Reservoirs", num_indirect_reservoirs,
+				lgpu::buffer_usage_mask::shader_read | lgpu::buffer_usage_mask::shader_write,
+				runtime_buf_pool
+			);
+			auto spatial_indirect_reservoirs2 = rctx.request_structured_buffer<shader_types::indirect_lighting_reservoir>(
 				u8"Indirect Lighting Reservoirs", num_indirect_reservoirs,
 				lgpu::buffer_usage_mask::shader_read | lgpu::buffer_usage_mask::shader_write,
 				runtime_buf_pool
@@ -575,29 +581,34 @@ int main(int argc, char **argv) {
 
 					cvec3i offsets[6] = {
 						{  1,  0,  0 },
-						{  0,  1,  0 },
-						{  0,  0,  1 },
 						{ -1,  0,  0 },
+						{  0,  1,  0 },
 						{  0, -1,  0 },
+						{  0,  0,  1 },
 						{  0,  0, -1 },
 					};
 
-					shader_types::indirect_spatial_reuse_constants reuse_constants;
-					reuse_constants.offset = offsets[frame_index % 6];
-					reuse_constants.frame_index = frame_index;
-					reuse_constants.visibility_test_mode = indirect_spatial_reuse_visibility_test_mode;
+					for (std::uint32_t i = 0; i < 3; ++i) {
+						shader_types::indirect_spatial_reuse_constants reuse_constants;
+						reuse_constants.offset               = offsets[i * 2 + random() % 2];
+						reuse_constants.frame_index          = frame_index;
+						reuse_constants.visibility_test_mode = indirect_spatial_reuse_visibility_test_mode;
 
-					lren::all_resource_bindings resources(
-						{},
-						{
-							{ u8"rtas",              scene.tlas },
-							{ u8"input_reservoirs",  indirect_reservoirs.bind_as_read_only() },
-							{ u8"output_reservoirs", spatial_indirect_reservoirs.bind_as_read_write() },
-							{ u8"probe_consts",      lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-							{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(reuse_constants) },
-						}
-					);
-					rctx.run_compute_shader_with_thread_dimensions(indirect_spatial_reuse_cs, probe_density, std::move(resources), u8"Spatial Indirect Reuse");
+						lren::all_resource_bindings resources(
+							{},
+							{
+								{ u8"rtas",              scene.tlas },
+								{ u8"input_reservoirs",  (i == 0 ? indirect_reservoirs : spatial_indirect_reservoirs1).bind_as_read_only() },
+								{ u8"output_reservoirs", spatial_indirect_reservoirs2.bind_as_read_write() },
+								{ u8"probe_consts",      lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+								{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(reuse_constants) },
+							}
+						);
+						rctx.run_compute_shader_with_thread_dimensions(indirect_spatial_reuse_cs, probe_density, std::move(resources), u8"Spatial Indirect Reuse");
+						std::swap(spatial_indirect_reservoirs1, spatial_indirect_reservoirs2);
+					}
+				} else {
+					spatial_indirect_reservoirs1 = indirect_reservoirs;
 				}
 
 				{ // summarize probes
@@ -609,7 +620,7 @@ int main(int argc, char **argv) {
 					lren::all_resource_bindings resources(
 						{},
 						{
-							{ u8"indirect_reservoirs", spatial_indirect_reservoirs.bind_as_read_only() },
+							{ u8"indirect_reservoirs", spatial_indirect_reservoirs1.bind_as_read_only() },
 							{ u8"probe_sh0",           probe_sh0.bind_as_read_write() },
 							{ u8"probe_sh1",           probe_sh1.bind_as_read_write() },
 							{ u8"probe_sh2",           probe_sh2.bind_as_read_write() },
@@ -722,7 +733,7 @@ int main(int argc, char **argv) {
 						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(constants) },
 						{ u8"lighting_consts",           lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
 						{ u8"direct_probes",             direct_reservoirs.bind_as_read_only() },
-						{ u8"indirect_probes",           spatial_indirect_reservoirs.bind_as_read_only() },
+						{ u8"indirect_probes",           spatial_indirect_reservoirs1.bind_as_read_only() },
 						{ u8"indirect_sh0",              probe_sh0.bind_as_read_only() },
 						{ u8"indirect_sh1",              probe_sh1.bind_as_read_only() },
 						{ u8"indirect_sh2",              probe_sh2.bind_as_read_only() },
@@ -1070,6 +1081,7 @@ int main(int argc, char **argv) {
 						ImGui::Checkbox("Debug Use Approximation For All Indirect Specular", &debug_approx_for_indirect);
 						ImGui::Checkbox("Indirect Temporal Reuse", &indirect_temporal_reuse);
 						ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
+						ImGui_SliderT<std::uint32_t>("Indirect Spatial Reuse Passes", &indirect_spatial_reuse_passes, 1, 3);
 						ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");
 						ImGui::SliderFloat("SH RA Factor", &sh_ra_factor, 0.0f, 1.0f);
 						ImGui_SliderT<std::uint32_t>("Direct Sample Count Cap", &direct_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);

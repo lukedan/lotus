@@ -20,8 +20,8 @@ struct reservoir_common {
 };
 
 struct direct_lighting_reservoir {
-	uint light_index; // starts from 1, 0 stands for "no light"
 	reservoir_common data;
+	uint light_index; // starts from 1, 0 stands for "no light"
 };
 
 struct indirect_lighting_reservoir {

@@ -36,10 +36,10 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 
 	if (constants.visibility_test_mode == 1) {
 		RayDesc ray;
-		ray.Origin = my_pos;
-		ray.TMin = 0.0f;
+		ray.Origin    = my_pos;
+		ray.TMin      = 0.0f;
 		ray.Direction = their_pos - my_pos;
-		ray.TMax = 1.0f;
+		ray.TMax      = 1.0f;
 
 		RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> ray_query;
 		ray_query.TraceRayInline(rtas, 0, 0xFF, ray);
@@ -55,6 +55,28 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		indirect_lighting_reservoir their_res = input_reservoirs[their_index + i];
 
 		bool cur_visible = visible;
+		if (constants.visibility_test_mode == 2) {
+			RayDesc ray;
+			ray.Origin    = my_pos;
+			ray.TMin      = 0.01f;
+			if (their_res.distance >= max_float_v) {
+				ray.Direction = octahedral_mapping::to_direction_unnormalized(their_res.direction_octahedral);
+				ray.TMax      = max_float_v;
+			} else {
+				float3 offset = their_pos + octahedral_mapping::to_direction_normalized(their_res.direction_octahedral) * their_res.distance - my_pos;
+				ray.Direction = offset;
+				ray.TMax      = 0.99f;
+			}
+
+			RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> ray_query;
+			ray_query.TraceRayInline(rtas, 0, 0xFF, ray);
+			ray_query.Proceed();
+
+			if (ray_query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) {
+				cur_visible = false;
+			}
+		}
+
 		if (cur_visible) {
 			float their_pdf = max(max(their_res.irradiance.r, their_res.irradiance.g), their_res.irradiance.b);
 			if (reservoirs::merge(my_res.data, their_res.data, their_pdf, pcg32::random_01(rng))) {

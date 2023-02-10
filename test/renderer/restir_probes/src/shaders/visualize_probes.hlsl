@@ -61,14 +61,14 @@ float4 main_ps(ps_input input) : SV_Target0 {
 	float4 sh1 = probe_sh1[probe_coord];
 	float4 sh2 = probe_sh2[probe_coord];
 	float4 sh3 = probe_sh3[probe_coord];
-	sh::sh2 sh_r = (sh::sh2)float4(sh0.r, sh1.r, sh2.r, sh3.r);
-	sh::sh2 sh_g = (sh::sh2)float4(sh0.g, sh1.g, sh2.g, sh3.g);
-	sh::sh2 sh_b = (sh::sh2)float4(sh0.b, sh1.b, sh2.b, sh3.b);
+	sh::sh2 sh_r = sh::sh2::ctor(sh0.r, sh1.r, sh2.r, sh3.r);
+	sh::sh2 sh_g = sh::sh2::ctor(sh0.g, sh1.g, sh2.g, sh3.g);
+	sh::sh2 sh_b = sh::sh2::ctor(sh0.b, sh1.b, sh2.b, sh3.b);
 
 	sh::sh2 conv;
 	if (constants.mode == 1) {
 		normal = reflect(constants.unit_forward, normal);
-		conv = sh::coefficients_sh2(normal);
+		conv = sh::sh2::coefficients(normal);
 	} else if (constants.mode == 2) {
 		conv = sh::clamped_cosine::eval_sh2(normal);
 	} else if (constants.mode == 3) {

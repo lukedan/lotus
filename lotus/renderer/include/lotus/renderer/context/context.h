@@ -116,12 +116,28 @@ namespace lotus::renderer {
 			}
 
 			gpu::buffer *source = nullptr; ///< Buffer data.
-			std::uint32_t source_offset = 0;
+			std::uint32_t source_offset = 0; ///< Offset in the source buffer in bytes.
 			recorded_resources::buffer destination; ///< Buffer to upload to.
 			std::uint32_t destination_offset = 0; ///< Offset of the region to upload to in the destination buffer.
 			std::uint32_t size = 0; ///< Size of the region to upload.
 			/// The type of \ref source.
 			execution::upload_buffers::allocation_type type = execution::upload_buffers::allocation_type::invalid;
+		};
+
+		/// Copies data from one buffer to another.
+		struct copy_buffer {
+			/// Initializes all fields of this struct.
+			copy_buffer(
+				recorded_resources::buffer src, recorded_resources::buffer dst,
+				std::uint32_t src_off, std::uint32_t dst_off, std::uint32_t sz
+			) : source(src), destination(dst), source_offset(src_off), destination_offset(dst_off), size(sz) {
+			}
+
+			recorded_resources::buffer source;      ///< The source buffer.
+			recorded_resources::buffer destination; ///< The destination buffer.
+			std::uint32_t source_offset = 0;      ///< Offset in the source buffer in bytes.
+			std::uint32_t destination_offset = 0; ///< Offset in the destination buffer in bytes.
+			std::uint32_t size = 0;               ///< Number of bytes to copy.
 		};
 
 		/// Compute shader dispatch.
@@ -248,6 +264,7 @@ namespace lotus::renderer {
 			context_commands::invalid,
 			context_commands::upload_image,
 			context_commands::upload_buffer,
+			context_commands::copy_buffer,
 			context_commands::dispatch_compute,
 			context_commands::render_pass,
 			context_commands::build_blas,
@@ -494,6 +511,13 @@ namespace lotus::renderer {
 			auto *d = reinterpret_cast<const std::byte*>(data.data());
 			upload_buffer(target, { d, d + data.size_bytes() }, byte_offset, description);
 		}
+
+		/// Copies data from the first buffer to the second.
+		void copy_buffer(
+			const buffer &source, const buffer &target,
+			std::uint32_t src_offset, std::uint32_t dst_offset, std::uint32_t sz,
+			std::u8string_view description
+		);
 
 		/// Builds the given \ref blas.
 		void build_blas(blas&, std::u8string_view description);
@@ -1095,6 +1119,8 @@ namespace lotus::renderer {
 		void _handle_command(execution::context&, context_commands::upload_image&);
 		/// Handles a buffer upload command.
 		void _handle_command(execution::context&, context_commands::upload_buffer&);
+		/// Handles a buffer copy command.
+		void _handle_command(execution::context&, context_commands::copy_buffer&);
 		/// Handles a dispatch compute command.
 		void _handle_command(execution::context&, const context_commands::dispatch_compute&);
 		/// Handles a begin pass command.

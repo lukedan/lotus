@@ -294,6 +294,16 @@ namespace lotus::renderer {
 		);
 	}
 
+	void context::copy_buffer(
+		const buffer &source, const buffer &target,
+		std::uint32_t src_offset, std::uint32_t dst_offset, std::uint32_t sz,
+		std::u8string_view description
+	) {
+		_commands.emplace_back(description).value.emplace<context_commands::copy_buffer>(
+			source, target, src_offset, dst_offset, sz
+		);
+	}
+
 	void context::build_blas(blas &b, std::u8string_view description) {
 		_commands.emplace_back(description).value.emplace<context_commands::build_blas>(b);
 	}
@@ -1250,6 +1260,24 @@ namespace lotus::renderer {
 		ectx.flush_transitions();
 		ectx.get_command_list().copy_buffer(
 			*buf.source, buf.source_offset, dest._ptr->data, buf.destination_offset, buf.size
+		);
+	}
+
+	void context::_handle_command(execution::context &ectx, context_commands::copy_buffer &buf) {
+		_maybe_create_buffer(*buf.source._ptr);
+		_maybe_create_buffer(*buf.destination._ptr);
+
+		ectx.transitions.stage_transition(
+			*buf.source._ptr,
+			{ gpu::synchronization_point_mask::copy, gpu::buffer_access_mask::copy_source }
+		);
+		ectx.transitions.stage_transition(
+			*buf.destination._ptr,
+			{ gpu::synchronization_point_mask::copy, gpu::buffer_access_mask::copy_destination }
+		);
+		ectx.flush_transitions();
+		ectx.get_command_list().copy_buffer(
+			buf.source._ptr->data, buf.source_offset, buf.destination._ptr->data, buf.destination_offset, buf.size
 		);
 	}
 

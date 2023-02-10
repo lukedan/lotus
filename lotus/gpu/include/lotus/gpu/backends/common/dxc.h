@@ -33,6 +33,9 @@ namespace lotus::gpu::backends::common {
 	/// DXC compiler.
 	struct dxc_compiler {
 	public:
+		/// Default extra arguments added when compiling shaders.
+		const static std::initializer_list<LPCWSTR> default_extra_arguments;
+
 		/// Contains a \p IDxcResult.
 		struct compilation_result {
 			friend dxc_compiler;
@@ -111,8 +114,9 @@ namespace lotus::gpu::backends::common {
 			std::span<const std::byte> code,
 			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
-			std::span<const LPCWSTR> args,
-			std::initializer_list<LPCWSTR> extra_args_2
+			std::span<const LPCWSTR> extra_args,
+			std::initializer_list<LPCWSTR> extra_args_2,
+			std::span<const LPCWSTR> extra_args_3
 		);
 	};
 }

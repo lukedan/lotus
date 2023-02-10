@@ -7,6 +7,13 @@
 #include "lotus/utils/strings.h"
 
 namespace lotus::gpu::backends::common {
+	const std::initializer_list<LPCWSTR> dxc_compiler::default_extra_arguments = {
+		L"-HV", L"2021",
+		L"-Zi",
+		L"-Qembed_debug",
+		L"-enable-16bit-types",
+	};
+
 	bool dxc_compiler::compilation_result::succeeded() const {
 		HRESULT stat;
 		_details::assert_dx(_result->GetStatus(&stat));
@@ -63,10 +70,10 @@ namespace lotus::gpu::backends::common {
 
 		char profile_ascii[10];
 		auto fmt_result = std::format_to_n(
-			profile_ascii, std::size(profile_ascii) - 1, "{}_{}_{}", stage_names[stage], 6, 5
+			profile_ascii, std::size(profile_ascii) - 1, "{}_{}_{}", stage_names[stage], 6, 6
 		);
 		assert(static_cast<std::size_t>(fmt_result.size) + 1 < std::size(profile_ascii));
-		profile_ascii[fmt_result.size] = L'\0';
+		profile_ascii[fmt_result.size] = '\0';
 		auto profile = _u8string_to_wstring(bookmark, reinterpret_cast<const char8_t*>(profile_ascii));
 
 		return _do_compile_shader(
@@ -74,10 +81,8 @@ namespace lotus::gpu::backends::common {
 			{
 				L"-E", entry_wstr.c_str(),
 				L"-T", profile.c_str(),
-				L"-HV", L"2021",
-				L"-Zi",
-				L"-Qembed_debug",
-			}
+			},
+			default_extra_arguments
 		);
 	}
 
@@ -90,11 +95,9 @@ namespace lotus::gpu::backends::common {
 		return _do_compile_shader(
 			code, shader_path, include_paths, defines, args,
 			{
-				L"-T", L"lib_6_3",
-				L"-HV", L"2021",
-				L"-Zi",
-				L"-Qembed_debug",
-			}
+				L"-T", L"lib_6_6",
+			},
+			default_extra_arguments
 		);
 	}
 
@@ -124,7 +127,8 @@ namespace lotus::gpu::backends::common {
 		const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
 		std::span<const LPCWSTR> extra_args,
-		std::initializer_list<LPCWSTR> extra_args_2
+		std::initializer_list<LPCWSTR> extra_args_2,
+		std::span<const LPCWSTR> extra_args_3
 	) {
 		using _wstring = memory::stack_allocator::string_type<WCHAR>;
 
@@ -154,12 +158,11 @@ namespace lotus::gpu::backends::common {
 		if (!shader_path.empty()) {
 			args.emplace_back(shader_path_str.c_str());
 		}
+		args.insert(args.end(), extra_args.begin(), extra_args.end());
 		args.insert(args.end(), extra_args_2.begin(), extra_args_2.end());
+		args.insert(args.end(), extra_args_3.begin(), extra_args_3.end());
 		for (const auto &inc : includes) {
 			args.insert(args.end(), { L"-I", inc.c_str() });
-		}
-		for (const auto arg : extra_args) {
-			args.emplace_back(arg);
 		}
 		for (const auto &def : defs) {
 			args.emplace_back(def.c_str());

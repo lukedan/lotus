@@ -292,7 +292,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::insert_marker(const char8_t *name, linear_rgba_u8 color) {
-		if (!is_empty(_device->_options & context_options::enable_debug_info)) {
+		if (bit_mask::contains<context_options::enable_debug_info>(_device->_options)) {
 			auto color_f = color.into<float>();
 			vk::DebugMarkerMarkerInfoEXT info;
 			info
@@ -303,7 +303,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::begin_marker_scope(const char8_t *name, linear_rgba_u8 color) {
-		if (!is_empty(_device->_options & context_options::enable_debug_info)) {
+		if (bit_mask::contains<context_options::enable_debug_info>(_device->_options)) {
 			auto color_f = color.into<float>();
 			vk::DebugMarkerMarkerInfoEXT info;
 			info
@@ -314,7 +314,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::end_marker_scope() {
-		if (!is_empty(_device->_options & context_options::enable_debug_info)) {
+		if (bit_mask::contains<context_options::enable_debug_info>(_device->_options)) {
 			_buffer.debugMarkerEndEXT(*_device->_dispatch_loader);
 		}
 	}

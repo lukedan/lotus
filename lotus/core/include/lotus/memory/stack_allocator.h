@@ -143,9 +143,7 @@ namespace lotus::memory {
 			}
 			/// Convenience function for creating a \p std::vector with the specified reserved space using the given
 			/// parameters and this allocator.
-			template <
-				typename T, typename ...Args
-			> [[nodiscard]] vector_type<T> create_reserved_vector_array(std::size_t capacity) {
+			template <typename T> [[nodiscard]] vector_type<T> create_reserved_vector_array(std::size_t capacity) {
 				vector_type<T> result(create_std_allocator<T>());
 				result.reserve(capacity);
 				return result;

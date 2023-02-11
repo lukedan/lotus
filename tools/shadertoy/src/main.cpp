@@ -25,6 +25,7 @@ int main(int argc, char **argv) {
 	lsys::window wnd = app.create_window();
 
 	auto gctx = lgpu::context::create(lgpu::context_options::enable_validation);
+	std::vector<lgpu::command_queue> gqueues;
 	auto shader_utils = lgpu::shader_utility::create();
 	lgpu::device gdev = nullptr;
 	lgpu::adapter_properties gdev_props = uninitialized;
@@ -34,13 +35,14 @@ int main(int argc, char **argv) {
 			return true;
 		}
 		lotus::log().info<"Selected device: {}">(lotus::string::to_generic(properties.name));
-		gdev = adap.create_device();
+		auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics, lgpu::queue_type::compute });
+		gdev = std::move(dev);
+		gqueues = std::move(queues);
 		gdev_props = properties;
 		return false;
 	});
-	lgpu::command_queue cmd_queue = gdev.create_command_queue();
 
-	auto rctx = lren::context::create(gctx, gdev_props, gdev, cmd_queue);
+	auto rctx = lren::context::create(gctx, gdev_props, gdev, gqueues[0], gqueues[1]);
 	auto ass_man = lren::assets::manager::create(rctx, &shader_utils);
 	ass_man.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets";
 	ass_man.additional_shader_includes = {

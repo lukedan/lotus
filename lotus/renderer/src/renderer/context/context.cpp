@@ -108,9 +108,10 @@ namespace lotus::renderer {
 		gpu::context &ctx,
 		const gpu::adapter_properties &adap_prop,
 		gpu::device &dev,
-		gpu::command_queue &queue
+		gpu::command_queue graphics_queue,
+		gpu::command_queue compute_queue
 	) {
-		return context(ctx, adap_prop, dev, queue);
+		return context(ctx, adap_prop, dev, graphics_queue, compute_queue);
 	}
 
 	context::~context() {
@@ -416,8 +417,8 @@ namespace lotus::renderer {
 
 		++_batch_index;
 		_all_resources.emplace_back(std::exchange(_deferred_delete_resources, nullptr));
-		_all_resources.back().main_cmd_alloc = _device.create_command_allocator();
-		_all_resources.back().transient_cmd_alloc = _device.create_command_allocator();
+		_all_resources.back().graphics_cmd_alloc = _device.create_command_allocator(gpu::queue_type::graphics);
+		_all_resources.back().transient_cmd_alloc = _device.create_command_allocator(gpu::queue_type::graphics);
 
 		if (_uploads) {
 			_uploads.flush();
@@ -477,7 +478,7 @@ namespace lotus::renderer {
 				constexpr bool _debug_separate_commands = false;
 				if constexpr (_debug_separate_commands) {
 					gpu::fence f = _device.create_fence(gpu::synchronization_state::unset);
-					ectx.submit(_queue, &f);
+					ectx.submit(_graphics_queue, &f);
 					_device.wait_for_fence(f);
 				}
 			}
@@ -499,7 +500,7 @@ namespace lotus::renderer {
 			auto signal_semaphores = {
 				gpu::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)
 			};
-			ectx.submit(_queue, gpu::queue_synchronization(nullptr, {}, signal_semaphores));
+			ectx.submit(_graphics_queue, gpu::queue_synchronization(nullptr, {}, signal_semaphores));
 
 			stats = std::move(ectx.statistics);
 		}
@@ -542,9 +543,10 @@ namespace lotus::renderer {
 		gpu::context &ctx,
 		const gpu::adapter_properties &adap_prop,
 		gpu::device &dev,
-		gpu::command_queue &queue
+		gpu::command_queue graphics_queue,
+		gpu::command_queue compute_queue
 	) :
-		_device(dev), _context(ctx), _queue(queue),
+		_device(dev), _context(ctx), _graphics_queue(graphics_queue), _compute_queue(compute_queue),
 		_descriptor_pool(_device.create_descriptor_pool({
 			gpu::descriptor_range::create(gpu::descriptor_type::acceleration_structure, 10240),
 			gpu::descriptor_range::create(gpu::descriptor_type::constant_buffer, 10240),
@@ -565,13 +567,13 @@ namespace lotus::renderer {
 		for (const auto &type : memory_types) {
 			if (
 				_device_memory_index == gpu::memory_type_index::invalid &&
-				!is_empty(type.second & gpu::memory_properties::device_local)
+				bit_mask::contains<gpu::memory_properties::device_local>(type.second)
 			) {
 				_device_memory_index = type.first;
 			}
 			if (
 				_upload_memory_index == gpu::memory_type_index::invalid &&
-				!is_empty(type.second & gpu::memory_properties::host_visible)
+				bit_mask::contains<gpu::memory_properties::host_visible>(type.second)
 			) {
 				_upload_memory_index = type.first;
 			}
@@ -579,7 +581,7 @@ namespace lotus::renderer {
 				gpu::memory_properties::host_visible | gpu::memory_properties::host_cached;
 			if (
 				_readback_memory_index == gpu::memory_type_index::invalid &&
-				(type.second & _readback_properties) == _readback_properties
+				bit_mask::contains_all(type.second, _readback_properties)
 			) {
 				_readback_memory_index = type.first;
 			}
@@ -699,7 +701,7 @@ namespace lotus::renderer {
 				// wait until everything's done
 				{
 					auto fence = _device.create_fence(gpu::synchronization_state::unset);
-					ectx.submit(_queue, &fence);
+					ectx.submit(_graphics_queue, &fence);
 					_device.wait_for_fence(fence);
 				}
 				// clean up any references to the old swap chain images
@@ -714,7 +716,7 @@ namespace lotus::renderer {
 				} else {
 					ectx.record(std::move(chain_data.chain));
 					auto [new_chain, fmt] = _context.create_swap_chain_for_window(
-						chain_data.window, _device, _queue,
+						chain_data.window, _device, _graphics_queue,
 						chain_data.num_images, chain_data.expected_formats
 					);
 					chain_data.chain = std::move(new_chain);
@@ -1523,8 +1525,8 @@ namespace lotus::renderer {
 			);
 			ectx.flush_transitions();
 
-			ectx.submit(_queue, nullptr);
-			if (_queue.present(cmd.target._ptr->chain) != gpu::swap_chain_status::ok) {
+			ectx.submit(_graphics_queue, nullptr);
+			if (_graphics_queue.present(cmd.target._ptr->chain) != gpu::swap_chain_status::ok) {
 				// TODO?
 			}
 		}
@@ -1587,7 +1589,7 @@ namespace lotus::renderer {
 				
 				{ // read back timer information
 					result.timer_results.reserve(batch.timestamps.size());
-					double frequency = _queue.get_timestamp_frequency();
+					double frequency = _graphics_queue.get_timestamp_frequency();
 					std::vector<std::uint64_t> raw_results(batch.num_timestamps);
 					_device.fetch_query_results(batch.timestamp_heap, 0, raw_results);
 					for (const auto &t : batch.timestamps) {

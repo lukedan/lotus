@@ -44,10 +44,8 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p IDXGISwapChain3::ResizeBuffers().
 		void resize_swap_chain_buffers(swap_chain&, cvec2u32);
 
-		/// Calls \p ID3D12Device::CreateCommandQueue().
-		[[nodiscard]] command_queue create_command_queue();
 		/// Calls \p ID3D12Device::CreateCommandAllocator().
-		[[nodiscard]] command_allocator create_command_allocator();
+		[[nodiscard]] command_allocator create_command_allocator(queue_type);
 		/// Calls \p ID3D12Device::CreateCommandList().
 		[[nodiscard]] command_list create_and_start_command_list(command_allocator&);
 
@@ -307,8 +305,9 @@ namespace lotus::gpu::backends::directx12 {
 		adapter(std::nullptr_t) {
 		}
 
-		/// Calls \p D3D12CreateDevice().
-		[[nodiscard]] device create_device();
+		/// Calls \p D3D12CreateDevice(), then calls \p ID3D12Device::CreateCommandQueue() to create requested
+		/// command queues.
+		[[nodiscard]] std::pair<device, std::vector<command_queue>> create_device(std::span<const queue_type>);
 		/// Returns the properties of this adapter.
 		[[nodiscard]] adapter_properties get_properties() const;
 	private:

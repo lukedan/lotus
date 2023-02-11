@@ -39,29 +39,17 @@ namespace lotus::gpu::backends::directx12 {
 		}
 	}
 
-	command_queue device::create_command_queue() {
-		command_queue result;
-		D3D12_COMMAND_QUEUE_DESC desc = {};
-		desc.Type     = D3D12_COMMAND_LIST_TYPE_DIRECT;
-		desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-		desc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
-		desc.NodeMask = 0;
-		_details::assert_dx(_device->CreateCommandQueue(&desc, IID_PPV_ARGS(&result._queue)));
-		return result;
-	}
-
-	command_allocator device::create_command_allocator() {
+	command_allocator device::create_command_allocator(queue_type ty) {
 		command_allocator result = nullptr;
-		_details::assert_dx(_device->CreateCommandAllocator(
-			D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&result._allocator)
-		));
+		result._type = _details::conversions::to_command_list_type(ty);
+		_details::assert_dx(_device->CreateCommandAllocator(result._type, IID_PPV_ARGS(&result._allocator)));
 		return result;
 	}
 
 	command_list device::create_and_start_command_list(command_allocator &alloc) {
 		command_list result = nullptr;
 		_details::assert_dx(_device->CreateCommandList(
-			0, D3D12_COMMAND_LIST_TYPE_DIRECT, alloc._allocator.Get(), nullptr, IID_PPV_ARGS(&result._list)
+			0, alloc._type, alloc._allocator.Get(), nullptr, IID_PPV_ARGS(&result._list)
 		));
 		result._descriptor_heaps[0] = _srv_descriptors.get_heap();
 		result._descriptor_heaps[1] = _sampler_descriptors.get_heap();
@@ -1208,7 +1196,8 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 
-	device adapter::create_device() {
+	std::pair<device, std::vector<command_queue>> adapter::create_device(std::span<const queue_type> queues) {
+		// create device
 		_details::com_ptr<ID3D12Device10> result;
 		_details::assert_dx(D3D12CreateDevice(_adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&result)));
 		_details::com_ptr<ID3D12InfoQueue1> info_queue;
@@ -1251,7 +1240,19 @@ namespace lotus::gpu::backends::directx12 {
 		} else {
 			log().error<u8"Failed to register DirectX message callback: {}">(res);
 		}
-		return device(std::move(result));
+
+		// create queues
+		std::vector<command_queue> qs(queues.size(), nullptr);
+		for (std::size_t i = 0; i < queues.size(); ++i) {
+			D3D12_COMMAND_QUEUE_DESC desc = {};
+			desc.Type     = _details::conversions::to_command_list_type(queues[i]);
+			desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+			desc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
+			desc.NodeMask = 0;
+			_details::assert_dx(result->CreateCommandQueue(&desc, IID_PPV_ARGS(&qs[i]._queue)));
+		}
+
+		return { device(std::move(result)), std::move(qs) };
 	}
 
 	adapter_properties adapter::get_properties() const {

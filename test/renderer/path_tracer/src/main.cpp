@@ -51,21 +51,23 @@ int main(int argc, char **argv) {
 	auto gctx = lgpu::context::create(gctx_options);
 	auto shader_util = lgpu::shader_utility::create();
 	lgpu::device gdev = nullptr;
+	std::vector<lgpu::command_queue> gqueues;
 	lgpu::adapter_properties dev_prop = uninitialized;
 	gctx.enumerate_adapters([&](lgpu::adapter adap) {
 		dev_prop = adap.get_properties();
 		log().debug<u8"Device name: {}">(lstr::to_generic(dev_prop.name));
 		if (dev_prop.is_discrete) {
 			log().debug<u8"Selected">();
-			gdev = adap.create_device();
+			auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics, lgpu::queue_type::compute });
+			gdev = std::move(dev);
+			gqueues = std::move(queues);
 			return false;
 		}
 		return true;
 	});
-	auto cmd_queue = gdev.create_command_queue();
-	auto cmd_alloc = gdev.create_command_allocator();
+	auto cmd_alloc = gdev.create_command_allocator(lgpu::queue_type::graphics);
 
-	auto rctx = lren::context::create(gctx, dev_prop, gdev, cmd_queue);
+	auto rctx = lren::context::create(gctx, dev_prop, gdev, gqueues[0], gqueues[1]);
 	auto asset_man = lren::assets::manager::create(rctx, &shader_util);
 	asset_man.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets/";
 	asset_man.additional_shader_includes = {

@@ -426,7 +426,7 @@ namespace lotus::renderer::assets {
 		std::u8string_view entry_point,
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
 	) {
-		static constexpr enum_mapping<gpu::shader_stage, std::u8string_view> _shader_stage_names{
+		static constexpr enums::sequential_mapping<gpu::shader_stage, std::u8string_view> _shader_stage_names{
 			std::pair(gpu::shader_stage::all,                   u8"ALL"),
 			std::pair(gpu::shader_stage::vertex_shader,         u8"vs"),
 			std::pair(gpu::shader_stage::geometry_shader,       u8"gs"),

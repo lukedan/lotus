@@ -35,7 +35,11 @@ namespace lotus {
 	}
 	/// \p constexpr version of \ref crash_if().
 	inline constexpr void crash_if_constexpr([[maybe_unused]] bool value) {
-		assert(!value);
+		if (std::is_constant_evaluated()) {
+			assert(!value);
+		} else {
+			crash_if(value);
+		}
 	}
 
 	/// Pauses program execution for debugging.
@@ -68,141 +72,6 @@ namespace lotus {
 	};
 	constexpr inline const uninitialized_t uninitialized; ///< An instance of \ref uninitialized_t.
 	constexpr inline const zero_t zero; ///< An instance of \ref zero_t.
-
-
-	/// Indicates if all following bitwise operators are enabled for a type. Enum classes can create specializations
-	/// to enable them.
-	template <typename> struct enable_enum_bitwise_operators : public std::false_type {
-	};
-	/// Shorthand for \ref enable_enum_bitwise_operators.
-	template <typename T> constexpr static bool enable_enum_bitwise_operators_v =
-		enable_enum_bitwise_operators<T>::value;
-}
-// these are put in the global scope so that all code can access these
-/// Bitwise and for enum classes.
-template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
-	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum
-> operator&(Enum lhs, Enum rhs) {
-	using _base = std::underlying_type_t<Enum>;
-	return static_cast<Enum>(static_cast<_base>(lhs) & static_cast<_base>(rhs));
-}
-/// Bitwise or for enum classes.
-template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
-	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum
-> operator|(Enum lhs, Enum rhs) {
-	using _base = std::underlying_type_t<Enum>;
-	return static_cast<Enum>(static_cast<_base>(lhs) | static_cast<_base>(rhs));
-}
-/// Bitwise xor for enum classes.
-template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
-	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum
-> operator^(Enum lhs, Enum rhs) {
-	using _base = std::underlying_type_t<Enum>;
-	return static_cast<Enum>(static_cast<_base>(lhs) ^ static_cast<_base>(rhs));
-}
-/// Bitwise not for enum classes.
-template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
-	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum
-> operator~(Enum v) {
-	using _base = std::underlying_type_t<Enum>;
-	return static_cast<Enum>(~static_cast<_base>(v));
-}
-
-/// Bitwise and for enum classes.
-template <typename Enum> inline constexpr std::enable_if_t<
-	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum&
-> operator&=(Enum &lhs, Enum rhs) {
-	return lhs = lhs & rhs;
-}
-/// Bitwise or for enum classes.
-template <typename Enum> inline constexpr std::enable_if_t<
-	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum&
-> operator|=(Enum &lhs, Enum rhs) {
-	return lhs = lhs | rhs;
-}
-/// Bitwise xor for enum classes.
-template <typename Enum> inline constexpr std::enable_if_t<
-	std::is_enum_v<Enum> && lotus::enable_enum_bitwise_operators_v<Enum>, Enum&
-> operator^=(Enum &lhs, Enum rhs) {
-	return lhs = lhs ^ rhs;
-}
-
-namespace lotus {
-	/// Indicates if an enum type can be used with \ref is_empty().
-	template <typename> struct enable_enum_is_empty : public std::false_type {
-	};
-	/// Shorthand for \ref enable_enum_is_empty.
-	template <typename T> constexpr static bool enable_enum_is_empty_v =
-		enable_enum_is_empty<T>::value;
-
-	/// Tests if an enum is zero.
-	template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
-		std::is_enum_v<Enum> && enable_enum_is_empty_v<Enum>, bool
-	> is_empty(Enum v) {
-		using _base = std::underlying_type_t<Enum>;
-		return static_cast<_base>(v) == _base(0);
-	}
-
-
-	/// Stores a mapping from consecutive zero-based enum values to mapped values, with additional checks.
-	template <
-		typename Enum, typename Value, std::size_t NumEnumerators = static_cast<std::size_t>(Enum::num_enumerators)
-	> class enum_mapping {
-	public:
-		/// Initializes the mapping.
-		template <typename ...Args> constexpr enum_mapping(Args &&...args) :
-			_mapping{ { std::forward<Args>(args)... } } {
-			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for enum mapping.");
-			for (std::size_t i = 0; i < NumEnumerators; ++i) {
-				crash_if_constexpr(static_cast<std::size_t>(_mapping[i].first) != i);
-			}
-		}
-
-		/// Retrieves the mapping for the given value.
-		[[nodiscard]] constexpr const Value &operator[](Enum v) const {
-			return _mapping[static_cast<std::size_t>(v)].second;
-		}
-		/// Returns the entire table.
-		[[nodiscard]] constexpr const std::array<std::pair<Enum, Value>, NumEnumerators> &get_raw_table() const {
-			return _mapping;
-		}
-	protected:
-		const std::array<std::pair<Enum, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
-	};
-
-	/// Stores a mapping from consecutive bits to mapped values, with additional checking.
-	template <
-		typename BitMask, typename Value,
-		std::size_t NumEnumerators = static_cast<std::size_t>(BitMask::num_enumerators)
-	> class bit_mask_mapping {
-	public:
-		/// Initializes the mapping.
-		template <typename ...Args> constexpr bit_mask_mapping(Args &&...args) :
-			_mapping{ { std::forward<Args>(args)... } } {
-			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for bit mask mapping.");
-			for (std::size_t i = 0; i < NumEnumerators; ++i) {
-				crash_if_constexpr(_mapping[i].first != static_cast<BitMask>(1 << i));
-			}
-		}
-
-		/// Returns the bitwise or of all values corresponding to all bits in the given bit mask.
-		[[nodiscard]] constexpr Value get_union(BitMask m) const {
-			using _src_ty = std::underlying_type_t<BitMask>;
-			using _dst_ty = std::underlying_type_t<Value>;
-
-			auto value = static_cast<_src_ty>(m);
-			auto result = static_cast<_dst_ty>(0);
-			while (value != 0) {
-				int bit = std::countr_zero(value);
-				crash_if_constexpr(bit >= NumEnumerators);
-				result |= static_cast<_dst_ty>(_mapping[bit].second);
-				value ^= static_cast<_src_ty>(1ull << bit);
-			}
-			return static_cast<Value>(result);
-		}
-	protected:
-		const std::array<std::pair<BitMask, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
-	};
 
 
 	/// The minimum-sized type that is able to hold the given value.

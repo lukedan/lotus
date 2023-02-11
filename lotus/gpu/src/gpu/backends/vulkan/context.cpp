@@ -22,7 +22,7 @@ namespace lotus::gpu::backends::vulkan {
 	context context::create(context_options opt) {
 		auto bookmark = get_scratch_bookmark();
 		auto enabled_layers = bookmark.create_vector_array<const char*>();
-		if (!is_empty(opt & context_options::enable_validation)) {
+		if (bit_mask::contains<context_options::enable_validation>(opt)) {
 			enabled_layers.insert(enabled_layers.end(), {
 				"VK_LAYER_KHRONOS_validation",
 				/*"VK_LAYER_LUNARG_parameter_validation",*/
@@ -112,8 +112,8 @@ namespace lotus::gpu::backends::vulkan {
 		result._surface = _details::unwrap(_instance->createWin32SurfaceKHRUnique(surface_info));
 #endif
 
-		assert(_details::unwrap(dev._physical_device.getSurfaceSupportKHR(
-			dev._graphics_compute_queue_family_index, result._surface.get()
+		crash_if(!_details::unwrap(dev._physical_device.getSurfaceSupportKHR(
+			dev._graphics_queue_family_index, result._surface.get()
 		)));
 		auto capabilities = _details::unwrap(dev._physical_device.getSurfaceCapabilitiesKHR(result._surface.get()));
 		auto allocator = bookmark.create_std_allocator<vk::SurfaceFormatKHR>();

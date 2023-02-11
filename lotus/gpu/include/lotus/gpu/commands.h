@@ -16,6 +16,7 @@
 #include "synchronization.h"
 
 namespace lotus::gpu {
+	class adapter;
 	class device;
 	class command_allocator;
 
@@ -292,14 +293,30 @@ namespace lotus::gpu {
 		}
 	};
 
-	/// A command queue.
+	/// A lightweight handle of a command queue.
 	class command_queue : public backend::command_queue {
+		friend adapter;
 		friend device;
 	public:
-		/// No copy construction.
-		command_queue(const command_queue&) = delete;
-		/// No copy assignment.
-		command_queue &operator=(const command_queue&) = delete;
+		/// Creates an empty command queue.
+		command_queue(std::nullptr_t) : backend::command_queue(nullptr) {
+		}
+		/// Move construction.
+		command_queue(command_queue &&src) : backend::command_queue(std::move(src)) {
+		}
+		/// Copy construction.
+		command_queue(const command_queue &src) : backend::command_queue(src) {
+		}
+		/// Move assignment.
+		command_queue &operator=(command_queue &&src) {
+			backend::command_queue::operator=(std::move(src));
+			return *this;
+		}
+		/// Copy assignment.
+		command_queue &operator=(const command_queue &src) {
+			backend::command_queue::operator=(src);
+			return *this;
+		}
 
 		/// Returns the number of ticks per second for timestamp queries on this queue.
 		[[nodiscard]] double get_timestamp_frequency() {
@@ -328,6 +345,15 @@ namespace lotus::gpu {
 		/// Sets the given timeline semaphore to the given value.
 		void signal(timeline_semaphore &sem, std::uint64_t value) {
 			backend::command_queue::signal(sem, value);
+		}
+
+		/// Checks if this holds a valid queue object.
+		[[nodiscard]] bool is_valid() const {
+			return backend::command_queue::is_valid();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
 		}
 	protected:
 		/// Initializes the backend command queue.

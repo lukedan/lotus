@@ -3,6 +3,7 @@
 /// \file
 /// Common system-related types. This is the only file that platform-specific headers can include.
 
+#include "lotus/enums.h"
 #include "lotus/math/vector.h"
 
 namespace lotus::system {
@@ -32,12 +33,9 @@ namespace lotus::system {
 		num_enumerators ///< Total number of available modifier keys.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref system::modifier_key_mask.
-	template <> struct enable_enum_bitwise_operators<system::modifier_key_mask> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref system::modifier_key_mask.
-	template <> struct enable_enum_is_empty<system::modifier_key_mask> : public std::true_type {
+namespace lotus::enums {
+	/// \ref system::modifier_key_mask is a bit mask type.
+	template <> struct is_bit_mask<system::modifier_key_mask> : public std::true_type {
 	};
 }
 

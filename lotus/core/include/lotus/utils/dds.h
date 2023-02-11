@@ -7,6 +7,7 @@
 #include <type_traits>
 
 #include "lotus/common.h"
+#include "lotus/enums.h"
 #include "misc.h"
 
 namespace lotus {
@@ -25,12 +26,11 @@ namespace lotus {
 			bump_dudv    = 1 << 19, ///< Uncompressed signed data?
 		};
 	}
-	/// Enable bitwise operations for \ref dds::pixel_format_flags.
-	template <> struct enable_enum_bitwise_operators<dds::pixel_format_flags> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref dds::pixel_format_flags.
-	template <> struct enable_enum_is_empty<dds::pixel_format_flags> : public std::true_type {
-	};
+	namespace enums {
+		/// \ref dds::pixel_format_flags is a bit mask.
+		template <> struct is_bit_mask<dds::pixel_format_flags> : public std::true_type {
+		};
+	}
 
 	namespace dds {
 		/// Flags that indicate which members of \ref header contain valid data.
@@ -47,12 +47,11 @@ namespace lotus {
 			required_flags = caps | height | width | pixel_format, ///< All required flags.
 		};
 	}
-	/// Enable bitwise operations for \ref dds::header_flags.
-	template <> struct enable_enum_bitwise_operators<dds::header_flags> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref dds::header_flags.
-	template <> struct enable_enum_is_empty<dds::header_flags> : public std::true_type {
-	};
+	namespace enums {
+		/// \ref dds::header_flags is a bit mask.
+		template <> struct is_bit_mask<dds::header_flags> : public std::true_type {
+		};
+	}
 
 	namespace dds {
 		/// Information about a DDS file.
@@ -62,12 +61,11 @@ namespace lotus {
 			mipmap  = 1 << 22, ///< Used for a mipmap.
 		};
 	}
-	/// Enable bitwise operations for \ref dds::capabilities.
-	template <> struct enable_enum_bitwise_operators<dds::capabilities> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref dds::capabilities.
-	template <> struct enable_enum_is_empty<dds::capabilities> : public std::true_type {
-	};
+	namespace enums {
+		/// \ref dds::capabilities is a bit mask.
+		template <> struct is_bit_mask<dds::capabilities> : public std::true_type {
+		};
+	}
 
 	namespace dds {
 		/// Additional information about a DDS file.
@@ -90,12 +88,11 @@ namespace lotus {
 				cubemap_positive_z | cubemap_negative_z,
 		};
 	}
-	/// Enable bitwise operations for \ref dds::capabilities2.
-	template <> struct enable_enum_bitwise_operators<dds::capabilities2> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref dds::capabilities2.
-	template <> struct enable_enum_is_empty<dds::capabilities2> : public std::true_type {
-	};
+	namespace enums {
+		/// \ref dds::capabilities2 is a bit mask.
+		template <> struct is_bit_mask<dds::capabilities2> : public std::true_type {
+		};
+	}
 
 	namespace dds {
 		/// \p D3D10_RESOURCE_DIMENSION.
@@ -114,12 +111,11 @@ namespace lotus {
 			texture_cube = 1 << 2, ///< This 2D texture is a cubemap.
 		};
 	}
-	/// Enable bitwise operations for \ref dds::miscellaneous_flags.
-	template <> struct enable_enum_bitwise_operators<dds::miscellaneous_flags> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref dds::miscellaneous_flags.
-	template <> struct enable_enum_is_empty<dds::miscellaneous_flags> : public std::true_type {
-	};
+	namespace enums {
+		/// \ref dds::miscellaneous_flags is a bit mask.
+		template <> struct is_bit_mask<dds::miscellaneous_flags> : public std::true_type {
+		};
+	}
 
 	namespace dds {
 		/// Additional miscellaneous flags.
@@ -131,12 +127,11 @@ namespace lotus {
 			alpha_mode_custom        = 1 << 3, ///< Alpha channel does not indicate transparency.
 		};
 	}
-	/// Enable bitwise operations for \ref dds::miscellaneous_flags2.
-	template <> struct enable_enum_bitwise_operators<dds::miscellaneous_flags2> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref dds::miscellaneous_flags2.
-	template <> struct enable_enum_is_empty<dds::miscellaneous_flags2> : public std::true_type {
-	};
+	namespace enums {
+		/// \ref dds::miscellaneous_flags2 is a bit mask.
+		template <> struct is_bit_mask<dds::miscellaneous_flags2> : public std::true_type {
+		};
+	}
 
 
 	namespace dds {

@@ -10,6 +10,7 @@
 #include "frame_buffer.h"
 
 namespace lotus::gpu::backends::vulkan {
+	class adapter;
 	class command_list;
 	class command_queue;
 	class device;
@@ -167,8 +168,13 @@ namespace lotus::gpu::backends::vulkan {
 
 	/// Contains a \p vk::Queue.
 	class command_queue {
+		friend adapter;
 		friend device;
 	protected:
+		/// Initializes this object to empty.
+		command_queue(std::nullptr_t) {
+		}
+
 		/// Returns \ref _timestamp_frequency.
 		[[nodiscard]] double get_timestamp_frequency() {
 			return _timestamp_frequency;
@@ -183,6 +189,11 @@ namespace lotus::gpu::backends::vulkan {
 		void signal(fence&);
 		/// Calls \p vk::Queue::submit() without any command lists.
 		void signal(timeline_semaphore&, std::uint64_t);
+
+		/// Checks if this is a valid object.
+		[[nodiscard]] bool is_valid() const {
+			return !!_queue;
+		}
 	private:
 		vk::Queue _queue; ///< The queue.
 		double _timestamp_frequency = 0.0f; ///< Timestamp frequency.

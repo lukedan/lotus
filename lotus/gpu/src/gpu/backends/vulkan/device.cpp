@@ -73,20 +73,26 @@ namespace lotus::gpu::backends::vulkan {
 		s._synchronization.resize(s._images.size(), nullptr);
 	}
 
-	command_queue device::create_command_queue() {
-		command_queue result;
-		result._queue = _device->getQueue(_graphics_compute_queue_family_index, 0);
-		result._timestamp_frequency = 1000000.0 / static_cast<double>(_device_limits.timestampPeriod);
-		return result;
-	}
-
-	command_allocator device::create_command_allocator() {
+	command_allocator device::create_command_allocator(queue_type ty) {
 		command_allocator alloc = nullptr;
+
+		std::uint32_t queue_family_index = std::numeric_limits<std::uint32_t>::max();
+		switch (ty) {
+		case queue_type::graphics:
+			queue_family_index = _graphics_queue_family_index;
+			break;
+		case queue_type::compute:
+			queue_family_index = _compute_queue_family_index;
+			break;
+		case queue_type::copy:
+			queue_family_index = _copy_queue_family_index;
+			break;
+		}
 
 		vk::CommandPoolCreateInfo info;
 		info
 			.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
-			.setQueueFamilyIndex(_graphics_compute_queue_family_index);
+			.setQueueFamilyIndex(queue_family_index);
 		// TODO allocator
 		alloc._pool = _details::unwrap(_device->createCommandPoolUnique(info));
 
@@ -1398,7 +1404,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void device::_set_debug_name(vk::DebugReportObjectTypeEXT ty, std::uint64_t obj, const char8_t *name) {
-		if (!is_empty(_options & context_options::enable_debug_info)) {
+		if (bit_mask::contains<context_options::enable_debug_info>(_options)) {
 			vk::DebugMarkerObjectNameInfoEXT info;
 			info
 				.setObjectType(ty)
@@ -1409,7 +1415,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 
-	device adapter::create_device() {
+	std::pair<device, std::vector<command_queue>> adapter::create_device(std::span<const queue_type> queue_params) {
 		device result = nullptr;
 
 		result._physical_device = _device;
@@ -1417,33 +1423,76 @@ namespace lotus::gpu::backends::vulkan {
 		result._dispatch_loader = _dispatch_loader;
 
 		auto bookmark = get_scratch_bookmark();
-		auto queue_familly_allocator = bookmark.create_std_allocator<vk::QueueFamilyProperties>();
-		auto families = _device.getQueueFamilyProperties(queue_familly_allocator);
-		result._graphics_compute_queue_family_index = result._compute_queue_family_index =
-			static_cast<std::uint32_t>(families.size());
-		constexpr vk::QueueFlags graphics_compute_flags = vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute;
-		for (std::uint32_t i = 0; i < families.size(); ++i) {
-			vk::QueueFlags flags = families[i].queueFlags;
-			if ((flags & graphics_compute_flags) == graphics_compute_flags) {
-				result._graphics_compute_queue_family_index = i;
-			} else if (flags & vk::QueueFlagBits::eCompute) {
-				result._compute_queue_family_index = i;
+
+		// find usable queue family indices
+		{
+			constexpr auto graphics_queue_flags = _details::flags_to_bits(
+				vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer
+			);
+			constexpr auto compute_queue_flags =
+				_details::flags_to_bits(vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer);
+
+			auto queue_familly_allocator = bookmark.create_std_allocator<vk::QueueFamilyProperties>();
+			auto families = _device.getQueueFamilyProperties(queue_familly_allocator);
+			for (std::uint32_t i = 0; i < families.size(); ++i) {
+				auto flags = _details::flags_to_bits(families[i].queueFlags);
+				if (bit_mask::contains_all(flags, graphics_queue_flags)) {
+					result._graphics_queue_family_index = i;
+				} else if (bit_mask::contains_all(flags, compute_queue_flags)) {
+					result._compute_queue_family_index = i;
+				} else if (bit_mask::contains<vk::QueueFlagBits::eTransfer>(flags)) {
+					result._copy_queue_family_index = i;
+				}
 			}
-		}
-		assert(result._graphics_compute_queue_family_index < families.size());
-		if (result._compute_queue_family_index >= families.size()) {
-			result._compute_queue_family_index = result._graphics_compute_queue_family_index;
+			crash_if(result._graphics_queue_family_index >= families.size());
+			if (result._compute_queue_family_index >= families.size()) {
+				result._compute_queue_family_index = result._graphics_queue_family_index;
+			}
+			if (result._copy_queue_family_index >= families.size()) {
+				result._copy_queue_family_index = result._compute_queue_family_index;
+			}
 		}
 
 		result._memory_properties = _device.getMemoryProperties();
 		result._device_limits = _device.getProperties().limits;
 
-		float priority = 0.5f;
-		vk::DeviceQueueCreateInfo queue_info;
-		queue_info
-			.setQueueFamilyIndex(result._graphics_compute_queue_family_index)
-			.setQueueCount(1)
-			.setQueuePriorities(priority);
+		auto queue_create_infos = bookmark.create_reserved_vector_array<vk::DeviceQueueCreateInfo>(3);
+		{
+			auto graphics_priorities = bookmark.create_vector_array<float>();
+			auto compute_priorities = bookmark.create_vector_array<float>();
+			auto copy_priorities = bookmark.create_vector_array<float>();
+
+			// for now we don't actually have priorities
+			for (const auto &param : queue_params) {
+				switch (param) {
+				case queue_type::graphics:
+					graphics_priorities.emplace_back(0.5f);
+					break;
+				case queue_type::compute:
+					compute_priorities.emplace_back(0.5f);
+					break;
+				case queue_type::copy:
+					copy_priorities.emplace_back(0.5f);
+					break;
+				}
+			}
+
+			if (!graphics_priorities.empty()) {
+				queue_create_infos.emplace_back()
+					.setQueueFamilyIndex(result._graphics_queue_family_index)
+					.setQueuePriorities(graphics_priorities);
+			}
+			if (!compute_priorities.empty()) {
+				queue_create_infos.emplace_back()
+					.setQueueFamilyIndex(result._compute_queue_family_index)
+					.setQueuePriorities(compute_priorities);
+			}
+			if (!copy_priorities.empty()) {
+				queue_create_infos.emplace_back()
+					.setQueueFamilyIndex(result._copy_queue_family_index)
+					.setQueuePriorities(copy_priorities);
+			}
+		}
 
 		std::vector<const char*> extensions{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -1471,7 +1520,7 @@ namespace lotus::gpu::backends::vulkan {
 				}
 			);
 		}
-		if (!is_empty(_options & context_options::enable_debug_info)) {
+		if (bit_mask::contains<context_options::enable_debug_info>(_options)) {
 			extensions.emplace_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
 		}
 
@@ -1549,7 +1598,7 @@ namespace lotus::gpu::backends::vulkan {
 		vk::DeviceCreateInfo info;
 		info
 			.setPNext(&features)
-			.setQueueCreateInfos(queue_info)
+			.setQueueCreateInfos(queue_create_infos)
 			.setPEnabledExtensionNames(extensions);
 
 		// TODO allocator
@@ -1572,7 +1621,44 @@ namespace lotus::gpu::backends::vulkan {
 			);
 		}
 
-		return result;
+		// collect queues
+		std::vector<command_queue> queues;
+		queues.reserve(queue_params.size());
+		{
+			double timestamp_freq = 1000000.0 / static_cast<double>(result._device_limits.timestampPeriod);
+
+			std::uint32_t cur_graphics_queue = 0;
+			std::uint32_t cur_compute_queue = 0;
+			std::uint32_t cur_copy_queue = 0;
+
+			for (const auto &param : queue_params) {
+				std::uint32_t *counter = nullptr;
+				std::uint32_t family_index = std::numeric_limits<std::uint32_t>::max();
+				switch (param) {
+				case queue_type::graphics:
+					counter = &cur_graphics_queue;
+					family_index = result._graphics_queue_family_index;
+					break;
+				case queue_type::compute:
+					counter = &cur_compute_queue;
+					family_index = result._compute_queue_family_index;
+					break;
+				case queue_type::copy:
+					counter = &cur_copy_queue;
+					family_index = result._copy_queue_family_index;
+					break;
+				}
+
+				command_queue new_queue = nullptr;
+				new_queue._queue               = result._device->getQueue(family_index, *counter);
+				new_queue._timestamp_frequency = timestamp_freq;
+				queues.emplace_back(std::move(new_queue));
+
+				++*counter;
+			}
+		}
+
+		return { std::move(result), std::move(queues) };
 	}
 
 	adapter_properties adapter::get_properties() const {

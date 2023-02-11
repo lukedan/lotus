@@ -35,6 +35,7 @@ target_sources(lotus_core
 
 		"include/lotus/color.h"
 		"include/lotus/common.h"
+		"include/lotus/enums.h"
 		"include/lotus/logging.h"
 	PRIVATE
 		"src/memory/common.cpp"

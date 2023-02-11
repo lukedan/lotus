@@ -13,7 +13,7 @@ namespace lotus::renderer {
 
 	namespace _details {
 		gpu::descriptor_type to_descriptor_type(image_binding_type type) {
-			constexpr static enum_mapping<image_binding_type, gpu::descriptor_type> table{
+			constexpr static enums::sequential_mapping<image_binding_type, gpu::descriptor_type> table{
 				std::pair(image_binding_type::read_only,  gpu::descriptor_type::read_only_image ),
 				std::pair(image_binding_type::read_write, gpu::descriptor_type::read_write_image),
 			};

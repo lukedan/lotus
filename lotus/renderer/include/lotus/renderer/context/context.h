@@ -409,7 +409,8 @@ namespace lotus::renderer {
 
 		/// Creates a new context object.
 		[[nodiscard]] static context create(
-			gpu::context&, const gpu::adapter_properties&, gpu::device&, gpu::command_queue&
+			gpu::context&, const gpu::adapter_properties&, gpu::device&,
+			gpu::command_queue graphics_q, gpu::command_queue compute_q
 		);
 		/// No move constructor.
 		context(context&&) = delete;
@@ -687,7 +688,9 @@ namespace lotus::renderer {
 
 		gpu::context &_context;     ///< Associated graphics context.
 		gpu::device &_device;       ///< Associated device.
-		gpu::command_queue &_queue; ///< Associated command queue.
+
+		gpu::command_queue _compute_queue;  ///< Associated graphics command queue.
+		gpu::command_queue _graphics_queue; ///< Associated compute command queue.
 
 		gpu::descriptor_pool _descriptor_pool; ///< Descriptor pool to allocate descriptors out of.
 		gpu::timeline_semaphore _batch_semaphore; ///< A semaphore that is signaled after each batch.
@@ -719,7 +722,8 @@ namespace lotus::renderer {
 
 		/// Initializes all fields of the context.
 		context(
-			gpu::context&, const gpu::adapter_properties&, gpu::device&, gpu::command_queue&
+			gpu::context&, const gpu::adapter_properties&, gpu::device&,
+			gpu::command_queue graphics_queue, gpu::command_queue compute_queue
 		);
 
 		/// Allocates a unique resource index.

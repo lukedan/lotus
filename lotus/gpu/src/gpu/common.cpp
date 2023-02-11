@@ -6,7 +6,7 @@
 #include "lotus/common.h"
 
 namespace lotus::gpu {
-	constexpr static enum_mapping<backend_type, std::u8string_view> _backend_name_table{
+	constexpr static enums::sequential_mapping<backend_type, std::u8string_view> _backend_name_table{
 		std::pair(backend_type::directx12, u8"DirectX 12"),
 		std::pair(backend_type::vulkan,    u8"Vulkan"    ),
 	};
@@ -16,7 +16,7 @@ namespace lotus::gpu {
 
 	constexpr static std::uint8_t o = 0; // zero for visibility
 	constexpr static cvec2u8 _bc7_block_size = cvec2i(4, 4).into<std::uint8_t>();
-	constexpr static enum_mapping<format, format_properties> _format_property_table{
+	constexpr static enums::sequential_mapping<format, format_properties> _format_property_table{
 		std::pair(format::none,               zero),
 		std::pair(format::d32_float_s8,       format_properties::create_depth_stencil(32, 8, format_properties::data_type::floating_point)),
 		std::pair(format::d32_float,          format_properties::create_depth_stencil(32, o, format_properties::data_type::floating_point)),

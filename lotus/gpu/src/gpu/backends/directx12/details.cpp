@@ -37,7 +37,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		DXGI_FORMAT to_format(index_format fmt) {
-			constexpr static enum_mapping<index_format, DXGI_FORMAT> table{
+			constexpr static enums::sequential_mapping<index_format, DXGI_FORMAT> table{
 				std::pair(index_format::uint16, DXGI_FORMAT_R16_UINT),
 				std::pair(index_format::uint32, DXGI_FORMAT_R32_UINT),
 			};
@@ -45,7 +45,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_TEXTURE_LAYOUT to_texture_layout(image_tiling tiling) {
-			constexpr static enum_mapping<image_tiling, D3D12_TEXTURE_LAYOUT> table{
+			constexpr static enums::sequential_mapping<image_tiling, D3D12_TEXTURE_LAYOUT> table{
 				std::pair(image_tiling::row_major, D3D12_TEXTURE_LAYOUT_ROW_MAJOR),
 				std::pair(image_tiling::optimal,   D3D12_TEXTURE_LAYOUT_UNKNOWN  ),
 			};
@@ -53,7 +53,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_BLEND to_blend_factor(blend_factor factor) {
-			constexpr static enum_mapping<blend_factor, D3D12_BLEND> table{
+			constexpr static enums::sequential_mapping<blend_factor, D3D12_BLEND> table{
 				std::pair(blend_factor::zero,                        D3D12_BLEND_ZERO          ),
 				std::pair(blend_factor::one,                         D3D12_BLEND_ONE           ),
 				std::pair(blend_factor::source_color,                D3D12_BLEND_SRC_COLOR     ),
@@ -69,7 +69,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_BLEND_OP to_blend_operation(blend_operation op) {
-			constexpr static enum_mapping<blend_operation, D3D12_BLEND_OP> table{
+			constexpr static enums::sequential_mapping<blend_operation, D3D12_BLEND_OP> table{
 				std::pair(blend_operation::add,              D3D12_BLEND_OP_ADD         ),
 				std::pair(blend_operation::subtract,         D3D12_BLEND_OP_SUBTRACT    ),
 				std::pair(blend_operation::reverse_subtract, D3D12_BLEND_OP_REV_SUBTRACT),
@@ -80,7 +80,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_CULL_MODE to_cull_mode(cull_mode mode) {
-			constexpr static enum_mapping<cull_mode, D3D12_CULL_MODE> table{
+			constexpr static enums::sequential_mapping<cull_mode, D3D12_CULL_MODE> table{
 				std::pair(cull_mode::none,       D3D12_CULL_MODE_NONE ),
 				std::pair(cull_mode::cull_front, D3D12_CULL_MODE_FRONT),
 				std::pair(cull_mode::cull_back,  D3D12_CULL_MODE_BACK ),
@@ -89,7 +89,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_STENCIL_OP to_stencil_operation(stencil_operation op) {
-			constexpr static enum_mapping<stencil_operation, D3D12_STENCIL_OP> table{
+			constexpr static enums::sequential_mapping<stencil_operation, D3D12_STENCIL_OP> table{
 				std::pair(stencil_operation::keep,                D3D12_STENCIL_OP_KEEP    ),
 				std::pair(stencil_operation::zero,                D3D12_STENCIL_OP_ZERO    ),
 				std::pair(stencil_operation::replace,             D3D12_STENCIL_OP_REPLACE ),
@@ -103,7 +103,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_INPUT_CLASSIFICATION to_input_classification(input_buffer_rate rate) {
-			constexpr static enum_mapping<input_buffer_rate, D3D12_INPUT_CLASSIFICATION> table{
+			constexpr static enums::sequential_mapping<input_buffer_rate, D3D12_INPUT_CLASSIFICATION> table{
 				std::pair(input_buffer_rate::per_vertex,   D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA  ),
 				std::pair(input_buffer_rate::per_instance, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA),
 			};
@@ -111,7 +111,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_PRIMITIVE_TOPOLOGY_TYPE to_primitive_topology_type(primitive_topology topology) {
-			constexpr static enum_mapping<primitive_topology, D3D12_PRIMITIVE_TOPOLOGY_TYPE> table{
+			constexpr static enums::sequential_mapping<primitive_topology, D3D12_PRIMITIVE_TOPOLOGY_TYPE> table{
 				std::pair(primitive_topology::point_list,                    D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT   ),
 				std::pair(primitive_topology::line_list,                     D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE    ),
 				std::pair(primitive_topology::line_strip,                    D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE    ),
@@ -126,7 +126,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D_PRIMITIVE_TOPOLOGY to_primitive_topology(primitive_topology topology) {
-			constexpr static enum_mapping<primitive_topology, D3D_PRIMITIVE_TOPOLOGY> table{
+			constexpr static enums::sequential_mapping<primitive_topology, D3D_PRIMITIVE_TOPOLOGY> table{
 				std::pair(primitive_topology::point_list,                    D3D_PRIMITIVE_TOPOLOGY_POINTLIST        ),
 				std::pair(primitive_topology::line_list,                     D3D_PRIMITIVE_TOPOLOGY_LINELIST         ),
 				std::pair(primitive_topology::line_strip,                    D3D_PRIMITIVE_TOPOLOGY_LINESTRIP        ),
@@ -141,7 +141,9 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE to_render_pass_beginning_access_type(pass_load_operation op) {
-			constexpr static enum_mapping<pass_load_operation, D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE> table{
+			constexpr static enums::sequential_mapping<
+				pass_load_operation, D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE
+			> table{
 				std::pair(pass_load_operation::discard,  D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD ),
 				std::pair(pass_load_operation::preserve, D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE),
 				std::pair(pass_load_operation::clear,    D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR   ),
@@ -150,7 +152,9 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_RENDER_PASS_ENDING_ACCESS_TYPE to_render_pass_ending_access_type(pass_store_operation op) {
-			constexpr static enum_mapping<pass_store_operation, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE> table{
+			constexpr static enums::sequential_mapping<
+				pass_store_operation, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE
+			> table{
 				std::pair(pass_store_operation::discard,  D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD ),
 				std::pair(pass_store_operation::preserve, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE),
 			};
@@ -158,7 +162,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_DESCRIPTOR_RANGE_TYPE to_descriptor_range_type(descriptor_type ty) {
-			constexpr static enum_mapping<descriptor_type, D3D12_DESCRIPTOR_RANGE_TYPE> table{
+			constexpr static enums::sequential_mapping<descriptor_type, D3D12_DESCRIPTOR_RANGE_TYPE> table{
 				std::pair(descriptor_type::sampler,                D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER),
 				std::pair(descriptor_type::read_only_image,        D3D12_DESCRIPTOR_RANGE_TYPE_SRV    ),
 				std::pair(descriptor_type::read_write_image,       D3D12_DESCRIPTOR_RANGE_TYPE_UAV    ),
@@ -171,7 +175,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_BARRIER_SYNC to_barrier_sync(synchronization_point_mask mask) {
-			constexpr static bit_mask_mapping<synchronization_point_mask, D3D12_BARRIER_SYNC> table{
+			constexpr static bit_mask::mapping<synchronization_point_mask, D3D12_BARRIER_SYNC> table{
 				std::pair(synchronization_point_mask::all,                          D3D12_BARRIER_SYNC_ALL                                    ),
 				std::pair(synchronization_point_mask::all_graphics,                 D3D12_BARRIER_SYNC_DRAW                                   ),
 				std::pair(synchronization_point_mask::index_input,                  D3D12_BARRIER_SYNC_INPUT_ASSEMBLER                        ),
@@ -191,7 +195,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_RESOURCE_FLAGS to_resource_flags(image_usage_mask mask) {
-			constexpr static bit_mask_mapping<image_usage_mask, D3D12_RESOURCE_FLAGS> table{
+			constexpr static bit_mask::mapping<image_usage_mask, D3D12_RESOURCE_FLAGS> table{
 				std::pair(image_usage_mask::copy_source,                 D3D12_RESOURCE_FLAG_NONE                  ),
 				std::pair(image_usage_mask::copy_destination,            D3D12_RESOURCE_FLAG_NONE                  ),
 				std::pair(image_usage_mask::shader_read,                 D3D12_RESOURCE_FLAG_NONE                  ),
@@ -203,7 +207,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_RESOURCE_FLAGS to_resource_flags(buffer_usage_mask mask) {
-			constexpr static bit_mask_mapping<buffer_usage_mask, D3D12_RESOURCE_FLAGS> table{
+			constexpr static bit_mask::mapping<buffer_usage_mask, D3D12_RESOURCE_FLAGS> table{
 				std::pair(buffer_usage_mask::copy_source,                        D3D12_RESOURCE_FLAG_NONE                             ),
 				std::pair(buffer_usage_mask::copy_destination,                   D3D12_RESOURCE_FLAG_NONE                             ),
 				std::pair(buffer_usage_mask::shader_read,                        D3D12_RESOURCE_FLAG_NONE                             ),
@@ -218,7 +222,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_BARRIER_ACCESS to_barrier_access(image_access_mask mask) {
-			constexpr static bit_mask_mapping<image_access_mask, D3D12_BARRIER_ACCESS> table{
+			constexpr static bit_mask::mapping<image_access_mask, D3D12_BARRIER_ACCESS> table{
 				std::pair(image_access_mask::copy_source,              D3D12_BARRIER_ACCESS_COPY_SOURCE        ),
 				std::pair(image_access_mask::copy_destination,         D3D12_BARRIER_ACCESS_COPY_DEST          ),
 				std::pair(image_access_mask::color_render_target,      D3D12_BARRIER_ACCESS_RENDER_TARGET      ),
@@ -230,14 +234,14 @@ namespace lotus::gpu::backends::directx12::_details {
 			if (mask == image_access_mask::none) {
 				return D3D12_BARRIER_ACCESS_NO_ACCESS; // not zero!
 			}
-			if (!is_empty(mask & image_access_mask::shader_write)) {
+			if (bit_mask::contains<image_access_mask::shader_write>(mask)) {
 				mask &= ~image_access_mask::shader_read;
 			}
 			return table.get_union(mask);
 		}
 
 		D3D12_BARRIER_ACCESS to_barrier_access(buffer_access_mask mask) {
-			constexpr static bit_mask_mapping<buffer_access_mask, D3D12_BARRIER_ACCESS> table{
+			constexpr static bit_mask::mapping<buffer_access_mask, D3D12_BARRIER_ACCESS> table{
 				std::pair(buffer_access_mask::copy_source,                        D3D12_BARRIER_ACCESS_COPY_SOURCE                            ),
 				std::pair(buffer_access_mask::copy_destination,                   D3D12_BARRIER_ACCESS_COPY_DEST                              ),
 				std::pair(buffer_access_mask::vertex_buffer,                      D3D12_BARRIER_ACCESS_VERTEX_BUFFER                          ),
@@ -259,7 +263,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_BARRIER_LAYOUT to_barrier_layout(image_layout layout) {
-			constexpr static enum_mapping<image_layout, D3D12_BARRIER_LAYOUT> table{
+			constexpr static enums::sequential_mapping<image_layout, D3D12_BARRIER_LAYOUT> table{
 				std::pair(image_layout::undefined,                D3D12_BARRIER_LAYOUT_UNDEFINED          ),
 				std::pair(image_layout::general,                  D3D12_BARRIER_LAYOUT_COMMON             ),
 				std::pair(image_layout::copy_source,              D3D12_BARRIER_LAYOUT_COPY_SOURCE        ),
@@ -275,7 +279,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_TEXTURE_ADDRESS_MODE to_texture_address_mode(sampler_address_mode mode) {
-			constexpr static enum_mapping<sampler_address_mode, D3D12_TEXTURE_ADDRESS_MODE> table{
+			constexpr static enums::sequential_mapping<sampler_address_mode, D3D12_TEXTURE_ADDRESS_MODE> table{
 				std::pair(sampler_address_mode::repeat, D3D12_TEXTURE_ADDRESS_MODE_WRAP  ),
 				std::pair(sampler_address_mode::mirror, D3D12_TEXTURE_ADDRESS_MODE_MIRROR),
 				std::pair(sampler_address_mode::clamp,  D3D12_TEXTURE_ADDRESS_MODE_CLAMP ),
@@ -285,7 +289,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_COMPARISON_FUNC to_comparison_function(comparison_function mode) {
-			constexpr static enum_mapping<comparison_function, D3D12_COMPARISON_FUNC> table{
+			constexpr static enums::sequential_mapping<comparison_function, D3D12_COMPARISON_FUNC> table{
 				std::pair(comparison_function::none,             D3D12_COMPARISON_FUNC_NONE         ),
 				std::pair(comparison_function::never,            D3D12_COMPARISON_FUNC_NEVER        ),
 				std::pair(comparison_function::less,             D3D12_COMPARISON_FUNC_LESS         ),
@@ -300,7 +304,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_SHADER_VERSION_TYPE to_shader_version_type(shader_stage stage) {
-			constexpr static enum_mapping<shader_stage, D3D12_SHADER_VERSION_TYPE> table{
+			constexpr static enums::sequential_mapping<shader_stage, D3D12_SHADER_VERSION_TYPE> table{
 				std::pair(shader_stage::all,                   D3D12_SHVER_LIBRARY              ),
 				std::pair(shader_stage::vertex_shader,         D3D12_SHVER_VERTEX_SHADER        ),
 				std::pair(shader_stage::geometry_shader,       D3D12_SHVER_GEOMETRY_SHADER      ),
@@ -316,8 +320,19 @@ namespace lotus::gpu::backends::directx12::_details {
 			return table[stage];
 		}
 
+		D3D12_COMMAND_LIST_TYPE to_command_list_type(queue_type type) {
+			constexpr static enums::sequential_mapping<queue_type, D3D12_COMMAND_LIST_TYPE> table{
+				std::pair(queue_type::graphics, D3D12_COMMAND_LIST_TYPE_DIRECT ),
+				std::pair(queue_type::compute,  D3D12_COMMAND_LIST_TYPE_COMPUTE),
+				std::pair(queue_type::copy,     D3D12_COMMAND_LIST_TYPE_COPY   ),
+			};
+			return table[type];
+		}
+
 		D3D12_RAYTRACING_INSTANCE_FLAGS to_raytracing_instance_flags(raytracing_instance_flags flags) {
-			constexpr static bit_mask_mapping<raytracing_instance_flags, D3D12_RAYTRACING_INSTANCE_FLAGS> table{
+			constexpr static bit_mask::mapping<
+				raytracing_instance_flags, D3D12_RAYTRACING_INSTANCE_FLAGS
+			> table{
 				std::pair(raytracing_instance_flags::disable_triangle_culling,        D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE          ),
 				std::pair(raytracing_instance_flags::triangle_front_counterclockwise, D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_FRONT_COUNTERCLOCKWISE),
 				std::pair(raytracing_instance_flags::force_opaque,                    D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE                   ),
@@ -327,7 +342,9 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_RAYTRACING_GEOMETRY_FLAGS to_raytracing_geometry_flags(raytracing_geometry_flags flags) {
-			constexpr static bit_mask_mapping<raytracing_geometry_flags, D3D12_RAYTRACING_GEOMETRY_FLAGS> table{
+			constexpr static bit_mask::mapping<
+				raytracing_geometry_flags, D3D12_RAYTRACING_GEOMETRY_FLAGS
+			> table{
 				std::pair(raytracing_geometry_flags::opaque,                          D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE                        ),
 				std::pair(raytracing_geometry_flags::no_duplicate_any_hit_invocation, D3D12_RAYTRACING_GEOMETRY_FLAG_NO_DUPLICATE_ANYHIT_INVOCATION),
 			};
@@ -336,7 +353,7 @@ namespace lotus::gpu::backends::directx12::_details {
 
 
 		D3D12_COLOR_WRITE_ENABLE to_color_write_mask(channel_mask mask) {
-			constexpr static bit_mask_mapping<channel_mask, D3D12_COLOR_WRITE_ENABLE> table{
+			constexpr static bit_mask::mapping<channel_mask, D3D12_COLOR_WRITE_ENABLE> table{
 				std::pair(channel_mask::red,   D3D12_COLOR_WRITE_ENABLE_RED  ),
 				std::pair(channel_mask::green, D3D12_COLOR_WRITE_ENABLE_GREEN),
 				std::pair(channel_mask::blue,  D3D12_COLOR_WRITE_ENABLE_BLUE ),
@@ -346,7 +363,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_SHADER_VISIBILITY to_shader_visibility(shader_stage stage) {
-			constexpr static enum_mapping<shader_stage, D3D12_SHADER_VISIBILITY> table{
+			constexpr static enums::sequential_mapping<shader_stage, D3D12_SHADER_VISIBILITY> table{
 				std::pair(shader_stage::all,                   D3D12_SHADER_VISIBILITY_ALL     ),
 				std::pair(shader_stage::vertex_shader,         D3D12_SHADER_VISIBILITY_VERTEX  ),
 				std::pair(shader_stage::geometry_shader,       D3D12_SHADER_VISIBILITY_GEOMETRY),
@@ -529,7 +546,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			range.NumMipLevels         = r.num_mip_levels;
 			range.FirstArraySlice      = r.first_array_slice;
 			range.NumArraySlices       = r.num_array_slices;
-			if (!is_empty(r.aspects & image_aspect_mask::color)) {
+			if (bit_mask::contains<image_aspect_mask::color>(r.aspects)) {
 				assert(r.aspects == image_aspect_mask::color);
 				range.FirstPlane = 0;
 				range.NumPlanes  = 1;
@@ -675,7 +692,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			D3D12_HEAP_TYPE type, buffer_usage_mask usages, D3D12_HEAP_FLAGS *heap_flags
 		) {
 			if (heap_flags && type == D3D12_HEAP_TYPE_DEFAULT) {
-				if (!is_empty(usages & buffer_usage_mask::shader_write)) {
+				if (bit_mask::contains<buffer_usage_mask::shader_write>(usages)) {
 					*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;	
 				}
 			}
@@ -722,7 +739,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			format, image_usage_mask all_usages, D3D12_HEAP_FLAGS *heap_flags
 		) {
 			if (heap_flags) {
-				if (!is_empty(all_usages & image_usage_mask::shader_write)) {
+				if (bit_mask::contains<image_usage_mask::shader_write>(all_usages)) {
 					*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;
 				}
 			}

@@ -15,6 +15,7 @@
 #include "synchronization.h"
 
 namespace lotus::gpu::backends::directx12 {
+	class adapter;
 	class device;
 	class command_queue;
 	class command_allocator;
@@ -33,6 +34,7 @@ namespace lotus::gpu::backends::directx12 {
 		void reset(device&);
 	private:
 		_details::com_ptr<ID3D12CommandAllocator> _allocator; ///< The allocator.
+		D3D12_COMMAND_LIST_TYPE _type = D3D12_COMMAND_LIST_TYPE_NONE; ///< Type of this command allocator.
 	};
 
 	/// A \p ID3D12CommandList.
@@ -157,9 +159,14 @@ namespace lotus::gpu::backends::directx12 {
 
 	/// A DirectX 12 command queue.
 	class command_queue {
+		friend adapter;
 		friend device;
 		friend context;
 	protected:
+		/// Initializes this object to empty.
+		command_queue(std::nullptr_t) {
+		}
+
 		/// Calls \p ID3D12CommandQueue::GetTimestampFrequency().
 		[[nodiscard]] double get_timestamp_frequency();
 
@@ -175,7 +182,16 @@ namespace lotus::gpu::backends::directx12 {
 		void signal(fence&);
 		/// Calls \p ID3D12CommandQueue::Signal().
 		void signal(timeline_semaphore&, std::uint64_t);
+
+		/// Returns whether this queue contains a valid object.
+		[[nodiscard]] bool is_valid() const {
+			return _queue != nullptr;
+		}
 	private:
+		/// Initializes this queue.
+		explicit command_queue(_details::com_ptr<ID3D12CommandQueue> q) : _queue(std::move(q)) {
+		}
+
 		_details::com_ptr<ID3D12CommandQueue> _queue; ///< The command queue.
 	};
 }

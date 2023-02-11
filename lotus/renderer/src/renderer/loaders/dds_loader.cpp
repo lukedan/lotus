@@ -38,7 +38,7 @@ namespace lotus::dds {
 
 	// https://github.com/microsoft/DirectXTex/blob/main/DDSTextureLoader/DDSTextureLoader12.cpp, GetDXGIFormat()
 	gpu::format loader::infer_format_from(const pixel_format &fmt) {
-		if (!is_empty(fmt.flags & pixel_format_flags::rgb)) {
+		if (bit_mask::contains<pixel_format_flags::rgb>(fmt.flags)) {
 			switch (fmt.rgb_bit_count) {
 			case 32:
 				if (fmt.is_bit_mask(0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000)) {
@@ -72,7 +72,7 @@ namespace lotus::dds {
 				}
 				break;
 			}
-		} else if (!is_empty(fmt.flags & pixel_format_flags::luminance)) {
+		} else if (bit_mask::contains<pixel_format_flags::luminance>(fmt.flags)) {
 			switch (fmt.rgb_bit_count) {
 			case 16:
 				if (fmt.is_bit_mask(0xFFFF, 0, 0, 0)) {
@@ -92,11 +92,11 @@ namespace lotus::dds {
 				}
 				break;
 			}
-		} else if (!is_empty(fmt.flags & pixel_format_flags::alpha)) {
+		} else if (bit_mask::contains<pixel_format_flags::alpha>(fmt.flags)) {
 			if (fmt.rgb_bit_count == 8) {
 				// TODO
 			}
-		} else if (!is_empty(fmt.flags & pixel_format_flags::bump_dudv)) {
+		} else if (bit_mask::contains<pixel_format_flags::bump_dudv>(fmt.flags)) {
 			switch (fmt.rgb_bit_count) {
 			case 32:
 				if (fmt.is_bit_mask(0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000)) {
@@ -113,7 +113,7 @@ namespace lotus::dds {
 				}
 				break;
 			}
-		} else if (!is_empty(fmt.flags & pixel_format_flags::four_cc)) {
+		} else if (bit_mask::contains<pixel_format_flags::four_cc>(fmt.flags)) {
 			auto gpu_fmt = four_cc_to_format(fmt.four_cc);
 			if (gpu_fmt == gpu::format::none) {
 				log().error<u8"Unsupported four-character code: {:X}, '{}{}{}{}'">(
@@ -167,7 +167,7 @@ namespace lotus::dds {
 		result._num_mips   = std::max<std::uint32_t>(1, dds_header.mipmap_count);
 
 		result._has_dx10_header =
-			!is_empty(dds_header.pixel_format.flags & pixel_format_flags::four_cc) &&
+			bit_mask::contains<pixel_format_flags::four_cc>(dds_header.pixel_format.flags) &&
 			dds_header.pixel_format.four_cc == make_four_character_code(u8"DX10");
 		if (result._has_dx10_header) {
 			if (result.get_dx10_header() == nullptr) {
@@ -193,7 +193,7 @@ namespace lotus::dds {
 
 			switch (dds_dx10_header->dimension) {
 			case resource_dimension::texture1d:
-				if (!is_empty(dds_header.flags & header_flags::height) && dds_header.height != 1) {
+				if (bit_mask::contains<header_flags::height>(dds_header.flags) && dds_header.height != 1) {
 					log().debug<u8"1D texture with invalid height value: {}">(dds_header.height);
 					return std::nullopt;
 				}
@@ -201,14 +201,14 @@ namespace lotus::dds {
 				result._depth  = 1;
 				break;
 			case resource_dimension::texture2d:
-				if (!is_empty(dds_dx10_header->flags & miscellaneous_flags::texture_cube)) {
+				if (bit_mask::contains<miscellaneous_flags::texture_cube>(dds_dx10_header->flags)) {
 					result._array_size *= 6;
 					result._is_cubemap = true;
 				}
 				result._depth = 1;
 				break;
 			case resource_dimension::texture3d:
-				if (is_empty(dds_header.flags & header_flags::depth)) {
+				if (!bit_mask::contains<header_flags::depth>(dds_header.flags)) {
 					log().debug<u8"3D texture without depth flag">();
 					return std::nullopt;
 				}
@@ -225,8 +225,8 @@ namespace lotus::dds {
 				return std::nullopt;
 			}
 
-			if (is_empty(dds_header.flags & header_flags::depth)) {
-				if (!is_empty(dds_header.caps2 & capabilities2::cubemap)) {
+			if (!bit_mask::contains<header_flags::depth>(dds_header.flags)) {
+				if (bit_mask::contains<capabilities2::cubemap>(dds_header.caps2)) {
 					if (
 						(dds_header.caps2 & capabilities2::cubemap_all_faces) !=
 						capabilities2::cubemap_all_faces

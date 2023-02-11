@@ -141,7 +141,7 @@ namespace lotus::renderer::execution {
 					if (
 						(current_access.access | it->access.access) == current_access.access &&
 						current_access.layout == it->access.layout &&
-						is_empty(current_access.access & force_sync_bits)
+						bit_mask::contains_none(current_access.access, force_sync_bits)
 					) {
 						current_access.sync_points |= it->access.sync_points;
 						continue;
@@ -289,7 +289,7 @@ namespace lotus::renderer::execution {
 				}
 				prev = trans.target;
 
-				if (!is_empty(trans.access.access & trans.target->usage_hint)) {
+				if (bit_mask::contains_any(trans.target->usage_hint, trans.access.access)) {
 					trans.access.access |= trans.target->usage_hint;
 				}
 
@@ -302,7 +302,7 @@ namespace lotus::renderer::execution {
 					gpu::buffer_access_mask::copy_destination;
 				if ( 
 					(trans.access.access | trans.target->access.access) == trans.target->access.access &&
-					is_empty(trans.target->access.access & force_sync_bits)
+					bit_mask::contains_none(trans.target->access.access, force_sync_bits)
 				) {
 					// record the extra sync points
 					trans.target->access.sync_points |= trans.access.sync_points;
@@ -340,7 +340,7 @@ namespace lotus::renderer::execution {
 
 	gpu::command_list &context::get_command_list() {
 		if (!_list) {
-			_list = &record(_ctx._device.create_and_start_command_list(_resources.main_cmd_alloc));
+			_list = &record(_ctx._device.create_and_start_command_list(_resources.graphics_cmd_alloc));
 		}
 		return *_list;
 	}
@@ -460,7 +460,7 @@ namespace lotus::renderer::execution {
 				),
 			});
 			cmd_list.finish();
-			_ctx._queue.submit_command_lists({ &cmd_list }, nullptr);
+			_ctx._graphics_queue.submit_command_lists({ &cmd_list }, nullptr);
 		}
 
 		_resources.record(std::exchange(_immediate_constant_device_buffer, nullptr));
@@ -475,8 +475,9 @@ namespace lotus::renderer::execution {
 		if (!arr.staged_writes.empty()) {
 			// TODO wait more intelligently
 			auto fence = _ctx._device.create_fence(gpu::synchronization_state::unset);
-			submit(_ctx._queue, &fence);
+			submit(_ctx._graphics_queue, &fence);
 			_ctx._device.wait_for_fence(fence);
+
 			if (arr.has_descriptor_overwrites) {
 				arr.has_descriptor_overwrites = false;
 			}
@@ -510,8 +511,9 @@ namespace lotus::renderer::execution {
 		if (!arr.staged_writes.empty()) {
 			// TODO wait more intelligently
 			auto fence = _ctx._device.create_fence(gpu::synchronization_state::unset);
-			submit(_ctx._queue, &fence);
+			submit(_ctx._graphics_queue, &fence);
 			_ctx._device.wait_for_fence(fence);
+
 			if (arr.has_descriptor_overwrites) {
 				arr.has_descriptor_overwrites = false;
 			}

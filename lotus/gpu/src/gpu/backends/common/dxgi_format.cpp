@@ -9,7 +9,7 @@
 
 namespace lotus::gpu::backends::common::_details::conversions {
 	/// Lookup table of all available formats.
-	constexpr static enum_mapping<format, DXGI_FORMAT> _lookup_table{
+	constexpr static enums::sequential_mapping<format, DXGI_FORMAT> _lookup_table{
 		std::pair(format::none,               DXGI_FORMAT_UNKNOWN             ),
 		std::pair(format::d32_float_s8,       DXGI_FORMAT_D32_FLOAT_S8X24_UINT),
 		std::pair(format::d32_float,          DXGI_FORMAT_D32_FLOAT           ),

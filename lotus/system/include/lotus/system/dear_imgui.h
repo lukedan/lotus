@@ -86,7 +86,7 @@ namespace lotus::system::dear_imgui {
 		std::uint32_t _mouse_buttons = 0; ///< Bit mask of all mouse buttons that are being held.
 
 		/// Mapping from \ref key enum values to \p ImGuiKey enum values.
-		constexpr static enum_mapping<key, ImGuiKey> _key_mapping{
+		constexpr static enums::sequential_mapping<key, ImGuiKey> _key_mapping{
 			std::pair(key::f1,            ImGuiKey_F1        ),
 			std::pair(key::f2,            ImGuiKey_F2        ),
 			std::pair(key::f3,            ImGuiKey_F3        ),
@@ -184,7 +184,7 @@ namespace lotus::system::dear_imgui {
 			std::pair(key::unknown,       ImGuiKey_None      ),
 		};
 		/// Mapping from \ref mouse_button enum values to \p ImGuiMouseButton enum values.
-		constexpr static enum_mapping<mouse_button, ImGuiMouseButton> _mouse_button_mapping{
+		constexpr static enums::sequential_mapping<mouse_button, ImGuiMouseButton> _mouse_button_mapping{
 			std::pair(mouse_button::primary,   ImGuiMouseButton_Left  ),
 			std::pair(mouse_button::secondary, ImGuiMouseButton_Right ),
 			std::pair(mouse_button::middle,    ImGuiMouseButton_Middle),
@@ -193,9 +193,9 @@ namespace lotus::system::dear_imgui {
 		/// Updates modifier key state.
 		void _update_modifier_keys(modifier_key_mask mods) {
 			auto &io = ImGui::GetIO();
-			io.AddKeyEvent(ImGuiKey_ModCtrl,  !is_empty(mods & modifier_key_mask::control));
-			io.AddKeyEvent(ImGuiKey_ModShift, !is_empty(mods & modifier_key_mask::shift  ));
-			io.AddKeyEvent(ImGuiKey_ModAlt,   !is_empty(mods & modifier_key_mask::alt    ));
+			io.AddKeyEvent(ImGuiKey_ModCtrl,  bit_mask::contains<modifier_key_mask::control>(mods));
+			io.AddKeyEvent(ImGuiKey_ModShift, bit_mask::contains<modifier_key_mask::shift  >(mods));
+			io.AddKeyEvent(ImGuiKey_ModAlt,   bit_mask::contains<modifier_key_mask::alt    >(mods));
 		}
 	};
 }

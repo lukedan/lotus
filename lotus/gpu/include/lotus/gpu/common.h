@@ -12,6 +12,7 @@
 #include <variant>
 
 #include "lotus/common.h"
+#include "lotus/enums.h"
 #include "lotus/math/aab.h"
 
 namespace lotus::gpu {
@@ -65,12 +66,9 @@ namespace lotus::gpu {
 		num_enumerators = 1 ///< Total number of enumerators.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::context_options.
-	template <> struct enable_enum_bitwise_operators<gpu::context_options> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::context_options.
-	template <> struct enable_enum_is_empty<gpu::context_options> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::context_options is a bit mask type.
+	template <> struct is_bit_mask<gpu::context_options> : public std::true_type {
 	};
 }
 
@@ -331,12 +329,9 @@ namespace lotus::gpu {
 		num_enumerators = 4 ///< The number of channels.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::channel_mask.
-	template <> struct enable_enum_bitwise_operators<gpu::channel_mask> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::channel_mask.
-	template <> struct enable_enum_is_empty<gpu::channel_mask> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::channel_mask is a bit mask type.
+	template <> struct is_bit_mask<gpu::channel_mask> : public std::true_type {
 	};
 }
 
@@ -351,12 +346,9 @@ namespace lotus::gpu {
 		num_enumerators = 3 ///< The total number of aspects.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::image_aspect_mask.
-	template <> struct enable_enum_bitwise_operators<gpu::image_aspect_mask> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::image_aspect_mask.
-	template <> struct enable_enum_is_empty<gpu::image_aspect_mask> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::image_aspect_mask is a bit mask type.
+	template <> struct is_bit_mask<gpu::image_aspect_mask> : public std::true_type {
 	};
 }
 
@@ -378,6 +370,15 @@ namespace lotus::gpu {
 		miss_shader,           ///< Ray-tracing miss shader.
 
 		num_enumerators ///< The number of available stages.
+	};
+
+	/// The tyype of a command queue.
+	enum class queue_type {
+		graphics, ///< Supports all graphics, compute, and copy operations.
+		compute,  ///< Supports compute and copy operations.
+		copy,     ///< Supports copy operations.
+
+		num_enumerators ///< The number of available queue types.
 	};
 
 	/// A factor used for blending.
@@ -589,12 +590,9 @@ namespace lotus::gpu {
 		num_enumerators = 14 ///< Number of valid bits.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::synchronization_point_mask.
-	template <> struct enable_enum_bitwise_operators<gpu::synchronization_point_mask> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::synchronization_point_mask.
-	template <> struct enable_enum_is_empty<gpu::synchronization_point_mask> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::synchronization_point_mask is a bit mask type.
+	template <> struct is_bit_mask<gpu::synchronization_point_mask> : public std::true_type {
 	};
 }
 
@@ -612,12 +610,9 @@ namespace lotus::gpu {
 		num_enumerators = 6 ///< Number of valid bits.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::image_usage_mask.
-	template <> struct enable_enum_bitwise_operators<gpu::image_usage_mask> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::image_usage_mask.
-	template <> struct enable_enum_is_empty<gpu::image_usage_mask> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::image_usage_mask is a bit mask type.
+	template <> struct is_bit_mask<gpu::image_usage_mask> : public std::true_type {
 	};
 }
 
@@ -639,12 +634,9 @@ namespace lotus::gpu {
 		num_enumerators = 9 ///< Number of valid bits.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::buffer_usage_mask.
-	template <> struct enable_enum_bitwise_operators<gpu::buffer_usage_mask> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::buffer_usage_mask.
-	template <> struct enable_enum_is_empty<gpu::buffer_usage_mask> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::buffer_usage_mask is a bit mask type.
+	template <> struct is_bit_mask<gpu::buffer_usage_mask> : public std::true_type {
 	};
 }
 
@@ -663,12 +655,9 @@ namespace lotus::gpu {
 		num_enumerators = 7 ///< Number of valid bits.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::image_access_mask.
-	template <> struct enable_enum_bitwise_operators<gpu::image_access_mask> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::image_access_mask.
-	template <> struct enable_enum_is_empty<gpu::image_access_mask> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::image_access_mask is a bit mask type.
+	template <> struct is_bit_mask<gpu::image_access_mask> : public std::true_type {
 	};
 }
 
@@ -692,15 +681,11 @@ namespace lotus::gpu {
 		num_enumerators = 12 ///< Number of valid bits.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::buffer_access_mask.
-	template <> struct enable_enum_bitwise_operators<gpu::buffer_access_mask> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::buffer_access_mask.
-	template <> struct enable_enum_is_empty<gpu::buffer_access_mask> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::buffer_access_mask is a bit mask type.
+	template <> struct is_bit_mask<gpu::buffer_access_mask> : public std::true_type {
 	};
 }
-
 
 namespace lotus::gpu {
 	/// Opaque type that holds the index of a type of memory. This can hold backend-specific, potentially
@@ -720,12 +705,9 @@ namespace lotus::gpu {
 		num_enumerators = 3, ///< Number of enumerators.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::memory_properties.
-	template <> struct enable_enum_bitwise_operators<gpu::memory_properties> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::memory_properties.
-	template <> struct enable_enum_is_empty<gpu::memory_properties> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::memory_properties is a bit mask type.
+	template <> struct is_bit_mask<gpu::memory_properties> : public std::true_type {
 	};
 }
 
@@ -751,12 +733,9 @@ namespace lotus::gpu {
 		num_enumerators = 4 ///< Number of valid bits.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::raytracing_instance_flags.
-	template <> struct enable_enum_bitwise_operators<gpu::raytracing_instance_flags> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::raytracing_instance_flags.
-	template <> struct enable_enum_is_empty<gpu::raytracing_instance_flags> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::raytracing_instance_flags is a bit mask type.
+	template <> struct is_bit_mask<gpu::raytracing_instance_flags> : public std::true_type {
 	};
 }
 
@@ -772,12 +751,9 @@ namespace lotus::gpu {
 		num_enumerators = 2 ///< Number of valid bits.
 	};
 }
-namespace lotus {
-	/// Enable bitwise operations for \ref gpu::raytracing_geometry_flags.
-	template <> struct enable_enum_bitwise_operators<gpu::raytracing_geometry_flags> : public std::true_type {
-	};
-	/// Enable \ref is_empty for \ref gpu::raytracing_geometry_flags.
-	template <> struct enable_enum_is_empty<gpu::raytracing_geometry_flags> : public std::true_type {
+namespace lotus::enums {
+	/// \ref gpu::raytracing_geometry_flags is a bit mask type.
+	template <> struct is_bit_mask<gpu::raytracing_geometry_flags> : public std::true_type {
 	};
 }
 

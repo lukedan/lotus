@@ -35,10 +35,8 @@ namespace lotus::gpu::backends::vulkan {
 		/// chain.
 		void resize_swap_chain_buffers(swap_chain&, cvec2u32);
 
-		/// Calls \p vk::UniqueDevice::getQueue();
-		[[nodiscard]] command_queue create_command_queue();
 		/// Calls \p vk::UniqueDevice::createCommandPoolUnique().
-		[[nodiscard]] command_allocator create_command_allocator();
+		[[nodiscard]] command_allocator create_command_allocator(queue_type);
 		/// Calls \p vk::UniqueDevice::allocateCommandBuffers() and \p vk::CommandBuffer::begin().
 		[[nodiscard]] command_list create_and_start_command_list(command_allocator&);
 
@@ -284,16 +282,18 @@ namespace lotus::gpu::backends::vulkan {
 		vk::UniqueDevice _device; ///< The device.
 		vk::PhysicalDevice _physical_device; ///< The physical device.
 
-		// TODO custom queues
-		// queue indices
-		std::uint32_t _graphics_compute_queue_family_index = 0; ///< Graphics and compute command queue family index.
-		std::uint32_t _compute_queue_family_index = 0; ///< Compute-only command queue family index.
-
 		vk::PhysicalDeviceLimits _device_limits; ///< Device limits.
 		vk::PhysicalDeviceMemoryProperties _memory_properties; ///< Memory properties.
 		vk::PhysicalDeviceRayTracingPipelinePropertiesKHR _raytracing_properties; ///< Raytracing properties.
 		/// List of memory properties.
 		std::vector<std::pair<memory_type_index, memory_properties>> _memory_properties_list;
+
+		/// Index of the graphics queue family.
+		std::uint32_t _graphics_queue_family_index = std::numeric_limits<std::uint32_t>::max();
+		/// Index of the compute queue family.
+		std::uint32_t _compute_queue_family_index = std::numeric_limits<std::uint32_t>::max();
+		/// Index of the copy queue family.
+		std::uint32_t _copy_queue_family_index = std::numeric_limits<std::uint32_t>::max();
 
 		context_options _options = context_options::none; ///< Context options.
 		const vk::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< The dispatch loader.
@@ -338,8 +338,8 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		/// Enumerates all queue families using \p vk::PhysicalDevice::getQueueFamilyProperties(), then creates a
-		/// device using \p vk::PhysicalDevice::createDeviceUnique().
-		[[nodiscard]] device create_device();
+		/// device using \p vk::PhysicalDevice::createDeviceUnique(), and collects queues from it.
+		[[nodiscard]] std::pair<device, std::vector<command_queue>> create_device(std::span<const queue_type>);
 		/// Returns the results of \p vk::PhysicalDevice::getProperties().
 		[[nodiscard]] adapter_properties get_properties() const;
 	private:

@@ -7,7 +7,7 @@
 
 namespace lotus::gpu::backends::vulkan::_details {
 	namespace conversions {
-		constexpr static enum_mapping<format, vk::Format> _format_table{
+		constexpr static enums::sequential_mapping<format, vk::Format> _format_table{
 			std::pair(format::none,               vk::Format::eUndefined         ),
 			std::pair(format::d32_float_s8,       vk::Format::eD32SfloatS8Uint   ),
 			std::pair(format::d32_float,          vk::Format::eD32Sfloat         ),
@@ -75,7 +75,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::IndexType to_index_type(index_format fmt) {
-			constexpr static enum_mapping<index_format, vk::IndexType> table{
+			constexpr static enums::sequential_mapping<index_format, vk::IndexType> table{
 				std::pair(index_format::uint16, vk::IndexType::eUint16),
 				std::pair(index_format::uint32, vk::IndexType::eUint32),
 			};
@@ -83,7 +83,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::ImageAspectFlags to_image_aspect_flags(image_aspect_mask mask) {
-			constexpr static bit_mask_mapping<image_aspect_mask, vk::ImageAspectFlagBits> table{
+			constexpr static bit_mask::mapping<image_aspect_mask, vk::ImageAspectFlagBits> table{
 				std::pair(image_aspect_mask::color,   vk::ImageAspectFlagBits::eColor  ),
 				std::pair(image_aspect_mask::depth,   vk::ImageAspectFlagBits::eDepth  ),
 				std::pair(image_aspect_mask::stencil, vk::ImageAspectFlagBits::eStencil),
@@ -92,7 +92,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::ImageLayout to_image_layout(image_layout layout) {
-			constexpr static enum_mapping<image_layout, vk::ImageLayout> table{
+			constexpr static enums::sequential_mapping<image_layout, vk::ImageLayout> table{
 				std::pair(image_layout::undefined,                vk::ImageLayout::eUndefined                    ),
 				std::pair(image_layout::general,                  vk::ImageLayout::eGeneral                      ),
 				std::pair(image_layout::copy_source,              vk::ImageLayout::eTransferSrcOptimal           ),
@@ -108,7 +108,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::BufferUsageFlags to_buffer_usage_flags(buffer_usage_mask mask) {
-			constexpr static bit_mask_mapping<buffer_usage_mask, vk::BufferUsageFlagBits> table{
+			constexpr static bit_mask::mapping<buffer_usage_mask, vk::BufferUsageFlagBits> table{
 				std::pair(buffer_usage_mask::copy_source,                        vk::BufferUsageFlagBits::eTransferSrc                               ),
 				std::pair(buffer_usage_mask::copy_destination,                   vk::BufferUsageFlagBits::eTransferDst                               ),
 				std::pair(buffer_usage_mask::shader_read,                        flags_to_bits(
@@ -125,7 +125,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::ImageUsageFlags to_image_usage_flags(image_usage_mask mask) {
-			constexpr static bit_mask_mapping<image_usage_mask, vk::ImageUsageFlagBits> table{
+			constexpr static bit_mask::mapping<image_usage_mask, vk::ImageUsageFlagBits> table{
 				std::pair(image_usage_mask::copy_source,                 vk::ImageUsageFlagBits::eTransferSrc           ),
 				std::pair(image_usage_mask::copy_destination,            vk::ImageUsageFlagBits::eTransferDst           ),
 				std::pair(image_usage_mask::shader_read,                 vk::ImageUsageFlagBits::eSampled               ),
@@ -137,7 +137,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::PipelineStageFlags2 to_pipeline_stage_flags_2(synchronization_point_mask mask) {
-			constexpr static bit_mask_mapping<synchronization_point_mask, vk::PipelineStageFlagBits2> table{
+			constexpr static bit_mask::mapping<synchronization_point_mask, vk::PipelineStageFlagBits2> table{
 				std::pair(synchronization_point_mask::all,                          vk::PipelineStageFlagBits2::eAllCommands                  ),
 				std::pair(synchronization_point_mask::all_graphics,                 vk::PipelineStageFlagBits2::eAllGraphics                  ),
 				std::pair(synchronization_point_mask::index_input,                  vk::PipelineStageFlagBits2::eIndexInput                   ),
@@ -159,7 +159,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::AccessFlags2 to_access_flags_2(buffer_access_mask access) {
-			constexpr static bit_mask_mapping<buffer_access_mask, vk::AccessFlagBits2> table{
+			constexpr static bit_mask::mapping<buffer_access_mask, vk::AccessFlagBits2> table{
 				std::pair(buffer_access_mask::copy_source,                        vk::AccessFlagBits2::eTransferRead                 ),
 				std::pair(buffer_access_mask::copy_destination,                   vk::AccessFlagBits2::eTransferWrite                ),
 				std::pair(buffer_access_mask::vertex_buffer,                      vk::AccessFlagBits2::eVertexAttributeRead          ),
@@ -177,7 +177,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::AccessFlags2 to_access_flags_2(image_access_mask access) {
-			constexpr static bit_mask_mapping<image_access_mask, vk::AccessFlagBits2> table{
+			constexpr static bit_mask::mapping<image_access_mask, vk::AccessFlagBits2> table{
 				std::pair(image_access_mask::copy_source,              vk::AccessFlagBits2::eTransferRead               ),
 				std::pair(image_access_mask::copy_destination,         vk::AccessFlagBits2::eTransferWrite              ),
 				std::pair(image_access_mask::color_render_target,      vk::AccessFlagBits2::eColorAttachmentWrite       ),
@@ -190,7 +190,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::DescriptorType to_descriptor_type(descriptor_type ty) {
-			constexpr static enum_mapping<descriptor_type, vk::DescriptorType> table{
+			constexpr static enums::sequential_mapping<descriptor_type, vk::DescriptorType> table{
 				std::pair(descriptor_type::sampler,                vk::DescriptorType::eSampler                 ),
 				std::pair(descriptor_type::read_only_image,        vk::DescriptorType::eSampledImage            ),
 				std::pair(descriptor_type::read_write_image,       vk::DescriptorType::eStorageImage            ),
@@ -203,7 +203,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::Filter to_filter(filtering f) {
-			constexpr static enum_mapping<filtering, vk::Filter> table{
+			constexpr static enums::sequential_mapping<filtering, vk::Filter> table{
 				std::pair(filtering::nearest, vk::Filter::eNearest),
 				std::pair(filtering::linear,  vk::Filter::eLinear ),
 			};
@@ -211,7 +211,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::SamplerMipmapMode to_sampler_mipmap_mode(filtering f) {
-			constexpr static enum_mapping<filtering, vk::SamplerMipmapMode> table{
+			constexpr static enums::sequential_mapping<filtering, vk::SamplerMipmapMode> table{
 				std::pair(filtering::nearest, vk::SamplerMipmapMode::eNearest),
 				std::pair(filtering::linear,  vk::SamplerMipmapMode::eLinear ),
 			};
@@ -219,7 +219,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::SamplerAddressMode to_sampler_address_mode(sampler_address_mode m) {
-			constexpr static enum_mapping<sampler_address_mode, vk::SamplerAddressMode> table{
+			constexpr static enums::sequential_mapping<sampler_address_mode, vk::SamplerAddressMode> table{
 				std::pair(sampler_address_mode::repeat, vk::SamplerAddressMode::eRepeat        ),
 				std::pair(sampler_address_mode::mirror, vk::SamplerAddressMode::eMirroredRepeat),
 				std::pair(sampler_address_mode::clamp,  vk::SamplerAddressMode::eClampToEdge   ),
@@ -229,7 +229,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::CompareOp to_compare_op(comparison_function m) {
-			constexpr static enum_mapping<comparison_function, vk::CompareOp> table{
+			constexpr static enums::sequential_mapping<comparison_function, vk::CompareOp> table{
 				std::pair(comparison_function::none,             vk::CompareOp::eAlways        ),
 				std::pair(comparison_function::never,            vk::CompareOp::eNever         ),
 				std::pair(comparison_function::less,             vk::CompareOp::eLess          ),
@@ -244,7 +244,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::ShaderStageFlags to_shader_stage_flags(shader_stage stage) {
-			constexpr static enum_mapping<shader_stage, vk::ShaderStageFlagBits> table{
+			constexpr static enums::sequential_mapping<shader_stage, vk::ShaderStageFlagBits> table{
 				std::pair(shader_stage::all,                   vk::ShaderStageFlagBits::eAll            ),
 				std::pair(shader_stage::vertex_shader,         vk::ShaderStageFlagBits::eVertex         ),
 				std::pair(shader_stage::geometry_shader,       vk::ShaderStageFlagBits::eGeometry       ),
@@ -261,7 +261,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::VertexInputRate to_vertex_input_rate(input_buffer_rate rate) {
-			constexpr static enum_mapping<input_buffer_rate, vk::VertexInputRate> table{
+			constexpr static enums::sequential_mapping<input_buffer_rate, vk::VertexInputRate> table{
 				std::pair(input_buffer_rate::per_vertex,   vk::VertexInputRate::eVertex  ),
 				std::pair(input_buffer_rate::per_instance, vk::VertexInputRate::eInstance),
 			};
@@ -269,7 +269,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::PrimitiveTopology to_primitive_topology(primitive_topology t) {
-			constexpr static enum_mapping<primitive_topology, vk::PrimitiveTopology> table{
+			constexpr static enums::sequential_mapping<primitive_topology, vk::PrimitiveTopology> table{
 				std::pair(primitive_topology::point_list,                    vk::PrimitiveTopology::ePointList                 ),
 				std::pair(primitive_topology::line_list,                     vk::PrimitiveTopology::eLineList                  ),
 				std::pair(primitive_topology::line_strip,                    vk::PrimitiveTopology::eLineStrip                 ),
@@ -284,7 +284,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::CullModeFlags to_cull_mode_flags(cull_mode mode) {
-			constexpr static enum_mapping<cull_mode, vk::CullModeFlags> table{
+			constexpr static enums::sequential_mapping<cull_mode, vk::CullModeFlags> table{
 				std::pair(cull_mode::none,       vk::CullModeFlagBits::eNone ),
 				std::pair(cull_mode::cull_front, vk::CullModeFlagBits::eFront),
 				std::pair(cull_mode::cull_back,  vk::CullModeFlagBits::eBack ),
@@ -293,7 +293,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::FrontFace to_front_face(front_facing_mode mode) {
-			constexpr static enum_mapping<front_facing_mode, vk::FrontFace> table{
+			constexpr static enums::sequential_mapping<front_facing_mode, vk::FrontFace> table{
 				std::pair(front_facing_mode::clockwise,         vk::FrontFace::eClockwise       ),
 				std::pair(front_facing_mode::counter_clockwise, vk::FrontFace::eCounterClockwise),
 			};
@@ -301,7 +301,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::StencilOp to_stencil_op(stencil_operation op) {
-			constexpr static enum_mapping<stencil_operation, vk::StencilOp> table{
+			constexpr static enums::sequential_mapping<stencil_operation, vk::StencilOp> table{
 				std::pair(stencil_operation::keep,                vk::StencilOp::eKeep             ),
 				std::pair(stencil_operation::zero,                vk::StencilOp::eZero             ),
 				std::pair(stencil_operation::replace,             vk::StencilOp::eReplace          ),
@@ -315,7 +315,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::BlendFactor to_blend_factor(blend_factor f) {
-			constexpr static enum_mapping<blend_factor, vk::BlendFactor> table{
+			constexpr static enums::sequential_mapping<blend_factor, vk::BlendFactor> table{
 				std::pair(blend_factor::zero,                        vk::BlendFactor::eZero            ),
 				std::pair(blend_factor::one,                         vk::BlendFactor::eOne             ),
 				std::pair(blend_factor::source_color,                vk::BlendFactor::eSrcColor        ),
@@ -331,7 +331,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::BlendOp to_blend_op(blend_operation op) {
-			constexpr static enum_mapping<blend_operation, vk::BlendOp> table{
+			constexpr static enums::sequential_mapping<blend_operation, vk::BlendOp> table{
 				std::pair(blend_operation::add,              vk::BlendOp::eAdd            ),
 				std::pair(blend_operation::subtract,         vk::BlendOp::eSubtract       ),
 				std::pair(blend_operation::reverse_subtract, vk::BlendOp::eReverseSubtract),
@@ -342,7 +342,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::ColorComponentFlags to_color_component_flags(channel_mask mask) {
-			constexpr static bit_mask_mapping<channel_mask, vk::ColorComponentFlagBits> table{
+			constexpr static bit_mask::mapping<channel_mask, vk::ColorComponentFlagBits> table{
 				std::pair(channel_mask::red,   vk::ColorComponentFlagBits::eR),
 				std::pair(channel_mask::green, vk::ColorComponentFlagBits::eG),
 				std::pair(channel_mask::blue,  vk::ColorComponentFlagBits::eB),
@@ -352,7 +352,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::AttachmentLoadOp to_attachment_load_op(pass_load_operation op) {
-			constexpr static enum_mapping<pass_load_operation, vk::AttachmentLoadOp> table{
+			constexpr static enums::sequential_mapping<pass_load_operation, vk::AttachmentLoadOp> table{
 				std::pair(pass_load_operation::discard,  vk::AttachmentLoadOp::eDontCare),
 				std::pair(pass_load_operation::preserve, vk::AttachmentLoadOp::eLoad    ),
 				std::pair(pass_load_operation::clear,    vk::AttachmentLoadOp::eClear   ),
@@ -361,7 +361,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::AttachmentStoreOp to_attachment_store_op(pass_store_operation op) {
-			constexpr static enum_mapping<pass_store_operation, vk::AttachmentStoreOp> table{
+			constexpr static enums::sequential_mapping<pass_store_operation, vk::AttachmentStoreOp> table{
 				std::pair(pass_store_operation::discard,  vk::AttachmentStoreOp::eDontCare),
 				std::pair(pass_store_operation::preserve, vk::AttachmentStoreOp::eStore   ),
 			};
@@ -369,7 +369,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::ImageTiling to_image_tiling(image_tiling t) {
-			constexpr static enum_mapping<image_tiling, vk::ImageTiling> table{
+			constexpr static enums::sequential_mapping<image_tiling, vk::ImageTiling> table{
 				std::pair(image_tiling::row_major, vk::ImageTiling::eLinear ),
 				std::pair(image_tiling::optimal,   vk::ImageTiling::eOptimal),
 			};
@@ -377,7 +377,9 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::GeometryInstanceFlagsKHR to_geometry_instance_flags(raytracing_instance_flags flags) {
-			constexpr static bit_mask_mapping<raytracing_instance_flags, vk::GeometryInstanceFlagBitsKHR> table{
+			constexpr static bit_mask::mapping<
+				raytracing_instance_flags, vk::GeometryInstanceFlagBitsKHR
+			> table{
 				std::pair(raytracing_instance_flags::disable_triangle_culling,        vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable       ),
 				std::pair(raytracing_instance_flags::triangle_front_counterclockwise, vk::GeometryInstanceFlagBitsKHR::eTriangleFrontCounterclockwiseKHR),
 				std::pair(raytracing_instance_flags::force_opaque,                    vk::GeometryInstanceFlagBitsKHR::eForceOpaque                     ),
@@ -387,7 +389,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::GeometryFlagsKHR to_geometry_flags(raytracing_geometry_flags flags) {
-			constexpr static bit_mask_mapping<raytracing_geometry_flags, vk::GeometryFlagBitsKHR> table{
+			constexpr static bit_mask::mapping<raytracing_geometry_flags, vk::GeometryFlagBitsKHR> table{
 				std::pair(raytracing_geometry_flags::opaque,                          vk::GeometryFlagBitsKHR::eOpaque                     ),
 				std::pair(raytracing_geometry_flags::no_duplicate_any_hit_invocation, vk::GeometryFlagBitsKHR::eNoDuplicateAnyHitInvocation),
 			};

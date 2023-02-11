@@ -14,7 +14,7 @@ namespace lotus::gpu::backends::directx12 {
 	context context::create(context_options opts) {
 		context result;
 		_details::assert_dx(CreateDXGIFactory1(IID_PPV_ARGS(&result._dxgi_factory)));
-		if (!is_empty(opts & context_options::enable_validation)) { // enable debug layer
+		if (bit_mask::contains<context_options::enable_validation>(opts)) { // enable debug layer
 			_details::com_ptr<ID3D12Debug1> debug;
 			_details::assert_dx(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)));
 			debug->EnableDebugLayer();

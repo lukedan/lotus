@@ -51,21 +51,23 @@ int main(int argc, char **argv) {
 	auto options = lgpu::context_options::none;
 	auto gctx = lgpu::context::create(options);
 	lgpu::device gdev = nullptr;
+	std::vector<lgpu::command_queue> gqueues;
 	lgpu::adapter_properties gprop = uninitialized;
 	gctx.enumerate_adapters([&](lgpu::adapter adap) -> bool {
 		gprop = adap.get_properties();
 		log().debug<u8"Device: {}">(lstr::to_generic(gprop.name));
 		if (gprop.is_discrete) {
 			log().debug<u8"Selected">();
-			gdev = adap.create_device();
+			auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics, lgpu::queue_type::compute });
+			gdev = std::move(dev);
+			gqueues = std::move(queues);
 			return false;
 		}
 		return true;
 	});
-	auto gcmdq = gdev.create_command_queue();
 	auto gshu = lgpu::shader_utility::create();
 
-	auto rctx = lren::context::create(gctx, gprop, gdev, gcmdq);
+	auto rctx = lren::context::create(gctx, gprop, gdev, gqueues[0], gqueues[1]);
 	auto rassets = lren::assets::manager::create(rctx, &gshu);
 	rassets.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets";
 	rassets.additional_shader_includes = {

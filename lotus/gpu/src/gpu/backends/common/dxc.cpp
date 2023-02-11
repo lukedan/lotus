@@ -49,7 +49,7 @@ namespace lotus::gpu::backends::common {
 		std::span<const std::pair<std::u8string_view, std::u8string_view>> defines,
 		std::span<const LPCWSTR> extra_args
 	) {
-		constexpr static enum_mapping<shader_stage, std::string_view> stage_names{
+		constexpr static enums::sequential_mapping<shader_stage, std::string_view> stage_names{
 			std::pair(shader_stage::all,                   "INVALID"),
 			std::pair(shader_stage::vertex_shader,         "vs" ),
 			std::pair(shader_stage::geometry_shader,       "gs" ),

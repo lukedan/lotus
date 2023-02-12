@@ -115,6 +115,18 @@ namespace lotus {
 			}
 		}
 	};
+	namespace _details {
+		/// Implementation of \ref filled_array().
+		template <
+			std::size_t Size, typename T, std::size_t ...Is
+		> [[nodiscard]] constexpr std::array<T, Size> filled_array_impl(const T &val, std::index_sequence<Is...>) {
+			return { { (Is, val)... } };
+		}
+	}
+	/// Creates an array filled with the given element.
+	template <std::size_t Size, typename T> [[nodiscard]] constexpr std::array<T, Size> filled_array(const T &val) {
+		return _details::filled_array_impl<Size, T>(val, std::make_index_sequence<Size>());
+	}
 
 
 	/// Tests the equality of two \p std::source_location objects.

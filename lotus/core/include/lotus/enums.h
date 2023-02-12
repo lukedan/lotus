@@ -8,31 +8,77 @@
 #include <array>
 #include <bit>
 
+#include "common.h"
+
 namespace lotus::enums {
 	/// Stores a mapping from consecutive zero-based enum values to mapped values, with additional checks.
 	template <
 		typename Enum, typename Value, std::size_t NumEnumerators = static_cast<std::size_t>(Enum::num_enumerators)
 	> class sequential_mapping {
 	public:
+		using storage = std::array<std::pair<Enum, Value>, NumEnumerators>; ///< Storage type.
+		using underlying_type = std::underlying_type_t<Enum>; ///< Underlying integral type of the enum.
+
 		/// Initializes the mapping.
 		template <typename ...Args> constexpr sequential_mapping(Args &&...args) :
 			_mapping{ { std::forward<Args>(args)... } } {
 			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for enum mapping.");
 			for (std::size_t i = 0; i < NumEnumerators; ++i) {
-				crash_if_constexpr(static_cast<std::size_t>(_mapping[i].first) != i);
+				crash_if_constexpr(static_cast<underlying_type>(_mapping[i].first) != i);
 			}
 		}
 
 		/// Retrieves the mapping for the given value.
 		[[nodiscard]] constexpr const Value &operator[](Enum v) const {
-			return _mapping[static_cast<std::size_t>(v)].second;
+			return _mapping[static_cast<underlying_type>(v)].second;
 		}
 		/// Returns the entire table.
-		[[nodiscard]] constexpr const std::array<std::pair<Enum, Value>, NumEnumerators> &get_raw_table() const {
+		[[nodiscard]] constexpr const storage &get_raw_table() const {
 			return _mapping;
 		}
-	protected:
-		const std::array<std::pair<Enum, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
+	private:
+		const storage _mapping; ///< Storage for the mapping.
+	};
+
+	/// Stores a mapping from consecutive zero-based enum values to dynamic values.
+	template <
+		typename Enum, typename Value, std::size_t NumEnumerators = static_cast<std::size_t>(Enum::num_enumerators)
+	> class dynamic_sequential_mapping {
+	public:
+		using storage = std::array<Value, NumEnumerators>; ///< Storage type.
+		using underlying_type = std::underlying_type_t<Enum>; ///< Underlying integral type of the enum.
+
+		/// Initializes all values.
+		template <typename ...Args> constexpr dynamic_sequential_mapping(Args &&...args) :
+			_data{ { std::forward<Args>(args)... } } {
+		}
+		/// Initializes the array directly.
+		explicit constexpr dynamic_sequential_mapping(storage s) : _data(std::move(s)) {
+		}
+		/// Returns an object where all enums map to the given value.
+		[[nodiscard]] constexpr inline static dynamic_sequential_mapping filled(const Value &val) {
+			return dynamic_sequential_mapping(filled_array<NumEnumerators, Value>(val));
+		}
+
+		/// Returns the value that corresponds to the given enumerator.
+		[[nodiscard]] constexpr Value &operator[](Enum v) {
+			return _data[static_cast<underlying_type>(v)];
+		}
+		/// \overload
+		[[nodiscard]] constexpr const Value &operator[](Enum v) const {
+			return _data[static_cast<underlying_type>(v)];
+		}
+
+		/// Returns the array of values.
+		[[nodiscard]] constexpr storage &get_storage() {
+			return _data;
+		}
+		/// \overload
+		[[nodiscard]] constexpr const storage &get_storage() const {
+			return _data;
+		}
+	private:
+		storage _data;
 	};
 
 

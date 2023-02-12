@@ -288,12 +288,8 @@ namespace lotus::gpu::backends::vulkan {
 		/// List of memory properties.
 		std::vector<std::pair<memory_type_index, memory_properties>> _memory_properties_list;
 
-		/// Index of the graphics queue family.
-		std::uint32_t _graphics_queue_family_index = std::numeric_limits<std::uint32_t>::max();
-		/// Index of the compute queue family.
-		std::uint32_t _compute_queue_family_index = std::numeric_limits<std::uint32_t>::max();
-		/// Index of the copy queue family.
-		std::uint32_t _copy_queue_family_index = std::numeric_limits<std::uint32_t>::max();
+		/// Index of all queue families.
+		enums::dynamic_sequential_mapping<queue_type, std::uint32_t> _queue_family_indices;
 
 		context_options _options = context_options::none; ///< Context options.
 		const vk::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< The dispatch loader.

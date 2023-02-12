@@ -76,23 +76,10 @@ namespace lotus::gpu::backends::vulkan {
 	command_allocator device::create_command_allocator(queue_type ty) {
 		command_allocator alloc = nullptr;
 
-		std::uint32_t queue_family_index = std::numeric_limits<std::uint32_t>::max();
-		switch (ty) {
-		case queue_type::graphics:
-			queue_family_index = _graphics_queue_family_index;
-			break;
-		case queue_type::compute:
-			queue_family_index = _compute_queue_family_index;
-			break;
-		case queue_type::copy:
-			queue_family_index = _copy_queue_family_index;
-			break;
-		}
-
 		vk::CommandPoolCreateInfo info;
 		info
 			.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
-			.setQueueFamilyIndex(queue_family_index);
+			.setQueueFamilyIndex(_queue_family_indices[ty]);
 		// TODO allocator
 		alloc._pool = _details::unwrap(_device->createCommandPoolUnique(info));
 
@@ -1432,24 +1419,32 @@ namespace lotus::gpu::backends::vulkan {
 			constexpr auto compute_queue_flags =
 				_details::flags_to_bits(vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer);
 
+			std::fill(
+				result._queue_family_indices.get_storage().begin(),
+				result._queue_family_indices.get_storage().end(),
+				std::numeric_limits<std::uint32_t>::max()
+			);
+
 			auto queue_familly_allocator = bookmark.create_std_allocator<vk::QueueFamilyProperties>();
 			auto families = _device.getQueueFamilyProperties(queue_familly_allocator);
 			for (std::uint32_t i = 0; i < families.size(); ++i) {
 				auto flags = _details::flags_to_bits(families[i].queueFlags);
 				if (bit_mask::contains_all(flags, graphics_queue_flags)) {
-					result._graphics_queue_family_index = i;
+					result._queue_family_indices[queue_type::graphics] = i;
 				} else if (bit_mask::contains_all(flags, compute_queue_flags)) {
-					result._compute_queue_family_index = i;
+					result._queue_family_indices[queue_type::compute] = i;
 				} else if (bit_mask::contains<vk::QueueFlagBits::eTransfer>(flags)) {
-					result._copy_queue_family_index = i;
+					result._queue_family_indices[queue_type::copy] = i;
 				}
 			}
-			crash_if(result._graphics_queue_family_index >= families.size());
-			if (result._compute_queue_family_index >= families.size()) {
-				result._compute_queue_family_index = result._graphics_queue_family_index;
+			crash_if(result._queue_family_indices[queue_type::graphics] >= families.size());
+			if (result._queue_family_indices[queue_type::compute] >= families.size()) {
+				result._queue_family_indices[queue_type::compute] =
+					result._queue_family_indices[queue_type::graphics];
 			}
-			if (result._copy_queue_family_index >= families.size()) {
-				result._copy_queue_family_index = result._compute_queue_family_index;
+			if (result._queue_family_indices[queue_type::copy] >= families.size()) {
+				result._queue_family_indices[queue_type::copy] =
+					result._queue_family_indices[queue_type::compute];
 			}
 		}
 
@@ -1458,39 +1453,21 @@ namespace lotus::gpu::backends::vulkan {
 
 		auto queue_create_infos = bookmark.create_reserved_vector_array<vk::DeviceQueueCreateInfo>(3);
 		{
-			auto graphics_priorities = bookmark.create_vector_array<float>();
-			auto compute_priorities = bookmark.create_vector_array<float>();
-			auto copy_priorities = bookmark.create_vector_array<float>();
+			auto priorities = enums::dynamic_sequential_mapping<
+				queue_type, memory::stack_allocator::vector_type<float>
+			>::filled(bookmark.create_vector_array<float>());
 
-			// for now we don't actually have priorities
+			// TODO for now we don't actually have priorities
 			for (const auto &param : queue_params) {
-				switch (param) {
-				case queue_type::graphics:
-					graphics_priorities.emplace_back(0.5f);
-					break;
-				case queue_type::compute:
-					compute_priorities.emplace_back(0.5f);
-					break;
-				case queue_type::copy:
-					copy_priorities.emplace_back(0.5f);
-					break;
-				}
+				priorities[param].emplace_back(0.5f);
 			}
 
-			if (!graphics_priorities.empty()) {
-				queue_create_infos.emplace_back()
-					.setQueueFamilyIndex(result._graphics_queue_family_index)
-					.setQueuePriorities(graphics_priorities);
-			}
-			if (!compute_priorities.empty()) {
-				queue_create_infos.emplace_back()
-					.setQueueFamilyIndex(result._compute_queue_family_index)
-					.setQueuePriorities(compute_priorities);
-			}
-			if (!copy_priorities.empty()) {
-				queue_create_infos.emplace_back()
-					.setQueueFamilyIndex(result._copy_queue_family_index)
-					.setQueuePriorities(copy_priorities);
+			for (std::size_t i = 0; i < priorities.get_storage().size(); ++i) {
+				if (!priorities.get_storage()[i].empty()) {
+					queue_create_infos.emplace_back()
+						.setQueueFamilyIndex(result._queue_family_indices.get_storage()[i])
+						.setQueuePriorities(priorities.get_storage()[i]);
+				}
 			}
 		}
 
@@ -1627,34 +1604,14 @@ namespace lotus::gpu::backends::vulkan {
 		{
 			double timestamp_freq = 1000000.0 / static_cast<double>(result._device_limits.timestampPeriod);
 
-			std::uint32_t cur_graphics_queue = 0;
-			std::uint32_t cur_compute_queue = 0;
-			std::uint32_t cur_copy_queue = 0;
-
+			auto cur_queue = enums::dynamic_sequential_mapping<queue_type, std::uint32_t>::filled(0);
 			for (const auto &param : queue_params) {
-				std::uint32_t *counter = nullptr;
-				std::uint32_t family_index = std::numeric_limits<std::uint32_t>::max();
-				switch (param) {
-				case queue_type::graphics:
-					counter = &cur_graphics_queue;
-					family_index = result._graphics_queue_family_index;
-					break;
-				case queue_type::compute:
-					counter = &cur_compute_queue;
-					family_index = result._compute_queue_family_index;
-					break;
-				case queue_type::copy:
-					counter = &cur_copy_queue;
-					family_index = result._copy_queue_family_index;
-					break;
-				}
-
 				command_queue new_queue = nullptr;
-				new_queue._queue               = result._device->getQueue(family_index, *counter);
+				new_queue._queue = result._device->getQueue(result._queue_family_indices[param], cur_queue[param]);
 				new_queue._timestamp_frequency = timestamp_freq;
 				queues.emplace_back(std::move(new_queue));
 
-				++*counter;
+				++cur_queue[param];
 			}
 		}
 

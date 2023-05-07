@@ -864,7 +864,7 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
-	timeline_semaphore device::create_timeline_semaphore(std::uint64_t value) {
+	timeline_semaphore device::create_timeline_semaphore(gpu::timeline_semaphore::value_type value) {
 		timeline_semaphore result = nullptr;
 		_details::assert_dx(_device->CreateFence(value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&result._semaphore)));
 		return result;
@@ -880,15 +880,15 @@ namespace lotus::gpu::backends::directx12 {
 		));
 	}
 
-	void device::signal_timeline_semaphore(timeline_semaphore &sem, std::uint64_t val) {
+	void device::signal_timeline_semaphore(timeline_semaphore &sem, gpu::timeline_semaphore::value_type val) {
 		_details::assert_dx(sem._semaphore->Signal(val));
 	}
 
-	std::uint64_t device::query_timeline_semaphore(timeline_semaphore &sem) {
+	gpu::timeline_semaphore::value_type device::query_timeline_semaphore(timeline_semaphore &sem) {
 		return sem._semaphore->GetCompletedValue();
 	}
 
-	void device::wait_for_timeline_semaphore(timeline_semaphore &sem, std::uint64_t val) {
+	void device::wait_for_timeline_semaphore(timeline_semaphore &sem, gpu::timeline_semaphore::value_type val) {
 		_details::assert_dx(sem._semaphore->SetEventOnCompletion(val, nullptr));
 	}
 

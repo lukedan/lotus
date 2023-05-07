@@ -29,13 +29,16 @@ namespace lotus::renderer::dear_imgui {
 		using index = std::uint32_t; ///< Index type.
 
 		/// Creates a new context.
-		[[nodiscard]] inline static context create(assets::manager &man) {
-			context result(man);
-			result._vertex_shader = man.compile_shader_in_filesystem(
-				man.asset_library_path / "shaders/misc/dear_imgui.hlsl", gpu::shader_stage::vertex_shader, u8"main_vs"
+		[[nodiscard]] inline static context create(assets::manager &man, renderer::context::queue q) {
+			context result(man, q);
+
+			result._vertex_shader = result._asset_man.compile_shader_in_filesystem(
+				result._asset_man.asset_library_path / "shaders/misc/dear_imgui.hlsl",
+				gpu::shader_stage::vertex_shader, u8"main_vs"
 			);
-			result._pixel_shader = man.compile_shader_in_filesystem(
-				man.asset_library_path / "shaders/misc/dear_imgui.hlsl", gpu::shader_stage::pixel_shader, u8"main_ps"
+			result._pixel_shader = result._asset_man.compile_shader_in_filesystem(
+				result._asset_man.asset_library_path / "shaders/misc/dear_imgui.hlsl",
+				gpu::shader_stage::pixel_shader, u8"main_ps"
 			);
 
 			auto &io = ImGui::GetIO();
@@ -43,7 +46,7 @@ namespace lotus::renderer::dear_imgui {
 			io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
 
 			{
-				auto &ctx = man.get_context();
+				auto &ctx = result._asset_man.get_context();
 
 				unsigned char *tex_data;
 				int width;
@@ -55,7 +58,7 @@ namespace lotus::renderer::dear_imgui {
 					gpu::format::r8g8b8a8_unorm,
 					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read, nullptr
 				);
-				ctx.upload_image(
+				result._q.upload_image(
 					result._font_texture, reinterpret_cast<const std::byte*>(tex_data),
 					u8"Upload Dear ImGui Font Atlas"
 				);
@@ -123,10 +126,10 @@ namespace lotus::renderer::dear_imgui {
 					gpu::buffer_usage_mask::copy_destination | gpu::buffer_usage_mask::index_buffer,
 					buffers_pool
 				);
-				ctx.upload_buffer<vertex>(vtx_buffer, vertices, 0, u8"Upload Dear ImGui Vertex Buffer");
-				ctx.upload_buffer<index>(idx_buffer, indices, 0, u8"Upload Dear ImGui Index Buffer");
+				_q.upload_buffer<vertex>(vtx_buffer, vertices, 0, u8"Upload Dear ImGui Vertex Buffer");
+				_q.upload_buffer<index>(idx_buffer, indices, 0, u8"Upload Dear ImGui Index Buffer");
 
-				auto pass = ctx.begin_pass({ target }, nullptr, target_size, u8"ImGui Draw Pass");
+				auto pass = _q.begin_pass({ target }, nullptr, target_size, u8"ImGui Draw Pass");
 				for (const ImDrawCmd &cmd : cmd_list->CmdBuffer) {
 					auto texture_index = reinterpret_cast<intptr_t>(cmd.TextureId);
 					shader_types::dear_imgui_draw_data data;
@@ -180,13 +183,14 @@ namespace lotus::renderer::dear_imgui {
 		}
 	private:
 		/// Initializes the asset manager.
-		explicit context(assets::manager &man) :
-			_asset_man(man), _vertex_shader(nullptr), _pixel_shader(nullptr), _font_texture(nullptr) {
+		explicit context(assets::manager &man, renderer::context::queue q) :
+			_asset_man(man), _q(q), _vertex_shader(nullptr), _pixel_shader(nullptr), _font_texture(nullptr) {
 		}
 
 		std::vector<recorded_resources::image2d_view> _registered_images;
 
 		assets::manager &_asset_man; ///< The asset manager.
+		renderer::context::queue _q; ///< The command queue to render on.
 		assets::handle<assets::shader> _vertex_shader; ///< Vertex shader.
 		assets::handle<assets::shader> _pixel_shader; ///< Pixel shader.
 		image2d_view _font_texture; ///< The font texture.

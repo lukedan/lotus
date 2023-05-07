@@ -4,9 +4,10 @@
 /// Implementation of command related functions.
 
 #include "lotus/memory/stack_allocator.h"
+#include "lotus/gpu/commands.h"
 #include "lotus/gpu/descriptors.h"
 #include "lotus/gpu/resources.h"
-#include "lotus/gpu/commands.h"
+#include "lotus/gpu/synchronization.h"
 #include "lotus/gpu/backends/directx12/descriptors.h"
 
 #ifdef USE_PIX
@@ -491,7 +492,7 @@ namespace lotus::gpu::backends::directx12 {
 		_details::assert_dx(_queue->Signal(f._fence.Get(), static_cast<UINT64>(synchronization_state::set)));
 	}
 
-	void command_queue::signal(timeline_semaphore &sem, std::uint64_t val) {
+	void command_queue::signal(timeline_semaphore &sem, gpu::timeline_semaphore::value_type val) {
 		_details::assert_dx(_queue->Signal(sem._semaphore.Get(), val));
 	}
 }

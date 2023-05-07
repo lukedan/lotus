@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
 		log().debug<u8"Device name: {}">(lstr::to_generic(dev_prop.name));
 		if (dev_prop.is_discrete) {
 			log().debug<u8"Selected">();
-			auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics, lgpu::queue_type::compute });
+			auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics });
 			gdev = std::move(dev);
 			gqueues = std::move(queues);
 			return false;
@@ -67,8 +67,9 @@ int main(int argc, char **argv) {
 	});
 	auto cmd_alloc = gdev.create_command_allocator(lgpu::queue_type::graphics);
 
-	auto rctx = lren::context::create(gctx, dev_prop, gdev, gqueues[0], gqueues[1]);
-	auto asset_man = lren::assets::manager::create(rctx, &shader_util);
+	auto rctx = lren::context::create(gctx, dev_prop, gdev, gqueues);
+	auto gfx_q = rctx.get_queue(0);
+	auto asset_man = lren::assets::manager::create(rctx, gfx_q, &shader_util);
 	asset_man.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets/";
 	asset_man.additional_shader_includes = {
 		asset_man.asset_library_path / "shaders/",
@@ -78,14 +79,14 @@ int main(int argc, char **argv) {
 	auto runtime_buf_pool = rctx.request_pool(u8"Run-time Buffers");
 	auto runtime_tex_pool = rctx.request_pool(u8"Run-time Textures");
 
-	auto mip_gen = lren::mipmap::generator::create(asset_man);
+	auto mip_gen = lren::mipmap::generator::create(asset_man, gfx_q);
 	lren::gltf::context gltf_ctx(asset_man);
 	auto fbx_ctx = lren::fbx::context::create(asset_man);
 	lren::assimp::context assimp_ctx(asset_man);
 
 	// model & resources
 #ifndef NO_SCENES
-	scene_representation scene(asset_man);
+	scene_representation scene(asset_man, gfx_q);
 
 	for (int i = 1; i < argc; ++i) {
 		scene.load(argv[i]);
@@ -107,7 +108,7 @@ int main(int argc, char **argv) {
 	auto resolve_ps = asset_man.compile_shader_in_filesystem("src/shaders/rt_resolve.hlsl", lgpu::shader_stage::pixel_shader, u8"main_ps", {});
 
 	auto swap_chain = rctx.request_swap_chain(
-		u8"Main swap chain", wnd, 2, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb }
+		u8"Main swap chain", wnd, gfx_q, 2, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb }
 	);
 	std::size_t frame_index = 0;
 
@@ -236,7 +237,7 @@ int main(int argc, char **argv) {
 					},
 					{}
 				);
-				rctx.trace_rays(
+				gfx_q.trace_rays(
 					{
 						lren::shader_function(rt_shader, u8"main_anyhit_indexed", lgpu::shader_stage::any_hit_shader),
 						lren::shader_function(rt_shader, u8"main_anyhit_unindexed", lgpu::shader_stage::any_hit_shader),
@@ -261,7 +262,7 @@ int main(int argc, char **argv) {
 #endif
 
 			{
-				auto pass = rctx.begin_pass({
+				auto pass = gfx_q.begin_pass({
 					lren::image2d_color(
 						swap_chain,
 						lgpu::color_render_target_access::create_clear(cvec4d(0.0f, 0.0f, 0.0f, 0.0f))
@@ -291,10 +292,10 @@ int main(int argc, char **argv) {
 				pass.end();
 			}
 
-			rctx.present(swap_chain, u8"Present");
+			gfx_q.present(swap_chain, u8"Present");
 		}
 
-		rctx.flush();
+		rctx.execute_all();
 
 		++frame_index;
 

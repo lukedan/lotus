@@ -188,7 +188,7 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::Queue::submit() without any command lists.
 		void signal(fence&);
 		/// Calls \p vk::Queue::submit() without any command lists.
-		void signal(timeline_semaphore&, std::uint64_t);
+		void signal(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 
 		/// Checks if this is a valid object.
 		[[nodiscard]] bool is_valid() const {

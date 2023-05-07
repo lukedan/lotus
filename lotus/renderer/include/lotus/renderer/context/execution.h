@@ -16,32 +16,25 @@
 #include "lotus/gpu/synchronization.h"
 #include "lotus/gpu/commands.h"
 #include "lotus/renderer/common.h"
+#include "misc.h"
+#include "resources.h"
 
-namespace lotus::renderer {
-	class context;
+namespace lotus::renderer::commands {
+	struct start_timer;
+	struct end_timer;
 }
 
 namespace lotus::renderer::execution {
 	/// Whether or not to collect signatures of constant buffers.
 	constexpr bool collect_constant_buffer_signature = false;
 
-	/// Timestamp information of a timer.
-	struct timestamp_data {
-		/// Initializes this struct to empty.
-		timestamp_data(std::nullptr_t) {
-		}
-
-		std::uint32_t first_timestamp = 0; ///< Index of the first timestamp in the heap.
-		std::uint32_t second_timestamp = 0; ///< Index of the second timestamp in the heap.
-		std::u8string_view name; ///< The name of this timer.
-	};
 	/// Result of a single timer.
 	struct timer_result {
 		/// Initializes this object to empty.
 		timer_result(std::nullptr_t) {
 		}
 
-		std::u8string_view name; ///< The name of this timer.
+		std::u8string name; ///< The name of this timer.
 		float duration_ms = 0.0f; ///< Duration of the timer in milliseconds.
 	};
 
@@ -107,6 +100,7 @@ namespace lotus::renderer::execution {
 		}
 
 		std::vector<transition_statistics> transitions; ///< Transition statistics.
+		// TODO remove these
 		/// Immediate constant buffer statistics.
 		std::vector<immediate_constant_buffer_statistsics> immediate_constant_buffers;
 		/// Constant buffer information. This is costly to gather, so it's only filled if
@@ -119,16 +113,46 @@ namespace lotus::renderer::execution {
 		batch_statistics_late(zero_t) {
 		}
 
-		std::vector<timer_result> timer_results; ///< Timer results.
+		std::vector<std::vector<timer_result>> timer_results; ///< Timer results for each queue.
 	};
 
+	/// Run-time data of a timer.
+	struct timer_runtime_data {
+		/// Initializes this data to empty.
+		timer_runtime_data(std::nullptr_t) {
+		}
+
+		std::u8string name; ///< The name of this timer.
+		/// Index of the timestamp that marks the beginning of this timer.
+		std::uint32_t begin_timestamp = std::numeric_limits<std::uint32_t>::max();
+		/// Index of the timestamp that marks the end of this timer.
+		std::uint32_t end_timestamp = std::numeric_limits<std::uint32_t>::max();
+	};
 
 	/// A batch of resources.
 	struct batch_resources {
+		/// Batch data related to a specific queue.
+		struct queue_data {
+			/// Initializes this object to empty.
+			queue_data(std::nullptr_t) {
+			}
+
+			gpu::timestamp_query_heap *timestamp_heap = nullptr; ///< Timestamp heap.
+			std::vector<timer_runtime_data> timers; ///< Timer data.
+			std::uint32_t timestamp_count = 0; ///< Number of timestamps inserted.
+		};
+
 		/// Initializes this object to empty.
-		batch_resources(std::nullptr_t) :
-			graphics_cmd_alloc(nullptr), compute_cmd_alloc(nullptr), transient_cmd_alloc(nullptr),
-			timestamp_heap(nullptr) {
+		batch_resources(std::nullptr_t) {
+		}
+		/// Default move constructor.
+		batch_resources(batch_resources&&) = default;
+		/// Default move assignment.
+		batch_resources &operator=(batch_resources&&) = default;
+		/// This destructor ensures proper destruction order.
+		~batch_resources() {
+			// command lists must be destroyed before the command allocators
+			command_lists.clear();
 		}
 
 		std::deque<gpu::descriptor_set>            descriptor_sets;        ///< Descriptor sets.
@@ -142,22 +166,18 @@ namespace lotus::renderer::execution {
 		std::deque<gpu::image3d_view>              image3d_views;          ///< 3D image views.
 		std::deque<gpu::buffer>                    buffers;                ///< Constant buffers.
 		std::deque<gpu::command_list>              command_lists;          ///< Command lists.
+		std::deque<gpu::command_allocator>         command_allocs;         ///< Command allocators.
 		std::deque<gpu::frame_buffer>              frame_buffers;          ///< Frame buffers.
 		std::deque<gpu::swap_chain>                swap_chains;            ///< Swap chains.
 		std::deque<gpu::fence>                     fences;                 ///< Fences.
+		std::deque<gpu::timestamp_query_heap>      timestamp_heaps;        ///< Timestamp query heaps.
 
 		std::vector<std::unique_ptr<_details::image2d>>    image2d_meta;    ///< 2D images to be disposed next frame.
 		std::vector<std::unique_ptr<_details::image3d>>    image3d_meta;    ///< 3D images to be disposed next frame.
 		std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain to be disposed next frame.
 		std::vector<std::unique_ptr<_details::buffer>>     buffer_meta;     ///< Buffers to be disposed next frame.
 
-		gpu::command_allocator graphics_cmd_alloc; ///< Graphics command allocator.
-		gpu::command_allocator compute_cmd_alloc; ///< Compute command allocator.
-		gpu::command_allocator transient_cmd_alloc; ///< Transient command allocator.
-
-		gpu::timestamp_query_heap timestamp_heap; ///< Timestamp query heap for this batch.
-		std::vector<timestamp_data> timestamps; ///< All recorded timers.
-		std::uint32_t num_timestamps = 0; ///< Number of timestamps recorded.
+		std::vector<queue_data> queues; ///< Data associated with each queue.
 
 		/// Registers the given object as a resource.
 		template <typename T> T &record(T &&obj) {
@@ -183,84 +203,18 @@ namespace lotus::renderer::execution {
 				return buffers.emplace_back(std::move(obj));
 			} else if constexpr (std::is_same_v<T, gpu::command_list>) {
 				return command_lists.emplace_back(std::move(obj));
+			} else if constexpr (std::is_same_v<T, gpu::command_allocator>) {
+				return command_allocs.emplace_back(std::move(obj));
 			} else if constexpr (std::is_same_v<T, gpu::swap_chain>) {
 				return swap_chains.emplace_back(std::move(obj));
 			} else if constexpr (std::is_same_v<T, gpu::fence>) {
 				return fences.emplace_back(std::move(obj));
+			} else if constexpr (std::is_same_v<T, gpu::timestamp_query_heap>) {
+				return timestamp_heaps.emplace_back(std::move(obj));
 			} else {
 				static_assert(sizeof(T*) == 0, "Unhandled resource type");
 			}
 		}
-	};
-
-	/// Manages large buffers suballocated for upload operations.
-	struct upload_buffers {
-	public:
-		constexpr static std::size_t default_buffer_size = 10 * 1024 * 1024; ///< Default size for upload buffers.
-
-		/// Function used to allocate new buffers. The returned buffer should not be moved after it is created.
-		using allocate_buffer_func = static_function<gpu::buffer&(std::size_t)>;
-		/// The type of allocation performed by \ref stage().
-		enum class allocation_type {
-			invalid, ///< Invalid.
-			/// The allocation comes from the same buffer as the previous one that's not an individual allocataion.
-			same_buffer,
-			/// A new buffer has been created for this allocation and maybe some following allocations, if there is
-			/// enough space.
-			new_buffer,
-			/// The allocation is too large and a dedicated buffer is created for it.
-			individual_buffer,
-		};
-		/// Result of 
-		struct result {
-			friend upload_buffers;
-		public:
-			gpu::buffer *buffer = nullptr; ///< Buffer that the allocation is from.
-			std::uint32_t offset = 0; ///< Offset of the allocation in bytes from the start of the buffer.
-			allocation_type type = allocation_type::invalid; ///< The type of this allocation.
-		private:
-			/// Initializes all fields of this struct.
-			result(gpu::buffer &b, std::uint32_t off, allocation_type t) : buffer(&b), offset(off), type(t) {
-			}
-		};
-
-		/// Initializes this object to empty.
-		upload_buffers(std::nullptr_t) : allocate_buffer(nullptr), _current(nullptr) {
-		}
-		/// Initializes this object with the given device and parameters.
-		explicit upload_buffers(
-			renderer::context &ctx, allocate_buffer_func alloc, std::size_t buf_size = default_buffer_size
-		) : allocate_buffer(std::move(alloc)), _current(nullptr), _buffer_size(buf_size), _context(&ctx) {
-		}
-
-		/// Allocates space for a chunk of the given size and writes the given data into it.
-		[[nodiscard]] result stage(std::span<const std::byte>, std::size_t alignment);
-		/// Flushes the current buffer. The caller only need to transition the buffers from CPU write to copy source.
-		void flush();
-
-		/// Returns the size of regular allocated buffers.
-		[[nodiscard]] std::size_t get_buffer_size() const {
-			return _buffer_size;
-		}
-
-		/// Returns whether this object is valid.
-		[[nodiscard]] bool is_valid() const {
-			return _context;
-		}
-		/// \overload
-		[[nodiscard]] explicit operator bool() const {
-			return is_valid();
-		}
-
-		/// Callback used by this object to allocate a new buffer.
-		static_function<gpu::buffer&(std::size_t)> allocate_buffer;
-	private:
-		gpu::buffer *_current; ///< Current buffer that's being filled out.
-		std::byte *_current_ptr = nullptr; ///< Mapped pointer of \ref _current.
-		std::size_t _current_used = 0; ///< Amount used in \ref _current.
-
-		std::size_t _buffer_size = 0; ///< Size of \ref _current or any newly allocated buffers.
-		renderer::context *_context = nullptr; ///< Associated context.
 	};
 
 	/// Structures recording resource transition operations.
@@ -362,45 +316,33 @@ namespace lotus::renderer::execution {
 		transition_statistics _stats; ///< Statistics.
 	};
 
-	/// Manages the execution of a series of commands.
+	/// Manages the execution of a series of commands on one command queue.
 	class context {
 	public:
+		// TODO: remove this
 		/// 1MB for immediate constant buffers.
 		constexpr static std::size_t immediate_constant_buffer_cache_size = 1 * 1024 * 1024;
 
 		/// Initializes this context.
-		context(renderer::context &ctx, batch_resources &rsrc) :
-			transitions(nullptr),
-			statistics(zero),
-			_ctx(ctx), _resources(rsrc),
-			_immediate_constant_device_buffer(nullptr),
-			_immediate_constant_upload_buffer(nullptr),
-			_immediate_constant_buffer_stats(zero) {
-		}
+		context(_details::queue_data&, batch_resources&);
+		/// Default move constructor.
+		context(context&&) = default;
 		/// No move construction.
 		context(const context&) = delete;
+		/// Default move assignment.
+		context &operator=(context&&) = default;
 		/// No move assignment.
 		context &operator=(const context&) = delete;
 
+		/// Returns the command queue associated with this context.
+		[[nodiscard]] gpu::command_queue &get_command_queue();
 		/// Creates the command list if necessary, and returns the current command list.
 		[[nodiscard]] gpu::command_list &get_command_list();
 		/// Submits the current command list.
 		///
 		/// \return Whether a command list has been submitted. If not, an empty submission will have been
 		///         performed with the given synchronization requirements.
-		bool submit(gpu::command_queue &q, gpu::queue_synchronization sync) {
-			flush_immediate_constant_buffers();
-
-			if (!_list) {
-				q.submit_command_lists({}, std::move(sync));
-				return false;
-			}
-
-			_list->finish();
-			q.submit_command_lists({ _list }, std::move(sync));
-			_list = nullptr;
-			return true;
-		}
+		bool submit(gpu::queue_synchronization);
 
 		/// Records the given object to be disposed of when this frame finishes.
 		template <typename T> T &record(T &&obj) {
@@ -440,12 +382,25 @@ namespace lotus::renderer::execution {
 		/// Flushes all staged transitions.
 		void flush_transitions();
 
+		/// Signals that a command has invalidated any previous timers.
+		void invalidate_timer();
+		/// Starts a timer.
+		void start_timer(const commands::start_timer&);
+		/// Ends a timer.
+		void end_timer(const commands::end_timer&);
+
 		transition_buffer transitions; ///< Transitions.
 		batch_statistics_early statistics; ///< Accumulated statistics.
 	private:
-		renderer::context &_ctx; ///< The associated context.
+		_details::queue_data &_q; ///< The associated command queue.
 		batch_resources &_resources; ///< Where to record internal resources created during execution to.
+
+		gpu::command_allocator *_cmd_alloc = nullptr; ///< Command allocator used by this queue.
 		gpu::command_list *_list = nullptr; ///< Current command list.
+		// TODO remove this
+		gpu::command_allocator *_transient_cmd_alloc = nullptr; ///< Transient command list allocator.
+
+		bool _fresh_timestamp = false; ///< Whether we've just inserted a timestamp.
 
 		/// Amount used in \ref _immediate_constant_device_buffer.
 		std::size_t _immediate_constant_buffer_used = 0;
@@ -455,7 +410,21 @@ namespace lotus::renderer::execution {
 		gpu::buffer _immediate_constant_upload_buffer;
 		/// Mapped pointer for \ref _immediate_constant_upload_buffer.
 		std::byte *_immediate_constant_upload_buffer_ptr = nullptr;
-		/// Immediate constant buffer statistics.
+		/// Immediate constant buffer statistics for the current chunk.
 		immediate_constant_buffer_statistsics _immediate_constant_buffer_stats;
+
+
+		/// Returns the associated context.
+		[[nodiscard]] renderer::context &_get_context() const;
+		/// Returns the associated device.
+		[[nodiscard]] gpu::device &_get_device() const;
+		/// Returns the batch data for the associated queue.
+		[[nodiscard]] batch_resources::queue_data &_get_queue_data() const;
+		// TODO remove this
+		/// Returns the transient command allocator.
+		[[nodiscard]] gpu::command_allocator &_get_transient_command_allocator();
+
+		/// Inserts a timestamp if necessary, and returns its index.
+		std::uint32_t _maybe_insert_timestamp();
 	};
 }

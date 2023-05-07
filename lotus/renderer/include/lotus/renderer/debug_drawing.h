@@ -39,8 +39,8 @@ namespace lotus::renderer {
 		};
 
 		/// Creates a valid debug renderer object.
-		[[nodiscard]] inline static debug_renderer create(assets::manager &man) {
-			debug_renderer result(man);
+		[[nodiscard]] inline static debug_renderer create(assets::manager &man, context::queue q) {
+			debug_renderer result(man, q);
 
 			result._vertex_shader_untextured = man.compile_shader_in_filesystem(
 				man.asset_library_path / "shaders/misc/debug_untextured.hlsl", gpu::shader_stage::vertex_shader, u8"main_vs"
@@ -126,8 +126,8 @@ namespace lotus::renderer {
 		}
 	private:
 		/// Only initializes \ref _asset_man.
-		explicit debug_renderer(assets::manager &man) :
-			_asset_man(man),
+		explicit debug_renderer(assets::manager &man, context::queue q) :
+			_asset_man(man), _q(q),
 			_vertex_shader_untextured(nullptr), _pixel_shader_untextured(nullptr),
 			_vertex_shader_textured(nullptr), _pixel_shader_textured(nullptr) {
 		}
@@ -148,6 +148,7 @@ namespace lotus::renderer {
 		std::vector<_textured_batch> _triangles_textured; ///< Batches of textured triangles.
 
 		assets::manager &_asset_man; ///< The asset manager.
+		context::queue _q; ///< The command queue to render on.
 		assets::handle<assets::shader> _vertex_shader_untextured; ///< Untextured vertex shader.
 		assets::handle<assets::shader> _pixel_shader_untextured; ///< Untextured pixel shader.
 		assets::handle<assets::shader> _vertex_shader_textured; ///< Textured vertex shader.
@@ -170,7 +171,7 @@ namespace lotus::renderer {
 				u8"Debug Draw Vertex Buffer", vertices.size() * sizeof(Vert),
 				gpu::buffer_usage_mask::copy_destination | gpu::buffer_usage_mask::vertex_buffer, nullptr
 			);
-			ctx.upload_buffer<Vert>(vert_buf, vertices, 0, u8"Upload Debug Vertex Buffer");
+			_q.upload_buffer<Vert>(vert_buf, vertices, 0, u8"Upload Debug Vertex Buffer");
 
 			all_resource_bindings resource_bindings = nullptr;
 			input_buffer_binding input_bindings = nullptr;
@@ -229,7 +230,7 @@ namespace lotus::renderer {
 				)
 			);
 
-			auto pass = ctx.begin_pass({ target }, depth_stencil, size, description);
+			auto pass = _q.begin_pass({ target }, depth_stencil, size, description);
 			pass.draw_instanced(
 				{ std::move(input_bindings) },
 				vertices.size(), nullptr, 0, topology,

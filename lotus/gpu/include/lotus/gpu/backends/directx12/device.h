@@ -196,7 +196,7 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p ID3D12Device::CreateFence().
 		[[nodiscard]] fence create_fence(synchronization_state);
 		/// Calls \p ID3D12Device::CreateFence().
-		[[nodiscard]] timeline_semaphore create_timeline_semaphore(std::uint64_t);
+		[[nodiscard]] timeline_semaphore create_timeline_semaphore(gpu::_details::timeline_semaphore_value_type);
 
 		/// Calls \p ID3D12Fence::Signal() to reset the given fence to the unset state.
 		void reset_fence(fence&);
@@ -204,12 +204,12 @@ namespace lotus::gpu::backends::directx12 {
 		void wait_for_fence(fence&);
 
 		/// Calls \p ID3D12Fence::Signal() to update the value of the semaphore.
-		void signal_timeline_semaphore(timeline_semaphore&, std::uint64_t);
+		void signal_timeline_semaphore(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 		/// Calls \p ID3D12Fence::GetCompletedValue() to retrieve the current value of the semaphore.
-		[[nodiscard]] std::uint64_t query_timeline_semaphore(timeline_semaphore&);
+		[[nodiscard]] gpu::_details::timeline_semaphore_value_type query_timeline_semaphore(timeline_semaphore&);
 		/// Calls \p ID3D12Fence::SetEventOnCompletion() to wait for the value of the \ref timeline_semaphore to
 		/// reach the given value.
-		void wait_for_timeline_semaphore(timeline_semaphore &sem, std::uint64_t);
+		void wait_for_timeline_semaphore(timeline_semaphore &sem, gpu::_details::timeline_semaphore_value_type);
 
 		/// Calls \p ID3D12Device::CreateQueryHeap() to create the heap, then creates a buffer for receiving query
 		/// results.

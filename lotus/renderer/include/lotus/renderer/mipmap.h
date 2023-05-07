@@ -15,16 +15,16 @@ namespace lotus::renderer::mipmap {
 	struct generator {
 	public:
 		/// Creates a new context for the given asset manager.
-		[[nodiscard]] static generator create(assets::manager&);
+		[[nodiscard]] static generator create(assets::manager&, context::queue);
 
 		/// Inserts commands for generating all mip levels for the given image.
 		void generate_all(image2d_view);
 	private:
 		/// Initializes all fields of this struct.
-		generator(context &ctx, assets::handle<assets::shader> sh) : _shader(std::move(sh)), _ctx(ctx) {
+		generator(context::queue q, assets::handle<assets::shader> sh) : _shader(std::move(sh)), _q(q) {
 		}
 
 		assets::handle<assets::shader> _shader; ///< Shader used for generating mipmaps.
-		context &_ctx; ///< Context.
+		context::queue _q; ///< Queue.
 	};
 }

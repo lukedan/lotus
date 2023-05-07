@@ -210,7 +210,7 @@ namespace lotus::renderer::assets {
 			usages | gpu::buffer_usage_mask::copy_destination,
 			p
 		);
-		_context.upload_buffer(buf.data, data, 0, u8"Load buffer asset");
+		_upload_queue.upload_buffer(buf.data, data, 0, u8"Load buffer asset");
 		return _register_asset(std::move(id), std::move(buf), _buffers);
 	}
 
@@ -320,7 +320,7 @@ namespace lotus::renderer::assets {
 				// upload image
 				for (const auto &res : j.results) {
 					auto view = tex.image.view_mips(gpu::mip_levels::only(res.mip));
-					_context.upload_image(view, res.data, u8"Upload image"); // TODO better label
+					_upload_queue.upload_image(view, res.data, u8"Upload image"); // TODO better label
 				}
 
 				j.destroy();
@@ -334,8 +334,8 @@ namespace lotus::renderer::assets {
 		}
 	}
 
-	manager::manager(context &ctx, gpu::shader_utility *shader_utils) :
-		_context(ctx), _shader_utilities(shader_utils),
+	manager::manager(context &ctx, context::queue q, gpu::shader_utility *shader_utils) :
+		_context(ctx), _upload_queue(q), _shader_utilities(shader_utils),
 		_image2d_descriptors(ctx.request_image_descriptor_array(
 			u8"Texture assets", gpu::descriptor_type::read_only_image, 1024
 		)),
@@ -377,7 +377,9 @@ namespace lotus::renderer::assets {
 						(x ^ y) & 1 ? linear_rgba_u8(255, 0, 255, 255) : linear_rgba_u8(0, 255, 0, 255);
 				}
 			}
-			_context.upload_image(_invalid_image->image, reinterpret_cast<std::byte*>(tex_data.data()), u8"Invalid");
+			_upload_queue.upload_image(
+				_invalid_image->image, reinterpret_cast<std::byte*>(tex_data.data()), u8"Invalid"
+			);
 		}
 
 		{ // create "null" texture
@@ -395,7 +397,7 @@ namespace lotus::renderer::assets {
 			}
 
 			linear_rgba_u8 tex_data(0, 0, 0, 0);
-			_context.upload_image(_null_image->image, reinterpret_cast<std::byte*>(&tex_data), u8"Null");
+			_upload_queue.upload_image(_null_image->image, reinterpret_cast<std::byte*>(&tex_data), u8"Null");
 		}
 
 		{ // create "null normal" texture
@@ -415,7 +417,7 @@ namespace lotus::renderer::assets {
 			}
 
 			linear_rgba_u8 tex_data(127, 127, 255, 0);
-			_context.upload_image(
+			_upload_queue.upload_image(
 				_default_normal_image->image, reinterpret_cast<std::byte*>(&tex_data), u8"Default Normal"
 			);
 		}

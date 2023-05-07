@@ -5,7 +5,7 @@
 
 #include "lotus/renderer/context/context.h"
 
-namespace lotus::renderer::execution {
+namespace lotus::renderer {
 	upload_buffers::result upload_buffers::stage(std::span<const std::byte> data, std::size_t alignment) {
 		auto &dev = renderer::context::device_access::get(*_context);
 		if (data.size() > _buffer_size) {
@@ -45,8 +45,10 @@ namespace lotus::renderer::execution {
 			_current_used = 0;
 		}
 	}
+}
 
 
+namespace lotus::renderer::execution {
 	void transition_buffer::stage_transition(
 		_details::image2d &img, gpu::mip_levels mips, _details::image_access access
 	) {
@@ -338,17 +340,50 @@ namespace lotus::renderer::execution {
 	}
 
 
+	context::context(_details::queue_data &q, batch_resources &rsrc) :
+		transitions(nullptr),
+		statistics(zero),
+		_q(q), _resources(rsrc),
+		_immediate_constant_device_buffer(nullptr),
+		_immediate_constant_upload_buffer(nullptr),
+		_immediate_constant_buffer_stats(zero) {
+
+		// initialize queue data
+		_get_queue_data().timers.resize(_q.num_timers, nullptr);
+	}
+
+	gpu::command_queue &context::get_command_queue() {
+		return _q.queue;
+	}
+
 	gpu::command_list &context::get_command_list() {
 		if (!_list) {
-			_list = &record(_ctx._device.create_and_start_command_list(_resources.graphics_cmd_alloc));
+			if (!_cmd_alloc) {
+				_cmd_alloc = &record(_get_device().create_command_allocator(_q.queue.get_type()));
+			}
+			_list = &record(_get_device().create_and_start_command_list(*_cmd_alloc));
 		}
 		return *_list;
+	}
+
+	bool context::submit(gpu::queue_synchronization sync) {
+		flush_immediate_constant_buffers();
+
+		if (!_list) {
+			get_command_queue().submit_command_lists({}, std::move(sync));
+			return false;
+		}
+
+		_list->finish();
+		get_command_queue().submit_command_lists({ _list }, std::move(sync));
+		_list = nullptr;
+		return true;
 	}
 
 	gpu::buffer &context::create_buffer(
 		std::size_t size, gpu::memory_type_index mem_type, gpu::buffer_usage_mask usage
 	) {
-		return _resources.buffers.emplace_back(_ctx._device.create_committed_buffer(size, mem_type, usage));
+		return _resources.buffers.emplace_back(_get_device().create_committed_buffer(size, mem_type, usage));
 	}
 
 	gpu::frame_buffer &context::create_frame_buffer(
@@ -357,7 +392,7 @@ namespace lotus::renderer::execution {
 		cvec2u32 size
 	) {
 		return _resources.frame_buffers.emplace_back(
-			_ctx._device.create_frame_buffer(color_rts, ds_rt, size)
+			_get_device().create_frame_buffer(color_rts, ds_rt, size)
 		);
 	}
 
@@ -372,19 +407,19 @@ namespace lotus::renderer::execution {
 		}
 
 		if (!_immediate_constant_device_buffer) {
-			_immediate_constant_device_buffer = _ctx._device.create_committed_buffer(
+			_immediate_constant_device_buffer = _get_device().create_committed_buffer(
 				immediate_constant_buffer_cache_size,
-				_ctx._device_memory_index,
+				_get_context()._device_memory_index,
 				gpu::buffer_usage_mask::copy_destination |
 				gpu::buffer_usage_mask::shader_read      |
 				gpu::buffer_usage_mask::shader_record_table
 			);
-			_immediate_constant_upload_buffer = _ctx._device.create_committed_buffer(
+			_immediate_constant_upload_buffer = _get_device().create_committed_buffer(
 				immediate_constant_buffer_cache_size,
-				_ctx._upload_memory_index,
+				_get_context()._upload_memory_index,
 				gpu::buffer_usage_mask::copy_source
 			);
-			_immediate_constant_upload_buffer_ptr = _ctx._device.map_buffer(_immediate_constant_upload_buffer, 0, 0);
+			_immediate_constant_upload_buffer_ptr = _get_device().map_buffer(_immediate_constant_upload_buffer, 0, 0);
 		}
 
 		gpu::constant_buffer_view result(
@@ -416,7 +451,7 @@ namespace lotus::renderer::execution {
 		std::span<const std::byte> data, std::size_t alignment
 	) {
 		if (alignment == 0) {
-			alignment = _ctx._adapter_properties.constant_buffer_alignment;
+			alignment = _get_context()._adapter_properties.constant_buffer_alignment;
 		}
 		return stage_immediate_constant_buffer(
 			memory::size_alignment(data.size(), alignment),
@@ -435,14 +470,14 @@ namespace lotus::renderer::execution {
 			static_cast<std::uint32_t>(_immediate_constant_buffer_used);
 		statistics.immediate_constant_buffers.emplace_back(std::exchange(_immediate_constant_buffer_stats, zero));
 
-		_ctx._device.unmap_buffer(_immediate_constant_upload_buffer, 0, _immediate_constant_buffer_used);
+		_get_device().unmap_buffer(_immediate_constant_upload_buffer, 0, _immediate_constant_buffer_used);
 
 		{
 			// we need to immediately submit the command list because other commands have already been recorded that
 			// use these constant buffers
 			// alternatively, we can scan all commands for immediate constant buffers
 			auto &cmd_list = _resources.record(
-				_ctx._device.create_and_start_command_list(_resources.transient_cmd_alloc)
+				_get_device().create_and_start_command_list(_get_transient_command_allocator())
 			);
 			cmd_list.insert_marker(u8"Flush immediate constant buffers", linear_rgba_u8(255, 255, 0, 255));
 			cmd_list.copy_buffer(
@@ -460,7 +495,7 @@ namespace lotus::renderer::execution {
 				),
 			});
 			cmd_list.finish();
-			_ctx._graphics_queue.submit_command_lists({ &cmd_list }, nullptr);
+			get_command_queue().submit_command_lists({ &cmd_list }, nullptr);
 		}
 
 		_resources.record(std::exchange(_immediate_constant_device_buffer, nullptr));
@@ -474,9 +509,9 @@ namespace lotus::renderer::execution {
 	) {
 		if (!arr.staged_writes.empty()) {
 			// TODO wait more intelligently
-			auto fence = _ctx._device.create_fence(gpu::synchronization_state::unset);
-			submit(_ctx._graphics_queue, &fence);
-			_ctx._device.wait_for_fence(fence);
+			auto fence = _get_device().create_fence(gpu::synchronization_state::unset);
+			submit(&fence);
+			_get_device().wait_for_fence(fence);
 
 			if (arr.has_descriptor_overwrites) {
 				arr.has_descriptor_overwrites = false;
@@ -494,13 +529,13 @@ namespace lotus::renderer::execution {
 				}
 				// TODO batch writes
 				if (rsrc.resource) {
-					rsrc.view.value = _ctx._device.create_image2d_view_from(
+					rsrc.view.value = _get_device().create_image2d_view_from(
 						rsrc.resource._ptr->image, rsrc.resource._view_format, rsrc.resource._mip_levels
 					);
-					_ctx._device.set_debug_name(rsrc.view.value, rsrc.resource._ptr->name);
+					_get_device().set_debug_name(rsrc.view.value, rsrc.resource._ptr->name);
 				}
 				std::initializer_list<const gpu::image_view_base*> views = { &rsrc.view.value };
-				(_ctx._device.*write_func)(arr.set, layout, index, views);
+				(_get_device().*write_func)(arr.set, layout, index, views);
 			}
 		}
 	}
@@ -510,9 +545,9 @@ namespace lotus::renderer::execution {
 	) {
 		if (!arr.staged_writes.empty()) {
 			// TODO wait more intelligently
-			auto fence = _ctx._device.create_fence(gpu::synchronization_state::unset);
-			submit(_ctx._graphics_queue, &fence);
-			_ctx._device.wait_for_fence(fence);
+			auto fence = _get_device().create_fence(gpu::synchronization_state::unset);
+			submit(&fence);
+			_get_device().wait_for_fence(fence);
 
 			if (arr.has_descriptor_overwrites) {
 				arr.has_descriptor_overwrites = false;
@@ -532,7 +567,7 @@ namespace lotus::renderer::execution {
 					view = gpu::structured_buffer_view(buf._ptr->data, buf._first, buf._count, buf._stride);
 				}
 				std::initializer_list<gpu::structured_buffer_view> views = { view };
-				(_ctx._device.*write_func)(arr.set, layout, index, views);
+				(_get_device().*write_func)(arr.set, layout, index, views);
 			}
 		}
 	}
@@ -555,5 +590,52 @@ namespace lotus::renderer::execution {
 				get_command_list().resource_barrier(image_barriers, buffer_barriers);
 			}
 		}
+	}
+
+	void context::invalidate_timer() {
+		_fresh_timestamp = false;
+	}
+
+	void context::start_timer(const commands::start_timer &cmd) {
+		auto &timer = _get_queue_data().timers[std::to_underlying(cmd.index)];
+		timer.name = cmd.name; // TODO make this a move?
+		timer.begin_timestamp = _maybe_insert_timestamp();
+	}
+
+	void context::end_timer(const commands::end_timer &cmd) {
+		_get_queue_data().timers[std::to_underlying(cmd.index)].end_timestamp = _maybe_insert_timestamp();
+	}
+
+	renderer::context &context::_get_context() const {
+		return _q.ctx;
+	}
+
+	gpu::device &context::_get_device() const {
+		return _get_context()._device;
+	}
+
+	batch_resources::queue_data &context::_get_queue_data() const {
+		return _resources.queues[_q.queue.get_index()];
+	}
+
+	gpu::command_allocator &context::_get_transient_command_allocator() {
+		if (!_transient_cmd_alloc) {
+			_transient_cmd_alloc = &_resources.record(_get_device().create_command_allocator(_q.queue.get_type()));
+		}
+		return *_transient_cmd_alloc;
+	}
+
+	std::uint32_t context::_maybe_insert_timestamp() {
+		auto &queue_data = _get_queue_data();
+		if (!_fresh_timestamp) {
+			if (!queue_data.timestamp_heap) {
+				queue_data.timestamp_heap = &record(_get_device().create_timestamp_query_heap(
+					static_cast<std::uint32_t>(queue_data.timers.size())
+				));
+			}
+			get_command_list().query_timestamp(*queue_data.timestamp_heap, queue_data.timestamp_count);
+			++queue_data.timestamp_count;
+		}
+		return queue_data.timestamp_count - 1;
 	}
 }

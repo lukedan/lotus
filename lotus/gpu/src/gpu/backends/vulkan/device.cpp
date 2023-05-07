@@ -938,7 +938,7 @@ namespace lotus::gpu::backends::vulkan {
 		return result;
 	}
 
-	timeline_semaphore device::create_timeline_semaphore(std::uint64_t value) {
+	timeline_semaphore device::create_timeline_semaphore(gpu::timeline_semaphore::value_type value) {
 		timeline_semaphore result = nullptr;
 
 		vk::SemaphoreTypeCreateInfo type_info;
@@ -962,7 +962,7 @@ namespace lotus::gpu::backends::vulkan {
 		_details::assert_vk(_device->waitForFences(f._fence.get(), true, std::numeric_limits<std::uint64_t>::max()));
 	}
 
-	void device::signal_timeline_semaphore(timeline_semaphore &sem, std::uint64_t val) {
+	void device::signal_timeline_semaphore(timeline_semaphore &sem, gpu::timeline_semaphore::value_type val) {
 		vk::SemaphoreSignalInfo info;
 		info
 			.setSemaphore(sem._semaphore.get())
@@ -970,11 +970,11 @@ namespace lotus::gpu::backends::vulkan {
 		_details::assert_vk(_device->signalSemaphore(info));
 	}
 
-	std::uint64_t device::query_timeline_semaphore(timeline_semaphore &sem) {
+	gpu::timeline_semaphore::value_type device::query_timeline_semaphore(timeline_semaphore &sem) {
 		return _details::unwrap(_device->getSemaphoreCounterValue(sem._semaphore.get()));
 	}
 
-	void device::wait_for_timeline_semaphore(timeline_semaphore &sem, std::uint64_t val) {
+	void device::wait_for_timeline_semaphore(timeline_semaphore &sem, gpu::timeline_semaphore::value_type val) {
 		vk::SemaphoreWaitInfo info;
 		info
 			.setSemaphores(sem._semaphore.get())

@@ -17,8 +17,8 @@ namespace lotus::renderer::g_buffer {
 		return result;
 	}
 
-	context::pass view::begin_pass(context &ctx) {
-		return ctx.begin_pass(
+	context::pass view::begin_pass(context::queue &q) {
+		return q.begin_pass(
 			{
 				image2d_color(albedo_glossiness, gpu::color_render_target_access::create_discard_then_write()),
 				image2d_color(normal,            gpu::color_render_target_access::create_discard_then_write()),

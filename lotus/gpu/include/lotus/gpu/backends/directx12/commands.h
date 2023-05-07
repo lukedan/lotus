@@ -181,7 +181,7 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p ID3D12CommandQueue::Signal().
 		void signal(fence&);
 		/// Calls \p ID3D12CommandQueue::Signal().
-		void signal(timeline_semaphore&, std::uint64_t);
+		void signal(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 
 		/// Returns whether this queue contains a valid object.
 		[[nodiscard]] bool is_valid() const {

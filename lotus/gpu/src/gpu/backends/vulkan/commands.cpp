@@ -8,6 +8,7 @@
 #include "lotus/gpu/device.h"
 #include "lotus/gpu/pipeline.h"
 #include "lotus/gpu/resources.h"
+#include "lotus/gpu/synchronization.h"
 
 namespace lotus::gpu::backends::vulkan {
 	void command_allocator::reset(device &dev) {
@@ -429,13 +430,17 @@ namespace lotus::gpu::backends::vulkan {
 			vk_lists.emplace_back(list->_buffer);
 		}
 		auto wait_sems = bookmark.create_reserved_vector_array<vk::Semaphore>(synch.wait_semaphores.size());
-		auto wait_sem_values = bookmark.create_reserved_vector_array<std::uint64_t>(synch.wait_semaphores.size());
+		auto wait_sem_values = bookmark.create_reserved_vector_array<gpu::timeline_semaphore::value_type>(
+			synch.wait_semaphores.size()
+		);
 		for (const auto &sem : synch.wait_semaphores) {
 			wait_sems.emplace_back(sem.semaphore->_semaphore.get());
 			wait_sem_values.emplace_back(sem.value);
 		}
 		auto sig_sems = bookmark.create_reserved_vector_array<vk::Semaphore>(synch.notify_semaphores.size());
-		auto sig_sem_values = bookmark.create_reserved_vector_array<std::uint64_t>(synch.notify_semaphores.size());
+		auto sig_sem_values = bookmark.create_reserved_vector_array<gpu::timeline_semaphore::value_type>(
+			synch.notify_semaphores.size()
+		);
 		for (const auto &sem : synch.notify_semaphores) {
 			sig_sems.emplace_back(sem.semaphore->_semaphore.get());
 			sig_sem_values.emplace_back(sem.value);
@@ -474,7 +479,7 @@ namespace lotus::gpu::backends::vulkan {
 		_details::assert_vk(_queue.submit({}, f._fence.get()));
 	}
 
-	void command_queue::signal(timeline_semaphore &sem, std::uint64_t value) {
+	void command_queue::signal(timeline_semaphore &sem, gpu::timeline_semaphore::value_type value) {
 		vk::Semaphore sem_handle = sem._semaphore.get();
 		vk::TimelineSemaphoreSubmitInfo sem_info;
 		sem_info

@@ -32,6 +32,12 @@ namespace lotus::gpu {
 	class timeline_semaphore;
 	class top_level_acceleration_structure;
 
+	// we're putting these here because we'd like to make them class members,
+	// but we'd also like to make them consistent between backends
+	namespace _details {
+		using timeline_semaphore_value_type = std::uint64_t; ///< Value type for timeline semaphores.
+	}
+
 
 	/// Base class of all image types.
 	class image_base {
@@ -1486,10 +1492,11 @@ namespace lotus::gpu {
 		timeline_semaphore_synchronization(std::nullptr_t) {
 		}
 		/// Initializes all fields of this struct.
-		timeline_semaphore_synchronization(timeline_semaphore &sem, std::uint64_t v) : semaphore(&sem), value(v) {
+		timeline_semaphore_synchronization(timeline_semaphore &sem, _details::timeline_semaphore_value_type v) :
+			semaphore(&sem), value(v) {
 		}
 
-		std::uint64_t value = 0; ///< The value of the semaphore.
+		_details::timeline_semaphore_value_type value = 0; ///< The value of the semaphore.
 		timeline_semaphore *semaphore = nullptr; ///< The semaphore.
 	};
 

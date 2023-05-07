@@ -3,6 +3,7 @@
 /// \file
 /// Asset types.
 
+#include "resource_bindings.h"
 #include "resources.h"
 
 namespace lotus::renderer {

@@ -12,7 +12,9 @@
 /// Stores the representation of a scene.
 class scene_representation {
 public:
-	explicit scene_representation(lren::assets::manager &assman) : _assets(assman) {
+	explicit scene_representation(lren::assets::manager &assman, lren::context::queue cmd_queue) :
+		q(cmd_queue), _assets(assman) {
+
 		auto &rctx = _assets.get_context();
 
 		vertex_buffers = rctx.request_buffer_descriptor_array(u8"Vertex buffers", lgpu::descriptor_type::read_only_buffer, 16384);
@@ -41,7 +43,7 @@ public:
 		auto &blas = blases.emplace_back(rctx.request_blas(
 			geom.get().get_id().subpath, { geom->get_geometry_buffers_view(lgpu::raytracing_geometry_flags::opaque) }, as_pool
 		));
-		rctx.build_blas(blas, u8"Build BLAS");
+		q.build_blas(blas, u8"Build BLAS");
 
 		auto &inst = geometries.emplace_back();
 		if (geom->index_buffer) {
@@ -167,7 +169,7 @@ public:
 		auto &rctx = _assets.get_context();
 
 		tlas = rctx.request_tlas(u8"TLAS", tlas_instances, as_pool);
-		rctx.build_tlas(tlas, u8"Build TLAS");
+		q.build_tlas(tlas, u8"Build TLAS");
 
 		auto geom_buf = rctx.request_buffer(
 			u8"Geometry buffer",
@@ -175,7 +177,7 @@ public:
 			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
-		rctx.upload_buffer<shader_types::geometry_data>(geom_buf, geometries, 0, u8"Upload geometry buffer");
+		q.upload_buffer<shader_types::geometry_data>(geom_buf, geometries, 0, u8"Upload geometry buffer");
 		geometries_buffer = geom_buf.get_view<shader_types::geometry_data>(0, geometries.size());
 
 		if (materials.empty()) {
@@ -187,7 +189,7 @@ public:
 			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
-		rctx.upload_buffer<lren::shader_types::generic_pbr_material::material>(mat_buf, materials, 0, u8"Upload material buffer");
+		q.upload_buffer<lren::shader_types::generic_pbr_material::material>(mat_buf, materials, 0, u8"Upload material buffer");
 		materials_buffer = mat_buf.get_view<lren::shader_types::generic_pbr_material::material>(0, materials.size());
 
 		if (instance_data.empty()) {
@@ -199,7 +201,7 @@ public:
 			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
-		rctx.upload_buffer<shader_types::rt_instance_data>(inst_buf, instance_data, 0, u8"Upload instance buffer");
+		q.upload_buffer<shader_types::rt_instance_data>(inst_buf, instance_data, 0, u8"Upload instance buffer");
 		instances_buffer = inst_buf.get_view<shader_types::rt_instance_data>(0, instance_data.size());
 
 		if (lights.empty()) {
@@ -211,11 +213,13 @@ public:
 			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
-		rctx.upload_buffer<lren::shader_types::light>(light_buf, lights, 0, u8"Upload lights buffer");
+		q.upload_buffer<lren::shader_types::light>(light_buf, lights, 0, u8"Upload lights buffer");
 		lights_buffer = light_buf.get_view<lren::shader_types::light>(0, lights.size());
 
 		gbuffer_instance_render_details = lren::g_buffer::get_instance_render_details(_assets, instances);
 	}
+
+	lren::context::queue q;
 
 	lren::pool geom_buffer_pool = nullptr;
 	lren::pool geom_texture_pool = nullptr;

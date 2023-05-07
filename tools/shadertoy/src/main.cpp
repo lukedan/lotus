@@ -35,15 +35,16 @@ int main(int argc, char **argv) {
 			return true;
 		}
 		lotus::log().info<"Selected device: {}">(lotus::string::to_generic(properties.name));
-		auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics, lgpu::queue_type::compute });
+		auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics });
 		gdev = std::move(dev);
 		gqueues = std::move(queues);
 		gdev_props = properties;
 		return false;
 	});
 
-	auto rctx = lren::context::create(gctx, gdev_props, gdev, gqueues[0], gqueues[1]);
-	auto ass_man = lren::assets::manager::create(rctx, &shader_utils);
+	auto rctx = lren::context::create(gctx, gdev_props, gdev, gqueues);
+	auto gfx_q = rctx.get_queue(0);
+	auto ass_man = lren::assets::manager::create(rctx, rctx.get_queue(0), &shader_utils);
 	ass_man.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets";
 	ass_man.additional_shader_includes = {
 		ass_man.asset_library_path / "shaders/",
@@ -53,7 +54,7 @@ int main(int argc, char **argv) {
 
 	// swap chain
 	auto swapchain = rctx.request_swap_chain(
-		u8"Swap chain", wnd, 3, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb }
+		u8"Swap chain", wnd, gfx_q, 3, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb }
 	);
 
 	bool reload = true;
@@ -238,7 +239,7 @@ int main(int argc, char **argv) {
 					{}
 				);
 
-				auto pass = rctx.begin_pass(std::move(color_surfaces), nullptr, window_size, pit->first);
+				auto pass = gfx_q.begin_pass(std::move(color_surfaces), nullptr, window_size, pit->first);
 				pass.draw_instanced(
 					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list, std::move(resource_bindings),
 					vert_shader, pit->second.shader, state, 1, pit->first
@@ -270,7 +271,7 @@ int main(int argc, char **argv) {
 				{}
 			);
 
-			auto pass = rctx.begin_pass(
+			auto pass = gfx_q.begin_pass(
 				{
 					lren::image2d_color(
 						swapchain, lgpu::color_render_target_access::create_clear(lotus::cvec4d(1.0, 0.0, 0.0, 0.0))
@@ -285,8 +286,9 @@ int main(int argc, char **argv) {
 			pass.end();
 		}
 
-		rctx.present(swapchain, u8"Present");
-		rctx.flush();
+		gfx_q.present(swapchain, u8"Present");
+
+		rctx.execute_all();
 
 		++frame_index;
 		auto now = std::chrono::high_resolution_clock::now();

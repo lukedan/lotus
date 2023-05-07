@@ -32,7 +32,7 @@ namespace lotus::renderer::g_buffer {
 		[[nodiscard]] static view create(context&, cvec2u32 size, const pool&);
 
 		/// Starts a pass rendering to this view.
-		[[nodiscard]] context::pass begin_pass(context&);
+		[[nodiscard]] context::pass begin_pass(context::queue&);
 
 		image2d_view albedo_glossiness; ///< Albedo and glossiness buffer.
 		image2d_view normal;            ///< Normal buffer.

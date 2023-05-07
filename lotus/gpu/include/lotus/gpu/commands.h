@@ -343,8 +343,17 @@ namespace lotus::gpu {
 			backend::command_queue::signal(f);
 		}
 		/// Sets the given timeline semaphore to the given value.
-		void signal(timeline_semaphore &sem, std::uint64_t value) {
+		void signal(timeline_semaphore &sem, timeline_semaphore::value_type value) {
 			backend::command_queue::signal(sem, value);
+		}
+
+		/// Returns the type of this queue.
+		[[nodiscard]] queue_type get_type() const {
+			return _type;
+		}
+		/// Returns the index of this queue.
+		[[nodiscard]] std::uint32_t get_index() const {
+			return _index;
 		}
 
 		/// Checks if this holds a valid queue object.
@@ -356,8 +365,12 @@ namespace lotus::gpu {
 			return is_valid();
 		}
 	protected:
+		std::uint32_t _index = std::numeric_limits<std::uint32_t>::max(); ///< The index of this queue.
+		queue_type _type = queue_type::num_enumerators; ///< The type of this queue.
+
 		/// Initializes the backend command queue.
-		command_queue(backend::command_queue q) : backend::command_queue(std::move(q)) {
+		command_queue(backend::command_queue q, std::uint32_t i, queue_type ty) :
+			backend::command_queue(std::move(q)), _index(i), _type(ty) {
 		}
 	};
 }

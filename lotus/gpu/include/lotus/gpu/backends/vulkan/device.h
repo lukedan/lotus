@@ -205,7 +205,7 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::UniqueDevice::createFenceUnique().
 		[[nodiscard]] fence create_fence(synchronization_state state);
 		/// Calls \p vk::UniqueDevice::createSemaphoreUnique().
-		[[nodiscard]] timeline_semaphore create_timeline_semaphore(std::uint64_t);
+		[[nodiscard]] timeline_semaphore create_timeline_semaphore(gpu::_details::timeline_semaphore_value_type);
 
 		/// Calls \p vk::UniqueDevice::resetFences().
 		void reset_fence(fence&);
@@ -213,11 +213,11 @@ namespace lotus::gpu::backends::vulkan {
 		void wait_for_fence(fence&);
 
 		/// Calls \p vk::UniqueDevice::signalSemaphore().
-		void signal_timeline_semaphore(timeline_semaphore&, std::uint64_t);
+		void signal_timeline_semaphore(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 		/// Calls \p vk::UniqueDevice::getSemaphoreCounterValue().
-		[[nodiscard]] std::uint64_t query_timeline_semaphore(timeline_semaphore&);
+		[[nodiscard]] gpu::_details::timeline_semaphore_value_type query_timeline_semaphore(timeline_semaphore&);
 		/// Calls \p vk::UniqueDevice::waitSemaphores().
-		void wait_for_timeline_semaphore(timeline_semaphore&, std::uint64_t);
+		void wait_for_timeline_semaphore(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 
 		/// Calls \p vk::UniqueDevice::createQueryPoolUnique().
 		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(std::uint32_t size);

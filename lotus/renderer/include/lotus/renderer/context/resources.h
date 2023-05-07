@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <deque>
 
 #include "lotus/logging.h"
 #include "lotus/memory/managed_allocator.h"
@@ -11,7 +12,6 @@
 #include "lotus/gpu/pipeline.h"
 #include "lotus/gpu/resources.h"
 #include "lotus/renderer/common.h"
-#include "execution.h"
 #include "resource_bindings.h"
 
 namespace lotus::renderer {
@@ -260,12 +260,12 @@ namespace lotus::renderer {
 
 			/// Initializes all fields of this structure without creating a swap chain.
 			swap_chain(
-				system::window &wnd, std::uint32_t imgs, std::vector<gpu::format> fmts,
+				system::window &wnd, std::uint32_t qi, std::uint32_t imgs, std::vector<gpu::format> fmts,
 				unique_resource_id i, std::u8string_view n
 			) :
 				resource(i, n),
 				chain(nullptr), current_size(zero), desired_size(zero), current_format(gpu::format::none),
-				next_image_index(invalid_image_index), window(wnd), num_images(imgs),
+				next_image_index(invalid_image_index), window(wnd), queue_index(qi), num_images(imgs),
 				expected_formats(std::move(fmts)) {
 			}
 
@@ -281,12 +281,14 @@ namespace lotus::renderer {
 
 			cvec2u32 current_size; ///< Current size of swap chain images.
 			cvec2u32 desired_size; ///< Desired size of swap chain images.
-			gpu::format current_format; ///< Format of the swap chain images.
+			gpu::format current_format = gpu::format::none; ///< Format of the swap chain images.
 
 			std::uint32_t next_image_index = 0; ///< Index of the next image.
 
 			system::window &window; ///< The window that owns this swap chain.
-			std::uint32_t num_images; ///< Number of images in the swap chain.
+			/// The queue that this swap chain is allowed to present on.
+			std::uint32_t queue_index = std::numeric_limits<std::uint32_t>::max();
+			std::uint32_t num_images = 0; ///< Number of images in the swap chain.
 			std::vector<gpu::format> expected_formats; ///< Expected swap chain formats.
 		};
 
@@ -408,6 +410,11 @@ namespace lotus::renderer {
 			std::vector<std::shared_ptr<blas>> input_references; ///< References to all input BLAS's.
 		};
 
+		// TODO?
+		struct fence {
+			// TODO?
+		};
+
 		/// A cached descriptor set.
 		struct cached_descriptor_set : public resource {
 			/// Initializes all fields of this struct.
@@ -419,7 +426,7 @@ namespace lotus::renderer {
 				std::u8string_view n
 			) :
 				resource(i, n),
-				set(std::move(s)), ranges(std::move(rs)), layout(&l), transitions(nullptr) {
+				set(std::move(s)), ranges(std::move(rs)), layout(&l) {
 			}
 
 			/// Returns \ref resource_type::cached_descriptor_set.
@@ -432,18 +439,13 @@ namespace lotus::renderer {
 			std::vector<gpu::descriptor_range_binding> ranges; ///< Sorted descriptor ranges.
 			const gpu::descriptor_set_layout *layout = nullptr; ///< Layout of this descriptor set.
 
-			/// Records all transitions that are needed when using this descriptor set.
-			execution::transition_buffer transitions;
+			/*/// Records all transitions that are needed when using this descriptor set.
+			execution::transition_buffer transitions;*/ // TODO
 			std::vector<gpu::image2d_view> image2d_views; ///< 2D image views used by this descriptor set.
 			std::vector<gpu::image3d_view> image3d_views; ///< 3D image views used by this descriptor set.
 			std::vector<gpu::sampler> samplers; ///< Samplers used by this descriptor set.
 			/// All resources referenced by this descriptor set.
 			std::vector<std::shared_ptr<resource>> resource_references;
-		};
-
-		// TODO?
-		struct fence {
-			// TODO?
 		};
 
 

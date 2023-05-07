@@ -38,6 +38,8 @@ namespace lotus::gpu {
 	class timeline_semaphore : public backend::timeline_semaphore {
 		friend device;
 	public:
+		using value_type = _details::timeline_semaphore_value_type; ///< Value type of the semaphores.
+
 		/// Creates an empty event.
 		timeline_semaphore(std::nullptr_t) : backend::timeline_semaphore(nullptr) {
 		}

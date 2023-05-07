@@ -14,6 +14,7 @@
 #include "resource_bindings.h"
 #include "assets.h"
 #include "execution.h"
+#include "commands.h"
 
 namespace lotus::renderer {
 	/// Cached material and pass related instance data.
@@ -41,243 +42,54 @@ namespace lotus::renderer {
 	};
 
 
-	/// Commands to be executed during a render pass.
-	namespace pass_commands {
-		/// Draws a number of instances of a given mesh.
-		struct draw_instanced {
+	namespace _details {
+		/// Data about a command queue.
+		struct queue_data {
+		public:
 			/// Initializes all fields of this struct.
-			draw_instanced(
-				std::uint32_t num_instances,
-				std::vector<input_buffer_binding> in, std::uint32_t num_verts,
-				index_buffer_binding indices, std::uint32_t num_indices,
-				gpu::primitive_topology t,
-				_details::numbered_bindings resources,
-				assets::handle<assets::shader> vs,
-				assets::handle<assets::shader> ps,
-				graphics_pipeline_state s
-			) :
-				inputs(std::move(in)), index_buffer(std::move(indices)), resource_bindings(std::move(resources)),
-				vertex_shader(std::move(vs)), pixel_shader(std::move(ps)), state(std::move(s)),
-				instance_count(num_instances), vertex_count(num_verts), index_count(num_indices), topology(t) {
+			queue_data(context &c, gpu::command_queue q, gpu::timeline_semaphore sem) :
+				queue(std::move(q)), batch_semaphore(std::move(sem)), ctx(c), uploads(nullptr) {
 			}
 
-			std::vector<input_buffer_binding> inputs;       ///< Input buffers.
-			index_buffer_binding              index_buffer; ///< Index buffer, if applicable.
+			gpu::command_queue queue; ///< The queue.
+			gpu::timeline_semaphore batch_semaphore; ///< A semaphore that is signaled after each batch.
+			context &ctx; ///< The context that owns this queue.
 
-			_details::numbered_bindings resource_bindings; ///< Resource bindings.
-			// TODO more shaders
-			assets::handle<assets::shader> vertex_shader; ///< Vertex shader.
-			assets::handle<assets::shader> pixel_shader;  ///< Pixel shader.
-			graphics_pipeline_state state; ///< Render pipeline state.
+			// per-batch data
+			std::vector<command> batch_commands; ///< Recorded commands.
+			std::uint32_t num_timers = 0; ///< Number of registered timers so far.
+			bool within_pass = false; ///< Whether this queue is currently recording pass commands.
+			// TODO: get rid of this
+			upload_buffers uploads; ///< Upload buffers.
 
-			std::uint32_t instance_count = 0; ///< Number of instances to draw.
-			std::uint32_t vertex_count   = 0; ///< Number of vertices.
-			std::uint32_t index_count    = 0; ///< Number of indices.
-			/// Primitive topology.
-			gpu::primitive_topology topology = gpu::primitive_topology::point_list;
+
+			/// Resets batch-specific data.
+			void reset_batch() {
+				batch_commands.clear();
+				num_timers = 0;
+				within_pass = false;
+				uploads = nullptr;
+			}
+
+			/// Adds a command. Does not care if we're currently within a pass.
+			template <typename Cmd, typename ...Args> void add_command(
+				static_optional<std::u8string, should_register_debug_names> description, Args &&...args
+			) {
+				_check_command<Cmd>();
+				batch_commands.emplace_back(std::move(description)).value.emplace<Cmd>(std::forward<Args>(args)...);
+			}
+		private:
+			/// Performs checks before a command is added to this queue.
+			template <typename Cmd> void _check_command() {
+				if constexpr (bit_mask::contains<commands::flags::pass_command>(Cmd::get_flags())) {
+					crash_if(!within_pass);
+				}
+				if constexpr (bit_mask::contains<commands::flags::non_pass_command>(Cmd::get_flags())) {
+					crash_if(within_pass);
+				}
+			}
 		};
 	}
-	/// A union of all pass command types.
-	struct pass_command {
-		/// Initializes this command.
-		template <typename ...Args> explicit pass_command(std::u8string_view desc, Args &&...args) :
-			value(std::forward<Args>(args)...), description(desc) {
-		}
-
-		std::variant<pass_commands::draw_instanced> value; ///< The value of this command.
-		/// Debug description of this command.
-		[[no_unique_address]] static_optional<std::u8string, should_register_debug_names> description;
-	};
-
-	/// Commands.
-	namespace context_commands {
-		/// Placeholder for an invalid command.
-		struct invalid {
-		};
-
-		/// Uploads contents from the given staging buffer to the highest visible mip of the target image.
-		struct upload_image {
-			/// Initializes all fields of this struct.
-			upload_image(gpu::staging_buffer src, recorded_resources::image2d_view dst) :
-				source(std::move(src)), destination(dst) {
-			}
-
-			gpu::staging_buffer source; ///< Image data.
-			recorded_resources::image2d_view destination; ///< Image to upload to.
-		};
-
-		/// Uploads contents from the given staging buffer to the target buffer.
-		struct upload_buffer {
-			/// Initializes all fields of this struct.
-			upload_buffer(
-				gpu::buffer &src, std::uint32_t src_off, execution::upload_buffers::allocation_type ty,
-				recorded_resources::buffer dst, std::uint32_t off, std::uint32_t sz
-			) : source(&src), source_offset(src_off), destination(dst), destination_offset(off), size(sz), type(ty) {
-			}
-
-			gpu::buffer *source = nullptr; ///< Buffer data.
-			std::uint32_t source_offset = 0; ///< Offset in the source buffer in bytes.
-			recorded_resources::buffer destination; ///< Buffer to upload to.
-			std::uint32_t destination_offset = 0; ///< Offset of the region to upload to in the destination buffer.
-			std::uint32_t size = 0; ///< Size of the region to upload.
-			/// The type of \ref source.
-			execution::upload_buffers::allocation_type type = execution::upload_buffers::allocation_type::invalid;
-		};
-
-		/// Copies data from one buffer to another.
-		struct copy_buffer {
-			/// Initializes all fields of this struct.
-			copy_buffer(
-				recorded_resources::buffer src, recorded_resources::buffer dst,
-				std::uint32_t src_off, std::uint32_t dst_off, std::uint32_t sz
-			) : source(src), destination(dst), source_offset(src_off), destination_offset(dst_off), size(sz) {
-			}
-
-			recorded_resources::buffer source;      ///< The source buffer.
-			recorded_resources::buffer destination; ///< The destination buffer.
-			std::uint32_t source_offset = 0;      ///< Offset in the source buffer in bytes.
-			std::uint32_t destination_offset = 0; ///< Offset in the destination buffer in bytes.
-			std::uint32_t size = 0;               ///< Number of bytes to copy.
-		};
-
-		/// Compute shader dispatch.
-		struct dispatch_compute {
-			/// Initializes all fields of this struct.
-			dispatch_compute(
-				_details::numbered_bindings rsrc,
-				assets::handle<assets::shader> compute_shader,
-				cvec3u32 numgroups
-			) : resources(std::move(rsrc)),
-				shader(std::move(compute_shader)),
-				num_thread_groups(numgroups) {
-			}
-
-			_details::numbered_bindings resources; ///< All resource bindings.
-			assets::handle<assets::shader> shader; ///< The shader.
-			cvec3u32 num_thread_groups = uninitialized; ///< Number of thread groups.
-		};
-
-		/// Executes a render pass.
-		struct render_pass {
-			/// Initializes the render target.
-			render_pass(std::vector<image2d_color> color_rts, image2d_depth_stencil ds_rt, cvec2u32 sz) :
-				color_render_targets(std::move(color_rts)), depth_stencil_target(std::move(ds_rt)),
-				render_target_size(sz) {
-			}
-
-			std::vector<image2d_color> color_render_targets; ///< Color render targets.
-			image2d_depth_stencil depth_stencil_target; ///< Depth stencil render target.
-			cvec2u32 render_target_size; ///< The size of the render target.
-			std::vector<pass_command> commands; ///< Commands within this pass.
-		};
-
-		/// Builds a bottom level acceleration structure.
-		struct build_blas {
-			/// Initializes all fields of this struct.
-			explicit build_blas(recorded_resources::blas t) : target(std::move(t)) {
-			}
-
-			recorded_resources::blas target; ///< The BLAS to build.
-		};
-
-		/// Builds a top level acceleration structure.
-		struct build_tlas {
-			/// Initializes all fields of this struct.
-			explicit build_tlas(recorded_resources::tlas t) : target(std::move(t)) {
-			}
-
-			recorded_resources::tlas target; ///< The TLAS to build.
-		};
-
-		/// Generates and traces rays.
-		struct trace_rays {
-			/// Initializes all fields of this struct.
-			trace_rays(
-				_details::numbered_bindings b,
-				std::vector<shader_function> hg_shaders,
-				std::vector<gpu::hit_shader_group> groups,
-				std::vector<shader_function> gen_shaders,
-				std::uint32_t rg_group_idx,
-				std::vector<std::uint32_t> miss_group_idx,
-				std::vector<std::uint32_t> hit_group_idx,
-				std::uint32_t rec_depth,
-				std::uint32_t payload_size,
-				std::uint32_t attr_size,
-				cvec3u32 threads
-			) :
-				resource_bindings(std::move(b)),
-				hit_group_shaders(std::move(hg_shaders)),
-				hit_groups(std::move(groups)),
-				general_shaders(std::move(gen_shaders)),
-				raygen_shader_group_index(rg_group_idx),
-				miss_group_indices(std::move(miss_group_idx)),
-				hit_group_indices(std::move(hit_group_idx)),
-				max_recursion_depth(rec_depth),
-				max_payload_size(payload_size),
-				max_attribute_size(attr_size),
-				num_threads(threads) {
-			}
-
-			_details::numbered_bindings resource_bindings; ///< All resource bindings.
-			
-			std::vector<shader_function> hit_group_shaders; ///< Ray tracing shaders.
-			std::vector<gpu::hit_shader_group> hit_groups;  ///< Hit groups.
-			std::vector<shader_function> general_shaders;   ///< General callable shaders.
-
-			std::uint32_t raygen_shader_group_index = 0; ///< Index of the ray generation shader group.
-			std::vector<std::uint32_t> miss_group_indices; ///< Indices of the miss shader groups.
-			std::vector<std::uint32_t> hit_group_indices;  ///< Indices of the hit shader groups.
-
-			std::uint32_t max_recursion_depth = 0; ///< Maximum recursion depth for the rays.
-			std::uint32_t max_payload_size = 0;    ///< Maximum payload size.
-			std::uint32_t max_attribute_size = 0;  ///< Maximum attribute size.
-
-			cvec3u32 num_threads; ///< Number of threads to spawn.
-		};
-
-		/// Presents the given swap chain.
-		struct present {
-			/// Initializes the target.
-			explicit present(swap_chain t) : target(std::move(t)) {
-			}
-
-			swap_chain target; ///< The swap chain to present.
-		};
-
-		/// Breaks the program when attached to a debugger.
-		struct pause_for_debugging {
-		};
-	}
-	/// A union of all context command types.
-	struct context_command {
-		/// Initializes this command.
-		template <typename ...Args> explicit context_command(std::u8string_view desc, Args &&...args) :
-			value(std::forward<Args>(args)...), description(desc) {
-		}
-		/// \overload
-		template <typename ...Args> explicit context_command(
-			static_optional<std::u8string, should_register_debug_names> desc, Args &&...args
-		) : value(std::forward<Args>(args)...), description(std::move(desc)) {
-		}
-
-		std::variant<
-			context_commands::invalid,
-			context_commands::upload_image,
-			context_commands::upload_buffer,
-			context_commands::copy_buffer,
-			context_commands::dispatch_compute,
-			context_commands::render_pass,
-			context_commands::build_blas,
-			context_commands::build_tlas,
-			context_commands::trace_rays,
-			context_commands::present,
-
-			context_commands::pause_for_debugging
-		> value; ///< The value of this command.
-		/// Debug description of this command.
-		[[no_unique_address]] static_optional<std::u8string, should_register_debug_names> description;
-	};
-
 
 	/// Keeps track of the rendering of a frame, including resources used for rendering.
 	class context {
@@ -285,15 +97,62 @@ namespace lotus::renderer {
 		friend _details::context_managed_deleter;
 		friend execution::context;
 	public:
-		class command_list;
-
 		/// Helper class used to retrieve the device associated with a \ref context.
 		struct device_access {
 			friend assets::manager;
-			friend execution::upload_buffers;
+			friend upload_buffers;
 		protected:
 			/// Retrieves the device associated with the given \ref context.
 			[[nodiscard]] static gpu::device &get(context&);
+		};
+
+		/// Object whose lifetime marks the duration of a timer.
+		class timer {
+			friend context;
+		public:
+			/// Initializes this object to empty.
+			timer(std::nullptr_t) {
+			}
+			/// Move construction.
+			timer(timer &&src) noexcept : _q(std::exchange(src._q, nullptr)), _index(src._index) {
+			}
+			/// No copy construction.
+			timer(const timer&) = delete;
+			/// Move assignment.
+			timer &operator=(timer &&src) noexcept {
+				if (&src != this) {
+					end();
+					_q = std::exchange(src._q, nullptr);
+					_index = src._index;
+				}
+				return *this;
+			}
+			/// No copy assignment.
+			timer &operator=(const timer&) = delete;
+			/// Ends the timer.
+			~timer() {
+				end();
+			}
+
+			/// Ends this timer if it's ongoing.
+			void end() {
+				if (_q) {
+					_q->add_command<commands::end_timer>(u8"End Timer", _index);
+					_q = nullptr;
+				}
+			}
+
+			/// Returns whether this object is valid.
+			[[nodiscard]] bool is_valid() const {
+				return _q != nullptr;
+			}
+		private:
+			/// Initializes all fields of this struct.
+			timer(_details::queue_data &q, commands::timer_index i) : _q(&q), _index(i) {
+			}
+
+			_details::queue_data *_q = nullptr; ///< Associated command queue.
+			commands::timer_index _index = commands::timer_index::invalid; ///< Index of the timer.
 		};
 		/// A pass being rendered.
 		class pass {
@@ -303,6 +162,10 @@ namespace lotus::renderer {
 			pass(pass&&) = delete;
 			/// No copy construction.
 			pass(const pass&) = delete;
+			/// Automatically ends the pass.
+			~pass() {
+				end();
+			}
 
 			/// Draws a number of instances with the given inputs.
 			void draw_instanced(
@@ -342,80 +205,152 @@ namespace lotus::renderer {
 			/// Finishes rendering to the pass and records all commands into the context.
 			void end();
 		private:
-			// TODO allocator?
-			context_commands::render_pass _command; ///< The resulting render pass command.
-			context *_context = nullptr; ///< The context that created this pass.
-			/// The description of this pass.
-			[[no_unique_address]] static_optional<std::u8string, should_register_debug_names> _description;
+			_details::queue_data *_q = nullptr; ///< The queue.
 
 			/// Initializes the pass.
-			pass(
-				context &ctx, std::vector<image2d_color> color_rts, image2d_depth_stencil ds_rt, cvec2u32 sz,
-				std::u8string_view description
-			) :
-				_context(&ctx),
-				_command(std::move(color_rts), std::move(ds_rt), sz),
-				_description(description) {
+			explicit pass(_details::queue_data &q) : _q(&q) {
 			}
 		};
-		/// Object whose lifetime marks the duration of a timer.
-		class timer {
+		/// A handle of a command queue.
+		class queue {
 			friend context;
 		public:
-			/// Initializes this object to empty.
-			timer(std::nullptr_t) {
-			}
-			/// Move construction.
-			timer(timer &&src) noexcept : _ctx(std::exchange(src._ctx, nullptr)), _index(src._index) {
-			}
-			/// No copy construction.
-			timer(const timer&) = delete;
-			/// Move assignment.
-			timer &operator=(timer &&src) noexcept {
-				if (&src != this) {
-					end();
-					_ctx = std::exchange(src._ctx, nullptr);
-					_index = src._index;
-				}
-				return *this;
-			}
-			/// No copy assignment.
-			timer &operator=(const timer&) = delete;
-			/// Ends the timer.
-			~timer() {
-				end();
+			/// Initializes this handle to empty.
+			queue(std::nullptr_t) {
 			}
 
-			/// Ends this timer if it's ongoing.
-			void end() {
-				if (_ctx) {
-					_ctx->_timers[_index].last_command = static_cast<std::uint32_t>(_ctx->_commands.size());
-					_ctx = nullptr;
-				}
+			/// Uploads image data to the GPU. This function immediately creates and fills the staging buffer, but actual
+			/// image uploading is deferred. The pixels format of the input data is assumed to be the same as the
+			/// image (i.e. direct memcpy can be used), and the rows are assumed to be tightly packed.
+			void upload_image(const image2d_view &target, const std::byte *data, std::u8string_view description);
+			/// Uploads buffer data to the GPU.
+			void upload_buffer(
+				const buffer &target, std::span<const std::byte> data, std::uint32_t offset,
+				std::u8string_view descriptorion
+			);
+			/// \overload
+			template <typename T> void upload_buffer(
+				const buffer &target, std::span<const T> data, std::uint32_t byte_offset, std::u8string_view description
+			) {
+				auto *d = reinterpret_cast<const std::byte*>(data.data());
+				upload_buffer(target, { d, d + data.size_bytes() }, byte_offset, description);
 			}
 
-			/// Returns whether this object is valid.
+			/// Copies data from the first buffer to the second.
+			void copy_buffer(
+				const buffer &source, const buffer &target,
+				std::uint32_t src_offset, std::uint32_t dst_offset, std::uint32_t sz,
+				std::u8string_view description
+			);
+
+			/// Builds the given \ref blas.
+			void build_blas(blas&, std::u8string_view description);
+			/// Builds the given \ref tlas.
+			void build_tlas(tlas&, std::u8string_view description);
+
+			/// Generates and traces rays.
+			void trace_rays(
+				std::span<const shader_function> hit_group_shaders,
+				std::span<const gpu::hit_shader_group>,
+				std::span<const shader_function> general_shaders,
+				std::uint32_t raygen_shader_index,
+				std::span<const std::uint32_t> miss_shader_indices,
+				std::span<const std::uint32_t> shader_groups,
+				std::uint32_t max_recursion_depth,
+				std::uint32_t max_payload_size,
+				std::uint32_t max_attribute_size,
+				cvec3u32 num_threads,
+				all_resource_bindings,
+				std::u8string_view description
+			);
+			/// \overload
+			void trace_rays(
+				std::initializer_list<const shader_function> hit_group_shaders,
+				std::initializer_list<const gpu::hit_shader_group> hit_groups,
+				std::initializer_list<const shader_function> general_shaders,
+				std::uint32_t raygen_shader_index,
+				std::initializer_list<const std::uint32_t> miss_shader_indices,
+				std::initializer_list<const std::uint32_t> shader_groups,
+				std::uint32_t max_recursion_depth,
+				std::uint32_t max_payload_size,
+				std::uint32_t max_attribute_size,
+				cvec3u32 num_threads,
+				all_resource_bindings resources,
+				std::u8string_view description
+			) {
+				trace_rays(
+					{ hit_group_shaders.begin(), hit_group_shaders.end() },
+					{ hit_groups.begin(), hit_groups.end() },
+					{ general_shaders.begin(), general_shaders.end() },
+					raygen_shader_index,
+					{ miss_shader_indices.begin(), miss_shader_indices.end() },
+					{ shader_groups.begin(), shader_groups.end() },
+					max_recursion_depth,
+					max_payload_size,
+					max_attribute_size,
+					num_threads,
+					std::move(resources),
+					description
+				);
+			}
+
+			/// Runs a compute shader.
+			void run_compute_shader(
+				assets::handle<assets::shader>, cvec3<std::uint32_t> num_thread_groups, all_resource_bindings,
+				std::u8string_view description
+			);
+			/// Runs a compute shader with the given number of threads. Asserts if the number of threads is not
+			/// divisible by the shader's thread group size.
+			void run_compute_shader_with_thread_dimensions(
+				assets::handle<assets::shader>, cvec3<std::uint32_t> num_threads, all_resource_bindings,
+				std::u8string_view description
+			);
+
+			/// Starts rendering to the given surfaces. No other operations can be performed until the pass finishes.
+			[[nodiscard]] pass begin_pass(
+				std::vector<image2d_color>, image2d_depth_stencil, cvec2u32 sz, std::u8string_view description
+			);
+
+			/// Presents the given swap chain.
+			void present(swap_chain, std::u8string_view description);
+
+
+			/// Starts a new timer.
+			[[nodiscard]] timer start_timer(std::u8string);
+
+			/// Pauses command processing.
+			void pause_for_debugging(std::u8string_view description);
+
+
+			/// Returns whether this a valid handle.
 			[[nodiscard]] bool is_valid() const {
-				return _ctx != nullptr;
+				return _q;
+			}
+			/// \overload
+			[[nodiscard]] explicit operator bool() const {
+				return is_valid();
 			}
 		private:
-			/// Initializes all fields of this struct.
-			timer(context *c, std::uint32_t i) : _ctx(c), _index(i) {
+			/// Initializes this handle.
+			explicit queue(_details::queue_data &q) : _q(&q) {
 			}
 
-			context *_ctx = nullptr; ///< Associated context.
-			std::uint32_t _index = 0; ///< Index of the timer.
+			_details::queue_data *_q = nullptr; ///< The queue.
 		};
 
 		/// Creates a new context object.
 		[[nodiscard]] static context create(
-			gpu::context&, const gpu::adapter_properties&, gpu::device&,
-			gpu::command_queue graphics_q, gpu::command_queue compute_q
+			gpu::context&, const gpu::adapter_properties&, gpu::device&, std::span<const gpu::command_queue>
 		);
 		/// No move constructor.
 		context(context&&) = delete;
 		/// Disposes of all resources.
 		~context();
+
+		/// Returns the command queue at the given index.
+		[[nodiscard]] queue get_queue(std::uint32_t index) {
+			return queue(_queues[index]);
+		}
 
 		/// Creates a new memory pool. If no valid memory type index is specified, the pool is created for device
 		/// memory by default.
@@ -446,15 +381,15 @@ namespace lotus::renderer {
 		}
 		/// Creates a swap chain with the given properties.
 		[[nodiscard]] swap_chain request_swap_chain(
-			std::u8string_view name, system::window&,
+			std::u8string_view name, system::window&, queue&,
 			std::uint32_t num_images, std::span<const gpu::format> formats
 		);
 		/// \overload
 		[[nodiscard]] swap_chain request_swap_chain(
-			std::u8string_view name, system::window &wnd,
+			std::u8string_view name, system::window &wnd, queue &q,
 			std::uint32_t num_images, std::initializer_list<gpu::format> formats
 		) {
-			return request_swap_chain(name, wnd, num_images, std::span{ formats.begin(), formats.end() });
+			return request_swap_chain(name, wnd, q, num_images, std::span{ formats.begin(), formats.end() });
 		}
 		/// Creates a descriptor array with the given properties.
 		[[nodiscard]] image_descriptor_array request_image_descriptor_array(
@@ -488,116 +423,8 @@ namespace lotus::renderer {
 		}
 
 
-		/// Starts a new timer.
-		[[nodiscard]] timer start_timer(std::u8string_view name) {
-			auto index = static_cast<std::uint32_t>(_timers.size());
-			_timers.emplace_back(static_cast<std::uint32_t>(_commands.size()), name);
-			return timer(this, index);
-		}
-
-
-		/// Uploads image data to the GPU. This function immediately creates and fills the staging buffer, but actual
-		/// image uploading is deferred. The pixels format of the input data is assumed to be the same as the
-		/// image (i.e. direct memcpy can be used), and the rows are assumed to be tightly packed.
-		void upload_image(const image2d_view &target, const std::byte *data, std::u8string_view description);
-		/// Uploads buffer data to the GPU.
-		void upload_buffer(
-			const buffer &target, std::span<const std::byte> data, std::uint32_t offset,
-			std::u8string_view descriptorion
-		);
-		/// \overload
-		template <typename T> void upload_buffer(
-			const buffer &target, std::span<const T> data, std::uint32_t byte_offset, std::u8string_view description
-		) {
-			auto *d = reinterpret_cast<const std::byte*>(data.data());
-			upload_buffer(target, { d, d + data.size_bytes() }, byte_offset, description);
-		}
-
-		/// Copies data from the first buffer to the second.
-		void copy_buffer(
-			const buffer &source, const buffer &target,
-			std::uint32_t src_offset, std::uint32_t dst_offset, std::uint32_t sz,
-			std::u8string_view description
-		);
-
-		/// Builds the given \ref blas.
-		void build_blas(blas&, std::u8string_view description);
-		/// Builds the given \ref tlas.
-		void build_tlas(tlas&, std::u8string_view description);
-
-		/// Generates and traces rays.
-		void trace_rays(
-			std::span<const shader_function> hit_group_shaders,
-			std::span<const gpu::hit_shader_group>,
-			std::span<const shader_function> general_shaders,
-			std::uint32_t raygen_shader_index,
-			std::span<const std::uint32_t> miss_shader_indices,
-			std::span<const std::uint32_t> shader_groups,
-			std::uint32_t max_recursion_depth,
-			std::uint32_t max_payload_size,
-			std::uint32_t max_attribute_size,
-			cvec3u32 num_threads,
-			all_resource_bindings,
-			std::u8string_view description
-		);
-		/// \overload
-		void trace_rays(
-			std::initializer_list<const shader_function> hit_group_shaders,
-			std::initializer_list<const gpu::hit_shader_group> hit_groups,
-			std::initializer_list<const shader_function> general_shaders,
-			std::uint32_t raygen_shader_index,
-			std::initializer_list<const std::uint32_t> miss_shader_indices,
-			std::initializer_list<const std::uint32_t> shader_groups,
-			std::uint32_t max_recursion_depth,
-			std::uint32_t max_payload_size,
-			std::uint32_t max_attribute_size,
-			cvec3u32 num_threads,
-			all_resource_bindings resources,
-			std::u8string_view description
-		) {
-			trace_rays(
-				{ hit_group_shaders.begin(), hit_group_shaders.end() },
-				{ hit_groups.begin(), hit_groups.end() },
-				{ general_shaders.begin(), general_shaders.end() },
-				raygen_shader_index,
-				{ miss_shader_indices.begin(), miss_shader_indices.end() },
-				{ shader_groups.begin(), shader_groups.end() },
-				max_recursion_depth,
-				max_payload_size,
-				max_attribute_size,
-				num_threads,
-				std::move(resources),
-				description
-			);
-		}
-
-		/// Runs a compute shader.
-		void run_compute_shader(
-			assets::handle<assets::shader>, cvec3<std::uint32_t> num_thread_groups, all_resource_bindings,
-			std::u8string_view description
-		);
-		/// Runs a compute shader with the given number of threads. Asserts if the number of threads is not
-		/// divisible by the shader's thread group size.
-		void run_compute_shader_with_thread_dimensions(
-			assets::handle<assets::shader>, cvec3<std::uint32_t> num_threads, all_resource_bindings,
-			std::u8string_view description
-		);
-
-		/// Starts rendering to the given surfaces. No other operations can be performed until the pass finishes.
-		[[nodiscard]] pass begin_pass(
-			std::vector<image2d_color>, image2d_depth_stencil, cvec2u32 sz, std::u8string_view description
-		);
-
-		/// Presents the given swap chain.
-		void present(swap_chain, std::u8string_view description);
-
-		/// Pauses command processing.
-		void pause_for_debugging(std::u8string_view description);
-
-
-		/// Analyzes and executes all pending commands. This is the only place where that happens - it doesn't happen
-		/// automatically.
-		execution::batch_statistics_early flush();
+		/// Analyzes and executes all recorded commands.
+		std::vector<execution::batch_statistics_early> execute_all();
 		/// Waits until all previous batches have finished executing.
 		void wait_idle();
 
@@ -686,14 +513,12 @@ namespace lotus::renderer {
 			std::u8string_view name; ///< The name of this timer.
 		};
 
-		gpu::context &_context;     ///< Associated graphics context.
-		gpu::device &_device;       ///< Associated device.
 
-		gpu::command_queue _compute_queue;  ///< Associated graphics command queue.
-		gpu::command_queue _graphics_queue; ///< Associated compute command queue.
+		gpu::context &_context; ///< Associated graphics context.
+		gpu::device &_device;   ///< Associated device.
+		std::vector<_details::queue_data> _queues; ///< Command queues.
 
 		gpu::descriptor_pool _descriptor_pool; ///< Descriptor pool to allocate descriptors out of.
-		gpu::timeline_semaphore _batch_semaphore; ///< A semaphore that is signaled after each batch.
 
 		gpu::adapter_properties _adapter_properties; ///< Adapter properties.
 
@@ -706,24 +531,19 @@ namespace lotus::renderer {
 
 		context_cache _cache; ///< Cached objects.
 
-		std::thread::id _thread; ///< \ref flush() can only be called from the thread that created this object.
-
-		std::vector<context_command> _commands; ///< Recorded commands.
-		std::vector<_timer_data> _timers; ///< All timers.
+		std::thread::id _thread; ///< \ref execute_all() can only be called from the thread that created this object.
 
 		std::deque<execution::batch_resources> _all_resources; ///< Resources that are in use by previous operations.
 		execution::batch_resources _deferred_delete_resources; ///< Resources that are marked for deferred deletion.
 		std::uint32_t _batch_index = 0; ///< Index of the last batch that has been submitted.
 
-		execution::upload_buffers _uploads; ///< Upload buffers.
-
 		/// Counter used to uniquely identify resources.
 		unique_resource_id _resource_index = unique_resource_id::invalid;
 
+
 		/// Initializes all fields of the context.
 		context(
-			gpu::context&, const gpu::adapter_properties&, gpu::device&,
-			gpu::command_queue graphics_queue, gpu::command_queue compute_queue
+			gpu::context&, const gpu::adapter_properties&, gpu::device&, std::span<const gpu::command_queue>
 		);
 
 		/// Allocates a unique resource index.
@@ -985,8 +805,9 @@ namespace lotus::renderer {
 		) {
 			auto &view = set.image2d_views.emplace_back(_create_image_view(img.view));
 			set.resource_references.emplace_back(img.view._ptr->shared_from_this());
+			execution::transition_buffer dummy = nullptr; // TODO
 			_create_descriptor_binding_impl(
-				set.transitions, set.set, *set.layout, reg, img, view
+				dummy, set.set, *set.layout, reg, img, view
 			);
 		}
 		/// \overload
@@ -996,8 +817,9 @@ namespace lotus::renderer {
 		) {
 			auto &view = set.image3d_views.emplace_back(_create_image_view(img.view));
 			set.resource_references.emplace_back(img.view._ptr->shared_from_this());
+			execution::transition_buffer dummy = nullptr; // TODO
 			_create_descriptor_binding_impl(
-				set.transitions, set.set, *set.layout, reg, img, view
+				dummy, set.set, *set.layout, reg, img, view
 			);
 		}
 		/// \overload
@@ -1013,7 +835,8 @@ namespace lotus::renderer {
 			const descriptor_resource::constant_buffer &buf
 		) {
 			set.resource_references.emplace_back(buf.data._ptr->shared_from_this());
-			_create_descriptor_binding_impl(set.transitions, set.set, *set.layout, reg, buf);
+			execution::transition_buffer dummy = nullptr; // TODO
+			_create_descriptor_binding_impl(dummy, set.set, *set.layout, reg, buf);
 		}
 		/// \overload
 		void _create_descriptor_binding_cached(
@@ -1021,7 +844,8 @@ namespace lotus::renderer {
 			const descriptor_resource::structured_buffer &buf
 		) {
 			set.resource_references.emplace_back(buf.data._ptr->shared_from_this());
-			_create_descriptor_binding_impl(set.transitions, set.set, *set.layout, reg, buf);
+			execution::transition_buffer dummy = nullptr; // TODO
+			_create_descriptor_binding_impl(dummy, set.set, *set.layout, reg, buf);
 		}
 		/// Creates a descriptor binding for an immediate constant buffer.
 		void _create_descriptor_binding_cached(
@@ -1036,7 +860,8 @@ namespace lotus::renderer {
 			const recorded_resources::tlas &as
 		) {
 			set.resource_references.emplace_back(as._ptr->shared_from_this());
-			_create_descriptor_binding_impl(set.transitions, set.set, *set.layout, reg, as);
+			execution::transition_buffer dummy = nullptr; // TODO
+			_create_descriptor_binding_impl(dummy, set.set, *set.layout, reg, as);
 		}
 		/// \overload
 		void _create_descriptor_binding_cached(
@@ -1105,40 +930,62 @@ namespace lotus::renderer {
 			std::vector<_descriptor_set_info>, _bind_point
 		);
 
+		/// Handles non-pass commands by crashing.
+		template <typename T> [[nodiscard]] _pass_command_data _preprocess_pass_command(
+			execution::context&, const gpu::frame_buffer_layout&, const T&
+		) {
+			crash_if(true);
+			return nullptr;
+		}
 		/// Preprocesses the given instanced draw command.
-		[[nodiscard]] _pass_command_data _preprocess_command(
-			execution::context&, const gpu::frame_buffer_layout&, const pass_commands::draw_instanced&
+		[[nodiscard]] _pass_command_data _preprocess_pass_command(
+			execution::context&, const gpu::frame_buffer_layout&, const commands::draw_instanced&
 		);
 
-		/// Handles a instanced draw command.
-		void _handle_pass_command(
-			execution::context&, _pass_command_data, const pass_commands::draw_instanced&
-		);
+		/// Wrapper around command handlers that performs generic operations, such as: invalidating timers.
+		template <typename Cmd> void _handle_generic_command(execution::context &ectx, Cmd &&cmd) {
+			if constexpr (bit_mask::contains<commands::flags::advances_timer>(std::decay_t<Cmd>::get_flags())) {
+				ectx.invalidate_timer();
+			}
+			_handle_command(ectx, std::forward<Cmd>(cmd));
+		}
 
 		/// Handles an invalid command by asserting.
-		void _handle_command(execution::context&, const context_commands::invalid&) {
+		void _handle_command(execution::context&, const commands::invalid&) {
 			std::abort();
 		}
 		/// Handles an image upload command.
-		void _handle_command(execution::context&, context_commands::upload_image&);
+		void _handle_command(execution::context&, commands::upload_image&);
 		/// Handles a buffer upload command.
-		void _handle_command(execution::context&, context_commands::upload_buffer&);
+		void _handle_command(execution::context&, commands::upload_buffer&);
 		/// Handles a buffer copy command.
-		void _handle_command(execution::context&, context_commands::copy_buffer&);
-		/// Handles a dispatch compute command.
-		void _handle_command(execution::context&, const context_commands::dispatch_compute&);
-		/// Handles a begin pass command.
-		void _handle_command(execution::context&, const context_commands::render_pass&);
+		void _handle_command(execution::context&, commands::copy_buffer&);
 		/// Handles a BLAS build command.
-		void _handle_command(execution::context&, const context_commands::build_blas&);
+		void _handle_command(execution::context&, const commands::build_blas&);
 		/// Handles a TLAS build command.
-		void _handle_command(execution::context&, const context_commands::build_tlas&);
+		void _handle_command(execution::context&, const commands::build_tlas&);
+
+		/// Handles a begin pass command.
+		void _handle_command(execution::context&, const commands::begin_pass&);
+		/// Handles a instanced draw command.
+		void _handle_command(execution::context&, const commands::draw_instanced&);
+		/// Handles an end pass command.
+		void _handle_command(execution::context&, const commands::end_pass&);
+
+		/// Handles a dispatch compute command.
+		void _handle_command(execution::context&, const commands::dispatch_compute&);
 		/// Handles a ray trace command.
-		void _handle_command(execution::context&, const context_commands::trace_rays&);
+		void _handle_command(execution::context&, const commands::trace_rays&);
 		/// Handles a present command.
-		void _handle_command(execution::context&, const context_commands::present&);
+		void _handle_command(execution::context&, const commands::present&);
+
+		/// Handles a start timer event.
+		void _handle_command(execution::context&, const commands::start_timer&);
+		/// Handles an end timer event.
+		void _handle_command(execution::context&, const commands::end_timer&);
+
 		/// Handles a pause command.
-		void _handle_command(execution::context&, const context_commands::pause_for_debugging&);
+		void _handle_command(execution::context&, const commands::pause_for_debugging&);
 
 		/// Cleans up all unused resources, and updates timestamp information to latest.
 		void _cleanup();

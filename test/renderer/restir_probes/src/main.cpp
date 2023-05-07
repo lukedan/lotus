@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
 		log().debug<u8"Device: {}">(lstr::to_generic(gprop.name));
 		if (gprop.is_discrete) {
 			log().debug<u8"Selected">();
-			auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics, lgpu::queue_type::compute });
+			auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics });
 			gdev = std::move(dev);
 			gqueues = std::move(queues);
 			return false;
@@ -67,32 +67,33 @@ int main(int argc, char **argv) {
 	});
 	auto gshu = lgpu::shader_utility::create();
 
-	auto rctx = lren::context::create(gctx, gprop, gdev, gqueues[0], gqueues[1]);
-	auto rassets = lren::assets::manager::create(rctx, &gshu);
+	auto rctx = lren::context::create(gctx, gprop, gdev, gqueues);
+	auto gfx_q = rctx.get_queue(0);
+	auto rassets = lren::assets::manager::create(rctx, gfx_q, &gshu);
 	rassets.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets";
 	rassets.additional_shader_includes = {
 		rassets.asset_library_path / "shaders",
 		"D:/Documents/Projects/lotus/test/renderer/common/include",
 	};
 
-	lren::execution::batch_statistics_early batch_stats_early = zero;
+	std::vector<lren::execution::batch_statistics_early> batch_stats_early;
 	lren::execution::batch_statistics_late batch_stats_late = zero;
 	rctx.on_batch_statistics_available = [&](std::uint32_t, lren::execution::batch_statistics_late stats) {
 		batch_stats_late = std::move(stats);
 	};
 
-	scene_representation scene(rassets);
+	scene_representation scene(rassets, gfx_q);
 	for (int i = 1; i < argc; ++i) {
 		scene.load(argv[i]);
 	}
 	scene.finish_loading();
 
-	auto debug_render = lren::debug_renderer::create(rassets);
+	auto debug_render = lren::debug_renderer::create(rassets, gfx_q);
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGui::StyleColorsDark();
-	auto imgui_rctx = lren::dear_imgui::context::create(rassets);
+	auto imgui_rctx = lren::dear_imgui::context::create(rassets, gfx_q);
 	auto imgui_sctx = lsys::dear_imgui::context::create();
 
 	cvec2u32 window_size = zero;
@@ -101,7 +102,7 @@ int main(int argc, char **argv) {
 	auto runtime_tex_pool = rctx.request_pool(u8"Run-time Textures");
 	auto runtime_buf_pool = rctx.request_pool(u8"Run-time Buffers");
 
-	auto swapchain = rctx.request_swap_chain(u8"Main Swap Chain", wnd, 2, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb });
+	auto swapchain = rctx.request_swap_chain(u8"Main Swap Chain", wnd, gfx_q, 2, { lgpu::format::r8g8b8a8_srgb, lgpu::format::b8g8r8a8_srgb });
 
 	auto fs_quad_vs           = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/misc/fullscreen_quad_vs.hlsl", lgpu::shader_stage::vertex_shader, u8"main_vs");
 	auto blit_ps              = rassets.compile_shader_in_filesystem(rassets.asset_library_path / "shaders/misc/blit_ps.hlsl",            lgpu::shader_stage::pixel_shader, u8"main_ps");
@@ -227,7 +228,7 @@ int main(int argc, char **argv) {
 		shader_types::fill_buffer_constants data;
 		data.size = buf.get_num_elements();
 		data.value = value;
-		rctx.run_compute_shader_with_thread_dimensions(
+		gfx_q.run_compute_shader_with_thread_dimensions(
 			fill_buffer_cs, cvec3u32(data.size, 1, 1),
 			lren::all_resource_bindings(
 				{
@@ -245,7 +246,7 @@ int main(int argc, char **argv) {
 		shader_types::fill_texture3d_constants data;
 		data.value = value;
 		data.size = img.get_size();
-		rctx.run_compute_shader_with_thread_dimensions(
+		gfx_q.run_compute_shader_with_thread_dimensions(
 			fill_texture3d_cs, img.get_size(),
 			lren::all_resource_bindings(
 				{
@@ -431,10 +432,10 @@ int main(int argc, char **argv) {
 		auto frame_cpu_begin = std::chrono::high_resolution_clock::now();
 
 		{
-			auto frame_tmr = rctx.start_timer(u8"Frame");
+			auto frame_tmr = gfx_q.start_timer(u8"Frame");
 
 			{
-				auto tmr = rctx.start_timer(u8"Update Assets");
+				auto tmr = gfx_q.start_timer(u8"Update Assets");
 				rassets.update();
 			}
 
@@ -443,7 +444,7 @@ int main(int argc, char **argv) {
 
 			auto g_buf = lren::g_buffer::view::create(rctx, window_size, runtime_tex_pool);
 			{ // g-buffer
-				auto tmr = rctx.start_timer(u8"G-Buffer");
+				auto tmr = gfx_q.start_timer(u8"G-Buffer");
 
 				lren::shader_types::view_data view_data;
 				view_data.view                     = cam.view_matrix;
@@ -455,9 +456,9 @@ int main(int argc, char **argv) {
 				view_data.rcp_viewport_size        = lotus::vec::memberwise_reciprocal(window_size.into<float>());
 
 				auto buf = rctx.request_buffer(u8"View Data Constant Buffer", sizeof(view_data), lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read, runtime_buf_pool);
-				rctx.upload_buffer<lren::shader_types::view_data>(buf, { &view_data, &view_data + 1 }, 0, u8"Upload View Data");
+				gfx_q.upload_buffer<lren::shader_types::view_data>(buf, { &view_data, &view_data + 1 }, 0, u8"Upload View Data");
 
-				auto pass = g_buf.begin_pass(rctx);
+				auto pass = g_buf.begin_pass(gfx_q);
 				lren::g_buffer::render_instances(
 					pass, scene.instances, scene.gbuffer_instance_render_details, buf.bind_as_constant_buffer()
 				);
@@ -513,7 +514,7 @@ int main(int argc, char **argv) {
 				update_probes_this_frame = false;
 
 				{ // direct probes
-					auto tmr = rctx.start_timer(u8"Update Direct Probes");
+					auto tmr = gfx_q.start_timer(u8"Update Direct Probes");
 
 					shader_types::direct_reservoir_update_constants direct_update_constants;
 					direct_update_constants.num_lights       = scene.lights.size();
@@ -530,13 +531,13 @@ int main(int argc, char **argv) {
 							{ u8"rtas",              scene.tlas },
 						}
 					);
-					rctx.run_compute_shader_with_thread_dimensions(
+					gfx_q.run_compute_shader_with_thread_dimensions(
 						direct_update_cs, probe_density, std::move(resources), u8"Update Direct Probes"
 					);
 				}
 
 				{ // indirect probes
-					auto tmr = rctx.start_timer(u8"Update Indirect Probes");
+					auto tmr = gfx_q.start_timer(u8"Update Indirect Probes");
 
 					shader_types::indirect_reservoir_update_constants indirect_update_constants;
 					indirect_update_constants.frame_index      = frame_index;
@@ -573,13 +574,13 @@ int main(int argc, char **argv) {
 							{ u8"all_lights",      scene.lights_buffer.bind_as_read_only() },
 						}
 					);
-					rctx.run_compute_shader_with_thread_dimensions(
+					gfx_q.run_compute_shader_with_thread_dimensions(
 						indirect_update_cs, probe_density, std::move(resources), u8"Update Indirect Probes"
 					);
 				}
 
 				if (indirect_spatial_reuse) { // indirect spatial reuse
-					auto tmr = rctx.start_timer(u8"Indirect Spatial Reuse");
+					auto tmr = gfx_q.start_timer(u8"Indirect Spatial Reuse");
 
 					cvec3i offsets[6] = {
 						{  1,  0,  0 },
@@ -606,7 +607,7 @@ int main(int argc, char **argv) {
 								{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(reuse_constants) },
 							}
 						);
-						rctx.run_compute_shader_with_thread_dimensions(indirect_spatial_reuse_cs, probe_density, std::move(resources), u8"Spatial Indirect Reuse");
+						gfx_q.run_compute_shader_with_thread_dimensions(indirect_spatial_reuse_cs, probe_density, std::move(resources), u8"Spatial Indirect Reuse");
 						std::swap(spatial_indirect_reservoirs1, spatial_indirect_reservoirs2);
 					}
 				} else {
@@ -614,7 +615,7 @@ int main(int argc, char **argv) {
 				}
 
 				{ // summarize probes
-					auto tmr = rctx.start_timer(u8"Summarize Probes");
+					auto tmr = gfx_q.start_timer(u8"Summarize Probes");
 
 					shader_types::summarize_probe_constants constants;
 					constants.ra_alpha = sh_ra_factor;
@@ -631,14 +632,14 @@ int main(int argc, char **argv) {
 							{ u8"constants",           lren_bds::immediate_constant_buffer::create_for(constants) },
 						}
 					);
-					rctx.run_compute_shader_with_thread_dimensions(
+					gfx_q.run_compute_shader_with_thread_dimensions(
 						summarize_probes_cs, probe_density, std::move(resources), u8"Summarize Probes"
 					);
 				}
 			}
 
 			{ // lighting
-				auto tmr = rctx.start_timer(u8"Direct & Indirect Diffuse");
+				auto tmr = gfx_q.start_timer(u8"Direct & Indirect Diffuse");
 
 				lren::all_resource_bindings resources(
 					{
@@ -663,14 +664,14 @@ int main(int argc, char **argv) {
 						{ u8"sky_latlong",               sky_hdri->image.bind_as_read_only() },
 					}
 				);
-				rctx.run_compute_shader_with_thread_dimensions(
+				gfx_q.run_compute_shader_with_thread_dimensions(
 					lighting_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
 					std::move(resources), u8"Lighting"
 				);
 			}
 
 			{ // sky
-				auto tmr = rctx.start_timer(u8"Sky");
+				auto tmr = gfx_q.start_timer(u8"Sky");
 
 				shader_types::sky_constants constants;
 				{
@@ -703,7 +704,7 @@ int main(int argc, char **argv) {
 					lgpu::depth_stencil_options(true, false, lgpu::comparison_function::equal, false, 0, 0, lgpu::stencil_options::always_pass_no_op(), lgpu::stencil_options::always_pass_no_op())
 				);
 				
-				auto pass = rctx.begin_pass(
+				auto pass = gfx_q.begin_pass(
 					{
 						lren::image2d_color(light_diffuse, lgpu::color_render_target_access::create_preserve_and_write()),
 						lren::image2d_color(g_buf.velocity, lgpu::color_render_target_access::create_preserve_and_write()),
@@ -718,7 +719,7 @@ int main(int argc, char **argv) {
 			auto indirect_specular = rctx.request_image2d(u8"Indirect Specular", window_size, 1, lgpu::format::r32g32b32a32_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
 
 			{ // indirect specular
-				auto tmr = rctx.start_timer(u8"Indirect Specular");
+				auto tmr = gfx_q.start_timer(u8"Indirect Specular");
 
 				shader_types::indirect_specular_constants constants;
 				constants.enable_mis                        = enable_indirect_specular_mis;
@@ -762,7 +763,7 @@ int main(int argc, char **argv) {
 					}
 				);
 
-				rctx.run_compute_shader_with_thread_dimensions(
+				gfx_q.run_compute_shader_with_thread_dimensions(
 					indirect_specular_use_visible_normals ? indirect_specular_vndf_cs : indirect_specular_cs,
 					cvec3u32(window_size.into<std::uint32_t>(), 1),
 					std::move(resources), u8"Indirect Specular"
@@ -815,7 +816,7 @@ int main(int argc, char **argv) {
 						{ u8"all_lights",      scene.lights_buffer.bind_as_read_only() },
 					}
 				);
-				rctx.run_compute_shader_with_thread_dimensions(
+				gfx_q.run_compute_shader_with_thread_dimensions(
 					shade_point_debug_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
 					std::move(resources), u8"Shade Point Debug"
 				);
@@ -824,7 +825,7 @@ int main(int argc, char **argv) {
 			auto irradiance = rctx.request_image2d(u8"Previous Irradiance", window_size, 1, lgpu::format::r16g16b16a16_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
 
 			{ // TAA
-				auto tmr = rctx.start_timer(u8"TAA");
+				auto tmr = gfx_q.start_timer(u8"TAA");
 
 				lren::graphics_pipeline_state state(
 					{ lgpu::render_target_blend_options::disabled() },
@@ -852,7 +853,7 @@ int main(int argc, char **argv) {
 					}
 				);
 
-				rctx.run_compute_shader_with_thread_dimensions(
+				gfx_q.run_compute_shader_with_thread_dimensions(
 					taa_cs, cvec3u32(window_size.into<std::uint32_t>(), 1), std::move(resources), u8"TAA"
 				);
 
@@ -876,7 +877,7 @@ int main(int argc, char **argv) {
 					lgpu::depth_stencil_options(false, false, lgpu::comparison_function::always, false, 0, 0, lgpu::stencil_options::always_pass_no_op(), lgpu::stencil_options::always_pass_no_op())
 				);
 
-				auto pass = rctx.begin_pass(
+				auto pass = gfx_q.begin_pass(
 					{ lren::image2d_color(swapchain, lgpu::color_render_target_access::create_discard_then_write()) },
 					nullptr,
 					window_size, u8"Lighting Blit"
@@ -908,7 +909,7 @@ int main(int argc, char **argv) {
 						}
 					);
 
-					auto pass = rctx.begin_pass(
+					auto pass = gfx_q.begin_pass(
 						{ lren::image2d_color(swapchain, lgpu::color_render_target_access::create_discard_then_write()) },
 						nullptr, window_size, u8"GBuffer Visualization Pass"
 					);
@@ -951,7 +952,7 @@ int main(int argc, char **argv) {
 
 					std::uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
 
-					auto pass = rctx.begin_pass(
+					auto pass = gfx_q.begin_pass(
 						{ lren::image2d_color(swapchain, lgpu::color_render_target_access::create_preserve_and_write()) },
 						lren::image2d_depth_stencil(g_buf.depth_stencil, lgpu::depth_render_target_access::create_preserve_and_write()),
 						window_size, u8"Probe Visualization Pass"
@@ -1102,14 +1103,16 @@ int main(int argc, char **argv) {
 							ImGui::TableSetupColumn("Duration (ms)");
 							ImGui::TableHeadersRow();
 
-							for (const auto &t : batch_stats_late.timer_results) {
-								ImGui::TableNextRow();
-								ImGui::TableNextColumn();
-								std::string n(lstr::to_generic(t.name));
-								ImGui::Text("%s", n.c_str());
+							for (const auto &queue_results : batch_stats_late.timer_results) {
+								for (const auto &t : queue_results) {
+									ImGui::TableNextRow();
+									ImGui::TableNextColumn();
+									std::string n(lstr::to_generic(t.name));
+									ImGui::Text("%s", n.c_str());
 
-								ImGui::TableNextColumn();
-								ImGui::Text("%f", t.duration_ms);
+									ImGui::TableNextColumn();
+									ImGui::Text("%f", t.duration_ms);
+								}
 							}
 
 							ImGui::EndTable();
@@ -1124,16 +1127,18 @@ int main(int argc, char **argv) {
 							ImGui::TableSetupColumn("Num Buffers");
 							ImGui::TableHeadersRow();
 
-							for (const auto &b : batch_stats_early.immediate_constant_buffers) {
-								ImGui::TableNextRow();
-								ImGui::TableNextColumn();
-								ImGui::Text("%" PRIu32, b.immediate_constant_buffer_size);
+							for (const auto &queue_stats : batch_stats_early) {
+								for (const auto &b : queue_stats.immediate_constant_buffers) {
+									ImGui::TableNextRow();
+									ImGui::TableNextColumn();
+									ImGui::Text("%" PRIu32, b.immediate_constant_buffer_size);
 
-								ImGui::TableNextColumn();
-								ImGui::Text("%" PRIu32, b.immediate_constant_buffer_size_no_padding);
+									ImGui::TableNextColumn();
+									ImGui::Text("%" PRIu32, b.immediate_constant_buffer_size_no_padding);
 
-								ImGui::TableNextColumn();
-								ImGui::Text("%" PRIu32, b.num_immediate_constant_buffers);
+									ImGui::TableNextColumn();
+									ImGui::Text("%" PRIu32, b.num_immediate_constant_buffers);
+								}
 							}
 
 							ImGui::EndTable();
@@ -1151,12 +1156,14 @@ int main(int argc, char **argv) {
 							std::size_t keep_count = 5;
 							std::vector<sig_pair> heap;
 							std::greater<sig_pair> pred;
-							for (auto &&[sig, count] : batch_stats_early.constant_buffer_counts) {
-								heap.emplace_back(sig, count);
-								std::push_heap(heap.begin(), heap.end(), pred);
-								if (heap.size() > keep_count) {
-									std::pop_heap(heap.begin(), heap.end(), pred);
-									heap.pop_back();
+							for (const auto &queue_stats : batch_stats_early) {
+								for (auto &&[sig, count] : queue_stats.constant_buffer_counts) {
+									heap.emplace_back(sig, count);
+									std::push_heap(heap.begin(), heap.end(), pred);
+									if (heap.size() > keep_count) {
+										std::pop_heap(heap.begin(), heap.end(), pred);
+										heap.pop_back();
+									}
 								}
 							}
 
@@ -1187,19 +1194,21 @@ int main(int argc, char **argv) {
 							ImGui::TableSetupColumn("Raw Buffer");
 							ImGui::TableHeadersRow();
 
-							for (const auto &t : batch_stats_early.transitions) {
-								ImGui::TableNextRow();
-								ImGui::TableNextColumn();
-								ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_image2d_transitions, t.requested_image2d_transitions);
+							for (const auto &queue_stats : batch_stats_early) {
+								for (const auto &t : queue_stats.transitions) {
+									ImGui::TableNextRow();
+									ImGui::TableNextColumn();
+									ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_image2d_transitions, t.requested_image2d_transitions);
 
-								ImGui::TableNextColumn();
-								ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_image3d_transitions, t.requested_image3d_transitions);
+									ImGui::TableNextColumn();
+									ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_image3d_transitions, t.requested_image3d_transitions);
 
-								ImGui::TableNextColumn();
-								ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_buffer_transitions, t.requested_buffer_transitions);
+									ImGui::TableNextColumn();
+									ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_buffer_transitions, t.requested_buffer_transitions);
 
-								ImGui::TableNextColumn();
-								ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_raw_buffer_transitions, t.requested_raw_buffer_transitions);
+									ImGui::TableNextColumn();
+									ImGui::Text("%" PRIu32 " (%" PRIu32 ")", t.submitted_raw_buffer_transitions, t.requested_raw_buffer_transitions);
+								}
 							}
 
 							ImGui::EndTable();
@@ -1219,7 +1228,7 @@ int main(int argc, char **argv) {
 				}
 			}
 
-			rctx.present(swapchain, u8"Present");
+			gfx_q.present(swapchain, u8"Present");
 
 
 			// update
@@ -1228,7 +1237,7 @@ int main(int argc, char **argv) {
 			taa_phase = (taa_phase + 1) % taa_samples.size();
 		}
 
-		batch_stats_early = rctx.flush();
+		batch_stats_early = rctx.execute_all();
 
 		auto frame_cpu_end = std::chrono::high_resolution_clock::now();
 		cpu_frame_time = std::chrono::duration<float, std::milli>(frame_cpu_end - frame_cpu_begin).count();

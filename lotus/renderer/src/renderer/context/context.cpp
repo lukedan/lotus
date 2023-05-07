@@ -10,6 +10,11 @@
 #include "lotus/memory/stack_allocator.h"
 
 namespace lotus::renderer {
+	gpu::device &context::device_access::get(context &ctx) {
+		return ctx._device;
+	}
+
+
 	void context::pass::draw_instanced(
 		std::vector<input_buffer_binding> inputs,
 		std::uint32_t num_verts,
@@ -26,9 +31,8 @@ namespace lotus::renderer {
 		_details::bindings_builder builder;
 		auto reflections = { &vs->reflection, &ps->reflection };
 		builder.add(std::move(resources), reflections);
-		_command.commands.emplace_back(
+		_q->add_command<commands::draw_instanced>(
 			description,
-			std::in_place_type<pass_commands::draw_instanced>,
 			num_insts,
 			std::move(inputs), num_verts,
 			std::move(indices), num_indices,
@@ -48,7 +52,7 @@ namespace lotus::renderer {
 		std::uint32_t num_insts,
 		std::u8string_view description
 	) {
-		instance_render_details details = pass_ctx.get_render_details(*_context, *mat->data, geom.get().value);
+		instance_render_details details = pass_ctx.get_render_details(_q->ctx, *mat->data, geom.get().value);
 
 		draw_instanced(
 			std::move(geom),
@@ -80,9 +84,8 @@ namespace lotus::renderer {
 		builder.add(mat->data->create_resource_bindings(), reflections);
 		builder.add(std::move(additional_resources), reflections);
 
-		_command.commands.emplace_back(
+		_q->add_command<commands::draw_instanced>(
 			description,
-			std::in_place_type<pass_commands::draw_instanced>,
 			num_insts,
 			std::move(inputs), geom->num_vertices,
 			geom->get_index_buffer_binding(), geom->num_indices,
@@ -94,13 +97,177 @@ namespace lotus::renderer {
 	}
 
 	void context::pass::end() {
-		_context->_commands.emplace_back(std::move(_description), std::move(_command));
-		_context = nullptr;
+		if (_q) {
+			_q->add_command<commands::end_pass>(u8"End Pass");
+			_q->within_pass = false;
+			_q = nullptr;
+		}
 	}
 
 
-	gpu::device &context::device_access::get(context &ctx) {
-		return ctx._device;
+	void context::queue::upload_image(const image2d_view &target, const std::byte *data, std::u8string_view description) {
+		cvec2u32 image_size = target.get_size();
+		std::uint32_t mip_index = target._mip_levels.minimum;
+		image_size = vec::memberwise_operation([&](std::uint32_t s) {
+			return std::max<std::uint32_t>(1, s >> mip_index);
+		}, image_size);
+
+		const auto &format_props = gpu::format_properties::get(target.get_original_format());
+		std::uint32_t bytes_per_fragment = format_props.bytes_per_fragment;
+
+		auto staging_buffer = _q->ctx._device.create_committed_staging_buffer(
+			image_size, target.get_original_format(),
+			_q->ctx._upload_memory_index, gpu::buffer_usage_mask::copy_source
+		);
+		auto frag_size = format_props.fragment_size.into<std::uint32_t>();
+		auto num_fragments = mat::memberwise_divide(image_size + frag_size - cvec2u32(1, 1), frag_size);
+
+		// copy to device
+		auto *src = data;
+		auto *dst = _q->ctx._device.map_buffer(staging_buffer.data, 0, 0);
+		for (std::uint32_t y = 0; y < num_fragments[1]; ++y) {
+			std::memcpy(
+				dst + y * staging_buffer.meta.get_pitch_in_bytes(),
+				src + y * num_fragments[0] * bytes_per_fragment,
+				num_fragments[0] * bytes_per_fragment
+			);
+		}
+		_q->ctx._device.unmap_buffer(staging_buffer.data, 0, staging_buffer.total_size);
+
+		_q->add_command<commands::upload_image>(description, std::move(staging_buffer), target);
+	}
+
+	void context::queue::upload_buffer(
+		const buffer &target, std::span<const std::byte> data, std::uint32_t offset,
+		std::u8string_view description
+	) {
+		if (!_q->uploads) {
+			_q->uploads = upload_buffers(_q->ctx, [q = _q](std::size_t size) -> gpu::buffer& {
+				return q->ctx._deferred_delete_resources.buffers.emplace_back(q->ctx._device.create_committed_buffer(
+					size, q->ctx._upload_memory_index, gpu::buffer_usage_mask::copy_source
+				));
+			});
+		}
+		auto staged = _q->uploads.stage(data, 1);
+		_q->add_command<commands::upload_buffer>(
+			description,
+			*staged.buffer,
+			staged.offset,
+			staged.type,
+			target,
+			offset,
+			static_cast<std::uint32_t>(data.size())
+		);
+	}
+
+	void context::queue::copy_buffer(
+		const buffer &source, const buffer &target,
+		std::uint32_t src_offset, std::uint32_t dst_offset, std::uint32_t sz,
+		std::u8string_view description
+	) {
+		_q->add_command<commands::copy_buffer>(
+			description, source, target, src_offset, dst_offset, sz
+		);
+	}
+
+	void context::queue::build_blas(blas &b, std::u8string_view description) {
+		_q->add_command<commands::build_blas>(description, b);
+	}
+
+	void context::queue::build_tlas(tlas &t, std::u8string_view description) {
+		_q->add_command<commands::build_tlas>(description, t);
+	}
+
+	void context::queue::trace_rays(
+		std::span<const shader_function> hit_group_shaders,
+		std::span<const gpu::hit_shader_group> hit_groups,
+		std::span<const shader_function> general_shaders,
+		std::uint32_t raygen_shader_index,
+		std::span<const std::uint32_t> miss_shader_indices,
+		std::span<const std::uint32_t> shader_groups,
+		std::uint32_t max_recursion_depth,
+		std::uint32_t max_payload_size,
+		std::uint32_t max_attribute_size,
+		cvec3u32 num_threads,
+		all_resource_bindings resources,
+		std::u8string_view description
+	) {
+		_details::bindings_builder builder;
+		std::vector<gpu::shader_reflection> reflections;
+		for (const auto &sh : hit_group_shaders) {
+			reflections.emplace_back(sh.shader_library->reflection.find_shader(sh.entry_point, sh.stage));
+		}
+		for (const auto &sh : general_shaders) {
+			reflections.emplace_back(sh.shader_library->reflection.find_shader(sh.entry_point, sh.stage));
+		}
+		std::vector<const gpu::shader_reflection*> reflection_ptrs;
+		for (const auto &r : reflections) {
+			reflection_ptrs.emplace_back(&r);
+		}
+		builder.add(std::move(resources), reflection_ptrs);
+
+		_q->add_command<commands::trace_rays>(
+			description,
+			builder.sort_and_take(),
+			std::vector(hit_group_shaders.begin(), hit_group_shaders.end()),
+			std::vector(hit_groups.begin(), hit_groups.end()),
+			std::vector(general_shaders.begin(), general_shaders.end()),
+			raygen_shader_index,
+			std::vector(miss_shader_indices.begin(), miss_shader_indices.end()),
+			std::vector(shader_groups.begin(), shader_groups.end()),
+			max_recursion_depth,
+			max_payload_size,
+			max_attribute_size,
+			num_threads
+		);
+	}
+
+	void context::queue::run_compute_shader(
+		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_thread_groups,
+		all_resource_bindings resources, std::u8string_view description
+	) {
+		_details::bindings_builder builder;
+		builder.add(std::move(resources), { &shader->reflection });
+
+		_q->add_command<commands::dispatch_compute>(
+			description, builder.sort_and_take(), std::move(shader), num_thread_groups
+		);
+	}
+
+	void context::queue::run_compute_shader_with_thread_dimensions(
+		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_threads, all_resource_bindings resources,
+		std::u8string_view description
+	) {
+		auto thread_group_size = shader->reflection.get_thread_group_size().into<std::uint32_t>();
+		cvec3u32 groups = mat::memberwise_divide(
+			num_threads + thread_group_size - cvec3u32(1, 1, 1), thread_group_size
+		);
+		run_compute_shader(std::move(shader), groups, std::move(resources), description);
+	}
+
+	context::pass context::queue::begin_pass(
+		std::vector<image2d_color> color_rts, image2d_depth_stencil ds_rt, cvec2u32 sz,
+		std::u8string_view description
+	) {
+		_q->add_command<commands::begin_pass>(description, std::move(color_rts), ds_rt, sz);
+		_q->within_pass = true;
+		return context::pass(*_q);
+	}
+
+	void context::queue::present(swap_chain sc, std::u8string_view description) {
+		_q->add_command<commands::present>(description, std::move(sc));
+	}
+
+	context::timer context::queue::start_timer(std::u8string name) {
+		auto index = static_cast<commands::timer_index>(_q->num_timers++);
+		_q->batch_commands.emplace_back(u8"Start Timer").value.emplace<commands::start_timer>(
+			std::move(name), index
+		);
+		return timer(*_q, index);
+	}
+
+	void context::queue::pause_for_debugging(std::u8string_view description) {
+		_q->batch_commands.emplace_back(description).value.emplace<commands::pause_for_debugging>();
 	}
 
 
@@ -108,10 +275,9 @@ namespace lotus::renderer {
 		gpu::context &ctx,
 		const gpu::adapter_properties &adap_prop,
 		gpu::device &dev,
-		gpu::command_queue graphics_queue,
-		gpu::command_queue compute_queue
+		std::span<const gpu::command_queue> queues
 	) {
-		return context(ctx, adap_prop, dev, graphics_queue, compute_queue);
+		return context(ctx, adap_prop, dev, queues);
 	}
 
 	context::~context() {
@@ -168,11 +334,12 @@ namespace lotus::renderer {
 	}
 
 	swap_chain context::request_swap_chain(
-		std::u8string_view name, system::window &wnd,
+		std::u8string_view name, system::window &wnd, queue &q,
 		std::uint32_t num_images, std::span<const gpu::format> formats
 	) {
 		auto *chain = new _details::swap_chain(
-			wnd, num_images, { formats.begin(), formats.end() }, _allocate_resource_id(), name
+			wnd, q._q->queue.get_index(),
+			num_images, { formats.begin(), formats.end() }, _allocate_resource_id(), name
 		);
 		auto chain_ptr = std::shared_ptr<_details::swap_chain>(chain, _details::context_managed_deleter(*this));
 		return swap_chain(std::move(chain_ptr));
@@ -244,265 +411,65 @@ namespace lotus::renderer {
 		));
 	}
 
-	void context::upload_image(const image2d_view &target, const std::byte *data, std::u8string_view description) {
-		cvec2u32 image_size = target.get_size();
-		std::uint32_t mip_index = target._mip_levels.minimum;
-		image_size = vec::memberwise_operation([&](std::uint32_t s) {
-			return std::max<std::uint32_t>(1, s >> mip_index);
-		}, image_size);
-
-		const auto &format_props = gpu::format_properties::get(target.get_original_format());
-		std::uint32_t bytes_per_fragment = format_props.bytes_per_fragment;
-
-		auto staging_buffer = _device.create_committed_staging_buffer(
-			image_size, target.get_original_format(),
-			_upload_memory_index, gpu::buffer_usage_mask::copy_source
-		);
-		auto frag_size = format_props.fragment_size.into<std::uint32_t>();
-		auto num_fragments = mat::memberwise_divide(image_size + frag_size - cvec2u32(1, 1), frag_size);
-
-		// copy to device
-		auto *src = data;
-		auto *dst = _device.map_buffer(staging_buffer.data, 0, 0);
-		for (std::uint32_t y = 0; y < num_fragments[1]; ++y) {
-			std::memcpy(
-				dst + y * staging_buffer.meta.get_pitch_in_bytes(),
-				src + y * num_fragments[0] * bytes_per_fragment,
-				num_fragments[0] * bytes_per_fragment
-			);
-		}
-		_device.unmap_buffer(staging_buffer.data, 0, staging_buffer.total_size);
-
-		_commands.emplace_back(description).value.emplace<context_commands::upload_image>(
-			std::move(staging_buffer), target
-		);
-	}
-
-	void context::upload_buffer(
-		const buffer &target, std::span<const std::byte> data, std::uint32_t offset,
-		std::u8string_view description
-	) {
-		if (!_uploads) {
-			_uploads = execution::upload_buffers(*this, [this](std::size_t size) -> gpu::buffer& {
-				return _deferred_delete_resources.buffers.emplace_back(_device.create_committed_buffer(
-					size, _upload_memory_index, gpu::buffer_usage_mask::copy_source
-				));
-			});
-		}
-		auto staged = _uploads.stage(data, 1);
-		_commands.emplace_back(description).value.emplace<context_commands::upload_buffer>(
-			*staged.buffer, staged.offset, staged.type, target, offset, static_cast<std::uint32_t>(data.size())
-		);
-	}
-
-	void context::copy_buffer(
-		const buffer &source, const buffer &target,
-		std::uint32_t src_offset, std::uint32_t dst_offset, std::uint32_t sz,
-		std::u8string_view description
-	) {
-		_commands.emplace_back(description).value.emplace<context_commands::copy_buffer>(
-			source, target, src_offset, dst_offset, sz
-		);
-	}
-
-	void context::build_blas(blas &b, std::u8string_view description) {
-		_commands.emplace_back(description).value.emplace<context_commands::build_blas>(b);
-	}
-
-	void context::build_tlas(tlas &t, std::u8string_view description) {
-		_commands.emplace_back(description).value.emplace<context_commands::build_tlas>(t);
-	}
-
-	void context::trace_rays(
-		std::span<const shader_function> hit_group_shaders,
-		std::span<const gpu::hit_shader_group> hit_groups,
-		std::span<const shader_function> general_shaders,
-		std::uint32_t raygen_shader_index,
-		std::span<const std::uint32_t> miss_shader_indices,
-		std::span<const std::uint32_t> shader_groups,
-		std::uint32_t max_recursion_depth,
-		std::uint32_t max_payload_size,
-		std::uint32_t max_attribute_size,
-		cvec3u32 num_threads,
-		all_resource_bindings resources,
-		std::u8string_view description
-	) {
-		_details::bindings_builder builder;
-		std::vector<gpu::shader_reflection> reflections;
-		for (const auto &sh : hit_group_shaders) {
-			reflections.emplace_back(sh.shader_library->reflection.find_shader(sh.entry_point, sh.stage));
-		}
-		for (const auto &sh : general_shaders) {
-			reflections.emplace_back(sh.shader_library->reflection.find_shader(sh.entry_point, sh.stage));
-		}
-		std::vector<const gpu::shader_reflection*> reflection_ptrs;
-		for (const auto &r : reflections) {
-			reflection_ptrs.emplace_back(&r);
-		}
-		builder.add(std::move(resources), reflection_ptrs);
-
-		_commands.emplace_back(description).value.emplace<context_commands::trace_rays>(
-			builder.sort_and_take(),
-			std::vector(hit_group_shaders.begin(), hit_group_shaders.end()),
-			std::vector(hit_groups.begin(), hit_groups.end()),
-			std::vector(general_shaders.begin(), general_shaders.end()),
-			raygen_shader_index,
-			std::vector(miss_shader_indices.begin(), miss_shader_indices.end()),
-			std::vector(shader_groups.begin(), shader_groups.end()),
-			max_recursion_depth,
-			max_payload_size,
-			max_attribute_size,
-			num_threads
-		);
-	}
-
-	void context::run_compute_shader(
-		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_thread_groups,
-		all_resource_bindings resources, std::u8string_view description
-	) {
-		_details::bindings_builder builder;
-		builder.add(std::move(resources), { &shader->reflection });
-
-		_commands.emplace_back(description).value.emplace<context_commands::dispatch_compute>(
-			builder.sort_and_take(), std::move(shader), num_thread_groups
-		);
-	}
-
-	void context::run_compute_shader_with_thread_dimensions(
-		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_threads, all_resource_bindings resources,
-		std::u8string_view description
-	) {
-		auto thread_group_size = shader->reflection.get_thread_group_size().into<std::uint32_t>();
-		cvec3u32 groups = mat::memberwise_divide(
-			num_threads + thread_group_size - cvec3u32(1, 1, 1), thread_group_size
-		);
-		context::run_compute_shader(std::move(shader), groups, std::move(resources), description);
-	}
-
-	context::pass context::begin_pass(
-		std::vector<image2d_color> color_rts, image2d_depth_stencil ds_rt, cvec2u32 sz,
-		std::u8string_view description
-	) {
-		return context::pass(*this, std::move(color_rts), std::move(ds_rt), sz, description);
-	}
-
-	void context::present(swap_chain sc, std::u8string_view description) {
-		_commands.emplace_back(description).value.emplace<context_commands::present>(std::move(sc));
-	}
-
-	void context::pause_for_debugging(std::u8string_view description) {
-		_commands.emplace_back(description).value.emplace<context_commands::pause_for_debugging>();
-	}
-
-	/// Run-time data of a timer.
-	struct _timer_runtime_data {
-		/// Initializes all fields of this struct.
-		_timer_runtime_data(std::uint32_t last_cmd, std::uint32_t i) : last_command(last_cmd), index(i) {
-		}
-
-		std::uint32_t last_command = 0; ///< Past last command of this timer.
-		std::uint32_t index = 0; ///< Index of this timer.
-	};
-	/// Used to compare timers so that ones ending earlier will be ordered before ones ending later.
-	struct _timer_compare {
-		/// Comparison function.
-		[[nodiscard]] bool operator()(const _timer_runtime_data &lhs, const _timer_runtime_data &rhs) const {
-			return lhs.last_command > rhs.last_command;
-		}
-	};
-	execution::batch_statistics_early context::flush() {
-		constexpr bool _insert_pass_markers = decltype(context_command::description)::is_enabled;
+	std::vector<execution::batch_statistics_early> context::execute_all() {
+		constexpr bool _insert_pass_markers = decltype(command::description)::is_enabled;
 
 		crash_if(std::this_thread::get_id() != _thread);
 
 		++_batch_index;
-		_all_resources.emplace_back(std::exchange(_deferred_delete_resources, nullptr));
-		_all_resources.back().graphics_cmd_alloc = _device.create_command_allocator(gpu::queue_type::graphics);
-		_all_resources.back().transient_cmd_alloc = _device.create_command_allocator(gpu::queue_type::graphics);
+		auto &resources = _all_resources.emplace_back(std::exchange(_deferred_delete_resources, nullptr));
+		resources.queues.resize(_queues.size(), nullptr);
 
-		if (_uploads) {
-			_uploads.flush();
+		for (auto &q : _queues) {
+			if (q.uploads) {
+				q.uploads.flush();
+			}
 		}
 
-		execution::batch_statistics_early stats = zero;
+		std::vector<execution::batch_statistics_early> stats;
 
 		{
-			auto ectx = execution::context(*this, _all_resources.back());
-
-			// prepare timers
-			auto timers = std::exchange(_timers, {});
-			std::vector<execution::timestamp_data> timestamps(timers.size(), nullptr);
-			std::priority_queue<
-				_timer_runtime_data, std::vector<_timer_runtime_data>, _timer_compare
-			> running_timers;
-			std::uint32_t next_timer = 0;
-			std::uint32_t next_timestamp = 0;
-			for (std::size_t i = 0; i < timestamps.size(); ++i) {
-				timestamps[i].name = timers[i].name;
+			std::vector<execution::context> ectxs;
+			for (auto &q : _queues) {
+				ectxs.emplace_back(q, resources);
 			}
-			// conservative size
-			auto timestamp_heap = _device.create_timestamp_query_heap(static_cast<std::uint32_t>(timers.size() * 2));
 
-			auto cmds = std::exchange(_commands, {});
-			for (std::size_t i = 0; i < cmds.size(); ++i) {
-				// start timers
-				bool insert_timestamp = false;
-				for (; next_timer < timers.size() && timers[next_timer].first_command == i; ++next_timer) {
-					insert_timestamp = true;
-					crash_if(timers[next_timer].last_command > cmds.size()); // not ended properly
-					running_timers.emplace(timers[next_timer].last_command, next_timer);
-					timestamps[next_timer].first_timestamp = next_timestamp;
-				}
-				for (; !running_timers.empty() && running_timers.top().last_command == i; running_timers.pop()) {
-					insert_timestamp = true;
-					timestamps[running_timers.top().index].second_timestamp = next_timestamp;
-				}
-				if (insert_timestamp) {
-					ectx.get_command_list().query_timestamp(timestamp_heap, next_timestamp);
-					++next_timestamp;
-				}
+			for (std::size_t iq = 0; iq < _queues.size(); ++iq) {
+				auto &q = _queues[iq];
+				auto &ectx = ectxs[iq];
+				for (std::size_t icmd = 0; icmd < q.batch_commands.size(); ++icmd) {
+					if constexpr (_insert_pass_markers) {
+						ectx.get_command_list().begin_marker_scope(
+							std::u8string(q.batch_commands[icmd].description.value),
+							linear_rgba_u8(128, 128, 255, 255)
+						);
+					}
+					std::visit([&, this](auto &cmd_val) {
+						_handle_generic_command(ectx, cmd_val);
+					}, q.batch_commands[icmd].value);
+					if constexpr (_insert_pass_markers) {
+						ectx.get_command_list().end_marker_scope();
+					}
 
-				if constexpr (_insert_pass_markers) {
-					ectx.get_command_list().begin_marker_scope(
-						std::u8string(cmds[i].description.value),
-						linear_rgba_u8(128, 128, 255, 255)
-					);
+					constexpr bool _debug_separate_commands = false;
+					if constexpr (_debug_separate_commands) {
+						gpu::fence f = _device.create_fence(gpu::synchronization_state::unset);
+						ectx.submit(&f);
+						_device.wait_for_fence(f);
+					}
 				}
-				std::visit([&, this](auto &cmd_val) {
-					_handle_command(ectx, cmd_val);
-				}, cmds[i].value);
-				if constexpr (_insert_pass_markers) {
-					ectx.get_command_list().end_marker_scope();
-				}
+				ectx.flush_transitions();
+				auto signal_semaphores = {
+					gpu::timeline_semaphore_synchronization(q.batch_semaphore, _batch_index)
+				};
+				ectx.submit(gpu::queue_synchronization(nullptr, {}, signal_semaphores));
 
-				constexpr bool _debug_separate_commands = false;
-				if constexpr (_debug_separate_commands) {
-					gpu::fence f = _device.create_fence(gpu::synchronization_state::unset);
-					ectx.submit(_graphics_queue, &f);
-					_device.wait_for_fence(f);
-				}
+				q.reset_batch();
 			}
-			ectx.flush_transitions();
 
-			// finish collecting timestamps
-			if (!running_timers.empty()) { // insert last timestamp
-				for (; !running_timers.empty(); running_timers.pop()) {
-					timestamps[running_timers.top().index].second_timestamp = next_timestamp;
-				}
-				ectx.get_command_list().query_timestamp(timestamp_heap, next_timestamp);
-				++next_timestamp;
+			for (auto &ectx : ectxs) {
+				stats.emplace_back(std::move(ectx.statistics));
 			}
-			ectx.get_command_list().resolve_queries(timestamp_heap, 0, next_timestamp);
-			_all_resources.back().timestamp_heap = std::move(timestamp_heap);
-			_all_resources.back().timestamps = std::move(timestamps);
-			_all_resources.back().num_timestamps = next_timestamp;
-
-			auto signal_semaphores = {
-				gpu::timeline_semaphore_synchronization(_batch_semaphore, _batch_index)
-			};
-			ectx.submit(_graphics_queue, gpu::queue_synchronization(nullptr, {}, signal_semaphores));
-
-			stats = std::move(ectx.statistics);
 		}
 
 		_cleanup();
@@ -511,7 +478,9 @@ namespace lotus::renderer {
 	}
 
 	void context::wait_idle() {
-		_device.wait_for_timeline_semaphore(_batch_semaphore, _batch_index);
+		for (auto &q : _queues) {
+			_device.wait_for_timeline_semaphore(q.batch_semaphore, _batch_index);
+		}
 		_cleanup();
 	}
 
@@ -543,10 +512,9 @@ namespace lotus::renderer {
 		gpu::context &ctx,
 		const gpu::adapter_properties &adap_prop,
 		gpu::device &dev,
-		gpu::command_queue graphics_queue,
-		gpu::command_queue compute_queue
+		std::span<const gpu::command_queue> queues
 	) :
-		_device(dev), _context(ctx), _graphics_queue(graphics_queue), _compute_queue(compute_queue),
+		_device(dev), _context(ctx),
 		_descriptor_pool(_device.create_descriptor_pool({
 			gpu::descriptor_range::create(gpu::descriptor_type::acceleration_structure, 10240),
 			gpu::descriptor_range::create(gpu::descriptor_type::constant_buffer, 10240),
@@ -556,12 +524,16 @@ namespace lotus::renderer {
 			gpu::descriptor_range::create(gpu::descriptor_type::read_write_image, 10240),
 			gpu::descriptor_range::create(gpu::descriptor_type::sampler, 1024),
 		}, 10240)), // TODO proper numbers
-		_batch_semaphore(_device.create_timeline_semaphore(0)),
 		_adapter_properties(adap_prop),
 		_cache(_device),
 		_thread(std::this_thread::get_id()),
-		_deferred_delete_resources(nullptr),
-		_uploads(nullptr) {
+		_deferred_delete_resources(nullptr) {
+
+		// initialize queues
+		_queues.reserve(queues.size());
+		for (auto &&q : queues) {
+			_queues.emplace_back(*this, q, _device.create_timeline_semaphore(0));
+		}
 
 		const auto &memory_types = _device.enumerate_memory_types();
 		for (const auto &type : memory_types) {
@@ -701,7 +673,7 @@ namespace lotus::renderer {
 				// wait until everything's done
 				{
 					auto fence = _device.create_fence(gpu::synchronization_state::unset);
-					ectx.submit(_graphics_queue, &fence);
+					ectx.submit(&fence);
 					_device.wait_for_fence(fence);
 				}
 				// clean up any references to the old swap chain images
@@ -716,7 +688,7 @@ namespace lotus::renderer {
 				} else {
 					ectx.record(std::move(chain_data.chain));
 					auto [new_chain, fmt] = _context.create_swap_chain_for_window(
-						chain_data.window, _device, _graphics_queue,
+						chain_data.window, _device, _queues[chain_data.queue_index].queue,
 						chain_data.num_images, chain_data.expected_formats
 					);
 					chain_data.chain = std::move(new_chain);
@@ -1138,10 +1110,10 @@ namespace lotus::renderer {
 		}
 	}
 
-	context::_pass_command_data context::_preprocess_command(
+	context::_pass_command_data context::_preprocess_pass_command(
 		execution::context &ectx,
 		const gpu::frame_buffer_layout &fb_layout,
-		const pass_commands::draw_instanced &cmd
+		const commands::draw_instanced &cmd
 	) {
 		context::_pass_command_data result = nullptr;
 		auto &&[rsrc_key, rsrc, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resource_bindings);
@@ -1185,34 +1157,7 @@ namespace lotus::renderer {
 		return result;
 	}
 
-	void context::_handle_pass_command(
-		execution::context &ectx, _pass_command_data data, const pass_commands::draw_instanced &cmd
-	) {
-		std::vector<gpu::vertex_buffer> bufs;
-		for (const auto &input : cmd.inputs) {
-			if (input.buffer_index >= bufs.size()) {
-				bufs.resize(input.buffer_index + 1, nullptr);
-			}
-			bufs[input.buffer_index] = gpu::vertex_buffer(input.data._ptr->data, input.offset, input.stride);
-		}
-
-		auto &cmd_list = ectx.get_command_list();
-		cmd_list.bind_pipeline_state(*data.pipeline_state);
-		_bind_descriptor_sets(ectx, *data.resources, std::move(data.descriptor_sets), _bind_point::graphics);
-		cmd_list.bind_vertex_buffers(0, bufs);
-		if (cmd.index_buffer.data) {
-			cmd_list.bind_index_buffer(
-				cmd.index_buffer.data._ptr->data,
-				cmd.index_buffer.offset,
-				cmd.index_buffer.format
-			);
-			cmd_list.draw_indexed_instanced(0, cmd.index_count, 0, 0, cmd.instance_count);
-		} else {
-			cmd_list.draw_instanced(0, cmd.vertex_count, 0, cmd.instance_count);
-		}
-	}
-
-	void context::_handle_command(execution::context &ectx, context_commands::upload_image &img) {
+	void context::_handle_command(execution::context &ectx, commands::upload_image &img) {
 		auto dest = img.destination;
 		dest._mip_levels = gpu::mip_levels::only(dest._mip_levels.minimum);
 		_maybe_create_image(*dest._ptr);
@@ -1245,11 +1190,11 @@ namespace lotus::renderer {
 		);
 	}
 
-	void context::_handle_command(execution::context &ectx, context_commands::upload_buffer &buf) {
+	void context::_handle_command(execution::context &ectx, commands::upload_buffer &buf) {
 		auto dest = buf.destination;
 		_maybe_create_buffer(*dest._ptr);
 
-		if (buf.type != execution::upload_buffers::allocation_type::same_buffer) {
+		if (buf.type != upload_buffers::allocation_type::same_buffer) {
 			ectx.transitions.stage_transition(
 				*buf.source,
 				{ gpu::synchronization_point_mask::cpu_access, gpu::buffer_access_mask::cpu_write },
@@ -1265,7 +1210,7 @@ namespace lotus::renderer {
 		);
 	}
 
-	void context::_handle_command(execution::context &ectx, context_commands::copy_buffer &buf) {
+	void context::_handle_command(execution::context &ectx, commands::copy_buffer &buf) {
 		_maybe_create_buffer(*buf.source._ptr);
 		_maybe_create_buffer(*buf.destination._ptr);
 
@@ -1283,21 +1228,71 @@ namespace lotus::renderer {
 		);
 	}
 
-	void context::_handle_command(execution::context &ectx, const context_commands::dispatch_compute &cmd) {
-		// create descriptor bindings
-		auto &&[rsrc_key, pipeline_resources, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resources);
-		auto &pipeline = ectx.record(_device.create_compute_pipeline_state(
-			pipeline_resources, cmd.shader->binary
-		));
+	void context::_handle_command(execution::context &ectx, const commands::build_blas &cmd) {
+		auto *blas_ptr = cmd.target._ptr;
+		_maybe_initialize_blas(*blas_ptr);
+
+		// handle transitions
+		for (const auto &geom : blas_ptr->input) {
+			constexpr auto access = _details::buffer_access(
+				gpu::synchronization_point_mask::acceleration_structure_build,
+				gpu::buffer_access_mask::acceleration_structure_build_input
+			);
+			ectx.transitions.stage_transition(*geom.vertex_data._ptr, access);
+			if (geom.index_data._ptr) {
+				ectx.transitions.stage_transition(*geom.index_data._ptr, access);
+			}
+		}
+		ectx.transitions.stage_transition(
+			*blas_ptr->memory,
+			_details::buffer_access(
+				gpu::synchronization_point_mask::acceleration_structure_build,
+				gpu::buffer_access_mask::acceleration_structure_write
+			)
+		);
 		ectx.flush_transitions();
 
-		auto &cmd_list = ectx.get_command_list();
-		cmd_list.bind_pipeline_state(pipeline);
-		_bind_descriptor_sets(ectx, pipeline_resources, std::move(sets), _bind_point::compute);
-		cmd_list.run_compute_shader(cmd.num_thread_groups[0], cmd.num_thread_groups[1], cmd.num_thread_groups[2]);
+		auto &scratch = ectx.create_buffer(
+			blas_ptr->build_sizes.build_scratch_size,
+			_device_memory_index,
+			gpu::buffer_usage_mask::shader_read | gpu::buffer_usage_mask::shader_write
+		);
+		ectx.get_command_list().build_acceleration_structure(blas_ptr->geometry, blas_ptr->handle, scratch, 0);
 	}
 
-	void context::_handle_command(execution::context &ectx, const context_commands::render_pass &cmd) {
+	void context::_handle_command(execution::context &ectx, const commands::build_tlas &cmd) {
+		auto *tlas_ptr = cmd.target._ptr;
+		_maybe_copy_tlas_build_input(ectx, *tlas_ptr);
+
+		ectx.transitions.stage_transition(
+			*tlas_ptr->memory,
+			_details::buffer_access(
+				gpu::synchronization_point_mask::acceleration_structure_build,
+				gpu::buffer_access_mask::acceleration_structure_write
+			)
+		);
+		for (const auto &ref : tlas_ptr->input_references) {
+			ectx.transitions.stage_transition(
+				*ref->memory,
+				_details::buffer_access(
+					gpu::synchronization_point_mask::acceleration_structure_build,
+					gpu::buffer_access_mask::acceleration_structure_read
+				)
+			);
+		}
+		ectx.flush_transitions();
+
+		auto &scratch = ectx.create_buffer(
+			tlas_ptr->build_sizes.build_scratch_size,
+			_device_memory_index,
+			gpu::buffer_usage_mask::shader_read | gpu::buffer_usage_mask::shader_write
+		);
+		ectx.get_command_list().build_acceleration_structure(
+			tlas_ptr->input_data, 0, tlas_ptr->input.size(), tlas_ptr->handle, scratch, 0
+		);
+	}
+
+	void context::_handle_command(execution::context &ectx, const commands::begin_pass &cmd) {
 		std::vector<gpu::color_render_target_access> color_rt_access;
 		std::vector<gpu::image2d_view*> color_rts;
 		std::vector<gpu::format> color_rt_formats;
@@ -1354,6 +1349,7 @@ namespace lotus::renderer {
 
 		gpu::frame_buffer_layout fb_layout(color_rt_formats, ds_rt_format);
 
+		/*
 		// preprocess all commands in the pass and transition resources
 		std::vector<_pass_command_data> data;
 		for (const auto &pass_cmd_val : cmd.commands) {
@@ -1377,73 +1373,54 @@ namespace lotus::renderer {
 		}
 
 		cmd_list.end_pass();
+		*/
 	}
 
-	void context::_handle_command(execution::context &ectx, const context_commands::build_blas &cmd) {
-		auto *blas_ptr = cmd.target._ptr;
-		_maybe_initialize_blas(*blas_ptr);
-
-		// handle transitions
-		for (const auto &geom : blas_ptr->input) {
-			constexpr auto access = _details::buffer_access(
-				gpu::synchronization_point_mask::acceleration_structure_build,
-				gpu::buffer_access_mask::acceleration_structure_build_input
-			);
-			ectx.transitions.stage_transition(*geom.vertex_data._ptr, access);
-			if (geom.index_data._ptr) {
-				ectx.transitions.stage_transition(*geom.index_data._ptr, access);
+	void context::_handle_command(execution::context &ectx, const commands::draw_instanced &cmd) {
+		/*std::vector<gpu::vertex_buffer> bufs;
+		for (const auto &input : cmd.inputs) {
+			if (input.buffer_index >= bufs.size()) {
+				bufs.resize(input.buffer_index + 1, nullptr);
 			}
+			bufs[input.buffer_index] = gpu::vertex_buffer(input.data._ptr->data, input.offset, input.stride);
 		}
-		ectx.transitions.stage_transition(
-			*blas_ptr->memory,
-			_details::buffer_access(
-				gpu::synchronization_point_mask::acceleration_structure_build,
-				gpu::buffer_access_mask::acceleration_structure_write
-			)
-		);
-		ectx.flush_transitions();
 
-		auto &scratch = ectx.create_buffer(
-			blas_ptr->build_sizes.build_scratch_size,
-			_device_memory_index,
-			gpu::buffer_usage_mask::shader_read | gpu::buffer_usage_mask::shader_write
-		);
-		ectx.get_command_list().build_acceleration_structure(blas_ptr->geometry, blas_ptr->handle, scratch, 0);
-	}
-
-	void context::_handle_command(execution::context &ectx, const context_commands::build_tlas &cmd) {
-		auto *tlas_ptr = cmd.target._ptr;
-		_maybe_copy_tlas_build_input(ectx, *tlas_ptr);
-
-		ectx.transitions.stage_transition(
-			*tlas_ptr->memory,
-			_details::buffer_access(
-				gpu::synchronization_point_mask::acceleration_structure_build,
-				gpu::buffer_access_mask::acceleration_structure_write
-			)
-		);
-		for (const auto &ref : tlas_ptr->input_references) {
-			ectx.transitions.stage_transition(
-				*ref->memory,
-				_details::buffer_access(
-					gpu::synchronization_point_mask::acceleration_structure_build,
-					gpu::buffer_access_mask::acceleration_structure_read
-				)
+		auto &cmd_list = ectx.get_command_list();
+		cmd_list.bind_pipeline_state(*data.pipeline_state);
+		_bind_descriptor_sets(ectx, *data.resources, std::move(data.descriptor_sets), _bind_point::graphics);
+		cmd_list.bind_vertex_buffers(0, bufs);
+		if (cmd.index_buffer.data) {
+			cmd_list.bind_index_buffer(
+				cmd.index_buffer.data._ptr->data,
+				cmd.index_buffer.offset,
+				cmd.index_buffer.format
 			);
-		}
-		ectx.flush_transitions();
-
-		auto &scratch = ectx.create_buffer(
-			tlas_ptr->build_sizes.build_scratch_size,
-			_device_memory_index,
-			gpu::buffer_usage_mask::shader_read | gpu::buffer_usage_mask::shader_write
-		);
-		ectx.get_command_list().build_acceleration_structure(
-			tlas_ptr->input_data, 0, tlas_ptr->input.size(), tlas_ptr->handle, scratch, 0
-		);
+			cmd_list.draw_indexed_instanced(0, cmd.index_count, 0, 0, cmd.instance_count);
+		} else {
+			cmd_list.draw_instanced(0, cmd.vertex_count, 0, cmd.instance_count);
+		}*/
+		// TODO
 	}
 
-	void context::_handle_command(execution::context &ectx, const context_commands::trace_rays &cmd) {
+	void context::_handle_command(execution::context &ectx, const commands::end_pass &cmd) {
+		// TODO
+	}
+
+	void context::_handle_command(execution::context &ectx, const commands::dispatch_compute &cmd) {
+		// create descriptor bindings
+		auto &&[rsrc_key, pipeline_resources, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resources);
+		auto &pipeline = ectx.record(_device.create_compute_pipeline_state(
+			pipeline_resources, cmd.shader->binary
+		));
+		ectx.flush_transitions();
+
+		auto &cmd_list = ectx.get_command_list();
+		cmd_list.bind_pipeline_state(pipeline);
+		_bind_descriptor_sets(ectx, pipeline_resources, std::move(sets), _bind_point::compute);
+		cmd_list.run_compute_shader(cmd.num_thread_groups[0], cmd.num_thread_groups[1], cmd.num_thread_groups[2]);
+	}
+
+	void context::_handle_command(execution::context &ectx, const commands::trace_rays &cmd) {
 		auto &&[rsrc_key, rsrc, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resource_bindings);
 
 		cache_keys::raytracing_pipeline pipeline_key = nullptr;
@@ -1512,7 +1489,7 @@ namespace lotus::renderer {
 		);
 	}
 
-	void context::_handle_command(execution::context &ectx, const context_commands::present &cmd) {
+	void context::_handle_command(execution::context &ectx, const commands::present &cmd) {
 		// if we haven't written anything to the swap chain, just don't present
 		if (cmd.target._ptr->chain) {
 			ectx.transitions.stage_transition(
@@ -1525,8 +1502,8 @@ namespace lotus::renderer {
 			);
 			ectx.flush_transitions();
 
-			ectx.submit(_graphics_queue, nullptr);
-			if (_graphics_queue.present(cmd.target._ptr->chain) != gpu::swap_chain_status::ok) {
+			ectx.submit(nullptr);
+			if (ectx.get_command_queue().present(cmd.target._ptr->chain) != gpu::swap_chain_status::ok) {
 				// TODO?
 			}
 		}
@@ -1534,13 +1511,25 @@ namespace lotus::renderer {
 		cmd.target._ptr->next_image_index = _details::swap_chain::invalid_image_index;
 	}
 
-	void context::_handle_command(execution::context&, const context_commands::pause_for_debugging&) {
+	void context::_handle_command(execution::context &ectx, const commands::start_timer &cmd) {
+		// TODO
+	}
+
+	void context::_handle_command(execution::context &ectx, const commands::end_timer &cmd) {
+		// TODO
+	}
+
+	void context::_handle_command(execution::context&, const commands::pause_for_debugging&) {
 		pause_for_debugger();
 	}
 
 	void context::_cleanup() {
+		auto finished_batch = std::numeric_limits<gpu::timeline_semaphore::value_type>::max();
+		for (auto &q : _queues) {
+			finished_batch = std::min(finished_batch, _device.query_timeline_semaphore(q.batch_semaphore));
+		}
+
 		auto first_batch = static_cast<std::uint32_t>(_batch_index + 1 - _all_resources.size());
-		std::uint64_t finished_batch = _device.query_timeline_semaphore(_batch_semaphore);
 		while (first_batch <= finished_batch) {
 			auto &batch = _all_resources.front();
 			
@@ -1587,16 +1576,23 @@ namespace lotus::renderer {
 			if (on_batch_statistics_available) {
 				execution::batch_statistics_late result = zero;
 				
-				{ // read back timer information
-					result.timer_results.reserve(batch.timestamps.size());
-					double frequency = _graphics_queue.get_timestamp_frequency();
-					std::vector<std::uint64_t> raw_results(batch.num_timestamps);
-					_device.fetch_query_results(batch.timestamp_heap, 0, raw_results);
-					for (const auto &t : batch.timestamps) {
-						std::uint64_t ticks = raw_results[t.second_timestamp] - raw_results[t.first_timestamp];
-						auto &res = result.timer_results.emplace_back(nullptr);
-						res.name = t.name;
-						res.duration_ms = static_cast<float>((ticks * 1000) / frequency);
+				for (std::size_t iq = 0; iq < _queues.size(); ++iq) { // read back timer information
+					auto &queue_data = batch.queues[iq];
+					double frequency = _queues[iq].queue.get_timestamp_frequency();
+
+					auto &queue_res = result.timer_results.emplace_back();
+					queue_res.reserve(queue_data.timers.size());
+
+					if (queue_data.timestamp_heap) {
+						std::vector<std::uint64_t> raw_results(queue_data.timestamp_count);
+						_device.fetch_query_results(*queue_data.timestamp_heap, 0, raw_results);
+
+						for (auto &tmr : queue_data.timers) {
+							std::uint64_t ticks = raw_results[tmr.end_timestamp] - raw_results[tmr.begin_timestamp];
+							auto &res = queue_res.emplace_back(nullptr);
+							res.name = std::move(tmr.name);
+							res.duration_ms = static_cast<float>((ticks * 1000) / frequency);
+						}
 					}
 				}
 

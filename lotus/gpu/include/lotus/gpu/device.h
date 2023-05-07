@@ -464,7 +464,7 @@ namespace lotus::gpu {
 			return backend::device::create_fence(state);
 		}
 		/// Creates a \ref timeline_semaphore.
-		[[nodiscard]] timeline_semaphore create_timeline_semaphore(std::uint64_t value) {
+		[[nodiscard]] timeline_semaphore create_timeline_semaphore(timeline_semaphore::value_type value) {
 			return backend::device::create_timeline_semaphore(value);
 		}
 
@@ -479,15 +479,15 @@ namespace lotus::gpu {
 		}
 
 		/// Signals the timeline semaphore from the CPU side.
-		void signal_timeline_semaphore(timeline_semaphore &sem, std::uint64_t value) {
+		void signal_timeline_semaphore(timeline_semaphore &sem, timeline_semaphore::value_type value) {
 			backend::device::signal_timeline_semaphore(sem, value);
 		}
 		/// Queries the current value of the given \ref timeline_semaphore.
-		[[nodiscard]] std::uint64_t query_timeline_semaphore(timeline_semaphore &sem) {
+		[[nodiscard]] timeline_semaphore::value_type query_timeline_semaphore(timeline_semaphore &sem) {
 			return backend::device::query_timeline_semaphore(sem);
 		}
 		/// Waits until the given timeline semaphore has reached a value equal to or greater than the given value.
-		void wait_for_timeline_semaphore(timeline_semaphore &sem, std::uint64_t value) {
+		void wait_for_timeline_semaphore(timeline_semaphore &sem, timeline_semaphore::value_type value) {
 			backend::device::wait_for_timeline_semaphore(sem, value);
 		}
 
@@ -661,7 +661,7 @@ namespace lotus::gpu {
 			auto &&[dev, backend_qs] = backend::adapter::create_device(queue_types);
 			std::vector<command_queue> qs(backend_qs.size(), nullptr);
 			for (std::size_t i = 0; i < backend_qs.size(); ++i) {
-				qs[i] = command_queue(std::move(backend_qs[i]));
+				qs[i] = command_queue(std::move(backend_qs[i]), static_cast<std::uint32_t>(i), queue_types[i]);
 			}
 			return { device(std::move(dev)), std::move(qs) };
 		}

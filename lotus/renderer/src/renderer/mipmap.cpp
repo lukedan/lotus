@@ -6,9 +6,9 @@
 #include "lotus/renderer/shader_types.h"
 
 namespace lotus::renderer::mipmap {
-	generator generator::create(assets::manager &man) {
+	generator generator::create(assets::manager &man, context::queue q) {
 		return generator(
-			man.get_context(),
+			q,
 			man.compile_shader_in_filesystem(
 				man.asset_library_path / "shaders/misc/downsample_mip.hlsl",
 				gpu::shader_stage::compute_shader,
@@ -36,7 +36,7 @@ namespace lotus::renderer::mipmap {
 
 			auto size = (img.get_size() / 2).into<std::uint32_t>();
 			// TODO better description
-			_ctx.run_compute_shader_with_thread_dimensions(
+			_q.run_compute_shader_with_thread_dimensions(
 				_shader, cvec3u32(size[0], size[1], 1), std::move(rsrc), u8"Generate mip"
 			);
 		}

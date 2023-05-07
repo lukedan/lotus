@@ -33,9 +33,9 @@ namespace lotus::renderer {
 
 			/// Creates a new instance.
 			[[nodiscard]] inline static manager create(
-				context &ctx, gpu::shader_utility *shader_utils = nullptr
+				context &ctx, context::queue q, gpu::shader_utility *shader_utils = nullptr
 			) {
-				return manager(ctx, shader_utils);
+				return manager(ctx, q, shader_utils);
 			}
 
 			/// Retrieves a image with the given ID. If it has not been loaded, it will be loaded and allocated out
@@ -309,7 +309,7 @@ namespace lotus::renderer {
 			};
 
 			/// Initializes this manager.
-			manager(context&, gpu::shader_utility*);
+			manager(context&, context::queue, gpu::shader_utility*);
 
 			/// Generic interface for registering an asset.
 			template <typename T> handle<T> _register_asset(identifier id, T value, _map<T> &mp) {
@@ -373,6 +373,7 @@ namespace lotus::renderer {
 			_material_map       _materials;        ///< All loaded materials.
 
 			context &_context; ///< Associated context.
+			context::queue _upload_queue; ///< Queue used for uploading resources.
 			gpu::shader_utility *_shader_utilities = nullptr; ///< Used for compiling shaders.
 
 			_async_loader _image_loader; ///< Loader for images.

@@ -31,7 +31,7 @@ template <typename T> static bool ImGui_SliderT(const char *label, T *data, T mi
 }
 
 struct sig_pair {
-	sig_pair(lren::execution::constant_buffer_signature sig, std::uint32_t c) :
+	sig_pair(lren::statistics::constant_buffer_signature sig, std::uint32_t c) :
 		signature(sig), count(c) {
 	}
 
@@ -39,7 +39,7 @@ struct sig_pair {
 		return lhs.count <=> rhs.count;
 	}
 
-	lren::execution::constant_buffer_signature signature;
+	lren::statistics::constant_buffer_signature signature;
 	std::uint32_t count;
 };
 
@@ -76,9 +76,9 @@ int main(int argc, char **argv) {
 		"D:/Documents/Projects/lotus/test/renderer/common/include",
 	};
 
-	std::vector<lren::execution::batch_statistics_early> batch_stats_early;
-	lren::execution::batch_statistics_late batch_stats_late = zero;
-	rctx.on_batch_statistics_available = [&](std::uint32_t, lren::execution::batch_statistics_late stats) {
+	std::vector<lren::batch_statistics_early> batch_stats_early;
+	lren::batch_statistics_late batch_stats_late = zero;
+	rctx.on_batch_statistics_available = [&](std::uint32_t, lren::batch_statistics_late stats) {
 		batch_stats_late = std::move(stats);
 	};
 

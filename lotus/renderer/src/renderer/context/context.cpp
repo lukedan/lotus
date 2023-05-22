@@ -411,7 +411,7 @@ namespace lotus::renderer {
 		));
 	}
 
-	std::vector<execution::batch_statistics_early> context::execute_all() {
+	std::vector<batch_statistics_early> context::execute_all() {
 		constexpr bool _insert_pass_markers = decltype(command::description)::is_enabled;
 
 		crash_if(std::this_thread::get_id() != _thread);
@@ -426,7 +426,7 @@ namespace lotus::renderer {
 			}
 		}
 
-		std::vector<execution::batch_statistics_early> stats;
+		std::vector<batch_statistics_early> stats;
 
 		{
 			std::vector<execution::context> ectxs;
@@ -434,30 +434,57 @@ namespace lotus::renderer {
 				ectxs.emplace_back(q, resources);
 			}
 
+			while (true) {
+				// find the next command
+				std::optional<std::size_t> cmd_q;
+				{
+					std::uint32_t min_submission_index = 0;
+					for (std::size_t iq = 0; iq < _queues.size(); ++iq) {
+						if (ectxs[iq].has_finished()) {
+							continue;
+						}
+						auto command_index = ectxs[iq].get_next_command_index();
+						auto submission_index = _queues[iq].batch_commands[command_index].submission_index;
+						if (!cmd_q.has_value() || submission_index < min_submission_index) {
+							min_submission_index = submission_index;
+							cmd_q = iq;
+						}
+					}
+				}
+				if (!cmd_q) {
+					break; // we're done
+				}
+
+				auto &ectx = ectxs[*cmd_q];
+				auto &cmd = _queues[*cmd_q].batch_commands[ectx.get_next_command_index()];
+				ectx.next_command();
+
+				if constexpr (_insert_pass_markers) {
+					ectx.get_command_list().begin_marker_scope(
+						std::u8string(cmd.description.value), linear_rgba_u8(128, 128, 255, 255)
+					);
+				}
+
+				std::visit([&, this](auto &cmd_val) {
+					_handle_generic_command(ectx, cmd_val);
+				}, cmd.value);
+
+				if constexpr (_insert_pass_markers) {
+					ectx.get_command_list().end_marker_scope();
+				}
+
+				constexpr bool _debug_separate_commands = false;
+				if constexpr (_debug_separate_commands) {
+					gpu::fence f = _device.create_fence(gpu::synchronization_state::unset);
+					ectx.submit(&f);
+					_device.wait_for_fence(f);
+				}
+			}
+
 			for (std::size_t iq = 0; iq < _queues.size(); ++iq) {
 				auto &q = _queues[iq];
 				auto &ectx = ectxs[iq];
-				for (std::size_t icmd = 0; icmd < q.batch_commands.size(); ++icmd) {
-					if constexpr (_insert_pass_markers) {
-						ectx.get_command_list().begin_marker_scope(
-							std::u8string(q.batch_commands[icmd].description.value),
-							linear_rgba_u8(128, 128, 255, 255)
-						);
-					}
-					std::visit([&, this](auto &cmd_val) {
-						_handle_generic_command(ectx, cmd_val);
-					}, q.batch_commands[icmd].value);
-					if constexpr (_insert_pass_markers) {
-						ectx.get_command_list().end_marker_scope();
-					}
 
-					constexpr bool _debug_separate_commands = false;
-					if constexpr (_debug_separate_commands) {
-						gpu::fence f = _device.create_fence(gpu::synchronization_state::unset);
-						ectx.submit(&f);
-						_device.wait_for_fence(f);
-					}
-				}
 				ectx.flush_transitions();
 				auto signal_semaphores = {
 					gpu::timeline_semaphore_synchronization(q.batch_semaphore, _batch_index)
@@ -468,7 +495,7 @@ namespace lotus::renderer {
 			}
 
 			for (auto &ectx : ectxs) {
-				stats.emplace_back(std::move(ectx.statistics));
+				stats.emplace_back(std::move(ectx.early_statistics));
 			}
 		}
 
@@ -1044,11 +1071,11 @@ namespace lotus::renderer {
 	std::tuple<
 		cache_keys::pipeline_resources,
 		const gpu::pipeline_resources&,
-		std::vector<context::_descriptor_set_info>
+		std::vector<execution::descriptor_set_info>
 	> context::_check_and_create_descriptor_set_bindings(
 		execution::context &ectx, _details::numbered_bindings_view resources
 	) {
-		std::vector<_descriptor_set_info> sets;
+		std::vector<execution::descriptor_set_info> sets;
 		cache_keys::pipeline_resources key;
 
 		sets.reserve(resources.size());
@@ -1070,12 +1097,12 @@ namespace lotus::renderer {
 
 	void context::_bind_descriptor_sets(
 		execution::context &ectx, const gpu::pipeline_resources &rsrc,
-		std::vector<_descriptor_set_info> sets, _bind_point pt
+		std::vector<execution::descriptor_set_info> sets, _bind_point pt
 	) {
 		// organize descriptor sets by register space
 		std::sort(
 			sets.begin(), sets.end(),
-			[](const _descriptor_set_info &lhs, const _descriptor_set_info &rhs) {
+			[](const execution::descriptor_set_info &lhs, const execution::descriptor_set_info &rhs) {
 				return lhs.space < rhs.space;
 			}
 		);
@@ -1110,12 +1137,12 @@ namespace lotus::renderer {
 		}
 	}
 
-	context::_pass_command_data context::_preprocess_pass_command(
+	execution::pass_command_data context::_preprocess_pass_command(
 		execution::context &ectx,
 		const gpu::frame_buffer_layout &fb_layout,
 		const commands::draw_instanced &cmd
 	) {
-		context::_pass_command_data result = nullptr;
+		execution::pass_command_data result = nullptr;
 		auto &&[rsrc_key, rsrc, sets] = _check_and_create_descriptor_set_bindings(ectx, cmd.resource_bindings);
 		result.descriptor_sets = std::move(sets);
 		result.resources = &rsrc;
@@ -1349,14 +1376,20 @@ namespace lotus::renderer {
 
 		gpu::frame_buffer_layout fb_layout(color_rt_formats, ds_rt_format);
 
-		/*
 		// preprocess all commands in the pass and transition resources
-		std::vector<_pass_command_data> data;
-		for (const auto &pass_cmd_val : cmd.commands) {
+		ectx.begin_pass_preprocessing();
+		for (
+			auto cmd_index = ectx.get_next_command_index();
+			!std::holds_alternative<commands::end_pass>(ectx.get_queue_data().batch_commands[cmd_index].value);
+			++cmd_index
+		) {
 			std::visit([&](const auto &pass_cmd) {
-				data.emplace_back(_preprocess_command(ectx, fb_layout, pass_cmd));
-			}, pass_cmd_val.value);
+				ectx.push_pass_command_data(_preprocess_pass_command(ectx, fb_layout, pass_cmd));
+			}, ectx.get_queue_data().batch_commands[cmd_index].value);
 		}
+		ectx.end_pass_preprocessing();
+
+		// transitions cannot be executed within the pass, so we collect all transitions beforehand and do them here
 		ectx.flush_transitions();
 
 		auto &cmd_list = ectx.get_command_list();
@@ -1365,19 +1398,10 @@ namespace lotus::renderer {
 			aab2f::create_from_min_max(zero, cmd.render_target_size.into<float>()), 0.0f, 1.0f
 		) });
 		cmd_list.set_scissor_rectangles({ aab2i::create_from_min_max(zero, cmd.render_target_size.into<int>()) });
-		
-		for (std::size_t i = 0; i < cmd.commands.size(); ++i) {
-			std::visit([&](const auto &pass_cmd) {
-				_handle_pass_command(ectx, std::move(data[i]), pass_cmd);
-			}, cmd.commands[i].value);
-		}
-
-		cmd_list.end_pass();
-		*/
 	}
 
 	void context::_handle_command(execution::context &ectx, const commands::draw_instanced &cmd) {
-		/*std::vector<gpu::vertex_buffer> bufs;
+		std::vector<gpu::vertex_buffer> bufs;
 		for (const auto &input : cmd.inputs) {
 			if (input.buffer_index >= bufs.size()) {
 				bufs.resize(input.buffer_index + 1, nullptr);
@@ -1386,6 +1410,7 @@ namespace lotus::renderer {
 		}
 
 		auto &cmd_list = ectx.get_command_list();
+		auto data = ectx.pop_pass_command_data();
 		cmd_list.bind_pipeline_state(*data.pipeline_state);
 		_bind_descriptor_sets(ectx, *data.resources, std::move(data.descriptor_sets), _bind_point::graphics);
 		cmd_list.bind_vertex_buffers(0, bufs);
@@ -1398,12 +1423,12 @@ namespace lotus::renderer {
 			cmd_list.draw_indexed_instanced(0, cmd.index_count, 0, 0, cmd.instance_count);
 		} else {
 			cmd_list.draw_instanced(0, cmd.vertex_count, 0, cmd.instance_count);
-		}*/
-		// TODO
+		}
 	}
 
 	void context::_handle_command(execution::context &ectx, const commands::end_pass &cmd) {
-		// TODO
+		ectx.end_pass_command_processing();
+		ectx.get_command_list().end_pass();
 	}
 
 	void context::_handle_command(execution::context &ectx, const commands::dispatch_compute &cmd) {
@@ -1574,7 +1599,7 @@ namespace lotus::renderer {
 			}
 
 			if (on_batch_statistics_available) {
-				execution::batch_statistics_late result = zero;
+				batch_statistics_late result = zero;
 				
 				for (std::size_t iq = 0; iq < _queues.size(); ++iq) { // read back timer information
 					auto &queue_data = batch.queues[iq];

@@ -424,7 +424,7 @@ namespace lotus::renderer {
 
 
 		/// Analyzes and executes all recorded commands.
-		std::vector<execution::batch_statistics_early> execute_all();
+		std::vector<batch_statistics_early> execute_all();
 		/// Waits until all previous batches have finished executing.
 		void wait_idle();
 
@@ -465,9 +465,7 @@ namespace lotus::renderer {
 		}
 
 		/// Callback function for when statistics for a new batch is available.
-		static_function<
-			void(std::uint32_t, execution::batch_statistics_late)
-		> on_batch_statistics_available = nullptr;
+		static_function<void(std::uint32_t, batch_statistics_late)> on_batch_statistics_available = nullptr;
 	private:
 		/// Indicates a descriptor set bind point.
 		enum class _bind_point {
@@ -476,28 +474,6 @@ namespace lotus::renderer {
 			raytracing, ///< The descriptor sets are used for ray tracing operations.
 		};
 
-		/// A descriptor set and its register space.
-		struct _descriptor_set_info {
-			/// Initializes this structure to empty.
-			_descriptor_set_info(std::nullptr_t) {
-			}
-			/// Initializes all fields of this struct.
-			_descriptor_set_info(gpu::descriptor_set &se, std::uint32_t s) : set(&se), space(s) {
-			}
-
-			gpu::descriptor_set *set = nullptr; ///< The descriptor set.
-			std::uint32_t space = 0; ///< Register space of this descriptor set.
-		};
-		/// Cached data used by a single pass command.
-		struct _pass_command_data {
-			/// Initializes this structure to empty.
-			_pass_command_data(std::nullptr_t) {
-			}
-
-			const gpu::pipeline_resources *resources = nullptr; ///< Pipeline resources.
-			const gpu::graphics_pipeline_state *pipeline_state = nullptr; ///< Pipeline state.
-			std::vector<_descriptor_set_info> descriptor_sets; ///< Descriptor sets.
-		};
 		/// Holds data about a timer.
 		struct _timer_data {
 			/// Initializes this structure to empty.
@@ -920,25 +896,25 @@ namespace lotus::renderer {
 		[[nodiscard]] std::tuple<
 			cache_keys::pipeline_resources,
 			const gpu::pipeline_resources&,
-			std::vector<context::_descriptor_set_info>
+			std::vector<execution::descriptor_set_info>
 		> _check_and_create_descriptor_set_bindings(
 			execution::context&, _details::numbered_bindings_view
 		);
 		/// Binds the given descriptor sets.
 		void _bind_descriptor_sets(
 			execution::context&, const gpu::pipeline_resources&,
-			std::vector<_descriptor_set_info>, _bind_point
+			std::vector<execution::descriptor_set_info>, _bind_point
 		);
 
 		/// Handles non-pass commands by crashing.
-		template <typename T> [[nodiscard]] _pass_command_data _preprocess_pass_command(
+		template <typename T> [[nodiscard]] execution::pass_command_data _preprocess_pass_command(
 			execution::context&, const gpu::frame_buffer_layout&, const T&
 		) {
 			crash_if(true);
 			return nullptr;
 		}
 		/// Preprocesses the given instanced draw command.
-		[[nodiscard]] _pass_command_data _preprocess_pass_command(
+		[[nodiscard]] execution::pass_command_data _preprocess_pass_command(
 			execution::context&, const gpu::frame_buffer_layout&, const commands::draw_instanced&
 		);
 

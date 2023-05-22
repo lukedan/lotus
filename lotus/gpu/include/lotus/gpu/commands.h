@@ -301,22 +301,14 @@ namespace lotus::gpu {
 		/// Creates an empty command queue.
 		command_queue(std::nullptr_t) : backend::command_queue(nullptr) {
 		}
-		/// Move construction.
-		command_queue(command_queue &&src) : backend::command_queue(std::move(src)) {
-		}
-		/// Copy construction.
-		command_queue(const command_queue &src) : backend::command_queue(src) {
-		}
-		/// Move assignment.
-		command_queue &operator=(command_queue &&src) {
-			backend::command_queue::operator=(std::move(src));
-			return *this;
-		}
-		/// Copy assignment.
-		command_queue &operator=(const command_queue &src) {
-			backend::command_queue::operator=(src);
-			return *this;
-		}
+		/// Default move construction.
+		command_queue(command_queue&&) noexcept = default;
+		/// Default copy construction.
+		command_queue(const command_queue&) = default;
+		/// Default move assignment.
+		command_queue &operator=(command_queue&&) noexcept = default;
+		/// Default copy assignment.
+		command_queue &operator=(const command_queue&) = default;
 
 		/// Returns the number of ticks per second for timestamp queries on this queue.
 		[[nodiscard]] double get_timestamp_frequency() {

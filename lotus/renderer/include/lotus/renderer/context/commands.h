@@ -373,6 +373,8 @@ namespace lotus::renderer {
 			commands::end_timer,
 			commands::pause_for_debugging
 		> value; ///< The value of this command.
+		/// Denotes the order in which these commands are submitted from the CPU.
+		[[no_unique_address]] std::uint32_t submission_index = 0;
 		/// Debug description of this command.
 		[[no_unique_address]] static_optional<std::u8string, should_register_debug_names> description;
 	};

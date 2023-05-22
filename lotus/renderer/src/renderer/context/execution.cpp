@@ -217,9 +217,9 @@ namespace lotus::renderer::execution {
 	std::tuple<
 		std::vector<gpu::image_barrier>,
 		std::vector<gpu::buffer_barrier>,
-		transition_statistics
+		statistics::transitions
 	> transition_buffer::collect_transitions() && {
-		transition_statistics result_stats = _stats;
+		statistics::transitions result_stats = _stats;
 		result_stats.requested_image2d_transitions = static_cast<std::uint32_t>(_image2d_transitions.size());
 		result_stats.requested_image3d_transitions = static_cast<std::uint32_t>(_image3d_transitions.size());
 		result_stats.requested_buffer_transitions  = static_cast<std::uint32_t>(_buffer_transitions.size());
@@ -342,7 +342,7 @@ namespace lotus::renderer::execution {
 
 	context::context(_details::queue_data &q, batch_resources &rsrc) :
 		transitions(nullptr),
-		statistics(zero),
+		early_statistics(zero),
 		_q(q), _resources(rsrc),
 		_immediate_constant_device_buffer(nullptr),
 		_immediate_constant_upload_buffer(nullptr),
@@ -438,10 +438,10 @@ namespace lotus::renderer::execution {
 		fill_data(span);
 
 		if constexpr (collect_constant_buffer_signature) {
-			constant_buffer_signature sig = zero;
+			statistics::constant_buffer_signature sig = zero;
 			sig.hash = fnv1a::hash_bytes(span);
 			sig.size = static_cast<std::uint32_t>(size_align.size);
-			++statistics.constant_buffer_counts[sig];
+			++early_statistics.constant_buffer_counts[sig];
 		}
 
 		return result;
@@ -468,7 +468,7 @@ namespace lotus::renderer::execution {
 
 		_immediate_constant_buffer_stats.immediate_constant_buffer_size =
 			static_cast<std::uint32_t>(_immediate_constant_buffer_used);
-		statistics.immediate_constant_buffers.emplace_back(std::exchange(_immediate_constant_buffer_stats, zero));
+		early_statistics.immediate_constant_buffers.emplace_back(std::exchange(_immediate_constant_buffer_stats, zero));
 
 		_get_device().unmap_buffer(_immediate_constant_upload_buffer, 0, _immediate_constant_buffer_used);
 
@@ -574,7 +574,7 @@ namespace lotus::renderer::execution {
 
 	void context::flush_transitions() {
 		auto [image_barriers, buffer_barriers, stats] = std::exchange(transitions, nullptr).collect_transitions();
-		statistics.transitions.emplace_back(stats);
+		early_statistics.transitions.emplace_back(stats);
 		if (image_barriers.size() > 0 || buffer_barriers.size() > 0) {
 			get_command_list().insert_marker(u8"Flush transitions", linear_rgba_u8(0, 0, 255, 255));
 
@@ -604,6 +604,35 @@ namespace lotus::renderer::execution {
 
 	void context::end_timer(const commands::end_timer &cmd) {
 		_get_queue_data().timers[std::to_underlying(cmd.index)].end_timestamp = _maybe_insert_timestamp();
+	}
+
+	void context::begin_pass_preprocessing() {
+		crash_if(!_pass_command_data.empty());
+		_pass_preprocessing_finished = false;
+	}
+
+	void context::push_pass_command_data(pass_command_data data) {
+		_pass_command_data.emplace_back(std::move(data));
+	}
+
+	void context::end_pass_preprocessing() {
+		crash_if(_pass_preprocessing_finished);
+		_pass_preprocessing_finished = true;
+		_pass_command_data_ptr = 0;
+	}
+
+	pass_command_data context::pop_pass_command_data() {
+		crash_if(!_pass_preprocessing_finished);
+		return std::move(_pass_command_data[_pass_command_data_ptr++]);
+	}
+
+	void context::end_pass_command_processing() {
+		crash_if(_pass_command_data_ptr != _pass_command_data.size());
+		_pass_command_data.clear();
+	}
+
+	bool context::has_finished() const {
+		return get_next_command_index() >= _q.batch_commands.size();
 	}
 
 	renderer::context &context::_get_context() const {

@@ -80,4 +80,95 @@ namespace lotus::renderer {
 		std::size_t _buffer_size = 0; ///< Size of \ref _current or any newly allocated buffers.
 		context *_context = nullptr; ///< Associated context.
 	};
+
+
+	namespace statistics {
+		/// Result of a single timer.
+		struct timer_result {
+			/// Initializes this object to empty.
+			timer_result(std::nullptr_t) {
+			}
+
+			std::u8string name; ///< The name of this timer.
+			float duration_ms = 0.0f; ///< Duration of the timer in milliseconds.
+		};
+
+		/// Statistics about transitions.
+		struct transitions {
+			/// Initializes all statistics to zero.
+			transitions(zero_t) {
+			}
+
+			std::uint32_t requested_image2d_transitions    = 0; ///< Number of 2D image transitions requested.
+			std::uint32_t requested_image3d_transitions    = 0; ///< Number of 3D image transitions requested.
+			std::uint32_t requested_buffer_transitions     = 0; ///< Number of buffer transitions requested.
+			std::uint32_t requested_raw_buffer_transitions = 0; ///< Number of raw buffer transitions requested.
+
+			std::uint32_t submitted_image2d_transitions    = 0; ///< Number of 2D image transitions submitted.
+			std::uint32_t submitted_image3d_transitions    = 0; ///< Number of 3D image transitions submitted.
+			std::uint32_t submitted_buffer_transitions     = 0; ///< Number of buffer transitions submitted.
+			std::uint32_t submitted_raw_buffer_transitions = 0; ///< Number of raw buffer transitions submitted.
+		};
+		/// Statistics about immediate constant buffers.
+		struct immediate_constant_buffers {
+			/// Initializes all statistics to zero.
+			immediate_constant_buffers(zero_t) {
+			}
+
+			std::uint32_t num_immediate_constant_buffers = 0; ///< Number of immediate constant buffer instances.
+			std::uint32_t immediate_constant_buffer_size = 0; ///< Total size of all immediate constant buffers.
+			/// Total size of all immediate constant buffers without padding.
+			std::uint32_t immediate_constant_buffer_size_no_padding = 0;
+		};
+		/// Signature of a constant buffer.
+		struct constant_buffer_signature {
+			/// Initializes this object to zero.
+			constexpr constant_buffer_signature(zero_t) {
+			}
+
+			/// Default equality comparison.
+			[[nodiscard]] friend bool operator==(constant_buffer_signature, constant_buffer_signature) = default;
+
+			std::uint32_t hash = 0; ///< Hash of the buffer's data.
+			std::uint32_t size = 0; ///< Size of the buffer.
+		};
+	}
+}
+namespace std {
+	/// Hash function for \ref lotus::renderer::statistics::constant_buffer_signature.
+	template <> struct hash<lotus::renderer::statistics::constant_buffer_signature> {
+		/// The hash function.
+		[[nodiscard]] constexpr std::size_t operator()(
+			lotus::renderer::statistics::constant_buffer_signature sig
+		) const {
+			return lotus::hash_combine({
+				lotus::compute_hash(sig.hash),
+				lotus::compute_hash(sig.size),
+			});
+		}
+	};
+}
+namespace lotus::renderer {
+	/// Batch statistics that are available as soon as a batch has been submitted.
+	struct batch_statistics_early {
+		/// Initializes all statistics to zero.
+		batch_statistics_early(zero_t) {
+		}
+
+		std::vector<statistics::transitions> transitions; ///< Transition statistics.
+		// TODO remove these
+		/// Immediate constant buffer statistics.
+		std::vector<statistics::immediate_constant_buffers> immediate_constant_buffers;
+		/// Constant buffer information. This is costly to gather, so it's only filled if
+		/// \ref execution::collect_constant_buffer_signature is on.
+		std::unordered_map<statistics::constant_buffer_signature, std::uint32_t> constant_buffer_counts;
+	};
+	/// Batch statistics that are only available once a batch has finished execution.
+	struct batch_statistics_late {
+		/// Initializes all statistics to zero.
+		batch_statistics_late(zero_t) {
+		}
+
+		std::vector<std::vector<statistics::timer_result>> timer_results; ///< Timer results for each queue.
+	};
 }

@@ -28,94 +28,6 @@ namespace lotus::renderer::execution {
 	/// Whether or not to collect signatures of constant buffers.
 	constexpr bool collect_constant_buffer_signature = false;
 
-	/// Result of a single timer.
-	struct timer_result {
-		/// Initializes this object to empty.
-		timer_result(std::nullptr_t) {
-		}
-
-		std::u8string name; ///< The name of this timer.
-		float duration_ms = 0.0f; ///< Duration of the timer in milliseconds.
-	};
-
-	/// Statistics about transitions.
-	struct transition_statistics {
-		/// Initializes all statistics to zero.
-		transition_statistics(zero_t) {
-		}
-
-		std::uint32_t requested_image2d_transitions    = 0; ///< Number of 2D image transitions requested.
-		std::uint32_t requested_image3d_transitions    = 0; ///< Number of 3D image transitions requested.
-		std::uint32_t requested_buffer_transitions     = 0; ///< Number of buffer transitions requested.
-		std::uint32_t requested_raw_buffer_transitions = 0; ///< Number of raw buffer transitions requested.
-
-		std::uint32_t submitted_image2d_transitions    = 0; ///< Number of 2D image transitions submitted.
-		std::uint32_t submitted_image3d_transitions    = 0; ///< Number of 3D image transitions submitted.
-		std::uint32_t submitted_buffer_transitions     = 0; ///< Number of buffer transitions submitted.
-		std::uint32_t submitted_raw_buffer_transitions = 0; ///< Number of raw buffer transitions submitted.
-	};
-	/// Statistics about immediate constant buffers.
-	struct immediate_constant_buffer_statistsics {
-		/// Initializes all statistics to zero.
-		immediate_constant_buffer_statistsics(zero_t) {
-		}
-
-		std::uint32_t num_immediate_constant_buffers = 0; ///< Number of immediate constant buffer instances.
-		std::uint32_t immediate_constant_buffer_size = 0; ///< Total size of all immediate constant buffers.
-		/// Total size of all immediate constant buffers without padding.
-		std::uint32_t immediate_constant_buffer_size_no_padding = 0;
-	};
-	/// Signature of a constant buffer.
-	struct constant_buffer_signature {
-		/// Initializes this object to zero.
-		constexpr constant_buffer_signature(zero_t) {
-		}
-
-		/// Default equality comparison.
-		[[nodiscard]] friend bool operator==(constant_buffer_signature, constant_buffer_signature) = default;
-
-		std::uint32_t hash = 0; ///< Hash of the buffer's data.
-		std::uint32_t size = 0; ///< Size of the buffer.
-	};
-}
-namespace std {
-	/// Hash function for \ref lotus::renderer::execution::constant_buffer_signature.
-	template <> struct hash<lotus::renderer::execution::constant_buffer_signature> {
-		/// The hash function.
-		[[nodiscard]] constexpr std::size_t operator()(
-			lotus::renderer::execution::constant_buffer_signature sig
-		) const {
-			return lotus::hash_combine({
-				lotus::compute_hash(sig.hash),
-				lotus::compute_hash(sig.size),
-			});
-		}
-	};
-}
-namespace lotus::renderer::execution {
-	/// Batch statistics that are available as soon as a batch has been submitted.
-	struct batch_statistics_early {
-		/// Initializes all statistics to zero.
-		batch_statistics_early(zero_t) {
-		}
-
-		std::vector<transition_statistics> transitions; ///< Transition statistics.
-		// TODO remove these
-		/// Immediate constant buffer statistics.
-		std::vector<immediate_constant_buffer_statistsics> immediate_constant_buffers;
-		/// Constant buffer information. This is costly to gather, so it's only filled if
-		/// \ref collect_constant_buffer_signature is on.
-		std::unordered_map<constant_buffer_signature, std::uint32_t> constant_buffer_counts;
-	};
-	/// Batch statistics that are only available once a batch has finished execution.
-	struct batch_statistics_late {
-		/// Initializes all statistics to zero.
-		batch_statistics_late(zero_t) {
-		}
-
-		std::vector<std::vector<timer_result>> timer_results; ///< Timer results for each queue.
-	};
-
 	/// Run-time data of a timer.
 	struct timer_runtime_data {
 		/// Initializes this data to empty.
@@ -127,6 +39,30 @@ namespace lotus::renderer::execution {
 		std::uint32_t begin_timestamp = std::numeric_limits<std::uint32_t>::max();
 		/// Index of the timestamp that marks the end of this timer.
 		std::uint32_t end_timestamp = std::numeric_limits<std::uint32_t>::max();
+	};
+
+	/// A descriptor set and its register space.
+	struct descriptor_set_info {
+		/// Initializes this structure to empty.
+		descriptor_set_info(std::nullptr_t) {
+		}
+		/// Initializes all fields of this struct.
+		descriptor_set_info(gpu::descriptor_set &se, std::uint32_t s) : set(&se), space(s) {
+		}
+
+		gpu::descriptor_set *set = nullptr; ///< The descriptor set.
+		std::uint32_t space = 0; ///< Register space of this descriptor set.
+	};
+
+	/// Cached data used by a single pass command.
+	struct pass_command_data {
+		/// Initializes this structure to empty.
+		pass_command_data(std::nullptr_t) {
+		}
+
+		const gpu::pipeline_resources *resources = nullptr; ///< Pipeline resources.
+		const gpu::graphics_pipeline_state *pipeline_state = nullptr; ///< Pipeline state.
+		std::vector<descriptor_set_info> descriptor_sets; ///< Descriptor sets.
 	};
 
 	/// A batch of resources.
@@ -298,7 +234,7 @@ namespace lotus::renderer::execution {
 
 		/// Collects all staged transition operations.
 		[[nodiscard]] std::tuple<
-			std::vector<gpu::image_barrier>, std::vector<gpu::buffer_barrier>, transition_statistics
+			std::vector<gpu::image_barrier>, std::vector<gpu::buffer_barrier>, statistics::transitions
 		> collect_transitions() &&;
 	private:
 		/// Staged 2D image transition operations.
@@ -313,7 +249,7 @@ namespace lotus::renderer::execution {
 		std::unordered_map<
 			gpu::buffer*, std::pair<_details::buffer_access, _details::buffer_access>
 		> _raw_buffer_transitions;
-		transition_statistics _stats; ///< Statistics.
+		statistics::transitions _stats; ///< Statistics.
 	};
 
 	/// Manages the execution of a series of commands on one command queue.
@@ -389,8 +325,37 @@ namespace lotus::renderer::execution {
 		/// Ends a timer.
 		void end_timer(const commands::end_timer&);
 
+		/// Signals that pass command preprocessing has started.
+		void begin_pass_preprocessing();
+		/// Submits the result of preprocessing one pass command. This can only be called between
+		/// \ref begin_pass_preprocessing() and \ref end_pass_preprocessing().
+		void push_pass_command_data(pass_command_data);
+		/// Signals that pass command preprocessing has finished.
+		void end_pass_preprocessing();
+		/// Pops the data of one preprocessed pass command. This can only be called between
+		/// \ref end_pass_preprocessing() and \ref end_pass().
+		[[nodiscard]] pass_command_data pop_pass_command_data();
+		/// Signals that the pass has ended.
+		void end_pass_command_processing();
+
+		/// Returns the index of the next command to execute.
+		[[nodiscard]] std::size_t get_next_command_index() const {
+			return _next_command_index;
+		}
+		/// Moves on to the next command.
+		void next_command() {
+			++_next_command_index;
+		}
+		/// Returns whether we've finished processing commands from this queue.
+		[[nodiscard]] bool has_finished() const;
+
+		/// Returns associated queue data.
+		[[nodiscard]] _details::queue_data &get_queue_data() const {
+			return _q;
+		}
+
 		transition_buffer transitions; ///< Transitions.
-		batch_statistics_early statistics; ///< Accumulated statistics.
+		batch_statistics_early early_statistics; ///< Accumulated statistics.
 	private:
 		_details::queue_data &_q; ///< The associated command queue.
 		batch_resources &_resources; ///< Where to record internal resources created during execution to.
@@ -398,9 +363,17 @@ namespace lotus::renderer::execution {
 		gpu::command_allocator *_cmd_alloc = nullptr; ///< Command allocator used by this queue.
 		gpu::command_list *_list = nullptr; ///< Current command list.
 		// TODO remove this
+
 		gpu::command_allocator *_transient_cmd_alloc = nullptr; ///< Transient command list allocator.
+		std::size_t _next_command_index = 0; ///< Index of the current command.
 
 		bool _fresh_timestamp = false; ///< Whether we've just inserted a timestamp.
+
+		/// Whether preprocessing of pass commands have finished. This is only set to \p true between
+		/// \ref end_pass_preprocessing() and \ref end_pass() - the latter resets it to \p false.
+		bool _pass_preprocessing_finished = false;
+		std::vector<pass_command_data> _pass_command_data; ///< Cached data for all preprocessed pass commands.
+		std::size_t _pass_command_data_ptr = 0; ///< Current position in the pass.
 
 		/// Amount used in \ref _immediate_constant_device_buffer.
 		std::size_t _immediate_constant_buffer_used = 0;
@@ -411,7 +384,7 @@ namespace lotus::renderer::execution {
 		/// Mapped pointer for \ref _immediate_constant_upload_buffer.
 		std::byte *_immediate_constant_upload_buffer_ptr = nullptr;
 		/// Immediate constant buffer statistics for the current chunk.
-		immediate_constant_buffer_statistsics _immediate_constant_buffer_stats;
+		statistics::immediate_constant_buffers _immediate_constant_buffer_stats;
 
 
 		/// Returns the associated context.

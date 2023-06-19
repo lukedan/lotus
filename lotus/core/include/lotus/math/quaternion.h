@@ -349,7 +349,8 @@ namespace lotus {
 			return unit_quaternion<_type>(w, sin_half * axis[0], sin_half * axis[1], sin_half * axis[2]);
 		}
 		/// Creates a quaternion from the given axis and rotation angle. This function calls
-		/// \ref vec::unsafe_normalize() to normalize the rotation axis; use \ref 
+		/// \ref vec::unsafe_normalize() to normalize the rotation axis; use \ref from_normalized_axis_angle()
+		/// instead if the axis is guaranteed to be normalized.
 		template <typename Vec> [[nodiscard]] inline static constexpr std::enable_if_t<
 			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
 		> from_axis_angle(const Vec &axis, typename Vec::value_type angle) {

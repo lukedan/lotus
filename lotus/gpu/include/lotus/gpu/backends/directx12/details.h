@@ -131,7 +131,7 @@ namespace lotus::gpu::backends::directx12::_details {
 	}
 
 
-	/// Wrapper around a \ref D3D12_CPU_DESCRIPTOR_HANDLE.
+	/// Wrapper around a \p D3D12_CPU_DESCRIPTOR_HANDLE.
 	struct descriptor_range {
 		template <std::size_t, std::size_t> friend class descriptor_heap;
 	public:

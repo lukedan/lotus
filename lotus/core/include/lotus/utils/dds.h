@@ -33,7 +33,7 @@ namespace lotus {
 	}
 
 	namespace dds {
-		/// Flags that indicate which members of \ref header contain valid data.
+		/// Flags that indicate which members of a \ref header contain valid data.
 		enum class header_flags : std::uint32_t {
 			caps         = 1 << 0,  ///< Required.
 			height       = 1 << 1,  ///< Required.

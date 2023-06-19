@@ -10,6 +10,7 @@
 #include "lotus/memory/common.h"
 
 namespace lotus {
+	/// Default storage size for static functions.
 	constexpr std::size_t default_static_function_size = sizeof(void*[2]);
 	/// A function type with a predictable memory footprint.
 	template <typename FuncType, std::size_t StorageSize = default_static_function_size> struct static_function;

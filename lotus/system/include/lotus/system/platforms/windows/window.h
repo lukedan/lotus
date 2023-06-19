@@ -51,6 +51,7 @@ namespace lotus::system::platforms::windows {
 		/// Returns the result of \p GetClientRect().
 		[[nodiscard]] cvec2s get_size() const;
 
+		/// Sets the title of this window with \p SetWindowText().
 		void set_title(std::u8string_view);
 
 		/// Returns \ref _hwnd.

@@ -217,7 +217,7 @@ namespace lotus::renderer {
 	};
 }
 namespace std {
-	/// Hash function for \ref lotus::renderer::gpu::pipeline_state.
+	/// Hash function for \ref lotus::renderer::pipeline_state.
 	template <> struct hash<lotus::renderer::graphics_pipeline_state> {
 		/// Hashes the given state object.
 		[[nodiscard]] size_t operator()(const lotus::renderer::graphics_pipeline_state &state) const {

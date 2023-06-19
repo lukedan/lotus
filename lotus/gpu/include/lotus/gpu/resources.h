@@ -168,7 +168,7 @@ namespace lotus::gpu {
 		[[nodiscard]] bool is_valid() const {
 			return backend::basic_image_view<Type>::is_valid();
 		}
-		/// \override
+		/// \overload
 		[[nodiscard]] explicit operator bool() const {
 			return is_valid();
 		}

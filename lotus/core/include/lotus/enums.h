@@ -154,7 +154,7 @@ namespace lotus::enums::bit_mask {
 	template <typename Enum> [[nodiscard]] inline constexpr bool contains_any(Enum value, Enum bits) {
 		return !is_empty(value & bits);
 	}
-	/// Tests that \value contains no bits in \p bits.
+	/// Tests that \p value contains no bits in \p bits.
 	template <typename Enum> [[nodiscard]] inline constexpr bool contains_none(Enum value, Enum bits) {
 		return !contains_any(value, bits);
 	}

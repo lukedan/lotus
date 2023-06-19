@@ -589,7 +589,7 @@ namespace lotus::gpu {
 				set, layout, first_register, acceleration_structures
 			);
 		}
-		/// \override
+		/// \overload
 		void write_descriptor_set_acceleration_structures(
 			descriptor_set &set, const descriptor_set_layout &layout, std::size_t first_register,
 			std::initializer_list<top_level_acceleration_structure*> acceleration_structures
@@ -638,7 +638,7 @@ namespace lotus::gpu {
 		}
 	};
 
-	/// Represents a generic interface to an adapter that a device can be created from.
+	/// Lightweight handle to an adapter that a device can be created from.
 	class adapter : public backend::adapter {
 		friend context;
 	public:

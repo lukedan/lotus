@@ -645,13 +645,22 @@ namespace lotus::gpu {
 		/// Creates an empty adapter.
 		adapter(std::nullptr_t) : backend::adapter(nullptr) {
 		}
-		/// No copy construction.
-		adapter(const adapter&) = delete;
 		/// Move construction.
 		adapter(adapter &&src) noexcept : backend::adapter(std::move(src)) {
 		}
-		/// No copy assignment.
-		adapter &operator=(const adapter&) = delete;
+		/// Copy construction.
+		adapter(const adapter &src) : backend::adapter(src) {
+		}
+		/// Move assignment.
+		adapter &operator=(adapter &&src) {
+			backend::adapter::operator=(std::move(src));
+			return *this;
+		}
+		/// Copy assignment.
+		adapter &operator=(const adapter &src) {
+			backend::adapter::operator=(src);
+			return *this;
+		}
 
 		/// Creates a device that uses this adapter.
 		[[nodiscard]] std::pair<device, std::vector<command_queue>> create_device(

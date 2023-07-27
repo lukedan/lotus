@@ -485,7 +485,7 @@ namespace lotus::renderer::assets {
 		}
 
 		auto result = _shader_utilities->compile_shader(
-			code, stage, entry_point, id.path, additional_shader_includes, defines
+			code, stage, entry_point, id.path, additional_shader_include_paths, defines
 		);
 		auto output = result.get_compiler_output();
 		if (!result.succeeded()) {
@@ -517,7 +517,9 @@ namespace lotus::renderer::assets {
 			return nullptr;
 		}
 
-		auto result = _shader_utilities->compile_shader_library(code, id.path, additional_shader_includes, defines);
+		auto result = _shader_utilities->compile_shader_library(
+			code, id.path, additional_shader_include_paths, defines
+		);
 		auto output = result.get_compiler_output();
 		if (!result.succeeded()) {
 			log().error<u8"Failed to compile shader {} ({}):">(id.path.string(), string::to_generic(id.subpath));

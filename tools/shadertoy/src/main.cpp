@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
 	auto gfx_q = rctx.get_queue(0);
 	auto ass_man = lren::assets::manager::create(rctx, rctx.get_queue(0), &shader_utils);
 	ass_man.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets";
-	ass_man.additional_shader_includes = {
+	ass_man.additional_shader_include_paths = {
 		ass_man.asset_library_path / "shaders/",
 	};
 

@@ -7,27 +7,27 @@
 
 class fem_cloth_test : public test {
 public:
-	fem_cloth_test() {
+	explicit fem_cloth_test(const test_context &tctx) : test(tctx) {
 		soft_reset();
 	}
 
 	void soft_reset() override {
 		_engine = lotus::physics::engine();
-		_render = debug_render();
-		_world_time = 0.0;
-
-		_render.engine = &_engine;
-
-		_engine.gravity = { 0.0, 0.0, -10.0 };
+		_engine.gravity = { 0.0, -10.0, 0.0 };
 		_engine.face_constraint_projection_type =
 			static_cast<lotus::physics::constraints::face::projection_type>(_face_projection);
+
+		_render = debug_render();
+		_render.ctx = &_get_test_context();
+
+		_world_time = 0.0;
 
 		double cloth_mass = _cloth_density * _cloth_size * _cloth_size * _thickness;
 		double node_mass = cloth_mass / (_side_segments * _side_segments);
 		double segment_length = _cloth_size / static_cast<double>(_side_segments - 1);
 
 		auto &surface = _render.surfaces.emplace_back();
-		surface.color = debug_render::colorf(1.0f, 0.4f, 0.2f, 0.5f);
+		surface.color = lotus::linear_rgba_f(1.0f, 0.4f, 0.2f, 0.5f);
 		std::vector<std::vector<std::size_t>> pid(
 			static_cast<std::size_t>(_side_segments),
 			std::vector<std::size_t>(static_cast<std::size_t>(_side_segments))
@@ -39,7 +39,7 @@ public:
 					prop = lotus::physics::particle_properties::kinematic();
 				}
 				auto state = lotus::physics::particle_state::stationary_at(
-					{ x * segment_length, y * segment_length - 0.5 * _cloth_size, _cloth_size }
+					{ x * segment_length, _cloth_size, y * segment_length - 0.5 * _cloth_size }
 				);
 				pid[x][y] = _engine.particles.size();
 				_engine.particles.emplace_back(lotus::physics::particle::create(prop, state));
@@ -60,8 +60,8 @@ public:
 					}
 				}
 
-				surface.triangles.push_back({ pid[x - 1][y - 1], pid[x - 1][y], pid[x][y - 1] });
-				surface.triangles.push_back({ pid[x][y - 1], pid[x - 1][y], pid[x][y] });
+				surface.triangles.append_range(std::vector{ pid[x - 1][y - 1], pid[x - 1][y], pid[x][y - 1] });
+				surface.triangles.append_range(std::vector{ pid[x][y - 1], pid[x - 1][y], pid[x][y] });
 			}
 		}
 
@@ -80,7 +80,7 @@ public:
 		_engine.bodies.emplace_front(lotus::physics::body::create(
 			plane_shape, material,
 			lotus::physics::body_properties::kinematic(),
-			lotus::physics::body_state::stationary_at(lotus::zero, lotus::uquatd::identity())
+			lotus::physics::body_state::stationary_at(lotus::zero, lotus::quat::from_axis_angle(lotus::cvec3d(1.0f, 0.0f, 0.0f), 90.0f * lotus::pi / 180.0f))
 		));
 	}
 
@@ -94,8 +94,12 @@ public:
 		_engine.timestep(dt, iterations);
 	}
 
-	void render(const draw_options &options) override {
-		_render.draw(options);
+	void render(
+		lotus::renderer::context &ctx, lotus::renderer::context::queue &q,
+		lotus::renderer::image2d_color color, lotus::renderer::image2d_depth_stencil depth, lotus::cvec2u32 size
+	) override {
+		_render.draw_system(_engine);
+		_render.flush(ctx, q, color, depth, size);
 	}
 
 	void gui() override {
@@ -144,7 +148,7 @@ protected:
 	std::list<lotus::physics::body>::iterator _sphere;
 	float _sphere_travel = 1.5f;
 	float _sphere_period = 3.0f;
-	float _sphere_yz[2]{ 0.0f, 0.5f };
+	float _sphere_yz[2]{ 0.5f, 0.0f };
 
 
 	void _add_face(std::size_t i1, std::size_t i2, std::size_t i3) {

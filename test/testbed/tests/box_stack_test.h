@@ -6,7 +6,7 @@
 
 class box_stack_test : public test {
 public:
-	box_stack_test() {
+	explicit box_stack_test(const test_context &tctx) : test(tctx) {
 		soft_reset();
 	}
 
@@ -14,16 +14,20 @@ public:
 		_engine.timestep(dt, iters);
 	}
 
-	void render(const draw_options &options) override {
-		_render.draw(options);
+	void render(
+		lotus::renderer::context &ctx, lotus::renderer::context::queue &q,
+		lotus::renderer::image2d_color color, lotus::renderer::image2d_depth_stencil depth, lotus::cvec2u32 size
+	) override {
+		_render.draw_system(_engine);
+		_render.flush(ctx, q, color, depth, size);
 	}
 
 	void soft_reset() override {
 		_engine = lotus::physics::engine();
-		_engine.gravity = lotus::cvec3d(0.0, 0.0, -9.8);
+		_engine.gravity = lotus::cvec3d(0.0, -9.8, 0.0);
 
 		_render = debug_render();
-		_render.engine = &_engine;
+		_render.ctx = &_get_test_context();
 
 		auto &plane = _engine.shapes.emplace_back(lotus::collision::shape::create(lotus::collision::shapes::plane()));
 
@@ -62,7 +66,9 @@ public:
 		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
-			lotus::physics::body_state::stationary_at(lotus::zero, lotus::uquatd::identity())
+			lotus::physics::body_state::stationary_at(
+				lotus::zero, lotus::quat::from_normalized_axis_angle(lotus::cvec3d(1.0, 0.0, 0.0), 0.5 * lotus::pi)
+			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
@@ -84,37 +90,35 @@ public:
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::cvec3d(0.0, 10.0, 0.0),
-				lotus::quat::from_normalized_axis_angle(lotus::cvec3d(1.0, 0.0, 0.0), 0.5 * lotus::pi)
+				lotus::cvec3d(0.0, 0.0, 10.0), lotus::uquatd::identity()
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::cvec3d(0.0, -10.0, 0.0),
-				lotus::quat::from_normalized_axis_angle(lotus::cvec3d(1.0, 0.0, 0.0), -0.5 * lotus::pi)
+				lotus::cvec3d(0.0, 0.0, -10.0), lotus::uquatd::identity()
 			)
 		));
 
 		double x = -(_box_size[0] + _gap[0]) * (_box_count[0] - 1) / 2.0;
-		double z = 0.5 * _box_size[2] + _gap[1];
+		double y = 0.5 * _box_size[1] + _gap[1];
 		for (
 			int yi = 0;
 			yi < _box_count[1];
-			++yi, z += _box_size[2] + _gap[1], x += 0.5 * (_box_size[0] + _gap[0])
+			++yi, y += _box_size[1] + _gap[1], x += 0.5 * (_box_size[0] + _gap[0])
 		) {
 			double cx = x;
 			for (int xi = 0; xi + yi < _box_count[0]; ++xi, cx += _box_size[0] + _gap[0]) {
 				lotus::physics::body_state state = lotus::uninitialized;
 				if (_rotate_90) {
 					state = lotus::physics::body_state::stationary_at(
-						lotus::cvec3d(0.0, cx, z),
-						lotus::quat::from_normalized_axis_angle(lotus::cvec3d(0.0, 0.0, 1.0), 0.5 * lotus::pi)
+						lotus::cvec3d(0.0, y, cx),
+						lotus::quat::from_normalized_axis_angle(lotus::cvec3d(0.0, 1.0, 0.0), 0.5 * lotus::pi)
 					);
 				} else {
 					state = lotus::physics::body_state::stationary_at(
-						lotus::cvec3d(cx, 0.0, z), lotus::uquatd::identity()
+						lotus::cvec3d(cx, y, 0.0), lotus::uquatd::identity()
 					);
 				}
 				_engine.bodies.emplace_back(lotus::physics::body::create(
@@ -152,7 +156,9 @@ public:
 				material,
 				_bullet_properties,
 				lotus::physics::body_state::at(
-					camera_params.position, lotus::uquatd::identity(), camera.unit_forward * 50.0, lotus::zero
+					_get_test_context().camera_params.position,
+					lotus::uquatd::identity(),
+					_get_test_context().camera.unit_forward * 50.0, lotus::zero
 				)
 			));
 		}
@@ -175,7 +181,7 @@ protected:
 	float _restitution = 0.0;
 
 	float _density = 1.0f;
-	float _box_size[3]{ 1.0f, 0.6f, 0.2f };
+	float _box_size[3]{ 1.0f, 0.2f, 0.6f };
 	float _gap[2]{ 0.02f, 0.02f };
 	int _box_count[2]{ 5, 3 };
 

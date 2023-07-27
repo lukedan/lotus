@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
 	auto gfx_q = rctx.get_queue(0);
 	auto asset_man = lren::assets::manager::create(rctx, gfx_q, &shader_util);
 	asset_man.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets/";
-	asset_man.additional_shader_includes = {
+	asset_man.additional_shader_include_paths = {
 		asset_man.asset_library_path / "shaders/",
 		"D:/Documents/Projects/lotus/test/renderer/common/include/",
 	};
@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
 		cam_params.aspect_ratio = size[0] / static_cast<float>(size[1]);
 	}
 	auto cam = cam_params.into_camera();
-	camera_control<float> cam_control(cam_params);
+	lotus::camera_control<float> cam_control(cam_params);
 
 	cvec2u32 window_size = zero;
 #ifndef DISABLE_ALL_RT

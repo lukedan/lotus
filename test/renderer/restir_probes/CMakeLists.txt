@@ -9,6 +9,7 @@ function(add_restir_probe_executable GPU_BACKEND)
 	target_sources(${PROJ} PRIVATE "src/main.cpp")
 	target_link_libraries(${PROJ} PRIVATE lotus_renderer_${GPU_BACKEND} imgui::imgui)
 	target_include_directories(${PROJ} PRIVATE "../common/include")
+	target_include_directories(${PROJ} PRIVATE "../../common/include")
 endfunction()
 
 add_restir_probe_executable(vulkan)

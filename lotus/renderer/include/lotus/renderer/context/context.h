@@ -433,7 +433,7 @@ namespace lotus::renderer {
 		void write_image_descriptors(
 			image_descriptor_array&, std::uint32_t first_index, std::span<const image2d_view>
 		);
-		/// \override
+		/// \overload
 		void write_image_descriptors(
 			image_descriptor_array &arr, std::uint32_t first_index, std::initializer_list<image2d_view> imgs
 		) {
@@ -443,7 +443,7 @@ namespace lotus::renderer {
 		void write_buffer_descriptors(
 			buffer_descriptor_array&, std::uint32_t first_index, std::span<const structured_buffer_view>
 		);
-		/// \override
+		/// \overload
 		void write_buffer_descriptors(
 			buffer_descriptor_array &arr, std::uint32_t first_index,
 			std::initializer_list<structured_buffer_view> bufs

@@ -4,204 +4,43 @@
 #include <memory>
 #include <functional>
 
-#include <GLFW/glfw3.h>
-
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl2.h>
-
 #include <lotus/math/matrix.h>
 #include <lotus/math/vector.h>
 #include <lotus/math/quaternion.h>
 #include <lotus/utils/camera.h>
 
+#include <application.h>
+
+#include "camera_control.h"
 #include "utils.h"
 #include "tests/box_stack_test.h"
 #include "tests/fem_cloth_test.h"
 #include "tests/polyhedron_test.h"
 #include "tests/spring_cloth_test.h"
 
-/// Used for selecting and creating tests.
-struct test_creator {
-	/// Returns a \ref test_creator for the given test type.
-	template <typename Test> [[nodiscard]] inline static test_creator get_creator_for() {
-		test_creator result;
-		result.name = std::string(Test::get_name());
-		result.create = []() {
-			return std::make_unique<Test>();
-		};
-		return result;
-	}
-
-	std::string name; ///< The name of this test.
-	std::function<std::unique_ptr<test>()> create;///< Creates a test.
-};
-
 /// The testbed applicaiton.
-class testbed {
+class testbed_app : public lotus::application {
 public:
 	/// Initializes the GLFW window.
-	testbed() {
-		_wnd = glfwCreateWindow(_width, _height, "lotus Test", nullptr, nullptr);
-		glfwSetWindowUserPointer(_wnd, this);
+	testbed_app(int argc, char **argv, lotus::gpu::context_options options) :
+		application(argc, argv, u8"Physics Testbed", options) {
 
-		IMGUI_CHECKVERSION();
-		ImGui::CreateContext();
-		ImGui_ImplGlfw_InitForOpenGL(_wnd, true);
-		ImGui_ImplOpenGL2_Init();
-
-		glfwSetWindowSizeCallback(_wnd, [](GLFWwindow *wnd, int width, int height) {
-			auto &io = ImGui::GetIO();
-			io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
-			static_cast<testbed*>(glfwGetWindowUserPointer(wnd))->_on_size(width, height);
-		});
-		glfwSetCursorPosCallback(_wnd, [](GLFWwindow *wnd, double x, double y) {
-			auto &io = ImGui::GetIO();
-			io.MousePos = ImVec2(static_cast<float>(x), static_cast<float>(y));
-			if (!io.WantCaptureMouse) {
-				static_cast<testbed*>(glfwGetWindowUserPointer(wnd))->_on_mouse_move(x, y);
-			}
-		});
-		glfwSetMouseButtonCallback(_wnd, [](GLFWwindow *wnd, int button, int action, int mods) {
-			auto &io = ImGui::GetIO();
-			io.MouseDown[button] = (action == GLFW_PRESS);
-			if (!io.WantCaptureMouse) {
-				static_cast<testbed*>(glfwGetWindowUserPointer(wnd))->_on_mouse_button(button, action, mods);
-			}
-		});
-		glfwSetScrollCallback(_wnd, [](GLFWwindow *wnd, double xoff, double yoff) {
-			auto &io = ImGui::GetIO();
-			io.MouseWheel += static_cast<float>(yoff);
-			io.MouseWheelH += static_cast<float>(xoff);
-			if (!io.WantCaptureMouse) {
-				static_cast<testbed*>(glfwGetWindowUserPointer(wnd))->_on_mouse_scroll(xoff, yoff);
-			}
-		});
-
-		_reset_camera();
-	}
-	/// No copy construction.
-	testbed(const testbed&) = delete;
-	/// No copy assignment.
-	testbed &operator=(const testbed&) = delete;
-	/// Destroys the GLFW window.
-	~testbed() {
-		glfwDestroyWindow(_wnd);
-	}
-
-	/// Renders and handles the GUI.
-	void gui() {
-		ImGui_ImplOpenGL2_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-		ImGui::Begin("Testbed", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
-
-		if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Checkbox("Wireframe Surfaces", &_draw_options.wireframe_surfaces);
-			ImGui::Checkbox("Wireframe Bodies", &_draw_options.wireframe_bodies);
-			ImGui::Checkbox("Body Velocity", &_draw_options.body_velocity);
-			ImGui::Checkbox("Contacts", &_draw_options.contacts);
-
-			ImGui::Separator();
-			ImGui::SliderFloat("Rotation Sensitivity", &_rotation_sensitivity, 0.0f, 0.01f);
-			ImGui::SliderFloat("Move Sensitivity", &_move_sensitivity, 0.0f, 0.1f);
-			ImGui::SliderFloat("Zoom Sensitivity", &_zoom_sensitivity, 0.0f, 0.01f);
-			ImGui::SliderFloat("Scroll Sensitivity", &_scroll_sensitivity, 0.0f, 1.0f);
-			if (ImGui::Button("Reset Camera")) {
-				_reset_camera();
-			}
-
-			if (_gl_error != GL_NO_ERROR) {
-				ImGui::Separator();
-				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
-				ImGui::Text("OpenGL Error: %d", static_cast<int>(_gl_error));
-				ImGui::PopStyleColor();
-			}
-		}
-
-		if (ImGui::CollapsingHeader("Simulation Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
-			if (ImGui::BeginCombo(
-				"Test", _test_index < tests.size() ? tests[_test_index].name.c_str() : "Select Test"
-			)) {
-				for (std::size_t i = 0; i < tests.size(); ++i) {
-					bool selected = _test_index == i;
-					if (ImGui::Selectable(tests[i].name.c_str(), &selected)) {
-						_test_index = i;
-						_test_running = false;
-						_test.reset();
-						_test = tests[i].create();
-					}
-				}
-				ImGui::EndCombo();
-			}
-			if (ImGui::Checkbox("Test Running", &_test_running)) {
-				if (_test_running) {
-					_last_update = std::chrono::high_resolution_clock::now();
-				}
-			}
-			ImGui::SliderFloat("Time Scaling", &_time_scale, 0.0f, 100.0f, "%.1f%%");
-			ImGui::SliderFloat("Time Step", &_time_step, 0.001f, 0.1f, "%.3fs", ImGuiSliderFlags_Logarithmic);
-			ImGui::SliderInt("Iterations", &_iters, 1, 100);
-			if (ImGui::Button("Execute Single Time Step")) {
-				if (_test) {
-					_test->timestep(_time_step, _iters);
-				}
-			}
-			if (ImGui::Button("Reset Test")) {
-				_test_running = false;
-				_test.reset();
-				if (_test_index < tests.size()) {
-					_test = tests[_test_index].create();
-				}
-			}
-		}
-
-		if (ImGui::CollapsingHeader("Test Specific", ImGuiTreeNodeFlags_DefaultOpen)) {
-			if (_test) {
-				_test->gui();
-			} else {
-				ImGui::Text("[No test selected]");
-			}
-		}
-
-		if (ImGui::CollapsingHeader("Simulation Statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::SliderFloat("Maximum Frame Time", &_max_frametime, 0.0, 1.0);
-			if (_update_truncated) {
-				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
-			}
-			if (_time_scale < 100.0) {
-				ImGui::LabelText(
-					"Simulation Speed", "%5.1f%% x %.1f%% = %5.1f%%",
-					_simulation_speed * 100.0, _time_scale, _simulation_speed * _time_scale
-				);
-			} else {
-				ImGui::LabelText("Simulation Speed", "%5.1f%%", _simulation_speed * 100.0);
-			}
-			if (_update_truncated) {
-				ImGui::PopStyleColor();
-			}
-
-			ImGui::SliderFloat(
-				"RA Timestep Factor", &_timestep_cost_factor, 0.0f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic
-			);
-			ImGui::LabelText("RA Timestep Cost", "%.3fms", _timestep_cost);
-		}
-
-		ImGui::End();
-		ImGui::Render();
-		ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 	}
 
 	/// Renders all objects.
 	void render() {
-		glMatrixMode(GL_PROJECTION);
-		debug_render::set_matrix(_camera.projection_view_matrix);
+		auto depth_buf = _context->request_image2d(u8"Depth Buffer", _get_window_size(), 1, lotus::gpu::format::d32_float, lotus::gpu::image_usage_mask::depth_stencil_render_target, _pool);
 
-		glMatrixMode(GL_MODELVIEW);
 		if (_test) {
-			_test->render(_draw_options);
+			_test->render(
+				*_context, _gfx_q,
+				lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::cvec4d(0.5, 0.5, 1.0, 1.0))),
+				lotus::renderer::image2d_depth_stencil(depth_buf, lotus::gpu::depth_render_target_access::create_clear(0.0f)),
+				_get_window_size()
+			);
 		}
 
+		/*
 		if (_mouse_buttons[GLFW_MOUSE_BUTTON_LEFT] || _mouse_buttons[GLFW_MOUSE_BUTTON_MIDDLE]) {
 			lotus::cvec3d center = _camera_params.look_at;
 			glDisable(GL_LIGHTING);
@@ -218,8 +57,7 @@ public:
 			glEnd();
 			glEnable(GL_LIGHTING);
 		}
-
-		_gl_error = glGetError();
+		*/
 	}
 
 	/// Updates the simulation.
@@ -255,36 +93,19 @@ public:
 		}
 	}
 
-	/// The main loop body.
-	[[nodiscard]] bool loop() {
-		if (glfwWindowShouldClose(_wnd)) {
-			return false;
-		}
-
-		if (_test) {
-			_test->camera_params = _camera_params;
-			_test->camera = _camera;
-		}
-
-		update();
-
-		glfwMakeContextCurrent(_wnd);
-		glClearColor(0.5f, 0.7f, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		render();
-		gui();
-
-		glfwSwapBuffers(_wnd);
-		return true;
+	template <typename Test> void register_test() {
+		auto &res = _tests.emplace_back();
+		res.name = std::string(Test::get_name());
+		res.create = [this]() {
+			return std::make_unique<Test>(_test_context);
+		};
 	}
-
-	std::vector<test_creator> tests; ///< The list of tests.
 protected:
-	GLFWwindow *_wnd = nullptr; ///< The GLFW window.
-	int
-		_width = 800, ///< The width of this window.
-		_height = 600; ///< The height of this window.
+	/// Used for selecting and creating tests.
+	struct _test_creator {
+		std::string name; ///< The name of this test.
+		std::function<std::unique_ptr<test>()> create;///< Creates a test.
+	};
 
 	std::unique_ptr<test> _test; ///< The currently active test.
 	std::size_t _test_index = std::numeric_limits<std::size_t>::max(); ///< The test that's currently selected.
@@ -302,105 +123,179 @@ protected:
 	double _timestep_cost = 0.0f; ///< Running average of timestep costs.
 	float _timestep_cost_factor = 0.01f; ///< Running average factor of timestep costs.
 
-	draw_options _draw_options; ///< Whether the surfaces are displayed as wireframes.
-	float _rotation_sensitivity = 0.005f; ///< Rotation sensitivity.
-	float _move_sensitivity = 0.05f; ///< Move sensitivity.
-	float _zoom_sensitivity = 0.001f; ///< Zoom sensitivity.
+	lotus::renderer::context::queue _gfx_q = nullptr;
+	lotus::renderer::pool _pool = nullptr;
 	/// Sensitivity for scrolling to move the camera closer and further from the focus point.
 	float _scroll_sensitivity = 0.95f;
-	lotus::camera_parameters<double> _camera_params = lotus::uninitialized; ///< Camera parameters.
-	lotus::camera<double> _camera = lotus::uninitialized; ///< Camera.
-	GLenum _gl_error = GL_NO_ERROR; ///< OpenGL error.
+	lotus::camera_control<double> _camera_control = nullptr;
 
-	lotus::cvec2d _prev_mouse_position = lotus::uninitialized; ///< Last mouse position.
-	bool _mouse_buttons[8]{}; ///< State of all mouse buttons.
+	test_context _test_context; ///< Test context.
+	std::vector<_test_creator> _tests; ///< The list of tests.
 
-	/// Size changed callback.
-	void _on_size(int w, int h) {
-		_width = w;
-		_height = h;
 
-		// update viewport
-		glfwMakeContextCurrent(_wnd);
-		glViewport(0, 0, _width, _height);
+	/// Renders and handles the GUI.
+	void _process_imgui() override {
+		if (ImGui::Begin("Testbed", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
+			if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen)) {
+				ImGui::Checkbox("Wireframe Surfaces", &_test_context.wireframe_surfaces);
+				ImGui::Checkbox("Wireframe Bodies", &_test_context.wireframe_bodies);
+				ImGui::Checkbox("Body Velocity", &_test_context.draw_body_velocities);
+				ImGui::Checkbox("Contacts", &_test_context.draw_contacts);
 
-		_camera_params.aspect_ratio = _width / static_cast<double>(_height);
-		_camera = _camera_params.into_camera();
-	}
-	/// Resets \ref _camera_parameters and \ref _camera.
-	void _reset_camera() {
-		_camera_params = lotus::camera_parameters<double>::create_look_at(lotus::zero, { 3.0, 4.0, 5.0 });
-		_on_size(_width, _height);
-	}
-
-	/// Mouse movement callback.
-	void _on_mouse_move(double x, double y) {
-		bool camera_changed = false;
-
-		lotus::cvec2d new_position = { x, y };
-		auto offset = new_position - _prev_mouse_position;
-		if (_mouse_buttons[GLFW_MOUSE_BUTTON_MIDDLE]) {
-			auto offset3 = _move_sensitivity * (_camera.unit_up * offset[1] - _camera.unit_right * offset[0]);
-			_camera_params.look_at += offset3;
-			_camera_params.position += offset3;
-			camera_changed = true;
-		}
-		if (_mouse_buttons[GLFW_MOUSE_BUTTON_LEFT]) {
-			auto offset3 = _camera_params.position - _camera_params.look_at;
-			offset3 = lotus::quat::from_normalized_axis_angle(
-				_camera.unit_right, -_rotation_sensitivity * offset[1]
-			).rotate(offset3);
-			offset3 = lotus::quat::from_normalized_axis_angle(
-				_camera_params.world_up, -_rotation_sensitivity * offset[0]
-			).rotate(offset3);
-			_camera_params.position = _camera_params.look_at + offset3;
-			camera_changed = true;
-		}
-		if (_mouse_buttons[GLFW_MOUSE_BUTTON_RIGHT]) {
-			_camera_params.fov_y_radians += _zoom_sensitivity * offset[1];
-			camera_changed = true;
-		}
-		_prev_mouse_position = new_position;
-
-		if (camera_changed) {
-			_camera = _camera_params.into_camera();
-		}
-	}
-	/// Mouse button callback.
-	void _on_mouse_button(int button, int action, [[maybe_unused]] int mods) {
-		if (action == GLFW_PRESS) {
-			if (mods & GLFW_MOD_ALT) {
-				_mouse_buttons[button] = true;
+				ImGui::Separator();
+				ImGui::SliderFloat("Scroll Sensitivity", &_scroll_sensitivity, 0.0f, 1.0f);
+				if (ImGui::Button("Reset Camera")) {
+					_reset_camera();
+				}
 			}
-		} else {
-			_mouse_buttons[button] = false;
+
+			if (ImGui::CollapsingHeader("Simulation Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
+				if (ImGui::BeginCombo(
+					"Test", _test_index < _tests.size() ? _tests[_test_index].name.c_str() : "Select Test"
+				)) {
+					for (std::size_t i = 0; i < _tests.size(); ++i) {
+						bool selected = _test_index == i;
+						if (ImGui::Selectable(_tests[i].name.c_str(), &selected)) {
+							_test_index = i;
+							_test_running = false;
+							_test.reset();
+							_test = _tests[i].create();
+						}
+					}
+					ImGui::EndCombo();
+				}
+				if (ImGui::Checkbox("Test Running", &_test_running)) {
+					if (_test_running) {
+						_last_update = std::chrono::high_resolution_clock::now();
+					}
+				}
+				ImGui::SliderFloat("Time Scaling", &_time_scale, 0.0f, 100.0f, "%.1f%%");
+				ImGui::SliderFloat("Time Step", &_time_step, 0.001f, 0.1f, "%.3fs", ImGuiSliderFlags_Logarithmic);
+				ImGui::SliderInt("Iterations", &_iters, 1, 100);
+				if (ImGui::Button("Execute Single Time Step")) {
+					if (_test) {
+						_test->timestep(_time_step, _iters);
+					}
+				}
+				if (ImGui::Button("Reset Test")) {
+					_test_running = false;
+					_test.reset();
+					if (_test_index < _tests.size()) {
+						_test = _tests[_test_index].create();
+					}
+				}
+			}
+
+			if (ImGui::CollapsingHeader("Test Specific", ImGuiTreeNodeFlags_DefaultOpen)) {
+				if (_test) {
+					_test->gui();
+				} else {
+					ImGui::Text("[No test selected]");
+				}
+			}
+
+			if (ImGui::CollapsingHeader("Simulation Statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
+				ImGui::SliderFloat("Maximum Frame Time", &_max_frametime, 0.0, 1.0);
+				if (_update_truncated) {
+					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+				}
+				if (_time_scale < 100.0) {
+					ImGui::LabelText(
+						"Simulation Speed", "%5.1f%% x %.1f%% = %5.1f%%",
+						_simulation_speed * 100.0, _time_scale, _simulation_speed * _time_scale
+					);
+				} else {
+					ImGui::LabelText("Simulation Speed", "%5.1f%%", _simulation_speed * 100.0);
+				}
+				if (_update_truncated) {
+					ImGui::PopStyleColor();
+				}
+
+				ImGui::SliderFloat(
+					"RA Timestep Factor", &_timestep_cost_factor, 0.0f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic
+				);
+				ImGui::LabelText("RA Timestep Cost", "%.3fms", _timestep_cost);
+			}
+		}
+		ImGui::End();
+	}
+
+	void _process_frame() override {
+		update();
+		render();
+	}
+
+
+	void _reset_camera() {
+		_test_context.camera_params = lotus::camera_parameters<double>::create_look_at(lotus::zero, { 3.0, 4.0, 5.0 }, { 0.0, 1.0, 0.0 }, _get_window_size()[0] / std::max(1.0, static_cast<double>(_get_window_size()[1])));
+		_test_context.update_camera();
+	}
+
+	constexpr static lotus::gpu::queue_type _queues[] = { lotus::gpu::queue_type::graphics };
+
+	std::span<const lotus::gpu::queue_type> _get_desired_queues() const override {
+		return _queues;
+	}
+	std::uint32_t _get_asset_loading_queue_index() const override {
+		return 0;
+	}
+	std::uint32_t _get_debug_drawing_queue_index() const override {
+		return 0;
+	}
+	std::uint32_t _get_present_queue_index() const override {
+		return 0;
+	}
+	std::filesystem::path _get_asset_library_path() const override {
+		return "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets";
+	}
+	std::vector<std::filesystem::path> _get_additional_shader_include_paths() const override {
+		return { "shaders/", _get_asset_library_path() / "shaders/" };
+	}
+
+	void _on_initialized() {
+		_test_context.default_shader_vs = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
+		_test_context.default_shader_ps = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
+		_test_context.resource_pool = _context->request_pool(u8"Test Resource Pool");
+		_test_context.upload_pool = _context->request_pool(u8"Test Upload Pool", _context->get_upload_memory_type_index());
+		_reset_camera();
+
+		_gfx_q = _context->get_queue(0);
+		_pool = _context->request_pool(u8"Pool");
+
+		_camera_control = lotus::camera_control<double>(_test_context.camera_params);
+	}
+
+	void _on_resize(lotus::system::window_events::resize &size) override {
+		lotus::cvec2u32 sz = _get_window_size();
+		_test_context.camera_params.aspect_ratio = sz[0] / static_cast<double>(sz[1]);
+		_test_context.update_camera();
+	}
+	void _on_mouse_move(lotus::system::window_events::mouse::move &move) override {
+		if (_camera_control.on_mouse_move(move.new_position)) {
+			_test_context.update_camera();
 		}
 	}
-	/// Mouse scroll callback.
-	void _on_mouse_scroll([[maybe_unused]] double xoff, double yoff) {
-		lotus::cvec3d diff = _camera_params.position - _camera_params.look_at;
-		diff *= std::pow(_scroll_sensitivity, yoff);
-		_camera_params.position = _camera_params.look_at + diff;
-		_camera = _camera_params.into_camera();
+	void _on_mouse_down(lotus::system::window_events::mouse::button_down &down) override {
+		_camera_control.on_mouse_down(down.button);
+	}
+	void _on_mouse_up(lotus::system::window_events::mouse::button_up &up) override {
+		_camera_control.on_mouse_up(up.button);
+	}
+	void _on_mouse_scroll(lotus::system::window_events::mouse::scroll &scroll) override {
+		lotus::cvec3d diff = _test_context.camera_params.position - _test_context.camera_params.look_at;
+		diff *= std::pow(_scroll_sensitivity, scroll.offset[1]);
+		_test_context.camera_params.position = _test_context.camera_params.look_at + diff;
+		_test_context.update_camera();
 	}
 };
 
-int main() {
-	if (!glfwInit()) {
-		return -1;
-	}
+int main(int argc, char **argv) {
+	testbed_app app(argc, argv, lotus::gpu::context_options::none);
+	app.initialize();
+	app.register_test<convex_hull_test>();
+	app.register_test<fem_cloth_test>();
+	app.register_test<spring_cloth_test>();
+	app.register_test<box_stack_test>();
 
-	{
-		testbed tb;
-		tb.tests.emplace_back(test_creator::get_creator_for<convex_hull_test>());
-		tb.tests.emplace_back(test_creator::get_creator_for<fem_cloth_test>());
-		tb.tests.emplace_back(test_creator::get_creator_for<spring_cloth_test>());
-		tb.tests.emplace_back(test_creator::get_creator_for<box_stack_test>());
-		while (tb.loop()) {
-			glfwPollEvents();
-		}
-	}
-
-	glfwTerminate();
-	return 0;
+	return app.run();
 }

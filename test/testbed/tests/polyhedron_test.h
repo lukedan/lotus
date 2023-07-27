@@ -16,7 +16,7 @@ public:
 	using random_engine = std::default_random_engine;
 	using convex_hull_t = lotus::incremental_convex_hull<empty, empty>;
 
-	convex_hull_test() {
+	explicit convex_hull_test(const test_context &tctx) : test(tctx) {
 		soft_reset();
 	}
 
@@ -53,10 +53,11 @@ public:
 		_update_properties();
 	}
 
-	void render(const draw_options &options) override {
-		debug_render::setup_draw();
-
-		glPointSize(10.0f);
+	void render(
+		lotus::renderer::context&, lotus::renderer::context::queue&,
+		lotus::renderer::image2d_color, lotus::renderer::image2d_depth_stencil, lotus::cvec2u32 size
+	) override {
+		/*glPointSize(10.0f);
 		glDisable(GL_LIGHTING);
 		glBegin(GL_POINTS);
 		for (std::size_t i = 0; i < _vertices.size(); ++i) {
@@ -114,7 +115,7 @@ public:
 		glVertex3d(mat(0, 2), mat(1, 2), mat(2, 2));
 		glEnd();
 		glEnable(GL_DEPTH_TEST);
-		glEnable(GL_LIGHTING);
+		glEnable(GL_LIGHTING);*/
 	}
 
 	void gui() override {

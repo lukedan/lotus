@@ -195,7 +195,8 @@ namespace lotus::renderer {
 			}
 
 			std::filesystem::path asset_library_path; ///< Path to the folder containing all built-in assets.
-			std::vector<std::filesystem::path> additional_shader_includes; ///< All additional shader include paths.
+			/// All additional shader include paths.
+			std::vector<std::filesystem::path> additional_shader_include_paths;
 		private:
 			/// Hashes an \ref identifier.
 			struct _id_hash {

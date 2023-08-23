@@ -24,7 +24,7 @@ namespace lotus::gpu::backends::common {
 		/// Checks that the given \p HRESULT indicates success.
 		inline void assert_dx(HRESULT hr) {
 			if (hr != S_OK) {
-				log().error<u8"DirectX error {}">(hr);
+				log().error("DirectX error {}", hr);
 				std::abort();
 			}
 		}

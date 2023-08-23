@@ -192,7 +192,8 @@ namespace lotus::gpu::backends::directx12 {
 			_details::com_ptr<ID3DBlob> error;
 			HRESULT hr = D3D12SerializeVersionedRootSignature(&desc, &signature, &error);
 			if (FAILED(hr)) {
-				log().error<u8"Failed to serialize root signature: {}">(
+				log().error(
+					"Failed to serialize root signature: {}",
 					std::string_view(static_cast<const char*>(error->GetBufferPointer()), error->GetBufferSize())
 				);
 				_details::assert_dx(hr);
@@ -1216,7 +1217,8 @@ namespace lotus::gpu::backends::directx12 {
 					case D3D12_MESSAGE_SEVERITY_CORRUPTION:
 						[[fallthrough]];
 					case D3D12_MESSAGE_SEVERITY_ERROR:
-						log().error<u8"DirectX message: category: {}, severity: {}, id: {}, \"{}\"">(
+						log().error(
+							"DirectX message: category: {}, severity: {}, id: {}, \"{}\"",
 							static_cast<std::underlying_type_t<D3D12_MESSAGE_CATEGORY>>(category),
 							static_cast<std::underlying_type_t<D3D12_MESSAGE_SEVERITY>>(severity),
 							static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
@@ -1224,7 +1226,8 @@ namespace lotus::gpu::backends::directx12 {
 						);
 						break;
 					default:
-						log().debug<u8"DirectX message: category: {}, severity: {}, id: {}, \"{}\"">(
+						log().debug(
+							"DirectX message: category: {}, severity: {}, id: {}, \"{}\"",
 							static_cast<std::underlying_type_t<D3D12_MESSAGE_CATEGORY>>(category),
 							static_cast<std::underlying_type_t<D3D12_MESSAGE_SEVERITY>>(severity),
 							static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
@@ -1238,7 +1241,7 @@ namespace lotus::gpu::backends::directx12 {
 				&dummy
 			));
 		} else {
-			log().error<u8"Failed to register DirectX message callback: {}">(res);
+			log().error("Failed to register DirectX message callback: {}", res);
 		}
 
 		// create queues

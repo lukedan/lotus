@@ -129,7 +129,7 @@ int main() {
 			}, values);
 			write_binary(values_f16);
 		}
-		lotus::log().debug<u8"Finished {} / {}">(i_n_dot_v + 1, samples_n_dot_v);
+		lotus::log().debug("Finished {} / {}", i_n_dot_v + 1, samples_n_dot_v);
 	}
 
 	return 0;

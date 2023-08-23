@@ -13,7 +13,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 	/// Asserts that the result is \p vk::Result::eSuccess.
 	inline void assert_vk(vk::Result result) {
 		if (result != vk::Result::eSuccess) {
-			log().error<u8"Vulkan error {}">(vk::to_string(result));
+			log().error("Vulkan error {}", vk::to_string(result));
 			assert(false);
 		}
 	}
@@ -25,7 +25,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 	/// Asserts that the given result is 
 	inline void assert_spv_reflect(SpvReflectResult result) {
 		if (result != SPV_REFLECT_RESULT_SUCCESS) {
-			log().error<u8"SPIRV-Reflect error {}">(static_cast<std::underlying_type_t<decltype(result)>>(result));
+			log().error("SPIRV-Reflect error {}", static_cast<std::underlying_type_t<decltype(result)>>(result));
 			assert(false);
 		}
 	}

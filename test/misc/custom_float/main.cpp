@@ -40,7 +40,7 @@ int main() {
 
 	for (std::uint32_t i = 0; ; ++i) {
 		if (i % 10000000 == 0) {
-			lotus::log().debug<u8"f32 -> f64  {:.1f}%">(100.0 * i / static_cast<double>(std::numeric_limits<std::uint32_t>::max()));
+			lotus::log().debug("f32 -> f64  {:.1f}%", 100.0 * i / static_cast<double>(std::numeric_limits<std::uint32_t>::max()));
 		}
 
 		lotus::crash_if(!test_f32_to_f64(std::bit_cast<float>(i)));
@@ -53,7 +53,7 @@ int main() {
 	constexpr std::uint64_t f64_interval = 2100000000;
 	for (std::uint64_t i = 0; ; ) {
 		if (i % (f64_interval * 10000000) == 0) {
-			lotus::log().debug<u8"f64 -> f32  {:.1f}%">(100.0 * i / static_cast<double>(std::numeric_limits<std::uint64_t>::max()));
+			lotus::log().debug("f64 -> f32  {:.1f}%", 100.0 * i / static_cast<double>(std::numeric_limits<std::uint64_t>::max()));
 		}
 
 		lotus::crash_if(!test_f64_to_f32(std::bit_cast<double>(i)));
@@ -68,16 +68,16 @@ int main() {
 	std::default_random_engine rng;
 	std::uniform_int_distribution<std::uint64_t> range(0);
 
-	lotus::log().debug<u8"Now testing random f64 -> f32">();
+	lotus::log().debug("Now testing random f64 -> f32");
 	for (std::uint64_t i = 0; ; ++i) {
 		if (i % 10000000 == 0) {
-			lotus::log().debug<u8"Tested {} numbers">(i);
+			lotus::log().debug("Tested {} numbers", i);
 		}
 
 		std::uint64_t x = range(rng);
 		bool ok = test_f64_to_f32(std::bit_cast<double>(x));
 		if (!ok) {
-			lotus::log().error<u8"Bad value: {}">(x);
+			lotus::log().error("Bad value: {}", x);
 			std::abort();
 		}
 	}

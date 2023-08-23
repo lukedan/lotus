@@ -77,7 +77,7 @@ namespace lotus::renderer::assets {
 		// TODO subpath is ignored
 		auto [image_mem, image_size] = load_binary_file(j.path.string().c_str());
 		if (!image_mem) {
-			log().error<u8"Failed to open image file: {}">(j.path.string());
+			log().error("Failed to open image file: {}", j.path.string());
 			return job_result(std::move(j), nullptr);
 		}
 
@@ -100,7 +100,7 @@ namespace lotus::renderer::assets {
 					std::size_t size = num_fragments[0] * num_fragments[1] * format_props.bytes_per_fragment;
 
 					if (raw_data.end() - current < static_cast<std::ptrdiff_t>(size)) {
-						log().error<u8"{}: Not enough space for mip {} and below">(j.path.string(), i);
+						log().error("{}: Not enough space for mip {} and below", j.path.string(), i);
 						break;
 					}
 
@@ -163,9 +163,9 @@ namespace lotus::renderer::assets {
 				bits_per_channel_4[0], bits_per_channel_4[1], bits_per_channel_4[2], bits_per_channel_4[3], type
 			);
 			if (pixel_format == gpu::format::none) {
-				log().error<u8"Failed to find appropriate pixel format for bytes per channel {}, type {}">(
-					bytes_per_channel,
-					static_cast<std::underlying_type_t<gpu::format_properties::data_type>>(type)
+				log().error(
+					"Failed to find appropriate pixel format for bytes per channel {}, type {}",
+					bytes_per_channel, static_cast<std::underlying_type_t<gpu::format_properties::data_type>>(type)
 				);
 			}
 
@@ -329,7 +329,7 @@ namespace lotus::renderer::assets {
 					_image2d_descriptors, tex.descriptor_index,
 					{ tex.image.view_mips(gpu::mip_levels::all_below(tex.highest_mip_loaded)) }
 				);
-				log().debug<u8"Texture {} loaded">(j.input.path.string());
+				log().debug("Texture {} loaded", j.input.path.string());
 			}
 		}
 	}
@@ -489,15 +489,15 @@ namespace lotus::renderer::assets {
 		);
 		auto output = result.get_compiler_output();
 		if (!result.succeeded()) {
-			log().error<u8"Failed to compile shader {} ({}):">(id.path.string(), string::to_generic(id.subpath));
-			log().error<u8"{}">(string::to_generic(output));
+			log().error("Failed to compile shader {} ({}):", id.path.string(), string::to_generic(id.subpath));
+			log().error("{}", string::to_generic(output));
 			return nullptr;
 		} else {
 			if (!output.empty()) {
-				log().debug<u8"Shader compiler output for {} ({}):">(
-					id.path.string(), string::to_generic(id.subpath)
+				log().debug(
+					"Shader compiler output for {} ({}):", id.path.string(), string::to_generic(id.subpath)
 				);
-				log().debug<u8"{}">(string::to_generic(output));
+				log().debug("{}", string::to_generic(output));
 			}
 		}
 
@@ -522,15 +522,15 @@ namespace lotus::renderer::assets {
 		);
 		auto output = result.get_compiler_output();
 		if (!result.succeeded()) {
-			log().error<u8"Failed to compile shader {} ({}):">(id.path.string(), string::to_generic(id.subpath));
-			log().error<u8"{}">(string::to_generic(output));
+			log().error("Failed to compile shader {} ({}):", id.path.string(), string::to_generic(id.subpath));
+			log().error("{}", string::to_generic(output));
 			return nullptr;
 		} else {
 			if (!output.empty()) {
-				log().debug<u8"Shader compiler output for {} ({}):">(
-					id.path.string(), string::to_generic(id.subpath)
+				log().debug(
+					"Shader compiler output for {} ({}):", id.path.string(), string::to_generic(id.subpath)
 				);
-				log().debug<u8"{}">(string::to_generic(output));
+				log().debug("{}", string::to_generic(output));
 			}
 		}
 

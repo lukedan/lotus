@@ -33,7 +33,7 @@ namespace lotus::renderer::gltf {
 		std::size_t buffer_elements = accessor.count * expected_components;
 
 		if (num_components != expected_components) {
-			log().warn<u8"Expected {} components but getting {}">(expected_components, num_components);
+			log().warn("Expected {} components but getting {}", expected_components, num_components);
 		}
 
 		std::vector<T> data(buffer_elements);
@@ -93,7 +93,8 @@ namespace lotus::renderer::gltf {
 					break;
 				default:
 					{
-						log().error<u8"Unrecognized GLTF data buffer type for accessor {}: {}">(
+						log().error(
+							"Unrecognized GLTF data buffer type for accessor {}: {}",
 							accessor_index, accessor.componentType
 						);
 						return nullptr;
@@ -156,9 +157,7 @@ namespace lotus::renderer::gltf {
 		std::string err;
 		std::string warn;
 		if (!loader.LoadASCIIFromFile(&model, &err, &warn, path.string())) {
-			log().error<u8"Failed to load GLTF ASCII {}, errors: {}, warnings: {}">(
-				path.string(), err, warn
-			);
+			log().error("Failed to load GLTF ASCII {}, errors: {}, warnings: {}", path.string(), err, warn);
 			return;
 		}
 
@@ -245,9 +244,9 @@ namespace lotus::renderer::gltf {
 					geom.topology = gpu::primitive_topology::line_list;
 					break;
 				case TINYGLTF_MODE_LINE_LOOP: // no support
-					log().error<
-						u8"Line loop topology is not supported, used by mesh {} \"{}\" primitive {}"
-					>(i, mesh.name, j);
+					log().error(
+						"Line loop topology is not supported, used by mesh {} \"{}\" primitive {}", i, mesh.name, j
+					);
 					[[fallthrough]];
 				case TINYGLTF_MODE_LINE_STRIP:
 					geom.topology = gpu::primitive_topology::line_strip;
@@ -256,15 +255,16 @@ namespace lotus::renderer::gltf {
 					geom.topology = gpu::primitive_topology::triangle_list;
 					break;
 				case TINYGLTF_MODE_TRIANGLE_FAN: // no support
-					log().error<
-						u8"Triangle fan topology is not supported, used by mesh {} \"{}\" primitive {}"
-					>(i, mesh.name, j);
+					log().error(
+						"Triangle fan topology is not supported, used by mesh {} \"{}\" primitive {}",
+						i, mesh.name, j
+					);
 					[[fallthrough]];
 				case TINYGLTF_MODE_TRIANGLE_STRIP:
 					geom.topology = gpu::primitive_topology::triangle_strip;
 					break;
 				default:
-					log().error<u8"Unhandled topology: {}, falling back to points">(prim.mode);
+					log().error("Unhandled topology: {}, falling back to points", prim.mode);
 					geom.topology = gpu::primitive_topology::point_list;
 					break;
 				}
@@ -362,8 +362,8 @@ namespace lotus::renderer::gltf {
 					);
 				} else {
 					if (node.matrix.size() != 16) {
-						log().error<u8"Transformation matrix for node {} has {} elements">(
-							node.name, node.matrix.size()
+						log().error(
+							"Transformation matrix for node {} has {} elements", node.name, node.matrix.size()
 						);
 					}
 					for (std::size_t row = 0; row < 4; ++row) {

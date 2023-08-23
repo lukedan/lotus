@@ -20,7 +20,8 @@ namespace lotus::renderer {
 			gpu::descriptor_range_binding::merge_sorted_descriptor_ranges(
 				ranges.begin(), ranges.end(),
 				[](_it prev, _it next) {
-					log().error<u8"Detected overlapping descriptor ranges [{}, {}] and [{}, {}]">(
+					log().error(
+						"Detected overlapping descriptor ranges [{}, {}] and [{}, {}]",
 						prev->register_index, prev->get_last_register_index(),
 						next->register_index, next->get_last_register_index()
 					);

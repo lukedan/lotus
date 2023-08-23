@@ -80,11 +80,11 @@ namespace lotus::renderer::assimp {
 			aiProcess_JoinIdenticalVertices
 		);
 		if (!scene) {
-			log().error<u8"Failed to load {} using assimp: {}">(path.string(), importer.GetErrorString());
+			log().error("Failed to load {} using assimp: {}", path.string(), importer.GetErrorString());
 			return;
 		}
 		if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
-			log().error<u8"Scene is incomplete: {}">(path.string());
+			log().error("Scene is incomplete: {}", path.string());
 			return;
 		}
 
@@ -278,9 +278,10 @@ namespace lotus::renderer::assimp {
 				const aiLight *light = scene->mLights[i];
 				auto [it, inserted] = lights_mapping.emplace(light->mName.C_Str(), lights.size());
 				if (!inserted) {
-					log().error<
-						u8"Light with duplicate name: {}, previous was at position {}"
-					>(light->mName.C_Str(), it->second);
+					log().error(
+						"Light with duplicate name: {}, previous was at position {}",
+						light->mName.C_Str(), it->second
+					);
 					continue;
 				}
 				auto &loaded_light = lights.emplace_back();
@@ -295,11 +296,11 @@ namespace lotus::renderer::assimp {
 					loaded_light.type = shader_types::light_type::spot_light;
 					break;
 				case aiLightSource_AMBIENT:
-					log().error<u8"Ambient light ignored: {}">(light->mName.C_Str());
+					log().error("Ambient light ignored: {}", light->mName.C_Str());
 					break;
 				case aiLightSource_AREA:
 					loaded_light.type = shader_types::light_type::point_light;
-					log().warn<u8"Area light treated as a point light: {}">(light->mName.C_Str());
+					log().warn("Area light treated as a point light: {}", light->mName.C_Str());
 					break;
 				}
 				loaded_light.position   = cvec3f(light->mPosition.x, light->mPosition.y, light->mPosition.z);
@@ -355,7 +356,7 @@ namespace lotus::renderer::assimp {
 		if (light_loaded_callback) {
 			if (!lights_mapping.empty()) {
 				for (auto &&[k, v] : lights_mapping) {
-					log().error<u8"Light without a corresponding node: {}">(k.c_str());
+					log().error("Light without a corresponding node: {}", k.c_str());
 				}
 			}
 			for (const auto &l : lights) {

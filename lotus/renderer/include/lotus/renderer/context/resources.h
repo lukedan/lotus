@@ -890,7 +890,8 @@ namespace lotus::renderer {
 					auto num_levels =
 						std::min<std::uint32_t>(result._ptr->num_mips, result._mip_levels.maximum) -
 						result._mip_levels.minimum;
-					log().error<u8"More than one ({}) mip specified for render target for texture {}">(
+					log().error(
+						"More than one ({}) mip specified for render target for texture {}",
 						num_levels, string::to_generic(result._ptr->name)
 					);
 				}

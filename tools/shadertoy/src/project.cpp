@@ -5,36 +5,36 @@
 
 #include "lotus/utils/strings.h"
 
-project project::load(const nlohmann::json &val, error_callback &on_error) {
+project project::load(const nlohmann::json &val) {
 	project result = nullptr;
 	if (!val.is_object()) {
-		on_error(u8"Project must be an object");
+		log().error("Project must be an object");
 		return result;
 	}
 	if (auto passes_it = val.find("passes"); passes_it != val.end()) {
 		if (passes_it->is_object()) {
 			for (const auto &p : passes_it->items()) {
-				if (auto pass = pass::load(p.value(), on_error)) {
+				if (auto pass = pass::load(p.value())) {
 					pass->pass_name = std::u8string(lotus::string::assume_utf8(p.key()));
 					result.passes.emplace(lotus::string::assume_utf8(p.key()), std::move(pass.value()));
 				} else {
-					on_error(format_utf8<u8"Failed to load pass {}">(p.key()));
+					log().error("Failed to load pass {}", p.key());
 				}
 			}
 		} else {
-			on_error(u8"Passes must be a JSON object");
+			log().error("Passes must be a JSON object");
 		}
 	} else {
-		on_error(u8"No passes specified");
+		log().error("No passes specified");
 	}
 	if (auto main_pass_it = val.find("main_pass"); main_pass_it != val.end()) {
 		if (main_pass_it->is_string()) {
 			result.main_pass = std::u8string(lotus::string::assume_utf8(main_pass_it->get<std::string>()));
 		} else {
-			on_error(u8"Invalid main pass");
+			log().error("Invalid main pass");
 		}
 	} else {
-		on_error(u8"No main pass specified");
+		log().error("No main pass specified");
 	}
 	return result;
 }
@@ -43,25 +43,22 @@ void project::load_resources(
 	lren::assets::manager &man,
 	lren::assets::handle<lren::assets::shader> vert_shader,
 	const std::filesystem::path &root,
-	const lren::pool &p,
-	error_callback &on_error
+	const lren::pool &p
 ) {
 	for (auto &it : passes) {
-		it.second.load_input_images(man, root, p, on_error);
-		it.second.load_shader(man, std::move(vert_shader), root, on_error);
+		it.second.load_input_images(man, root, p);
+		it.second.load_shader(man, std::move(vert_shader), root);
 	}
 }
 
-[[nodiscard]] pass::target *project::find_target(
-	std::u8string_view name, error_callback &on_error
-) {
+pass::target *project::find_target(std::u8string_view name) {
 	// first attempt: raw name
 	if (auto it = passes.find(name); it != passes.end()) {
 		if (!it->second.shader_loaded) {
 			return nullptr;
 		}
 		if (it->second.targets.size() != 1) {
-			on_error(format_utf8<u8"Ambiguous output name: {}, using first output">(lstr::to_generic(name)));
+			log().error("Ambiguous output name: {}, using first output", lstr::to_generic(name));
 		}
 		return &it->second.targets[0];
 	}
@@ -92,24 +89,22 @@ void project::load_resources(
 			auto result = std::from_chars(beg, end, out_index);
 			if (result.ec == std::errc() && result.ptr == end) {
 				if (out_index >= it->second.targets.size()) {
-					on_error(format_utf8<u8"Output index {} out of range for pass {}">(
-						out_index, lstr::to_generic(pass_name)
-					));
+					log().error(
+						"Output index {} out of range for pass {}", out_index, lstr::to_generic(pass_name)
+					);
 					return nullptr;
 				}
 				return &it->second.targets[out_index];
 			}
-			on_error(format_utf8<u8"Invalid output {} for pass {}">(
-				lstr::to_generic(member), lstr::to_generic(pass_name))
-			);
+			log().error("Invalid output {} for pass {}", lstr::to_generic(member), lstr::to_generic(pass_name));
 		}
-		on_error(format_utf8<u8"Cannot find pass {}">(lstr::to_generic(pass_name)));
+		log().error("Cannot find pass {}", lstr::to_generic(pass_name));
 	}
-	on_error(format_utf8<u8"Cannot find pass {}">(lstr::to_generic(name)));
+	log().error("Cannot find pass {}", lstr::to_generic(name));
 	return nullptr;
 }
 
-std::vector<std::map<std::u8string, pass>::iterator> project::get_pass_order(error_callback &on_error) {
+std::vector<std::map<std::u8string, pass>::iterator> project::get_pass_order() {
 	using _iter = std::map<std::u8string, pass>::iterator;
 
 	std::vector<_iter> result;
@@ -139,7 +134,7 @@ std::vector<std::map<std::u8string, pass>::iterator> project::get_pass_order(err
 			}
 		}
 		if (current == passes.end()) {
-			on_error(u8"Cycle detected in pass graph.");
+			log().error("Cycle detected in pass graph.");
 			current = nodes.back().first;
 			nodes.pop_back();
 		}

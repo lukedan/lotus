@@ -116,7 +116,8 @@ namespace lotus::dds {
 		} else if (bit_mask::contains<pixel_format_flags::four_cc>(fmt.flags)) {
 			auto gpu_fmt = four_cc_to_format(fmt.four_cc);
 			if (gpu_fmt == gpu::format::none) {
-				log().error<u8"Unsupported four-character code: {:X}, '{}{}{}{}'">(
+				log().error(
+					"Unsupported four-character code: {:X}, '{}{}{}{}'",
 					fmt.four_cc,
 					static_cast<char>( fmt.four_cc        & 0xFF),
 					static_cast<char>((fmt.four_cc >> 8)  & 0xFF),
@@ -126,10 +127,8 @@ namespace lotus::dds {
 			}
 			return gpu_fmt;
 		}
-		log().error<
-			u8"Unsupported pixel format, flags: {:X}, bit count: {}, "
-			u8"r: {:010X}, g: {:010X}, b: {:010X}, a: {:010X}"
-		>(
+		log().error(
+			"Unsupported pixel format, flags: {:X}, bit count: {}, r: {:010X}, g: {:010X}, b: {:010X}, a: {:010X}",
 			static_cast<std::underlying_type_t<pixel_format_flags>>(fmt.flags), fmt.rgb_bit_count,
 			fmt.r_bit_mask, fmt.g_bit_mask, fmt.b_bit_mask, fmt.a_bit_mask
 		);
@@ -138,7 +137,7 @@ namespace lotus::dds {
 
 	std::optional<loader> loader::create(std::span<const std::byte> data) {
 		if (data.size() < sizeof(std::uint32_t) + sizeof(header)) {
-			log().debug<u8"DDS file too small">();
+			log().debug("DDS file too small");
 			return std::nullopt;
 		}
 
@@ -146,17 +145,17 @@ namespace lotus::dds {
 		result._data = data.data();
 		result._size = data.size();
 		if (auto file_magic = *result._data_at_offset<std::uint32_t>(0); file_magic != magic) {
-			log().debug<u8"Incorrect DDS magic number: {}">(file_magic);
+			log().debug("Incorrect DDS magic number: {}", file_magic);
 			return std::nullopt;
 		}
 
 		const auto &dds_header = result.get_header();
 		if (dds_header.size != sizeof(header)) {
-			log().debug<u8"Incorrect DDS header size: {}">(dds_header.size);
+			log().debug("Incorrect DDS header size: {}", dds_header.size);
 			return std::nullopt;
 		}
 		if (dds_header.pixel_format.size != sizeof(pixel_format)) {
-			log().debug<u8"Incorrect DDS pixel format size: {}">(dds_header.pixel_format.size);
+			log().debug("Incorrect DDS pixel format size: {}", dds_header.pixel_format.size);
 			return std::nullopt;
 		}
 
@@ -171,7 +170,7 @@ namespace lotus::dds {
 			dds_header.pixel_format.four_cc == make_four_character_code(u8"DX10");
 		if (result._has_dx10_header) {
 			if (result.get_dx10_header() == nullptr) {
-				log().debug<u8"DDS file too small">();
+				log().debug("DDS file too small");
 				return std::nullopt;
 			}
 
@@ -181,20 +180,20 @@ namespace lotus::dds {
 				static_cast<DXGI_FORMAT>(dds_dx10_header->dxgi_format)
 			);
 			if (result._format == gpu::format::none) {
-				log().debug<u8"Unsupported format: {}">(dds_dx10_header->dxgi_format);
+				log().debug("Unsupported format: {}", dds_dx10_header->dxgi_format);
 				return std::nullopt;
 			}
 
 			result._array_size = dds_dx10_header->array_size;
 			if (result._array_size == 0) {
-				log().debug<u8"Zero array size not supported">();
+				log().debug("Zero array size not supported");
 				return std::nullopt;
 			}
 
 			switch (dds_dx10_header->dimension) {
 			case resource_dimension::texture1d:
 				if (bit_mask::contains<header_flags::height>(dds_header.flags) && dds_header.height != 1) {
-					log().debug<u8"1D texture with invalid height value: {}">(dds_header.height);
+					log().debug("1D texture with invalid height value: {}", dds_header.height);
 					return std::nullopt;
 				}
 				result._height = 1;
@@ -209,11 +208,11 @@ namespace lotus::dds {
 				break;
 			case resource_dimension::texture3d:
 				if (!bit_mask::contains<header_flags::depth>(dds_header.flags)) {
-					log().debug<u8"3D texture without depth flag">();
+					log().debug("3D texture without depth flag");
 					return std::nullopt;
 				}
 				if (result._array_size > 1) {
-					log().debug<u8"Array of 3D textures is not supported">();
+					log().debug("Array of 3D textures is not supported");
 					return std::nullopt;
 				}
 				break;
@@ -221,7 +220,7 @@ namespace lotus::dds {
 		} else {
 			result._format = infer_format_from(dds_header.pixel_format);
 			if (result._format == gpu::format::none) {
-				log().debug<u8"Cannot deduce pixel format">();
+				log().debug("Cannot deduce pixel format");
 				return std::nullopt;
 			}
 
@@ -231,7 +230,7 @@ namespace lotus::dds {
 						(dds_header.caps2 & capabilities2::cubemap_all_faces) !=
 						capabilities2::cubemap_all_faces
 					) {
-						log().debug<u8"Missing cubemap faces">();
+						log().debug("Missing cubemap faces");
 						return std::nullopt;
 					}
 

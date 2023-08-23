@@ -192,10 +192,9 @@ namespace lotus::renderer::execution {
 				for (auto cur = last; cur != barriers.end(); ++cur) {
 					if (cur->subresources == last->subresources) {
 						if (cur->to_access != last->to_access) {
-							log().error<
-								u8"Multiple transition targets for image resource {} slice {} mip {}. "
-								u8"Maybe a flush_transitions() call is missing?"
-							>(
+							log().error(
+								"Multiple transition targets for image resource {} slice {} mip {}. "
+								"Maybe a flush_transitions() call is missing?",
 								string::to_generic(surf->name),
 								last->subresources.first_array_slice, last->subresources.first_mip_level
 							);
@@ -284,8 +283,8 @@ namespace lotus::renderer::execution {
 			_details::buffer *prev = nullptr;
 			for (auto trans : _buffer_transitions) {
 				if (trans.target == prev) {
-					log().error<u8"Multiple transitions staged for buffer {}">(
-						string::to_generic(trans.target->name)
+					log().error(
+						"Multiple transitions staged for buffer {}", string::to_generic(trans.target->name)
 					);
 					continue;
 				}

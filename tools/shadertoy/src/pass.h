@@ -18,9 +18,6 @@
 /// A pass.
 class pass {
 public:
-	/// Callback function for errors.
-	using error_callback = lotus::static_function<void(std::u8string_view)>;
-
 	/// Format of loaded input images.
 	constexpr static lgpu::format input_image_format = lgpu::format::r8g8b8a8_unorm;
 	/// Format of output images.
@@ -87,7 +84,7 @@ public:
 		using value_type = std::variant<pass_output, image>; ///< Input value storage type.
 
 		/// Loads the value from the given JSON object.
-		[[nodiscard]] static std::optional<value_type> load_value(const nlohmann::json&, error_callback&);
+		[[nodiscard]] static std::optional<value_type> load_value(const nlohmann::json&);
 
 		std::u8string binding_name; ///< Name of the texture that this is bound to.
 		value_type value; ///< The value of this input.
@@ -108,16 +105,16 @@ public:
 	pass(std::nullptr_t) {
 	}
 	/// Loads settings from the JSON value.
-	[[nodiscard]] static std::optional<pass> load(const nlohmann::json&, error_callback&);
+	[[nodiscard]] static std::optional<pass> load(const nlohmann::json&);
 
 	/// Loads all input images.
 	void load_input_images(
-		lren::assets::manager&, const std::filesystem::path &root, const lren::pool&, error_callback&
+		lren::assets::manager&, const std::filesystem::path &root, const lren::pool&
 	);
 	/// Loads the shader and uses its reflection data to initialize the pipeline.
 	void load_shader(
 		lren::assets::manager&, lren::assets::handle<lren::assets::shader> vert_shader,
-		const std::filesystem::path &root, error_callback&
+		const std::filesystem::path &root
 	);
 
 

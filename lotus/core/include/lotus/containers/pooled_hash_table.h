@@ -63,7 +63,7 @@ namespace lotus {
 			auto hash_value = static_cast<Index>(Hash{}(n.object));
 			Index slot = hash_value % _head.size();
 			if (_head[slot]) {
-				log().info<u8"Hash collision with hash value {} at slot {}">(hash_value, slot);
+				log().info("Hash collision with hash value {} at slot {}", hash_value, slot);
 			}
 			n.next = _head[slot];
 			_head[slot] = ref;

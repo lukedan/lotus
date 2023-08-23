@@ -11,13 +11,11 @@
 #include "lotus/utils/misc.h"
 #include "lotus/renderer/context/asset_manager.h"
 
-std::optional<pass::input::value_type> pass::input::load_value(
-	const nlohmann::json &val, error_callback &on_error
-) {
+std::optional<pass::input::value_type> pass::input::load_value(const nlohmann::json &val) {
 	if (val.is_object()) {
 		if (auto type_it = val.find("pass"); type_it != val.end()) {
 			if (!type_it->is_string()) {
-				on_error(u8"Referenced pass name must be a string");
+				log().error("Referenced pass name must be a string");
 				return std::nullopt;
 			}
 			input::pass_output result;
@@ -30,34 +28,34 @@ std::optional<pass::input::value_type> pass::input::load_value(
 		}
 		if (auto type_it = val.find("image"); type_it != val.end()) {
 			if (!type_it->is_string()) {
-				on_error(u8"External image path must be a string");
+				log().error("External image path must be a string");
 				return std::nullopt;
 			}
 			input::image result = nullptr;
 			result.path = type_it->get<std::string>();
 			return result;
 		}
-		on_error(u8"No valid input type found");
+		log().error("No valid input type found");
 		return std::nullopt;
 	} else if (val.is_string()) { // shorthand for a pass
 		input::pass_output result;
 		result.name = std::u8string(lotus::string::assume_utf8(val.get<std::string>()));
 		return result;
 	}
-	on_error(u8"Invalid pass input format");
+	log().error("Invalid pass input format");
 	return std::nullopt;
 }
 
 
-std::optional<pass> pass::load(const nlohmann::json &val, error_callback &on_error) {
+std::optional<pass> pass::load(const nlohmann::json &val) {
 	if (!val.is_object()) {
-		on_error(u8"Pass must be described using a JSON object");
+		log().error("Pass must be described using a JSON object");
 		return std::nullopt;
 	}
 
 	auto shader_file_it = val.find("source");
 	if (shader_file_it == val.end() || !shader_file_it->is_string()) {
-		on_error(u8"Pass source file must be a string");
+		log().error("Pass source file must be a string");
 		return std::nullopt;
 	}
 
@@ -67,11 +65,11 @@ std::optional<pass> pass::load(const nlohmann::json &val, error_callback &on_err
 
 	if (auto inputs_it = val.find("inputs"); inputs_it != val.end()) {
 		if (!inputs_it->is_object()) {
-			on_error(u8"Pass inputs must be an array");
+			log().error("Pass inputs must be an array");
 		} else {
 			result.inputs.reserve(inputs_it->size());
 			for (auto input_desc : inputs_it.value().items()) {
-				if (auto input_val = input::load_value(input_desc.value(), on_error)) {
+				if (auto input_val = input::load_value(input_desc.value())) {
 					auto &in = result.inputs.emplace_back(nullptr);
 					in.binding_name = std::u8string(lotus::string::assume_utf8(input_desc.key()));
 					in.value = std::move(input_val.value());
@@ -84,7 +82,7 @@ std::optional<pass> pass::load(const nlohmann::json &val, error_callback &on_err
 		if (entry_point_it->is_string()) {
 			result.entry_point = std::u8string(lotus::string::assume_utf8(entry_point_it->get<std::string>()));
 		} else {
-			on_error(u8"Entry point must be a string");
+			log().error("Entry point must be a string");
 		}
 	} else {
 		result.entry_point = u8"main"; // default entry point is main. not main_ps, just main
@@ -97,13 +95,13 @@ std::optional<pass> pass::load(const nlohmann::json &val, error_callback &on_err
 					result.targets.emplace_back(nullptr).name = lotus::string::assume_utf8(str.get<std::string>());
 				} else {
 					result.targets.emplace_back(nullptr); // preserve indices
-					on_error(u8"Output at location must be a string");
+					log().error("Output at location must be a string");
 				}
 			}
 		} else if (outputs_it->is_number_unsigned()) {
 			result.targets.resize(outputs_it->get<std::size_t>(), nullptr);
 		} else {
-			on_error(u8"Pass outputs must be a list of strings or a single integer");
+			log().error("Pass outputs must be a list of strings or a single integer");
 		}
 	}
 
@@ -122,7 +120,7 @@ std::optional<pass> pass::load(const nlohmann::json &val, error_callback &on_err
 						lotus::string::assume_utf8(std::to_string(def.value().get<double>()))
 					);
 				} else if (!def.value().is_null()) {
-					on_error(u8"Invalid define value type");
+					log().error("Invalid define value type");
 				}
 			}
 		} else if (defines_it->is_array()) {
@@ -130,11 +128,11 @@ std::optional<pass> pass::load(const nlohmann::json &val, error_callback &on_err
 				if (def.is_string()) {
 					result.defines.emplace_back(lotus::string::assume_utf8(def.get<std::string>()), u8"");
 				} else {
-					on_error(u8"Define is not a string");
+					log().error("Define is not a string");
 				}
 			}
 		} else {
-			on_error(u8"Invalid defines");
+			log().error("Invalid defines");
 		}
 	}
 
@@ -142,7 +140,7 @@ std::optional<pass> pass::load(const nlohmann::json &val, error_callback &on_err
 }
 
 void pass::load_input_images(
-	lren::assets::manager &man, const std::filesystem::path &root, const lren::pool &p, error_callback&
+	lren::assets::manager &man, const std::filesystem::path &root, const lren::pool &p
 ) {
 	for (auto &in : inputs) {
 		if (std::holds_alternative<input::image>(in.value)) {
@@ -155,7 +153,7 @@ void pass::load_input_images(
 
 void pass::load_shader(
 	lren::assets::manager &man, lren::assets::handle<lren::assets::shader> vert_shader,
-	const std::filesystem::path &root, error_callback &on_error
+	const std::filesystem::path &root
 ) {
 	shader_loaded = false;
 
@@ -180,7 +178,7 @@ void pass::load_shader(
 		if (auto binding = reflection.find_resource_binding_by_name(in.binding_name)) {
 			in.register_index = static_cast<std::uint32_t>(binding->first_register);
 		} else {
-			on_error(format_utf8<u8"Input {} not found">(lotus::string::to_generic(in.binding_name)));
+			log().error("Input {} not found", lotus::string::to_generic(in.binding_name));
 		}
 	}
 
@@ -193,14 +191,13 @@ void pass::load_shader(
 		// TODO do we need to make sure that these targets have contiguous indices?
 	});
 	if (!targets.empty() && targets.size() < num_outputs) {
-		on_error(format_utf8<u8"Only {} output names specified, while the shader has {} outputs">(
-			targets.size(), num_outputs
-		));
+		log().error("Only {} output names specified, while the shader has {} outputs", targets.size(), num_outputs);
 	} else if (targets.size() > num_outputs) {
-		on_error(format_utf8<
-			u8"Too many output names specified for shader: got {}, expected {}. "
-			u8"Out-of-bounds ones will be discarded"
-		>(targets.size(), num_outputs));
+		log().error(
+			"Too many output names specified for shader: got {}, expected {}. "
+			"Out-of-bounds ones will be discarded",
+			targets.size(), num_outputs
+		);
 	}
 	targets.resize(num_outputs, nullptr);
 
@@ -208,7 +205,7 @@ void pass::load_shader(
 	reflection.enumerate_resource_bindings([&](const lgpu::shader_resource_binding &b) {
 		if (b.register_space != 0) {
 			if (b.name != u8"globals" && b.name != u8"nearest_sampler" && b.name != u8"linear_sampler") {
-				on_error(format_utf8<u8"Resource binding must be in register space 0: {}">(lstr::to_generic(b.name)));
+				log().error("Resource binding must be in register space 0: {}", lstr::to_generic(b.name));
 			}
 		}
 	});

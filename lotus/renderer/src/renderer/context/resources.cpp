@@ -25,7 +25,8 @@ namespace lotus::renderer {
 			for (std::size_t i = 0; i < _chunks.size(); ++i) {
 				if (auto res = _chunks[i].allocator.allocate(size_align, 0)) {
 					if (debug_log_allocations) {
-						log().debug<u8"Allocating from pool {}, chunk {}, addr {}, size {}">(
+						log().debug(
+							"Allocating from pool {}, chunk {}, addr {}, size {}",
 							string::to_generic(name), i, res->first, size_align.size
 						);
 					}
@@ -42,7 +43,8 @@ namespace lotus::renderer {
 			);
 			if (auto res = chk.allocator.allocate(size_align, 0)) {
 				if (debug_log_allocations) {
-					log().debug<u8"Allocating from pool {}, chunk {}, addr {}, size {}">(
+					log().debug(
+						"Allocating from pool {}, chunk {}, addr {}, size {}",
 						string::to_generic(name), index, res->first, size_align.size
 					);
 				}
@@ -56,7 +58,8 @@ namespace lotus::renderer {
 			crash_if(tok._chunk_index >= _chunks.size());
 			_chunks[tok._chunk_index].allocator.free(tok._address);
 			if (debug_log_allocations) {
-				log().debug<u8"Freeing from pool {}, chunk {}, addr {}">(
+				log().debug(
+					"Freeing from pool {}, chunk {}, addr {}",
 					string::to_generic(name), tok._chunk_index, tok._address
 				);
 			}

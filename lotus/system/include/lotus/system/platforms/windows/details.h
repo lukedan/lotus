@@ -21,7 +21,7 @@ namespace lotus::system::platforms::windows::_details {
 	/// Aborts if the given \p HRESULT does not indicate success.
 	inline void assert_com(HRESULT hr) {
 		if (FAILED(hr)) {
-			log().error<u8"COM error: {}">(hr);
+			log().error("COM error: {}", hr);
 			std::abort();
 		}
 	}

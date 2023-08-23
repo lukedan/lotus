@@ -20,7 +20,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			auto msg = system::platforms::windows::_details::tstring_to_u8string(
 				err.ErrorMessage(), std::allocator<char8_t>()
 			);
-			log().error<u8"DirectX error {:X}: {}">(hr, string::to_generic(msg));
+			log().error("DirectX error {:X}: {}", hr, string::to_generic(msg));
 
 			if (dev && hr == DXGI_ERROR_DEVICE_REMOVED) {
 				assert_dx(dev->GetDeviceRemovedReason());

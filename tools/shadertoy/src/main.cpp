@@ -17,7 +17,7 @@
 
 int main(int argc, char **argv) {
 	if (argc < 2) {
-		lotus::log().info<"Usage: shadertoy [project JSON file name]">();
+		lotus::log().info("Usage: shadertoy [project JSON file name]");
 		return 0;
 	}
 
@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
 		if (!properties.is_discrete) {
 			return true;
 		}
-		lotus::log().info<"Selected device: {}">(lotus::string::to_generic(properties.name));
+		lotus::log().info("Selected device: {}", lotus::string::to_generic(properties.name));
 		auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics });
 		gdev = std::move(dev);
 		gqueues = std::move(queues);
@@ -130,9 +130,6 @@ int main(int argc, char **argv) {
 
 	// load project
 	std::filesystem::path proj_path = argv[1];
-	auto error_callback = lotus::static_function<void(std::u8string_view)>([](std::u8string_view msg) {
-		lotus::log().error<u8"{}">(lotus::string::to_generic(msg));
-	});
 	project proj = nullptr;
 	std::vector<std::map<std::u8string, pass>::iterator> pass_order;
 
@@ -151,31 +148,34 @@ int main(int argc, char **argv) {
 			time = 0.0f;
 			proj = nullptr;
 
-			lotus::log().info<u8"Loading project">();
+			lotus::log().info("Loading project");
 			nlohmann::json proj_json;
 			{
 				std::ifstream fin(proj_path);
 				try {
 					fin >> proj_json;
 				} catch (std::exception &ex) {
-					lotus::log().error<u8"Failed to load JSON: {}">(ex.what());
+					lotus::log().error("Failed to load JSON: {}", ex.what());
 				} catch (...) {
-					lotus::log().error<u8"Failed to load JSON">();
+					lotus::log().error("Failed to load JSON");
 				}
 			}
-			proj = project::load(proj_json, error_callback);
-			proj.load_resources(ass_man, vert_shader, proj_path.parent_path(), resource_pool, error_callback);
-			pass_order = proj.get_pass_order(error_callback);
+			proj = project::load(proj_json);
+			proj.load_resources(ass_man, vert_shader, proj_path.parent_path(), resource_pool);
+			pass_order = proj.get_pass_order();
 		}
 
 		for (auto &p : proj.passes) {
 			for (std::size_t out_i = 0; out_i < p.second.targets.size(); ++out_i) {
 				auto &out = p.second.targets[out_i];
 				out.previous_frame = std::move(out.current_frame);
+				auto output_name = std::format(
+					"Pass \"{}\" output #{} \"{}\" frame {}",
+					lstr::to_generic(p.first), out_i, lstr::to_generic(out.name), frame_index
+				);
 				out.current_frame = rctx.request_image2d(
-					format_utf8<u8"Pass \"{}\" output #{} \"{}\" frame {}">(
-						lstr::to_generic(p.first), out_i, lstr::to_generic(out.name), frame_index
-					), window_size, 1, pass::output_image_format,
+					lstr::assume_utf8(output_name),
+					window_size, 1, pass::output_image_format,
 					lgpu::image_usage_mask::color_render_target | lgpu::image_usage_mask::shader_read,
 					resource_pool
 				);
@@ -215,7 +215,7 @@ int main(int argc, char **argv) {
 					if (in.register_index) {
 						if (std::holds_alternative<pass::input::pass_output>(in.value)) {
 							const auto &out = std::get<pass::input::pass_output>(in.value);
-							const auto *target = proj.find_target(out.name, error_callback);
+							const auto *target = proj.find_target(out.name);
 							if (target) {
 								custom_bindings.emplace_back(
 									in.register_index.value(),
@@ -248,7 +248,7 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		if (auto *main_out = proj.find_target(proj.main_pass, error_callback)) {
+		if (auto *main_out = proj.find_target(proj.main_pass)) {
 			lren::graphics_pipeline_state state(
 				{ lgpu::render_target_blend_options::disabled() },
 				lgpu::rasterizer_options(

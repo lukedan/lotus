@@ -172,11 +172,11 @@ int main() {
 
 	for (std::size_t i = 0; !should_exit; ++i) {
 		auto op = op_dist(rng);
-		log().debug<u8"{}: {}">(i, lotus::string::to_generic(func_names[op]));
+		log().debug("{}: {}", i, lotus::string::to_generic(func_names[op]));
 		funcs[op]();
 		lotus::crash_if(!compare());
 	}
 
-	log().debug<u8"Exiting">();
+	log().debug("Exiting");
 	return 0;
 }

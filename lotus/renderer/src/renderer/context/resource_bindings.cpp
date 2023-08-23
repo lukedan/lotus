@@ -201,10 +201,10 @@ namespace lotus::renderer::_details {
 							std::make_move_iterator(cur_descriptors.end())
 						);
 					} else {
-						log().error<
-							u8"Multiple incompatible bindings specified for space {}. "
-							u8"Only the first one will be kept"
-						>(it->register_space);
+						log().error(
+							"Multiple incompatible bindings specified for space {}. Only the first one will be kept",
+							it->register_space
+						);
 					}
 				}
 			} else {
@@ -231,9 +231,10 @@ namespace lotus::renderer::_details {
 				// check for any duplicate bindings
 				for (std::size_t i = 1; i < descriptors.size(); ++i) {
 					if (descriptors[i].register_index == descriptors[i - 1].register_index) {
-						log().error<
-							u8"Duplicate bindings for set {} register {}"
-						>(set.register_space, descriptors[i].register_index);
+						log().error(
+							"Duplicate bindings for set {} register {}",
+							set.register_space, descriptors[i].register_index
+						);
 					}
 				}
 			}

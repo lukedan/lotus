@@ -1514,7 +1514,7 @@ namespace lotus::gpu::backends::vulkan {
 				}
 			}
 			if (!found) {
-				log().warn<u8"Extension {} not found. Device creation may fail.">(ext_required);
+				log().warn("Extension {} not found. Device creation may fail.", ext_required);
 			}
 		}
 

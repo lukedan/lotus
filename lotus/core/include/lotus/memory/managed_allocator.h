@@ -174,22 +174,20 @@ namespace lotus::memory {
 				if (alloc_it != _allocated_ranges.end()) {
 					alloc_beg = alloc_it->first.begin;
 					if (alloc_it->first.begin >= alloc_it->first.end) {
-						log().error<u8"Invalid allocated range [{}, {})">(
-							alloc_it->first.begin, alloc_it->first.end
-						);
+						log().error("Invalid allocated range [{}, {})", alloc_it->first.begin, alloc_it->first.end);
 						return false;
 					}
 				}
 				if (free_it != _free_ranges.end()) {
 					free_beg = free_it->first.begin;
 					if (free_it->first.begin >= free_it->first.end) {
-						log().error<u8"Inavlid free range [{}, {})">(free_it->first.begin, free_it->first.end);
+						log().error("Inavlid free range [{}, {})", free_it->first.begin, free_it->first.end);
 						return false;
 					}
 				}
 				std::size_t current = std::min(alloc_beg, free_beg);
 				if (prev != current) {
-					log().error<u8"Missing range [{}, {})">(prev, current);
+					log().error("Missing range [{}, {})", prev, current);
 					return false;
 				}
 				if (current == _total_size) {
@@ -201,7 +199,7 @@ namespace lotus::memory {
 				} else {
 					for (const auto &gh : free_it->second) {
 						if (!_range::get_intersection(gh.range, free_it->first)) {
-							log().error<u8"Ghost does not intersect with free range">();
+							log().error("Ghost does not intersect with free range");
 							return false;
 						}
 					}
@@ -210,11 +208,11 @@ namespace lotus::memory {
 				}
 			}
 			if (alloc_it != _allocated_ranges.end()) {
-				log().error<u8"Allocated range reaches past the memory pool">();
+				log().error("Allocated range reaches past the memory pool");
 				return false;
 			}
 			if (free_it != _free_ranges.end()) {
-				log().error<u8"Free range reaches past the memory pool">();
+				log().error("Free range reaches past the memory pool");
 				return false;
 			}
 			return true;

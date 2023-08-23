@@ -111,7 +111,7 @@ namespace lotus::renderer::fbx {
 		assert(importer);
 
 		if (!importer->Initialize(file_str.c_str(), -1, _sdk->manager->GetIOSettings())) {
-			log().error<u8"Failed to initialize FBX importer: {}">(importer->GetStatus().GetErrorString());
+			log().error("Failed to initialize FBX importer: {}", importer->GetStatus().GetErrorString());
 			return;
 		}
 
@@ -119,7 +119,7 @@ namespace lotus::renderer::fbx {
 			if (importer->GetStatus().GetCode() == fbxsdk::FbxStatus::ePasswordError) {
 				// TODO password???
 			}
-			log().error<u8"Failed to import FBX file: {}">(importer->GetStatus().GetErrorString());
+			log().error("Failed to import FBX file: {}", importer->GetStatus().GetErrorString());
 		}
 
 		// we get link errors if we use FbxFileTexture::ClassId directly
@@ -137,7 +137,7 @@ namespace lotus::renderer::fbx {
 					tex->GetTranslationU() != 0.0f || tex->GetTranslationV() != 0.0f ||
 					tex->GetScaleU() != 1.0f || tex->GetScaleV() != 1.0f
 				) {
-					log().warn<u8"Texture {} has non-identity UV transform which is not supported.">(tex->GetName());
+					log().warn("Texture {} has non-identity UV transform which is not supported.", tex->GetName());
 				}
 				auto handle = _asset_manager.get_image2d(assets::identifier(tex->GetFileName()), tex_pool);
 				auto [it, inserted] = images.emplace(tex->GetUniqueID(), std::move(handle));
@@ -218,7 +218,7 @@ namespace lotus::renderer::fbx {
 				for (int i_poly = 0; i_poly < poly_count; ++i_poly) {
 					int poly_size = mesh->GetPolygonSize(i_poly);
 					if (poly_size < 3) {
-						log().error<u8"Mesh {} polygon {} is degenerate, skipping">(mesh->GetName(), i_poly);
+						log().error("Mesh {} polygon {} is degenerate, skipping", mesh->GetName(), i_poly);
 						continue;
 					}
 
@@ -230,7 +230,8 @@ namespace lotus::renderer::fbx {
 					auto get_index = [mesh, i_poly, vert_count](int i_pt) -> std::uint32_t {
 						int i_vert = mesh->GetPolygonVertex(i_poly, i_pt);
 						if (i_vert < 0 || i_vert >= vert_count) {
-							log().error<u8"Invalid vertex index for mesh {}, polygon {}, vertex {}">(
+							log().error(
+								"Invalid vertex index for mesh {}, polygon {}, vertex {}",
 								mesh->GetName(), i_poly, i_pt
 							);
 							return 0;
@@ -253,7 +254,7 @@ namespace lotus::renderer::fbx {
 				for (int i_poly = 0; i_poly < poly_count; ++i_poly) {
 					int poly_size = mesh->GetPolygonSize(i_poly);
 					if (poly_size < 3) {
-						log().error<u8"Mesh {} polygon {} is degenerate, skipping">(mesh->GetName(), i_poly);
+						log().error("Mesh {} polygon {} is degenerate, skipping", mesh->GetName(), i_poly);
 						continue;
 					}
 
@@ -268,7 +269,8 @@ namespace lotus::renderer::fbx {
 						int i_vert = mesh->GetPolygonVertex(i_poly, i_pt);
 						fbxsdk::FbxVector4 v;
 						if (i_vert < 0 || i_vert >= vert_count) {
-							log().error<u8"Invalid vertex index for mesh {}, polygon {}, vertex {}">(
+							log().error(
+								"Invalid vertex index for mesh {}, polygon {}, vertex {}",
 								mesh->GetName(), i_poly, i_pt
 							);
 						} else {
@@ -278,7 +280,8 @@ namespace lotus::renderer::fbx {
 						if (normals) {
 							fbxsdk::FbxVector4 n;
 							if (!mesh->GetPolygonVertexNormal(i_poly, i_pt, n)) {
-								log().error<u8"Failed to get normal for mesh {}, polygon {}, vertex {}">(
+								log().error(
+									"Failed to get normal for mesh {}, polygon {}, vertex {}",
 									mesh->GetName(), i_poly, i_pt
 								);
 							}
@@ -288,7 +291,8 @@ namespace lotus::renderer::fbx {
 							fbxsdk::FbxVector2 uv;
 							bool unmapped = true;
 							if (!mesh->GetPolygonVertexUV(i_poly, i_pt, uv_sets[0], uv, unmapped)) {
-								log().error<u8"Failed to get UV for mesh {}, polygon {}, vertex {}">(
+								log().error(
+									"Failed to get UV for mesh {}, polygon {}, vertex {}",
 									mesh->GetName(), i_poly, i_pt
 								);
 							}  
@@ -452,13 +456,14 @@ namespace lotus::renderer::fbx {
 
 				std::function<void(const fbxsdk::FbxProperty&, std::string)> dump_property =
 					[&](const fbxsdk::FbxProperty &prop, std::string indent) {
-						log().debug<u8"{}Property name: {}, type: {}">(
+						log().debug(
+							"{}Property name: {}, type: {}",
 							indent, prop.GetNameAsCStr(), prop.GetPropertyDataType().GetName()
 						);
 						for (int j = 0; j < prop.GetSrcObjectCount(); ++j) {
 							auto *obj = prop.GetSrcObject(j);
 							auto id = obj->GetClassId();
-							log().debug<u8"{}  Subobject: {}, type {}">(indent, obj->GetName(), id.GetName());
+							log().debug("{}  Subobject: {}, type {}", indent, obj->GetName(), id.GetName());
 						}
 
 						indent += "  ";
@@ -468,7 +473,7 @@ namespace lotus::renderer::fbx {
 						}
 					};
 
-				log().debug<u8"Material {}: {}">(mat->GetUniqueID(), mat->GetName());
+				log().debug("Material {}: {}", mat->GetUniqueID(), mat->GetName());
 				fbxsdk::FbxProperty prop = mat->GetFirstProperty();
 				for (; prop.IsValid(); prop = mat->GetNextProperty(prop)) {
 					dump_property(prop, "  ");
@@ -494,7 +499,8 @@ namespace lotus::renderer::fbx {
 					if (auto tex_it = images.find(tex->GetUniqueID()); tex_it != images.end()) {
 						return tex_it->second;
 					} else {
-						log().error<u8"Material {}({}) referencing unknown texture {}({})">(
+						log().error(
+							"Material {}({}) referencing unknown texture {}({})",
 							mat->GetName(), mat->GetUniqueID(), tex->GetName(), tex->GetUniqueID()
 						);
 					}

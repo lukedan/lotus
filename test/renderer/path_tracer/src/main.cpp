@@ -41,8 +41,8 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	log().debug<u8"Backend: {}">(lstr::to_generic(lgpu::get_backend_name(lgpu::current_backend)));
-	log().debug<u8"Working dir: {}">(std::filesystem::current_path().string());
+	log().debug("Backend: {}", lstr::to_generic(lgpu::get_backend_name(lgpu::current_backend)));
+	log().debug("Working dir: {}", std::filesystem::current_path().string());
 
 	lsys::application app(u8"test");
 	auto wnd = app.create_window();
@@ -55,9 +55,9 @@ int main(int argc, char **argv) {
 	lgpu::adapter_properties dev_prop = uninitialized;
 	gctx.enumerate_adapters([&](lgpu::adapter adap) {
 		dev_prop = adap.get_properties();
-		log().debug<u8"Device name: {}">(lstr::to_generic(dev_prop.name));
+		log().debug("Device name: {}", lstr::to_generic(dev_prop.name));
 		if (dev_prop.is_discrete) {
-			log().debug<u8"Selected">();
+			log().debug("Selected");
 			auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics });
 			gdev = std::move(dev);
 			gqueues = std::move(queues);

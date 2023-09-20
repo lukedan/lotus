@@ -17,20 +17,19 @@ namespace lotus::enums {
 	> class sequential_mapping {
 	public:
 		using storage = std::array<std::pair<Enum, Value>, NumEnumerators>; ///< Storage type.
-		using underlying_type = std::underlying_type_t<Enum>; ///< Underlying integral type of the enum.
 
 		/// Initializes the mapping.
 		template <typename ...Args> constexpr sequential_mapping(Args &&...args) :
 			_mapping{ { std::forward<Args>(args)... } } {
 			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for enum mapping.");
 			for (std::size_t i = 0; i < NumEnumerators; ++i) {
-				crash_if_constexpr(static_cast<underlying_type>(_mapping[i].first) != i);
+				crash_if_constexpr(std::to_underlying(_mapping[i].first) != i);
 			}
 		}
 
 		/// Retrieves the mapping for the given value.
 		[[nodiscard]] constexpr const Value &operator[](Enum v) const {
-			return _mapping[static_cast<underlying_type>(v)].second;
+			return _mapping[std::to_underlying(v)].second;
 		}
 		/// Returns the entire table.
 		[[nodiscard]] constexpr const storage &get_raw_table() const {
@@ -46,7 +45,6 @@ namespace lotus::enums {
 	> class dynamic_sequential_mapping {
 	public:
 		using storage = std::array<Value, NumEnumerators>; ///< Storage type.
-		using underlying_type = std::underlying_type_t<Enum>; ///< Underlying integral type of the enum.
 
 		/// Initializes all values.
 		template <typename ...Args> constexpr dynamic_sequential_mapping(Args &&...args) :
@@ -62,11 +60,11 @@ namespace lotus::enums {
 
 		/// Returns the value that corresponds to the given enumerator.
 		[[nodiscard]] constexpr Value &operator[](Enum v) {
-			return _data[static_cast<underlying_type>(v)];
+			return _data[std::to_underlying(v)];
 		}
 		/// \overload
 		[[nodiscard]] constexpr const Value &operator[](Enum v) const {
-			return _data[static_cast<underlying_type>(v)];
+			return _data[std::to_underlying(v)];
 		}
 
 		/// Returns the array of values.
@@ -95,29 +93,25 @@ namespace lotus::enums {
 template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
 	std::is_enum_v<Enum> && lotus::enums::is_bit_mask_v<Enum>, Enum
 > operator&(Enum lhs, Enum rhs) {
-	using _base = std::underlying_type_t<Enum>;
-	return static_cast<Enum>(static_cast<_base>(lhs) & static_cast<_base>(rhs));
+	return static_cast<Enum>(std::to_underlying(lhs) & std::to_underlying(rhs));
 }
 /// Bitwise or for enum classes.
 template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
 	std::is_enum_v<Enum> && lotus::enums::is_bit_mask_v<Enum>, Enum
 > operator|(Enum lhs, Enum rhs) {
-	using _base = std::underlying_type_t<Enum>;
-	return static_cast<Enum>(static_cast<_base>(lhs) | static_cast<_base>(rhs));
+	return static_cast<Enum>(std::to_underlying(lhs) | std::to_underlying(rhs));
 }
 /// Bitwise xor for enum classes.
 template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
 	std::is_enum_v<Enum> && lotus::enums::is_bit_mask_v<Enum>, Enum
 > operator^(Enum lhs, Enum rhs) {
-	using _base = std::underlying_type_t<Enum>;
-	return static_cast<Enum>(static_cast<_base>(lhs) ^ static_cast<_base>(rhs));
+	return static_cast<Enum>(std::to_underlying(lhs) ^ std::to_underlying(rhs));
 }
 /// Bitwise not for enum classes.
 template <typename Enum> [[nodiscard]] inline constexpr std::enable_if_t<
 	std::is_enum_v<Enum> && lotus::enums::is_bit_mask_v<Enum>, Enum
 > operator~(Enum v) {
-	using _base = std::underlying_type_t<Enum>;
-	return static_cast<Enum>(~static_cast<_base>(v));
+	return static_cast<Enum>(~std::to_underlying(v));
 }
 
 /// Bitwise and for enum classes.
@@ -160,10 +154,7 @@ namespace lotus::enums::bit_mask {
 	}
 	/// Tests whether \p value contains the given single bit.
 	template <auto Bit, typename Enum = decltype(Bit)> [[nodiscard]] inline constexpr bool contains(Enum value) {
-		static_assert(
-			std::popcount(static_cast<std::underlying_type_t<Enum>>(Bit)) == 1,
-			"Value contains more than 1 bits"
-		);
+		static_assert(std::popcount(std::to_underlying(Bit)) == 1, "Value contains more than 1 bits");
 		return contains_any<Enum>(value, Bit);
 	}
 

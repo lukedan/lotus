@@ -56,7 +56,8 @@ namespace lotus {
 	struct uninitialized_t {
 		/// Implicit conversion to arithmetic types and pointers.
 		template <
-			typename T, std::enable_if_t<std::is_arithmetic_v<T> || std::is_pointer_v<T>, int> = 0
+			typename T,
+			std::enable_if_t<std::is_arithmetic_v<T> || std::is_pointer_v<T> || std::is_enum_v<T>, int> = 0
 		> operator T() const {
 			return T{};
 		}
@@ -65,7 +66,8 @@ namespace lotus {
 	struct zero_t {
 		/// Implicit conversion to arithmetic types and pointers.
 		template <
-			typename T, std::enable_if_t<std::is_arithmetic_v<T> || std::is_pointer_v<T>, int> = 0
+			typename T,
+			std::enable_if_t<std::is_arithmetic_v<T> || std::is_pointer_v<T> || std::is_enum_v<T>, int> = 0
 		> consteval operator T() const {
 			return static_cast<T>(0);
 		}

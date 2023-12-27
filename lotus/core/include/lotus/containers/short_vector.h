@@ -103,6 +103,9 @@ namespace lotus {
 			size_type count = 0; ///< Number of elements.
 			size_type capacity = 0; ///< The capacity of this array.
 		};
+		/// Marks that an object should be default initialized.
+		struct _default_construct_tag {
+		};
 	public:
 		/// Type used for storing the number of elements stored internally.
 		using short_size_type = minimum_unsigned_type_t<static_cast<std::uint64_t>(ShortSize + 1)>;
@@ -203,7 +206,7 @@ namespace lotus {
 			T *res;
 			if (new_vec) {
 				res = std::construct_at(new_vec->data + old_size, std::forward<Args>(args)...);
-				std::uninitialized_copy(old_ptr, old_ptr + old_size, new_vec->data);
+				std::uninitialized_move(old_ptr, old_ptr + old_size, new_vec->data);
 			} else {
 				res = std::construct_at(old_ptr + old_size, std::forward<Args>(args)...);
 			}
@@ -312,6 +315,26 @@ namespace lotus {
 			std::destroy(dst, arr_end);
 
 			_set_size(sz - (range_end - range_beg));
+		}
+
+		/// Resizes this array.
+		void resize(size_type size) {
+			_resize_impl(size, _default_construct_tag());
+		}
+		/// \overload
+		void resize(size_type size, const T &value) {
+			_resize_impl(size, value);
+		}
+
+		/// Clears the array.
+		void clear() {
+			auto [d, sz] = _data_size();
+			std::destroy(d, d + sz);
+			if (_using_external_array()) {
+				_long_storage.count = 0;
+			} else {
+				_short_count = 0;
+			}
 		}
 
 		/// Shrinks the storage of this vector to fit its contents.
@@ -506,8 +529,8 @@ namespace lotus {
 			_set_size(new_size);
 			return { std::nullopt, old_data, old_size };
 		}
-		/// Finishes allocating more elements in the array and deallocates any old storages. Also destroys old
-		/// elements.
+		/// Finishes allocating more elements in the array and deallocates any old storages. Also destroys all
+		/// elements in the old array.
 		void _end_allocate_more(std::optional<_external_array> new_arr) {
 			if (new_arr) {
 				if (_using_external_array()) {
@@ -555,6 +578,31 @@ namespace lotus {
 			} else {
 				_short_count = static_cast<short_size_type>(count);
 				return _short_storage.data();
+			}
+		}
+
+		/// Resizes the array.
+		template <typename U> void _resize_impl(size_type new_size, const U &value) {
+			auto [d, cur_sz] = _data_size();
+			if (new_size < cur_sz) {
+				std::destroy(d + new_size, d + cur_sz);
+				_set_size(new_size);
+			} else if (new_size > cur_sz) {
+				auto [new_vec, old_ptr, old_size] = _begin_allocate_more(new_size - cur_sz);
+				T *dest;
+				if (new_vec) {
+					std::uninitialized_move(old_ptr, old_ptr + old_size, new_vec->data);
+					dest = new_vec->data;
+				} else {
+					dest = old_ptr;
+				}
+				// construct new elements
+				if constexpr (std::is_same_v<U, _default_construct_tag>) {
+					std::uninitialized_default_construct(dest + old_size, dest + new_size);
+				} else {
+					std::uninitialized_fill(dest + old_size, dest + new_size, value);
+				}
+				_end_allocate_more(std::move(new_vec));
 			}
 		}
 

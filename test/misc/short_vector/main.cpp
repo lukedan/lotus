@@ -6,6 +6,7 @@
 #include <random>
 #include <functional>
 #include <atomic>
+#include <compare>
 
 #include "lotus/containers/short_vector.h"
 #include "lotus/logging.h"
@@ -17,7 +18,42 @@ void ctrl_c_handler(int) {
 	should_exit = true;
 }
 
-using v = unsigned;
+std::size_t alloc_count = 0;
+
+struct v {
+	constexpr static std::uint32_t array_size = 4096;
+
+	v() : data(new unsigned[array_size]) {
+		++alloc_count;
+	}
+	v(unsigned x) : data(new unsigned[array_size]) {
+		data[0] = x;
+		++alloc_count;
+	}
+	v(const v &src) : data(new unsigned[array_size]) {
+		data[0] = src.data[0];
+		++alloc_count;
+	}
+	v &operator=(const v &src) {
+		data[0] = src.data[0];
+		return *this;
+	}
+	~v() {
+		lotus::crash_if(data == nullptr);
+		delete[] data;
+		data = nullptr;
+		--alloc_count;
+	}
+
+	friend std::strong_ordering operator<=>(const v &lhs, const v &rhs) {
+		return lhs.data[0] <=> rhs.data[0];
+	}
+	friend bool operator==(const v &lhs, const v &rhs) {
+		return lhs.data[0] == rhs.data[0];
+	}
+
+	unsigned *data = nullptr;
+};
 
 using tv   = lotus::short_vector<v,   255>;
 using tvv  = lotus::short_vector<tv,  1>;
@@ -94,8 +130,6 @@ void shuffle() {
 		std::size_t idx = std::uniform_int_distribution<std::size_t>(i, test_vec.size() - 1)(rng);
 		std::swap(test_vec[idx], test_vec[i]);
 		std::swap(ref_vec[idx], ref_vec[i]);
-
-		/*lotus::crash_if(!compare());*/
 	}
 }
 void assign_random() {
@@ -176,6 +210,10 @@ int main() {
 		funcs[op]();
 		lotus::crash_if(!compare());
 	}
+
+	test_vec.clear();
+	ref_vec.clear();
+	lotus::crash_if(alloc_count > 0);
 
 	log().debug("Exiting");
 	return 0;

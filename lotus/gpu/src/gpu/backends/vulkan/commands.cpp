@@ -108,7 +108,7 @@ namespace lotus::gpu::backends::vulkan {
 		auto buffer_ptrs = bookmark.create_reserved_vector_array<vk::Buffer>(buffers.size());
 		auto offsets = bookmark.create_reserved_vector_array<vk::DeviceSize>(buffers.size());
 		for (auto &buf : buffers) {
-			buffer_ptrs.emplace_back(static_cast<const buffer*>(buf.data)->_buffer);
+			buffer_ptrs.emplace_back(static_cast<const buffer*>(buf.data)->_buffer.get());
 			offsets.emplace_back(static_cast<vk::DeviceSize>(buf.offset));
 		}
 		_buffer.bindVertexBuffers(static_cast<std::uint32_t>(start), buffer_ptrs, offsets);
@@ -116,7 +116,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset, index_format fmt) {
 		_buffer.bindIndexBuffer(
-			buf._buffer, static_cast<vk::DeviceSize>(offset), _details::conversions::to_index_type(fmt)
+			buf._buffer.get(), static_cast<vk::DeviceSize>(offset), _details::conversions::to_index_type(fmt)
 		);
 	}
 
@@ -180,7 +180,7 @@ namespace lotus::gpu::backends::vulkan {
 			.setSrcOffset(off1)
 			.setDstOffset(off2)
 			.setSize(size);
-		_buffer.copyBuffer(from._buffer, to._buffer, copy);
+		_buffer.copyBuffer(from._buffer.get(), to._buffer.get(), copy);
 	}
 
 	void command_list::copy_image2d(
@@ -217,7 +217,7 @@ namespace lotus::gpu::backends::vulkan {
 			.setImageSubresource(_details::conversions::to_image_subresource_layers(subresource))
 			.setImageOffset(vk::Offset3D(_details::conversions::to_offset_2d(offset), 0))
 			.setImageExtent(vk::Extent3D(_details::conversions::to_extent_2d(meta._size), 1));
-		_buffer.copyBufferToImage(from._buffer, to._image, vk::ImageLayout::eTransferDstOptimal, copy);
+		_buffer.copyBufferToImage(from._buffer.get(), to._image, vk::ImageLayout::eTransferDstOptimal, copy);
 	}
 
 	void command_list::draw_instanced(
@@ -273,7 +273,7 @@ namespace lotus::gpu::backends::vulkan {
 				.setDstAccessMask(_details::conversions::to_access_flags_2(b.to_access))
 				.setSrcQueueFamilyIndex(0) // TODO
 				.setDstQueueFamilyIndex(0)
-				.setBuffer(static_cast<buffer*>(b.target)->_buffer)
+				.setBuffer(static_cast<buffer*>(b.target)->_buffer.get())
 				.setOffset(0)
 				.setSize(VK_WHOLE_SIZE);
 		}
@@ -342,7 +342,7 @@ namespace lotus::gpu::backends::vulkan {
 		vk::AccelerationStructureBuildGeometryInfoKHR build_info = geom._build_info;
 		build_info
 			.setDstAccelerationStructure(output._acceleration_structure.get())
-			.setScratchData(_device->_device->getBufferAddress(scratch._buffer) + scratch_offset);
+			.setScratchData(_device->_device->getBufferAddress(scratch._buffer.get()) + scratch_offset);
 		_buffer.buildAccelerationStructuresKHR(build_info, build_ranges.data(), *_device->_dispatch_loader);
 	}
 
@@ -353,7 +353,7 @@ namespace lotus::gpu::backends::vulkan {
 		vk::AccelerationStructureGeometryInstancesDataKHR instance_data;
 		instance_data
 			.setArrayOfPointers(false)
-			.setData(_device->_device->getBufferAddress(instances._buffer) + offset);
+			.setData(_device->_device->getBufferAddress(instances._buffer.get()) + offset);
 		vk::AccelerationStructureGeometryKHR geometry;
 		geometry
 			.setGeometryType(vk::GeometryTypeKHR::eInstances)
@@ -367,7 +367,7 @@ namespace lotus::gpu::backends::vulkan {
 			.setSrcAccelerationStructure(nullptr)
 			.setDstAccelerationStructure(output._acceleration_structure.get())
 			.setGeometries(geometry)
-			.setScratchData(_device->_device->getBufferAddress(scratch._buffer) + scratch_offset);
+			.setScratchData(_device->_device->getBufferAddress(scratch._buffer.get()) + scratch_offset);
 		vk::AccelerationStructureBuildRangeInfoKHR build_range;
 		build_range
 			.setPrimitiveCount(static_cast<std::uint32_t>(count))
@@ -401,15 +401,15 @@ namespace lotus::gpu::backends::vulkan {
 	) {
 		_buffer.traceRaysKHR(
 			vk::StridedDeviceAddressRegionKHR(
-				_device->_device->getBufferAddress(ray_generation.data->_buffer) + ray_generation.offset,
+				_device->_device->getBufferAddress(ray_generation.data->_buffer.get()) + ray_generation.offset,
 				ray_generation.size, ray_generation.size
 			),
 			vk::StridedDeviceAddressRegionKHR(
-				_device->_device->getBufferAddress(miss_shaders.data->_buffer) + miss_shaders.offset,
+				_device->_device->getBufferAddress(miss_shaders.data->_buffer.get()) + miss_shaders.offset,
 				miss_shaders.stride, miss_shaders.stride * miss_shaders.count
 			),
 			vk::StridedDeviceAddressRegionKHR(
-				_device->_device->getBufferAddress(hit_groups.data->_buffer) + hit_groups.offset,
+				_device->_device->getBufferAddress(hit_groups.data->_buffer.get()) + hit_groups.offset,
 				hit_groups.stride, hit_groups.stride * hit_groups.count
 			),
 			vk::StridedDeviceAddressRegionKHR(),

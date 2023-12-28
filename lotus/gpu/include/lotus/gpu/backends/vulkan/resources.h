@@ -13,12 +13,36 @@ namespace lotus::gpu::backends::vulkan {
 	class swap_chain;
 
 
+	namespace _details {
+		/// Stores data of a memory block that can be shared between resources.
+		class memory_block {
+		public:
+			/// Initializes this memory block.
+			explicit memory_block(vk::UniqueDeviceMemory m) : _memory(std::move(m)) {
+			}
+
+			/// Maps this memory block if necessary, and returns the starting address.
+			[[nodiscard]] std::byte *map();
+			/// Unmaps this memory block if necessary.
+			void unmap();
+
+			/// Returns the memory object.
+			[[nodiscard]] vk::DeviceMemory get_memory() const {
+				return _memory.get();
+			}
+		private:
+			vk::UniqueDeviceMemory _memory; ///< The vulkan memory block.
+			std::uint32_t _num_maps = 0; ///< The number of users that have mapped a resource in this memory block.
+			std::byte *_mapped_addr = nullptr; ///< Mapped address.
+		};
+	}
+
 	/// Contains a \p vk::UniqueDeviceMemory.
 	class memory_block {
 		friend device;
 	protected:
 	private:
-		vk::UniqueDeviceMemory _memory; ///< The memory block.
+		std::unique_ptr<_details::memory_block> _memory; ///< The memory block.
 	};
 
 	/// Contains a \p vk::Buffer, its associated \p vk::DeviceMemory if present, and the associated \p vk::Device.
@@ -26,31 +50,6 @@ namespace lotus::gpu::backends::vulkan {
 		friend command_list;
 		friend device;
 	public:
-		/// Move constructor.
-		buffer(buffer &&src) :
-			_device(std::exchange(src._device, nullptr)),
-			_memory(std::exchange(src._memory, nullptr)),
-			_buffer(std::exchange(src._buffer, nullptr)) {
-		}
-		/// No copy construction.
-		buffer(const buffer&) = delete;
-		/// Move assignment.
-		buffer &operator=(buffer &&src) {
-			if (this != &src) {
-				_free();
-				_device = std::exchange(src._device, nullptr);
-				_memory = std::exchange(src._memory, nullptr);
-				_buffer = std::exchange(src._buffer, nullptr);
-			}
-			return *this;
-		}
-		/// No copy assignment.
-		buffer &operator=(const buffer&) = delete;
-		/// Calls \ref _free().
-		~buffer() {
-			_free();
-		}
-
 		/// Returns whether \ref _buffer is empty.
 		[[nodiscard]] bool is_valid() const {
 			return !!_buffer;
@@ -60,20 +59,13 @@ namespace lotus::gpu::backends::vulkan {
 		buffer(std::nullptr_t) {
 		}
 	private:
-		vk::Device _device; ///< The device that created this buffer.
-		vk::DeviceMemory _memory; ///< The memory dedicated to this buffer.
-		vk::Buffer _buffer; ///< The buffer.
-
-		/// Frees \ref buffer, and \ref _memory if necessary.
-		void _free() {
-			if (_device) {
-				// TODO allocator
-				_device.destroyBuffer(_buffer);
-				if (_memory) {
-					_device.freeMemory(_memory);
-				}
-			}
-		}
+		_details::memory_block *_memory = nullptr; ///< The memory block that contains this buffer.
+		// TODO these two are mutually exclusive - maybe we can save space somehow?
+		/// The memory block owned by this buffer. This is valid if this is a committed buffer, and will be the same
+		/// as \ref _memory.
+		std::unique_ptr<_details::memory_block> _committed_memory;
+		std::size_t _base_offset = 0; ///< Offset of this buffer within the memory block.
+		vk::UniqueBuffer _buffer; ///< The buffer.
 	};
 
 	/// Stores additional information about a staging buffer.

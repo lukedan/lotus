@@ -11,7 +11,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void swap_chain::update_synchronization_primitives(std::span<const back_buffer_synchronization> prims) {
-		assert(prims.size() == _synchronization.size());
+		crash_if(prims.size() != _synchronization.size());
 		for (std::size_t i = 0; i < prims.size(); ++i) {
 			_synchronization[i].next_fence = prims[i].notify_fence;
 		}

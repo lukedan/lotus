@@ -134,8 +134,8 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::UniqueDevice::allocateMemoryUnique().
 		[[nodiscard]] memory_block allocate_memory(std::size_t size, memory_type_index);
 
-		/// Calls \p vk::UniqueDevice::createBuffer() to create the buffer, then calls
-		/// \p vk::UniqueDevice::allocateMemory() to allocate memory for it.
+		/// Calls \p vk::UniqueDevice::createBufferUnique() to create the buffer, then calls
+		/// \p vk::UniqueDevice::allocateMemoryUnique() to allocate memory for it.
 		[[nodiscard]] buffer create_committed_buffer(
 			std::size_t size, memory_type_index, buffer_usage_mask allowed_usage
 		);
@@ -180,18 +180,14 @@ namespace lotus::gpu::backends::vulkan {
 			format, image_tiling, image_usage_mask allowed_usages, const memory_block &mem, std::size_t offset
 		);
 
-		/// Calls \ref _map_memory().
-		[[nodiscard]] std::byte *map_buffer(buffer&, std::size_t begin, std::size_t length);
-		/// Calls \ref _unmap_memory().
-		void unmap_buffer(buffer&, std::size_t begin, std::size_t length);
-		/// Calls \ref _map_memory().
-		[[nodiscard]] std::byte *map_image2d(
-			image2d&, subresource_index, std::size_t begin, std::size_t length
-		);
-		/// Calls \ref _unmap_memory().
-		void unmap_image2d(
-			image2d&, subresource_index, std::size_t begin, std::size_t length
-		);
+		/// Calls \ref _details::memory_block::map().
+		[[nodiscard]] std::byte *map_buffer(buffer&);
+		/// Calls \ref _details::memory_block::unmap().
+		void unmap_buffer(buffer&);
+		/// Calls \p vk::UniqueDevice::invalidateMappedMemoryRanges().
+		void flush_mapped_buffer_to_host(buffer&, std::size_t begin, std::size_t length);
+		/// Calls \p vk::UniqueDevice::flushMappedMemoryRanges().
+		void flush_mapped_buffer_to_device(buffer&, std::size_t begin, std::size_t length);
 
 		/// Calls \p vk::UniqueDevice::createImageViewUnique().
 		[[nodiscard]] image2d_view create_image2d_view_from(const image2d&, format, mip_levels);
@@ -315,11 +311,6 @@ namespace lotus::gpu::backends::vulkan {
 			vk::MemoryPropertyFlags required_on, vk::MemoryPropertyFlags required_off,
 			vk::MemoryPropertyFlags optional_on, vk::MemoryPropertyFlags optional_off
 		) const;
-
-		/// Maps the given memory, and invalidates the given memory range.
-		[[nodiscard]] std::byte *_map_memory(vk::DeviceMemory, std::size_t beg, std::size_t len);
-		/// Unmaps the given memory, and flushes the given memory range.
-		void _unmap_memory(vk::DeviceMemory, std::size_t beg, std::size_t len);
 
 		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT() to set the debug name of an object.
 		void _set_debug_name(vk::DebugReportObjectTypeEXT, std::uint64_t, const char8_t*);

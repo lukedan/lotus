@@ -37,6 +37,7 @@ namespace lotus::gpu::backends::directx12 {
 		}
 	private:
 		_details::com_ptr<ID3D12Resource> _buffer; ///< The buffer.
+		std::uint32_t _flush_maps = 0; ///< Outstanding map operations caused by flush operations.
 	};
 
 

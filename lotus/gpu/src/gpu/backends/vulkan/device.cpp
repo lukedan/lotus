@@ -236,7 +236,7 @@ namespace lotus::gpu::backends::vulkan {
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
-				.setBuffer(buf.data ? static_cast<const buffer*>(buf.data)->_buffer : nullptr)
+				.setBuffer(buf.data ? static_cast<const buffer*>(buf.data)->_buffer.get() : nullptr)
 				.setOffset(buf.first * buf.stride)
 				.setRange(buf.count * buf.stride);
 		}
@@ -259,7 +259,7 @@ namespace lotus::gpu::backends::vulkan {
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
-				.setBuffer(buf.data ? static_cast<const buffer*>(buf.data)->_buffer : nullptr)
+				.setBuffer(buf.data ? static_cast<const buffer*>(buf.data)->_buffer.get() : nullptr)
 				.setOffset(buf.first * buf.stride)
 				.setRange(buf.count * buf.stride);
 		}
@@ -281,7 +281,7 @@ namespace lotus::gpu::backends::vulkan {
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
 		for (const auto &buf : buffers) {
 			bufs.emplace_back()
-				.setBuffer(buf.data ? static_cast<const buffer*>(buf.data)->_buffer : nullptr)
+				.setBuffer(buf.data ? static_cast<const buffer*>(buf.data)->_buffer.get() : nullptr)
 				.setOffset(buf.offset)
 				.setRange(buf.size);
 		}
@@ -653,7 +653,9 @@ namespace lotus::gpu::backends::vulkan {
 			.setAllocationSize(size)
 			.setMemoryTypeIndex(static_cast<std::uint32_t>(mem_id));
 		// TODO allocator
-		result._memory = _details::unwrap(_device->allocateMemoryUnique(info));
+		result._memory = std::make_unique<_details::memory_block>(
+			_details::unwrap(_device->allocateMemoryUnique(info))
+		);
 
 		return result;
 	}
@@ -662,7 +664,6 @@ namespace lotus::gpu::backends::vulkan {
 		std::size_t size, memory_type_index mem_id, buffer_usage_mask allowed_usage
 	) {
 		buffer result = nullptr;
-		result._device = _device.get();
 
 		vk::BufferCreateInfo buf_info;
 		buf_info
@@ -672,15 +673,14 @@ namespace lotus::gpu::backends::vulkan {
 				vk::BufferUsageFlagBits::eShaderDeviceAddress
 			);
 		// TODO allocator
-		result._buffer = _details::unwrap(_device->createBuffer(buf_info));
+		result._buffer = _details::unwrap(_device->createBufferUnique(buf_info));
 
 		vk::BufferMemoryRequirementsInfo2 mem_info;
-		mem_info.setBuffer(result._buffer);
+		mem_info.setBuffer(result._buffer.get());
 		auto req = _device->getBufferMemoryRequirements2(mem_info);
 
 		vk::MemoryDedicatedAllocateInfo dedicated_info;
-		dedicated_info
-			.setBuffer(result._buffer);
+		dedicated_info.setBuffer(result._buffer.get());
 
 		vk::MemoryAllocateFlagsInfo flags_info;
 		flags_info
@@ -692,9 +692,19 @@ namespace lotus::gpu::backends::vulkan {
 			.setPNext(&flags_info)
 			.setAllocationSize(req.memoryRequirements.size)
 			.setMemoryTypeIndex(static_cast<std::uint32_t>(mem_id));
-		// TODO allocator
-		result._memory = _details::unwrap(_device->allocateMemory(info));
-		_details::assert_vk(_device->bindBufferMemory(result._buffer, result._memory, 0));
+		// TODO allocator x 2
+		result._committed_memory = std::make_unique<_details::memory_block>(
+			_details::unwrap(_device->allocateMemoryUnique(info))
+		);
+		result._base_offset = 0;
+		result._memory = result._committed_memory.get();
+
+		vk::BindBufferMemoryInfo bind_info;
+		bind_info
+			.setBuffer(result._buffer.get())
+			.setMemory(result._memory->get_memory())
+			.setMemoryOffset(result._base_offset);
+		_details::assert_vk(_device->bindBufferMemory2(bind_info));
 
 		return result;
 	}
@@ -793,7 +803,9 @@ namespace lotus::gpu::backends::vulkan {
 		std::size_t size, buffer_usage_mask allowed_usage, const memory_block &mem, std::size_t offset
 	) {
 		buffer result = nullptr;
-		result._device = _device.get();
+		result._memory = mem._memory.get();
+		result._base_offset = offset;
+
 		vk::BufferCreateInfo info;
 		info
 			.setSize(memory::align_up(std::max<std::size_t>(size, 1), _device_limits.nonCoherentAtomSize))
@@ -801,14 +813,16 @@ namespace lotus::gpu::backends::vulkan {
 				_details::conversions::to_buffer_usage_flags(allowed_usage) |
 				vk::BufferUsageFlagBits::eShaderDeviceAddress
 			);
-		result._buffer = _details::unwrap(_device->createBuffer(info)); // TODO allocator
+		// TODO allocator
+		result._buffer = _details::unwrap(_device->createBufferUnique(info));
 
 		vk::BindBufferMemoryInfo bind_info;
 		bind_info
-			.setBuffer(result._buffer)
-			.setMemory(mem._memory.get())
-			.setMemoryOffset(offset);
+			.setBuffer(result._buffer.get())
+			.setMemory(result._memory->get_memory())
+			.setMemoryOffset(result._base_offset);
 		_details::assert_vk(_device->bindBufferMemory2(bind_info));
+
 		return result;
 	}
 
@@ -820,7 +834,7 @@ namespace lotus::gpu::backends::vulkan {
 		result._device = _device.get();
 		result._image  = _create_placed_image(
 			_details::create_info::for_image2d(size, mip_levels, fmt, tiling, allowed_usage),
-			mem._memory.get(), offset
+			mem._memory->get_memory(), offset
 		);
 		return result;
 	}
@@ -833,39 +847,41 @@ namespace lotus::gpu::backends::vulkan {
 		result._device = _device.get();
 		result._image  = _create_placed_image(
 			_details::create_info::for_image3d(size, mip_levels, fmt, tiling, allowed_usages),
-			mem._memory.get(), offset
+			mem._memory->get_memory(), offset
 		);
 		return result;
 	}
 
-	std::byte *device::map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
-		return _map_memory(buf._memory, begin, length);
+	std::byte *device::map_buffer(buffer &buf) {
+		return buf._memory->map() + buf._base_offset;
 	}
 
-	void device::unmap_buffer(buffer &buf, std::size_t begin, std::size_t length) {
-		_unmap_memory(buf._memory, begin, length);
+	void device::unmap_buffer(buffer &buf) {
+		buf._memory->unmap();
 	}
 
-	std::byte *device::map_image2d(
-		image2d &img, subresource_index i, std::size_t begin, std::size_t length
-	) {
-		if (length > 0) {
-			begin += _device->getImageSubresourceLayout(
-				img._image, _details::conversions::to_image_subresource(i)
-			).offset;
-		}
-		return _map_memory(img._memory, begin, length);
+	void device::flush_mapped_buffer_to_host(buffer &buf, std::size_t begin, std::size_t length) {
+		const std::size_t alignment = _device_limits.nonCoherentAtomSize;
+		const std::size_t aligned_beg = memory::align_down(begin, alignment);
+		const std::size_t aligned_end = memory::align_up(begin + length, alignment);
+		vk::MappedMemoryRange memory_range;
+		memory_range
+			.setMemory(buf._memory->get_memory())
+			.setOffset(aligned_beg)
+			.setSize(aligned_end - aligned_beg);
+		_details::assert_vk(_device->invalidateMappedMemoryRanges(memory_range));
 	}
 
-	void device::unmap_image2d(
-		image2d &img, subresource_index i, std::size_t begin, std::size_t length
-	) {
-		if (length > 0) {
-			begin += _device->getImageSubresourceLayout(
-				img._image, _details::conversions::to_image_subresource(i)
-			).offset;
-		}
-		_unmap_memory(img._memory, begin, length);
+	void device::flush_mapped_buffer_to_device(buffer &buf, std::size_t begin, std::size_t length) {
+		const std::size_t alignment = _device_limits.nonCoherentAtomSize;
+		const std::size_t aligned_beg = memory::align_down(begin, alignment);
+		const std::size_t aligned_end = memory::align_up(begin + length, alignment);
+		vk::MappedMemoryRange memory_range;
+		memory_range
+			.setMemory(buf._memory->get_memory())
+			.setOffset(aligned_beg)
+			.setSize(aligned_end - aligned_beg);
+		_details::assert_vk(_device->flushMappedMemoryRanges(memory_range));
 	}
 
 	image2d_view device::create_image2d_view_from(const image2d &img, format f, mip_levels mips) {
@@ -1003,7 +1019,7 @@ namespace lotus::gpu::backends::vulkan {
 	void device::set_debug_name(buffer &buf, const char8_t *name) {
 		_set_debug_name(
 			vk::DebugReportObjectTypeEXT::eBuffer,
-			reinterpret_cast<std::uint64_t>(static_cast<VkBuffer>(buf._buffer)),
+			reinterpret_cast<std::uint64_t>(static_cast<VkBuffer>(buf._buffer.get())),
 			name
 		);
 	}
@@ -1042,14 +1058,14 @@ namespace lotus::gpu::backends::vulkan {
 				.setFlags(_details::conversions::to_geometry_flags(view.flags));
 			geom.geometry.triangles
 				.setVertexFormat(_details::conversions::to_format(vert.vertex_format))
-				.setVertexData(_device->getBufferAddress(vert.data->_buffer) + vert.offset)
+				.setVertexData(_device->getBufferAddress(vert.data->_buffer.get()) + vert.offset)
 				.setVertexStride(vert.stride)
 				.setMaxVertex(static_cast<std::uint32_t>(vert.count))
 				.setTransformData(nullptr);
 			if (index.data) {
 				geom.geometry.triangles
 					.setIndexType(_details::conversions::to_index_type(index.element_format))
-					.setIndexData(_device->getBufferAddress(index.data->_buffer) + index.offset);
+					.setIndexData(_device->getBufferAddress(index.data->_buffer.get()) + index.offset);
 				result._pimitive_counts.emplace_back(static_cast<std::uint32_t>(index.count / 3));
 			} else {
 				geom.geometry.triangles
@@ -1149,7 +1165,7 @@ namespace lotus::gpu::backends::vulkan {
 		vk::AccelerationStructureCreateInfoKHR create_info;
 		create_info
 			.setCreateFlags(vk::AccelerationStructureCreateFlagsKHR())
-			.setBuffer(buf._buffer)
+			.setBuffer(buf._buffer.get())
 			.setOffset(offset)
 			.setSize(size)
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel);
@@ -1167,7 +1183,7 @@ namespace lotus::gpu::backends::vulkan {
 		vk::AccelerationStructureCreateInfoKHR create_info;
 		create_info
 			.setCreateFlags(vk::AccelerationStructureCreateFlagsKHR())
-			.setBuffer(buf._buffer)
+			.setBuffer(buf._buffer.get())
 			.setOffset(offset)
 			.setSize(size)
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel);
@@ -1356,42 +1372,6 @@ namespace lotus::gpu::backends::vulkan {
 		}
 		assert(best < 32);
 		return best;
-	}
-
-	std::byte *device::_map_memory(vk::DeviceMemory mem, std::size_t beg, std::size_t len) {
-		// TODO reference counting
-		void *result = _details::unwrap(_device->mapMemory(mem, 0, VK_WHOLE_SIZE));
-		if (len > 0) {
-			const vk::DeviceSize align = _device_limits.nonCoherentAtomSize;
-			const std::size_t aligned_beg = memory::align_down(beg, align);
-			const std::size_t aligned_end = memory::align_up(beg + len, align);
-			const std::size_t aligned_len = aligned_end - aligned_beg;
-			vk::MappedMemoryRange range;
-			range
-				.setMemory(mem)
-				.setOffset(aligned_beg)
-				.setSize(aligned_len);
-			_details::assert_vk(_device->invalidateMappedMemoryRanges(range));
-		}
-		return static_cast<std::byte*>(result);
-	}
-
-	void device::_unmap_memory(vk::DeviceMemory mem, std::size_t beg, std::size_t len) {
-		// TODO reference counting
-		if (len > 0) {
-			vk::DeviceSize align = _device_limits.nonCoherentAtomSize;
-			std::size_t end = beg + len;
-			beg = memory::align_down(beg, align);
-			end = memory::align_up(end, align);
-			len = end - beg;
-			vk::MappedMemoryRange range;
-			range
-				.setMemory(mem)
-				.setOffset(beg)
-				.setSize(len);
-			_details::assert_vk(_device->flushMappedMemoryRanges(range));
-		}
-		_device->unmapMemory(mem);
 	}
 
 	void device::_set_debug_name(vk::DebugReportObjectTypeEXT ty, std::uint64_t obj, const char8_t *name) {

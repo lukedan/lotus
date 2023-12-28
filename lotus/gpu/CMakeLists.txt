@@ -133,6 +133,7 @@ if(LOTUS_GPU_USE_VULKAN)
 			"src/gpu/backends/vulkan/device.cpp"
 			"src/gpu/backends/vulkan/frame_buffer.cpp"
 			"src/gpu/backends/vulkan/pipeline.cpp"
+			"src/gpu/backends/vulkan/resources.cpp"
 			
 			"src/gpu/common.cpp")
 	target_link_libraries(lotus_gpu_vulkan

@@ -711,40 +711,39 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
-	std::byte *device::map_buffer(buffer &buf, std::size_t begin, std::size_t length) {
+	std::byte *device::map_buffer(buffer &buf) {
+		crash_if(buf._flush_maps != 0);
 		void *result = nullptr;
-		D3D12_RANGE range = {};
-		range.Begin = static_cast<SIZE_T>(begin);
-		range.End   = static_cast<SIZE_T>(begin + length);
-		_details::assert_dx(buf._buffer->Map(0, &range, &result));
+		_details::assert_dx(buf._buffer->Map(0, nullptr, &result));
 		return static_cast<std::byte*>(result);
 	}
 
-	void device::unmap_buffer(buffer &buf, std::size_t begin, std::size_t length) {
-		D3D12_RANGE range = {};
+	void device::unmap_buffer(buffer &buf) {
+		while (buf._flush_maps > 0) {
+			buf._buffer->Unmap(0, nullptr);
+			--buf._flush_maps;
+		}
+		buf._buffer->Unmap(0, nullptr);
+	}
+
+	void device::flush_mapped_buffer_to_host(buffer &buf, std::size_t begin, std::size_t length) {
+		D3D12_RANGE range;
+		range.Begin = static_cast<SIZE_T>(begin);
+		range.End   = static_cast<SIZE_T>(begin + length);
+		_details::assert_dx(buf._buffer->Map(0, &range, nullptr));
+		++buf._flush_maps;
+	}
+
+	void device::flush_mapped_buffer_to_device(buffer &buf, std::size_t begin, std::size_t length) {
+		if (buf._flush_maps > 0) { // consume a map operation if possible
+			--buf._flush_maps;
+		} else {
+			_details::assert_dx(buf._buffer->Map(0, nullptr, nullptr));
+		}
+		D3D12_RANGE range;
 		range.Begin = static_cast<SIZE_T>(begin);
 		range.End   = static_cast<SIZE_T>(begin + length);
 		buf._buffer->Unmap(0, &range);
-	}
-
-	std::byte *device::map_image2d(
-		image2d &img, subresource_index subresource, std::size_t begin, std::size_t length
-	) {
-		void *result = nullptr;
-		D3D12_RANGE range = {};
-		range.Begin = static_cast<SIZE_T>(begin);
-		range.End   = static_cast<SIZE_T>(begin + length);
-		_details::assert_dx(img._image->Map(
-			_details::compute_subresource_index(subresource, img._image.Get()), &range, &result
-		));
-		return static_cast<std::byte*>(result);
-	}
-
-	void device::unmap_image2d(image2d &img, subresource_index subresource, std::size_t begin, std::size_t length) {
-		D3D12_RANGE range = {};
-		range.Begin = static_cast<SIZE_T>(begin);
-		range.End   = static_cast<SIZE_T>(begin + length);
-		img._image->Unmap(_details::compute_subresource_index(subresource, img._image.Get()), &range);
 	}
 
 	image2d_view device::create_image2d_view_from(const image2d &img, format fmt, mip_levels mip) {

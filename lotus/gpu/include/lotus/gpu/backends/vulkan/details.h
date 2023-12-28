@@ -14,7 +14,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 	inline void assert_vk(vk::Result result) {
 		if (result != vk::Result::eSuccess) {
 			log().error("Vulkan error {}", vk::to_string(result));
-			assert(false);
+			std::abort();
 		}
 	}
 	/// Returns the result value if it's valid, and asserts otherwise.
@@ -26,7 +26,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 	inline void assert_spv_reflect(SpvReflectResult result) {
 		if (result != SPV_REFLECT_RESULT_SUCCESS) {
 			log().error("SPIRV-Reflect error {}", static_cast<std::underlying_type_t<decltype(result)>>(result));
-			assert(false);
+			std::abort();
 		}
 	}
 

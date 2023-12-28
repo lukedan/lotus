@@ -753,8 +753,8 @@ namespace lotus::gpu::backends::directx12 {
 		srv_desc.Format                        = _details::conversions::to_format(fmt);
 		srv_desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srv_desc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srv_desc.Texture2D.MostDetailedMip     = static_cast<UINT>(mip.minimum);
-		srv_desc.Texture2D.MipLevels           = mips ? static_cast<UINT>(mips.value()) : static_cast<UINT>(-1);
+		srv_desc.Texture2D.MostDetailedMip     = static_cast<UINT>(mip.first_level);
+		srv_desc.Texture2D.MipLevels           = mip.get_num_levels_as<UINT>().value_or(-1);
 		srv_desc.Texture2D.PlaneSlice          = 0;
 		srv_desc.Texture2D.ResourceMinLODClamp = 0.0f;
 
@@ -771,14 +771,13 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
-	image3d_view device::create_image3d_view_from(const image3d &img, format fmt, mip_levels mip) {
-		auto mips = mip.get_num_levels();
+	image3d_view device::create_image3d_view_from(const image3d &img, format fmt, mip_levels mips) {
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 		srv_desc.Format                        = _details::conversions::to_format(fmt);
 		srv_desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE3D;
 		srv_desc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srv_desc.Texture3D.MostDetailedMip     = static_cast<UINT>(mip.minimum);
-		srv_desc.Texture3D.MipLevels           = mips ? static_cast<UINT>(mips.value()) : static_cast<UINT>(-1);
+		srv_desc.Texture3D.MostDetailedMip     = static_cast<UINT>(mips.first_level);
+		srv_desc.Texture3D.MipLevels           = mips.get_num_levels_as<UINT>().value_or(-1);
 		srv_desc.Texture3D.ResourceMinLODClamp = 0.0f;
 
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
@@ -1002,14 +1001,16 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	acceleration_structure_build_sizes device::get_top_level_acceleration_structure_build_sizes(
-		const buffer &tlas_buf, std::size_t offset, std::size_t count
+		std::size_t instance_count
 	) {
 		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
 		inputs.Type          = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 		inputs.Flags         = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
-		inputs.NumDescs      = static_cast<UINT>(count);
+		inputs.NumDescs      = static_cast<UINT>(instance_count);
 		inputs.DescsLayout   = D3D12_ELEMENTS_LAYOUT_ARRAY;
-		inputs.InstanceDescs = tlas_buf._buffer->GetGPUVirtualAddress() + offset;
+		// "[The implementation] may not inspect/dereference any GPU virtual addresses, other than to check to see if
+		// a pointer is NULL or not"
+		inputs.InstanceDescs = static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(0xDEADBEEF);
 		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info;
 		_device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &info);
 

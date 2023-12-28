@@ -250,7 +250,7 @@ namespace lotus::gpu::backends::directx12 {
 		);
 		/// Calls \p ID3D12Device5::GetRaytracingAccelerationStructurePrebuildInfo().
 		[[nodiscard]] acceleration_structure_build_sizes get_top_level_acceleration_structure_build_sizes(
-			const buffer&, std::size_t offset, std::size_t count
+			std::size_t instance_count
 		);
 		/// Fills in the \ref bottom_level_acceleration_structure.
 		[[nodiscard]] bottom_level_acceleration_structure create_bottom_level_acceleration_structure(

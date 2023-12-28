@@ -658,7 +658,10 @@ namespace lotus::gpu {
 		shader_read              = 1 << 5, ///< The image is read from a shader.
 		shader_write             = 1 << 6, ///< The image is written to from a shader.
 
-		num_enumerators = 7 ///< Number of valid bits.
+		num_enumerators = 7, ///< Number of valid bits.
+
+		/// All write bits.
+		write_bits = copy_destination | color_render_target | depth_stencil_read_write | shader_write,
 	};
 }
 namespace lotus::enums {
@@ -684,7 +687,10 @@ namespace lotus::gpu {
 		cpu_read                           = 1 << 10, ///< The buffer is read from the CPU.
 		cpu_write                          = 1 << 11, ///< The buffer is written to from the CPU.
 
-		num_enumerators = 12 ///< Number of valid bits.
+		num_enumerators = 12, ///< Number of valid bits.
+
+		/// All write bits.
+		write_bits = copy_destination | shader_write | acceleration_structure_write | cpu_write,
 	};
 }
 namespace lotus::enums {
@@ -1362,67 +1368,18 @@ namespace lotus::gpu {
 		/// Default equality and inequality comparison.
 		[[nodiscard]] friend bool operator==(const subresource_index&, const subresource_index&) = default;
 	};
-	/// Describes a range of subresources.
-	struct subresource_range {
-	public:
-		/// No initialization.
-		subresource_range(uninitialized_t) {
-		}
-		/// Initializes all fields of this struct.
-		constexpr subresource_range(
-			std::uint32_t first_mip, std::uint32_t num_mips,
-			std::uint32_t first_arr, std::uint32_t num_arrs,
-			image_aspect_mask asp
-		) :
-			first_mip_level(first_mip), num_mip_levels(num_mips),
-			first_array_slice(first_arr), num_array_slices(num_arrs),
-			aspects(asp) {
-		}
-		/// Creates an index pointing to the color aspect of the first subresource.
-		[[nodiscard]] constexpr inline static subresource_range first_color() {
-			return subresource_range(0, 1, 0, 1, image_aspect_mask::color);
-		}
-		/// Creates an index pointing to the depth aspect of the first subresource.
-		[[nodiscard]] constexpr inline static subresource_range first_depth() {
-			return subresource_range(0, 1, 0, 1, image_aspect_mask::depth);
-		}
-		/// Creates an index pointing to the depth and stencil aspect of the first subresource.
-		[[nodiscard]] constexpr inline static subresource_range first_depth_stencil() {
-			return subresource_range(0, 1, 0, 1, image_aspect_mask::depth | image_aspect_mask::stencil);
-		}
-		/// Creates an index pointing to the color aspect of the specified subresource.
-		[[nodiscard]] constexpr inline static subresource_range create_color(
-			std::uint32_t first_mip, std::uint32_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
-		) {
-			return subresource_range(first_mip, num_mips, first_arr, num_arrs, image_aspect_mask::color);
-		}
-		/// Creates an index pointing to the color aspect of the specified subresource.
-		[[nodiscard]] constexpr inline static subresource_range create_depth(
-			std::uint32_t first_mip, std::uint32_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
-		) {
-			return subresource_range(first_mip, num_mips, first_arr, num_arrs, image_aspect_mask::depth);
-		}
-		/// Creates an index pointing to the color aspect of the specified subresource.
-		[[nodiscard]] constexpr inline static subresource_range create_stencil(
-			std::uint32_t first_mip, std::uint32_t num_mips, std::uint32_t first_arr, std::uint32_t num_arrs
-		) {
-			return subresource_range(first_mip, num_mips, first_arr, num_arrs, image_aspect_mask::stencil);
-		}
-
-		std::uint32_t first_mip_level; ///< First mip level.
-		std::uint32_t num_mip_levels;  ///< Number of mip levels.
-		std::uint32_t first_array_slice; ///< First array slice.
-		std::uint32_t num_array_slices;  ///< Number of array slices.
-		image_aspect_mask aspects; ///< The aspects of the subresource.
-
-		/// Default equality and inequality comparison.
-		[[nodiscard]] friend bool operator==(const subresource_range&, const subresource_range&) = default;
-	};
 	/// Describes a range of mip levels.
 	struct mip_levels {
 	public:
+		using index_type = std::uint32_t; ///< Type used as mip level indices.
+		using range_type = linear_range<index_type>; ///< \ref linear_range type that corresponds to mip ranages.
+
 		/// Use this for \ref maximum to indicate that all levels below \ref minimum can be used.
-		constexpr static std::uint32_t all_mip_levels = std::numeric_limits<std::uint32_t>::max();
+		constexpr static index_type all_mip_levels = std::numeric_limits<index_type>::max();
+
+		/// No initialization.
+		mip_levels(uninitialized_t) {
+		}
 
 		/// Returns zero mip levels.
 		[[nodiscard]] constexpr inline static mip_levels empty() {
@@ -1433,56 +1390,159 @@ namespace lotus::gpu {
 			return mip_levels(0, all_mip_levels);
 		}
 		/// Indicates that all mip levels below the given layer can be used.
-		[[nodiscard]] constexpr inline static mip_levels all_below(std::uint32_t layer) {
+		[[nodiscard]] constexpr inline static mip_levels all_below(index_type layer) {
 			return mip_levels(layer, all_mip_levels);
 		}
 		/// Indicates that only the given layer can be used.
-		[[nodiscard]] constexpr inline static mip_levels only(std::uint32_t layer) {
-			return mip_levels(layer, layer + 1);
+		[[nodiscard]] constexpr inline static mip_levels only(index_type layer) {
+			return mip_levels(layer, 1);
 		}
-		/// Indicates that only the highest layer can be used.
-		[[nodiscard]] constexpr inline static mip_levels only_highest() {
+		/// Indicates that only the top mip can be used.
+		[[nodiscard]] constexpr inline static mip_levels only_top() {
 			return only(0);
 		}
 		/// Creates an object indicating that mip levels in the given range can be used.
-		[[nodiscard]] constexpr inline static mip_levels create(std::uint32_t min, std::uint32_t num) {
-			return mip_levels(min, min + num);
+		[[nodiscard]] constexpr inline static mip_levels create(index_type min, index_type num) {
+			return mip_levels(min, num);
+		}
+		/// Creates an object representing the given range of mips. If the \p end of the range is \p all_mip_levels,
+		/// \ref num_levels will also be set to \p all_mip_levels.
+		[[nodiscard]] constexpr inline static mip_levels from_range(range_type rng) {
+			if (rng.end == all_mip_levels) {
+				return all_below(rng.begin);
+			}
+			return create(rng.begin, rng.get_length());
 		}
 
 		/// Returns the number of mip levels contained, or \p std::nullopt if this contains all mips below a certain
 		/// level.
-		[[nodiscard]] constexpr std::optional<std::uint32_t> get_num_levels() const {
-			if (maximum == all_mip_levels) {
+		[[nodiscard]] constexpr std::optional<index_type> get_num_levels() const {
+			if (num_levels == all_mip_levels) {
 				return std::nullopt;
 			}
-			return static_cast<std::uint32_t>(maximum - minimum);
+			return num_levels;
+		}
+		/// \ref get_num_levels() with a custom return type.
+		template <typename T> [[nodiscard]] constexpr std::optional<T> get_num_levels_as() const {
+			return std::optional<T>(get_num_levels());
+		}
+		/// Returns a \ref range_type that corresponds to this object. \ref all_mip_levels is handled in a way that
+		/// guarantees round trip using \ref from_range().
+		[[nodiscard]] constexpr range_type into_range() const {
+			return range_type(
+				first_level,
+				num_levels == all_mip_levels ? all_mip_levels : (first_level + num_levels)
+			);
+		}
+		/// Returns a \ref range_type that corresponds to this object, where \ref all_mip_levels is handled based on
+		/// the given maximum number of mip levels.
+		[[nodiscard]] constexpr range_type into_range_with_count(index_type count) const {
+			return range_type(
+				first_level,
+				first_level + (num_levels == all_mip_levels ? count : num_levels)
+			);
 		}
 
-		/// Returns whether this struct represents all mip levels about the specified one.
-		[[nodiscard]] constexpr bool is_all() const {
-			return maximum == all_mip_levels;
+		/// Returns whether this struct represents all mip levels above a specified one.
+		[[nodiscard]] constexpr bool is_tail() const {
+			return num_levels == all_mip_levels;
 		}
 		/// Returns whether this contains no levels.
 		[[nodiscard]] constexpr bool is_empty() const {
-			return minimum >= maximum;
-		}
-
-		/// Finds the intersection of two mip ranges.
-		[[nodiscard]] constexpr inline static mip_levels intersection(mip_levels lhs, mip_levels rhs) {
-			std::uint32_t min = std::max(lhs.minimum, rhs.minimum);
-			std::uint32_t max = std::min(lhs.maximum, rhs.maximum);
-			return mip_levels(min, max);
+			return num_levels == 0;
 		}
 
 		/// Default equality comparisons.
 		[[nodiscard]] constexpr friend bool operator==(const mip_levels&, const mip_levels&) = default;
 
-		std::uint32_t minimum; ///< Minimum (inclusive) mip level.
-		std::uint32_t maximum; ///< Maximum (exclusive) mip level.
+		index_type first_level; ///< First mip level.
+		/// Number of levels. If this is \p all_mip_levels, then this includes all levels below \ref first_level.
+		index_type num_levels;
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr mip_levels(std::uint32_t min, std::uint32_t max) : minimum(min), maximum(max) {
+		constexpr mip_levels(index_type first, index_type count) : first_level(first), num_levels(count) {
 		}
+	};
+	/// Describes a range of subresources.
+	struct subresource_range {
+	public:
+		/// No initialization.
+		subresource_range(uninitialized_t) : mips(uninitialized) {
+		}
+		/// Initializes all fields of this struct.
+		constexpr subresource_range(
+			mip_levels ms, std::uint32_t first_arr, std::uint32_t num_arrs, image_aspect_mask asp
+		) : mips(ms), first_array_slice(first_arr), num_array_slices(num_arrs), aspects(asp) {
+		}
+
+		/// Creates an empty range.
+		[[nodiscard]] constexpr inline static subresource_range empty() {
+			return subresource_range(mip_levels::empty(), 0, 0, image_aspect_mask::none);
+		}
+
+		/// Creates an index pointing to the color aspect of the first subresource.
+		[[nodiscard]] constexpr inline static subresource_range first_color() {
+			return subresource_range(mip_levels::only_top(), 0, 1, image_aspect_mask::color);
+		}
+		/// Creates an index pointing to the depth aspect of the first subresource.
+		[[nodiscard]] constexpr inline static subresource_range first_depth() {
+			return subresource_range(mip_levels::only_top(), 0, 1, image_aspect_mask::depth);
+		}
+		/// Creates an index pointing to the stencil aspect of the first subresource.
+		[[nodiscard]] constexpr inline static subresource_range first_stencil() {
+			return subresource_range(mip_levels::only_top(), 0, 1, image_aspect_mask::stencil);
+		}
+		/// Creates an index pointing to the depth and stencil aspect of the first subresource.
+		[[nodiscard]] constexpr inline static subresource_range first_depth_stencil() {
+			return subresource_range(
+				mip_levels::only_top(), 0, 1, image_aspect_mask::depth | image_aspect_mask::stencil
+			);
+		}
+
+		/// Creates a range pointing to the color aspect of the first array slice of the given mip levels.
+		[[nodiscard]] constexpr inline static subresource_range nonarray_color(mip_levels mips) {
+			return subresource_range(mips, 0, 1, image_aspect_mask::color);
+		}
+		/// Creates a range pointing to the depth aspect of the first array slice of the given mip levels.
+		[[nodiscard]] constexpr inline static subresource_range nonarray_depth(mip_levels mips) {
+			return subresource_range(mips, 0, 1, image_aspect_mask::depth);
+		}
+		/// Creates a range pointing to the stencil aspect of the first array slice of the given mip levels.
+		[[nodiscard]] constexpr inline static subresource_range nonarray_stencil(mip_levels mips) {
+			return subresource_range(mips, 0, 1, image_aspect_mask::stencil);
+		}
+		/// Creates a range pointing to the depth and stencil aspect of the first array slice of the given mip
+		/// levels.
+		[[nodiscard]] constexpr inline static subresource_range nonarray_depth_stencil(mip_levels mips) {
+			return subresource_range(mips, 0, 1, image_aspect_mask::depth | image_aspect_mask::stencil);
+		}
+
+		/// Creates an index pointing to the color aspect of the specified subresource.
+		[[nodiscard]] constexpr inline static subresource_range create_color(
+			mip_levels mips, std::uint32_t first_arr, std::uint32_t num_arrs
+		) {
+			return subresource_range(mips, first_arr, num_arrs, image_aspect_mask::color);
+		}
+		/// Creates an index pointing to the color aspect of the specified subresource.
+		[[nodiscard]] constexpr inline static subresource_range create_depth(
+			mip_levels mips, std::uint32_t first_arr, std::uint32_t num_arrs
+		) {
+			return subresource_range(mips, first_arr, num_arrs, image_aspect_mask::depth);
+		}
+		/// Creates an index pointing to the color aspect of the specified subresource.
+		[[nodiscard]] constexpr inline static subresource_range create_stencil(
+			mip_levels mips, std::uint32_t first_arr, std::uint32_t num_arrs
+		) {
+			return subresource_range(mips, first_arr, num_arrs, image_aspect_mask::stencil);
+		}
+
+		mip_levels mips; ///< Mip levels.
+		std::uint32_t first_array_slice; ///< First array slice.
+		std::uint32_t num_array_slices;  ///< Number of array slices.
+		image_aspect_mask aspects; ///< The aspects of the subresource.
+
+		/// Default equality and inequality comparison.
+		[[nodiscard]] friend bool operator==(const subresource_range&, const subresource_range&) = default;
 	};
 
 

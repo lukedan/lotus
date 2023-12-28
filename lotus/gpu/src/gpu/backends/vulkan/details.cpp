@@ -411,20 +411,19 @@ namespace lotus::gpu::backends::vulkan::_details {
 			vk::ImageSubresourceRange result;
 			result
 				.setAspectMask(to_image_aspect_flags(id.aspects))
-				.setBaseMipLevel(id.first_mip_level)
-				.setLevelCount(id.num_mip_levels)
+				.setBaseMipLevel(id.mips.first_level)
+				.setLevelCount(id.mips.get_num_levels_as<std::uint32_t>().value_or(VK_REMAINING_MIP_LEVELS))
 				.setBaseArrayLayer(id.first_array_slice)
 				.setLayerCount(id.num_array_slices);
 			return result;
 		}
 
-		vk::ImageSubresourceRange to_image_subresource_range(const mip_levels &mip, vk::ImageAspectFlags aspects) {
-			auto mip_levels = mip.get_num_levels();
+		vk::ImageSubresourceRange to_image_subresource_range(const mip_levels &mips, vk::ImageAspectFlags aspects) {
 			vk::ImageSubresourceRange result;
 			result
 				.setAspectMask(aspects)
-				.setBaseMipLevel(mip.minimum)
-				.setLevelCount(mip_levels ? static_cast<std::uint32_t>(mip_levels.value()) : VK_REMAINING_MIP_LEVELS)
+				.setBaseMipLevel(mips.first_level)
+				.setLevelCount(mips.get_num_levels_as<std::uint32_t>().value_or(VK_REMAINING_MIP_LEVELS))
 				.setBaseArrayLayer(0)
 				.setLayerCount(1);
 			return result;

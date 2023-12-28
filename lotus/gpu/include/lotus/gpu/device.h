@@ -563,9 +563,9 @@ namespace lotus::gpu {
 		/// Queries size information for the given top level acceleration structure. This function will *not* inspect
 		/// any GPU-side data, so it's safe to use uninitialized buffers.
 		[[nodiscard]] acceleration_structure_build_sizes get_top_level_acceleration_structure_build_sizes(
-			const buffer &top_level_buf, std::size_t offset, std::size_t count
+			std::size_t instance_count
 		) {
-			return backend::device::get_top_level_acceleration_structure_build_sizes(top_level_buf, offset, count);
+			return backend::device::get_top_level_acceleration_structure_build_sizes(instance_count);
 		}
 		/// Creates an uninitialized bottom-level acceleration structure object.
 		[[nodiscard]] bottom_level_acceleration_structure create_bottom_level_acceleration_structure(

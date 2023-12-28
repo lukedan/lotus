@@ -1106,12 +1106,15 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	acceleration_structure_build_sizes device::get_top_level_acceleration_structure_build_sizes(
-		const buffer &top_level_buf, std::size_t offset, std::size_t count
+		std::size_t instance_count
 	) {
 		vk::AccelerationStructureGeometryInstancesDataKHR instances;
+		// "Any VkDeviceOrHostAddressKHR or VkDeviceOrHostAddressConstKHR members of pBuildInfo are ignored by this
+		// command, except that the hostAddress member of
+		// VkAccelerationStructureGeometryTrianglesDataKHR::transformData will be examined to check if it is NULL."
 		instances
 			.setArrayOfPointers(false)
-			.setData(_device->getBufferAddress(top_level_buf._buffer) + offset);
+			.setData(static_cast<vk::DeviceAddress>(0xDEADBEEF));
 		vk::AccelerationStructureGeometryKHR geom;
 		geom
 			.setGeometryType(vk::GeometryTypeKHR::eInstances)
@@ -1125,9 +1128,11 @@ namespace lotus::gpu::backends::vulkan {
 			.setSrcAccelerationStructure(nullptr)
 			.setDstAccelerationStructure(nullptr)
 			.setGeometries(geom);
-		auto instance_count = static_cast<std::uint32_t>(count);
 		auto vk_result = _device->getAccelerationStructureBuildSizesKHR(
-			vk::AccelerationStructureBuildTypeKHR::eDevice, build_info, instance_count, *_dispatch_loader
+			vk::AccelerationStructureBuildTypeKHR::eDevice,
+			build_info,
+			static_cast<std::uint32_t>(instance_count),
+			*_dispatch_loader
 		);
 
 		acceleration_structure_build_sizes result = uninitialized;
@@ -1357,16 +1362,15 @@ namespace lotus::gpu::backends::vulkan {
 		// TODO reference counting
 		void *result = _details::unwrap(_device->mapMemory(mem, 0, VK_WHOLE_SIZE));
 		if (len > 0) {
-			vk::DeviceSize align = _device_limits.nonCoherentAtomSize;
-			std::size_t end = beg + len;
-			beg = align * (beg / align);
-			end = align * ((end + align - 1) / align);
-			len = end - beg;
+			const vk::DeviceSize align = _device_limits.nonCoherentAtomSize;
+			const std::size_t aligned_beg = memory::align_down(beg, align);
+			const std::size_t aligned_end = memory::align_up(beg + len, align);
+			const std::size_t aligned_len = aligned_end - aligned_beg;
 			vk::MappedMemoryRange range;
 			range
 				.setMemory(mem)
-				.setOffset(beg)
-				.setSize(len);
+				.setOffset(aligned_beg)
+				.setSize(aligned_len);
 			_details::assert_vk(_device->invalidateMappedMemoryRanges(range));
 		}
 		return static_cast<std::byte*>(result);

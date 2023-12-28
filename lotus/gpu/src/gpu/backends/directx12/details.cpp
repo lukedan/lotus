@@ -542,8 +542,8 @@ namespace lotus::gpu::backends::directx12::_details {
 
 		D3D12_BARRIER_SUBRESOURCE_RANGE to_barrier_subresource_range(const subresource_range &r) {
 			D3D12_BARRIER_SUBRESOURCE_RANGE range = {};
-			range.IndexOrFirstMipLevel = r.first_mip_level;
-			range.NumMipLevels         = r.num_mip_levels;
+			range.IndexOrFirstMipLevel = r.mips.first_level;
+			range.NumMipLevels         = r.mips.get_num_levels_as<UINT>().value_or(-1); // TODO: is this supported? not explicitly in the docs
 			range.FirstArraySlice      = r.first_array_slice;
 			range.NumArraySlices       = r.num_array_slices;
 			if (bit_mask::contains<image_aspect_mask::color>(r.aspects)) {

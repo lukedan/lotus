@@ -249,7 +249,7 @@ namespace lotus::gpu::backends::vulkan {
 		);
 		/// Returns the result of \p vk::UniqueDevice::getAccelerationStructureBuildSizesKHR().
 		[[nodiscard]] acceleration_structure_build_sizes get_top_level_acceleration_structure_build_sizes(
-			const buffer &top_level_buf, std::size_t offset, std::size_t count
+			std::size_t instance_count
 		);
 		/// Returns the result of \p vk::UniqueDevice::createAccelerationStructureKHRUnique().
 		[[nodiscard]] bottom_level_acceleration_structure create_bottom_level_acceleration_structure(

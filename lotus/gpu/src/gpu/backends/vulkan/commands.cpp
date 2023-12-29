@@ -184,9 +184,9 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::copy_image2d(
-		image2d &from, subresource_index sub1, aab2s region, image2d &to, subresource_index sub2, cvec2s off
+		image2d &from, subresource_index sub1, aab2u32 region, image2d &to, subresource_index sub2, cvec2u32 off
 	) {
-		cvec2s size = region.signed_size();
+		const cvec2u32 size = region.signed_size();
 		vk::ImageCopy copy;
 		copy
 			.setSrcSubresource(_details::conversions::to_image_subresource_layers(sub1))
@@ -201,14 +201,14 @@ namespace lotus::gpu::backends::vulkan {
 
 	void command_list::copy_buffer_to_image(
 		const buffer &from, std::size_t byte_offset, staging_buffer_metadata meta,
-		image2d &to, subresource_index subresource, cvec2s offset
+		image2d &to, subresource_index subresource, cvec2u32 offset
 	) {
 		const auto &props = format_properties::get(meta._format);
 		crash_if(offset[0] % props.fragment_size[0] != 0 || offset[1] % props.fragment_size[1] != 0);
-		auto aligned_size = cvec2s(
+		const auto aligned_size = cvec2u32(
 			memory::align_up(meta._size[0], props.fragment_size[0]),
 			memory::align_up(meta._size[1], props.fragment_size[1])
-		).into<std::uint32_t>();
+		);
 		vk::BufferImageCopy copy;
 		copy
 			.setBufferOffset(byte_offset)

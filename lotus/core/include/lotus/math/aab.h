@@ -56,10 +56,11 @@ namespace lotus {
 
 
 	template <typename T> using aab2 = aab<2, T>; ///< Two-dimensional axis-aligned boxes.
-	using aab2f = aab2<float>;       ///< Two-dimensional axis-aligned boxes of \p float.
-	using aab2d = aab2<double>;      ///< Two-dimensional axis-aligned boxes of \p double.
-	using aab2i = aab2<int>;         ///< Two-dimensional axis-aligned boxes of \p int.
-	using aab2s = aab2<std::size_t>; ///< Two-dimensional axis-aligned boxes of \p std::size_t.
+	using aab2f   = aab2<float>;         ///< Two-dimensional axis-aligned boxes of \p float.
+	using aab2d   = aab2<double>;        ///< Two-dimensional axis-aligned boxes of \p double.
+	using aab2i   = aab2<int>;           ///< Two-dimensional axis-aligned boxes of \p int.
+	using aab2s   = aab2<std::size_t>;   ///< Two-dimensional axis-aligned boxes of \p std::size_t.
+	using aab2u32 = aab2<std::uint32_t>; ///< Two-dimensional axis-aligned boxes of \p std::uint32_t.
 
 	template <typename T> using aab3 = aab<3, T>; ///< Three-dimensional axis-aligned boxes.
 	using aab3f = aab3<float>;       ///< Three-dimensional axis-aligned boxes of \p float.

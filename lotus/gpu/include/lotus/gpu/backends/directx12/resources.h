@@ -54,6 +54,14 @@ namespace lotus::gpu::backends::directx12 {
 		[[nodiscard]] std::size_t get_pitch_in_bytes() const {
 			return _pitch;
 		}
+		/// Returns \ref _size.
+		[[nodiscard]] cvec2u32 get_size() const {
+			return _size;
+		}
+		/// Returns \ref _format.
+		[[nodiscard]] gpu::format get_format() const {
+			return _format;
+		}
 	private:
 		UINT _pitch; ///< Pitch in bytes.
 		cvec2u32 _size; ///< Size of the buffer in pixels.

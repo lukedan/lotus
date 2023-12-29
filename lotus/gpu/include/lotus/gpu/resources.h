@@ -83,8 +83,16 @@ namespace lotus::gpu {
 			}
 
 			/// Returns the pitch in bytes.
-			std::size_t get_pitch_in_bytes() const {
+			[[nodiscard]] std::size_t get_pitch_in_bytes() const {
 				return backend::staging_buffer_metadata::get_pitch_in_bytes();
+			}
+			/// Returns the size of the image in pixels.
+			[[nodiscard]] cvec2u32 get_size() const {
+				return backend::staging_buffer_metadata::get_size();
+			}
+			/// Returns the target pixel format of this staging buffer.
+			[[nodiscard]] gpu::format get_format() const {
+				return backend::staging_buffer_metadata::get_format();
 			}
 		private:
 			/// Initializes the base class object.

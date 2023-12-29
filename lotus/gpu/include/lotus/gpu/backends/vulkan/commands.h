@@ -86,12 +86,12 @@ namespace lotus::gpu::backends::vulkan {
 		void copy_buffer(const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size);
 		/// Calls \p vk::CommandBuffer::copyImage().
 		void copy_image2d(
-			image2d &from, subresource_index sub1, aab2s region, image2d &to, subresource_index sub2, cvec2s off
+			image2d &from, subresource_index sub1, aab2u32 region, image2d &to, subresource_index sub2, cvec2u32 off
 		);
 		/// Calls \p vk::CommandBuffer::copyBufferToImage().
 		void copy_buffer_to_image(
 			const buffer &from, std::size_t byte_offset, staging_buffer_metadata,
-			image2d &to, subresource_index subresource, cvec2s off
+			image2d &to, subresource_index subresource, cvec2u32 off
 		);
 
 		/// Calls \p vk::CommandBuffer::draw().

@@ -251,7 +251,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void command_list::copy_image2d(
-		image2d &from, subresource_index sub1, aab2s region, image2d &to, subresource_index sub2, cvec2s off
+		image2d &from, subresource_index sub1, aab2u32 region, image2d &to, subresource_index sub2, cvec2u32 off
 	) {
 		D3D12_TEXTURE_COPY_LOCATION dest = {};
 		dest.pResource        = to._image.Get();
@@ -275,7 +275,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void command_list::copy_buffer_to_image(
 		const buffer &from, std::size_t byte_offset, staging_buffer_metadata meta,
-		image2d &to, subresource_index subresource, cvec2s off
+		image2d &to, subresource_index subresource, cvec2u32 off
 	) {
 		D3D12_TEXTURE_COPY_LOCATION dest = {};
 		dest.pResource        = to._image.Get();

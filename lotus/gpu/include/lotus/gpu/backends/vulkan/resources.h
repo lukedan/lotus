@@ -78,8 +78,16 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	protected:
 		/// Returns \ref _bytes.
-		std::size_t get_pitch_in_bytes() const {
+		[[nodiscard]] std::size_t get_pitch_in_bytes() const {
 			return _bytes;
+		}
+		/// Returns \ref _size.
+		[[nodiscard]] cvec2u32 get_size() const {
+			return _size;
+		}
+		/// Returns \ref _format.
+		[[nodiscard]] gpu::format get_format() const {
+			return _format;
 		}
 	private:
 		cvec2u32 _size; ///< Size of the texture in pixels.

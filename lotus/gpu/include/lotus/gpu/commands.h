@@ -149,14 +149,14 @@ namespace lotus::gpu {
 		}
 		/// Inserts a copy operation between the two subresources.
 		void copy_image2d(
-			image2d &from, subresource_index sub1, aab2s region, image2d &to, subresource_index sub2, cvec2s off
+			image2d &from, subresource_index sub1, aab2u32 region, image2d &to, subresource_index sub2, cvec2u32 off
 		) {
 			backend::command_list::copy_image2d(from, sub1, region, to, sub2, off);
 		}
 		/// Inserts a copy operation from a buffer to an image.
 		void copy_buffer_to_image(
 			const buffer &from, std::size_t byte_offset, staging_buffer::metadata meta,
-			image2d &to, subresource_index subresource, cvec2s off
+			image2d &to, subresource_index subresource, cvec2u32 off
 		) {
 			backend::command_list::copy_buffer_to_image(from, byte_offset, meta, to, subresource, off);
 		}

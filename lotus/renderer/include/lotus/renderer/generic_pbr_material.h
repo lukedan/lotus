@@ -5,6 +5,7 @@
 
 #include "context/assets.h"
 #include "context/resource_bindings.h"
+#include "context/constant_uploader.h"
 #include "shader_types.h"
 
 namespace lotus::renderer {
@@ -25,7 +26,7 @@ namespace lotus::renderer {
 			return u8"\"generic_pbr_material.hlsli\"";
 		}
 		/// Creates resource bindings for this material.
-		[[nodiscard]] all_resource_bindings create_resource_bindings() const override;
+		[[nodiscard]] all_resource_bindings create_resource_bindings(constant_uploader&) const override;
 		/// Adds alpha cutoff related macros.
 		[[nodiscard]] std::vector<
 			std::pair<std::u8string_view, std::u8string_view>

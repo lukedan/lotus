@@ -14,15 +14,21 @@ function(add_lotus_renderer_target BACKEND)
 	target_include_directories(${PROJ} PUBLIC "include/")
 	target_sources(${PROJ}
 		PUBLIC
+			"include/lotus/renderer/context/execution/batch_context.h"
+			"include/lotus/renderer/context/execution/caching.h"
+			"include/lotus/renderer/context/execution/common.h"
+			"include/lotus/renderer/context/execution/descriptors.h"
+			"include/lotus/renderer/context/execution/queue_context.h"
+			"include/lotus/renderer/context/execution/queue_pseudo_context.h"
+
 			"include/lotus/renderer/context/asset_manager.h"
 			"include/lotus/renderer/context/assets.h"
-			"include/lotus/renderer/context/caching.h"
 			"include/lotus/renderer/context/commands.h"
+			"include/lotus/renderer/context/constant_uploader.h"
 			"include/lotus/renderer/context/context.h"
-			"include/lotus/renderer/context/execution.h"
 			"include/lotus/renderer/context/misc.h"
-			"include/lotus/renderer/context/resource_bindings.h"
 			"include/lotus/renderer/context/resources.h"
+			"include/lotus/renderer/context/resource_bindings.h"
 
 			"include/lotus/renderer/loaders/assimp_loader.h"
 			"include/lotus/renderer/loaders/dds_loader.h"
@@ -39,12 +45,17 @@ function(add_lotus_renderer_target BACKEND)
 			"include/lotus/renderer/shader_types_impl.h"
 			"include/lotus/renderer/shader_types_include_wrapper.h"
 		PRIVATE
+			"src/renderer/context/execution/batch_context.cpp"
+			"src/renderer/context/execution/caching.cpp"
+			"src/renderer/context/execution/descriptors.cpp"
+			"src/renderer/context/execution/queue_context.cpp"
+			"src/renderer/context/execution/queue_pseudo_context.cpp"
+
 			"src/renderer/context/asset_manager.cpp"
-			"src/renderer/context/caching.cpp"
+			"src/renderer/context/constant_uploader.cpp"
 			"src/renderer/context/context.cpp"
-			"src/renderer/context/execution.cpp"
-			"src/renderer/context/resource_bindings.cpp"
 			"src/renderer/context/resources.cpp"
+			"src/renderer/context/resource_bindings.cpp"
 
 			"src/renderer/loaders/assimp_loader.cpp"
 			"src/renderer/loaders/dds_loader.cpp"

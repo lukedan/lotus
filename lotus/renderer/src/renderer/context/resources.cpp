@@ -1,7 +1,10 @@
 #include "lotus/renderer/context/resources.h"
 
-#include "lotus/renderer/context/caching.h"
+/// \file
+/// Implementation of resource related methods.
+
 #include "lotus/renderer/context/resource_bindings.h"
+#include "lotus/renderer/context/execution/caching.h"
 
 namespace lotus::renderer {
 	namespace recorded_resources {
@@ -62,6 +65,41 @@ namespace lotus::renderer {
 					"Freeing from pool {}, chunk {}, addr {}",
 					string::to_generic(name), tok._chunk_index, tok._address
 				);
+			}
+		}
+
+
+		void image_base::record_usage(
+			std::uint32_t q, global_submission_index gi, queue_submission_index qi, image_access access
+		) {
+			previous_queue_access[q].emplace_back(access, gi, qi);
+		}
+
+		void image_base::stash_usages() {
+			for (std::size_t i = 0; i < previous_queue_access.size(); ++i) {
+				for (const auto &event : previous_queue_access[i]) {
+					// TODO
+					std::abort();
+				}
+				previous_queue_access[i].clear();
+			}
+		}
+
+
+		void buffer::record_usage(
+			std::uint32_t q, global_submission_index gi, queue_submission_index qi, buffer_access access
+		) {
+			previous_queue_access[q] = _details::buffer_access_event(access, gi, qi);
+		}
+
+		void buffer::stash_usages() {
+			for (std::size_t i = 0; i < previous_queue_access.size(); ++i) {
+				if (!previous_queue_access[i]) {
+					/*last_queue_usages[i] = current_queue_usages[i].back();*/
+					// TODO: get global submission index
+					std::abort();
+				}
+				previous_queue_access[i].reset();
 			}
 		}
 	}

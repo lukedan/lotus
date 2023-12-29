@@ -174,7 +174,7 @@ public:
 				{
 					{ 0, {
 						{ 0, buf.bind_as_read_write() },
-						{ 1, lren_bds::immediate_constant_buffer::create_for(data) },
+						{ 1, _constant_uploader->upload(data) },
 					} },
 				},
 				{}
@@ -191,7 +191,7 @@ public:
 			lren::all_resource_bindings(
 				{
 					{ 0, {
-						{ 0, lren_bds::immediate_constant_buffer::create_for(data) },
+						{ 0, _constant_uploader->upload(data) },
 						{ 1, img.bind_as_read_write() },
 					} },
 				},
@@ -259,7 +259,7 @@ public:
 	};
 
 protected:
-	static constexpr lgpu::queue_type _queues[] = { lgpu::queue_type::graphics };
+	static constexpr lgpu::queue_type _queues[] = { lgpu::queue_type::graphics, lgpu::queue_type::copy, lgpu::queue_type::copy };
 
 	lren::context::queue _graphics_queue = nullptr;
 
@@ -269,7 +269,10 @@ protected:
 		return _queues;
 	}
 	std::uint32_t _get_asset_loading_queue_index() const override {
-		return 0;
+		return 1;
+	}
+	std::uint32_t _get_constant_upload_queue_index() const override {
+		return 2;
 	}
 	std::uint32_t _get_debug_drawing_queue_index() const override {
 		return 0;
@@ -290,7 +293,9 @@ protected:
 	void _on_initialized() override {
 		_graphics_queue = _context->get_queue(0);
 
-		_debug_renderer = std::unique_ptr<lren::debug_renderer>(new auto(lren::debug_renderer::create(*_assets, _graphics_queue)));
+		_debug_renderer = std::unique_ptr<lren::debug_renderer>(new auto(lren::debug_renderer::create(
+			*_assets, *_constant_uploader, _graphics_queue
+		)));
 
 		scene = std::make_unique<scene_representation>(*_assets, _graphics_queue);
 		for (int i = 1; i < _argc; ++i) {
@@ -359,7 +364,12 @@ protected:
 		cam_control.on_capture_broken();
 	}
 
-	void _process_frame() override {
+	void _process_frame(lren::dependency constants_dep, lren::dependency asset_dep) override {
+		_graphics_queue.acquire_dependency(constants_dep, u8"Wait for assets");
+		if (asset_dep) {
+			_graphics_queue.acquire_dependency(asset_dep, u8"Wait for constants");
+		}
+
 		{
 			auto frame_tmr = _graphics_queue.start_timer(u8"Frame");
 
@@ -381,12 +391,10 @@ protected:
 				view_data.prev_projection_view     = prev_cam.projection_view_matrix;
 				view_data.rcp_viewport_size        = lotus::vec::memberwise_reciprocal(window_size.into<float>());
 
-				auto buf = _context->request_buffer(u8"View Data Constant Buffer", sizeof(view_data), lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read, runtime_buf_pool);
-				_graphics_queue.upload_buffer<lren::shader_types::view_data>(buf, { &view_data, &view_data + 1 }, 0, u8"Upload View Data");
-
 				auto pass = g_buf.begin_pass(_graphics_queue);
 				lren::g_buffer::render_instances(
-					pass, scene->instances, scene->gbuffer_instance_render_details, buf.bind_as_constant_buffer()
+					pass, *_constant_uploader,
+					scene->instances, scene->gbuffer_instance_render_details, _constant_uploader->upload(view_data)
 				);
 				pass.end();
 			}
@@ -450,8 +458,8 @@ protected:
 					lren::all_resource_bindings resources(
 						{},
 						{
-							{ u8"probe_consts",      lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-							{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(direct_update_constants) },
+							{ u8"probe_consts",      _constant_uploader->upload(probe_constants) },
+							{ u8"constants",         _constant_uploader->upload(direct_update_constants) },
 							{ u8"direct_reservoirs", direct_reservoirs.bind_as_read_write() },
 							{ u8"all_lights",        scene->lights_buffer.bind_as_read_only() },
 							{ u8"rtas",              scene->tlas },
@@ -476,9 +484,9 @@ protected:
 							{ 8, _assets->get_samplers() },
 						},
 						{
-							{ u8"probe_consts",    lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-							{ u8"constants",       lren_bds::immediate_constant_buffer::create_for(indirect_update_constants) },
-							{ u8"lighting_consts", lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
+							{ u8"probe_consts",    _constant_uploader->upload(probe_constants) },
+							{ u8"constants",       _constant_uploader->upload(indirect_update_constants) },
+							{ u8"lighting_consts", _constant_uploader->upload(lighting_constants) },
 							{ u8"direct_probes",   direct_reservoirs.bind_as_read_only() },
 							{ u8"indirect_sh0",    probe_sh0.bind_as_read_only() },
 							{ u8"indirect_sh1",    probe_sh1.bind_as_read_only() },
@@ -529,8 +537,8 @@ protected:
 								{ u8"rtas",              scene->tlas },
 								{ u8"input_reservoirs",  (i == 0 ? indirect_reservoirs : spatial_indirect_reservoirs1).bind_as_read_only() },
 								{ u8"output_reservoirs", spatial_indirect_reservoirs2.bind_as_read_write() },
-								{ u8"probe_consts",      lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-								{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(reuse_constants) },
+								{ u8"probe_consts",      _constant_uploader->upload(probe_constants) },
+								{ u8"constants",         _constant_uploader->upload(reuse_constants) },
 							}
 						);
 						_graphics_queue.run_compute_shader_with_thread_dimensions(indirect_spatial_reuse_cs, probe_density, std::move(resources), u8"Spatial Indirect Reuse");
@@ -554,8 +562,8 @@ protected:
 							{ u8"probe_sh1",           probe_sh1.bind_as_read_write() },
 							{ u8"probe_sh2",           probe_sh2.bind_as_read_write() },
 							{ u8"probe_sh3",           probe_sh3.bind_as_read_write() },
-							{ u8"probe_consts",        lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-							{ u8"constants",           lren_bds::immediate_constant_buffer::create_for(constants) },
+							{ u8"probe_consts",        _constant_uploader->upload(probe_constants) },
+							{ u8"constants",           _constant_uploader->upload(constants) },
 						}
 					);
 					_graphics_queue.run_compute_shader_with_thread_dimensions(
@@ -585,8 +593,8 @@ protected:
 						{ u8"indirect_sh2",              probe_sh2.bind_as_read_only() },
 						{ u8"indirect_sh3",              probe_sh3.bind_as_read_only() },
 						{ u8"rtas",                      scene->tlas },
-						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
-						{ u8"probe_consts",              lren_bds::immediate_constant_buffer::create_for(probe_constants) },
+						{ u8"constants",                 _constant_uploader->upload(lighting_constants) },
+						{ u8"probe_consts",              _constant_uploader->upload(probe_constants) },
 						{ u8"sky_latlong",               sky_hdri->image.bind_as_read_only() },
 					}
 				);
@@ -618,7 +626,7 @@ protected:
 					},
 					{
 						{ u8"sky_latlong", sky_hdri->image.bind_as_read_only() },
-						{ u8"constants",   lren_bds::immediate_constant_buffer::create_for(constants) },
+						{ u8"constants",   _constant_uploader->upload(constants) },
 					}
 				);
 				lren::graphics_pipeline_state pipeline(
@@ -658,9 +666,9 @@ protected:
 						{ 8, _assets->get_samplers() },
 					},
 					{
-						{ u8"probe_consts",              lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-						{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(constants) },
-						{ u8"lighting_consts",           lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
+						{ u8"probe_consts",              _constant_uploader->upload(probe_constants) },
+						{ u8"constants",                 _constant_uploader->upload(constants) },
+						{ u8"lighting_consts",           _constant_uploader->upload(lighting_constants) },
 						{ u8"direct_probes",             direct_reservoirs.bind_as_read_only() },
 						{ u8"indirect_probes",           spatial_indirect_reservoirs1.bind_as_read_only() },
 						{ u8"indirect_sh0",              probe_sh0.bind_as_read_only() },
@@ -718,9 +726,9 @@ protected:
 						{ 8, _assets->get_samplers() },
 					},
 					{
-						{ u8"probe_consts",    lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-						{ u8"constants",       lren_bds::immediate_constant_buffer::create_for(constants) },
-						{ u8"lighting_consts", lren_bds::immediate_constant_buffer::create_for(lighting_constants) },
+						{ u8"probe_consts",    _constant_uploader->upload(probe_constants) },
+						{ u8"constants",       _constant_uploader->upload(constants) },
+						{ u8"lighting_consts", _constant_uploader->upload(lighting_constants) },
 						{ u8"direct_probes",   direct_reservoirs.bind_as_read_only() },
 						{ u8"indirect_sh0",    probe_sh0.bind_as_read_only() },
 						{ u8"indirect_sh1",    probe_sh1.bind_as_read_only() },
@@ -775,7 +783,7 @@ protected:
 						{ u8"prev_irradiance",   prev_irradiance ? prev_irradiance.bind_as_read_only() : _assets->get_invalid_image()->image.bind_as_read_only() },
 						{ u8"motion_vectors",    g_buf.velocity.bind_as_read_only() },
 						{ u8"out_irradiance",    irradiance.bind_as_read_write() },
-						{ u8"constants",         lren_bds::immediate_constant_buffer::create_for(constants) },
+						{ u8"constants",         _constant_uploader->upload(constants) },
 					}
 				);
 
@@ -792,7 +800,7 @@ protected:
 				lren::all_resource_bindings resources(
 					{},
 					{
-						{ u8"constants",  lren_bds::immediate_constant_buffer::create_for(constants) },
+						{ u8"constants",  _constant_uploader->upload(constants) },
 						{ u8"irradiance", (shade_point_debug_mode != 0 ? light_diffuse : irradiance).bind_as_read_only() },
 					}
 				);
@@ -831,7 +839,7 @@ protected:
 							{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
 							{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
 							{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
-							{ u8"constants",                 lren_bds::immediate_constant_buffer::create_for(constants) },
+							{ u8"constants",                 _constant_uploader->upload(constants) },
 						}
 					);
 
@@ -867,8 +875,8 @@ protected:
 					lren::all_resource_bindings resources(
 						{},
 						{
-							{ u8"probe_consts", lren_bds::immediate_constant_buffer::create_for(probe_constants) },
-							{ u8"constants",    lren_bds::immediate_constant_buffer::create_for(constants) },
+							{ u8"probe_consts", _constant_uploader->upload(probe_constants) },
+							{ u8"constants",    _constant_uploader->upload(constants) },
 							{ u8"probe_sh0",    probe_sh0.bind_as_read_only() },
 							{ u8"probe_sh1",    probe_sh1.bind_as_read_only() },
 							{ u8"probe_sh2",    probe_sh2.bind_as_read_only() },

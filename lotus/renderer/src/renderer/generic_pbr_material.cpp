@@ -6,7 +6,7 @@
 #include "lotus/renderer/context/asset_manager.h"
 
 namespace lotus::renderer {
-	all_resource_bindings generic_pbr_material_data::create_resource_bindings() const {
+	all_resource_bindings generic_pbr_material_data::create_resource_bindings(constant_uploader &uploader) const {
 		shader_types::generic_pbr_material::material mat;
 		mat.properties = properties;
 		mat.assets.albedo_texture     = albedo_texture     ? albedo_texture->descriptor_index     : manager->get_null_image()->descriptor_index;
@@ -17,7 +17,7 @@ namespace lotus::renderer {
 			{
 				{ 0, manager->get_images() },
 				{ 1, {
-					{ 0, descriptor_resource::immediate_constant_buffer::create_for(mat) },
+					{ 0, uploader.upload(mat) },
 				} },
 				{ 2, manager->get_samplers() },
 			},

@@ -8,10 +8,10 @@
 #include <lotus/gpu/pipeline.h>
 #include <lotus/gpu/descriptors.h>
 #include "lotus/renderer/common.h"
-#include "resource_bindings.h"
-#include "assets.h"
+#include "lotus/renderer/context/resource_bindings.h"
+#include "lotus/renderer/context/assets.h"
 
-namespace lotus::renderer {
+namespace lotus::renderer::execution {
 	/// Types that are used as keys for caching objects.
 	namespace cache_keys {
 		using sampler = sampler_state; ///< Key of a sampler.
@@ -62,6 +62,10 @@ namespace lotus::renderer {
 				std::uint32_t space = 0; ///< Space of the set.
 			};
 
+			/// Initializes this key to empty.
+			pipeline_resources(std::nullptr_t) {
+			}
+
 			/// Sorts all sets.
 			void sort() {
 				std::sort(sets.begin(), sets.end(), [](const set &lhs, const set &rhs) {
@@ -105,7 +109,7 @@ namespace lotus::renderer {
 
 			/// Initializes this key to empty.
 			graphics_pipeline(std::nullptr_t) :
-				vertex_shader(nullptr), pixel_shader(nullptr), pipeline_state(nullptr) {
+				pipeline_rsrc(nullptr), vertex_shader(nullptr), pixel_shader(nullptr), pipeline_state(nullptr) {
 			}
 
 			/// Default equality and inequality.
@@ -134,7 +138,7 @@ namespace lotus::renderer {
 		/// Key containing all raytracing pipeline states.
 		struct raytracing_pipeline {
 			/// Initializes this key to empty.
-			raytracing_pipeline(std::nullptr_t) {
+			raytracing_pipeline(std::nullptr_t) : pipeline_rsrc(nullptr) {
 			}
 
 			/// Default equality and inequality.
@@ -154,29 +158,29 @@ namespace lotus::renderer {
 	}
 }
 namespace std {
-	/// Hash function for \ref lotus::renderer::cache_keys::descriptor_set_layout.
-	template <> struct hash<lotus::renderer::cache_keys::descriptor_set_layout> {
+	/// Hash function for \ref lotus::renderer::execution::cache_keys::descriptor_set_layout.
+	template <> struct hash<lotus::renderer::execution::cache_keys::descriptor_set_layout> {
 		/// Hashes the given object.
-		[[nodiscard]] size_t operator()(const lotus::renderer::cache_keys::descriptor_set_layout&) const;
+		[[nodiscard]] size_t operator()(const lotus::renderer::execution::cache_keys::descriptor_set_layout&) const;
 	};
-	/// Hash function for \ref lotus::renderer::cache_keys::pipeline_resources.
-	template <> struct hash<lotus::renderer::cache_keys::pipeline_resources> {
+	/// Hash function for \ref lotus::renderer::execution::cache_keys::pipeline_resources.
+	template <> struct hash<lotus::renderer::execution::cache_keys::pipeline_resources> {
 		/// Hashes the given object.
-		[[nodiscard]] size_t operator()(const lotus::renderer::cache_keys::pipeline_resources&) const;
+		[[nodiscard]] size_t operator()(const lotus::renderer::execution::cache_keys::pipeline_resources&) const;
 	};
-	/// Hash function for \ref lotus::renderer::cache_keys::graphics_pipeline.
-	template <> struct hash<lotus::renderer::cache_keys::graphics_pipeline> {
+	/// Hash function for \ref lotus::renderer::execution::cache_keys::graphics_pipeline.
+	template <> struct hash<lotus::renderer::execution::cache_keys::graphics_pipeline> {
 		/// Hashes the given object.
-		[[nodiscard]] size_t operator()(const lotus::renderer::cache_keys::graphics_pipeline&) const;
+		[[nodiscard]] size_t operator()(const lotus::renderer::execution::cache_keys::graphics_pipeline&) const;
 	};
-	/// Hash function for \ref lotus::renderer::cache_keys::raytracing_pipeline.
-	template <> struct hash<lotus::renderer::cache_keys::raytracing_pipeline> {
+	/// Hash function for \ref lotus::renderer::execution::cache_keys::raytracing_pipeline.
+	template <> struct hash<lotus::renderer::execution::cache_keys::raytracing_pipeline> {
 		/// Hashes the given object.
-		[[nodiscard]] size_t operator()(const lotus::renderer::cache_keys::raytracing_pipeline&) const;
+		[[nodiscard]] size_t operator()(const lotus::renderer::execution::cache_keys::raytracing_pipeline&) const;
 	};
 }
 
-namespace lotus::renderer {
+namespace lotus::renderer::execution {
 	/// A cache for objects used in a context.
 	class context_cache {
 	public:

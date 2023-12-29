@@ -110,7 +110,8 @@ namespace lotus::renderer::g_buffer {
 	}
 
 	void render_instances(
-		context::pass &pass, std::span<const instance> instances, std::span<const instance_render_details> details,
+		context::pass &pass, constant_uploader &uploader,
+		std::span<const instance> instances, std::span<const instance_render_details> details,
 		descriptor_resource::constant_buffer view_data
 	) {
 		crash_if(instances.size() != details.size());
@@ -136,7 +137,7 @@ namespace lotus::renderer::g_buffer {
 			auto additional_resources = all_resource_bindings(
 				{
 					{ 1, {
-						{ 1, descriptor_resource::immediate_constant_buffer::create_for(instance) },
+						{ 1, uploader.upload(instance) },
 						{ 2, view_data },
 					} },
 				},
@@ -145,16 +146,17 @@ namespace lotus::renderer::g_buffer {
 
 			pass.draw_instanced(
 				inst.geometry, inst.material, dets,
-				{}, std::move(additional_resources), 1, u8"GBuffer instance"
+				{}, std::move(additional_resources), uploader, 1, u8"GBuffer instance"
 			);
 		}
 	}
 
 	void render_instances(
-		context::pass &pass, assets::manager &man, std::span<const instance> instances,
+		context::pass &pass, constant_uploader &uploader,
+		assets::manager &man, std::span<const instance> instances,
 		descriptor_resource::constant_buffer view_data
 	) {
 		auto details = get_instance_render_details(man, instances);
-		render_instances(pass, instances, details, view_data);
+		render_instances(pass, uploader, instances, details, view_data);
 	}
 }

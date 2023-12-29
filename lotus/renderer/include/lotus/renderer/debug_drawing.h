@@ -7,6 +7,7 @@
 
 #include "context/context.h"
 #include "context/asset_manager.h"
+#include "context/constant_uploader.h"
 
 namespace lotus::renderer {
 	/// A basic debug renderer.
@@ -39,8 +40,10 @@ namespace lotus::renderer {
 		};
 
 		/// Creates a valid debug renderer object.
-		[[nodiscard]] inline static debug_renderer create(assets::manager &man, context::queue q) {
-			debug_renderer result(man, q);
+		[[nodiscard]] inline static debug_renderer create(
+			assets::manager &man, constant_uploader &uploader, context::queue q
+		) {
+			debug_renderer result(man, uploader, q);
 
 			result._vertex_shader_untextured = man.compile_shader_in_filesystem(
 				man.asset_library_path / "shaders/misc/debug_untextured.hlsl", gpu::shader_stage::vertex_shader, u8"main_vs"
@@ -126,8 +129,8 @@ namespace lotus::renderer {
 		}
 	private:
 		/// Only initializes \ref _asset_man.
-		explicit debug_renderer(assets::manager &man, context::queue q) :
-			_asset_man(man), _q(q),
+		debug_renderer(assets::manager &man, constant_uploader &uploader, context::queue q) :
+			_asset_man(man), _uploader(uploader), _q(q),
 			_vertex_shader_untextured(nullptr), _pixel_shader_untextured(nullptr),
 			_vertex_shader_textured(nullptr), _pixel_shader_textured(nullptr) {
 		}
@@ -148,6 +151,7 @@ namespace lotus::renderer {
 		std::vector<_textured_batch> _triangles_textured; ///< Batches of textured triangles.
 
 		assets::manager &_asset_man; ///< The asset manager.
+		constant_uploader &_uploader; ///< The constant uploader.
 		context::queue _q; ///< The command queue to render on.
 		assets::handle<assets::shader> _vertex_shader_untextured; ///< Untextured vertex shader.
 		assets::handle<assets::shader> _pixel_shader_untextured; ///< Untextured pixel shader.
@@ -171,7 +175,7 @@ namespace lotus::renderer {
 				u8"Debug Draw Vertex Buffer", vertices.size() * sizeof(Vert),
 				gpu::buffer_usage_mask::copy_destination | gpu::buffer_usage_mask::vertex_buffer, nullptr
 			);
-			_q.upload_buffer<Vert>(vert_buf, vertices, 0, u8"Upload Debug Vertex Buffer");
+			_asset_man.upload_typed_buffer<Vert>(_q, vert_buf, vertices);
 
 			all_resource_bindings resource_bindings = nullptr;
 			input_buffer_binding input_bindings = nullptr;
@@ -184,7 +188,7 @@ namespace lotus::renderer {
 				resource_bindings = all_resource_bindings(
 					{
 						{ 0, {
-							{ 0, descriptor_resource::immediate_constant_buffer::create_for(data) },
+							{ 0, _uploader.upload(data) },
 						} },
 					},
 					{}
@@ -201,7 +205,7 @@ namespace lotus::renderer {
 				resource_bindings = all_resource_bindings(
 					{
 						{ 0, {
-							{ 0, descriptor_resource::immediate_constant_buffer::create_for(data) },
+							{ 0, _uploader.upload(data) },
 							{ 1, texture.bind_as_read_only() },
 						} },
 						{ 1, _asset_man.get_samplers() },

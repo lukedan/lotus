@@ -10,16 +10,19 @@
 #include "lotus/renderer/common.h"
 #include "misc.h"
 #include "assets.h"
-#include "execution.h"
 
 namespace lotus::renderer::commands {
 	/// Static properties of a command type.
 	enum class flags : std::uint32_t {
 		none = 0, ///< No flags.
 
-		advances_timer   = 1 << 0, ///< The command advances device timers.
-		pass_command     = 1 << 1, ///< This command is only valid within a render pass.
-		non_pass_command = 1 << 2, ///< This command is only valid outside a render pass.
+		advances_timer               = 1 << 0, ///< The command advances device timers.
+		pass_command                 = 1 << 1, ///< This command is only valid within a render pass.
+		non_pass_command             = 1 << 2, ///< This command is only valid outside a render pass.
+		/// Timeline semaphore release events before or after this command make no practical difference.
+		dependency_release_unordered = 1 << 3,
+		/// Timeline semaphore acquire events before or after this command make no practical difference.
+		dependency_acquire_unordered = 1 << 4,
 	};
 }
 namespace lotus::enums {
@@ -44,45 +47,6 @@ namespace lotus::renderer {
 			}
 		};
 
-		/// Uploads contents from the given staging buffer to the highest visible mip of the target image.
-		struct upload_image {
-			/// Initializes all fields of this struct.
-			upload_image(gpu::staging_buffer src, recorded_resources::image2d_view dst) :
-				source(std::move(src)), destination(dst) {
-			}
-
-			gpu::staging_buffer source; ///< Image data.
-			recorded_resources::image2d_view destination; ///< Image to upload to.
-
-			/// Returns the properties of this command.
-			[[nodiscard]] constexpr inline static flags get_flags() {
-				return flags::advances_timer | flags::non_pass_command;
-			}
-		};
-
-		/// Uploads contents from the given staging buffer to the target buffer.
-		struct upload_buffer {
-			/// Initializes all fields of this struct.
-			upload_buffer(
-				gpu::buffer &src, std::uint32_t src_off, upload_buffers::allocation_type ty,
-				recorded_resources::buffer dst, std::uint32_t off, std::uint32_t sz
-			) : source(&src), source_offset(src_off), destination(dst), destination_offset(off), size(sz), type(ty) {
-			}
-
-			gpu::buffer *source = nullptr; ///< Buffer data.
-			std::uint32_t source_offset = 0; ///< Offset in the source buffer in bytes.
-			recorded_resources::buffer destination; ///< Buffer to upload to.
-			std::uint32_t destination_offset = 0; ///< Offset of the region to upload to in the destination buffer.
-			std::uint32_t size = 0; ///< Size of the region to upload.
-			/// The type of \ref source.
-			upload_buffers::allocation_type type = upload_buffers::allocation_type::invalid;
-
-			/// Returns the properties of this command.
-			[[nodiscard]] constexpr inline static flags get_flags() {
-				return flags::advances_timer | flags::non_pass_command;
-			}
-		};
-
 		/// Copies data from one buffer to another.
 		struct copy_buffer {
 			/// Initializes all fields of this struct.
@@ -94,9 +58,35 @@ namespace lotus::renderer {
 
 			recorded_resources::buffer source;      ///< The source buffer.
 			recorded_resources::buffer destination; ///< The destination buffer.
-			std::uint32_t source_offset = 0;      ///< Offset in the source buffer in bytes.
+			std::uint32_t source_offset      = 0; ///< Offset in the source buffer in bytes.
 			std::uint32_t destination_offset = 0; ///< Offset in the destination buffer in bytes.
-			std::uint32_t size = 0;               ///< Number of bytes to copy.
+			std::uint32_t size               = 0; ///< Number of bytes to copy.
+
+			/// Returns the properties of this command.
+			[[nodiscard]] constexpr inline static flags get_flags() {
+				return flags::advances_timer | flags::non_pass_command;
+			}
+		};
+
+		/// Copies data from a buffer to an image.
+		struct copy_buffer_to_image {
+			/// Initializes all fields of this struct.
+			copy_buffer_to_image(
+				recorded_resources::buffer src, recorded_resources::image2d_view dst,
+				gpu::staging_buffer::metadata meta, std::uint32_t src_off, cvec2u32 dst_off
+			) :
+				source(src),
+				destination(dst),
+				staging_buffer_meta(std::move(meta)),
+				source_offset(src_off),
+				destination_offset(dst_off) {
+			}
+
+			recorded_resources::buffer       source;      ///< The source buffer.
+			recorded_resources::image2d_view destination; ///< The destination image.
+			gpu::staging_buffer::metadata staging_buffer_meta; ///< Metadata of the staging buffer.
+			std::uint32_t source_offset      = 0;    ///< Offset in the source buffer in bytes.
+			cvec2u32      destination_offset = zero; ///< Offset in the destination image in pixels.
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
@@ -107,10 +97,12 @@ namespace lotus::renderer {
 		/// Builds a bottom level acceleration structure.
 		struct build_blas {
 			/// Initializes all fields of this struct.
-			explicit build_blas(recorded_resources::blas t) : target(std::move(t)) {
+			build_blas(recorded_resources::blas t, std::vector<geometry_buffers_view> geom) :
+				target(std::move(t)), geometry(std::move(geom)) {
 			}
 
-			recorded_resources::blas target; ///< The BLAS to build.
+			recorded_resources::blas target; ///< The BLAS to save build results into.
+			std::vector<geometry_buffers_view> geometry; ///< All geometry for the BLAS.
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
@@ -121,10 +113,12 @@ namespace lotus::renderer {
 		/// Builds a top level acceleration structure.
 		struct build_tlas {
 			/// Initializes all fields of this struct.
-			explicit build_tlas(recorded_resources::tlas t) : target(std::move(t)) {
+			build_tlas(recorded_resources::tlas t, std::vector<blas_instance> insts) :
+				target(std::move(t)), instances(std::move(insts)) {
 			}
 
 			recorded_resources::tlas target; ///< The TLAS to build.
+			std::vector<blas_instance> instances; ///< All BLAS instances for this TLAS.
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
@@ -275,14 +269,45 @@ namespace lotus::renderer {
 		/// Presents the given swap chain.
 		struct present {
 			/// Initializes the target.
-			explicit present(swap_chain t) : target(std::move(t)) {
+			explicit present(recorded_resources::swap_chain t) : target(std::move(t)) {
 			}
 
-			swap_chain target; ///< The swap chain to present.
+			recorded_resources::swap_chain target; ///< The swap chain to present.
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
 				return flags::advances_timer | flags::non_pass_command;
+			}
+		};
+
+		/// Signals that a dependency has been released.
+		struct release_dependency {
+			/// Initializes the dependency.
+			explicit release_dependency(recorded_resources::dependency t) : target(std::move(t)) {
+			}
+
+			recorded_resources::dependency target; ///< The dependency handle.
+
+			/// Returns the properties of this command.
+			[[nodiscard]] constexpr inline static flags get_flags() {
+				// assume that signaling the semaphore has a small overhead
+				// TODO: can semaphores be signalled within passes?
+				return flags::advances_timer | flags::non_pass_command | flags::dependency_release_unordered;
+			}
+		};
+
+		/// Signals that a dependency has been acquired.
+		struct acquire_dependency {
+			/// Initializes the dependency.
+			explicit acquire_dependency(recorded_resources::dependency t) : target(std::move(t)) {
+			}
+
+			recorded_resources::dependency target; ///< The dependency handle.
+
+			/// Returns the properties of this command.
+			[[nodiscard]] constexpr inline static flags get_flags() {
+				// TODO: can semaphores be waited on within passes?
+				return flags::advances_timer | flags::non_pass_command | flags::dependency_acquire_unordered;
 			}
 		};
 
@@ -299,7 +324,7 @@ namespace lotus::renderer {
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
-				return flags::none;
+				return flags::dependency_release_unordered;
 			}
 		};
 
@@ -313,7 +338,7 @@ namespace lotus::renderer {
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
-				return flags::none;
+				return flags::dependency_release_unordered;
 			}
 		};
 
@@ -327,18 +352,8 @@ namespace lotus::renderer {
 	}
 	/// A union of all renderer context command types.
 	struct command {
-		/// Initializes this command.
-		template <typename ...Args> explicit command(std::u8string_view desc, Args &&...args) :
-			value(std::forward<Args>(args)...), description(desc) {
-		}
-		/// \overload
-		template <typename ...Args> explicit command(const char8_t (&desc)[], Args &&...args) :
-			command(std::u8string_view(desc), std::forward<Args>(args)...) {
-		}
-		/// \overload
-		template <typename ...Args> explicit command(
-			static_optional<std::u8string, should_register_debug_names> desc, Args &&...args
-		) : value(std::forward<Args>(args)...), description(std::move(desc)) {
+		/// Initializes this command to empty.
+		command(std::u8string_view desc, global_submission_index i) : index(i), description(desc) {
 		}
 
 		/// Returns the flags of the command.
@@ -354,9 +369,8 @@ namespace lotus::renderer {
 		std::variant<
 			commands::invalid,
 
-			commands::upload_image, // TODO: get rid of these two
-			commands::upload_buffer,
 			commands::copy_buffer,
+			commands::copy_buffer_to_image,
 			commands::build_blas,
 			commands::build_tlas,
 
@@ -369,12 +383,15 @@ namespace lotus::renderer {
 
 			commands::present,
 
+			commands::release_dependency,
+			commands::acquire_dependency,
+
 			commands::start_timer,
 			commands::end_timer,
 			commands::pause_for_debugging
 		> value; ///< The value of this command.
 		/// Denotes the order in which these commands are submitted from the CPU.
-		[[no_unique_address]] std::uint32_t submission_index = 0;
+		[[no_unique_address]] global_submission_index index = global_submission_index::zero;
 		/// Debug description of this command.
 		[[no_unique_address]] static_optional<std::u8string, should_register_debug_names> description;
 	};

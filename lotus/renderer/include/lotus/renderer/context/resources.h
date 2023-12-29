@@ -1,5 +1,8 @@
 #pragma once
 
+/// \file
+/// Resource classes.
+
 #include <vector>
 #include <deque>
 
@@ -12,15 +15,10 @@
 #include "lotus/gpu/pipeline.h"
 #include "lotus/gpu/resources.h"
 #include "lotus/renderer/common.h"
+#include "misc.h"
 #include "resource_bindings.h"
 
 namespace lotus::renderer {
-	/// Used to uniquely identify a resource.
-	enum class unique_resource_id : std::uint64_t {
-		invalid = 0 ///< An invalid ID.
-	};
-
-
 	/// Internal data structures used by the rendering context.
 	namespace _details {
 		/// Returns the descriptor type that corresponds to the image binding.
@@ -131,21 +129,37 @@ namespace lotus::renderer {
 			std::deque<_chunk> _chunks; ///< Allocated chunks.
 		};
 
-		/// Base class of images managed by a context.
-		template <gpu::image_type Type> struct image_base : public resource {
+		/// Non-template base class of images managed by a context.
+		struct image_base : public resource {
 		public:
-			/// Initializes this image to empty.
+			/// Initializes this image to empty with the specified number of queues.
 			image_base(
 				std::shared_ptr<pool> p,
-				std::uint32_t mips, gpu::format fmt, gpu::image_tiling t, gpu::image_usage_mask u,
-				unique_resource_id i, std::u8string_view n
+				std::uint32_t mips,
+				gpu::format fmt,
+				gpu::image_tiling t,
+				gpu::image_usage_mask u,
+				std::uint32_t num_queues,
+				unique_resource_id i,
+				std::u8string_view n
 			) :
 				resource(i, n),
-				image(nullptr), memory_pool(std::move(p)), memory(nullptr),
-				num_mips(mips), format(fmt), tiling(t), usages(u) {
+				memory_pool(std::move(p)),
+				memory(nullptr),
+				num_mips(mips),
+				format(fmt),
+				tiling(t),
+				usages(u),
+				previous_queue_access(num_queues) {
 			}
 
-			gpu::basic_image<Type> image; ///< The image.
+			/// Records a usage.
+			void record_usage(
+				std::uint32_t queue_index, global_submission_index, queue_submission_index, image_access
+			);
+			/// Clears \ref current_queue_usages and saves relevant entries into \ref last_queue_usages.
+			void stash_usages();
+
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this image out of.
 			pool::token memory; ///< Allocated memory for this image.
 
@@ -154,10 +168,33 @@ namespace lotus::renderer {
 			// TODO are these necessary?
 			gpu::image_tiling tiling = gpu::image_tiling::optimal; ///< Tiling of this image.
 			gpu::image_usage_mask usages = gpu::image_usage_mask::none; ///< Possible usages.
+
+			/// Last usage of all mips and array slices of this buffer on all queues.
+			short_vector<std::vector<image_access_event>, 4> previous_queue_access;
+			/// The last events where all mips and array slices of this image were written to, or where the layout of
+			/// them were changed. This also includes the queue where the write happened.
+			std::vector<std::pair<std::uint32_t, image_access_event>> previous_modificationss;
+		};
+		/// Templated base class of images. Contains the handle to the \ref gpu::basic_image.
+		template <gpu::image_type Type> struct typed_image_base : public image_base {
+			/// Initializes this image to empty.
+			typed_image_base(
+				std::shared_ptr<pool> p,
+				std::uint32_t mips,
+				gpu::format fmt,
+				gpu::image_tiling t,
+				gpu::image_usage_mask u,
+				std::uint32_t num_queues,
+				unique_resource_id i,
+				std::u8string_view n
+			) : image_base(std::move(p), mips, fmt, t, u, num_queues, i, n), image(nullptr) {
+			}
+
+			gpu::basic_image<Type> image; ///< The image.
 		};
 
 		/// A 2D image managed by a context.
-		struct image2d : public image_base<gpu::image_type::type_2d> {
+		struct image2d : public typed_image_base<gpu::image_type::type_2d> {
 		public:
 			/// Initializes this image to empty.
 			image2d(
@@ -167,11 +204,10 @@ namespace lotus::renderer {
 				gpu::image_tiling t,
 				gpu::image_usage_mask u,
 				std::shared_ptr<pool> p,
+				std::uint32_t num_queues,
 				unique_resource_id i,
 				std::u8string_view n
-			) :
-				image_base(std::move(p), mips, fmt, t, u, i, n),
-				size(sz), current_usages(mips, image_access::initial()) {
+			) : typed_image_base(std::move(p), mips, fmt, t, u, num_queues, i, n), size(sz) {
 			}
 
 			/// Returns \ref resource_type::image2d.
@@ -181,7 +217,6 @@ namespace lotus::renderer {
 
 			cvec2u32 size; ///< The size of this image.
 
-			short_vector<image_access, 1> current_usages; ///< Current usage of each mip of the image.
 			/// References in descriptor arrays.
 			short_vector<
 				descriptor_array_reference<recorded_resources::image2d_view, gpu::image2d_view>, 4
@@ -189,7 +224,7 @@ namespace lotus::renderer {
 		};
 
 		/// A 3D image managed by a context.
-		struct image3d : public image_base<gpu::image_type::type_3d> {
+		struct image3d : public typed_image_base<gpu::image_type::type_3d> {
 		public:
 			/// Initializes this image to empty.
 			image3d(
@@ -199,11 +234,10 @@ namespace lotus::renderer {
 				gpu::image_tiling t,
 				gpu::image_usage_mask u,
 				std::shared_ptr<pool> p,
+				std::uint32_t num_queues,
 				unique_resource_id i,
 				std::u8string_view n
-			) :
-				image_base(std::move(p), mips, fmt, t, u, i, n),
-				size(sz), current_usages(mips, image_access::initial()) {
+			) : typed_image_base(std::move(p), mips, fmt, t, u, num_queues, i, n), size(sz) {
 			}
 
 			/// Returns \ref resource_type::image3d.
@@ -212,19 +246,27 @@ namespace lotus::renderer {
 			}
 
 			cvec3u32 size; ///< The size of this image.
-
-			short_vector<image_access, 1> current_usages; ///< Current usage of each mip of the image.
 		};
 
 		/// A buffer.
 		struct buffer : public resource {
 			/// Initializes this buffer to empty.
 			buffer(
-				std::uint32_t sz, gpu::buffer_usage_mask usg, std::shared_ptr<pool> p,
-				unique_resource_id i, std::u8string_view n
+				std::uint32_t sz,
+				gpu::buffer_usage_mask usg,
+				std::shared_ptr<pool> p,
+				std::uint32_t num_queues,
+				unique_resource_id i,
+				std::u8string_view n
 			) :
-				resource(i, n), data(nullptr), memory_pool(std::move(p)), memory(nullptr),
-				access(buffer_access::initial()), size(sz), usages(usg) {
+				resource(i, n),
+				data(nullptr),
+				memory_pool(std::move(p)),
+				memory(nullptr),
+				size(sz),
+				usages(usg),
+				previous_queue_access(num_queues),
+				previous_modification(num_queues, buffer_access_event(buffer_access::initial(), zero, zero)) {
 			}
 
 			/// Returns \ref resource_type::buffer.
@@ -232,12 +274,17 @@ namespace lotus::renderer {
 				return resource_type::buffer;
 			}
 
+			/// Records a usage.
+			void record_usage(
+				std::uint32_t queue_index, global_submission_index, queue_submission_index, buffer_access
+			);
+			/// Clears \ref current_queue_usages and saves the last entry into \ref last_queue_usages.
+			void stash_usages();
+
 			gpu::buffer data; ///< The buffer.
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this buffer out of.
 			pool::token memory; ///< Allocated memory for this image.
 
-			/// Current usage of this buffer.
-			buffer_access access;
 			/// Usage hint for this buffer - when transitioning to one of the states in this mask, this resource will
 			/// be instead transitioned to all usages in this mask, making it unnecessary to transition again when
 			/// switching between them.
@@ -250,6 +297,13 @@ namespace lotus::renderer {
 			short_vector<
 				descriptor_array_reference<recorded_resources::structured_buffer_view>, 4
 			> array_references;
+
+			/// Last usage of this buffer on all queues.
+			short_vector<std::optional<buffer_access_event>, 4> previous_queue_access;
+			/// The last event where this buffer was written to, and the queue where it happened. If the queue index
+			/// is larger than or equal to the number of queues, it indicates that no previous write accesses have
+			/// been made.
+			std::pair<std::uint32_t, buffer_access_event> previous_modification;
 		};
 
 		/// A swap chain associated with a window, managed by a context.
@@ -302,7 +356,8 @@ namespace lotus::renderer {
 				}
 
 				RecordedResource resource; ///< The referenced resource.
-				static_optional<View, !std::is_same_v<View, std::nullopt_t>> view; ///< View object of the resource.
+				/// View object of the resource.
+				[[no_unique_address]] static_optional<View, !std::is_same_v<View, std::nullopt_t>> view;
 				std::uint32_t reference_index = 0; ///< Index of this reference in \p Descriptor::array_references.
 			};
 
@@ -310,6 +365,11 @@ namespace lotus::renderer {
 			descriptor_array(
 				gpu::descriptor_type ty, std::uint32_t cap, unique_resource_id i, std::u8string_view n
 			) : resource(i, n), set(nullptr), capacity(cap), type(ty) {
+				// we have to do this manually because the copy constructor may be deleted
+				resources.reserve(capacity);
+				for (std::uint32_t i = 0; i < capacity; ++i) {
+					resources.emplace_back(nullptr);
+				}
 			}
 
 			/// Returns \ref resource_type::swap_chain.
@@ -325,6 +385,7 @@ namespace lotus::renderer {
 			}
 
 			gpu::descriptor_set set; ///< The descriptor set.
+			const gpu::descriptor_set_layout *layout = nullptr; ///< Layout of this descriptor array.
 			std::uint32_t capacity = 0; ///< The capacity of this array.
 			/// The type of this descriptor array.
 			gpu::descriptor_type type = gpu::descriptor_type::num_enumerators;
@@ -345,12 +406,8 @@ namespace lotus::renderer {
 		struct blas : public resource {
 		public:
 			/// Initializes this structure.
-			blas(
-				short_vector<geometry_buffers_view, 1> in, std::shared_ptr<pool> p,
-				unique_resource_id i, std::u8string_view n
-			) :
-				resource(i, n), handle(nullptr), geometry(nullptr), build_sizes(uninitialized),
-				memory_pool(std::move(p)), input(std::move(in)) {
+			blas(std::shared_ptr<pool> p, unique_resource_id i, std::u8string_view n) :
+				resource(i, n), handle(nullptr), memory_pool(std::move(p)) {
 			}
 
 			/// Returns \ref resource_type::blas.
@@ -361,31 +418,15 @@ namespace lotus::renderer {
 			// these are populated when we actually build the BVH
 			gpu::bottom_level_acceleration_structure handle; ///< The acceleration structure.
 			std::shared_ptr<buffer> memory; ///< Memory for this acceleration structure.
-			/// Geometry for this acceleration structure.
-			gpu::bottom_level_acceleration_structure_geometry geometry;
-			/// Memory requirements for the acceleration structure.
-			gpu::acceleration_structure_build_sizes build_sizes;
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate the BLAS out of.
-
-			short_vector<geometry_buffers_view, 1> input; ///< Build input.
-
-			// TODO buffer references
 		};
 
 		/// A top-level acceleration structure.
 		struct tlas : public resource {
 		public:
 			/// Initializes this structure.
-			tlas(
-				std::vector<gpu::instance_description> in,
-				std::vector<std::shared_ptr<blas>> refs,
-				std::shared_ptr<pool> p,
-				unique_resource_id i,
-				std::u8string_view n
-			) :
-				resource(i, n), handle(nullptr), input_data(nullptr), build_sizes(uninitialized),
-				memory_pool(std::move(p)), input_data_token(nullptr),
-				input(std::move(in)), input_references(std::move(refs)) {
+			tlas(std::shared_ptr<pool> p, unique_resource_id i, std::u8string_view n) :
+				resource(i, n), handle(nullptr), memory_pool(std::move(p)) {
 			}
 
 			/// Returns \ref resource_type::tlas.
@@ -396,23 +437,33 @@ namespace lotus::renderer {
 			// these are populated when we actually build the BVH
 			gpu::top_level_acceleration_structure handle; ///< The acceleration structure.
 			std::shared_ptr<buffer> memory; ///< Memory for this acceleration structure.
-			/// Input BLAS's uploaded to the GPU. This may be freed manually, after which rebuilding/refitting
-			/// requires data to be copied from \ref input again.
-			gpu::buffer input_data;
-			/// Memory requirements for the acceleration structure.
-			gpu::acceleration_structure_build_sizes build_sizes;
 			/// Memory pool to allocate this TLAS out of. Input data is also allocated out of this pool.
 			std::shared_ptr<pool> memory_pool;
-			pool::token input_data_token; ///< Token for the input data buffer.
-
-			std::vector<gpu::instance_description> input; ///< Input data.
-			bool input_copied = false; ///< Whether \ref input has been copied to \ref input_data.
-			std::vector<std::shared_ptr<blas>> input_references; ///< References to all input BLAS's.
 		};
 
-		// TODO?
-		struct fence {
-			// TODO?
+		/// A dependency between commands. A dependency can be released only once, but can be acquired (waited on)
+		/// multiple times.
+		struct dependency : public resource {
+			/// Information about the command that releases this dependency.
+			struct release_info {
+				/// Initializes all fields of this struct.
+				release_info(std::uint32_t q, queue_submission_index si) : queue(q), submission_index(si) {
+				}
+
+				std::uint32_t queue; ///< Index of the queue this was released on.
+				queue_submission_index submission_index; ///< Index of the command that released this dependency.
+			};
+
+			/// Initializes the dependency.
+			dependency(unique_resource_id i, std::u8string_view name) : resource(i, name) {
+			}
+
+			/// Returns \ref resource_type::dependency.
+			[[nodiscard]] resource_type get_type() const override {
+				return resource_type::dependency;
+			}
+
+			std::optional<release_info> release_event; ///< The release event of this dependency.
 		};
 
 		/// A cached descriptor set.
@@ -844,15 +895,28 @@ namespace lotus::renderer {
 		}
 	};
 
+	/// A dependency.
+	struct dependency : public basic_resource_handle<_details::dependency> {
+		friend context;
+	public:
+		/// Initializes this object to empty.
+		dependency(std::nullptr_t) : basic_resource_handle(nullptr) {
+		}
+	private:
+		/// Initializes this dependency.
+		explicit dependency(std::shared_ptr<_details::dependency> d) : basic_resource_handle(std::move(d)) {
+		}
+	};
+
 
 	/// Describes a reference to a BLAS from a TLAS. Corresponds to the parameters of
 	/// \ref gpu::device::get_bottom_level_acceleration_structure_description().
-	struct blas_reference {
+	struct blas_instance {
 		/// Initializes this reference to empty.
-		blas_reference(std::nullptr_t) : acceleration_structure(nullptr) {
+		blas_instance(std::nullptr_t) : acceleration_structure(nullptr) {
 		}
 		/// Initializes all fields of this struct.
-		blas_reference(
+		blas_instance(
 			blas as, mat44f trans, std::uint32_t as_id, std::uint8_t as_mask, std::uint32_t hg_offset,
 			gpu::raytracing_instance_flags f
 		) :
@@ -860,7 +924,7 @@ namespace lotus::renderer {
 			id(as_id), mask(as_mask), hit_group_offset(hg_offset), flags(f) {
 		}
 
-		blas acceleration_structure; ///< The acceleration structure.
+		recorded_resources::blas acceleration_structure; ///< The acceleration structure.
 		mat44f transform = uninitialized; ///< Transform of this instance.
 		std::uint32_t id = 0; ///< ID of this instance.
 		std::uint8_t mask = 0; ///< Ray mask.
@@ -885,17 +949,21 @@ namespace lotus::renderer {
 			gpu::image_type Type
 		> basic_image_view<Type> basic_image_view<Type>::highest_mip_with_warning() const {
 			basic_image_view<Type> result = *this;
-			if (result._mip_levels.get_num_levels() != 1) {
-				if (result._ptr->num_mips - result._mip_levels.minimum > 1) {
-					auto num_levels =
-						std::min<std::uint32_t>(result._ptr->num_mips, result._mip_levels.maximum) -
-						result._mip_levels.minimum;
-					log().error(
-						"More than one ({}) mip specified for render target for texture {}",
-						num_levels, string::to_generic(result._ptr->name)
-					);
-				}
-				result._mip_levels = gpu::mip_levels::only(result._mip_levels.minimum);
+			bool warn = false;
+			if (result._mip_levels.is_tail()) {
+				crash_if(result._mip_levels.first_level >= result._ptr->num_mips);
+				warn = result._ptr->num_mips - result._mip_levels.first_level > 1;
+			} else {
+				crash_if(result._mip_levels.num_levels == 0);
+				crash_if(result._mip_levels.into_range().end > result._ptr->num_mips);
+				warn = result._mip_levels.num_levels > 1;
+			}
+			if (warn) {
+				log().error(
+					"More than one mip specified for render target for texture {}",
+					string::to_generic(result._ptr->name)
+				);
+				result._mip_levels = gpu::mip_levels::only(result._mip_levels.first_level);
 			}
 			return result;
 		}

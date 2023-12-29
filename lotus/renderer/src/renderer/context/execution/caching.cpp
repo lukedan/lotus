@@ -1,9 +1,9 @@
-#include "lotus/renderer/context/caching.h"
+#include "lotus/renderer/context/execution/caching.h"
 
 /// \file
 /// Implementation of caching functionalities
 
-namespace lotus::renderer {
+namespace lotus::renderer::execution {
 	void cache_keys::descriptor_set_layout::consolidate() {
 		std::sort(
 			ranges.begin(), ranges.end(),
@@ -44,8 +44,8 @@ namespace lotus::renderer {
 
 
 namespace std {
-	size_t hash<lotus::renderer::cache_keys::descriptor_set_layout>::operator()(
-		const lotus::renderer::cache_keys::descriptor_set_layout &key
+	size_t hash<lotus::renderer::execution::cache_keys::descriptor_set_layout>::operator()(
+		const lotus::renderer::execution::cache_keys::descriptor_set_layout &key
 	) const {
 		size_t result = lotus::compute_hash(key.type);
 		for (const auto &r : key.ranges) {
@@ -60,8 +60,8 @@ namespace std {
 	}
 
 
-	size_t hash<lotus::renderer::cache_keys::pipeline_resources>::operator()(
-		const lotus::renderer::cache_keys::pipeline_resources &key
+	size_t hash<lotus::renderer::execution::cache_keys::pipeline_resources>::operator()(
+		const lotus::renderer::execution::cache_keys::pipeline_resources &key
 	) const {
 		size_t result = 0;
 		for (const auto &s : key.sets) {
@@ -75,8 +75,8 @@ namespace std {
 	}
 
 
-	size_t hash<lotus::renderer::cache_keys::graphics_pipeline>::operator()(
-		const lotus::renderer::cache_keys::graphics_pipeline &key
+	size_t hash<lotus::renderer::execution::cache_keys::graphics_pipeline>::operator()(
+		const lotus::renderer::execution::cache_keys::graphics_pipeline &key
 	) const {
 		size_t result = lotus::compute_hash(key.pipeline_rsrc);
 		for (const auto &buf : key.input_buffers) {
@@ -105,8 +105,8 @@ namespace std {
 	}
 
 
-	size_t hash<lotus::renderer::cache_keys::raytracing_pipeline>::operator()(
-		const lotus::renderer::cache_keys::raytracing_pipeline &key
+	size_t hash<lotus::renderer::execution::cache_keys::raytracing_pipeline>::operator()(
+		const lotus::renderer::execution::cache_keys::raytracing_pipeline &key
 	) const {
 		size_t result = lotus::compute_hash(key.pipeline_rsrc);
 		for (const auto &hg : key.hit_group_shaders) {
@@ -129,7 +129,7 @@ namespace std {
 }
 
 
-namespace lotus::renderer {
+namespace lotus::renderer::execution {
 	const gpu::sampler &context_cache::get_sampler(const cache_keys::sampler &key) {
 		auto [it, inserted] = _samplers.try_emplace(key, nullptr);
 		if (inserted) {

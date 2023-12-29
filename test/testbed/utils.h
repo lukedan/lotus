@@ -64,7 +64,7 @@ public:
 
 
 	void flush(
-		lotus::renderer::context&, lotus::renderer::context::queue&,
+		lotus::renderer::context&, lotus::renderer::context::queue&, lotus::renderer::constant_uploader&,
 		lotus::renderer::image2d_color, lotus::renderer::image2d_depth_stencil, lotus::cvec2u32 size
 	);
 

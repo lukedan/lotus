@@ -318,7 +318,7 @@ namespace lotus::renderer::fbx {
 				);
 				position_inputs.emplace_back(assets::geometry::input_buffer::create_simple(
 					gpu::format::r32g32b32_float, 0,
-					_asset_manager.create_buffer(
+					_asset_manager.create_typed_buffer(
 						assets::identifier(file, std::u8string(string::assume_utf8(vert_buffer_name))),
 						std::span(in),
 						gpu::buffer_usage_mask::copy_destination |
@@ -338,7 +338,7 @@ namespace lotus::renderer::fbx {
 				} else {
 					normal_inputs.emplace_back(assets::geometry::input_buffer::create_simple(
 						gpu::format::r32g32b32_float, 0,
-						_asset_manager.create_buffer(
+						_asset_manager.create_typed_buffer(
 							assets::identifier(file, std::u8string(string::assume_utf8(normal_buffer_name))),
 							std::span(in),
 							gpu::buffer_usage_mask::copy_destination |
@@ -358,7 +358,7 @@ namespace lotus::renderer::fbx {
 				} else {
 					uv_inputs.emplace_back(assets::geometry::input_buffer::create_simple(
 						gpu::format::r32g32_float, 0,
-						_asset_manager.create_buffer(
+						_asset_manager.create_typed_buffer(
 							assets::identifier(file, std::u8string(string::assume_utf8(uv_buffer_name))),
 							std::span(in),
 							gpu::buffer_usage_mask::copy_destination |
@@ -376,7 +376,7 @@ namespace lotus::renderer::fbx {
 				if (in.empty()) {
 					index_inputs.emplace_back(nullptr);
 				} else {
-					index_inputs.emplace_back(_asset_manager.create_buffer(
+					index_inputs.emplace_back(_asset_manager.create_typed_buffer(
 						assets::identifier(file, std::u8string(string::assume_utf8(index_buffer_name))),
 						std::span(in),
 						gpu::buffer_usage_mask::copy_destination |

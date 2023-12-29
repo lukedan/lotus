@@ -84,14 +84,6 @@ namespace lotus::renderer::_details {
 		}
 		_collect_single_descriptor(bindings, buf, bd);
 	}
-	/// Collects a constant buffer binding.
-	static void _collect_binding(
-		numbered_bindings &bindings,
-		descriptor_resource::immediate_constant_buffer buf, const gpu::shader_resource_binding &bd
-	) {
-		crash_if(bd.register_count != 1 || bd.type != gpu::descriptor_type::constant_buffer);
-		_collect_single_descriptor(bindings, std::move(buf), bd);
-	}
 	/// Collects a TLAS binding.
 	static void _collect_binding(
 		numbered_bindings &bindings,

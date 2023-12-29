@@ -16,8 +16,10 @@ namespace lotus::renderer {
 		/// Template for resources that requires only one pointer to a type.
 		template <typename Resource> struct basic_handle {
 			friend context;
-			friend execution::transition_buffer;
-			friend execution::context;
+			friend execution::descriptor_set_builder;
+			friend execution::queue_context;
+			friend execution::queue_pseudo_context;
+			friend execution::batch_context;
 		public:
 			/// Initializes this resource handle to empty.
 			basic_handle(std::nullptr_t) {
@@ -43,8 +45,9 @@ namespace lotus::renderer {
 			public basic_handle<_details::image_data_t<Type>> {
 
 			friend context;
-			friend execution::transition_buffer;
-			friend execution::context;
+			friend execution::batch_context;
+			friend execution::queue_context;
+			friend execution::queue_pseudo_context;
 		public:
 			/// Initializes this struct to empty.
 			basic_image_view(std::nullptr_t) : _base(nullptr), _mip_levels(gpu::mip_levels::all()) {
@@ -68,8 +71,10 @@ namespace lotus::renderer {
 		/// \ref renderer::structured_buffer_view.
 		struct structured_buffer_view : public basic_handle<_details::buffer> {
 			friend context;
-			friend execution::transition_buffer;
-			friend execution::context;
+			friend execution::batch_context;
+			friend execution::queue_context;
+			friend execution::queue_pseudo_context;
+			friend execution::descriptor_set_builder;
 		public:
 			/// Initializes this struct to empty.
 			structured_buffer_view(std::nullptr_t) : basic_handle(nullptr) {
@@ -93,6 +98,9 @@ namespace lotus::renderer {
 
 		/// \ref renderer::cached_descriptor_set.
 		using cached_descriptor_set = basic_handle<_details::cached_descriptor_set>;
+
+		/// \ref renderer::dependency.
+		using dependency = basic_handle<_details::dependency>;
 
 
 		/// Type mapping from non-recorded resources.
@@ -288,25 +296,6 @@ namespace lotus::renderer {
 			recorded_resources::structured_buffer_view data; ///< Buffer data.
 			buffer_binding_type binding_type = buffer_binding_type::read_only; ///< Usage of the bound buffer.
 		};
-		/// Constant buffer with data that will be copied to VRAM when a command list is executed.
-		struct immediate_constant_buffer {
-			using storage = short_vector<std::byte, 39>; ///< Storage type.
-
-			/// Initializes all fields of this struct.
-			explicit immediate_constant_buffer(storage d) : data(std::move(d)) {
-			}
-			/// Creates a buffer with data from the given object.
-			template <typename T> [[nodiscard]] inline static std::enable_if_t<
-				std::is_trivially_copyable_v<std::decay_t<T>>, immediate_constant_buffer
-			> create_for(const T &obj) {
-				constexpr std::size_t size = sizeof(std::decay_t<T>);
-				storage data(size);
-				std::memcpy(data.data(), &obj, size);
-				return immediate_constant_buffer(std::move(data));
-			}
-
-			storage data; ///< Constant buffer data.
-		};
 	}
 
 	/// All resource bindings.
@@ -319,7 +308,6 @@ namespace lotus::renderer {
 				recorded_resources::swap_chain,
 				descriptor_resource::constant_buffer,
 				descriptor_resource::structured_buffer,
-				descriptor_resource::immediate_constant_buffer,
 				recorded_resources::tlas,
 				sampler_state
 			>; ///< Contents of the binding.
@@ -366,7 +354,6 @@ namespace lotus::renderer {
 				recorded_resources::swap_chain,
 				descriptor_resource::constant_buffer,
 				descriptor_resource::structured_buffer,
-				descriptor_resource::immediate_constant_buffer,
 				recorded_resources::tlas,
 				sampler_state,
 				recorded_resources::image_descriptor_array,

@@ -3,6 +3,7 @@
 #include <vector>
 
 #include <lotus/math/constants.h>
+#include <lotus/renderer/context/constant_uploader.h>
 
 #include <lotus/renderer/shader_types_include_wrapper.h>
 namespace shader_types {
@@ -241,7 +242,7 @@ void debug_render::draw_system(lotus::physics::engine &engine) {
 }
 
 void debug_render::flush(
-	lotus::renderer::context &rctx, lotus::renderer::context::queue &q,
+	lotus::renderer::context &rctx, lotus::renderer::context::queue &q, lotus::renderer::constant_uploader &uploader,
 	lotus::renderer::image2d_color frame_buffer, lotus::renderer::image2d_depth_stencil depth_buffer, lotus::cvec2u32 size
 ) {
 	auto upload_data_buffer = [&](lotus::gpu::buffer_usage_mask usages, std::span<const std::byte> data, std::u8string_view name) -> lotus::renderer::buffer {
@@ -285,7 +286,7 @@ void debug_render::flush(
 			lotus::renderer::index_buffer_binding(mesh_idx_buf, 0, lotus::gpu::index_format::uint32), mesh_indices.size(),
 			lotus::gpu::primitive_topology::triangle_list,
 			lotus::renderer::all_resource_bindings({}, {
-				{ u8"constants", lotus::renderer::descriptor_resource::immediate_constant_buffer::create_for(constants) },
+				{ u8"constants", uploader.upload(constants) },
 			}),
 			ctx->default_shader_vs, ctx->default_shader_ps,
 			pipeline_state,
@@ -301,7 +302,7 @@ void debug_render::flush(
 			lotus::renderer::index_buffer_binding(line_idx_buf, 0, lotus::gpu::index_format::uint32), line_indices.size(),
 			lotus::gpu::primitive_topology::line_list,
 			lotus::renderer::all_resource_bindings({}, {
-				{ u8"constants", lotus::renderer::descriptor_resource::immediate_constant_buffer::create_for(constants) },
+				{ u8"constants", uploader.upload(constants) },
 			}),
 			ctx->default_shader_vs, ctx->default_shader_ps,
 			pipeline_state,
@@ -317,7 +318,7 @@ void debug_render::flush(
 			nullptr, 0,
 			lotus::gpu::primitive_topology::point_list,
 			lotus::renderer::all_resource_bindings({}, {
-				{ u8"constants", lotus::renderer::descriptor_resource::immediate_constant_buffer::create_for(constants) },
+				{ u8"constants", uploader.upload(constants) },
 			}),
 			ctx->default_shader_vs, ctx->default_shader_ps,
 			pipeline_state,

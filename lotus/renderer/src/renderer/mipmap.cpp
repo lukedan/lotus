@@ -19,11 +19,8 @@ namespace lotus::renderer::mipmap {
 	}
 
 	void generator::generate_all(image2d_view img) {
-		auto mips = gpu::mip_levels::intersection(
-			gpu::mip_levels::create(0, img.get_num_mip_levels()),
-			img.get_viewed_mip_levels()
-		);
-		for (std::uint32_t i = mips.minimum + 1; i < mips.maximum; ++i) {
+		const auto mips = img.get_viewed_mip_levels().into_range_with_count(img.get_num_mip_levels());
+		for (std::uint32_t i = mips.begin + 1; i < mips.end; ++i) {
 			all_resource_bindings rsrc(
 				{
 					{ 0, {

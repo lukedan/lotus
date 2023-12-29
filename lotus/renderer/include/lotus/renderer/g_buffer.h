@@ -4,6 +4,7 @@
 /// Renders geometry onto a G-buffer.
 
 #include "context/context.h"
+#include "context/constant_uploader.h"
 
 namespace lotus::renderer::g_buffer {
 	/// Storage for the G-buffer.
@@ -62,12 +63,14 @@ namespace lotus::renderer::g_buffer {
 	);
 	/// Renders the given instances in the given pass.
 	void render_instances(
-		context::pass&, std::span<const instance>, std::span<const instance_render_details>,
+		context::pass&, constant_uploader&,
+		std::span<const instance>, std::span<const instance_render_details>,
 		descriptor_resource::constant_buffer view_data
 	);
 	/// \overload
 	void render_instances(
-		context::pass&, assets::manager&, std::span<const instance>,
+		context::pass&, constant_uploader&,
+		assets::manager&, std::span<const instance>,
 		descriptor_resource::constant_buffer view_data
 	);
 }

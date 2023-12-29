@@ -40,10 +40,10 @@ public:
 
 		geom.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(blases.size()));
 
-		auto &blas = blases.emplace_back(rctx.request_blas(
-			geom.get().get_id().subpath, { geom->get_geometry_buffers_view(lgpu::raytracing_geometry_flags::opaque) }, as_pool
-		));
-		q.build_blas(blas, u8"Build BLAS");
+		auto &blas = blases.emplace_back(rctx.request_blas(geom.get().get_id().subpath, as_pool));
+		q.build_blas(
+			blas, { geom->get_geometry_buffers_view(lgpu::raytracing_geometry_flags::opaque) }, u8"Build BLAS"
+		);
 
 		auto &inst = geometries.emplace_back();
 		if (geom->index_buffer) {
@@ -168,8 +168,8 @@ public:
 	void finish_loading() {
 		auto &rctx = _assets.get_context();
 
-		tlas = rctx.request_tlas(u8"TLAS", tlas_instances, as_pool);
-		q.build_tlas(tlas, u8"Build TLAS");
+		tlas = rctx.request_tlas(u8"TLAS", as_pool);
+		q.build_tlas(tlas, tlas_instances, u8"Build TLAS");
 
 		auto geom_buf = rctx.request_buffer(
 			u8"Geometry buffer",
@@ -177,7 +177,7 @@ public:
 			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
-		q.upload_buffer<shader_types::geometry_data>(geom_buf, geometries, 0, u8"Upload geometry buffer");
+		_assets.upload_typed_buffer<shader_types::geometry_data>(q, geom_buf, geometries);
 		geometries_buffer = geom_buf.get_view<shader_types::geometry_data>(0, geometries.size());
 
 		if (materials.empty()) {
@@ -189,7 +189,7 @@ public:
 			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
-		q.upload_buffer<lren::shader_types::generic_pbr_material::material>(mat_buf, materials, 0, u8"Upload material buffer");
+		_assets.upload_typed_buffer<lren::shader_types::generic_pbr_material::material>(q, mat_buf, materials);
 		materials_buffer = mat_buf.get_view<lren::shader_types::generic_pbr_material::material>(0, materials.size());
 
 		if (instance_data.empty()) {
@@ -201,7 +201,7 @@ public:
 			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
-		q.upload_buffer<shader_types::rt_instance_data>(inst_buf, instance_data, 0, u8"Upload instance buffer");
+		_assets.upload_typed_buffer<shader_types::rt_instance_data>(q, inst_buf, instance_data);
 		instances_buffer = inst_buf.get_view<shader_types::rt_instance_data>(0, instance_data.size());
 
 		if (lights.empty()) {
@@ -213,7 +213,7 @@ public:
 			lgpu::buffer_usage_mask::copy_destination | lgpu::buffer_usage_mask::shader_read,
 			geom_buffer_pool
 		);
-		q.upload_buffer<lren::shader_types::light>(light_buf, lights, 0, u8"Upload lights buffer");
+		_assets.upload_typed_buffer<lren::shader_types::light>(q, light_buf, lights);
 		lights_buffer = light_buf.get_view<lren::shader_types::light>(0, lights.size());
 
 		gbuffer_instance_render_details = lren::g_buffer::get_instance_render_details(_assets, instances);
@@ -227,7 +227,7 @@ public:
 
 	std::vector<lren::instance> instances;
 	std::vector<lren::instance_render_details> gbuffer_instance_render_details;
-	std::vector<lren::blas_reference> tlas_instances;
+	std::vector<lren::blas_instance> tlas_instances;
 	std::vector<lren::assets::handle<lren::assets::material>> material_assets;
 	std::vector<lren::shader_types::generic_pbr_material::material> materials;
 	std::vector<lren::shader_types::light> lights;

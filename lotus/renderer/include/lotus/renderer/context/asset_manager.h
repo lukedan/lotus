@@ -51,22 +51,37 @@ namespace lotus::renderer {
 				}
 				return nullptr;
 			}
+			/// Uploads any data to any generic buffer using the specified queue.
+			void upload_buffer(
+				renderer::context::queue&,
+				const renderer::buffer&,
+				std::span<const std::byte> data,
+				std::uint32_t offset = 0
+			);
+			/// Wrapper for \ref upload_buffer() with typed contents.
+			template <
+				typename T, std::enable_if_t<std::is_trivially_copyable_v<std::decay_t<T>>, int> = 0
+			> void upload_typed_buffer(
+				renderer::context::queue &q,
+				const renderer::buffer &buf,
+				std::span<const T> contents,
+				std::uint32_t offset_bytes = 0
+			) {
+				auto *ptr = reinterpret_cast<const std::byte*>(contents.data());
+				return upload_buffer(q, buf, { ptr, ptr + contents.size_bytes() }, offset_bytes);
+			}
 			/// Creates a buffer with the given contents and usage mask.
 			[[nodiscard]] handle<buffer> create_buffer(
 				identifier, std::span<const std::byte>, gpu::buffer_usage_mask, const pool&
 			);
-			/// \overload
+			/// Wrapper for \ref create_buffer() with typed contents.
 			template <typename T> [[nodiscard]] std::enable_if_t<
 				std::is_trivially_copyable_v<std::decay_t<T>>, handle<buffer>
-			> create_buffer(identifier id, std::span<T> contents, gpu::buffer_usage_mask usages, const pool &p) {
-				return create_buffer(
-					std::move(id),
-					std::span<const std::byte>(
-						reinterpret_cast<const std::byte*>(contents.data()), contents.size_bytes()
-					),
-					usages,
-					p
-				);
+			> create_typed_buffer(
+				identifier id, std::span<const T> contents, gpu::buffer_usage_mask usages, const pool &p
+			) {
+				auto *ptr = reinterpret_cast<const std::byte*>(contents.data());
+				return create_buffer(std::move(id), { ptr, ptr + contents.size_bytes() }, usages, p);
 			}
 
 			/// Compiles and loads the given shader. \ref identifier::subpath contains first the profile of the
@@ -187,7 +202,9 @@ namespace lotus::renderer {
 			}
 
 			/// Updates resource loading.
-			void update();
+			///
+			/// \return A dependency that any other queue should wait for before using the newly loaded resources.
+			[[nodiscard]] dependency update();
 
 			/// Returns the \ref context this manager is associated with.
 			[[nodiscard]] context &get_context() const {
@@ -375,6 +392,7 @@ namespace lotus::renderer {
 
 			context &_context; ///< Associated context.
 			context::queue _upload_queue; ///< Queue used for uploading resources.
+			pool _upload_staging_pool; ///< Memory pool used for staging uploads.
 			gpu::shader_utility *_shader_utilities = nullptr; ///< Used for compiling shaders.
 
 			_async_loader _image_loader; ///< Loader for images.

@@ -13,7 +13,8 @@
 namespace lotus::renderer {
 	// forward declaration
 	namespace _details {
-		template <gpu::image_type> struct image_base;
+		struct image_base;
+		template <gpu::image_type> struct typed_image_base;
 		struct image2d;
 		struct image3d;
 		struct buffer;
@@ -23,6 +24,7 @@ namespace lotus::renderer {
 		struct blas;
 		struct tlas;
 		struct cached_descriptor_set;
+		struct dependency;
 
 		/// Image data type associated with a specific \ref gpu::image_type.
 		template <gpu::image_type> struct image_data;
@@ -75,6 +77,7 @@ namespace lotus::renderer {
 	struct blas;
 	struct tlas;
 	struct cached_descriptor_set;
+	struct dependency;
 
 	namespace assets {
 		class manager;
@@ -89,9 +92,15 @@ namespace lotus::renderer {
 	}
 
 	namespace execution {
-		class context;
-		class transition_buffer;
+		struct descriptor_set_builder;
+		class batch_context;
+		class queue_context;
+		class queue_pseudo_context;
+		namespace manual_dependencies {
+			struct queue_analysis;
+		}
 	}
+	// end of forward declaration
 
 
 	/// Indicates whether debug names would be registered for resources.
@@ -132,34 +141,65 @@ namespace lotus::renderer {
 		blas,                     ///< A bottom-level descriptor array.
 		tlas,                     ///< A top-level descriptor array.
 		cached_descriptor_set,    ///< A descriptor set that has been cached.
+		dependency,               ///< Dependency between commands.
 
 		num_enumerators ///< Number of enumerators.
 	};
 
+	/// Used to uniquely identify a resource.
+	enum class unique_resource_id : std::uint64_t {
+		invalid = 0 ///< An invalid ID.
+	};
+	/// Used to mark the order of commands globally (i.e., between batches).
+	enum class global_submission_index : std::uint32_t {
+		zero = 0, ///< Zero.
+		/// Maximum numeric value.
+		max = std::numeric_limits<std::underlying_type_t<global_submission_index>>::max(),
+	};
+	/// Used to mark the order of comands on a single queue within a batch.
+	enum class queue_submission_index : std::uint32_t {
+		zero = 0, ///< Zero.
+		invalid = std::numeric_limits<std::underlying_type_t<queue_submission_index>>::max() ///< Invalid index.
+	};
+
 
 	namespace _details {
-		/// Indicates how an image is accessed.
+		/// Returns the next queue index.
+		[[nodiscard]] inline queue_submission_index next(queue_submission_index idx) {
+			return static_cast<queue_submission_index>(std::to_underlying(idx) + 1);
+		}
+		/// Returns the next global index.
+		[[nodiscard]] inline global_submission_index next(global_submission_index idx) {
+			return static_cast<global_submission_index>(std::to_underlying(idx) + 1);
+		}
+
+		/// Records how a command accesses an image.
 		struct image_access {
 			/// No initialization.
-			image_access(uninitialized_t) {
+			image_access(uninitialized_t) : subresource_range(uninitialized) {
 			}
 			/// Initializes all fields of this struct.
 			constexpr image_access(
-				gpu::synchronization_point_mask sp, gpu::image_access_mask m, gpu::image_layout l
-			) : sync_points(sp), access(m), layout(l) {
+				gpu::subresource_range sub_range,
+				gpu::synchronization_point_mask sp,
+				gpu::image_access_mask m,
+				gpu::image_layout l
+			) : subresource_range(sub_range), sync_points(sp), access(m), layout(l) {
 			}
 			/// Returns an object that corresponds to the initial state of a resource.
 			[[nodiscard]] constexpr inline static image_access initial() {
 				return image_access(
-					gpu::synchronization_point_mask::none, gpu::image_access_mask::none, gpu::image_layout::undefined
+					gpu::subresource_range::empty(),
+					gpu::synchronization_point_mask::none,
+					gpu::image_access_mask::none,
+					gpu::image_layout::undefined
 				);
 			}
 
-			/// Default comparisons.
-			[[nodiscard]] friend std::strong_ordering operator<=>(
-				const image_access&, const image_access&
-			) = default;
+			/// Default equality comparison.
+			[[nodiscard]] friend bool operator==(const image_access&, const image_access&) = default;
 
+			gpu::subresource_range subresource_range; ///< The range of subresources that are accessed.
 			gpu::synchronization_point_mask sync_points; ///< Where this resource is accessed.
 			gpu::image_access_mask access; ///< How this resource is accessed.
 			gpu::image_layout layout; ///< Layout of this image.
@@ -170,22 +210,38 @@ namespace lotus::renderer {
 			buffer_access(uninitialized_t) {
 			}
 			/// Initializes all fields of this struct.
-			constexpr buffer_access(gpu::synchronization_point_mask sp, gpu::buffer_access_mask m) :
-				sync_points(sp), access(m) {
+			constexpr buffer_access(
+				gpu::synchronization_point_mask sp, gpu::buffer_access_mask m
+			) : sync_points(sp), access(m) {
 			}
 			/// Returns an object that corresponds to the initial state of a resource.
 			[[nodiscard]] constexpr inline static buffer_access initial() {
 				return buffer_access(gpu::synchronization_point_mask::none, gpu::buffer_access_mask::none);
 			}
 
-			/// Default comparisons.
-			[[nodiscard]] friend std::strong_ordering operator<=>(
-				const buffer_access&, const buffer_access&
-			) = default;
+			/// Default equality comparison.
+			[[nodiscard]] friend bool operator==(const buffer_access&, const buffer_access&) = default;
 
 			gpu::synchronization_point_mask sync_points; ///< Where this resource is accessed.
 			gpu::buffer_access_mask access; ///< How this resource is accessed.
 		};
+
+		/// Records an access event, including how a resource is accessed and when it happened.
+		template <typename Access> struct basic_access_event {
+			/// No initialization.
+			basic_access_event(uninitialized_t) : access(uninitialized) {
+			}
+			/// Initializes all fields of this struct.
+			constexpr basic_access_event(Access acc, global_submission_index gi, queue_submission_index qi) :
+				access(acc), global_index(gi), queue_index(qi) {
+			}
+
+			Access access; ///< How the resource is accessed.
+			global_submission_index global_index; ///< Global submission index associated with the event.
+			queue_submission_index queue_index; ///< Queue submission index associated with the event.
+		};
+		using image_access_event = basic_access_event<image_access>; ///< Shorthand for image access events.
+		using buffer_access_event = basic_access_event<buffer_access>; ///< Shorthand for buffer access events.
 	}
 
 

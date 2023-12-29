@@ -103,7 +103,7 @@ namespace lotus::renderer::gltf {
 			}
 		}
 
-		return man.create_buffer(std::move(id), std::span(data.begin(), data.end()), usage_mask, p);
+		return man.create_typed_buffer<T>(std::move(id), data, usage_mask, p);
 	}
 	/// Wrapper around \ref _load_data_buffer() that loads an \ref assets::geometry::input_buffer.
 	template <typename T> static assets::geometry::input_buffer _load_input_buffer(

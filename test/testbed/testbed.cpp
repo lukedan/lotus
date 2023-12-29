@@ -220,7 +220,12 @@ protected:
 		ImGui::End();
 	}
 
-	void _process_frame() override {
+	void _process_frame(lotus::renderer::dependency constants_dep, lotus::renderer::dependency asset_dep) override {
+		_gfx_q.acquire_dependency(constants_dep, u8"Wait for constants");
+		if (asset_dep) {
+			_gfx_q.acquire_dependency(asset_dep, u8"Wait for assets");
+		}
+
 		update();
 		render();
 	}
@@ -231,13 +236,16 @@ protected:
 		_test_context.update_camera();
 	}
 
-	constexpr static lotus::gpu::queue_type _queues[] = { lotus::gpu::queue_type::graphics };
+	constexpr static lotus::gpu::queue_type _queues[] = { lotus::gpu::queue_type::graphics, lotus::gpu::queue_type::copy };
 
 	std::span<const lotus::gpu::queue_type> _get_desired_queues() const override {
 		return _queues;
 	}
 	std::uint32_t _get_asset_loading_queue_index() const override {
-		return 0;
+		return 1;
+	}
+	std::uint32_t _get_constant_upload_queue_index() const override {
+		return 1;
 	}
 	std::uint32_t _get_debug_drawing_queue_index() const override {
 		return 0;

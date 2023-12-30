@@ -177,15 +177,10 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_pseudo_context::_pseudo_execute(const commands::build_blas &cmd) {
-		_pseudo_use_buffer(
-			*cmd.target._ptr->memory,
-			_details::buffer_access(
-				gpu::synchronization_point_mask::acceleration_structure_build,
-				gpu::buffer_access_mask::acceleration_structure_write
-			),
-			_pseudo_execution_current_command_range()
-		);
+		std::vector<gpu::raytracing_geometry_view> gpu_geoms; // TODO allocator
+
 		for (auto &input : cmd.geometry) {
+			// mark input buffer memory usage
 			_pseudo_use_buffer(
 				*input.vertex_data._ptr,
 				_details::buffer_access(
@@ -204,10 +199,22 @@ namespace lotus::renderer::execution {
 					_pseudo_execution_current_command_range()
 				);
 			}
-		}
-	}
 
-	void queue_pseudo_context::_pseudo_execute(const commands::build_tlas &cmd) {
+			// collect geometry without actual buffers
+			gpu_geoms.emplace_back(_get_vertex_buffer_view(input), _get_index_buffer_view(input), input.flags);
+		}
+
+		// initialize memory for the BLAS
+		auto baked_gpu_geoms = _q.ctx._device.create_bottom_level_acceleration_structure_geometry(gpu_geoms);
+		const auto build_sizes = _q.ctx._device.get_bottom_level_acceleration_structure_build_sizes(baked_gpu_geoms);
+		cmd.target._ptr->memory = _q.ctx._request_buffer_raw(
+			u8"BLAS memory", // TODO more descriptive name
+			build_sizes.acceleration_structure_size,
+			gpu::buffer_usage_mask::acceleration_structure,
+			cmd.target._ptr->memory_pool
+		);
+
+		// mark BLAS memory usage
 		_pseudo_use_buffer(
 			*cmd.target._ptr->memory,
 			_details::buffer_access(
@@ -216,6 +223,9 @@ namespace lotus::renderer::execution {
 			),
 			_pseudo_execution_current_command_range()
 		);
+	}
+
+	void queue_pseudo_context::_pseudo_execute(const commands::build_tlas &cmd) {
 		for (const auto &input : cmd.instances) {
 			_pseudo_use_buffer(
 				*input.acceleration_structure._ptr->memory,
@@ -226,6 +236,26 @@ namespace lotus::renderer::execution {
 				_pseudo_execution_current_command_range()
 			);
 		}
+
+		// initialize memory for the TLAS
+		const auto build_sizes =
+			_q.ctx._device.get_top_level_acceleration_structure_build_sizes(cmd.instances.size());
+		cmd.target._ptr->memory = _q.ctx._request_buffer_raw(
+			u8"TLAS memory", // TODO more descriptive name
+			build_sizes.acceleration_structure_size,
+			gpu::buffer_usage_mask::acceleration_structure,
+			cmd.target._ptr->memory_pool
+		);
+
+		// mark TLAS memory usage
+		_pseudo_use_buffer(
+			*cmd.target._ptr->memory,
+			_details::buffer_access(
+				gpu::synchronization_point_mask::acceleration_structure_build,
+				gpu::buffer_access_mask::acceleration_structure_write
+			),
+			_pseudo_execution_current_command_range()
+		);
 	}
 
 	void queue_pseudo_context::_pseudo_execute(const commands::begin_pass &cmd) {
@@ -658,5 +688,19 @@ namespace lotus::renderer::execution {
 
 	batch_resolve_data::queue_data &queue_pseudo_context::_get_queue_resolve_data() {
 		return _batch_ctx.get_batch_resolve_data().queues[_get_queue_index()];
+	}
+
+	gpu::vertex_buffer_view queue_pseudo_context::_get_vertex_buffer_view(const geometry_buffers_view &v) {
+		return gpu::vertex_buffer_view(
+			v.vertex_data._ptr->data, v.vertex_format, v.vertex_offset, v.vertex_stride, v.vertex_count
+		);
+	}
+
+	/// Returns all properties of the index buffer of the \ref geometry_buffers_view.
+	gpu::index_buffer_view queue_pseudo_context::_get_index_buffer_view(const geometry_buffers_view &v) {
+		if (!v.index_data) {
+			return nullptr;
+		}
+		return gpu::index_buffer_view(v.index_data._ptr->data, v.index_format, v.index_offset, v.index_count);
 	}
 }

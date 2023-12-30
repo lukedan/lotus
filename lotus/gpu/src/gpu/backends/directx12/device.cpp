@@ -574,7 +574,7 @@ namespace lotus::gpu::backends::directx12 {
 		if (desc.Properties.Type == D3D12_HEAP_TYPE_DEFAULT) {
 			desc.Flags = D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES | D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;
 		} else {
-			desc.Flags = D3D12_HEAP_FLAG_DENY_RT_DS_TEXTURES;
+			desc.Flags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
 		}
 		_details::assert_dx(_device->CreateHeap(&desc, IID_PPV_ARGS(&result._heap)));
 		return result;
@@ -944,12 +944,14 @@ namespace lotus::gpu::backends::directx12 {
 			desc.Triangles.Transform3x4               = 0;
 			desc.Triangles.VertexFormat               = _details::conversions::to_format(vert.vertex_format);
 			desc.Triangles.VertexCount                = static_cast<UINT>(vert.count);
-			desc.Triangles.VertexBuffer.StartAddress  = vert.data->_buffer->GetGPUVirtualAddress() + vert.offset;
+			desc.Triangles.VertexBuffer.StartAddress  =
+				vert.data->is_valid() ? vert.data->_buffer->GetGPUVirtualAddress() + vert.offset : 0xDEADBEEF;
 			desc.Triangles.VertexBuffer.StrideInBytes = vert.stride;
-			if (idx.data) {
+			if (idx.count > 0) {
 				desc.Triangles.IndexFormat = _details::conversions::to_format(idx.element_format);
 				desc.Triangles.IndexCount  = static_cast<UINT>(idx.count);
-				desc.Triangles.IndexBuffer = idx.data->_buffer->GetGPUVirtualAddress() + idx.offset;
+				desc.Triangles.IndexBuffer =
+					idx.data->is_valid() ? idx.data->_buffer->GetGPUVirtualAddress() + idx.offset : 0xDEADBEEF;
 			} else {
 				desc.Triangles.IndexFormat = DXGI_FORMAT_UNKNOWN;
 				desc.Triangles.IndexCount  = 0;

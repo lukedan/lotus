@@ -576,6 +576,15 @@ namespace lotus::renderer {
 		}
 
 
+		/// Requests a buffer.
+		[[nodiscard]] std::shared_ptr<_details::buffer> _request_buffer_raw(
+			std::u8string_view name,
+			std::uint32_t size_bytes,
+			gpu::buffer_usage_mask,
+			const std::shared_ptr<_details::pool>&
+		);
+
+
 		/// Allocates and creates the backing image for the image resource.
 		void _maybe_initialize_image(_details::image2d&);
 		/// Allocates and creates the backing image for the image resource.

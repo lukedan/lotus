@@ -12,6 +12,9 @@ namespace lotus::renderer::execution {
 		early_statistics(zero),
 		_batch_ctx(batch_ctx),
 		_q(q) {
+
+		_image_transitions.resize(q.batch_commands.size());
+		_buffer_transitions.resize(q.batch_commands.size());
 	}
 
 	void queue_context::start_execution() {

@@ -1058,14 +1058,22 @@ namespace lotus::gpu::backends::vulkan {
 				.setFlags(_details::conversions::to_geometry_flags(view.flags));
 			geom.geometry.triangles
 				.setVertexFormat(_details::conversions::to_format(vert.vertex_format))
-				.setVertexData(_device->getBufferAddress(vert.data->_buffer.get()) + vert.offset)
+				.setVertexData(
+					vert.data->is_valid() ?
+					_device->getBufferAddress(vert.data->_buffer.get()) + vert.offset :
+					0xDEADBEEF
+				)
 				.setVertexStride(vert.stride)
 				.setMaxVertex(static_cast<std::uint32_t>(vert.count))
 				.setTransformData(nullptr);
-			if (index.data) {
+			if (index.count > 0) {
 				geom.geometry.triangles
 					.setIndexType(_details::conversions::to_index_type(index.element_format))
-					.setIndexData(_device->getBufferAddress(index.data->_buffer.get()) + index.offset);
+					.setIndexData(
+						index.data->is_valid() ?
+						_device->getBufferAddress(index.data->_buffer.get()) + index.offset :
+						0xDEADBEEF
+					);
 				result._pimitive_counts.emplace_back(static_cast<std::uint32_t>(index.count / 3));
 			} else {
 				geom.geometry.triangles

@@ -46,9 +46,11 @@ namespace lotus::renderer {
 			_ptr = _ctx.map_buffer(_current_upload_buffer);
 		}
 
-		std::memcpy(_ptr + _watermark, data.data(), data.size());
+		const auto old_watermark = _watermark;
 		const auto alignment = _ctx.get_adapter_properties().constant_buffer_alignment;
 		_watermark = static_cast<std::uint32_t>(memory::align_up(_watermark + data_size, alignment));
+		std::memcpy(_ptr + old_watermark, data.data(), data.size());
+		return descriptor_resource::constant_buffer(_current_constant_buffer, old_watermark, data_size);
 	}
 
 	void constant_uploader::end_frame(dependency dep) {

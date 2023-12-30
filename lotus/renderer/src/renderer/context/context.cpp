@@ -313,9 +313,7 @@ namespace lotus::renderer {
 	buffer context::request_buffer(
 		std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask usages, const pool &p
 	) {
-		auto *buf = new _details::buffer(size_bytes, usages, p._ptr, _queues.size(), _allocate_resource_id(), name);
-		auto buf_ptr = std::shared_ptr<_details::buffer>(buf, _details::context_managed_deleter(*this));
-		return buffer(std::move(buf_ptr));
+		return buffer(_request_buffer_raw(name, size_bytes, usages, p._ptr));
 	}
 
 	staging_buffer context::request_staging_buffer(std::u8string_view name, cvec2u32 size, gpu::format fmt) {
@@ -516,7 +514,18 @@ namespace lotus::renderer {
 	void context::flush_mapped_buffer_to_device(buffer &buf, std::size_t begin, std::size_t length) {
 		// TODO check that this buffer is not being used by the device?
 		_device.flush_mapped_buffer_to_device(buf._ptr->data, begin, length);
-		// TODO mark this buffer as CPU written?
+		// mark this buffer as CPU written
+		buf._ptr->previous_modification = {
+			0,
+			_details::buffer_access_event(
+				_details::buffer_access(
+					gpu::synchronization_point_mask::cpu_access,
+					gpu::buffer_access_mask::cpu_write
+				),
+				_sub_index,
+				queue_submission_index::zero
+			)
+		};
 	}
 
 	void context::flush_mapped_buffer_to_host(buffer &buf, std::size_t begin, std::size_t length) {
@@ -633,6 +642,16 @@ namespace lotus::renderer {
 				_readback_memory_index = type.first;
 			}
 		}
+	}
+
+	std::shared_ptr<_details::buffer> context::_request_buffer_raw(
+		std::u8string_view name,
+		std::uint32_t size_bytes,
+		gpu::buffer_usage_mask usages,
+		const std::shared_ptr<_details::pool> &pool
+	) {
+		auto *buf = new _details::buffer(size_bytes, usages, pool, _queues.size(), _allocate_resource_id(), name);
+		return std::shared_ptr<_details::buffer>(buf, _details::context_managed_deleter(*this));
 	}
 
 	void context::_maybe_initialize_image(_details::image2d &img) {

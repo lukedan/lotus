@@ -204,5 +204,11 @@ namespace lotus::renderer::execution {
 		[[nodiscard]] std::uint32_t _get_queue_index() const;
 		/// Returns the queue resolve data associated with this queue.
 		[[nodiscard]] batch_resolve_data::queue_data &_get_queue_resolve_data();
+
+
+		/// Returns all properties of the vertex buffer of the \ref geometry_buffers_view.
+		[[nodiscard]] static gpu::vertex_buffer_view _get_vertex_buffer_view(const geometry_buffers_view&);
+		/// Returns all properties of the index buffer of the \ref geometry_buffers_view.
+		[[nodiscard]] static gpu::index_buffer_view _get_index_buffer_view(const geometry_buffers_view&);
 	};
 }

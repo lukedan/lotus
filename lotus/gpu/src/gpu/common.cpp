@@ -106,4 +106,85 @@ namespace lotus::gpu {
 		}
 		return result;
 	}
+
+
+	constexpr static bit_mask::string_mapping<image_aspect_mask> _image_aspect_mask_names{
+		std::pair(image_aspect_mask::color,   u8"color"  ),
+		std::pair(image_aspect_mask::depth,   u8"depth"  ),
+		std::pair(image_aspect_mask::stencil, u8"stencil"),
+	};
+	std::u8string to_string(image_aspect_mask mask) {
+		return _image_aspect_mask_names.get_name(mask);
+	}
+
+
+	constexpr static enums::sequential_mapping<image_layout, std::u8string_view> _image_layout_names{
+		std::pair(image_layout::undefined,                u8"undefined"               ),
+		std::pair(image_layout::general,                  u8"general"                 ),
+		std::pair(image_layout::copy_source,              u8"copy_source"             ),
+		std::pair(image_layout::copy_destination,         u8"copy_destination"        ),
+		std::pair(image_layout::present,                  u8"present"                 ),
+		std::pair(image_layout::color_render_target,      u8"color_render_target"     ),
+		std::pair(image_layout::depth_stencil_read_only,  u8"depth_stencil_read_only" ),
+		std::pair(image_layout::depth_stencil_read_write, u8"depth_stencil_read_write"),
+		std::pair(image_layout::shader_read_only,         u8"shader_read_only"        ),
+		std::pair(image_layout::shader_read_write,        u8"shader_read_write"       ),
+	};
+	std::u8string_view to_string(image_layout layout) {
+		return _image_layout_names[layout];
+	}
+
+
+	constexpr static bit_mask::string_mapping<synchronization_point_mask> _synchronization_point_mask_names{
+		std::pair(synchronization_point_mask::all,                          u8"all"                         ),
+		std::pair(synchronization_point_mask::all_graphics,                 u8"all_graphics"                ),
+		std::pair(synchronization_point_mask::index_input,                  u8"index_input"                 ),
+		std::pair(synchronization_point_mask::vertex_input,                 u8"vertex_input"                ),
+		std::pair(synchronization_point_mask::vertex_shader,                u8"vertex_shader"               ),
+		std::pair(synchronization_point_mask::pixel_shader,                 u8"pixel_shader"                ),
+		std::pair(synchronization_point_mask::depth_stencil_read_write,     u8"depth_stencil_read_write"    ),
+		std::pair(synchronization_point_mask::render_target_read_write,     u8"render_target_read_write"    ),
+		std::pair(synchronization_point_mask::compute_shader,               u8"compute_shader"              ),
+		std::pair(synchronization_point_mask::raytracing,                   u8"raytracing"                  ),
+		std::pair(synchronization_point_mask::copy,                         u8"copy"                        ),
+		std::pair(synchronization_point_mask::acceleration_structure_build, u8"acceleration_structure_build"),
+		std::pair(synchronization_point_mask::acceleration_structure_copy,  u8"acceleration_structure_copy" ),
+		std::pair(synchronization_point_mask::cpu_access,                   u8"cpu_access"                  ),
+	};
+	std::u8string to_string(synchronization_point_mask mask) {
+		return _synchronization_point_mask_names.get_name(mask);
+	}
+
+
+	constexpr static bit_mask::string_mapping<image_access_mask> _image_access_mask_names{
+		std::pair(image_access_mask::copy_source,              u8"copy_source"              ),
+		std::pair(image_access_mask::copy_destination,         u8"copy_destination"         ),
+		std::pair(image_access_mask::color_render_target,      u8"color_render_target"      ),
+		std::pair(image_access_mask::depth_stencil_read_only,  u8"depth_stencil_read_only"  ),
+		std::pair(image_access_mask::depth_stencil_read_write, u8"depth_stencil_read_write" ),
+		std::pair(image_access_mask::shader_read,              u8"shader_read"              ),
+		std::pair(image_access_mask::shader_write,             u8"shader_write"             ),
+	};
+	std::u8string to_string(image_access_mask mask) {
+		return _image_access_mask_names.get_name(mask);
+	}
+
+
+	constexpr static bit_mask::string_mapping<buffer_access_mask> _buffer_access_mask_names{
+		std::pair(buffer_access_mask::copy_source,                        u8"copy_source"                       ),
+		std::pair(buffer_access_mask::copy_destination,                   u8"copy_destination"                  ),
+		std::pair(buffer_access_mask::vertex_buffer,                      u8"vertex_buffer"                     ),
+		std::pair(buffer_access_mask::index_buffer,                       u8"index_buffer"                      ),
+		std::pair(buffer_access_mask::constant_buffer,                    u8"constant_buffer"                   ),
+		std::pair(buffer_access_mask::shader_read,                        u8"shader_read"                       ),
+		std::pair(buffer_access_mask::shader_write,                       u8"shader_write"                      ),
+		std::pair(buffer_access_mask::acceleration_structure_build_input, u8"acceleration_structure_build_input"),
+		std::pair(buffer_access_mask::acceleration_structure_read,        u8"acceleration_structure_read"       ),
+		std::pair(buffer_access_mask::acceleration_structure_write,       u8"acceleration_structure_write"      ),
+		std::pair(buffer_access_mask::cpu_read,                           u8"cpu_read"                          ),
+		std::pair(buffer_access_mask::cpu_write,                          u8"cpu_write"                         ),
+	};
+	std::u8string to_string(buffer_access_mask mask) {
+		return _buffer_access_mask_names.get_name(mask);
+	}
 }

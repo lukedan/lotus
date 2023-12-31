@@ -351,6 +351,8 @@ namespace lotus::gpu {
 
 		num_enumerators = 3 ///< The total number of aspects.
 	};
+	/// Converts a \ref image_aspect_mask to a string.
+	[[nodiscard]] std::u8string to_string(image_aspect_mask);
 }
 namespace lotus::enums {
 	/// \ref gpu::image_aspect_mask is a bit mask type.
@@ -573,6 +575,8 @@ namespace lotus::gpu {
 
 		num_enumerators ///< The total number of enumerators.
 	};
+	/// Converts a \ref image_layout to a string.
+	[[nodiscard]] std::u8string_view to_string(image_layout);
 
 	/// Points in the GPU pipeline where synchronization would happen.
 	enum class synchronization_point_mask : std::uint32_t {
@@ -595,6 +599,8 @@ namespace lotus::gpu {
 
 		num_enumerators = 14 ///< Number of valid bits.
 	};
+	/// Converts a \ref synchronization_point_mask to a string.
+	[[nodiscard]] std::u8string to_string(synchronization_point_mask);
 }
 namespace lotus::enums {
 	/// \ref gpu::synchronization_point_mask is a bit mask type.
@@ -663,6 +669,8 @@ namespace lotus::gpu {
 		/// All write bits.
 		write_bits = copy_destination | color_render_target | depth_stencil_read_write | shader_write,
 	};
+	/// Converts a \ref image_access_mask to a string.
+	[[nodiscard]] std::u8string to_string(image_access_mask);
 }
 namespace lotus::enums {
 	/// \ref gpu::image_access_mask is a bit mask type.
@@ -692,6 +700,8 @@ namespace lotus::gpu {
 		/// All write bits.
 		write_bits = copy_destination | shader_write | acceleration_structure_write | cpu_write,
 	};
+	/// Converts a \ref buffer_access_mask to a string.
+	[[nodiscard]] std::u8string to_string(buffer_access_mask);
 }
 namespace lotus::enums {
 	/// \ref gpu::buffer_access_mask is a bit mask type.

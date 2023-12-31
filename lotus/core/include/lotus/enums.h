@@ -189,8 +189,43 @@ namespace lotus::enums::bit_mask {
 			}
 			return static_cast<Value>(result);
 		}
-	protected:
+	private:
 		const std::array<std::pair<BitMask, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
+	};
+
+	/// Stores a mapping from a bit mask type to the names of the enumerators.
+	template <
+		typename BitMask, std::size_t NumEnumerators = static_cast<std::size_t>(BitMask::num_enumerators)
+	> class string_mapping {
+	public:
+		/// Initializes the mapping.
+		template <typename ...Args> constexpr string_mapping(Args &&...args) :
+			_names{ { std::forward<Args>(args)... } } {
+			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for bit mask mapping.");
+			for (std::size_t i = 0; i < NumEnumerators; ++i) {
+				crash_if_constexpr(_names[i].first != static_cast<BitMask>(1 << i));
+			}
+		}
+
+		/// Returns the bitwise or of all values corresponding to all bits in the given bit mask.
+		[[nodiscard]] constexpr std::u8string get_name(BitMask m) const {
+			using _src_ty = std::underlying_type_t<BitMask>;
+
+			auto value = static_cast<_src_ty>(m);
+			std::u8string result;
+			while (value != 0) {
+				int bit = std::countr_zero(value);
+				crash_if_constexpr(bit >= NumEnumerators);
+				if (!result.empty()) {
+					result += u8"|";
+				}
+				result += _names[bit].second;
+				value ^= static_cast<_src_ty>(1ull << bit);
+			}
+			return result;
+		}
+	private:
+		const std::array<std::pair<BitMask, std::u8string_view>, NumEnumerators> _names; ///< Storage for the names.
 	};
 }
 

@@ -44,6 +44,11 @@ namespace lotus {
 			}
 			return *this;
 		}
+		/// Resets this function object.
+		static_function &operator=(std::nullptr_t) {
+			_reset();
+			return *this;
+		}
 		/// Assigns a function object to this function.
 		template <typename Callable> static_function &operator=(Callable &&obj) {
 			_reset();

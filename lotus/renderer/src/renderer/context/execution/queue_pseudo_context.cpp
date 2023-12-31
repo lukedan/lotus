@@ -23,6 +23,11 @@ namespace lotus::renderer::execution {
 	void queue_pseudo_context::pseudo_execute_next_command() {
 		std::visit(
 			[&](const auto &cmd) {
+				_q.ctx.execution_log(
+					"PSEUDO_EXEC QUEUE[{}].COMMAND[{}]: {}(\"{}\")",
+					_q.queue.get_index(), std::to_underlying(_pseudo_cmd_index), typeid(cmd).name(),
+					string::to_generic(get_next_pseudo_execution_command().description.value_or(u8" - "))
+				);
 				_pseudo_execute(cmd);
 				if (bit_mask::contains<commands::flags::advances_timer>(cmd.get_flags())) {
 					_valid_timestamp = false;
@@ -300,9 +305,14 @@ namespace lotus::renderer::execution {
 
 		// process draw commands
 		for (auto cmd_i = _details::next(scope.begin); cmd_i != scope.end; cmd_i = _details::next(cmd_i)) {
-			auto &pass_cmd = _q.batch_commands[std::to_underlying(cmd_i)].value;
-			if (std::holds_alternative<commands::draw_instanced>(pass_cmd)) {
-				auto &draw_cmd = std::get<commands::draw_instanced>(pass_cmd);
+			auto &pass_cmd = _q.batch_commands[std::to_underlying(cmd_i)];
+			auto &pass_cmd_union = pass_cmd.value;
+			if (std::holds_alternative<commands::draw_instanced>(pass_cmd_union)) {
+				_q.ctx.execution_log(
+					"  USE_DRAW_CMD_RESOURCES \"{}\"", string::to_generic(pass_cmd.description.value_or(u8" - "))
+				);
+
+				auto &draw_cmd = std::get<commands::draw_instanced>(pass_cmd_union);
 				for (const auto &input : draw_cmd.inputs) {
 					_pseudo_use_buffer(
 						*input.data._ptr,
@@ -330,9 +340,9 @@ namespace lotus::renderer::execution {
 			} else {
 				// ensure that all command types are handled
 				crash_if(!(
-					std::holds_alternative<commands::start_timer>(pass_cmd) ||
-					std::holds_alternative<commands::end_timer>(pass_cmd)   ||
-					std::holds_alternative<commands::pause_for_debugging>(pass_cmd)
+					std::holds_alternative<commands::start_timer>(pass_cmd_union) ||
+					std::holds_alternative<commands::end_timer>(pass_cmd_union)   ||
+					std::holds_alternative<commands::pause_for_debugging>(pass_cmd_union)
 				));
 			}
 		}
@@ -406,6 +416,8 @@ namespace lotus::renderer::execution {
 		gpu::synchronization_point_mask sync_points,
 		_queue_submission_range scope
 	) {
+		_q.ctx.execution_log("  USE_BINDINGS");
+
 		for (const auto &binding : bindings) {
 			std::visit(
 				[&](auto &&binding) {
@@ -438,6 +450,8 @@ namespace lotus::renderer::execution {
 		gpu::synchronization_point_mask sync_points,
 		_queue_submission_range scope
 	) {
+		_q.ctx.execution_log("  USE_IMG_DSCRPTR_ARRAY \"{}\"", string::to_generic(arr._ptr->name));
+
 		_maybe_validate_descriptor_array(*arr._ptr);
 		_q.ctx._maybe_initialize_descriptor_array(*arr._ptr);
 		_q.ctx._flush_descriptor_array_writes(*arr._ptr);
@@ -463,6 +477,8 @@ namespace lotus::renderer::execution {
 		gpu::synchronization_point_mask sync_points,
 		_queue_submission_range scope
 	) {
+		_q.ctx.execution_log("  USE_BUF_DSCRPTR_ARRAY \"{}\"", string::to_generic(arr._ptr->name));
+
 		_maybe_validate_descriptor_array(*arr._ptr);
 		_q.ctx._maybe_initialize_descriptor_array(*arr._ptr);
 		_q.ctx._flush_descriptor_array_writes(*arr._ptr);
@@ -483,6 +499,7 @@ namespace lotus::renderer::execution {
 		gpu::synchronization_point_mask sync_points,
 		_queue_submission_range scope
 	) {
+		_q.ctx.execution_log("  USE_CACHED_DSCRPTR_SET \"{}\"", string::to_generic(set._ptr->name));
 		// TODO
 		std::abort();
 	}
@@ -602,6 +619,13 @@ namespace lotus::renderer::execution {
 	void queue_pseudo_context::_pseudo_use_buffer(
 		_details::buffer &buf, _details::buffer_access new_access, _queue_submission_range scope
 	) {
+		_q.ctx.execution_log(
+			"    USE_BUFFER \"{}\", SYNC_POINTS {}, ACCESS {}",
+			string::to_generic(buf.name),
+			string::to_generic(gpu::to_string(new_access.sync_points)),
+			string::to_generic(gpu::to_string(new_access.access))
+		);
+
 		_q.ctx._maybe_initialize_buffer(buf);
 
 		const _details::buffer_access_event event(new_access, get_next_pseudo_execution_command().index, scope.end);
@@ -671,6 +695,20 @@ namespace lotus::renderer::execution {
 	void queue_pseudo_context::_pseudo_use_image_impl(
 		_details::image_base &img, _details::image_access access, _queue_submission_range scope
 	) {
+		_q.ctx.execution_log(
+			"    USE_IMAGE \"{}\", SYNC_POINTS {}, ACCESS {}, LAYOUT {}, "
+			"MIPS [{}, +{}), ARRAY_SLICES [{}, +{}), ASPECTS {}",
+			string::to_generic(img.name),
+			string::to_generic(gpu::to_string(access.sync_points)),
+			string::to_generic(gpu::to_string(access.access)),
+			string::to_generic(gpu::to_string(access.layout)),
+			access.subresource_range.mips.first_level,
+			access.subresource_range.mips.num_levels,
+			access.subresource_range.first_array_slice,
+			access.subresource_range.num_array_slices,
+			string::to_generic(gpu::to_string(access.subresource_range.aspects))
+		);
+
 		const _details::image_access_event event(access, get_next_pseudo_execution_command().index, scope.end);
 
 		const bool is_write_access = bit_mask::contains_any(access.access, gpu::image_access_mask::write_bits);

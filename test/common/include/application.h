@@ -533,7 +533,29 @@ namespace lotus {
 
 			// finally, present and execute
 			_present_queue.present(_swap_chain, u8"Present");
-			batch_stats_early = _context->execute_all();
+			
+			{
+				// set up debug output buffer
+				FILE *debug_out = fopen("test.txt", "w");
+				if (debug_out) {
+					_context->on_execution_log =
+						[debug_out](std::u8string_view text) {
+							std::fprintf(
+								debug_out, "%.*s\n",
+								static_cast<int>(text.size()),
+								reinterpret_cast<const char*>(text.data())
+							);
+							std::fflush(debug_out);
+						};
+				}
+
+				batch_stats_early = _context->execute_all();
+
+				if (debug_out) {
+					std::fclose(debug_out);
+					_context->on_execution_log = nullptr;
+				}
+			}
 
 			auto frame_cpu_end = std::chrono::high_resolution_clock::now();
 			cpu_frame_time_ms = std::chrono::duration<float, std::milli>(frame_cpu_end - frame_cpu_begin).count();

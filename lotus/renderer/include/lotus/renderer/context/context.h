@@ -524,6 +524,17 @@ namespace lotus::renderer {
 
 		/// Callback function for when statistics for a new batch is available.
 		static_function<void(std::uint32_t, batch_statistics_late)> on_batch_statistics_available = nullptr;
+
+		/// Convenience function for printing execution log.
+		template <typename ...Args> void execution_log(std::format_string<Args...> str, Args &&...args) {
+			if (on_execution_log) {
+				const std::string formatted =
+					std::vformat(str.get(), std::make_format_args(std::forward<Args>(args)...));
+				on_execution_log(string::assume_utf8(formatted));
+			}
+		}
+		/// Callback function for logging execution debugging information.
+		static_function<void(std::u8string_view)> on_execution_log = nullptr;
 	private:
 		gpu::context &_context; ///< Associated graphics context.
 		gpu::device &_device;   ///< Associated device.

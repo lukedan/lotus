@@ -90,18 +90,13 @@ namespace lotus {
 			_assets->asset_library_path = _get_asset_library_path();
 			_assets->additional_shader_include_paths = _get_additional_shader_include_paths();
 
-			// create constant uploader
-			_constant_uploader = std::make_unique<renderer::constant_uploader>(
-				*_context, _constant_upload_queue, _constant_upload_pool, _constant_pool
-			);
-
 			// initialize ImGUI and debug drawing
 			IMGUI_CHECKVERSION();
 			ImGui::CreateContext();
 			ImGui::StyleColorsDark();
 			_imgui_sctx = _wrap(new auto(system::dear_imgui::context::create()));
 			_imgui_rctx = _wrap(new auto(renderer::dear_imgui::context::create(
-				*_assets, *_constant_uploader, _debug_drawing_queue
+				*_assets, _debug_drawing_queue
 			)));
 
 			_window->on_resize = [this](system::window_events::resize &resize) {
@@ -181,7 +176,6 @@ namespace lotus {
 
 		std::unique_ptr<renderer::context> _context; ///< The renderer context.
 		std::unique_ptr<renderer::assets::manager> _assets; ///< The asset manager.
-		std::unique_ptr<renderer::constant_uploader> _constant_uploader; ///< The constant buffer uploader.
 		renderer::swap_chain _swap_chain = nullptr; ///< The swap chain.
 
 
@@ -258,7 +252,9 @@ namespace lotus {
 
 		/// Callback for frame processing. Presenting, debug drawing, and ImGUI do not need to be handled. The
 		/// dependency objects need to be acquired on all queues that use uploaded constants or assets.
-		virtual void _process_frame(renderer::dependency constants_dep, renderer::dependency assets_dep) = 0;
+		virtual void _process_frame(
+			renderer::constant_uploader&, renderer::dependency constants_dep, renderer::dependency assets_dep
+		) = 0;
 		/// Derived classes should override this to use ImGUI. No need to call \p ImGui::NewFrame() or
 		/// \p ImGui::Render().
 		virtual void _process_imgui() {
@@ -517,7 +513,11 @@ namespace lotus {
 				asset_dep = _assets->update();
 			}
 
-			_process_frame(constant_dep, asset_dep);
+			renderer::constant_uploader uploader(
+				*_context, _constant_upload_queue, _constant_upload_pool, _constant_pool
+			);
+
+			_process_frame(uploader, constant_dep, asset_dep);
 
 			// ImGUI
 			ImGui::NewFrame();
@@ -525,11 +525,11 @@ namespace lotus {
 			ImGui::Render();
 			_imgui_rctx->render(
 				renderer::image2d_color(_swap_chain, gpu::color_render_target_access::create_preserve_and_write()),
-				_get_window_size(), _imgui_pool
+				_get_window_size(), uploader, _imgui_pool
 			);
 
 			// upload constants
-			_constant_uploader->end_frame(constant_dep);
+			uploader.end_frame(constant_dep);
 
 			// finally, present and execute
 			_present_queue.present(_swap_chain, u8"Present");

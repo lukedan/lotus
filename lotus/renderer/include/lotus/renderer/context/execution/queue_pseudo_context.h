@@ -186,8 +186,12 @@ namespace lotus::renderer::execution {
 
 		/// Emulates the usage of a buffer resource.
 		void _pseudo_use_buffer(_details::buffer&, _details::buffer_access, _queue_submission_range scope);
+		/// Emulates the usage of a 2D image.
+		void _pseudo_use_image(_details::image2d&, _details::image_access, _queue_submission_range scope);
+		/// Emulates the usage of a 3D image.
+		void _pseudo_use_image(_details::image3d&, _details::image_access, _queue_submission_range scope);
 		/// Emulates the usage of an image resource.
-		void _pseudo_use_image(_details::image_base&, _details::image_access, _queue_submission_range scope);
+		void _pseudo_use_image_impl(_details::image_base&, _details::image_access, _queue_submission_range scope);
 
 		/// Requests a dependency from after the given command to before the command that is being executed
 		/// currently.

@@ -30,10 +30,8 @@ namespace lotus::renderer::dear_imgui {
 		using index = std::uint32_t; ///< Index type.
 
 		/// Creates a new context.
-		[[nodiscard]] inline static context create(
-			assets::manager &man, constant_uploader &uploader, renderer::context::queue q
-		) {
-			context result(man, uploader, q);
+		[[nodiscard]] inline static context create(assets::manager &man, renderer::context::queue q) {
+			context result(man, q);
 
 			result._vertex_shader = result._asset_man.compile_shader_in_filesystem(
 				result._asset_man.asset_library_path / "shaders/misc/dear_imgui.hlsl",
@@ -78,7 +76,7 @@ namespace lotus::renderer::dear_imgui {
 		}
 
 		/// Renders the current ImGui draw data.
-		void render(image2d_color target, cvec2u32 target_size, pool buffers_pool) {
+		void render(image2d_color target, cvec2u32 target_size, constant_uploader &uploader, pool buffers_pool) {
 			auto *draw_data = ImGui::GetDrawData();
 			if (!draw_data) {
 				return;
@@ -149,7 +147,7 @@ namespace lotus::renderer::dear_imgui {
 					all_resource_bindings resources(
 						{
 							{ 0, {
-								{ 0, _uploader.upload(data) },
+								{ 0, uploader.upload(data) },
 								{ 1, descriptor_resource::image2d(
 									texture_index > 0 ? _registered_images[texture_index - 1] : nullptr,
 									image_binding_type::read_only
@@ -192,15 +190,13 @@ namespace lotus::renderer::dear_imgui {
 		}
 	private:
 		/// Initializes the asset manager.
-		explicit context(assets::manager &man, constant_uploader &uploader, renderer::context::queue q) :
-			_asset_man(man), _uploader(uploader), _q(q),
-			_vertex_shader(nullptr), _pixel_shader(nullptr), _font_texture(nullptr) {
+		explicit context(assets::manager &man, renderer::context::queue q) :
+			_asset_man(man), _q(q), _vertex_shader(nullptr), _pixel_shader(nullptr), _font_texture(nullptr) {
 		}
 
 		std::vector<recorded_resources::image2d_view> _registered_images;
 
 		assets::manager &_asset_man; ///< The asset manager.
-		constant_uploader &_uploader; ///< The constant uploader.
 		renderer::context::queue _q; ///< The command queue to render on.
 		assets::handle<assets::shader> _vertex_shader; ///< Vertex shader.
 		assets::handle<assets::shader> _pixel_shader; ///< Pixel shader.

@@ -127,6 +127,7 @@ public:
 	lren::image3d_view probe_sh1 = nullptr;
 	lren::image3d_view probe_sh2 = nullptr;
 	lren::image3d_view probe_sh3 = nullptr;
+	bool clear_reservoirs = false;
 
 	std::default_random_engine rng;
 
@@ -163,7 +164,7 @@ public:
 		}
 	};
 
-	void fill_buffer(lren::structured_buffer_view buf, std::uint32_t value, std::u8string_view description) {
+	void fill_buffer(lren::structured_buffer_view buf, std::uint32_t value, lren::constant_uploader &uploader, std::u8string_view description) {
 		buf = buf.view_as<std::uint32_t>();
 		shader_types::fill_buffer_constants data;
 		data.size = buf.get_num_elements();
@@ -174,7 +175,7 @@ public:
 				{
 					{ 0, {
 						{ 0, buf.bind_as_read_write() },
-						{ 1, _constant_uploader->upload(data) },
+						{ 1, uploader.upload(data) },
 					} },
 				},
 				{}
@@ -182,7 +183,7 @@ public:
 			description
 		);
 	};
-	void fill_texture3d(lren::image3d_view img, cvec4f value, std::u8string_view description) {
+	void fill_texture3d(lren::image3d_view img, cvec4f value, lren::constant_uploader &uploader, std::u8string_view description) {
 		shader_types::fill_texture3d_constants data;
 		data.value = value;
 		data.size = img.get_size();
@@ -191,7 +192,7 @@ public:
 			lren::all_resource_bindings(
 				{
 					{ 0, {
-						{ 0, _constant_uploader->upload(data) },
+						{ 0, uploader.upload(data) },
 						{ 1, img.bind_as_read_write() },
 					} },
 				},
@@ -237,12 +238,7 @@ public:
 			runtime_tex_pool
 		);
 
-		fill_buffer(direct_reservoirs, 0, u8"Clear Direct Reservoir Buffer");
-		fill_buffer(indirect_reservoirs, 0, u8"Clear Indirect Reservoir Buffer");
-		fill_texture3d(probe_sh0, zero, u8"Clear Probe SH0");
-		fill_texture3d(probe_sh1, zero, u8"Clear Probe SH1");
-		fill_texture3d(probe_sh2, zero, u8"Clear Probe SH2");
-		fill_texture3d(probe_sh3, zero, u8"Clear Probe SH3");
+		clear_reservoirs = true;
 
 		// compute transformation matrices
 		cvec3f grid_size = probe_bounds.signed_size();
@@ -293,9 +289,9 @@ protected:
 	void _on_initialized() override {
 		_graphics_queue = _context->get_queue(0);
 
-		_debug_renderer = std::unique_ptr<lren::debug_renderer>(new auto(lren::debug_renderer::create(
-			*_assets, *_constant_uploader, _graphics_queue
-		)));
+		_debug_renderer = std::unique_ptr<lren::debug_renderer>(
+			new auto(lren::debug_renderer::create(*_assets, _graphics_queue))
+		);
 
 		scene = std::make_unique<scene_representation>(*_assets, _graphics_queue);
 		for (int i = 1; i < _argc; ++i) {
@@ -364,10 +360,20 @@ protected:
 		cam_control.on_capture_broken();
 	}
 
-	void _process_frame(lren::dependency constants_dep, lren::dependency asset_dep) override {
+	void _process_frame(lren::constant_uploader &uploader, lren::dependency constants_dep, lren::dependency asset_dep) override {
 		_graphics_queue.acquire_dependency(constants_dep, u8"Wait for assets");
 		if (asset_dep) {
 			_graphics_queue.acquire_dependency(asset_dep, u8"Wait for constants");
+		}
+
+		if (clear_reservoirs) {
+			fill_buffer(direct_reservoirs, 0, uploader, u8"Clear Direct Reservoir Buffer");
+			fill_buffer(indirect_reservoirs, 0, uploader, u8"Clear Indirect Reservoir Buffer");
+			fill_texture3d(probe_sh0, zero, uploader, u8"Clear Probe SH0");
+			fill_texture3d(probe_sh1, zero, uploader, u8"Clear Probe SH1");
+			fill_texture3d(probe_sh2, zero, uploader, u8"Clear Probe SH2");
+			fill_texture3d(probe_sh3, zero, uploader, u8"Clear Probe SH3");
+			clear_reservoirs = false;
 		}
 
 		{
@@ -393,8 +399,8 @@ protected:
 
 				auto pass = g_buf.begin_pass(_graphics_queue);
 				lren::g_buffer::render_instances(
-					pass, *_constant_uploader,
-					scene->instances, scene->gbuffer_instance_render_details, _constant_uploader->upload(view_data)
+					pass, uploader,
+					scene->instances, scene->gbuffer_instance_render_details, uploader.upload(view_data)
 				);
 				pass.end();
 			}
@@ -458,8 +464,8 @@ protected:
 					lren::all_resource_bindings resources(
 						{},
 						{
-							{ u8"probe_consts",      _constant_uploader->upload(probe_constants) },
-							{ u8"constants",         _constant_uploader->upload(direct_update_constants) },
+							{ u8"probe_consts",      uploader.upload(probe_constants) },
+							{ u8"constants",         uploader.upload(direct_update_constants) },
 							{ u8"direct_reservoirs", direct_reservoirs.bind_as_read_write() },
 							{ u8"all_lights",        scene->lights_buffer.bind_as_read_only() },
 							{ u8"rtas",              scene->tlas },
@@ -484,9 +490,9 @@ protected:
 							{ 8, _assets->get_samplers() },
 						},
 						{
-							{ u8"probe_consts",    _constant_uploader->upload(probe_constants) },
-							{ u8"constants",       _constant_uploader->upload(indirect_update_constants) },
-							{ u8"lighting_consts", _constant_uploader->upload(lighting_constants) },
+							{ u8"probe_consts",    uploader.upload(probe_constants) },
+							{ u8"constants",       uploader.upload(indirect_update_constants) },
+							{ u8"lighting_consts", uploader.upload(lighting_constants) },
 							{ u8"direct_probes",   direct_reservoirs.bind_as_read_only() },
 							{ u8"indirect_sh0",    probe_sh0.bind_as_read_only() },
 							{ u8"indirect_sh1",    probe_sh1.bind_as_read_only() },
@@ -537,8 +543,8 @@ protected:
 								{ u8"rtas",              scene->tlas },
 								{ u8"input_reservoirs",  (i == 0 ? indirect_reservoirs : spatial_indirect_reservoirs1).bind_as_read_only() },
 								{ u8"output_reservoirs", spatial_indirect_reservoirs2.bind_as_read_write() },
-								{ u8"probe_consts",      _constant_uploader->upload(probe_constants) },
-								{ u8"constants",         _constant_uploader->upload(reuse_constants) },
+								{ u8"probe_consts",      uploader.upload(probe_constants) },
+								{ u8"constants",         uploader.upload(reuse_constants) },
 							}
 						);
 						_graphics_queue.run_compute_shader_with_thread_dimensions(indirect_spatial_reuse_cs, probe_density, std::move(resources), u8"Spatial Indirect Reuse");
@@ -562,8 +568,8 @@ protected:
 							{ u8"probe_sh1",           probe_sh1.bind_as_read_write() },
 							{ u8"probe_sh2",           probe_sh2.bind_as_read_write() },
 							{ u8"probe_sh3",           probe_sh3.bind_as_read_write() },
-							{ u8"probe_consts",        _constant_uploader->upload(probe_constants) },
-							{ u8"constants",           _constant_uploader->upload(constants) },
+							{ u8"probe_consts",        uploader.upload(probe_constants) },
+							{ u8"constants",           uploader.upload(constants) },
 						}
 					);
 					_graphics_queue.run_compute_shader_with_thread_dimensions(
@@ -593,8 +599,8 @@ protected:
 						{ u8"indirect_sh2",              probe_sh2.bind_as_read_only() },
 						{ u8"indirect_sh3",              probe_sh3.bind_as_read_only() },
 						{ u8"rtas",                      scene->tlas },
-						{ u8"constants",                 _constant_uploader->upload(lighting_constants) },
-						{ u8"probe_consts",              _constant_uploader->upload(probe_constants) },
+						{ u8"constants",                 uploader.upload(lighting_constants) },
+						{ u8"probe_consts",              uploader.upload(probe_constants) },
 						{ u8"sky_latlong",               sky_hdri->image.bind_as_read_only() },
 					}
 				);
@@ -626,7 +632,7 @@ protected:
 					},
 					{
 						{ u8"sky_latlong", sky_hdri->image.bind_as_read_only() },
-						{ u8"constants",   _constant_uploader->upload(constants) },
+						{ u8"constants",   uploader.upload(constants) },
 					}
 				);
 				lren::graphics_pipeline_state pipeline(
@@ -666,9 +672,9 @@ protected:
 						{ 8, _assets->get_samplers() },
 					},
 					{
-						{ u8"probe_consts",              _constant_uploader->upload(probe_constants) },
-						{ u8"constants",                 _constant_uploader->upload(constants) },
-						{ u8"lighting_consts",           _constant_uploader->upload(lighting_constants) },
+						{ u8"probe_consts",              uploader.upload(probe_constants) },
+						{ u8"constants",                 uploader.upload(constants) },
+						{ u8"lighting_consts",           uploader.upload(lighting_constants) },
 						{ u8"direct_probes",             direct_reservoirs.bind_as_read_only() },
 						{ u8"indirect_probes",           spatial_indirect_reservoirs1.bind_as_read_only() },
 						{ u8"indirect_sh0",              probe_sh0.bind_as_read_only() },
@@ -726,9 +732,9 @@ protected:
 						{ 8, _assets->get_samplers() },
 					},
 					{
-						{ u8"probe_consts",    _constant_uploader->upload(probe_constants) },
-						{ u8"constants",       _constant_uploader->upload(constants) },
-						{ u8"lighting_consts", _constant_uploader->upload(lighting_constants) },
+						{ u8"probe_consts",    uploader.upload(probe_constants) },
+						{ u8"constants",       uploader.upload(constants) },
+						{ u8"lighting_consts", uploader.upload(lighting_constants) },
 						{ u8"direct_probes",   direct_reservoirs.bind_as_read_only() },
 						{ u8"indirect_sh0",    probe_sh0.bind_as_read_only() },
 						{ u8"indirect_sh1",    probe_sh1.bind_as_read_only() },
@@ -783,7 +789,7 @@ protected:
 						{ u8"prev_irradiance",   prev_irradiance ? prev_irradiance.bind_as_read_only() : _assets->get_invalid_image()->image.bind_as_read_only() },
 						{ u8"motion_vectors",    g_buf.velocity.bind_as_read_only() },
 						{ u8"out_irradiance",    irradiance.bind_as_read_write() },
-						{ u8"constants",         _constant_uploader->upload(constants) },
+						{ u8"constants",         uploader.upload(constants) },
 					}
 				);
 
@@ -800,7 +806,7 @@ protected:
 				lren::all_resource_bindings resources(
 					{},
 					{
-						{ u8"constants",  _constant_uploader->upload(constants) },
+						{ u8"constants",  uploader.upload(constants) },
 						{ u8"irradiance", (shade_point_debug_mode != 0 ? light_diffuse : irradiance).bind_as_read_only() },
 					}
 				);
@@ -839,7 +845,7 @@ protected:
 							{ u8"gbuffer_normal",            g_buf.normal.bind_as_read_only() },
 							{ u8"gbuffer_metalness",         g_buf.metalness.bind_as_read_only() },
 							{ u8"gbuffer_depth",             g_buf.depth_stencil.bind_as_read_only() },
-							{ u8"constants",                 _constant_uploader->upload(constants) },
+							{ u8"constants",                 uploader.upload(constants) },
 						}
 					);
 
@@ -875,8 +881,8 @@ protected:
 					lren::all_resource_bindings resources(
 						{},
 						{
-							{ u8"probe_consts", _constant_uploader->upload(probe_constants) },
-							{ u8"constants",    _constant_uploader->upload(constants) },
+							{ u8"probe_consts", uploader.upload(probe_constants) },
+							{ u8"constants",    uploader.upload(constants) },
 							{ u8"probe_sh0",    probe_sh0.bind_as_read_only() },
 							{ u8"probe_sh1",    probe_sh1.bind_as_read_only() },
 							{ u8"probe_sh2",    probe_sh2.bind_as_read_only() },
@@ -908,7 +914,8 @@ protected:
 					lren::image2d_color(_swap_chain, lgpu::color_render_target_access::create_preserve_and_write()),
 					lren::image2d_depth_stencil(g_buf.depth_stencil, lgpu::depth_render_target_access::create_preserve_and_write()),
 					_get_window_size(),
-					cam.projection_view_matrix
+					cam.projection_view_matrix,
+					uploader
 				);
 			}
 

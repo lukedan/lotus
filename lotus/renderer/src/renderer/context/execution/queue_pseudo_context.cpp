@@ -443,16 +443,18 @@ namespace lotus::renderer::execution {
 		_q.ctx._flush_descriptor_array_writes(*arr._ptr);
 
 		for (const auto &rsrc : arr._ptr->resources) {
-			_pseudo_use_image(
-				*rsrc.resource._ptr,
-				_details::image_access(
-					gpu::subresource_range::nonarray_color(rsrc.resource._mip_levels),
-					sync_points,
-					gpu::image_access_mask::shader_read,
-					gpu::image_layout::shader_read_only
-				),
-				scope
-			);
+			if (rsrc.resource) {
+				_pseudo_use_image(
+					*rsrc.resource._ptr,
+					_details::image_access(
+						gpu::subresource_range::nonarray_color(rsrc.resource._mip_levels),
+						sync_points,
+						gpu::image_access_mask::shader_read,
+						gpu::image_layout::shader_read_only
+					),
+					scope
+				);
+			}
 		}
 	}
 
@@ -466,11 +468,13 @@ namespace lotus::renderer::execution {
 		_q.ctx._flush_descriptor_array_writes(*arr._ptr);
 
 		for (const auto &rsrc : arr._ptr->resources) {
-			_pseudo_use_buffer(
-				*rsrc.resource._ptr,
-				_details::buffer_access(sync_points, gpu::buffer_access_mask::shader_read),
-				scope
-			);
+			if (rsrc.resource) {
+				_pseudo_use_buffer(
+					*rsrc.resource._ptr,
+					_details::buffer_access(sync_points, gpu::buffer_access_mask::shader_read),
+					scope
+				);
+			}
 		}
 	}
 
@@ -598,6 +602,8 @@ namespace lotus::renderer::execution {
 	void queue_pseudo_context::_pseudo_use_buffer(
 		_details::buffer &buf, _details::buffer_access new_access, _queue_submission_range scope
 	) {
+		_q.ctx._maybe_initialize_buffer(buf);
+
 		const _details::buffer_access_event event(new_access, get_next_pseudo_execution_command().index, scope.end);
 
 		if (bit_mask::contains_any(new_access.access, gpu::buffer_access_mask::write_bits)) {
@@ -649,6 +655,20 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_pseudo_context::_pseudo_use_image(
+		_details::image2d &img, _details::image_access access, _queue_submission_range scope
+	) {
+		_q.ctx._maybe_initialize_image(img);
+		_pseudo_use_image_impl(img, access, scope);
+	}
+
+	void queue_pseudo_context::_pseudo_use_image(
+		_details::image3d &img, _details::image_access access, _queue_submission_range scope
+	) {
+		_q.ctx._maybe_initialize_image(img);
+		_pseudo_use_image_impl(img, access, scope);
+	}
+
+	void queue_pseudo_context::_pseudo_use_image_impl(
 		_details::image_base &img, _details::image_access access, _queue_submission_range scope
 	) {
 		const _details::image_access_event event(access, get_next_pseudo_execution_command().index, scope.end);

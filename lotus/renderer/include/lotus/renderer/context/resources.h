@@ -468,16 +468,79 @@ namespace lotus::renderer {
 
 		/// A cached descriptor set.
 		struct cached_descriptor_set : public resource {
+			/// Records how this descriptor set accesses an image.
+			template <typename Img, typename View> struct image_access {
+				/// Initializes all fields of this struct.
+				image_access(
+					std::shared_ptr<Img> img,
+					gpu::format fmt,
+					gpu::subresource_range sub,
+					image_binding_type bt,
+					std::uint32_t i
+				) :
+					image(std::move(img)), view(nullptr), view_format(fmt),
+					subresource_range(sub), binding_type(bt), register_index(i) {
+				}
+
+				std::shared_ptr<Img> image; ///< The image.
+				View view; ///< The view.
+				gpu::format view_format; ///< Format that this image is viewed as.
+				gpu::subresource_range subresource_range; ///< The subresource range.
+				image_binding_type binding_type; ///< The type of this image binding.
+				std::uint32_t register_index; ///< Register index of the descriptor.
+
+				/// Returns a \ref _details::image_access object that corresponds to this access with the given sync
+				/// point.
+				[[nodiscard]] _details::image_access get_image_access(gpu::synchronization_point_mask sync) const {
+					switch (binding_type) {
+					case image_binding_type::read_only:
+						return _details::image_access(
+							subresource_range,
+							sync,
+							gpu::image_access_mask::shader_read,
+							gpu::image_layout::shader_read_only
+						);
+					case image_binding_type::read_write:
+						return _details::image_access(
+							subresource_range,
+							sync,
+							gpu::image_access_mask::shader_read | gpu::image_access_mask::shader_write,
+							gpu::image_layout::shader_read_write
+						);
+					default:
+						std::abort(); // invalid enum or not handled
+					}
+				}
+			};
+			/// Records how this descriptor set accesses a buffer.
+			struct buffer_access {
+				std::shared_ptr<_details::buffer> buffer; ///< The buffer.
+				gpu::buffer_access_mask access; ///< How the buffer is accessed.
+				std::uint32_t register_index; ///< Register index of the descriptor.
+
+				/// Returns a \ref _details::buffer_access object that corresponds to this access with the given sync
+				/// point.
+				[[nodiscard]] _details::buffer_access get_buffer_access(gpu::synchronization_point_mask sync) const {
+					return _details::buffer_access(sync, access);
+				}
+			};
+			/// Records how this descriptor set uses a sampler.
+			struct sampler_access {
+				/// Initializes all fields of this struct.
+				sampler_access(gpu::sampler s, std::uint32_t r) : sampler(std::move(s)), register_index(r) {
+				}
+
+				gpu::sampler sampler; ///< The sampler.
+				std::uint32_t register_index; ///< Register index of the descriptor.
+			};
+
 			/// Initializes all fields of this struct.
 			cached_descriptor_set(
-				gpu::descriptor_set s,
 				std::vector<gpu::descriptor_range_binding> rs,
 				const gpu::descriptor_set_layout &l,
 				unique_resource_id i,
 				std::u8string_view n
-			) :
-				resource(i, n),
-				set(std::move(s)), ranges(std::move(rs)), layout(&l) {
+			) : resource(i, n), set(nullptr), ranges(std::move(rs)), layout(&l) {
 			}
 
 			/// Returns \ref resource_type::cached_descriptor_set.
@@ -490,13 +553,15 @@ namespace lotus::renderer {
 			std::vector<gpu::descriptor_range_binding> ranges; ///< Sorted descriptor ranges.
 			const gpu::descriptor_set_layout *layout = nullptr; ///< Layout of this descriptor set.
 
-			/*/// Records all transitions that are needed when using this descriptor set.
-			execution::transition_buffer transitions;*/ // TODO
-			std::vector<gpu::image2d_view> image2d_views; ///< 2D image views used by this descriptor set.
-			std::vector<gpu::image3d_view> image3d_views; ///< 3D image views used by this descriptor set.
-			std::vector<gpu::sampler> samplers; ///< Samplers used by this descriptor set.
-			/// All resources referenced by this descriptor set.
-			std::vector<std::shared_ptr<resource>> resource_references;
+			// resources that are referenced by this descriptor set
+			/// All 2D images referenced by this descriptor set.
+			std::vector<image_access<_details::image2d, gpu::image2d_view>> used_image2ds;
+			/// All 3D images referenced by this descriptor set.
+			std::vector<image_access<_details::image3d, gpu::image3d_view>> used_image3ds;
+			/// All buffers referenced by this descriptor set.
+			std::vector<buffer_access> used_buffers;
+			/// All samplers used by this descriptor set.
+			std::vector<sampler_access> used_samplers;
 		};
 
 

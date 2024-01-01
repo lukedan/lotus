@@ -391,18 +391,15 @@ namespace lotus::renderer {
 	) {
 		auto key = execution::descriptor_set_builder::get_descriptor_set_layout_key(bindings);
 		auto &layout = _cache.get_descriptor_set_layout(key);
-		auto set = _device.create_descriptor_set(_descriptor_pool, layout);
 		auto *set_ptr = new _details::cached_descriptor_set(
-			std::move(set), std::move(key.ranges), layout, _allocate_resource_id(), name
+			std::move(key.ranges), layout, _allocate_resource_id(), name
 		);
-		std::abort(); // TODO: create descriptor bindings
-		/*
+		// record descriptor bindings
 		for (const auto &binding : bindings) {
 			std::visit([&](const auto &rsrc) {
-				_create_descriptor_binding_cached(*set_ptr, binding.register_index, rsrc);
+				_add_cached_descriptor_binding(*set_ptr, rsrc, binding.register_index);
 			}, binding.value);
 		}
-		*/
 		return cached_descriptor_set(std::shared_ptr<_details::cached_descriptor_set>(
 			set_ptr, _details::context_managed_deleter(*this)
 		));
@@ -655,67 +652,172 @@ namespace lotus::renderer {
 	}
 
 	void context::_maybe_initialize_image(_details::image2d &img) {
-		if (!img.image) {
-			if (img.memory_pool) {
-				const memory::size_alignment size_align = _device.get_image2d_memory_requirements(
-					img.size, img.num_mips, img.format, img.tiling, img.usages
-				);
-				img.memory = img.memory_pool->allocate(size_align);
-				auto &&[blk, off] = img.memory_pool->get_memory_and_offset(img.memory);
-				img.image = _device.create_placed_image2d(
-					img.size, img.num_mips, img.format, img.tiling, img.usages, blk, off
-				);
-			} else {
-				img.image = _device.create_committed_image2d(
-					img.size, img.num_mips, img.format, img.tiling, img.usages
-				);
-			}
+		if (img.image) {
+			return;
+		}
 
-			if constexpr (should_register_debug_names) {
-				_device.set_debug_name(img.image, img.name);
-			}
+		if (img.memory_pool) {
+			const memory::size_alignment size_align = _device.get_image2d_memory_requirements(
+				img.size, img.num_mips, img.format, img.tiling, img.usages
+			);
+			img.memory = img.memory_pool->allocate(size_align);
+			auto &&[blk, off] = img.memory_pool->get_memory_and_offset(img.memory);
+			img.image = _device.create_placed_image2d(
+				img.size, img.num_mips, img.format, img.tiling, img.usages, blk, off
+			);
+		} else {
+			img.image = _device.create_committed_image2d(
+				img.size, img.num_mips, img.format, img.tiling, img.usages
+			);
+		}
+
+		if constexpr (should_register_debug_names) {
+			_device.set_debug_name(img.image, img.name);
 		}
 	}
 
 	void context::_maybe_initialize_image(_details::image3d &img) {
-		if (!img.image) {
-			if (img.memory_pool) {
-				const memory::size_alignment size_align = _device.get_image3d_memory_requirements(
-					img.size, img.num_mips, img.format, img.tiling, img.usages
-				);
-				img.memory = img.memory_pool->allocate(size_align);
-				auto &&[blk, off] = img.memory_pool->get_memory_and_offset(img.memory);
-				img.image = _device.create_placed_image3d(
-					img.size, img.num_mips, img.format, img.tiling, img.usages, blk, off
-				);
-			} else {
-				img.image = _device.create_committed_image3d(
-					img.size, img.num_mips, img.format, img.tiling, img.usages
-				);
-			}
+		if (img.image) {
+			return;
+		}
 
-			if constexpr (should_register_debug_names) {
-				_device.set_debug_name(img.image, img.name);
-			}
+		if (img.memory_pool) {
+			const memory::size_alignment size_align = _device.get_image3d_memory_requirements(
+				img.size, img.num_mips, img.format, img.tiling, img.usages
+			);
+			img.memory = img.memory_pool->allocate(size_align);
+			auto &&[blk, off] = img.memory_pool->get_memory_and_offset(img.memory);
+			img.image = _device.create_placed_image3d(
+				img.size, img.num_mips, img.format, img.tiling, img.usages, blk, off
+			);
+		} else {
+			img.image = _device.create_committed_image3d(
+				img.size, img.num_mips, img.format, img.tiling, img.usages
+			);
+		}
+
+		if constexpr (should_register_debug_names) {
+			_device.set_debug_name(img.image, img.name);
 		}
 	}
 
 	void context::_maybe_initialize_buffer(_details::buffer &buf) {
-		if (!buf.data) {
-			if (buf.memory_pool) {
-				const memory::size_alignment size_align =
-					_device.get_buffer_memory_requirements(buf.size, buf.usages);
-				buf.memory = buf.memory_pool->allocate(size_align);
-				auto &&[blk, off] = buf.memory_pool->get_memory_and_offset(buf.memory);
-				buf.data = _device.create_placed_buffer(buf.size, buf.usages, blk, off);
-			} else {
-				buf.data = _device.create_committed_buffer(buf.size, _device_memory_index, buf.usages);
+		if (buf.data) {
+			return;
+		}
+
+		if (buf.memory_pool) {
+			const memory::size_alignment size_align =
+				_device.get_buffer_memory_requirements(buf.size, buf.usages);
+			buf.memory = buf.memory_pool->allocate(size_align);
+			auto &&[blk, off] = buf.memory_pool->get_memory_and_offset(buf.memory);
+			buf.data = _device.create_placed_buffer(buf.size, buf.usages, blk, off);
+		} else {
+			buf.data = _device.create_committed_buffer(buf.size, _device_memory_index, buf.usages);
+		}
+
+		if constexpr (should_register_debug_names) {
+			_device.set_debug_name(buf.data, buf.name);
+		}
+	}
+
+	void context::_maybe_initialize_cached_descriptor_set(_details::cached_descriptor_set &set) {
+		if (set.set) {
+			return;
+		}
+
+		set.set = _device.create_descriptor_set(_descriptor_pool, *set.layout);
+
+		// TODO write descriptors
+		for (auto &img : set.used_image2ds) {
+			_maybe_initialize_image(*img.image);
+			if (!img.view) {
+				img.view = _create_image_view(*img.image, img.view_format, img.subresource_range.mips);
 			}
 
-			if constexpr (should_register_debug_names) {
-				_device.set_debug_name(buf.data, buf.name);
-			}
+			const auto ptr = gpu::device::get_write_image_descriptor_function(to_descriptor_type(img.binding_type));
+			const gpu::image_view_base *views[] = { &img.view };
+			(_device.*ptr)(set.set, *set.layout, img.register_index, views);
 		}
+		for (auto &img : set.used_image3ds) {
+			_maybe_initialize_image(*img.image);
+			if (!img.view) {
+				img.view = _create_image_view(*img.image, img.view_format, img.subresource_range.mips);
+			}
+
+			const auto ptr = gpu::device::get_write_image_descriptor_function(to_descriptor_type(img.binding_type));
+			const gpu::image_view_base *views[] = { &img.view };
+			(_device.*ptr)(set.set, *set.layout, img.register_index, views);
+		}
+		for (const auto &smp : set.used_samplers) {
+			_device.write_descriptor_set_samplers(set.set, *set.layout, smp.register_index, { &smp.sampler });
+		}
+	}
+
+	void context::_add_cached_descriptor_binding(
+		_details::cached_descriptor_set &set, const descriptor_resource::image2d &img, std::uint32_t idx
+	) {
+		set.used_image2ds.emplace_back(
+			std::static_pointer_cast<_details::image2d>(img.view._ptr->shared_from_this()),
+			img.view._view_format,
+			gpu::subresource_range(img.view._mip_levels, 0, 1, gpu::image_aspect_mask::color),
+			img.binding_type,
+			idx
+		);
+	}
+
+	void context::_add_cached_descriptor_binding(
+		_details::cached_descriptor_set &set, const descriptor_resource::image3d &img, std::uint32_t idx
+	) {
+		set.used_image3ds.emplace_back(
+			std::static_pointer_cast<_details::image3d>(img.view._ptr->shared_from_this()),
+			img.view._view_format,
+			gpu::subresource_range(img.view._mip_levels, 0, 1, gpu::image_aspect_mask::color),
+			img.binding_type,
+			idx
+		);
+	}
+
+	void context::_add_cached_descriptor_binding(
+		_details::cached_descriptor_set&, const recorded_resources::swap_chain&, std::uint32_t idx
+	) {
+		// TODO
+		std::abort();
+	}
+
+	void context::_add_cached_descriptor_binding(
+		_details::cached_descriptor_set&, const descriptor_resource::constant_buffer&, std::uint32_t idx
+	) {
+		// TODO
+		std::abort();
+	}
+
+	void context::_add_cached_descriptor_binding(
+		_details::cached_descriptor_set&, const descriptor_resource::structured_buffer&, std::uint32_t idx
+	) {
+		// TODO
+		std::abort();
+	}
+
+	void context::_add_cached_descriptor_binding(
+		_details::cached_descriptor_set&, const recorded_resources::tlas&, std::uint32_t idx
+	) {
+		// TODO
+		std::abort();
+	}
+
+	void context::_add_cached_descriptor_binding(
+		_details::cached_descriptor_set &set, const sampler_state &smp, std::uint32_t index
+	) {
+		set.used_samplers.emplace_back(
+			_device.create_sampler(
+				smp.minification, smp.magnification, smp.mipmapping,
+				smp.mip_lod_bias, smp.min_lod, smp.max_lod, smp.max_anisotropy,
+				smp.addressing_u, smp.addressing_v, smp.addressing_w,
+				smp.border_color, smp.comparison
+			),
+			index
+		);
 	}
 
 	void context::_flush_descriptor_array_writes(_details::image_descriptor_array &arr) {
@@ -773,20 +875,32 @@ namespace lotus::renderer {
 		}
 	}
 
-	gpu::image2d_view context::_create_image_view(const recorded_resources::image2d_view &view) {
-		auto result = _device.create_image2d_view_from(view._ptr->image, view._view_format, view._mip_levels);
+	gpu::image2d_view context::_create_image_view(
+		const _details::image2d &img, gpu::format fmt, gpu::mip_levels mips
+	) {
+		auto result = _device.create_image2d_view_from(img.image, fmt, mips);
 		if constexpr (should_register_debug_names) {
-			_device.set_debug_name(result, view._ptr->name);
+			_device.set_debug_name(result, img.name);
+		}
+		return result;
+	}
+
+	gpu::image2d_view context::_create_image_view(const recorded_resources::image2d_view &view) {
+		return _create_image_view(*view._ptr, view._view_format, view._mip_levels);
+	}
+
+	gpu::image3d_view context::_create_image_view(
+		const _details::image3d &img, gpu::format fmt, gpu::mip_levels mips
+	) {
+		auto result = _device.create_image3d_view_from(img.image, fmt, mips);
+		if constexpr (should_register_debug_names) {
+			_device.set_debug_name(result, img.name);
 		}
 		return result;
 	}
 
 	gpu::image3d_view context::_create_image_view(const recorded_resources::image3d_view &view) {
-		auto result = _device.create_image3d_view_from(view._ptr->image, view._view_format, view._mip_levels);
-		if constexpr (should_register_debug_names) {
-			_device.set_debug_name(result, view._ptr->name);
-		}
-		return result;
+		return _create_image_view(*view._ptr, view._view_format, view._mip_levels);
 	}
 
 	gpu::image2d_view &context::_request_image_view(const recorded_resources::image2d_view &view) {

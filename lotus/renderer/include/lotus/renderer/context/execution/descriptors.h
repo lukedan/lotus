@@ -50,13 +50,7 @@ namespace lotus::renderer::execution {
 		template <gpu::image_type Type> [[nodiscard]] static gpu::descriptor_type get_descriptor_type(
 			const descriptor_resource::basic_image<Type> &img
 		) {
-			switch (img.binding_type) {
-			case image_binding_type::read_only:
-				return gpu::descriptor_type::read_only_image;
-			case image_binding_type::read_write:
-				return gpu::descriptor_type::read_write_image;
-			}
-			return gpu::descriptor_type::num_enumerators;
+			return to_descriptor_type(img.binding_type);
 		}
 		/// Returns the descriptor type of a swap chain.
 		[[nodiscard]] static gpu::descriptor_type get_descriptor_type(const recorded_resources::swap_chain&) {
@@ -70,13 +64,7 @@ namespace lotus::renderer::execution {
 		[[nodiscard]] static gpu::descriptor_type get_descriptor_type(
 			const descriptor_resource::structured_buffer &buf
 		) {
-			switch (buf.binding_type) {
-			case buffer_binding_type::read_only:
-				return gpu::descriptor_type::read_only_buffer;
-			case buffer_binding_type::read_write:
-				return gpu::descriptor_type::read_write_buffer;
-			}
-			return gpu::descriptor_type::num_enumerators;
+			return to_descriptor_type(buf.binding_type);
 		}
 		/// Returns \ref gpu::descriptor_type::acceleration_structure.
 		[[nodiscard]] static gpu::descriptor_type get_descriptor_type(const recorded_resources::tlas&) {

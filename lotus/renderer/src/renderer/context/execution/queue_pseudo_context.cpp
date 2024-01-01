@@ -109,15 +109,14 @@ namespace lotus::renderer::execution {
 					_pseudo_acquire_dependency_events[event_i - 1].command_index
 				);
 			}
-			while (true) { // push towards the back
-				if (
-					std::to_underlying(event.command_index) < _q.batch_commands.size() &&
-					bit_mask::contains<commands::flags::dependency_acquire_unordered>(
-						_q.batch_commands[std::to_underlying(event.command_index)].get_flags()
-					)
-				) {
-					event.command_index = _details::next(event.command_index);
-				}
+			// push towards the back
+			while (
+				std::to_underlying(event.command_index) + 1 < _q.batch_commands.size() &&
+				bit_mask::contains<commands::flags::dependency_acquire_unordered>(
+					_q.batch_commands[std::to_underlying(event.command_index)].get_flags()
+				)
+			) {
+				event.command_index = _details::next(event.command_index);
 			}
 		}
 
@@ -500,8 +499,18 @@ namespace lotus::renderer::execution {
 		_queue_submission_range scope
 	) {
 		_q.ctx.execution_log("  USE_CACHED_DSCRPTR_SET \"{}\"", string::to_generic(set._ptr->name));
-		// TODO
-		std::abort();
+
+		_q.ctx._maybe_initialize_cached_descriptor_set(*set._ptr);
+
+		for (const auto &img : set._ptr->used_image2ds) {
+			_pseudo_use_image(*img.image, img.get_image_access(sync_points), scope);
+		}
+		for (const auto &img : set._ptr->used_image3ds) {
+			_pseudo_use_image(*img.image, img.get_image_access(sync_points), scope);
+		}
+		for (const auto &buf : set._ptr->used_buffers) {
+			_pseudo_use_buffer(*buf.buffer, buf.get_buffer_access(sync_points), scope);
+		}
 	}
 
 	/// Returns a \ref _details::image_access that corresponds to the given \ref image_binding_type.

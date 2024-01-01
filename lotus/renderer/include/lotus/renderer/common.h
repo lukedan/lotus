@@ -121,6 +121,17 @@ namespace lotus::renderer {
 
 		num_enumerators ///< Number of enumerators.
 	};
+	/// Returns the \ref gpu::descriptor_type that corresponds to the given \ref image_binding_type.
+	[[nodiscard]] inline constexpr gpu::descriptor_type to_descriptor_type(image_binding_type ty) {
+		switch (ty) {
+		case image_binding_type::read_only:
+			return gpu::descriptor_type::read_only_image;
+		case image_binding_type::read_write:
+			return gpu::descriptor_type::read_write_image;
+		default:
+			return gpu::descriptor_type::num_enumerators;
+		}
+	}
 	/// Buffer binding types.
 	enum class buffer_binding_type {
 		read_only,  ///< Read-only buffer.
@@ -128,6 +139,17 @@ namespace lotus::renderer {
 
 		num_enumerators ///< Number of enumerators.
 	};
+	/// Returns the \ref gpu::descriptor_type that corresponds to the given \ref buffer_binding_type.
+	[[nodiscard]] inline constexpr gpu::descriptor_type to_descriptor_type(buffer_binding_type ty) {
+		switch (ty) {
+		case buffer_binding_type::read_only:
+			return gpu::descriptor_type::read_only_buffer;
+		case buffer_binding_type::read_write:
+			return gpu::descriptor_type::read_write_buffer;
+		default:
+			return gpu::descriptor_type::num_enumerators;
+		}
+	}
 
 	/// The type of a resource.
 	enum class resource_type {

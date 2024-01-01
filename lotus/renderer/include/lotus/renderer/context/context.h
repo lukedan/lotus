@@ -613,6 +613,37 @@ namespace lotus::renderer {
 				arr.set = _device.create_descriptor_set(_descriptor_pool, *arr.layout, arr.capacity);
 			}
 		}
+		/// Initializes the given \ref _details::cached_descriptor_set if necessary.
+		void _maybe_initialize_cached_descriptor_set(_details::cached_descriptor_set&);
+
+		/// Adds a 2D image to the given cached descriptor binding.
+		void _add_cached_descriptor_binding(
+			_details::cached_descriptor_set&, const descriptor_resource::image2d&, std::uint32_t idx
+		);
+		/// Adds a 3D image to the given cached descriptor binding.
+		void _add_cached_descriptor_binding(
+			_details::cached_descriptor_set&, const descriptor_resource::image3d&, std::uint32_t idx
+		);
+		/// Adds a swap chain to the given cached descriptor binding.
+		void _add_cached_descriptor_binding(
+			_details::cached_descriptor_set&, const recorded_resources::swap_chain&, std::uint32_t idx
+		);
+		/// Adds a constant buffer to the given cached descriptor binding.
+		void _add_cached_descriptor_binding(
+			_details::cached_descriptor_set&, const descriptor_resource::constant_buffer&, std::uint32_t idx
+		);
+		/// Adds a structured buffer to the given cached descriptor binding.
+		void _add_cached_descriptor_binding(
+			_details::cached_descriptor_set&, const descriptor_resource::structured_buffer&, std::uint32_t idx
+		);
+		/// Adds a TLAS to the given cached descriptor binding.
+		void _add_cached_descriptor_binding(
+			_details::cached_descriptor_set&, const recorded_resources::tlas&, std::uint32_t idx
+		);
+		/// Adds a sampler to the given cached descriptor binding.
+		void _add_cached_descriptor_binding(
+			_details::cached_descriptor_set&, const sampler_state&, std::uint32_t idx
+		);
 
 		/// Flushes all writes to the given image descriptor array.
 		void _flush_descriptor_array_writes(_details::image_descriptor_array&);
@@ -622,10 +653,14 @@ namespace lotus::renderer {
 		/// Creates an \ref gpu::image2d_view, without recording it anywhere, and returns the object itself.
 		/// This function is used when we need to keep the view between render commands and flushes. This function
 		/// assumes that the image has been fully initialized.
+		[[nodiscard]] gpu::image2d_view _create_image_view(const _details::image2d&, gpu::format, gpu::mip_levels);
+		/// \overload
 		[[nodiscard]] gpu::image2d_view _create_image_view(const recorded_resources::image2d_view&);
 		/// Creates an \ref gpu::image3d_view, without recording it anywhere, and returns the object itself.
 		/// This function is used when we need to keep the view between render commands and flushes. This function
 		/// assumes that the image has been fully initialized.
+		[[nodiscard]] gpu::image3d_view _create_image_view(const _details::image3d&, gpu::format, gpu::mip_levels);
+		/// \overload
 		[[nodiscard]] gpu::image3d_view _create_image_view(const recorded_resources::image3d_view&);
 		/// Creates or finds a \ref gpu::image2d_view from the given \ref renderer::image2d_view, and records it in
 		/// the current \ref execution::batch_resources. This function assumes that the image has been fully

@@ -747,6 +747,8 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	image2d_view device::create_image2d_view_from(const image2d &img, format fmt, mip_levels mip) {
+		crash_if(!img.is_valid());
+
 		auto mips = mip.get_num_levels();
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 		srv_desc.Format                        = _details::conversions::to_format(fmt);
@@ -771,6 +773,8 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	image3d_view device::create_image3d_view_from(const image3d &img, format fmt, mip_levels mips) {
+		crash_if(!img.is_valid());
+
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 		srv_desc.Format                        = _details::conversions::to_format(fmt);
 		srv_desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE3D;

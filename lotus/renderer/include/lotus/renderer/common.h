@@ -3,6 +3,7 @@
 /// \file
 /// Material context.
 
+#include "lotus/index.h"
 #include "lotus/memory/stack_allocator.h"
 #include "lotus/containers/short_vector.h"
 #include "lotus/gpu/descriptors.h"
@@ -172,29 +173,43 @@ namespace lotus::renderer {
 	enum class unique_resource_id : std::uint64_t {
 		invalid = 0 ///< An invalid ID.
 	};
+}
+namespace lotus::index {
+	/// \ref renderer::unique_resource_id is an index type.
+	template <> struct is_index_type<renderer::unique_resource_id> : std::true_type {
+	};
+}
+
+namespace lotus::renderer {
 	/// Used to mark the order of commands globally (i.e., between batches).
 	enum class global_submission_index : std::uint32_t {
 		zero = 0, ///< Zero.
 		/// Maximum numeric value.
 		max = std::numeric_limits<std::underlying_type_t<global_submission_index>>::max(),
 	};
+}
+namespace lotus::index {
+	/// \ref renderer::global_submission_index is an index type.
+	template <> struct is_index_type<renderer::global_submission_index> : std::true_type {
+	};
+}
+
+namespace lotus::renderer {
 	/// Used to mark the order of comands on a single queue within a batch.
 	enum class queue_submission_index : std::uint32_t {
 		zero = 0, ///< Zero.
 		invalid = std::numeric_limits<std::underlying_type_t<queue_submission_index>>::max() ///< Invalid index.
 	};
+}
+namespace lotus::index {
+	/// \ref renderer::queue_submission_index is an index type.
+	template <> struct is_index_type<renderer::queue_submission_index> : std::true_type {
+	};
+}
 
 
+namespace lotus::renderer {
 	namespace _details {
-		/// Returns the next queue index.
-		[[nodiscard]] inline queue_submission_index next(queue_submission_index idx) {
-			return static_cast<queue_submission_index>(std::to_underlying(idx) + 1);
-		}
-		/// Returns the next global index.
-		[[nodiscard]] inline global_submission_index next(global_submission_index idx) {
-			return static_cast<global_submission_index>(std::to_underlying(idx) + 1);
-		}
-
 		/// Records how a command accesses an image.
 		struct image_access {
 			/// No initialization.

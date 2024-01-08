@@ -575,14 +575,13 @@ namespace lotus::renderer {
 
 		/// Allocates a unique resource index.
 		[[nodiscard]] unique_resource_id _allocate_resource_id() {
-			using _int_type = std::underlying_type_t<unique_resource_id>;
-			_resource_index = static_cast<unique_resource_id>(static_cast<_int_type>(_resource_index) + 1);
+			_resource_index = index::next(_resource_index);
 			return _resource_index;
 		}
 		/// Increments submission index by 1 and returns its value.
 		[[nodiscard]] global_submission_index _take_submission_index() {
 			const auto result = _sub_index;
-			_sub_index = _details::next(_sub_index);
+			_sub_index = index::next(_sub_index);
 			return result;
 		}
 

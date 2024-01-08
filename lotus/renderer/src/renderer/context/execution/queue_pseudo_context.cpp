@@ -35,7 +35,7 @@ namespace lotus::renderer::execution {
 			},
 			get_next_pseudo_execution_command().value
 		);
-		_pseudo_cmd_index = _details::next(_pseudo_cmd_index);
+		_pseudo_cmd_index = index::next(_pseudo_cmd_index);
 	}
 
 	bool queue_pseudo_context::is_pseudo_execution_blocked() const {
@@ -87,9 +87,9 @@ namespace lotus::renderer::execution {
 				// TODO: set semaphore value
 			}
 			if (!can_discard) { // record the event
-				// convert from "before command" to "after command"
-				auto cur_idx_after = static_cast<queue_submission_index>(std::to_underlying(cur_idx) - 1);
-				_queue_ctx._release_dependency_events.emplace_back(cur_idx_after, _q.semaphore_value);
+				// convert from "before this command" to "after this command"
+				crash_if(cur_idx == queue_submission_index::zero); // TODO is this assumption always true? probably not
+				_queue_ctx._release_dependency_events.emplace_back(index::prev(cur_idx), _q.semaphore_value);
 			}
 		}
 	}
@@ -116,7 +116,7 @@ namespace lotus::renderer::execution {
 					_q.batch_commands[std::to_underlying(event.command_index)].get_flags()
 				)
 			) {
-				event.command_index = _details::next(event.command_index);
+				event.command_index = index::next(event.command_index);
 			}
 		}
 
@@ -264,9 +264,9 @@ namespace lotus::renderer::execution {
 
 	void queue_pseudo_context::_pseudo_execute(const commands::begin_pass &cmd) {
 		// figure out the range of commands in this pass
-		_queue_submission_range scope(_pseudo_cmd_index, _details::next(_pseudo_cmd_index));
+		_queue_submission_range scope(_pseudo_cmd_index, index::next(_pseudo_cmd_index));
 		while (!std::holds_alternative<commands::end_pass>(_q.batch_commands[std::to_underlying(scope.end)].value)) {
-			scope.end = _details::next(scope.end);
+			scope.end = index::next(scope.end);
 			crash_if(std::to_underlying(scope.end) >= _q.batch_commands.size());
 		}
 
@@ -303,7 +303,7 @@ namespace lotus::renderer::execution {
 		}
 
 		// process draw commands
-		for (auto cmd_i = _details::next(scope.begin); cmd_i != scope.end; cmd_i = _details::next(cmd_i)) {
+		for (auto cmd_i = index::next(scope.begin); cmd_i != scope.end; cmd_i = index::next(cmd_i)) {
 			auto &pass_cmd = _q.batch_commands[std::to_underlying(cmd_i)];
 			auto &pass_cmd_union = pass_cmd.value;
 			if (std::holds_alternative<commands::draw_instanced>(pass_cmd_union)) {
@@ -381,7 +381,7 @@ namespace lotus::renderer::execution {
 		crash_if(!dep->release_event.has_value());
 		_request_dependency_from(
 			dep->release_event->queue,
-			_details::next(dep->release_event->submission_index), // after to before
+			index::next(dep->release_event->submission_index), // after to before
 			_pseudo_cmd_index
 		);
 	}
@@ -651,7 +651,7 @@ namespace lotus::renderer::execution {
 						const queue_submission_index target_index =
 							access->global_index < _batch_ctx.get_batch_resolve_data().first_command ?
 							queue_submission_index::zero :
-							_details::next(access->queue_index);
+							index::next(access->queue_index);
 						_request_dependency_from(i, target_index, scope.begin);
 					}
 				}
@@ -681,7 +681,7 @@ namespace lotus::renderer::execution {
 					_transition_buffer_here(buf, write_event.access, new_access);
 				}
 			} else { // need dependency
-				_request_dependency_from(queue_idx, _details::next(write_event.queue_index), scope.begin);
+				_request_dependency_from(queue_idx, index::next(write_event.queue_index), scope.begin);
 			}
 		}
 		buf.previous_queue_access[_get_queue_index()] = event;

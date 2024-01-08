@@ -88,7 +88,7 @@ namespace lotus::renderer::execution {
 			}
 		}
 
-		_command_index = _details::next(_command_index);
+		_command_index = index::next(_command_index);
 	}
 
 	bool queue_context::is_finished() const {

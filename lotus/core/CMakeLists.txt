@@ -28,7 +28,6 @@ target_sources(lotus_core
 		"include/lotus/utils/camera.h"
 		"include/lotus/utils/custom_float.h"
 		"include/lotus/utils/dds.h"
-		"include/lotus/utils/index.h"
 		"include/lotus/utils/misc.h"
 		"include/lotus/utils/static_function.h"
 		"include/lotus/utils/strings.h"
@@ -36,6 +35,7 @@ target_sources(lotus_core
 		"include/lotus/color.h"
 		"include/lotus/common.h"
 		"include/lotus/enums.h"
+		"include/lotus/index.h"
 		"include/lotus/logging.h"
 	PRIVATE
 		"src/memory/common.cpp"

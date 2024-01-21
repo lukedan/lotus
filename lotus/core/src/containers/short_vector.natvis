@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="lotus::short_vector&lt;*&gt;">
+		<DisplayString Condition="_short_count == _external_array_marker">{{ external size={_long_storage.count} }}</DisplayString>
+		<DisplayString>{{ internal size={(size_type)_short_count} }}</DisplayString>
+		<Expand>
+			<Item Name="[capacity]" Condition="_short_count == _external_array_marker">_long_storage.capacity</Item>
+			<Item Name="[allocator]">_allocator</Item>
+			<ArrayItems>
+				<Size>_short_count == _external_array_marker ? _long_storage.count : _short_count</Size>
+				<ValuePointer>_short_count == _external_array_marker ? (value_type*)_long_storage.data : (value_type*)&amp;_short_storage</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+</AutoVisualizer>

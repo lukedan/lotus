@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="lotus::matrix&lt;*&gt;">
+		<DisplayString Condition="num_rows == 1 &amp;&amp; num_columns == 1">{{ {elements[0][0]} }}</DisplayString>
+		<DisplayString Condition="num_rows == 2 &amp;&amp; num_columns == 1">{{ {elements[0][0]}, {elements[1][0]} }}</DisplayString>
+		<DisplayString Condition="num_rows == 3 &amp;&amp; num_columns == 1">{{ {elements[0][0]}, {elements[1][0]}, {elements[2][0]} }}</DisplayString>
+		<DisplayString Condition="num_rows == 4 &amp;&amp; num_columns == 1">{{ {elements[0][0]}, {elements[1][0]}, {elements[2][0]}, {elements[3][0]} }}</DisplayString>
+		<DisplayString Condition="num_rows == 1 &amp;&amp; num_columns == 2">{{ {elements[0][0]}, {elements[0][1]} }}</DisplayString>
+		<DisplayString Condition="num_rows == 1 &amp;&amp; num_columns == 3">{{ {elements[0][0]}, {elements[0][1]}, {elements[0][2]} }}</DisplayString>
+		<DisplayString Condition="num_rows == 1 &amp;&amp; num_columns == 4">{{ {elements[0][0]}, {elements[0][1]}, {elements[0][2]}, {elements[0][3]} }}</DisplayString>
+		<DisplayString>{{ {num_rows} x {num_columns} matrix }}</DisplayString>
+		<Expand>
+			<ArrayItems Condition="num_rows == 1">
+				<Size>num_columns</Size>
+				<ValuePointer>&amp;elements[0][0]</ValuePointer>
+			</ArrayItems>
+			<ArrayItems Condition="num_columns == 1">
+				<Size>num_rows</Size>
+				<ValuePointer>&amp;elements[0][0]</ValuePointer>
+			</ArrayItems>
+			<ArrayItems Condition="num_rows &gt; 1 &amp;&amp; num_columns &gt; 1">
+				<Size>num_rows</Size>
+				<ValuePointer>(value_type(*)[num_columns])&amp;elements[0]</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+</AutoVisualizer>

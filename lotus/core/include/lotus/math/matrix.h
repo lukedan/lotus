@@ -65,10 +65,10 @@ namespace lotus {
 	public:
 		static_assert(Rows > 0 && Cols > 0, "Matrices with zero dimensions are invalid");
 
-		constexpr static std::size_t
-			num_rows = Rows, ///< The number of rows.
-			num_columns = Cols, ///< The number of columns.
-			dimensionality = std::max(Rows, Cols); ///< Maximum of \ref num_rows and \ref num_columns.
+		constexpr static std::size_t num_rows = Rows; ///< The number of rows.
+		constexpr static std::size_t num_columns = Cols; ///< The number of columns.
+		/// Maximum of \ref num_rows and \ref num_columns.
+		constexpr static std::size_t dimensionality = std::max(num_rows, num_columns);
 		using value_type = T; ///< Value type.
 
 		/// Does not initialize the matrix.

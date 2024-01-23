@@ -13,12 +13,6 @@
 #include "lotus/gpu/synchronization.h"
 #include "lotus/gpu/descriptors.h"
 
-// specify that we want preview SDK
-extern "C" {
-	_declspec(dllexport) extern const UINT D3D12SDKVersion = 706;
-	_declspec(dllexport) extern const char* D3D12SDKPath = ".\\";
-}
-
 namespace lotus::gpu::backends::directx12 {
 	back_buffer_info device::acquire_back_buffer(swap_chain &s) {
 		back_buffer_info result = uninitialized;

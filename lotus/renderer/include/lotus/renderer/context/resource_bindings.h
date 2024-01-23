@@ -274,6 +274,15 @@ namespace lotus::renderer {
 		};
 		using image2d = basic_image<gpu::image_type::type_2d>; ///< A 2D image.
 		using image3d = basic_image<gpu::image_type::type_3d>; ///< A 2D image.
+		/// A swap chain.
+		struct swap_chain {
+			/// Initializes all fields of this struct.
+			swap_chain(recorded_resources::swap_chain c, image_binding_type type) : chain(c), binding_type(type) {
+			}
+
+			recorded_resources::swap_chain chain; ///< The swap chain.
+			image_binding_type binding_type = image_binding_type::num_enumerators; ///< Usage of the bound image.
+		};
 		/// A constant buffer.
 		struct constant_buffer {
 			/// Initializes all fields of this struct.
@@ -305,7 +314,7 @@ namespace lotus::renderer {
 			using value_type = std::variant<
 				descriptor_resource::image2d,
 				descriptor_resource::image3d,
-				recorded_resources::swap_chain,
+				descriptor_resource::swap_chain,
 				descriptor_resource::constant_buffer,
 				descriptor_resource::structured_buffer,
 				recorded_resources::tlas,
@@ -351,7 +360,7 @@ namespace lotus::renderer {
 			using value_type = std::variant<
 				descriptor_resource::image2d,
 				descriptor_resource::image3d,
-				recorded_resources::swap_chain,
+				descriptor_resource::swap_chain,
 				descriptor_resource::constant_buffer,
 				descriptor_resource::structured_buffer,
 				recorded_resources::tlas,

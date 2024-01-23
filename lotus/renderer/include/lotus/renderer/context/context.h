@@ -523,7 +523,7 @@ namespace lotus::renderer {
 		}
 
 		/// Callback function for when statistics for a new batch is available.
-		static_function<void(std::uint32_t, batch_statistics_late)> on_batch_statistics_available = nullptr;
+		static_function<void(batch_index, batch_statistics_late)> on_batch_statistics_available = nullptr;
 
 		/// Convenience function for printing execution log.
 		template <typename ...Args> void execution_log(std::format_string<Args...> str, Args &&...args) {
@@ -560,12 +560,12 @@ namespace lotus::renderer {
 		execution::batch_resources _deferred_delete_resources; ///< Resources that are marked for deferred deletion.
 		/// Index of the first command of this batch.
 		global_submission_index _first_batch_command_index = global_submission_index::zero;
-		std::uint32_t _batch_index = 0; ///< Index of the last batch that has been executed.
 
 		/// Counter used to uniquely identify resources.
 		unique_resource_id _resource_index = unique_resource_id::invalid;
-		/// Counter used to determine the order of commands between two executions.
+		/// Submission order of all commands.
 		global_submission_index _sub_index = static_cast<global_submission_index>(1);
+		batch_index _batch_index = static_cast<batch_index>(1); ///< Index of the last batch that has been executed.
 
 
 		/// Initializes all fields of the context.
@@ -625,7 +625,7 @@ namespace lotus::renderer {
 		);
 		/// Adds a swap chain to the given cached descriptor binding.
 		void _add_cached_descriptor_binding(
-			_details::cached_descriptor_set&, const recorded_resources::swap_chain&, std::uint32_t idx
+			_details::cached_descriptor_set&, const descriptor_resource::swap_chain&, std::uint32_t idx
 		);
 		/// Adds a constant buffer to the given cached descriptor binding.
 		void _add_cached_descriptor_binding(
@@ -672,7 +672,13 @@ namespace lotus::renderer {
 		/// Creates or finds a \ref gpu::image2d_view from the next image in the given \ref swap_chain, and records
 		/// it in the current \ref execution::batch_resources. This function assumes that the image has been fully
 		/// initialized.
-		[[nodiscard]] gpu::image2d_view &_request_image_view(const recorded_resources::swap_chain&);
+		[[nodiscard]] gpu::image2d_view &_request_swap_chain_view(const recorded_resources::swap_chain&);
+
+		/// Prepares the given swap chain to be used in a new batch. This function can perform any combination of the
+		/// following operations when necessary: Acquiring the next buffer of the swap chain, resizing the swap
+		/// chain, and recreating the swap chain. This should only be called during pseudo-execution because it may
+		/// wait for all GPU work to be finished.
+		void _maybe_update_swap_chain(_details::swap_chain&);
 
 		/// Writes one descriptor array element into the given array.
 		template <typename RecordedResource, typename View> void _write_one_descriptor_array_element(
@@ -717,7 +723,7 @@ namespace lotus::renderer {
 
 
 		/// Cleans up all unused resources, and updates timestamp information to latest.
-		void _cleanup();
+		void _cleanup(std::size_t keep_batches);
 
 
 		// resource deletion handlers

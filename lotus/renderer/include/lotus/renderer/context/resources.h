@@ -309,8 +309,19 @@ namespace lotus::renderer {
 		/// A swap chain associated with a window, managed by a context.
 		struct swap_chain : public resource {
 		public:
-			/// Image index indicating that a next image has not been acquired.
+			/// Index indicating that a new back buffer needs to be acquired.
 			constexpr static std::uint32_t invalid_image_index = std::numeric_limits<std::uint32_t>::max();
+
+			/// Data associated with a single back buffer within this chain.
+			struct back_buffer {
+				/// Initializes this back buffer with the given image.
+				explicit back_buffer(gpu::image2d img) :
+					image(std::move(img)), current_usage(image_access::initial()) {
+				}
+
+				gpu::image2d image; ///< The image.
+				image_access current_usage; ///< Current usage of the image.
+			};
 
 			/// Initializes all fields of this structure without creating a swap chain.
 			swap_chain(
@@ -319,8 +330,7 @@ namespace lotus::renderer {
 			) :
 				resource(i, n),
 				chain(nullptr), current_size(zero), desired_size(zero), current_format(gpu::format::none),
-				next_image_index(invalid_image_index), window(wnd), queue_index(qi), num_images(imgs),
-				expected_formats(std::move(fmts)) {
+				window(wnd), queue_index(qi), num_images(imgs), expected_formats(std::move(fmts)) {
 			}
 
 			/// Returns \ref resource_type::swap_chain.
@@ -330,14 +340,16 @@ namespace lotus::renderer {
 
 			gpu::swap_chain chain; ///< The swap chain.
 			std::vector<gpu::fence> fences; ///< Synchronization primitives for each back buffer.
-			std::vector<gpu::image2d> images; ///< Images in this swap chain.
-			std::vector<image_access> current_usages; ///< Current usages of all back buffers.
+			std::vector<back_buffer> back_buffers; ///< Back buffers in this swap chain.
 
 			cvec2u32 current_size; ///< Current size of swap chain images.
 			cvec2u32 desired_size; ///< Desired size of swap chain images.
 			gpu::format current_format = gpu::format::none; ///< Format of the swap chain images.
 
-			std::uint32_t next_image_index = 0; ///< Index of the next image.
+			/// Index of the next image that would be presented in this swap chain.
+			std::uint32_t next_image_index = invalid_image_index;
+			/// The last batch when this swap chain was presented.
+			batch_index previous_present = batch_index::zero;
 
 			system::window &window; ///< The window that owns this swap chain.
 			/// The queue that this swap chain is allowed to present on.
@@ -888,6 +900,9 @@ namespace lotus::renderer {
 	};
 
 	/// A reference of a swap chain.
+	///
+	/// Each swap chain can only be presented at most once per batch. After a swap chain has been presented to, it
+	/// cannot be used again in the same batch.
 	struct swap_chain : public basic_resource_handle<_details::swap_chain> {
 		friend context;
 	public:
@@ -1028,8 +1043,8 @@ namespace lotus::renderer {
 					"More than one mip specified for render target for texture {}",
 					string::to_generic(result._ptr->name)
 				);
-				result._mip_levels = gpu::mip_levels::only(result._mip_levels.first_level);
 			}
+			result._mip_levels = gpu::mip_levels::only(result._mip_levels.first_level);
 			return result;
 		}
 	}

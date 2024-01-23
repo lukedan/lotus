@@ -6,7 +6,7 @@
 #include "lotus/gpu/backends/directx12/device.h"
 
 namespace lotus::gpu::backends::directx12 {
-	image2d swap_chain::get_image(std::size_t index) {
+	image2d swap_chain::get_image(std::uint32_t index) {
 		image2d result = nullptr;
 		_details::assert_dx(_swap_chain->GetBuffer(static_cast<UINT>(index), IID_PPV_ARGS(&result._image)));
 		return result;

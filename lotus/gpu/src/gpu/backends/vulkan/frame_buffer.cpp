@@ -4,7 +4,7 @@
 /// Implementation of Vulkan frame buffers and swap chains.
 
 namespace lotus::gpu::backends::vulkan {
-	image2d swap_chain::get_image(std::size_t index) {
+	image2d swap_chain::get_image(std::uint32_t index) {
 		image2d result = nullptr;
 		result._image = _images[index];
 		return result;

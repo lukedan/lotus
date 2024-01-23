@@ -29,11 +29,11 @@ namespace lotus::gpu::backends::directx12 {
 		}
 
 		/// Returns the number of images in this swapchain.
-		[[nodiscard]] std::size_t get_image_count() const {
-			return _synchronization.size();
+		[[nodiscard]] std::uint32_t get_image_count() const {
+			return static_cast<std::uint32_t>(_synchronization.size());
 		}
 		/// Calls \p IDXGISwapChain1::GetBuffer().
-		[[nodiscard]] image2d get_image(std::size_t);
+		[[nodiscard]] image2d get_image(std::uint32_t);
 		/// Updates all elements in \ref _synchronization.
 		void update_synchronization_primitives(std::span<const back_buffer_synchronization>);
 

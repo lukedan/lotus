@@ -1616,7 +1616,7 @@ namespace lotus::gpu {
 		back_buffer_info(std::nullptr_t) : index(0), on_presented(nullptr), status(swap_chain_status::unavailable) {
 		}
 
-		std::size_t index; ///< Index of the back buffer.
+		std::uint32_t index; ///< Index of the back buffer.
 		/// Fence that will be triggered when this has finished presenting the previous frame. This can be empty.
 		fence *on_presented;
 		swap_chain_status status; ///< The status of this swapchain.

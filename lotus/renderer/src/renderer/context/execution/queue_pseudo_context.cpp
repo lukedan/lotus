@@ -52,6 +52,11 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_pseudo_context::process_pseudo_release_events() {
+		// add one event at the end of all commands
+		_pseudo_release_dependency_events.emplace_back(
+			static_cast<queue_submission_index>(_q.batch_commands.size()), nullptr
+		);
+
 		// sort and deduplicate release events
 		std::sort(
 			_pseudo_release_dependency_events.begin(),
@@ -205,7 +210,11 @@ namespace lotus::renderer::execution {
 			}
 
 			// collect geometry without actual buffers
-			gpu_geoms.emplace_back(_get_vertex_buffer_view(input), _get_index_buffer_view(input), input.flags);
+			gpu_geoms.emplace_back(
+				batch_context::get_vertex_buffer_view(input),
+				batch_context::get_index_buffer_view(input),
+				input.flags
+			);
 		}
 
 		// initialize memory for the BLAS
@@ -217,8 +226,6 @@ namespace lotus::renderer::execution {
 			gpu::buffer_usage_mask::acceleration_structure,
 			cmd.target._ptr->memory_pool
 		);
-
-		// mark BLAS memory usage
 		_pseudo_use_buffer(
 			*cmd.target._ptr->memory,
 			_details::buffer_access(
@@ -226,6 +233,11 @@ namespace lotus::renderer::execution {
 				gpu::buffer_access_mask::acceleration_structure_write
 			),
 			_pseudo_execution_current_command_range()
+		);
+
+		// initialize BLAS
+		cmd.target._ptr->handle = _q.ctx._device.create_bottom_level_acceleration_structure(
+			cmd.target._ptr->memory->data, 0, build_sizes.acceleration_structure_size
 		);
 	}
 
@@ -250,8 +262,6 @@ namespace lotus::renderer::execution {
 			gpu::buffer_usage_mask::acceleration_structure,
 			cmd.target._ptr->memory_pool
 		);
-
-		// mark TLAS memory usage
 		_pseudo_use_buffer(
 			*cmd.target._ptr->memory,
 			_details::buffer_access(
@@ -259,6 +269,11 @@ namespace lotus::renderer::execution {
 				gpu::buffer_access_mask::acceleration_structure_write
 			),
 			_pseudo_execution_current_command_range()
+		);
+
+		// initialize TLAS
+		cmd.target._ptr->handle = _q.ctx._device.create_top_level_acceleration_structure(
+			cmd.target._ptr->memory->data, 0, build_sizes.acceleration_structure_size
 		);
 	}
 
@@ -284,9 +299,20 @@ namespace lotus::renderer::execution {
 					),
 					scope
 				);
+			} else if (std::holds_alternative<recorded_resources::swap_chain>(rt.view)) {
+				const auto &chain = std::get<recorded_resources::swap_chain>(rt.view);
+				_pseudo_use_swap_chain(
+					*chain._ptr,
+					_details::image_access(
+						gpu::subresource_range::first_color(),
+						gpu::synchronization_point_mask::all_graphics,
+						gpu::image_access_mask::color_render_target,
+						gpu::image_layout::color_render_target
+					),
+					scope
+				);
 			} else {
-				// TODO
-				std::abort();
+				std::abort(); // not handled
 			}
 		}
 		if (cmd.depth_stencil_target.view) {
@@ -363,8 +389,16 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_pseudo_context::_pseudo_execute(const commands::present &cmd) {
-		// TODO
-		std::abort();
+		_pseudo_use_swap_chain(
+			*cmd.target._ptr,
+			_details::image_access(
+				gpu::subresource_range::first_color(),
+				gpu::synchronization_point_mask::none,
+				gpu::image_access_mask::none,
+				gpu::image_layout::present
+			),
+			_pseudo_execution_current_command_range()
+		);
 	}
 
 	void queue_pseudo_context::_pseudo_execute(const commands::release_dependency &cmd) {
@@ -579,12 +613,15 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_pseudo_context::_pseudo_use_resource(
-		const recorded_resources::swap_chain&,
-		gpu::synchronization_point_mask,
+		const descriptor_resource::swap_chain &chain,
+		gpu::synchronization_point_mask sync_points,
 		_queue_submission_range scope
 	) {
-		std::abort();
-		// TODO
+		_pseudo_use_swap_chain(
+			*chain.chain._ptr,
+			_get_image_access(gpu::subresource_range::first_color(), sync_points, chain.binding_type),
+			scope
+		);
 	}
 
 	void queue_pseudo_context::_pseudo_use_resource(
@@ -705,9 +742,8 @@ namespace lotus::renderer::execution {
 		_details::image_base &img, _details::image_access access, _queue_submission_range scope
 	) {
 		_q.ctx.execution_log(
-			"    USE_IMAGE \"{}\", SYNC_POINTS {}, ACCESS {}, LAYOUT {}, "
-			"MIPS [{}, +{}), ARRAY_SLICES [{}, +{}), ASPECTS {}",
-			string::to_generic(img.name),
+			"    USE_IMAGE SYNC_POINTS {}, ACCESS {}, LAYOUT {}, "
+			"MIPS [{}, +{}), ARRAY_SLICES [{}, +{}), ASPECTS {}, \"{}\"",
 			string::to_generic(gpu::to_string(access.sync_points)),
 			string::to_generic(gpu::to_string(access.access)),
 			string::to_generic(gpu::to_string(access.layout)),
@@ -715,7 +751,8 @@ namespace lotus::renderer::execution {
 			access.subresource_range.mips.num_levels,
 			access.subresource_range.first_array_slice,
 			access.subresource_range.num_array_slices,
-			string::to_generic(gpu::to_string(access.subresource_range.aspects))
+			string::to_generic(gpu::to_string(access.subresource_range.aspects)),
+			string::to_generic(img.name)
 		);
 
 		const _details::image_access_event event(access, get_next_pseudo_execution_command().index, scope.end);
@@ -729,6 +766,34 @@ namespace lotus::renderer::execution {
 		} else { // read-only access
 			// TODO: layout changes?
 		}
+	}
+
+	void queue_pseudo_context::_pseudo_use_swap_chain(
+		_details::swap_chain &chain, _details::image_access access, _queue_submission_range scope
+	) {
+		_q.ctx.execution_log(
+			"    USE_SWAP_CHAIN SYNC_POINTS {}, ACCESS {}, LAYOUT {}, \"{}\"",
+			string::to_generic(gpu::to_string(access.sync_points)),
+			string::to_generic(gpu::to_string(access.access)),
+			string::to_generic(gpu::to_string(access.layout)),
+			string::to_generic(chain.name)
+		);
+
+		if (access.layout == gpu::image_layout::present) {
+			crash_if(
+				chain.next_image_index == _details::swap_chain::invalid_image_index || // must be acquired
+				_q.queue.get_index() != chain.queue_index || // must be presented on the specified queue
+				chain.previous_present == _q.ctx._batch_index // cannot present twice in the same batch
+			);
+			// update batch index
+			chain.previous_present = _q.ctx._batch_index;
+			_batch_ctx.mark_swap_chain_presented(chain);
+		} else {
+			_q.ctx._maybe_update_swap_chain(chain);
+		}
+
+		// TODO stage transitions
+		/*std::abort();*/
 	}
 
 	void queue_pseudo_context::_request_dependency_from(
@@ -755,19 +820,5 @@ namespace lotus::renderer::execution {
 
 	batch_resolve_data::queue_data &queue_pseudo_context::_get_queue_resolve_data() {
 		return _batch_ctx.get_batch_resolve_data().queues[_get_queue_index()];
-	}
-
-	gpu::vertex_buffer_view queue_pseudo_context::_get_vertex_buffer_view(const geometry_buffers_view &v) {
-		return gpu::vertex_buffer_view(
-			v.vertex_data._ptr->data, v.vertex_format, v.vertex_offset, v.vertex_stride, v.vertex_count
-		);
-	}
-
-	/// Returns all properties of the index buffer of the \ref geometry_buffers_view.
-	gpu::index_buffer_view queue_pseudo_context::_get_index_buffer_view(const geometry_buffers_view &v) {
-		if (!v.index_data) {
-			return nullptr;
-		}
-		return gpu::index_buffer_view(v.index_data._ptr->data, v.index_format, v.index_offset, v.index_count);
 	}
 }

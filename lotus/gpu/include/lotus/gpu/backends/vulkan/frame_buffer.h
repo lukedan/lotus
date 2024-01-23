@@ -44,11 +44,11 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		/// Returns the size of \ref _images.
-		[[nodiscard]] std::size_t get_image_count() const {
-			return _images.size();
+		[[nodiscard]] std::uint32_t get_image_count() const {
+			return static_cast<std::uint32_t>(_images.size());
 		}
 		/// Returns the corresponding entry in \ref _images.
-		[[nodiscard]] image2d get_image(std::size_t index);
+		[[nodiscard]] image2d get_image(std::uint32_t index);
 		/// Updates \ref _synchronization.
 		void update_synchronization_primitives(std::span<const back_buffer_synchronization>);
 

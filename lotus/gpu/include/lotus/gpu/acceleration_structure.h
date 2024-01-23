@@ -58,6 +58,10 @@ namespace lotus::gpu {
 		sizeof(instance_description) == sizeof(backend::instance_description),
 		"Incorrect instance_description size"
 	);
+	static_assert(
+		std::is_standard_layout_v<instance_description> && std::is_trivially_copyable_v<instance_description>,
+		"instance_description does not match the type requirements"
+	);
 
 	/// Handle of a bottom-level acceleration structure.
 	class bottom_level_acceleration_structure : public backend::bottom_level_acceleration_structure {

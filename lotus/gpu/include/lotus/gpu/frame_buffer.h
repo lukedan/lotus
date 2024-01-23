@@ -33,11 +33,11 @@ namespace lotus::gpu {
 		swap_chain &operator=(const swap_chain&) = delete;
 
 		/// Returns the actual number of images in this swapchain.
-		[[nodiscard]] std::size_t get_image_count() const {
+		[[nodiscard]] std::uint32_t get_image_count() const {
 			return backend::swap_chain::get_image_count();
 		}
 		/// Returns the backing image at the given index.
-		[[nodiscard]] image2d get_image(std::size_t index) {
+		[[nodiscard]] image2d get_image(std::uint32_t index) {
 			return backend::swap_chain::get_image(index);
 		}
 		/// Updates the synchronization primitives used internally. This will affect the next frame for which

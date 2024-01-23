@@ -80,7 +80,8 @@ namespace lotus::renderer::execution {
 		gpu::timestamp_query_heap *_timestamps = nullptr; ///< Timestamp query heap for this batch on this queue.
 
 		/// All waits that have been issued before any other commands have been executed or any other signal events
-		/// have been issued.
+		/// have been issued. Since waits are issued on command list submission, this is used to reduce the number of
+		/// command lists that we submit.
 		std::vector<gpu::timeline_semaphore_synchronization> _pending_waits;
 
 		queue_submission_index _command_index = zero; ///< Index of the next command.
@@ -88,6 +89,12 @@ namespace lotus::renderer::execution {
 		decltype(_timestamp_command_indices)::const_iterator _next_timestamp; ///< Next timestamp.
 		decltype(_release_dependency_events)::const_iterator _next_release_event; ///< Next release dependency event.
 		decltype(_acquire_dependency_events)::const_iterator _next_acquire_event; ///< Next acquire dependency event.
+
+		// pass-related execution state
+		bool _within_pass = false; ///< Whether we're inside a render pass.
+		std::vector<gpu::format> _color_rt_formats; ///< Formats of color render targets that are being rendered to.
+		/// Format of the depth-stencil render target that is being rendered to.
+		gpu::format _depth_stencil_rt_format = gpu::format::none;
 
 
 		/// Creates the command list if necessary, and returns the current command list.

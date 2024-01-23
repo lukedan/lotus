@@ -14,32 +14,22 @@ namespace lotus::renderer::execution {
 	}
 
 	void descriptor_set_builder::create_binding(std::uint32_t reg, const descriptor_resource::image2d &img) {
-		auto &img_view = _ctx._request_image_view(img.view);
-		switch (img.binding_type) {
-		case image_binding_type::read_only:
-			_ctx._device.write_descriptor_set_read_only_images(_result, _layout, reg, { &img_view });
-			break;
-		case image_binding_type::read_write:
-			_ctx._device.write_descriptor_set_read_write_images(_result, _layout, reg, { &img_view });
-			break;
-		}
+		const auto func = gpu::device::get_write_image_descriptor_function(to_descriptor_type(img.binding_type));
+		std::initializer_list<const gpu::image_view_base*> img_views = { &_ctx._request_image_view(img.view) };
+		(_ctx._device.*func)(_result, _layout, reg, img_views);
 	}
 
 	void descriptor_set_builder::create_binding(std::uint32_t reg, const descriptor_resource::image3d &img) {
-		auto &img_view = _ctx._request_image_view(img.view);
-		switch (img.binding_type) {
-		case image_binding_type::read_only:
-			_ctx._device.write_descriptor_set_read_only_images(_result, _layout, reg, { &img_view });
-			break;
-		case image_binding_type::read_write:
-			_ctx._device.write_descriptor_set_read_write_images(_result, _layout, reg, { &img_view });
-			break;
-		}
+		const auto func = gpu::device::get_write_image_descriptor_function(to_descriptor_type(img.binding_type));
+		std::initializer_list<const gpu::image_view_base*> img_view = { &_ctx._request_image_view(img.view) };
+		(_ctx._device.*func)(_result, _layout, reg, img_view);
 	}
 
-	void descriptor_set_builder::create_binding(std::uint32_t reg, const recorded_resources::swap_chain &chain) {
-		auto &img_view = _ctx._request_image_view(chain);
-		_ctx._device.write_descriptor_set_read_write_images(_result, _layout, reg, { &img_view });
+	void descriptor_set_builder::create_binding(std::uint32_t reg, const descriptor_resource::swap_chain &chain) {
+		const auto func = gpu::device::get_write_image_descriptor_function(to_descriptor_type(chain.binding_type));
+		std::initializer_list<const gpu::image_view_base*> img_view =
+			{ &_ctx._request_swap_chain_view(chain.chain) };
+		(_ctx._device.*func)(_result, _layout, reg, img_view);
 	}
 
 	void descriptor_set_builder::create_binding(

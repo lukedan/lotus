@@ -184,8 +184,7 @@ namespace lotus::renderer {
 	/// Used to mark the order of commands globally (i.e., between batches).
 	enum class global_submission_index : std::uint32_t {
 		zero = 0, ///< Zero.
-		/// Maximum numeric value.
-		max = std::numeric_limits<std::underlying_type_t<global_submission_index>>::max(),
+		max = std::numeric_limits<std::underlying_type_t<global_submission_index>>::max(), ///< Maximum value.
 	};
 }
 namespace lotus::index {
@@ -204,6 +203,18 @@ namespace lotus::renderer {
 namespace lotus::index {
 	/// \ref renderer::queue_submission_index is an index type.
 	template <> struct is_index_type<renderer::queue_submission_index> : std::true_type {
+	};
+}
+
+namespace lotus::renderer {
+	/// The index of a batch.
+	enum class batch_index : std::uint32_t {
+		zero = 0, ///< Zero.
+	};
+}
+namespace lotus::index {
+	/// \ref renderer::batch_index is an index type.
+	template <> struct is_index_type<renderer::batch_index> : std::true_type {
 	};
 }
 

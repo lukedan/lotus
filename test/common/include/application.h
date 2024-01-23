@@ -57,7 +57,7 @@ namespace lotus {
 					_gpu_context, _gpu_adapter_properties, _gpu_device, gpu_cmd_queues
 				)));
 				_context->on_batch_statistics_available =
-					[this](std::uint32_t, renderer::batch_statistics_late stats) {
+					[this](renderer::batch_index, renderer::batch_statistics_late stats) {
 						batch_stats_late = std::move(stats);
 					};
 			}

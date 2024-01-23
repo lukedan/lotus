@@ -33,7 +33,8 @@ namespace lotus::renderer::execution {
 
 		// check & insert timestamp
 		if (_next_timestamp != _timestamp_command_indices.end() && *_next_timestamp == _command_index) {
-			_get_command_list().query_timestamp(*_timestamps, static_cast<std::uint32_t>(*_next_timestamp));
+			const auto timestamp_index = _next_timestamp - _timestamp_command_indices.begin();
+			_get_command_list().query_timestamp(*_timestamps, static_cast<std::uint32_t>(timestamp_index));
 			++_next_timestamp;
 		}
 
@@ -190,16 +191,70 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_context::_execute(const commands::build_blas &cmd) {
-		// TODO
-		std::abort();
+		// create geometry
+		std::vector<gpu::raytracing_geometry_view> geometries;
+		for (const auto &input : cmd.geometry) {
+			geometries.emplace_back(
+				batch_context::get_vertex_buffer_view(input),
+				batch_context::get_index_buffer_view(input),
+				input.flags
+			);
+		}
+		auto geom = _get_device().create_bottom_level_acceleration_structure_geometry(geometries);
+		const auto &build_sizes = _get_device().get_bottom_level_acceleration_structure_build_sizes(geom);
+		// create scratch buffer
+		// TODO allocate this from a pool?
+		auto &scratch_buffer = _batch_ctx.record_batch_resource(_get_device().create_committed_buffer(
+			build_sizes.build_scratch_size,
+			_q.ctx.get_device_memory_type_index(),
+			gpu::buffer_usage_mask::shader_read | gpu::buffer_usage_mask::shader_write
+		));
+		_get_command_list().build_acceleration_structure(geom, cmd.target._ptr->handle, scratch_buffer, 0);
 	}
 
 	void queue_context::_execute(const commands::build_tlas &cmd) {
-		// TODO
-		std::abort();
+		const auto build_sizes =
+			_get_device().get_top_level_acceleration_structure_build_sizes(cmd.instances.size());
+		// create input and scratch buffers
+		// TODO allocate these from a pool?
+		const std::size_t input_buffer_size = cmd.instances.size() * sizeof(gpu::instance_description);
+		auto &input_buffer = _batch_ctx.record_batch_resource(_get_device().create_committed_buffer(
+			input_buffer_size,
+			_q.ctx.get_upload_memory_type_index(),
+			gpu::buffer_usage_mask::shader_read
+		));
+		auto &scratch_buffer = _batch_ctx.record_batch_resource(_get_device().create_committed_buffer(
+			build_sizes.build_scratch_size,
+			_q.ctx.get_device_memory_type_index(),
+			gpu::buffer_usage_mask::shader_read | gpu::buffer_usage_mask::shader_write
+		));
+		{ // copy data to input buffer
+			auto *input_data = reinterpret_cast<gpu::instance_description*>(_get_device().map_buffer(input_buffer));
+			for (std::size_t i = 0; i < cmd.instances.size(); ++i) {
+				const auto &instance = cmd.instances[i];
+				input_data[i] = _get_device().get_bottom_level_acceleration_structure_description(
+					instance.acceleration_structure._ptr->handle,
+					instance.transform,
+					instance.id,
+					instance.mask,
+					instance.hit_group_offset,
+					instance.flags
+				);
+			}
+			_get_device().flush_mapped_buffer_to_device(input_buffer, 0, input_buffer_size);
+			_get_device().unmap_buffer(input_buffer);
+		}
+		_get_command_list().build_acceleration_structure(
+			input_buffer, 0, cmd.instances.size(), cmd.target._ptr->handle, scratch_buffer, 0
+		);
 	}
 
 	void queue_context::_execute(const commands::begin_pass &cmd) {
+		crash_if(_within_pass);
+		// dirty pass-specific execution state
+		crash_if(!_color_rt_formats.empty() || _depth_stencil_rt_format != gpu::format::none);
+		_within_pass = true;
+
 		// create frame buffer
 		gpu::frame_buffer *frame_buffer = nullptr;
 		std::vector<gpu::color_render_target_access> color_rt_access;
@@ -212,23 +267,27 @@ namespace lotus::renderer::execution {
 					auto rt_size = mipmap::get_size(rt._ptr->size, rt._mip_levels.first_level);
 					crash_if(rt_size != cmd.render_target_size);
 					color_rts.emplace_back(&_q.ctx._request_image_view(rt));
+					_color_rt_formats.emplace_back(rt._view_format);
 				} else if (std::holds_alternative<recorded_resources::swap_chain>(color_rt.view)) {
 					auto rt = std::get<recorded_resources::swap_chain>(color_rt.view);
 					crash_if(rt._ptr->current_size != cmd.render_target_size);
-					color_rts.emplace_back(&_q.ctx._request_image_view(rt));
+					color_rts.emplace_back(&_q.ctx._request_swap_chain_view(rt));
+					_color_rt_formats.emplace_back(rt._ptr->current_format);
 				} else {
 					std::abort(); // unhandled
 				}
 				color_rt_access.emplace_back(color_rt.access);
 			}
+			crash_if(_color_rt_formats.size() != color_rt_access.size());
 
 			// depth render target
 			const gpu::image2d_view *depth_view = nullptr;
-			{
+			if (cmd.depth_stencil_target.view) {
 				auto depth_rt = cmd.depth_stencil_target.view.highest_mip_with_warning();
 				auto rt_size = mipmap::get_size(depth_rt._ptr->size, depth_rt._mip_levels.first_level);
 				crash_if(rt_size != cmd.render_target_size);
 				depth_view = &_q.ctx._request_image_view(depth_rt);
+				_depth_stencil_rt_format = depth_rt._view_format;
 			}
 
 			frame_buffer = &_batch_ctx.record_batch_resource(
@@ -245,10 +304,55 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_context::_execute(const commands::draw_instanced &cmd) {
-		std::abort(); // TODO
+		crash_if(!_within_pass);
+
+		pipeline_resources_info resources = _batch_ctx.use_pipeline_resources(cmd.resource_bindings);
+
+		// build pipeline key and retrieve cached pipeline
+		cache_keys::graphics_pipeline pipeline_key = nullptr;
+		pipeline_key.pipeline_rsrc = resources.pipeline_resources_key;
+		for (const auto &input_buffer : cmd.inputs) {
+			pipeline_key.input_buffers.emplace_back(
+				input_buffer.elements, input_buffer.stride, input_buffer.buffer_index, input_buffer.input_rate
+			);
+		}
+		pipeline_key.color_rt_formats        = { _color_rt_formats.begin(), _color_rt_formats.end() };
+		pipeline_key.dpeth_stencil_rt_format = _depth_stencil_rt_format;
+		pipeline_key.vertex_shader           = cmd.vertex_shader;
+		pipeline_key.pixel_shader            = cmd.pixel_shader;
+		pipeline_key.pipeline_state          = cmd.state;
+		pipeline_key.topology                = cmd.topology;
+		const gpu::graphics_pipeline_state &pipeline = _q.ctx._cache.get_graphics_pipeline_state(pipeline_key);
+
+		// gather vertex buffers
+		std::vector<gpu::vertex_buffer> vertex_bufs;
+		for (const auto &input : cmd.inputs) {
+			if (input.buffer_index >= vertex_bufs.size()) {
+				vertex_bufs.resize(input.buffer_index + 1, nullptr);
+			}
+			vertex_bufs[input.buffer_index] = gpu::vertex_buffer(input.data._ptr->data, input.offset, input.stride);
+		}
+
+		_get_command_list().bind_pipeline_state(pipeline);
+		_bind_descriptor_sets(resources, descriptor_set_bind_point::graphics);
+		_get_command_list().bind_vertex_buffers(0, vertex_bufs);
+		if (cmd.index_buffer.data) {
+			_get_command_list().bind_index_buffer(
+				cmd.index_buffer.data._ptr->data, cmd.index_buffer.offset, cmd.index_buffer.format
+			);
+			_get_command_list().draw_indexed_instanced(0, cmd.index_count, 0, 0, cmd.instance_count);
+		} else {
+			_get_command_list().draw_instanced(0, cmd.vertex_count, 0, cmd.instance_count);
+		}
 	}
 
 	void queue_context::_execute(const commands::end_pass &cmd) {
+		crash_if(!_within_pass);
+		_within_pass = false;
+		// clean up pass-specific execution state
+		_color_rt_formats.clear();
+		_depth_stencil_rt_format = gpu::format::none;
+
 		_get_command_list().end_pass();
 	}
 

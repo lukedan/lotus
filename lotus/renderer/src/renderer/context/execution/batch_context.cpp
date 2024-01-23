@@ -38,6 +38,10 @@ namespace lotus::renderer::execution {
 		);
 	}
 
+	void batch_context::mark_swap_chain_presented(_details::swap_chain &chain) {
+		_presented_swap_chains.emplace_back(&chain);
+	}
+
 	descriptor_set_info batch_context::use_descriptor_set(
 		std::span<const all_resource_bindings::numbered_binding> bindings
 	) {
@@ -105,7 +109,28 @@ namespace lotus::renderer::execution {
 		return result;
 	}
 
+	void batch_context::finish_batch() {
+		for (_details::swap_chain *chain : _presented_swap_chains) {
+			// marked to present twice, somehow - we should already have a check somewhere else
+			crash_if(chain->next_image_index == _details::swap_chain::invalid_image_index);
+			chain->next_image_index = _details::swap_chain::invalid_image_index;
+		}
+	}
+
 	batch_resolve_data &batch_context::get_batch_resolve_data() {
 		return _rctx._batch_data.back().resolve_data;
+	}
+
+	gpu::vertex_buffer_view batch_context::get_vertex_buffer_view(const geometry_buffers_view &v) {
+		return gpu::vertex_buffer_view(
+			v.vertex_data._ptr->data, v.vertex_format, v.vertex_offset, v.vertex_stride, v.vertex_count
+		);
+	}
+
+	gpu::index_buffer_view batch_context::get_index_buffer_view(const geometry_buffers_view &v) {
+		if (!v.index_data) {
+			return nullptr;
+		}
+		return gpu::index_buffer_view(v.index_data._ptr->data, v.index_format, v.index_offset, v.index_count);
 	}
 }

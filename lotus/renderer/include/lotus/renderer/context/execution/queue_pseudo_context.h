@@ -58,12 +58,16 @@ namespace lotus::renderer::execution {
 		/// acquired on this queue so far.
 		short_vector<queue_submission_index, 4> _pseudo_acquired_dependencies;
 		/// Command indices *before* which a dependency needs to be released. Some entries may be eliminated after
-		/// further processing if there are equivalent ones. During pseudo execution, this is not sorted and may
-		/// contain duplicate entries.
+		/// further processing if there are equivalent ones.
+		///
+		/// During pseudo execution, this is not sorted and may contain duplicate entries. This array is then sorted
+		/// in \ref process_pseudo_release_events().
 		std::vector<release_dependency_event<_details::dependency*>> _pseudo_release_dependency_events;
 		/// All dependency acquire events - \ref acquire_dependency_event::data contains indices *before* which the
-		/// dependencies are released. These are guaranteed to be ordered by
-		/// \ref _acquire_dependency_event::acquire_command_index.
+		/// dependencies are released. In the case that this value is 0, it indicates that the dependency was
+		/// released at the end of the previous batch.
+		///
+		/// These are guaranteed to be ordered by \ref _acquire_dependency_event::acquire_command_index.
 		std::vector<acquire_dependency_event<queue_submission_index>> _pseudo_acquire_dependency_events;
 		// timers
 		bool _valid_timestamp = false; ///< Whether the previous timestamp is valid.
@@ -154,7 +158,7 @@ namespace lotus::renderer::execution {
 		);
 		/// Emulates resource usage of a \ref recorded_resources::swap_chain.
 		void _pseudo_use_resource(
-			const recorded_resources::swap_chain&, gpu::synchronization_point_mask, _queue_submission_range scope
+			const descriptor_resource::swap_chain&, gpu::synchronization_point_mask, _queue_submission_range scope
 		);
 		/// Emulates resource usage of a \ref descriptor_resource::constant_buffer.
 		void _pseudo_use_resource(
@@ -184,14 +188,16 @@ namespace lotus::renderer::execution {
 		/// Adds an image transition for this command.
 		void _transition_image_here();
 
-		/// Emulates the usage of a buffer resource.
+		/// Emulates the usage of a buffer resource. Initializes the resource first if necessary.
 		void _pseudo_use_buffer(_details::buffer&, _details::buffer_access, _queue_submission_range scope);
-		/// Emulates the usage of a 2D image.
+		/// Emulates the usage of a 2D image. Initializes the resource first if necessary.
 		void _pseudo_use_image(_details::image2d&, _details::image_access, _queue_submission_range scope);
-		/// Emulates the usage of a 3D image.
+		/// Emulates the usage of a 3D image. Initializes the resource first if necessary.
 		void _pseudo_use_image(_details::image3d&, _details::image_access, _queue_submission_range scope);
-		/// Emulates the usage of an image resource.
+		/// Emulates the usage of an image resource. Initializes the resource first if necessary.
 		void _pseudo_use_image_impl(_details::image_base&, _details::image_access, _queue_submission_range scope);
+		/// Emulates the usage of the current image of a swap chain.
+		void _pseudo_use_swap_chain(_details::swap_chain&, _details::image_access, _queue_submission_range scope);
 
 		/// Requests a dependency from after the given command to before the command that is being executed
 		/// currently.
@@ -208,11 +214,5 @@ namespace lotus::renderer::execution {
 		[[nodiscard]] std::uint32_t _get_queue_index() const;
 		/// Returns the queue resolve data associated with this queue.
 		[[nodiscard]] batch_resolve_data::queue_data &_get_queue_resolve_data();
-
-
-		/// Returns all properties of the vertex buffer of the \ref geometry_buffers_view.
-		[[nodiscard]] static gpu::vertex_buffer_view _get_vertex_buffer_view(const geometry_buffers_view&);
-		/// Returns all properties of the index buffer of the \ref geometry_buffers_view.
-		[[nodiscard]] static gpu::index_buffer_view _get_index_buffer_view(const geometry_buffers_view&);
 	};
 }

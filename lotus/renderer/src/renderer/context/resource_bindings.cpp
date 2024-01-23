@@ -35,26 +35,15 @@ namespace lotus::renderer::_details {
 		numbered_bindings &bindings,
 		const descriptor_resource::basic_image<Type> &img, const gpu::shader_resource_binding &bd
 	) {
-		crash_if(bd.register_count != 1);
-		switch (img.binding_type) {
-		case image_binding_type::read_only:
-			crash_if(bd.type != gpu::descriptor_type::read_only_image);
-			break;
-		case image_binding_type::read_write:
-			crash_if(bd.type != gpu::descriptor_type::read_write_image);
-			break;
-		default:
-			std::abort();
-			break;
-		}
+		crash_if(bd.register_count != 1 || bd.type != to_descriptor_type(img.binding_type));
 		_collect_single_descriptor(bindings, img, bd);
 	}
 	/// Collects a swap chain image binding.
 	static void _collect_binding(
 		numbered_bindings &bindings,
-		const recorded_resources::swap_chain &img, const gpu::shader_resource_binding &bd
+		const descriptor_resource::swap_chain &img, const gpu::shader_resource_binding &bd
 	) {
-		crash_if(bd.register_count != 1 || bd.type != gpu::descriptor_type::read_only_image);
+		crash_if(bd.register_count != 1 || bd.type != to_descriptor_type(img.binding_type));
 		_collect_single_descriptor(bindings, img, bd);
 	}
 	/// Collects a constant buffer binding.
@@ -70,18 +59,7 @@ namespace lotus::renderer::_details {
 		numbered_bindings &bindings,
 		const descriptor_resource::structured_buffer &buf, const gpu::shader_resource_binding &bd
 	) {
-		crash_if(bd.register_count != 1);
-		switch (buf.binding_type) {
-		case buffer_binding_type::read_only:
-			crash_if(bd.type != gpu::descriptor_type::read_only_buffer);
-			break;
-		case buffer_binding_type::read_write:
-			crash_if(bd.type != gpu::descriptor_type::read_write_buffer);
-			break;
-		default:
-			std::abort();
-			break;
-		}
+		crash_if(bd.register_count != 1 || bd.type != to_descriptor_type(buf.binding_type));
 		_collect_single_descriptor(bindings, buf, bd);
 	}
 	/// Collects a TLAS binding.

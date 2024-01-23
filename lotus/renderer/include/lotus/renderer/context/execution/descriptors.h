@@ -28,7 +28,7 @@ namespace lotus::renderer::execution {
 		/// Creates a descriptor binding from a 3D image.
 		void create_binding(std::uint32_t reg, const descriptor_resource::image3d&);
 		/// Creates a descriptor binding for a swap chain image.
-		void create_binding(std::uint32_t reg, const recorded_resources::swap_chain&);
+		void create_binding(std::uint32_t reg, const descriptor_resource::swap_chain&);
 		/// Creates a descriptor binding for a constant buffer.
 		void create_binding(std::uint32_t reg, const descriptor_resource::constant_buffer&);
 		/// Creates a descriptor binding for a structured buffer.
@@ -53,8 +53,8 @@ namespace lotus::renderer::execution {
 			return to_descriptor_type(img.binding_type);
 		}
 		/// Returns the descriptor type of a swap chain.
-		[[nodiscard]] static gpu::descriptor_type get_descriptor_type(const recorded_resources::swap_chain&) {
-			return gpu::descriptor_type::read_write_image;
+		[[nodiscard]] static gpu::descriptor_type get_descriptor_type(const descriptor_resource::swap_chain &chain) {
+			return to_descriptor_type(chain.binding_type);
 		}
 		/// Returns \ref gpu::descriptor_type::constant_buffer.
 		[[nodiscard]] static gpu::descriptor_type get_descriptor_type(const descriptor_resource::constant_buffer&) {

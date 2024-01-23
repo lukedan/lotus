@@ -86,26 +86,26 @@ namespace lotus::renderer::assets {
 			if (auto loaded = dds::loader::create({ data, data + image_size })) {
 				std::vector<job_result::subresource> mips;
 
-				std::uint32_t num_mips = loaded->get_num_mips();
 				const auto &format_props = gpu::format_properties::get(loaded->get_format());
-				auto frag_size = format_props.fragment_size.into<std::uint32_t>();
-				cvec2u32 one(1, 1);
-				auto raw_data = loaded->get_raw_data();
-				auto current = raw_data.begin();
-				for (std::uint32_t i = 0; i < num_mips; ++i) {
-					cvec2u32 pixel_size = vec::memberwise_max(
+				const auto frag_size = format_props.fragment_size.into<std::uint32_t>();
+				const cvec2u32 one(1, 1);
+				const auto raw_data = loaded->get_raw_data();
+				auto current = raw_data.data();
+				for (std::uint32_t i = 0; i < loaded->get_num_mips(); ++i) {
+					const cvec2u32 pixel_size = vec::memberwise_max(
 						cvec2u32(loaded->get_width() >> i, loaded->get_height() >> i), one
 					);
-					cvec2u32 num_fragments = vec::memberwise_divide(pixel_size + frag_size - one, frag_size);
-					std::size_t size = num_fragments[0] * num_fragments[1] * format_props.bytes_per_fragment;
+					const cvec2u32 num_fragments = vec::memberwise_divide(pixel_size + frag_size - one, frag_size);
+					const std::size_t size_bytes =
+						num_fragments[0] * num_fragments[1] * format_props.bytes_per_fragment;
 
-					if (raw_data.end() - current < static_cast<std::ptrdiff_t>(size)) {
+					if ((current - raw_data.data()) + size_bytes > raw_data.size()) {
 						log().error("{}: Not enough space for mip {} and below", j.path.string(), i);
 						break;
 					}
 
-					mips.emplace_back(&*current, i);
-					current += size;
+					mips.emplace_back(std::span(current, current + size_bytes), i);
+					current += size_bytes;
 				}
 
 				// TODO more verifications?
@@ -153,13 +153,14 @@ namespace lotus::renderer::assets {
 				original_channels = 4; // TODO support 1 and 2 channel images
 			}
 			image_mem.reset(); // we're done loading; free the loaded image file
-			std::uint8_t num_channels = original_channels == 3 ? 4 : static_cast<std::uint8_t>(original_channels);
+			const std::uint8_t num_channels =
+				original_channels == 3 ? 4 : static_cast<std::uint8_t>(original_channels);
 			std::uint8_t bits_per_channel_4[4] = { 0, 0, 0, 0 };
 			for (int i = 0; i < num_channels; ++i) {
 				bits_per_channel_4[i] = bytes_per_channel * 8;
 			}
 
-			auto pixel_format = gpu::format_properties::find_exact_rgba(
+			const gpu::format pixel_format = gpu::format_properties::find_exact_rgba(
 				bits_per_channel_4[0], bits_per_channel_4[1], bits_per_channel_4[2], bits_per_channel_4[3], type
 			);
 			if (pixel_format == gpu::format::none) {
@@ -169,12 +170,14 @@ namespace lotus::renderer::assets {
 				);
 			}
 
+			const auto num_bytes = width * height * gpu::format_properties::get(pixel_format).bytes_per_fragment;
+			const auto bytes = static_cast<const std::byte*>(loaded);
 			return job_result(
 				std::move(j),
 				loader_type::stbi,
 				cvec2i(width, height).into<std::uint32_t>(),
 				pixel_format,
-				{ job_result::subresource(static_cast<const std::byte*>(loaded), 0) },
+				{ job_result::subresource(std::span(bytes, bytes + num_bytes), 0) },
 				[ptr = loaded]() {
 					stbi_image_free(ptr);
 				}
@@ -342,9 +345,7 @@ namespace lotus::renderer::assets {
 				for (const auto &res : j.results) {
 					auto view = tex.image.view_mips(gpu::mip_levels::only(res.mip));
 					auto staging_buf = _context.request_staging_buffer_for(u8"Image staging buffer", view);
-					_context.write_image_data_to_buffer_tight(
-						staging_buf.data, staging_buf.meta, { res.data, res.data + staging_buf.total_size }
-					);
+					_context.write_image_data_to_buffer_tight(staging_buf.data, staging_buf.meta, res.data);
 					// TODO more descriptive name
 					_upload_queue.copy_buffer_to_image(staging_buf, view, 0, zero, u8"Upload image data");
 				}

@@ -416,6 +416,7 @@ namespace lotus::renderer {
 		crash_if(std::this_thread::get_id() != _thread);
 
 		auto &batch_data = _batch_data.emplace_back();
+		_batch_index = index::next(_batch_index);
 		batch_data.resources = std::exchange(_deferred_delete_resources, execution::batch_resources());
 		batch_data.resolve_data.first_command = _first_batch_command_index;
 		batch_data.resolve_data.queues.resize(_queues.size());

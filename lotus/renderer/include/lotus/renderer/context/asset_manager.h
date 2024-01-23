@@ -272,10 +272,10 @@ namespace lotus::renderer {
 						subresource(std::nullptr_t) {
 						}
 						/// Initializes all fields of this struct.
-						subresource(const std::byte *d, std::uint32_t m) : data(d), mip(m) {
+						subresource(std::span<const std::byte> d, std::uint32_t m) : data(d), mip(m) {
 						}
 
-						const std::byte *data = nullptr; ///< Loaded data.
+						std::span<const std::byte> data; ///< Loaded data.
 						std::uint32_t mip = 0; ///< Mipmap index.
 					};
 

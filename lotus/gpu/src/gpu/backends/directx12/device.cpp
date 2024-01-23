@@ -45,11 +45,16 @@ namespace lotus::gpu::backends::directx12 {
 		_details::assert_dx(_device->CreateCommandList(
 			0, alloc._type, alloc._allocator.Get(), nullptr, IID_PPV_ARGS(&result._list)
 		));
-		result._descriptor_heaps[0] = _srv_descriptors.get_heap();
-		result._descriptor_heaps[1] = _sampler_descriptors.get_heap();
-		result._list->SetDescriptorHeaps(
-			static_cast<UINT>(result._descriptor_heaps.size()), result._descriptor_heaps.data()
-		);
+		// copy command lists do not support setting descriptor heaps
+		if (alloc._type != D3D12_COMMAND_LIST_TYPE_COPY) {
+			result._descriptor_heaps[0] = _srv_descriptors.get_heap();
+			result._descriptor_heaps[1] = _sampler_descriptors.get_heap();
+			result._list->SetDescriptorHeaps(
+				static_cast<UINT>(result._descriptor_heaps.size()), result._descriptor_heaps.data()
+			);
+		} else {
+			std::fill(result._descriptor_heaps.begin(), result._descriptor_heaps.end(), nullptr);
+		}
 		return result;
 	}
 

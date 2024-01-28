@@ -190,6 +190,11 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::Queue::submit() without any command lists.
 		void signal(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 
+		/// Returns \ref _capabilities.
+		[[nodiscard]] queue_capabilities get_capabilities() const {
+			return _capabilities;
+		}
+
 		/// Checks if this is a valid object.
 		[[nodiscard]] bool is_valid() const {
 			return !!_queue;
@@ -197,5 +202,6 @@ namespace lotus::gpu::backends::vulkan {
 	private:
 		vk::Queue _queue; ///< The queue.
 		double _timestamp_frequency = 0.0f; ///< Timestamp frequency.
+		queue_capabilities _capabilities = queue_capabilities::none; ///< The capabilities of this queue.
 	};
 }

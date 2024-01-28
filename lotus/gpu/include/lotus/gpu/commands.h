@@ -343,6 +343,10 @@ namespace lotus::gpu {
 		[[nodiscard]] queue_type get_type() const {
 			return _type;
 		}
+		/// Returns the capabilities of this queue.
+		[[nodiscard]] queue_capabilities get_capabilities() const {
+			return backend::command_queue::get_capabilities();
+		}
 		/// Returns the index of this queue.
 		[[nodiscard]] std::uint32_t get_index() const {
 			return _index;

@@ -22,6 +22,9 @@ namespace lotus::renderer::execution {
 		queue_submission_index to_acquire_before
 	) {
 		crash_if(from_queue == to_queue);
+		crash_if(std::to_underlying(from_release_before) > _rctx._queues[from_queue].batch_commands.size());
+		crash_if(std::to_underlying(to_acquire_before) > _rctx._queues[to_queue].batch_commands.size());
+
 		auto &acquired_index = _queue_pseudo_ctxs[to_queue]._pseudo_acquired_dependencies[from_queue];
 		if (acquired_index != queue_submission_index::invalid && acquired_index >= from_release_before) {
 			return; // the dependency has already been satisfied

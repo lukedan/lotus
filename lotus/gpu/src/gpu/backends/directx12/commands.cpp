@@ -495,4 +495,17 @@ namespace lotus::gpu::backends::directx12 {
 	void command_queue::signal(timeline_semaphore &sem, gpu::timeline_semaphore::value_type val) {
 		_details::assert_dx(_queue->Signal(sem._semaphore.Get(), val));
 	}
+
+	queue_capabilities command_queue::get_capabilities() const {
+		switch (static_cast<const gpu::command_queue*>(this)->get_type()) {
+		case queue_type::graphics:
+			return queue_capabilities::timestamp_query;
+		case queue_type::compute:
+			return queue_capabilities::timestamp_query;
+		case queue_type::copy:
+			return queue_capabilities::none;
+		default:
+			std::unreachable();
+		}
+	}
 }

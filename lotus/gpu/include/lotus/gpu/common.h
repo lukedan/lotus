@@ -388,7 +388,21 @@ namespace lotus::gpu {
 
 		num_enumerators ///< The number of available queue types.
 	};
+	/// The capabilities of a queue.
+	enum class queue_capabilities : std::uint8_t {
+		none = 0, ///< No capabilities.
+		timestamp_query = 1u << 0, ///< The queue supports timestamp queries.
 
+		num_enumerators = 1 ///< Total number of enumerators.
+	};
+}
+namespace lotus::enums {
+	/// \ref gpu::queue_capabilities is a bit mask type.
+	template <> struct is_bit_mask<gpu::queue_capabilities> : public std::true_type {
+	};
+}
+
+namespace lotus::gpu {
 	/// A factor used for blending.
 	enum class blend_factor {
 		zero,                        ///< Zero.

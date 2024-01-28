@@ -79,7 +79,7 @@ namespace lotus::gpu::backends::vulkan {
 		vk::CommandPoolCreateInfo info;
 		info
 			.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
-			.setQueueFamilyIndex(_queue_family_indices[ty]);
+			.setQueueFamilyIndex(_queue_family_props[ty].index);
 		// TODO allocator
 		alloc._pool = _details::unwrap(_device->createCommandPoolUnique(info));
 
@@ -1412,31 +1412,41 @@ namespace lotus::gpu::backends::vulkan {
 				_details::flags_to_bits(vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer);
 
 			std::fill(
-				result._queue_family_indices.get_storage().begin(),
-				result._queue_family_indices.get_storage().end(),
-				std::numeric_limits<std::uint32_t>::max()
+				result._queue_family_props.get_storage().begin(),
+				result._queue_family_props.get_storage().end(),
+				device::_queue_family_properties()
 			);
 
 			auto queue_familly_allocator = bookmark.create_std_allocator<vk::QueueFamilyProperties>();
 			auto families = _device.getQueueFamilyProperties(queue_familly_allocator);
 			for (std::uint32_t i = 0; i < families.size(); ++i) {
 				auto flags = _details::flags_to_bits(families[i].queueFlags);
+				const queue_capabilities supports_timestamps_bit =
+					families[i].timestampValidBits > 0 ?
+					queue_capabilities::timestamp_query :
+					queue_capabilities::none;
 				if (bit_mask::contains_all(flags, graphics_queue_flags)) {
-					result._queue_family_indices[queue_type::graphics] = i;
+					result._queue_family_props[queue_type::graphics] = device::_queue_family_properties(
+						i, supports_timestamps_bit						
+					);
 				} else if (bit_mask::contains_all(flags, compute_queue_flags)) {
-					result._queue_family_indices[queue_type::compute] = i;
+					result._queue_family_props[queue_type::compute] = device::_queue_family_properties(
+						i, supports_timestamps_bit
+					);
 				} else if (bit_mask::contains<vk::QueueFlagBits::eTransfer>(flags)) {
-					result._queue_family_indices[queue_type::copy] = i;
+					result._queue_family_props[queue_type::copy] = device::_queue_family_properties(
+						i, supports_timestamps_bit
+					);
 				}
 			}
-			crash_if(result._queue_family_indices[queue_type::graphics] >= families.size());
-			if (result._queue_family_indices[queue_type::compute] >= families.size()) {
-				result._queue_family_indices[queue_type::compute] =
-					result._queue_family_indices[queue_type::graphics];
+			crash_if(result._queue_family_props[queue_type::graphics].index >= families.size());
+			if (result._queue_family_props[queue_type::compute].index >= families.size()) {
+				result._queue_family_props[queue_type::compute] =
+					result._queue_family_props[queue_type::graphics];
 			}
-			if (result._queue_family_indices[queue_type::copy] >= families.size()) {
-				result._queue_family_indices[queue_type::copy] =
-					result._queue_family_indices[queue_type::compute];
+			if (result._queue_family_props[queue_type::copy].index >= families.size()) {
+				result._queue_family_props[queue_type::copy] =
+					result._queue_family_props[queue_type::compute];
 			}
 		}
 
@@ -1457,7 +1467,7 @@ namespace lotus::gpu::backends::vulkan {
 			for (std::size_t i = 0; i < priorities.get_storage().size(); ++i) {
 				if (!priorities.get_storage()[i].empty()) {
 					queue_create_infos.emplace_back()
-						.setQueueFamilyIndex(result._queue_family_indices.get_storage()[i])
+						.setQueueFamilyIndex(result._queue_family_props.get_storage()[i].index)
 						.setQueuePriorities(priorities.get_storage()[i]);
 				}
 			}
@@ -1598,9 +1608,11 @@ namespace lotus::gpu::backends::vulkan {
 
 			auto cur_queue = enums::dynamic_sequential_mapping<queue_type, std::uint32_t>::filled(0);
 			for (const auto &param : queue_params) {
+				const auto &family_props = result._queue_family_props[param];
 				command_queue new_queue = nullptr;
-				new_queue._queue = result._device->getQueue(result._queue_family_indices[param], cur_queue[param]);
+				new_queue._queue               = result._device->getQueue(family_props.index, cur_queue[param]);
 				new_queue._timestamp_frequency = timestamp_freq;
+				new_queue._capabilities        = family_props.capabilities;
 				queues.emplace_back(std::move(new_queue));
 
 				++cur_queue[param];

@@ -183,6 +183,9 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p ID3D12CommandQueue::Signal().
 		void signal(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 
+		/// Returns the capabilities of this queue based on its type.
+		[[nodiscard]] queue_capabilities get_capabilities() const;
+
 		/// Returns whether this queue contains a valid object.
 		[[nodiscard]] bool is_valid() const {
 			return _queue != nullptr;

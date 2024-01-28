@@ -18,6 +18,17 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_context::start_execution() {
+		// certain queue types do not support timestamps
+		if (!bit_mask::contains<gpu::queue_capabilities::timestamp_query>(_q.queue.get_capabilities())) {
+			if (!_timestamp_command_indices.empty()) {
+				log().warn(
+					"Queue {} does not support timers. {} timestamp(s) discarded",
+					_q.queue.get_index(), _timestamp_command_indices.size()
+				);
+				_timestamp_command_indices.clear();
+			}
+		}
+
 		_next_timestamp = _timestamp_command_indices.begin();
 		_next_acquire_event = _acquire_dependency_events.begin();
 		_next_release_event = _release_dependency_events.begin();

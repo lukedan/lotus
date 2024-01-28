@@ -287,6 +287,16 @@ namespace lotus::renderer {
 			Access access; ///< How the resource is accessed.
 			global_submission_index global_index; ///< Global submission index associated with the event.
 			queue_submission_index queue_index; ///< Queue submission index associated with the event.
+
+			/// Returns the index of the command in this batch to release a dependency before for this access event.
+			/// If this event is within the current batch, this function returns the next index of \ref queue_index.
+			/// Otherwise, \ref queue_submission_index::zero is returned to indicate that the dependency is from the
+			/// end of the previous batch.
+			[[nodiscard]] constexpr queue_submission_index get_acquire_dependency_queue_index(
+				global_submission_index start_of_batch
+			) const {
+				return global_index < start_of_batch ? queue_submission_index::zero : queue_index;
+			}
 		};
 		using image_access_event = basic_access_event<image_access>; ///< Shorthand for image access events.
 		using buffer_access_event = basic_access_event<buffer_access>; ///< Shorthand for buffer access events.

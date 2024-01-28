@@ -685,10 +685,9 @@ namespace lotus::renderer::execution {
 						_transition_buffer_here(buf, access->access, new_access);
 					} else { // insert barrier
 						// if it's from a previous batch, acquire the dependency from the beginning of the batch
-						const queue_submission_index target_index =
-							access->global_index < _batch_ctx.get_batch_resolve_data().first_command ?
-							queue_submission_index::zero :
-							index::next(access->queue_index);
+						const queue_submission_index target_index = access->get_acquire_dependency_queue_index(
+							_batch_ctx.get_batch_resolve_data().first_command
+						);
 						_request_dependency_from(i, target_index, scope.begin);
 					}
 				}
@@ -718,7 +717,10 @@ namespace lotus::renderer::execution {
 					_transition_buffer_here(buf, write_event.access, new_access);
 				}
 			} else { // need dependency
-				_request_dependency_from(queue_idx, index::next(write_event.queue_index), scope.begin);
+				const queue_submission_index target_index = write_event.get_acquire_dependency_queue_index(
+					_batch_ctx.get_batch_resolve_data().first_command
+				);
+				_request_dependency_from(queue_idx, target_index, scope.begin);
 			}
 		}
 		buf.previous_queue_access[_get_queue_index()] = event;

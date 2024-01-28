@@ -275,6 +275,21 @@ namespace lotus::gpu::backends::vulkan {
 			const pipeline_resources &rsrc
 		);
 	private:
+		/// Queue family properties.
+		struct _queue_family_properties {
+			/// Initializes the struct to empty.
+			_queue_family_properties() {
+			}
+			/// Initializes all fields of this struct.
+			_queue_family_properties(std::uint32_t i, queue_capabilities cap) : index(i), capabilities(cap) {
+			}
+
+			/// The index of this queue familly.
+			std::uint32_t index = std::numeric_limits<std::uint32_t>::max();
+			/// The capabilities of this queue family.
+			queue_capabilities capabilities = queue_capabilities::none;
+		};
+
 		vk::UniqueDevice _device; ///< The device.
 		vk::PhysicalDevice _physical_device; ///< The physical device.
 
@@ -284,8 +299,8 @@ namespace lotus::gpu::backends::vulkan {
 		/// List of memory properties.
 		std::vector<std::pair<memory_type_index, memory_properties>> _memory_properties_list;
 
-		/// Index of all queue families.
-		enums::dynamic_sequential_mapping<queue_type, std::uint32_t> _queue_family_indices;
+		/// Properties of all queue families.
+		enums::dynamic_sequential_mapping<queue_type, _queue_family_properties> _queue_family_props;
 
 		context_options _options = context_options::none; ///< Context options.
 		const vk::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< The dispatch loader.

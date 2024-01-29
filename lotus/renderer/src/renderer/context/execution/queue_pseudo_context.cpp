@@ -668,8 +668,8 @@ namespace lotus::renderer::execution {
 		_q.ctx.execution_log(
 			"    USE_BUFFER \"{}\", SYNC_POINTS {}, ACCESS {}",
 			string::to_generic(buf.name),
-			string::to_generic(gpu::to_string(new_access.sync_points)),
-			string::to_generic(gpu::to_string(new_access.access))
+			new_access.sync_points,
+			new_access.access
 		);
 
 		_q.ctx._maybe_initialize_buffer(buf);
@@ -746,14 +746,14 @@ namespace lotus::renderer::execution {
 		_q.ctx.execution_log(
 			"    USE_IMAGE SYNC_POINTS {}, ACCESS {}, LAYOUT {}, "
 			"MIPS [{}, +{}), ARRAY_SLICES [{}, +{}), ASPECTS {}, \"{}\"",
-			string::to_generic(gpu::to_string(access.sync_points)),
-			string::to_generic(gpu::to_string(access.access)),
-			string::to_generic(gpu::to_string(access.layout)),
+			access.sync_points,
+			access.access,
+			access.layout,
 			access.subresource_range.mips.first_level,
 			access.subresource_range.mips.num_levels,
 			access.subresource_range.first_array_slice,
 			access.subresource_range.num_array_slices,
-			string::to_generic(gpu::to_string(access.subresource_range.aspects)),
+			access.subresource_range.aspects,
 			string::to_generic(img.name)
 		);
 
@@ -775,9 +775,9 @@ namespace lotus::renderer::execution {
 	) {
 		_q.ctx.execution_log(
 			"    USE_SWAP_CHAIN SYNC_POINTS {}, ACCESS {}, LAYOUT {}, \"{}\"",
-			string::to_generic(gpu::to_string(access.sync_points)),
-			string::to_generic(gpu::to_string(access.access)),
-			string::to_generic(gpu::to_string(access.layout)),
+			access.sync_points,
+			access.access,
+			access.layout,
 			string::to_generic(chain.name)
 		);
 

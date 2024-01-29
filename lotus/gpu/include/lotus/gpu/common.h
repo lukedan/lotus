@@ -351,13 +351,17 @@ namespace lotus::gpu {
 
 		num_enumerators = 3 ///< The total number of aspects.
 	};
-	/// Converts a \ref image_aspect_mask to a string.
-	[[nodiscard]] std::u8string to_string(image_aspect_mask);
 }
 namespace lotus::enums {
 	/// \ref gpu::image_aspect_mask is a bit mask type.
 	template <> struct is_bit_mask<gpu::image_aspect_mask> : public std::true_type {
 	};
+	namespace bit_mask {
+		/// Names for \ref gpu::image_aspect_mask.
+		template <> struct name_mapping<gpu::image_aspect_mask> {
+			const static mapping<gpu::image_aspect_mask, std::u8string_view> value; ///< The value of the mapping.
+		};
+	}
 }
 
 namespace lotus::gpu {
@@ -589,9 +593,15 @@ namespace lotus::gpu {
 
 		num_enumerators ///< The total number of enumerators.
 	};
-	/// Converts a \ref image_layout to a string.
-	[[nodiscard]] std::u8string_view to_string(image_layout);
+}
+namespace lotus::enums {
+	/// Names for \ref gpu::image_layout.
+	template <> struct name_mapping<gpu::image_layout> {
+		const static sequential_mapping<gpu::image_layout, std::u8string_view> value; ///< The value of the mapping.
+	};
+}
 
+namespace lotus::gpu {
 	/// Points in the GPU pipeline where synchronization would happen.
 	enum class synchronization_point_mask : std::uint32_t {
 		none                         = 0,       ///< No synchronization.
@@ -613,13 +623,18 @@ namespace lotus::gpu {
 
 		num_enumerators = 14 ///< Number of valid bits.
 	};
-	/// Converts a \ref synchronization_point_mask to a string.
-	[[nodiscard]] std::u8string to_string(synchronization_point_mask);
 }
 namespace lotus::enums {
 	/// \ref gpu::synchronization_point_mask is a bit mask type.
 	template <> struct is_bit_mask<gpu::synchronization_point_mask> : public std::true_type {
 	};
+	namespace bit_mask {
+		/// Names for \ref gpu::synchronization_point_mask.
+		template <> struct name_mapping<gpu::synchronization_point_mask> {
+			/// The value of the mapping.
+			const static mapping<gpu::synchronization_point_mask, std::u8string_view> value;
+		};
+	}
 }
 
 namespace lotus::gpu {
@@ -683,13 +698,18 @@ namespace lotus::gpu {
 		/// All write bits.
 		write_bits = copy_destination | color_render_target | depth_stencil_read_write | shader_write,
 	};
-	/// Converts a \ref image_access_mask to a string.
-	[[nodiscard]] std::u8string to_string(image_access_mask);
 }
 namespace lotus::enums {
 	/// \ref gpu::image_access_mask is a bit mask type.
 	template <> struct is_bit_mask<gpu::image_access_mask> : public std::true_type {
 	};
+	namespace bit_mask {
+		/// Names for \ref gpu::image_access_mask.
+		template <> struct name_mapping<gpu::image_access_mask> {
+			/// The value of the mapping.
+			const static mapping<gpu::image_access_mask, std::u8string_view> value;
+		};
+	}
 }
 
 namespace lotus::gpu {
@@ -714,13 +734,18 @@ namespace lotus::gpu {
 		/// All write bits.
 		write_bits = copy_destination | shader_write | acceleration_structure_write | cpu_write,
 	};
-	/// Converts a \ref buffer_access_mask to a string.
-	[[nodiscard]] std::u8string to_string(buffer_access_mask);
 }
 namespace lotus::enums {
 	/// \ref gpu::buffer_access_mask is a bit mask type.
 	template <> struct is_bit_mask<gpu::buffer_access_mask> : public std::true_type {
 	};
+	namespace bit_mask {
+		/// Names for \ref gpu::buffer_access_mask.
+		template <> struct name_mapping<gpu::buffer_access_mask> {
+			/// The value of the mapping.
+			const static mapping<gpu::buffer_access_mask, std::u8string_view> value;
+		};
+	}
 }
 
 namespace lotus::gpu {

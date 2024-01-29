@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <array>
 #include <bit>
+#include <format>
 
 #include "common.h"
 
@@ -80,6 +81,34 @@ namespace lotus::enums {
 	};
 
 
+	/// Mappings between enum values and their string representations.
+	template <typename T> struct name_mapping {
+		constexpr static std::nullptr_t value = nullptr; ///< The value of the mapping, nothing by default.
+	};
+	/// Tests if a specific type has a valid name mapping.
+	template <typename T> constexpr static bool has_name_mapping_v =
+		!std::is_same_v<decltype(name_mapping<T>::value), const std::nullptr_t>;
+	/// Shorthand for \ref get_name_mapping() and then retrieving the name corresponding to a specific value.
+	template <typename T> [[nodiscard]] std::u8string_view to_string(T value) {
+		return name_mapping<T>::value[value];
+	}
+}
+namespace std {
+	/// Implementation of formatters for all enum types.
+	template <typename T> struct formatter<T, std::enable_if_t<lotus::enums::has_name_mapping_v<T>, char>> :
+		public formatter<std::string_view, char> {
+
+		/// Calls \ref lotus::enums::to_string().
+		template <typename FormatContext> FormatContext::iterator format(T value, FormatContext &ctx) const {
+			const u8string_view name = lotus::enums::to_string(value);
+			return formatter<std::string_view, char>::format(
+				string_view(reinterpret_cast<const char*>(name.data()), name.size()), ctx
+			);
+		}
+	};
+}
+
+namespace lotus::enums {
 	/// Indicates if an enum type is treated as a bit mask type. This decides if it can be used with the following
 	/// bitwise operators.
 	template <typename> struct is_bit_mask : public std::false_type {
@@ -174,58 +203,72 @@ namespace lotus::enums::bit_mask {
 			}
 		}
 
-		/// Returns the bitwise or of all values corresponding to all bits in the given bit mask.
-		[[nodiscard]] constexpr Value get_union(BitMask m) const {
+		/// Calls the callback function for each bit inside the mask with (bit index, bit, mapped value).
+		template <typename Cb> constexpr void for_each_bit(BitMask m, Cb &&cb) const {
 			using _src_ty = std::underlying_type_t<BitMask>;
-			using _dst_ty = std::underlying_type_t<Value>;
-
 			auto value = static_cast<_src_ty>(m);
-			auto result = static_cast<_dst_ty>(0);
 			while (value != 0) {
-				int bit = std::countr_zero(value);
-				crash_if_constexpr(bit >= NumEnumerators);
-				result |= static_cast<_dst_ty>(_mapping[bit].second);
-				value ^= static_cast<_src_ty>(1ull << bit);
+				const int bit_index = std::countr_zero(value);
+				crash_if_constexpr(bit_index >= NumEnumerators);
+				const _src_ty bit = 1ull << bit_index;
+				cb(bit_index, static_cast<BitMask>(bit), _mapping[bit_index].second);
+				value ^= bit;
 			}
+		}
+		/// Returns the bitwise or of all values corresponding to all bits in the given bit mask.
+		template <typename T = Value> [[nodiscard]] constexpr T get_union(BitMask m) const {
+			auto result = static_cast<std::underlying_type_t<Value>>(0);
+			for_each_bit(
+				m,
+				[&](int, BitMask, Value bit) {
+					result |= std::to_underlying(bit);
+				}
+			);
 			return static_cast<Value>(result);
 		}
 	private:
 		const std::array<std::pair<BitMask, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
 	};
 
-	/// Stores a mapping from a bit mask type to the names of the enumerators.
-	template <
-		typename BitMask, std::size_t NumEnumerators = static_cast<std::size_t>(BitMask::num_enumerators)
-	> class string_mapping {
-	public:
-		/// Initializes the mapping.
-		template <typename ...Args> constexpr string_mapping(Args &&...args) :
-			_names{ { std::forward<Args>(args)... } } {
-			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for bit mask mapping.");
-			for (std::size_t i = 0; i < NumEnumerators; ++i) {
-				crash_if_constexpr(_names[i].first != static_cast<BitMask>(1 << i));
-			}
-		}
+	/// Mappings between bit values and their string representations.
+	template <typename T> struct name_mapping {
+		constexpr static std::false_type value; ///< The value of the mapping.
+	};
+	/// Tests if a specific type has a valid name mapping.
+	template <typename T> constexpr static bool has_name_mapping_v =
+		!std::is_same_v<decltype(name_mapping<T>::value), const std::false_type>;
+}
+namespace std {
+	/// Implementation of formatters for all enum types.
+	template <typename T> struct formatter<
+		T, std::enable_if_t<lotus::enums::bit_mask::has_name_mapping_v<T>, char>
+	> : public formatter<std::string, char> {
+		/// Calls \ref lotus::enums::to_string().
+		template <typename FormatContext> FormatContext::iterator format(T value, FormatContext &ctx) const {
+			auto out_it = ctx.out();
 
-		/// Returns the bitwise or of all values corresponding to all bits in the given bit mask.
-		[[nodiscard]] constexpr std::u8string get_name(BitMask m) const {
-			using _src_ty = std::underlying_type_t<BitMask>;
-
-			auto value = static_cast<_src_ty>(m);
-			std::u8string result;
-			while (value != 0) {
-				int bit = std::countr_zero(value);
-				crash_if_constexpr(bit >= NumEnumerators);
-				if (!result.empty()) {
-					result += u8"|";
+			bool first = true;
+			lotus::enums::bit_mask::name_mapping<T>::value.for_each_bit(
+				value,
+				[&](int, T, std::u8string_view name) {
+					if (!first) {
+						*out_it = '|';
+						++out_it;
+					} else {
+						first = false;
+					}
+					const auto data = reinterpret_cast<const char*>(name.data());
+					out_it = copy(data, data + name.size(), out_it);
 				}
-				result += _names[bit].second;
-				value ^= static_cast<_src_ty>(1ull << bit);
+			);
+
+			if (first) {
+				const char label[] = "[none]";
+				out_it = copy(std::begin(label), std::end(label), out_it);
 			}
-			return result;
+
+			return out_it;
 		}
-	private:
-		const std::array<std::pair<BitMask, std::u8string_view>, NumEnumerators> _names; ///< Storage for the names.
 	};
 }
 

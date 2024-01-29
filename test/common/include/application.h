@@ -536,8 +536,10 @@ namespace lotus {
 			
 			{
 				// set up debug output buffer
-				FILE *debug_out = fopen("test.txt", "w");
-				if (debug_out) {
+				FILE *debug_out = nullptr;
+				constexpr bool _enable_debug_analysis = false;
+				if constexpr (_enable_debug_analysis) {
+					debug_out = fopen("test.txt", "w");
 					_context->on_execution_log =
 						[debug_out](std::u8string_view text) {
 							std::fprintf(
@@ -551,7 +553,7 @@ namespace lotus {
 
 				batch_stats_early = _context->execute_all();
 
-				if (debug_out) {
+				if constexpr (_enable_debug_analysis) {
 					std::fclose(debug_out);
 					_context->on_execution_log = nullptr;
 				}

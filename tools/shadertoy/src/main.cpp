@@ -10,6 +10,7 @@
 #include <lotus/gpu/device.h>
 #include <lotus/renderer/context/context.h>
 #include <lotus/renderer/context/asset_manager.h>
+#include <lotus/renderer/context/constant_uploader.h>
 
 #include "common.h"
 #include "pass.h"
@@ -35,7 +36,7 @@ int main(int argc, char **argv) {
 			return true;
 		}
 		lotus::log().info("Selected device: {}", lotus::string::to_generic(properties.name));
-		auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics });
+		auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics, lgpu::queue_type::copy });
 		gdev = std::move(dev);
 		gqueues = std::move(queues);
 		gdev_props = properties;
@@ -44,6 +45,8 @@ int main(int argc, char **argv) {
 
 	auto rctx = lren::context::create(gctx, gdev_props, gdev, gqueues);
 	auto gfx_q = rctx.get_queue(0);
+	auto upload_q = rctx.get_queue(1);
+
 	auto ass_man = lren::assets::manager::create(rctx, rctx.get_queue(0), &shader_utils);
 	ass_man.asset_library_path = "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets";
 	ass_man.additional_shader_include_paths = {
@@ -51,6 +54,8 @@ int main(int argc, char **argv) {
 	};
 
 	auto resource_pool = rctx.request_pool(u8"Resource Pool");
+	auto upload_pool = rctx.request_pool(u8"Upload Pool", rctx.get_upload_memory_type_index());
+	auto constants_pool = rctx.request_pool(u8"Constants Pool");
 
 	// swap chain
 	auto swapchain = rctx.request_swap_chain(
@@ -143,6 +148,10 @@ int main(int argc, char **argv) {
 			continue;
 		}
 
+		lren::constant_uploader uploader(rctx, upload_q, upload_pool, constants_pool);
+		auto constants_dependency = rctx.request_dependency(u8"Constants Upload Dependency");
+		gfx_q.acquire_dependency(constants_dependency, u8"Wait For Constants");
+
 		if (reload) {
 			reload = false;
 			time = 0.0f;
@@ -229,7 +238,7 @@ int main(int argc, char **argv) {
 					{
 						{ 0, std::move(custom_bindings) },
 						{ 1, {
-							{ 0, lren::descriptor_resource::immediate_constant_buffer::create_for(globals_buf_data) },
+							{ 0, uploader.upload(globals_buf_data) },
 							{ 1, lren::sampler_state(
 									lgpu::filtering::nearest, lgpu::filtering::nearest, lgpu::filtering::nearest
 							) },
@@ -288,6 +297,7 @@ int main(int argc, char **argv) {
 
 		gfx_q.present(swapchain, u8"Present");
 
+		uploader.end_frame(constants_dependency);
 		rctx.execute_all();
 
 		++frame_index;

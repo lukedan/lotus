@@ -504,24 +504,7 @@ namespace lotus::renderer {
 				/// Returns a \ref _details::image_access object that corresponds to this access with the given sync
 				/// point.
 				[[nodiscard]] _details::image_access get_image_access(gpu::synchronization_point_mask sync) const {
-					switch (binding_type) {
-					case image_binding_type::read_only:
-						return _details::image_access(
-							subresource_range,
-							sync,
-							gpu::image_access_mask::shader_read,
-							gpu::image_layout::shader_read_only
-						);
-					case image_binding_type::read_write:
-						return _details::image_access(
-							subresource_range,
-							sync,
-							gpu::image_access_mask::shader_read | gpu::image_access_mask::shader_write,
-							gpu::image_layout::shader_read_write
-						);
-					default:
-						std::abort(); // invalid enum or not handled
-					}
+					return _details::image_access::from_binding_type(subresource_range, sync, binding_type);
 				}
 			};
 			/// Records how this descriptor set accesses a buffer.

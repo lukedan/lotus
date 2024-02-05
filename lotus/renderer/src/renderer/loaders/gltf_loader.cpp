@@ -54,7 +54,7 @@ namespace lotus::renderer::gltf {
 						} else if constexpr (std::is_floating_point_v<T>) {
 							target[j] = static_cast<T>(current[j] / 255.0f);
 						} else {
-							assert(false); // invalid type
+							static_assert(sizeof(T*) != sizeof(T*), "Invalid data type");
 						}
 					}
 					break;
@@ -66,7 +66,7 @@ namespace lotus::renderer::gltf {
 						} else if constexpr (std::is_floating_point_v<T>) {
 							target[j] = static_cast<T>(current[j] / 65535.0f);
 						} else {
-							assert(false); // invalid type
+							static_assert(sizeof(T*) != sizeof(T*), "Invalid data type");
 						}
 					}
 					break;

@@ -547,43 +547,6 @@ namespace lotus::renderer::execution {
 		}
 	}
 
-	/// Returns a \ref _details::image_access that corresponds to the given \ref image_binding_type.
-	[[nodiscard]] static _details::image_access _get_image_access(
-		gpu::subresource_range subresources, gpu::synchronization_point_mask sync_points, image_binding_type ty
-	) {
-		switch (ty) {
-		case image_binding_type::read_only:
-			return _details::image_access(
-				subresources, sync_points,
-				gpu::image_access_mask::shader_read,
-				gpu::image_layout::shader_read_only
-			);
-		case image_binding_type::read_write:
-			return _details::image_access(
-				subresources, sync_points,
-				gpu::image_access_mask::shader_read | gpu::image_access_mask::shader_write,
-				gpu::image_layout::shader_read_write
-			);
-		default:
-			std::abort(); // invalid binding type or not handled
-		}
-	}
-	/// Returns a \ref _details::buffer_access that corresponds to the given \ref buffer_binding_type.
-	[[nodiscard]] static _details::buffer_access _get_buffer_access(
-		gpu::synchronization_point_mask sync_points, buffer_binding_type ty
-	) {
-		switch (ty) {
-		case buffer_binding_type::read_only:
-			return _details::buffer_access(sync_points, gpu::buffer_access_mask::shader_read);
-		case buffer_binding_type::read_write:
-			return _details::buffer_access(
-				sync_points, gpu::buffer_access_mask::shader_read | gpu::buffer_access_mask::shader_write
-			);
-		default:
-			std::abort(); // invalid binding type or not handled
-		}
-	}
-
 	void queue_pseudo_context::_pseudo_use_resource(
 		const descriptor_resource::image2d &img,
 		gpu::synchronization_point_mask sync_points,
@@ -591,7 +554,7 @@ namespace lotus::renderer::execution {
 	) {
 		_pseudo_use_image(
 			*img.view._ptr,
-			_get_image_access(
+			_details::image_access::from_binding_type(
 				gpu::subresource_range::nonarray_color(img.view._mip_levels), sync_points, img.binding_type
 			),
 			scope
@@ -605,7 +568,7 @@ namespace lotus::renderer::execution {
 	) {
 		_pseudo_use_image(
 			*img.view._ptr,
-			_get_image_access(
+			_details::image_access::from_binding_type(
 				gpu::subresource_range::nonarray_color(img.view._mip_levels), sync_points, img.binding_type
 			),
 			scope
@@ -619,7 +582,9 @@ namespace lotus::renderer::execution {
 	) {
 		_pseudo_use_swap_chain(
 			*chain.chain._ptr,
-			_get_image_access(gpu::subresource_range::first_color(), sync_points, chain.binding_type),
+			_details::image_access::from_binding_type(
+				gpu::subresource_range::first_color(), sync_points, chain.binding_type
+			),
 			scope
 		);
 	}
@@ -639,7 +604,9 @@ namespace lotus::renderer::execution {
 		gpu::synchronization_point_mask sync_points,
 		_queue_submission_range scope
 	) {
-		_pseudo_use_buffer(*buf.data._ptr, _get_buffer_access(sync_points, buf.binding_type), scope);
+		_pseudo_use_buffer(
+			*buf.data._ptr, _details::buffer_access::from_binding_type(sync_points, buf.binding_type), scope
+		);
 	}
 
 	void queue_pseudo_context::_pseudo_use_resource(

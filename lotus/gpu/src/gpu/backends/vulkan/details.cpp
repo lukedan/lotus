@@ -499,7 +499,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 			if (it != table.end() && it->second == fmt) {
 				return it->first;
 			}
-			assert(false); // no format found
+			std::abort(); // no format found
 			return format::none;
 		}
 

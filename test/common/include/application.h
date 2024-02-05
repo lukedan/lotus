@@ -50,6 +50,7 @@ namespace lotus {
 
 			{ // create device, context, and swap chain
 				_gpu_adapter_properties = best_adapter.get_properties();
+				log().debug("Choosing adapter: {}", string::to_generic(_gpu_adapter_properties.name));
 				std::vector<gpu::command_queue> gpu_cmd_queues;
 				std::tie(_gpu_device, gpu_cmd_queues) = best_adapter.create_device(_get_desired_queues());
 

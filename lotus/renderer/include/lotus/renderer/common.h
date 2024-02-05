@@ -243,6 +243,29 @@ namespace lotus::renderer {
 					gpu::image_layout::undefined
 				);
 			}
+			/// Initializes \ref access and \ref layout based on the type of a descriptor set binding.
+			[[nodiscard]] constexpr inline static image_access from_binding_type(
+				gpu::subresource_range subs, gpu::synchronization_point_mask syncs, image_binding_type ty
+			) {
+				switch (ty) {
+				case image_binding_type::read_only:
+					return image_access(
+						subs,
+						syncs,
+						gpu::image_access_mask::shader_read,
+						gpu::image_layout::shader_read_only
+					);
+				case image_binding_type::read_write:
+					return image_access(
+						subs,
+						syncs,
+						gpu::image_access_mask::shader_read | gpu::image_access_mask::shader_write,
+						gpu::image_layout::shader_read_write
+					);
+				default:
+					std::unreachable(); // invalid binding type
+				}
+			}
 
 			/// Default equality comparison.
 			[[nodiscard]] friend bool operator==(const image_access&, const image_access&) = default;
@@ -265,6 +288,21 @@ namespace lotus::renderer {
 			/// Returns an object that corresponds to the initial state of a resource.
 			[[nodiscard]] constexpr inline static buffer_access initial() {
 				return buffer_access(gpu::synchronization_point_mask::none, gpu::buffer_access_mask::none);
+			}
+			/// Initializes \ref access based on the type of a descriptor set binding.
+			[[nodiscard]] constexpr inline static buffer_access from_binding_type(
+				gpu::synchronization_point_mask syncs, buffer_binding_type ty
+			) {
+				switch (ty) {
+				case buffer_binding_type::read_only:
+					return _details::buffer_access(syncs, gpu::buffer_access_mask::shader_read);
+				case buffer_binding_type::read_write:
+					return _details::buffer_access(
+						syncs, gpu::buffer_access_mask::shader_read | gpu::buffer_access_mask::shader_write
+					);
+				default:
+					std::unreachable(); // invalid binding type
+				}
 			}
 
 			/// Default equality comparison.

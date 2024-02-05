@@ -110,9 +110,9 @@ namespace lotus::renderer::execution {
 		/// Binds descriptor sets.
 		void _bind_descriptor_sets(const pipeline_resources_info&, descriptor_set_bind_point);
 
-		/// Calls \p std::abort().
+		/// Calls \p std::unreachable().
 		void _execute(const commands::invalid&) {
-			std::abort();
+			std::unreachable();
 		}
 		/// Executes a buffer copy command.
 		void _execute(const commands::copy_buffer&);

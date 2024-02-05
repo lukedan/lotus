@@ -77,9 +77,9 @@ namespace lotus::renderer::execution {
 			return _queue_submission_range::only(_pseudo_cmd_index);
 		}
 
-		/// Calls \p std::abort().
+		/// Calls \p std::unreachable().
 		void _pseudo_execute(const commands::invalid&) {
-			std::abort();
+			std::unreachable();
 		}
 		/// Tracks usages of the source and destination buffers.
 		void _pseudo_execute(const commands::copy_buffer&);
@@ -91,13 +91,14 @@ namespace lotus::renderer::execution {
 		void _pseudo_execute(const commands::build_tlas&);
 		/// Manually handles all commands in this pass.
 		void _pseudo_execute(const commands::begin_pass&);
-		/// Calls \p std::abort() - pseudo-execution for pass commands are handled manually during \ref commands::begin_pass.
+		/// Calls \p std::unreachable() - pseudo-execution for pass commands are handled manually during
+		/// \ref commands::begin_pass.
 		void _pseudo_execute(const commands::draw_instanced&) {
-			std::abort();
+			std::unreachable();
 		}
-		/// Calls \p std::abort() - pseudo-execution for pass commands are handled manually.
+		/// Calls \p std::unreachable() - pseudo-execution for pass commands are handled manually.
 		void _pseudo_execute(const commands::end_pass&) {
-			std::abort();
+			std::unreachable();
 		}
 		/// Tracks usages of all resources used in the compute command.
 		void _pseudo_execute(const commands::dispatch_compute&);

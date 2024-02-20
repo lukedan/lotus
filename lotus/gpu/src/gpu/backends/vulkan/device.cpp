@@ -26,14 +26,16 @@ namespace lotus::gpu::backends::vulkan {
 		if (sync.notify_fence == nullptr) {
 			sync.notify_fence = sync.next_fence;
 		}
-		assert(sync.notify_fence);
+		crash_if(!sync.notify_fence);
+		vk::Fence &notify_fence = static_cast<fence*>(sync.notify_fence)->_fence.get();
+		crash_if(!notify_fence);
 
 		std::uint32_t frame_index;
 		auto res = _device->acquireNextImageKHR(
 			swapchain._swapchain.get(),
 			std::numeric_limits<std::uint64_t>::max(),
 			nullptr,
-			sync.notify_fence ? static_cast<fence*>(sync.notify_fence)->_fence.get() : nullptr,
+			notify_fence,
 			&frame_index
 		);
 		swapchain._frame_index = static_cast<std::uint16_t>(frame_index);

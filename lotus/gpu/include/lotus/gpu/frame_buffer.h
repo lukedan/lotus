@@ -54,7 +54,7 @@ namespace lotus::gpu {
 		void update_synchronization_primitives(std::span<fence> fences) {
 			auto bookmark = get_scratch_bookmark();
 			auto prims = bookmark.create_vector_array<back_buffer_synchronization>(get_image_count(), nullptr);
-			assert(fences.empty() || fences.size() == prims.size());
+			crash_if(fences.size() != prims.size());
 			for (std::size_t i = 0; i < fences.size(); ++i) {
 				prims[i].notify_fence = &fences[i];
 			}

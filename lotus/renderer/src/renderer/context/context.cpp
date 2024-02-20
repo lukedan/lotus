@@ -949,6 +949,7 @@ namespace lotus::renderer {
 				for (auto &fence : chain.fences) {
 					_batch_data.back().resources.record(std::move(fence));
 				}
+				chain.fences.clear();
 				// release all resources used by previous batches
 				chain.back_buffers.clear();
 				_cleanup(1);

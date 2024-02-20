@@ -52,11 +52,6 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_pseudo_context::process_pseudo_release_events() {
-		// add one event at the end of all commands
-		_pseudo_release_dependency_events.emplace_back(
-			static_cast<queue_submission_index>(_q.batch_commands.size()), nullptr
-		);
-
 		// sort and deduplicate release events
 		std::sort(
 			_pseudo_release_dependency_events.begin(),
@@ -88,13 +83,15 @@ namespace lotus::renderer::execution {
 			if (!can_discard) {
 				++_q.semaphore_value;
 			}
+			// set semaphore value for the dependency, if any
 			if (cur_dep) {
-				// TODO: set semaphore value
+				crash_if(!cur_dep->release_event.has_value());
+				crash_if(cur_dep->release_value.has_value());
+				cur_dep->release_value.emplace(_q.semaphore_value);
 			}
-			if (!can_discard) { // record the event
-				// convert from "before this command" to "after this command"
-				crash_if(cur_idx == queue_submission_index::zero); // TODO is this assumption always true? probably not
-				_queue_ctx._release_dependency_events.emplace_back(index::prev(cur_idx), _q.semaphore_value);
+			// schedule the release event
+			if (!can_discard) {
+				_queue_ctx._release_dependency_events.emplace_back(cur_idx, _q.semaphore_value);
 			}
 		}
 	}
@@ -114,11 +111,11 @@ namespace lotus::renderer::execution {
 					_pseudo_acquire_dependency_events[event_i - 1].command_index
 				);
 			}
-			// push towards the back
+			// group together consecutive acquire events
 			while (
 				std::to_underlying(event.command_index) + 1 < _q.batch_commands.size() &&
-				bit_mask::contains<commands::flags::dependency_acquire_unordered>(
-					_q.batch_commands[std::to_underlying(event.command_index)].get_flags()
+				std::holds_alternative<commands::acquire_dependency>(
+					_q.batch_commands[std::to_underlying(event.command_index)].value
 				)
 			) {
 				event.command_index = index::next(event.command_index);
@@ -136,18 +133,18 @@ namespace lotus::renderer::execution {
 				const queue_context &other_qctx = _batch_ctx.get_queue_context(event.queue_index);
 				const auto &other_queue_release_events = other_qctx._release_dependency_events;
 				auto &next_event_index = next_event_indices[event.queue_index];
-				// look for the last release event before the given command index
+				// look for the first release event after the given command index
 				while (
 					next_event_index < other_queue_release_events.size() &&
 					event.data > other_queue_release_events[next_event_index].command_index
 				) {
 					++next_event_index;
 				}
+				// we need to acquire the *previous* event
 				crash_if(next_event_index == 0);
 				sem_value = other_queue_release_events[next_event_index - 1].data;
 			}
 			_queue_ctx._acquire_dependency_events.emplace_back(event.queue_index, sem_value, event.command_index);
-			// TODO: can we get rid of unnecessary acquire events?
 		}
 	}
 
@@ -404,18 +401,19 @@ namespace lotus::renderer::execution {
 	void queue_pseudo_context::_pseudo_execute(const commands::release_dependency &cmd) {
 		auto *dep = cmd.target._ptr;
 		crash_if(dep->release_event.has_value()); // cannot release multiple times
-		dep->release_event.emplace(_get_queue_index(), _pseudo_cmd_index);
-		// even if this will be automatically handled by batch_context::request_dependency if this is acquired in the
-		// same batch, we need to make this explicit in case this is acquired in a later batch
+		dep->release_event.emplace(_get_queue_index(), _batch_ctx.get_batch_index(), _pseudo_cmd_index);
+		// explicit in case this dependency is acquired in a later batch
 		_pseudo_release_dependency_events.emplace_back(_pseudo_cmd_index, dep);
 	}
 
 	void queue_pseudo_context::_pseudo_execute(const commands::acquire_dependency &cmd) {
 		auto *dep = cmd.target._ptr;
+		// pseudo execution should have guaranteed that this dependency has been released
 		crash_if(!dep->release_event.has_value());
 		_request_dependency_from(
 			dep->release_event->queue,
-			index::next(dep->release_event->submission_index), // after to before
+			dep->release_event->batch,
+			dep->release_event->command_index,
 			_pseudo_cmd_index
 		);
 	}
@@ -641,7 +639,7 @@ namespace lotus::renderer::execution {
 
 		_q.ctx._maybe_initialize_buffer(buf);
 
-		const _details::buffer_access_event event(new_access, get_next_pseudo_execution_command().index, scope.end);
+		const _details::buffer_access_event event(new_access, _batch_ctx.get_batch_index(), scope.end);
 
 		if (bit_mask::contains_any(new_access.access, gpu::buffer_access_mask::write_bits)) {
 			// write access - wait until all previous reads have finished
@@ -650,12 +648,8 @@ namespace lotus::renderer::execution {
 				if (access) {
 					if (i == _get_queue_index()) { // same queue - only need transition
 						_transition_buffer_here(buf, access->access, new_access);
-					} else { // insert barrier
-						// if it's from a previous batch, acquire the dependency from the beginning of the batch
-						const queue_submission_index target_index = access->get_acquire_dependency_queue_index(
-							_batch_ctx.get_batch_resolve_data().first_command
-						);
-						_request_dependency_from(i, target_index, scope.begin);
+					} else { // insert dependency
+						_request_dependency_from(i, access->batch, access->queue_index, scope.begin);
 					}
 				}
 			}
@@ -684,10 +678,7 @@ namespace lotus::renderer::execution {
 					_transition_buffer_here(buf, write_event.access, new_access);
 				}
 			} else { // need dependency
-				const queue_submission_index target_index = write_event.get_acquire_dependency_queue_index(
-					_batch_ctx.get_batch_resolve_data().first_command
-				);
-				_request_dependency_from(queue_idx, target_index, scope.begin);
+				_request_dependency_from(queue_idx, write_event.batch, write_event.queue_index, scope.begin);
 			}
 		}
 		buf.previous_queue_access[_get_queue_index()] = event;
@@ -724,7 +715,7 @@ namespace lotus::renderer::execution {
 			string::to_generic(img.name)
 		);
 
-		const _details::image_access_event event(access, get_next_pseudo_execution_command().index, scope.end);
+		const _details::image_access_event event(access, _batch_ctx.get_batch_index(), scope.end);
 
 		const bool is_write_access = bit_mask::contains_any(access.access, gpu::image_access_mask::write_bits);
 		for (std::uint32_t i = 0; i < _get_num_queues(); ++i) {
@@ -749,11 +740,9 @@ namespace lotus::renderer::execution {
 		);
 
 		if (access.layout == gpu::image_layout::present) {
-			crash_if(
-				chain.next_image_index == _details::swap_chain::invalid_image_index || // must be acquired
-				_q.queue.get_index() != chain.queue_index || // must be presented on the specified queue
-				chain.previous_present == _q.ctx._batch_index // cannot present twice in the same batch
-			);
+			crash_if(chain.next_image_index == _details::swap_chain::invalid_image_index); // must be acquired
+			crash_if(_q.queue.get_index() != chain.queue_index); // must be presented on the specified queue
+			crash_if(chain.previous_present == _q.ctx._batch_index); // cannot present twice in the same batch
 			// update batch index
 			chain.previous_present = _q.ctx._batch_index;
 			_batch_ctx.mark_swap_chain_presented(chain);
@@ -766,9 +755,12 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_pseudo_context::_request_dependency_from(
-		std::uint32_t queue, queue_submission_index release_before, queue_submission_index acquire_before
+		std::uint32_t release_queue, batch_index release_batch, queue_submission_index release_after,
+		queue_submission_index acquire_before
 	) {
-		_batch_ctx.request_dependency(queue, release_before, _get_queue_index(), acquire_before);
+		_batch_ctx.request_dependency(
+			release_queue, release_batch, release_after, _get_queue_index(), acquire_before
+		);
 	}
 
 	std::uint32_t queue_pseudo_context::_maybe_insert_timestamp() {

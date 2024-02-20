@@ -17,23 +17,36 @@ namespace lotus::renderer::execution {
 
 	void batch_context::request_dependency(
 		std::uint32_t from_queue,
-		queue_submission_index from_release_before,
+		batch_index from_batch,
+		queue_submission_index from_release_after,
 		std::uint32_t to_queue,
 		queue_submission_index to_acquire_before
 	) {
-		crash_if(from_queue == to_queue);
-		crash_if(std::to_underlying(from_release_before) > _rctx._queues[from_queue].batch_commands.size());
-		crash_if(std::to_underlying(to_acquire_before) > _rctx._queues[to_queue].batch_commands.size());
+		crash_if(from_queue == to_queue); // same-queue dependencies are handled using resource barriers
+		crash_if(from_batch > get_batch_index()); // cannot wait for a future batch
+		crash_if(std::to_underlying(from_release_after) >= _rctx._queues[from_queue].batch_commands.size());
+		crash_if(std::to_underlying(to_acquire_before) >= _rctx._queues[to_queue].batch_commands.size());
 
-		auto &acquired_index = _queue_pseudo_ctxs[to_queue]._pseudo_acquired_dependencies[from_queue];
-		if (acquired_index != queue_submission_index::invalid && acquired_index >= from_release_before) {
-			return; // the dependency has already been satisfied
+		const bool previous_batch = from_batch == get_batch_index();
+		// the release queue commands are offset by 1, and 0 is used to indicate that the dependency is released from
+		// a previous batch
+		const queue_submission_index from_release_before =
+			previous_batch ? index::next(from_release_after) : queue_submission_index::zero;
+
+		// check if the dependency has already been satisfied
+		{
+			auto &acquired_index = _queue_pseudo_ctxs[to_queue]._pseudo_acquired_dependencies[from_queue];
+			if (acquired_index != queue_submission_index::invalid && acquired_index >= from_release_before) {
+				return;
+			}
+			// update which dependencies have been acquired
+			acquired_index = from_release_before;
 		}
-		acquired_index = from_release_before;
+
 		// record this event
-		if (from_release_before != queue_submission_index::zero) {
+		if (!previous_batch) {
 			_queue_pseudo_ctxs[from_queue]._pseudo_release_dependency_events.emplace_back(
-				from_release_before, nullptr
+				from_release_after, nullptr
 			);
 		}
 		_queue_pseudo_ctxs[to_queue]._pseudo_acquire_dependency_events.emplace_back(
@@ -122,6 +135,10 @@ namespace lotus::renderer::execution {
 
 	batch_resolve_data &batch_context::get_batch_resolve_data() {
 		return _rctx._batch_data.back().resolve_data;
+	}
+
+	batch_index batch_context::get_batch_index() const {
+		return _rctx._batch_index;
 	}
 
 	gpu::vertex_buffer_view batch_context::get_vertex_buffer_view(const geometry_buffers_view &v) {

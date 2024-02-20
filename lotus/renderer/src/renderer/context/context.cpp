@@ -448,9 +448,7 @@ namespace lotus::renderer {
 					}
 				}
 				if (next_queue_index >= _queues.size()) {
-					if (has_commands) {
-						std::abort(); // no command can be executed; most likely loop in the dependency graph
-					}
+					crash_if(has_commands); // no command can be executed; most likely loop in the dependency graph
 					break; // otherwise, we've finished pseudo-execution
 				}
 			}
@@ -520,8 +518,8 @@ namespace lotus::renderer {
 					gpu::synchronization_point_mask::cpu_access,
 					gpu::buffer_access_mask::cpu_write
 				),
-				_sub_index,
-				queue_submission_index::zero
+				_batch_index, // previous batch index
+				queue_submission_index::invalid
 			)
 		};
 	}

@@ -154,9 +154,7 @@ namespace lotus::renderer {
 			}
 
 			/// Records a usage.
-			void record_usage(
-				std::uint32_t queue_index, global_submission_index, queue_submission_index, image_access
-			);
+			void record_usage(std::uint32_t queue_index, batch_index, queue_submission_index, image_access);
 			/// Clears \ref current_queue_usages and saves relevant entries into \ref last_queue_usages.
 			void stash_usages();
 
@@ -275,9 +273,7 @@ namespace lotus::renderer {
 			}
 
 			/// Records a usage.
-			void record_usage(
-				std::uint32_t queue_index, global_submission_index, queue_submission_index, buffer_access
-			);
+			void record_usage(std::uint32_t queue_index, batch_index, queue_submission_index, buffer_access);
 			/// Clears \ref current_queue_usages and saves the last entry into \ref last_queue_usages.
 			void stash_usages();
 
@@ -459,11 +455,13 @@ namespace lotus::renderer {
 			/// Information about the command that releases this dependency.
 			struct release_info {
 				/// Initializes all fields of this struct.
-				release_info(std::uint32_t q, queue_submission_index si) : queue(q), submission_index(si) {
+				release_info(std::uint32_t q, batch_index bi, queue_submission_index qsi) :
+					queue(q), batch(bi), command_index(qsi) {
 				}
 
 				std::uint32_t queue; ///< Index of the queue this was released on.
-				queue_submission_index submission_index; ///< Index of the command that released this dependency.
+				batch_index batch; ///< Batch index of the command that released this dependency.
+				queue_submission_index command_index; ///< Queue index of the command that released this dependency.
 			};
 
 			/// Initializes the dependency.
@@ -476,6 +474,8 @@ namespace lotus::renderer {
 			}
 
 			std::optional<release_info> release_event; ///< The release event of this dependency.
+			/// The value indicating that this dependency has been released.
+			std::optional<gpu::timeline_semaphore::value_type> release_value;
 		};
 
 		/// A cached descriptor set.

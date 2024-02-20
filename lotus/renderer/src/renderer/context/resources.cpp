@@ -70,9 +70,9 @@ namespace lotus::renderer {
 
 
 		void image_base::record_usage(
-			std::uint32_t q, global_submission_index gi, queue_submission_index qi, image_access access
+			std::uint32_t q, batch_index bi, queue_submission_index qi, image_access access
 		) {
-			previous_queue_access[q].emplace_back(access, gi, qi);
+			previous_queue_access[q].emplace_back(access, bi, qi);
 		}
 
 		void image_base::stash_usages() {
@@ -87,9 +87,9 @@ namespace lotus::renderer {
 
 
 		void buffer::record_usage(
-			std::uint32_t q, global_submission_index gi, queue_submission_index qi, buffer_access access
+			std::uint32_t q, batch_index bi, queue_submission_index qi, buffer_access access
 		) {
-			previous_queue_access[q] = _details::buffer_access_event(access, gi, qi);
+			previous_queue_access[q] = _details::buffer_access_event(access, bi, qi);
 		}
 
 		void buffer::stash_usages() {

@@ -57,7 +57,7 @@ namespace lotus::renderer::execution {
 		/// For every queue, index of the last command *before* which a dependency has been released, that has been
 		/// acquired on this queue so far.
 		short_vector<queue_submission_index, 4> _pseudo_acquired_dependencies;
-		/// Command indices *before* which a dependency needs to be released. Some entries may be eliminated after
+		/// Command indices *after* which a dependency needs to be released. Some entries may be eliminated after
 		/// further processing if there are equivalent ones.
 		///
 		/// During pseudo execution, this is not sorted and may contain duplicate entries. This array is then sorted
@@ -203,7 +203,8 @@ namespace lotus::renderer::execution {
 		/// Requests a dependency from after the given command to before the command that is being executed
 		/// currently.
 		void _request_dependency_from(
-			std::uint32_t queue, queue_submission_index release_before, queue_submission_index acquire_before
+			std::uint32_t release_queue, batch_index release_batch, queue_submission_index release_after,
+			queue_submission_index acquire_before
 		);
 
 		/// Ensures that a fresh timestamp is present, and returns its index within \ref timestamp_command_indices.

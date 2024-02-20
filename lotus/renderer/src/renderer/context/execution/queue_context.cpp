@@ -100,6 +100,13 @@ namespace lotus::renderer::execution {
 			}
 		}
 
+		constexpr bool _debug_single_command_packets = false;
+		if constexpr (_debug_single_command_packets) {
+			if (!_within_pass) {
+				_flush_command_list(nullptr, {});
+			}
+		}
+
 		_command_index = index::next(_command_index);
 	}
 
@@ -108,8 +115,9 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_context::finish_execution() {
-		gpu::timeline_semaphore_synchronization last_signal(_q.semaphore, ++_q.semaphore_value);
-		auto signals = { last_signal };
+		// add a signal for the end of this batch
+		const gpu::timeline_semaphore_synchronization last_signal(_q.semaphore, ++_q.semaphore_value);
+		const auto signals = { last_signal };
 		_flush_command_list(nullptr, signals);
 
 		auto &resolve_data = _get_queue_resolve_data();

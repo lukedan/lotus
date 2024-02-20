@@ -37,7 +37,8 @@ namespace lotus::renderer::execution {
 		/// queue.
 		void request_dependency(
 			std::uint32_t from_queue,
-			queue_submission_index from_release_before,
+			batch_index from_batch,
+			queue_submission_index from_release_after,
 			std::uint32_t to_queue,
 			queue_submission_index to_acquire_before
 		);
@@ -78,6 +79,8 @@ namespace lotus::renderer::execution {
 		template <typename T> T &record_batch_resource(T);
 		/// Returns the batch resolve data associated with the given queue.
 		[[nodiscard]] batch_resolve_data &get_batch_resolve_data();
+		/// Returns the current batch index.
+		[[nodiscard]] batch_index get_batch_index() const;
 
 		/// Returns all properties of the vertex buffer of the \ref geometry_buffers_view.
 		[[nodiscard]] static gpu::vertex_buffer_view get_vertex_buffer_view(const geometry_buffers_view&);

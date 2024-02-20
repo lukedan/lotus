@@ -21,8 +21,6 @@ namespace lotus::renderer::commands {
 		non_pass_command             = 1 << 2, ///< This command is only valid outside a render pass.
 		/// Timeline semaphore release events before or after this command make no practical difference.
 		dependency_release_unordered = 1 << 3,
-		/// Timeline semaphore acquire events before or after this command make no practical difference.
-		dependency_acquire_unordered = 1 << 4,
 	};
 }
 namespace lotus::enums {
@@ -290,9 +288,7 @@ namespace lotus::renderer {
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
-				// assume that signaling the semaphore has a small overhead
-				// TODO: can semaphores be signalled within passes?
-				return flags::advances_timer | flags::non_pass_command | flags::dependency_release_unordered;
+				return flags::non_pass_command | flags::dependency_release_unordered;
 			}
 		};
 
@@ -307,7 +303,7 @@ namespace lotus::renderer {
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
 				// TODO: can semaphores be waited on within passes?
-				return flags::advances_timer | flags::non_pass_command | flags::dependency_acquire_unordered;
+				return flags::advances_timer | flags::non_pass_command;
 			}
 		};
 
@@ -374,12 +370,12 @@ namespace lotus::renderer {
 			commands::build_blas,
 			commands::build_tlas,
 
-			commands::begin_pass,
+			commands::begin_pass, // TODO: somewhat large
 			commands::draw_instanced, // TODO: very large
 			commands::end_pass,
 
 			commands::dispatch_compute,
-			commands::trace_rays, // TODO: 176 bytes
+			commands::trace_rays, // TODO: large
 
 			commands::present,
 

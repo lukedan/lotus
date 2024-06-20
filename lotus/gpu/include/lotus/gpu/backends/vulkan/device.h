@@ -36,7 +36,7 @@ namespace lotus::gpu::backends::vulkan {
 		void resize_swap_chain_buffers(swap_chain&, cvec2u32);
 
 		/// Calls \p vk::UniqueDevice::createCommandPoolUnique().
-		[[nodiscard]] command_allocator create_command_allocator(queue_type);
+		[[nodiscard]] command_allocator create_command_allocator(queue_family);
 		/// Calls \p vk::UniqueDevice::allocateCommandBuffers() and \p vk::CommandBuffer::begin().
 		[[nodiscard]] command_list create_and_start_command_list(command_allocator&);
 
@@ -300,7 +300,7 @@ namespace lotus::gpu::backends::vulkan {
 		std::vector<std::pair<memory_type_index, memory_properties>> _memory_properties_list;
 
 		/// Properties of all queue families.
-		enums::dynamic_sequential_mapping<queue_type, _queue_family_properties> _queue_family_props;
+		enums::dynamic_sequential_mapping<queue_family, _queue_family_properties> _queue_family_props;
 
 		context_options _options = context_options::none; ///< Context options.
 		const vk::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< The dispatch loader.
@@ -341,7 +341,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Enumerates all queue families using \p vk::PhysicalDevice::getQueueFamilyProperties(), then creates a
 		/// device using \p vk::PhysicalDevice::createDeviceUnique(), and collects queues from it.
-		[[nodiscard]] std::pair<device, std::vector<command_queue>> create_device(std::span<const queue_type>);
+		[[nodiscard]] std::pair<device, std::vector<command_queue>> create_device(std::span<const queue_family>);
 		/// Returns the results of \p vk::PhysicalDevice::getProperties().
 		[[nodiscard]] adapter_properties get_properties() const;
 	private:

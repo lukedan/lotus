@@ -384,8 +384,8 @@ namespace lotus::gpu {
 		num_enumerators ///< The number of available stages.
 	};
 
-	/// The tyype of a command queue.
-	enum class queue_type {
+	/// The familly of a command queue.
+	enum class queue_family {
 		graphics, ///< Supports all graphics, compute, and copy operations.
 		compute,  ///< Supports compute and copy operations.
 		copy,     ///< Supports copy operations.

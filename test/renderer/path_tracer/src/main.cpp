@@ -58,14 +58,14 @@ int main(int argc, char **argv) {
 		log().debug("Device name: {}", lstr::to_generic(dev_prop.name));
 		if (dev_prop.is_discrete) {
 			log().debug("Selected");
-			auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics });
+			auto &&[dev, queues] = adap.create_device({ lgpu::queue_family::graphics });
 			gdev = std::move(dev);
 			gqueues = std::move(queues);
 			return false;
 		}
 		return true;
 	});
-	auto cmd_alloc = gdev.create_command_allocator(lgpu::queue_type::graphics);
+	auto cmd_alloc = gdev.create_command_allocator(lgpu::queue_family::graphics);
 
 	auto rctx = lren::context::create(gctx, dev_prop, gdev, gqueues);
 	auto gfx_q = rctx.get_queue(0);

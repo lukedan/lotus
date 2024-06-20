@@ -194,7 +194,7 @@ namespace lotus {
 			return props.is_discrete ? 1 : 0;
 		}
 		/// Returns the queue types for GPU queues that should be created.
-		[[nodiscard]] virtual std::span<const gpu::queue_type> _get_desired_queues() const = 0;
+		[[nodiscard]] virtual std::span<const gpu::queue_family> _get_desired_queues() const = 0;
 		/// Derived classes should override this to return the desired GPU queue index used for loading assets.
 		[[nodiscard]] virtual std::uint32_t _get_asset_loading_queue_index() const = 0;
 		/// Derived classes should override this to return the desired GPU queue index used for uploading constant

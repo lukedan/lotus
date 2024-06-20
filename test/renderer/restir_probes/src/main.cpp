@@ -255,13 +255,13 @@ public:
 	};
 
 protected:
-	static constexpr lgpu::queue_type _queues[] = { lgpu::queue_type::graphics, lgpu::queue_type::copy, lgpu::queue_type::copy };
+	static constexpr lgpu::queue_family _queues[] = { lgpu::queue_family::graphics, lgpu::queue_family::copy, lgpu::queue_family::copy };
 
 	lren::context::queue _graphics_queue = nullptr;
 
 	std::unique_ptr<lren::debug_renderer> _debug_renderer; ///< Debug renderer.
 
-	std::span<const lgpu::queue_type> _get_desired_queues() const override {
+	std::span<const lgpu::queue_family> _get_desired_queues() const override {
 		return _queues;
 	}
 	std::uint32_t _get_asset_loading_queue_index() const override {

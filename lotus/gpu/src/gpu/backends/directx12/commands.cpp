@@ -497,12 +497,12 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	queue_capabilities command_queue::get_capabilities() const {
-		switch (static_cast<const gpu::command_queue*>(this)->get_type()) {
-		case queue_type::graphics:
+		switch (static_cast<const gpu::command_queue*>(this)->get_family()) {
+		case queue_family::graphics:
 			return queue_capabilities::timestamp_query;
-		case queue_type::compute:
+		case queue_family::compute:
 			return queue_capabilities::timestamp_query;
-		case queue_type::copy:
+		case queue_family::copy:
 			return queue_capabilities::none;
 		default:
 			std::unreachable();

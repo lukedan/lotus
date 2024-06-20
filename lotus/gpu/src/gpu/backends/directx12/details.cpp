@@ -320,13 +320,13 @@ namespace lotus::gpu::backends::directx12::_details {
 			return table[stage];
 		}
 
-		D3D12_COMMAND_LIST_TYPE to_command_list_type(queue_type type) {
-			constexpr static enums::sequential_mapping<queue_type, D3D12_COMMAND_LIST_TYPE> table{
-				std::pair(queue_type::graphics, D3D12_COMMAND_LIST_TYPE_DIRECT ),
-				std::pair(queue_type::compute,  D3D12_COMMAND_LIST_TYPE_COMPUTE),
-				std::pair(queue_type::copy,     D3D12_COMMAND_LIST_TYPE_COPY   ),
+		D3D12_COMMAND_LIST_TYPE to_command_list_type(queue_family f) {
+			constexpr static enums::sequential_mapping<queue_family, D3D12_COMMAND_LIST_TYPE> table{
+				std::pair(queue_family::graphics, D3D12_COMMAND_LIST_TYPE_DIRECT ),
+				std::pair(queue_family::compute,  D3D12_COMMAND_LIST_TYPE_COMPUTE),
+				std::pair(queue_family::copy,     D3D12_COMMAND_LIST_TYPE_COPY   ),
 			};
-			return table[type];
+			return table[f];
 		}
 
 		D3D12_RAYTRACING_INSTANCE_FLAGS to_raytracing_instance_flags(raytracing_instance_flags flags) {

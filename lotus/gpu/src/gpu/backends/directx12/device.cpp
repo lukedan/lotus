@@ -33,9 +33,9 @@ namespace lotus::gpu::backends::directx12 {
 		}
 	}
 
-	command_allocator device::create_command_allocator(queue_type ty) {
+	command_allocator device::create_command_allocator(queue_family f) {
 		command_allocator result = nullptr;
-		result._type = _details::conversions::to_command_list_type(ty);
+		result._type = _details::conversions::to_command_list_type(f);
 		_details::assert_dx(_device->CreateCommandAllocator(result._type, IID_PPV_ARGS(&result._allocator)));
 		return result;
 	}
@@ -1202,7 +1202,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 
-	std::pair<device, std::vector<command_queue>> adapter::create_device(std::span<const queue_type> queues) {
+	std::pair<device, std::vector<command_queue>> adapter::create_device(std::span<const queue_family> queues) {
 		// create device
 		_details::com_ptr<ID3D12Device10> result;
 		_details::assert_dx(D3D12CreateDevice(_adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&result)));

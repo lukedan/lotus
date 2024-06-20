@@ -339,9 +339,9 @@ namespace lotus::gpu {
 			backend::command_queue::signal(sem, value);
 		}
 
-		/// Returns the type of this queue.
-		[[nodiscard]] queue_type get_type() const {
-			return _type;
+		/// Returns the family of this queue.
+		[[nodiscard]] queue_family get_family() const {
+			return _family;
 		}
 		/// Returns the capabilities of this queue.
 		[[nodiscard]] queue_capabilities get_capabilities() const {
@@ -362,11 +362,11 @@ namespace lotus::gpu {
 		}
 	protected:
 		std::uint32_t _index = std::numeric_limits<std::uint32_t>::max(); ///< The index of this queue.
-		queue_type _type = queue_type::num_enumerators; ///< The type of this queue.
+		queue_family _family = queue_family::num_enumerators; ///< The family of this queue.
 
 		/// Initializes the backend command queue.
-		command_queue(backend::command_queue q, std::uint32_t i, queue_type ty) :
-			backend::command_queue(std::move(q)), _index(i), _type(ty) {
+		command_queue(backend::command_queue q, std::uint32_t i, queue_family f) :
+			backend::command_queue(std::move(q)), _index(i), _family(f) {
 		}
 	};
 }

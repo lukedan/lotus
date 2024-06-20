@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
 			return true;
 		}
 		lotus::log().info("Selected device: {}", lotus::string::to_generic(properties.name));
-		auto &&[dev, queues] = adap.create_device({ lgpu::queue_type::graphics, lgpu::queue_type::copy });
+		auto &&[dev, queues] = adap.create_device({ lgpu::queue_family::graphics, lgpu::queue_family::copy });
 		gdev = std::move(dev);
 		gqueues = std::move(queues);
 		gdev_props = properties;

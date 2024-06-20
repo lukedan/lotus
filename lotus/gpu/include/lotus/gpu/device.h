@@ -50,9 +50,9 @@ namespace lotus::gpu {
 			backend::device::resize_swap_chain_buffers(swapchain, size);
 		}
 
-		/// Creates a \ref command_allocator for the given queue type.
-		[[nodiscard]] command_allocator create_command_allocator(queue_type ty) {
-			return backend::device::create_command_allocator(ty);
+		/// Creates a \ref command_allocator for the given queue family.
+		[[nodiscard]] command_allocator create_command_allocator(queue_family f) {
+			return backend::device::create_command_allocator(f);
 		}
 		/// Creates a new empty \ref command_list and immediately starts recording commands.
 		[[nodiscard]] command_list create_and_start_command_list(command_allocator &allocator) {
@@ -656,21 +656,21 @@ namespace lotus::gpu {
 
 		/// Creates a device that uses this adapter.
 		[[nodiscard]] std::pair<device, std::vector<command_queue>> create_device(
-			std::span<const queue_type> queue_types
+			std::span<const queue_family> queue_families
 		) {
 			// TODO allocator
-			auto &&[dev, backend_qs] = backend::adapter::create_device(queue_types);
+			auto &&[dev, backend_qs] = backend::adapter::create_device(queue_families);
 			std::vector<command_queue> qs(backend_qs.size(), nullptr);
 			for (std::size_t i = 0; i < backend_qs.size(); ++i) {
-				qs[i] = command_queue(std::move(backend_qs[i]), static_cast<std::uint32_t>(i), queue_types[i]);
+				qs[i] = command_queue(std::move(backend_qs[i]), static_cast<std::uint32_t>(i), queue_families[i]);
 			}
 			return { device(std::move(dev)), std::move(qs) };
 		}
 		/// \overload
 		[[nodiscard]] std::pair<device, std::vector<command_queue>> create_device(
-			std::initializer_list<queue_type> queue_types
+			std::initializer_list<queue_family> queue_families
 		) {
-			return create_device({ queue_types.begin(), queue_types.end() });
+			return create_device({ queue_families.begin(), queue_families.end() });
 		}
 		/// Retrieves information about this adapter.
 		[[nodiscard]] adapter_properties get_properties() const {

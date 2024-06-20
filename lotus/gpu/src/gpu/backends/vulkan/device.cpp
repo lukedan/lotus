@@ -75,7 +75,7 @@ namespace lotus::gpu::backends::vulkan {
 		s._synchronization.resize(s._images.size(), nullptr);
 	}
 
-	command_allocator device::create_command_allocator(queue_type ty) {
+	command_allocator device::create_command_allocator(queue_family ty) {
 		command_allocator alloc = nullptr;
 
 		vk::CommandPoolCreateInfo info;
@@ -1396,7 +1396,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 
-	std::pair<device, std::vector<command_queue>> adapter::create_device(std::span<const queue_type> queue_params) {
+	std::pair<device, std::vector<command_queue>> adapter::create_device(std::span<const queue_family> queue_params) {
 		device result = nullptr;
 
 		result._physical_device = _device;
@@ -1428,27 +1428,27 @@ namespace lotus::gpu::backends::vulkan {
 					queue_capabilities::timestamp_query :
 					queue_capabilities::none;
 				if (bit_mask::contains_all(flags, graphics_queue_flags)) {
-					result._queue_family_props[queue_type::graphics] = device::_queue_family_properties(
+					result._queue_family_props[queue_family::graphics] = device::_queue_family_properties(
 						i, supports_timestamps_bit						
 					);
 				} else if (bit_mask::contains_all(flags, compute_queue_flags)) {
-					result._queue_family_props[queue_type::compute] = device::_queue_family_properties(
+					result._queue_family_props[queue_family::compute] = device::_queue_family_properties(
 						i, supports_timestamps_bit
 					);
 				} else if (bit_mask::contains<vk::QueueFlagBits::eTransfer>(flags)) {
-					result._queue_family_props[queue_type::copy] = device::_queue_family_properties(
+					result._queue_family_props[queue_family::copy] = device::_queue_family_properties(
 						i, supports_timestamps_bit
 					);
 				}
 			}
-			crash_if(result._queue_family_props[queue_type::graphics].index >= families.size());
-			if (result._queue_family_props[queue_type::compute].index >= families.size()) {
-				result._queue_family_props[queue_type::compute] =
-					result._queue_family_props[queue_type::graphics];
+			crash_if(result._queue_family_props[queue_family::graphics].index >= families.size());
+			if (result._queue_family_props[queue_family::compute].index >= families.size()) {
+				result._queue_family_props[queue_family::compute] =
+					result._queue_family_props[queue_family::graphics];
 			}
-			if (result._queue_family_props[queue_type::copy].index >= families.size()) {
-				result._queue_family_props[queue_type::copy] =
-					result._queue_family_props[queue_type::compute];
+			if (result._queue_family_props[queue_family::copy].index >= families.size()) {
+				result._queue_family_props[queue_family::copy] =
+					result._queue_family_props[queue_family::compute];
 			}
 		}
 
@@ -1458,7 +1458,7 @@ namespace lotus::gpu::backends::vulkan {
 		auto queue_create_infos = bookmark.create_reserved_vector_array<vk::DeviceQueueCreateInfo>(3);
 		{
 			auto priorities = enums::dynamic_sequential_mapping<
-				queue_type, memory::stack_allocator::vector_type<float>
+				queue_family, memory::stack_allocator::vector_type<float>
 			>::filled(bookmark.create_vector_array<float>());
 
 			// TODO for now we don't actually have priorities
@@ -1608,7 +1608,7 @@ namespace lotus::gpu::backends::vulkan {
 		{
 			double timestamp_freq = 1000000.0 / static_cast<double>(result._device_limits.timestampPeriod);
 
-			auto cur_queue = enums::dynamic_sequential_mapping<queue_type, std::uint32_t>::filled(0);
+			auto cur_queue = enums::dynamic_sequential_mapping<queue_family, std::uint32_t>::filled(0);
 			for (const auto &param : queue_params) {
 				const auto &family_props = result._queue_family_props[param];
 				command_queue new_queue = nullptr;

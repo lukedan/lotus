@@ -236,9 +236,9 @@ protected:
 		_test_context.update_camera();
 	}
 
-	constexpr static lotus::gpu::queue_type _queues[] = { lotus::gpu::queue_type::graphics, lotus::gpu::queue_type::copy };
+	constexpr static lotus::gpu::queue_family _queues[] = { lotus::gpu::queue_family::graphics, lotus::gpu::queue_family::copy };
 
-	std::span<const lotus::gpu::queue_type> _get_desired_queues() const override {
+	std::span<const lotus::gpu::queue_family> _get_desired_queues() const override {
 		return _queues;
 	}
 	std::uint32_t _get_asset_loading_queue_index() const override {

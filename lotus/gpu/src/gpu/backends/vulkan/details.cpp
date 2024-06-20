@@ -380,10 +380,10 @@ namespace lotus::gpu::backends::vulkan::_details {
 			constexpr static bit_mask::mapping<
 				raytracing_instance_flags, vk::GeometryInstanceFlagBitsKHR
 			> table{
-				std::pair(raytracing_instance_flags::disable_triangle_culling,        vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable       ),
-				std::pair(raytracing_instance_flags::triangle_front_counterclockwise, vk::GeometryInstanceFlagBitsKHR::eTriangleFrontCounterclockwiseKHR),
-				std::pair(raytracing_instance_flags::force_opaque,                    vk::GeometryInstanceFlagBitsKHR::eForceOpaque                     ),
-				std::pair(raytracing_instance_flags::force_non_opaque,                vk::GeometryInstanceFlagBitsKHR::eForceNoOpaque                   ),
+				std::pair(raytracing_instance_flags::disable_triangle_culling,        vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable    ),
+				std::pair(raytracing_instance_flags::triangle_front_counterclockwise, vk::GeometryInstanceFlagBitsKHR::eTriangleFrontCounterclockwise),
+				std::pair(raytracing_instance_flags::force_opaque,                    vk::GeometryInstanceFlagBitsKHR::eForceOpaque                  ),
+				std::pair(raytracing_instance_flags::force_non_opaque,                vk::GeometryInstanceFlagBitsKHR::eForceNoOpaque                ),
 			};
 			return table.get_union(flags);
 		}

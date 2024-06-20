@@ -528,8 +528,7 @@ namespace lotus::renderer {
 		/// Convenience function for printing execution log.
 		template <typename ...Args> void execution_log(std::format_string<Args...> str, Args &&...args) {
 			if (on_execution_log) {
-				const std::string formatted =
-					std::vformat(str.get(), std::make_format_args(std::forward<Args>(args)...));
+				const std::string formatted = std::vformat(str.get(), std::make_format_args(args...));
 				on_execution_log(string::assume_utf8(formatted));
 			}
 		}

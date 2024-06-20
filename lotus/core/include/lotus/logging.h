@@ -76,19 +76,19 @@ namespace lotus {
 	public:
 		/// Logs a debug entry.
 		template <typename ...Args> void debug(std::format_string<Args...> fmt, Args &&...args) {
-			_logger.debug(_loc, fmt.get(), std::make_format_args(std::forward<Args>(args)...));
+			_logger.debug(_loc, fmt.get(), std::make_format_args(args...));
 		}
 		/// Logs an info entry.
 		template <typename ...Args> void info(std::format_string<Args...> fmt, Args &&...args) {
-			_logger.info(_loc, fmt.get(), std::make_format_args(std::forward<Args>(args)...));
+			_logger.info(_loc, fmt.get(), std::make_format_args(args...));
 		}
 		/// Logs a warning entry.
 		template <typename ...Args> void warn(std::format_string<Args...> fmt, Args &&...args) {
-			_logger.warn(_loc, fmt.get(), std::make_format_args(std::forward<Args>(args)...));
+			_logger.warn(_loc, fmt.get(), std::make_format_args(args...));
 		}
 		/// Logs an error entry.
 		template <typename ...Args> void error(std::format_string<Args...> fmt, Args &&...args) {
-			_logger.error(_loc, fmt.get(), std::make_format_args(std::forward<Args>(args)...));
+			_logger.error(_loc, fmt.get(), std::make_format_args(args...));
 		}
 	private:
 		/// Initializes all fields of this struct.

@@ -1479,13 +1479,14 @@ namespace lotus::gpu::backends::vulkan {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 			VK_KHR_SPIRV_1_4_EXTENSION_NAME,
 			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
+			VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
 
 			// HLSL to SPIR-V
 			// getting ErrorExtensionNotPresent with these, but the program runs fine without them
 			/*VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
-		constexpr static bool _disable_advanced_extensions = false; // for RenderDoc and stuff
+		constexpr static bool _disable_advanced_extensions = false; // so that RenderDoc can capture
 		if constexpr (!_disable_advanced_extensions) {
 			extensions.insert(extensions.end(),
 				{

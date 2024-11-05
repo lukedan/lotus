@@ -828,11 +828,21 @@ namespace lotus::gpu::backends::directx12 {
 	frame_buffer device::create_frame_buffer(
 		std::span<const gpu::image2d_view *const> color, const image2d_view *depth_stencil, cvec2u32
 	) {
+		const auto _is_single_srv_subresource = [](const image2d_view &img) -> bool {
+			if (img._srv_desc.Texture2D.MipLevels == 1) {
+				return true;
+			}
+			if (img._srv_desc.Texture2D.MipLevels != -1) {
+				return false;
+			}
+			return img._image->GetDesc().MipLevels - img._srv_desc.Texture2D.MostDetailedMip == 1;
+		};
+
 		frame_buffer result(*this);
 		result._color_formats.resize(color.size());
 		result._color = _rtv_descriptors.allocate(static_cast<_details::descriptor_range::index_t>(color.size()));
 		for (std::size_t i = 0; i < color.size(); ++i) {
-			crash_if(color[i]->_srv_desc.Texture2D.MipLevels != 1);
+			crash_if(!_is_single_srv_subresource(*color[i]));
 			D3D12_RENDER_TARGET_VIEW_DESC desc = {};
 			desc.Format               = color[i]->_srv_desc.Format;
 			desc.ViewDimension        = D3D12_RTV_DIMENSION_TEXTURE2D;
@@ -846,7 +856,7 @@ namespace lotus::gpu::backends::directx12 {
 		}
 		if (depth_stencil) {
 			result._depth_stencil = _dsv_descriptors.allocate(1);
-			crash_if(depth_stencil->_srv_desc.Texture2D.MipLevels != 1);
+			crash_if(!_is_single_srv_subresource(*depth_stencil));
 			D3D12_DEPTH_STENCIL_VIEW_DESC desc = {};
 			desc.Format             = depth_stencil->_srv_desc.Format;
 			desc.ViewDimension      = D3D12_DSV_DIMENSION_TEXTURE2D;

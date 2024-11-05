@@ -46,4 +46,11 @@ namespace lotus {
 			(static_cast<std::uint32_t>(s[2]) << 16) |
 			(static_cast<std::uint32_t>(s[3]) << 24);
 	}
+
+	/// Helper class that enables overloading of lambdas and function objects.
+	template <typename... Ts> struct overloaded : Ts... {
+	public:
+		using Ts::operator()...;
+	};
+	template <typename... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 }

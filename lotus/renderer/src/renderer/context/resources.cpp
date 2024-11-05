@@ -67,41 +67,6 @@ namespace lotus::renderer {
 				);
 			}
 		}
-
-
-		void image_base::record_usage(
-			std::uint32_t q, batch_index bi, queue_submission_index qi, image_access access
-		) {
-			previous_queue_access[q].emplace_back(access, bi, qi);
-		}
-
-		void image_base::stash_usages() {
-			for (std::size_t i = 0; i < previous_queue_access.size(); ++i) {
-				for (const auto &event : previous_queue_access[i]) {
-					// TODO
-					std::abort();
-				}
-				previous_queue_access[i].clear();
-			}
-		}
-
-
-		void buffer::record_usage(
-			std::uint32_t q, batch_index bi, queue_submission_index qi, buffer_access access
-		) {
-			previous_queue_access[q] = _details::buffer_access_event(access, bi, qi);
-		}
-
-		void buffer::stash_usages() {
-			for (std::size_t i = 0; i < previous_queue_access.size(); ++i) {
-				if (!previous_queue_access[i]) {
-					/*last_queue_usages[i] = current_queue_usages[i].back();*/
-					// TODO: get global submission index
-					std::abort();
-				}
-				previous_queue_access[i].reset();
-			}
-		}
 	}
 
 

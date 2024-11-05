@@ -15,43 +15,44 @@ namespace lotus::renderer::execution {
 		}
 	}
 
-	void batch_context::request_dependency(
+	void batch_context::request_dependency_from_this_batch(
 		std::uint32_t from_queue,
-		batch_index from_batch,
 		queue_submission_index from_release_after,
 		std::uint32_t to_queue,
 		queue_submission_index to_acquire_before
 	) {
-		crash_if(from_queue == to_queue); // same-queue dependencies are handled using resource barriers
-		crash_if(from_batch > get_batch_index()); // cannot wait for a future batch
 		crash_if(std::to_underlying(from_release_after) >= _rctx._queues[from_queue].batch_commands.size());
 		crash_if(std::to_underlying(to_acquire_before) >= _rctx._queues[to_queue].batch_commands.size());
 
-		const bool previous_batch = from_batch == get_batch_index();
-		// the release queue commands are offset by 1, and 0 is used to indicate that the dependency is released from
-		// a previous batch
-		const queue_submission_index from_release_before =
-			previous_batch ? index::next(from_release_after) : queue_submission_index::zero;
-
-		// check if the dependency has already been satisfied
-		{
-			auto &acquired_index = _queue_pseudo_ctxs[to_queue]._pseudo_acquired_dependencies[from_queue];
-			if (acquired_index != queue_submission_index::invalid && acquired_index >= from_release_before) {
-				return;
-			}
-			// update which dependencies have been acquired
-			acquired_index = from_release_before;
-		}
-
 		// record this event
-		if (!previous_batch) {
-			_queue_pseudo_ctxs[from_queue]._pseudo_release_dependency_events.emplace_back(
-				from_release_after, nullptr
-			);
-		}
-		_queue_pseudo_ctxs[to_queue]._pseudo_acquire_dependency_events.emplace_back(
-			from_queue, from_release_before, to_acquire_before
+		_queue_pseudo_ctxs[to_queue]._cmd_ops[
+			std::to_underlying(to_acquire_before)
+		].acquire_dependency_requests.emplace_back(
+			queue_pseudo_context::_dependency_acquisition::from_command_index(from_queue, from_release_after)
 		);
+	}
+
+	void batch_context::request_dependency_explicit(
+		std::uint32_t from_queue,
+		gpu::timeline_semaphore::value_type from_value,
+		std::uint32_t to_queue,
+		queue_submission_index to_acquire_before
+	) {
+		crash_if(std::to_underlying(to_acquire_before) >= _rctx._queues[to_queue].batch_commands.size());
+
+		auto &to_ops = _queue_pseudo_ctxs[to_queue]._cmd_ops[std::to_underlying(to_acquire_before)];
+		to_ops.acquire_dependency_requests.emplace_back(
+			queue_pseudo_context::_dependency_acquisition::from_timestamp(from_queue, from_value)
+		);
+	}
+
+	void batch_context::request_dependency_from_previous_batches(
+		std::uint32_t from_queue,
+		std::uint32_t to_queue,
+		queue_submission_index to_acquire_before
+	) {
+		const gpu::timeline_semaphore::value_type value = get_batch_resolve_data().queues[from_queue].begin_of_batch;
+		request_dependency_explicit(from_queue, value, to_queue, to_acquire_before);
 	}
 
 	void batch_context::mark_swap_chain_presented(_details::swap_chain &chain) {

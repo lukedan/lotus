@@ -255,10 +255,10 @@ void debug_render::flush(
 	};
 
 	auto mesh_vert_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(mesh_vertices.data()), sizeof(vertex) * mesh_vertices.size() }, u8"Mesh Vertices");
-	auto mesh_idx_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(mesh_indices.data()), sizeof(uint32_t) * mesh_indices.size() }, u8"Mesh Indices");
+	auto mesh_idx_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(mesh_indices.data()), sizeof(std::uint32_t) * mesh_indices.size() }, u8"Mesh Indices");
 
 	auto line_vert_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(line_vertices.data()), sizeof(vertex) * line_vertices.size() }, u8"Line Vertices");
-	auto line_idx_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(line_indices.data()), sizeof(uint32_t) * line_indices.size() }, u8"Line Indices");
+	auto line_idx_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(line_indices.data()), sizeof(std::uint32_t) * line_indices.size() }, u8"Line Indices");
 
 	auto point_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(point_vertices.data()), sizeof(vertex) * point_vertices.size() }, u8"Point Vertices");
 

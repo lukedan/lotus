@@ -289,8 +289,7 @@ namespace lotus::renderer {
 		gpu::image_tiling tiling = gpu::image_tiling::optimal;
 		auto *surf = new _details::image2d(
 			size, num_mips, fmt, tiling, usages,
-			p._ptr, static_cast<std::uint32_t>(_queues.size()),
-			_allocate_resource_id(), name
+			p._ptr, _allocate_resource_id(), name
 		);
 		auto surf_ptr = std::shared_ptr<_details::image2d>(surf, _details::context_managed_deleter(*this));
 		return image2d_view(std::move(surf_ptr), fmt, gpu::mip_levels::all());
@@ -303,8 +302,7 @@ namespace lotus::renderer {
 		gpu::image_tiling tiling = gpu::image_tiling::optimal;
 		auto *surf = new _details::image3d(
 			size, num_mips, fmt, tiling, usages,
-			p._ptr, static_cast<std::uint32_t>(_queues.size()),
-			_allocate_resource_id(), name
+			p._ptr, _allocate_resource_id(), name
 		);
 		auto surf_ptr = std::shared_ptr<_details::image3d>(surf, _details::context_managed_deleter(*this));
 		return image3d_view(std::move(surf_ptr), fmt, gpu::mip_levels::all());
@@ -325,7 +323,7 @@ namespace lotus::renderer {
 
 		// wrap it in a buffer
 		auto *buf_ptr = new _details::buffer(
-			staging_buf.total_size, usages, nullptr, _queues.size(), _allocate_resource_id(), name
+			staging_buf.total_size, usages, nullptr, _allocate_resource_id(), name
 		);
 		buf_ptr->data = std::move(staging_buf.data);
 		if constexpr (should_register_debug_names) {
@@ -455,12 +453,15 @@ namespace lotus::renderer {
 			bctx.get_queue_pseudo_context(next_queue_index).pseudo_execute_next_command();
 		}
 
-		// step 2: process all barriers
+		// step 2: process all dependencies
 		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
-			bctx.get_queue_pseudo_context(i).process_pseudo_release_events();
+			bctx.get_queue_pseudo_context(i).process_dependency_acquisitions();
 		}
 		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
-			bctx.get_queue_pseudo_context(i).process_pseudo_acquire_events();
+			bctx.get_queue_pseudo_context(i).gather_semaphore_values();
+		}
+		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+			bctx.get_queue_pseudo_context(i).finalize_dependency_processing();
 		}
 
 		// step 3: execute all commands, respecting previously gathered dependencies and transitions
@@ -511,17 +512,15 @@ namespace lotus::renderer {
 		// TODO check that this buffer is not being used by the device?
 		_device.flush_mapped_buffer_to_device(buf._ptr->data, begin, length);
 		// mark this buffer as CPU written
-		buf._ptr->previous_modification = {
-			0,
-			_details::buffer_access_event(
-				_details::buffer_access(
-					gpu::synchronization_point_mask::cpu_access,
-					gpu::buffer_access_mask::cpu_write
-				),
-				_batch_index, // previous batch index
-				queue_submission_index::invalid
-			)
-		};
+		buf._ptr->previous_access = _details::buffer_access_event(
+			_details::buffer_access(
+				gpu::synchronization_point_mask::cpu_access,
+				gpu::buffer_access_mask::cpu_write
+			),
+			0, // TODO: special queue index for CPU?
+			_batch_index, // previous batch index
+			queue_submission_index::invalid
+		);
 	}
 
 	void context::flush_mapped_buffer_to_host(buffer &buf, std::size_t begin, std::size_t length) {
@@ -646,7 +645,7 @@ namespace lotus::renderer {
 		gpu::buffer_usage_mask usages,
 		const std::shared_ptr<_details::pool> &pool
 	) {
-		auto *buf = new _details::buffer(size_bytes, usages, pool, _queues.size(), _allocate_resource_id(), name);
+		auto *buf = new _details::buffer(size_bytes, usages, pool, _allocate_resource_id(), name);
 		return std::shared_ptr<_details::buffer>(buf, _details::context_managed_deleter(*this));
 	}
 

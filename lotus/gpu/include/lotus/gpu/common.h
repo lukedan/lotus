@@ -1623,6 +1623,11 @@ namespace lotus::gpu {
 		std::span<const timeline_semaphore_synchronization> wait_semaphores;   ///< Semaphores to wait for.
 		std::span<const timeline_semaphore_synchronization> notify_semaphores; ///< Semaphores to notify.
 		fence *notify_fence = nullptr; ///< Fence to notify.
+
+		/// Checks whether there are any synchronization operations specified by this object.
+		[[nodiscard]] constexpr bool is_empty() const {
+			return notify_fence == nullptr && wait_semaphores.empty() && notify_semaphores.empty();
+		}
 	};
 
 	/// Synchronization primitives that will be notified when a frame has finished presenting.
@@ -1767,23 +1772,27 @@ namespace lotus::gpu {
 		}
 		/// Initializes all fields of this struct.
 		constexpr image_barrier(
-			subresource_range sub, image_base &i,
-			synchronization_point_mask fp, image_access_mask fa, image_layout fl,
-			synchronization_point_mask tp, image_access_mask ta, image_layout tl
+			subresource_range sub, const image_base &i,
+			synchronization_point_mask fp, image_access_mask fa, image_layout fl, queue_family fq,
+			synchronization_point_mask tp, image_access_mask ta, image_layout tl, queue_family tq
 		) :
 			target(&i), subresources(sub),
-			from_point(fp), from_access(fa), from_layout(fl),
-			to_point(tp), to_access(ta), to_layout(tl) {
+			from_point(fp), from_access(fa), from_layout(fl), from_queue(fq),
+			to_point(tp), to_access(ta), to_layout(tl), to_queue(tq) {
 		}
 
-		image_base *target; ///< Target image.
+		const image_base *target; ///< Target image.
 		subresource_range subresources = uninitialized; ///< Subresources.
 		synchronization_point_mask from_point;  ///< Where this resource is used in the previous operation.
 		image_access_mask          from_access; ///< How this resource is used in the previous operation.
 		image_layout               from_layout; ///< Layout of the resource in the previous operation.
+		/// In a queue family transfer, the queue family to transfer the resource from.
+		queue_family               from_queue;
 		synchronization_point_mask to_point;    ///< Where this resource will be used in the next operation.
 		image_access_mask          to_access;   ///< How this resource will be used in the next operation.
 		image_layout               to_layout;   ///< Layout of the resource in the next operation.
+		/// In a queue family transfer, the queue family to transfer the resource to.
+		queue_family               to_queue;
 	};
 	/// A buffer resource barrier.
 	struct buffer_barrier {
@@ -1792,17 +1801,21 @@ namespace lotus::gpu {
 		}
 		/// Initializes all fields of this struct.
 		constexpr buffer_barrier(
-			buffer &b,
-			synchronization_point_mask fp, buffer_access_mask fa,
-			synchronization_point_mask tp, buffer_access_mask ta
-		) : target(&b), from_point(fp), from_access(fa), to_point(tp), to_access(ta) {
+			const buffer &b,
+			synchronization_point_mask fp, buffer_access_mask fa, queue_family fq,
+			synchronization_point_mask tp, buffer_access_mask ta, queue_family tq
+		) : target(&b), from_point(fp), from_access(fa), from_queue(fq), to_point(tp), to_access(ta), to_queue(tq) {
 		}
 
-		buffer *target; ///< Target buffer.
+		const buffer *target; ///< Target buffer.
 		synchronization_point_mask from_point;  ///< Where this resource is used in the previous operation.
 		buffer_access_mask         from_access; ///< How this resource is used in the previous operation.
+		/// In a queue family transfer, the queue family to transfer the resource from.
+		queue_family               from_queue;
 		synchronization_point_mask to_point;    ///< Where this resource will be used in the next operation.
 		buffer_access_mask         to_access;   ///< How this resource will be used in the next operation.
+		/// In a queue family transfer, the queue family to transfer the resource to.
+		queue_family               to_queue;
 	};
 
 	/// Information about a vertex buffer.
@@ -1941,19 +1954,14 @@ namespace lotus::gpu {
 		/// No initialization.
 		viewport(uninitialized_t) {
 		}
-		/// Creates a \ref viewport with the given arguments.
-		[[nodiscard]] constexpr inline static viewport create(aab2f plane, float mind, float maxd) {
-			return viewport(plane, mind, maxd);
+		/// Initializes all fields of this struct.
+		constexpr viewport(aab2f plane, float mind, float maxd) :
+			xy(plane), minimum_depth(mind), maximum_depth(maxd) {
 		}
 
 		aab2f xy = uninitialized; ///< The dimensions of this viewport on X and Y.
 		float minimum_depth; ///< Minimum depth.
 		float maximum_depth; ///< Maximum depth.
-	protected:
-		/// Initializes all fields of this struct.
-		constexpr viewport(aab2f plane, float mind, float maxd) :
-			xy(plane), minimum_depth(mind), maximum_depth(maxd) {
-		}
 	};
 
 

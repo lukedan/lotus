@@ -8,6 +8,7 @@
 #include <cassert>
 #include <cstring>
 #include <cstdio>
+#include <limits>
 #include <optional>
 #include <string_view>
 #include <source_location>

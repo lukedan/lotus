@@ -590,6 +590,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 				.setSamples(vk::SampleCountFlagBits::e1)
 				.setTiling(conversions::to_image_tiling(tiling))
 				.setUsage(conversions::to_image_usage_flags(usages))
+				.setSharingMode(vk::SharingMode::eExclusive)
 				.setInitialLayout(vk::ImageLayout::eUndefined);
 			return img_info;
 		}
@@ -607,6 +608,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 				.setSamples(vk::SampleCountFlagBits::e1)
 				.setTiling(conversions::to_image_tiling(tiling))
 				.setUsage(conversions::to_image_usage_flags(usages))
+				.setSharingMode(vk::SharingMode::eExclusive)
 				.setInitialLayout(vk::ImageLayout::eUndefined);
 			return img_info;
 		}

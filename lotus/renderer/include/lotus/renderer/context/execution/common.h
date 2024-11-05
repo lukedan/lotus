@@ -77,10 +77,15 @@ namespace lotus::renderer::execution {
 		std::deque<gpu::fence>                     fences;                 ///< Fences.
 		std::deque<gpu::timestamp_query_heap>      timestamp_heaps;        ///< Timestamp query heaps.
 
-		std::vector<std::unique_ptr<_details::image2d>>    image2d_meta;    ///< 2D images to be disposed next frame.
-		std::vector<std::unique_ptr<_details::image3d>>    image3d_meta;    ///< 3D images to be disposed next frame.
-		std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain to be disposed next frame.
-		std::vector<std::unique_ptr<_details::buffer>>     buffer_meta;     ///< Buffers to be disposed next frame.
+		// resources whose handles have been discarded during the frame - these are recorded here to be destroyed
+		// when this batch finishes
+		std::vector<std::unique_ptr<_details::pool>>       pool_meta;       ///< Pools.
+		std::vector<std::unique_ptr<_details::image2d>>    image2d_meta;    ///< 2D images.
+		std::vector<std::unique_ptr<_details::image3d>>    image3d_meta;    ///< 3D images.
+		std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain.
+		std::vector<std::unique_ptr<_details::buffer>>     buffer_meta;     ///< Buffers.
+		/// Cached descriptor sets.
+		std::vector<std::unique_ptr<_details::cached_descriptor_set>> cached_descriptor_set_meta;
 
 		/// Registers the given object as a resource.
 		template <typename T> T &record(T &&obj) {
@@ -144,32 +149,5 @@ namespace lotus::renderer::execution {
 	struct batch_data {
 		batch_resources resources; ///< Resources used only by this batch.
 		batch_resolve_data resolve_data; ///< Data used for further execution and for generating statistics.
-	};
-
-	/// Indicates an event where a dependency needs to be released.
-	template <typename Data> struct release_dependency_event {
-		/// No initialization.
-		release_dependency_event(uninitialized_t) {
-		}
-		/// Initializes all fields of this struct.
-		release_dependency_event(queue_submission_index cmd_idx, Data d) : command_index(cmd_idx), data(d) {
-		}
-
-		queue_submission_index command_index; ///< The index of the command.
-		Data data; ///< Associated event data.
-	};
-	/// Indicates an event where a dependency needs to be acquired.
-	template <typename Data> struct acquire_dependency_event {
-		/// No initialization.
-		acquire_dependency_event(uninitialized_t) {
-		}
-		/// Initializes all fields of this struct.
-		acquire_dependency_event(std::uint32_t q, Data d, queue_submission_index acq_idx) :
-			queue_index(q), data(d), command_index(acq_idx) {
-		}
-
-		std::uint32_t queue_index; ///< The queue index to acquire this dependency from.
-		Data data; ///< Associated event data.
-		queue_submission_index command_index; ///< Command index of the acquire event.
 	};
 }

@@ -203,7 +203,7 @@ public:
 	};
 
 	void resize_probe_buffers() {
-		uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
+		std::uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
 
 		std::uint32_t num_direct_reservoirs = num_probes * direct_reservoirs_per_probe;
 		direct_reservoirs = _context->request_structured_buffer<shader_types::direct_lighting_reservoir>(
@@ -437,7 +437,7 @@ protected:
 				lighting_constants.envmaplut_uvbias  = lotus::vec::memberwise_multiply(cvec2f::filled(0.5f), rcp_size);
 			}
 
-			uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
+			std::uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
 			std::uint32_t num_indirect_reservoirs = num_probes * indirect_reservoirs_per_probe;
 			auto spatial_indirect_reservoirs1 = _context->request_structured_buffer<shader_types::indirect_lighting_reservoir>(
 				u8"Indirect Lighting Reservoirs", num_indirect_reservoirs,

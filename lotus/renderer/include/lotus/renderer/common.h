@@ -130,7 +130,7 @@ namespace lotus::renderer {
 		case image_binding_type::read_write:
 			return gpu::descriptor_type::read_write_image;
 		default:
-			return gpu::descriptor_type::num_enumerators;
+			std::unreachable();
 		}
 	}
 	/// Buffer binding types.
@@ -148,7 +148,7 @@ namespace lotus::renderer {
 		case buffer_binding_type::read_write:
 			return gpu::descriptor_type::read_write_buffer;
 		default:
-			return gpu::descriptor_type::num_enumerators;
+			std::unreachable();
 		}
 	}
 
@@ -209,7 +209,7 @@ namespace lotus::index {
 namespace lotus::renderer {
 	/// The index of a batch.
 	enum class batch_index : std::uint32_t {
-		zero = 0, ///< Zero.
+		zero = 0, ///< Zero. This index will never be used by batches, since their indices start with 1.
 	};
 }
 namespace lotus::index {
@@ -289,21 +289,6 @@ namespace lotus::renderer {
 			[[nodiscard]] constexpr inline static buffer_access initial() {
 				return buffer_access(gpu::synchronization_point_mask::none, gpu::buffer_access_mask::none);
 			}
-			/// Initializes \ref access based on the type of a descriptor set binding.
-			[[nodiscard]] constexpr inline static buffer_access from_binding_type(
-				gpu::synchronization_point_mask syncs, buffer_binding_type ty
-			) {
-				switch (ty) {
-				case buffer_binding_type::read_only:
-					return _details::buffer_access(syncs, gpu::buffer_access_mask::shader_read);
-				case buffer_binding_type::read_write:
-					return _details::buffer_access(
-						syncs, gpu::buffer_access_mask::shader_read | gpu::buffer_access_mask::shader_write
-					);
-				default:
-					std::unreachable(); // invalid binding type
-				}
-			}
 
 			/// Default equality comparison.
 			[[nodiscard]] friend bool operator==(const buffer_access&, const buffer_access&) = default;
@@ -312,22 +297,43 @@ namespace lotus::renderer {
 			gpu::buffer_access_mask access; ///< How this resource is accessed.
 		};
 
-		/// Records an access event, including how a resource is accessed and when it happened.
+		/// Records an access event, including how a resource is accessed, when it happened, and on which queue it
+		/// happened.
 		template <typename Access> struct basic_access_event {
 			/// No initialization.
 			basic_access_event(uninitialized_t) : access(uninitialized) {
 			}
+			/// Initializes this struct to indicate that the resource has never been accessed.
+			basic_access_event(std::nullopt_t) :
+				access(Access::initial()),
+				queue_index(0),
+				batch(batch_index::zero),
+				queue_command_index(queue_submission_index::invalid) {
+			}
 			/// Initializes all fields of this struct.
-			constexpr basic_access_event(Access acc, batch_index b, queue_submission_index qi) :
-				access(acc), batch(b), queue_index(qi) {
+			constexpr basic_access_event(Access acc, std::uint32_t qi, batch_index b, queue_submission_index qsi) :
+				access(acc), queue_index(qi), batch(b), queue_command_index(qsi) {
 			}
 
 			Access access; ///< How the resource is accessed.
+			std::uint32_t queue_index; ///< The queue on which this access happened.
 			batch_index batch; ///< Batch index associated with the event.
-			queue_submission_index queue_index; ///< Queue submission index associated with the event.
+			queue_submission_index queue_command_index; ///< Queue submission index associated with the event.
 		};
 		using image_access_event = basic_access_event<image_access>; ///< Shorthand for image access events.
 		using buffer_access_event = basic_access_event<buffer_access>; ///< Shorthand for buffer access events.
+
+		/// Returns the \ref gpu::buffer_access_mask that corresponds to the given \ref buffer_binding_type.
+		[[nodiscard]] inline constexpr gpu::buffer_access_mask to_access_mask(buffer_binding_type ty) {
+			switch (ty) {
+			case buffer_binding_type::read_only:
+				return gpu::buffer_access_mask::shader_read;
+			case buffer_binding_type::read_write:
+				return gpu::buffer_access_mask::shader_read | gpu::buffer_access_mask::shader_write;
+			default:
+				std::unreachable();
+			}
+		}
 	}
 
 

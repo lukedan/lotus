@@ -3,6 +3,7 @@
 /// \file
 /// Implementation of the per-queue pseudo-execution context.
 
+#include "lotus/utils/misc.h"
 #include "lotus/renderer/context/context.h"
 
 namespace lotus::renderer::execution {
@@ -10,7 +11,7 @@ namespace lotus::renderer::execution {
 		_batch_ctx(bctx),
 		_queue_ctx(qctx),
 		_q(q),
-		_pseudo_acquired_dependencies(q.ctx.get_num_queues(), queue_submission_index::invalid) {
+		_cmd_ops(q.batch_commands.size()) {
 
 		// initialize queue data
 		_get_queue_resolve_data().timers.resize(_q.num_timers, nullptr);
@@ -29,9 +30,6 @@ namespace lotus::renderer::execution {
 					string::to_generic(get_next_pseudo_execution_command().description.value_or(u8" - "))
 				);
 				_pseudo_execute(cmd);
-				if (bit_mask::contains<commands::flags::advances_timer>(cmd.get_flags())) {
-					_valid_timestamp = false;
-				}
 			},
 			get_next_pseudo_execution_command().value
 		);
@@ -51,100 +49,99 @@ namespace lotus::renderer::execution {
 		return std::to_underlying(_pseudo_cmd_index) >= _q.batch_commands.size();
 	}
 
-	void queue_pseudo_context::process_pseudo_release_events() {
-		// sort and deduplicate release events
-		std::sort(
-			_pseudo_release_dependency_events.begin(),
-			_pseudo_release_dependency_events.end(),
-			[](
-				release_dependency_event<_details::dependency*> lhs,
-				release_dependency_event<_details::dependency*> rhs
-			) {
-				return lhs.command_index < rhs.command_index;
-			}
-		);
+	void queue_pseudo_context::process_dependency_acquisitions() {
+		short_vector<queue_submission_index, 4> dep_acquired_batch(_get_num_queues(), queue_submission_index::invalid);
+		short_vector<gpu::timeline_semaphore::value_type, 4> dep_acquired_prev(_get_num_queues(), 0);
 
-		// gather all release events
-		for (std::size_t event_i = 0; event_i < _pseudo_release_dependency_events.size(); ++event_i) {
-			const auto [cur_idx, cur_dep] = _pseudo_release_dependency_events[event_i];
-			// check if we can discard this event
-			bool can_discard = false;
-			if (event_i > 0) {
-				can_discard = true;
-				const queue_submission_index prev_idx = _pseudo_release_dependency_events[event_i - 1].command_index;
-				for (auto cmd_i = std::to_underlying(prev_idx); cmd_i < std::to_underlying(cur_idx); ++cmd_i) {
-					const auto flags = _q.batch_commands[cmd_i].get_flags();
-					if (!bit_mask::contains<commands::flags::dependency_release_unordered>(flags)) {
-						can_discard = false;
-						break;
+		for (std::size_t i = 0; i < _q.batch_commands.size(); ++i) {
+			auto &actions = _cmd_ops[i].acquire_dependencies;
+			actions.resize(_get_num_queues(), std::nullopt);
+
+			// go through all dependency events to figure out which single command we should acquire dependency from
+			// in all queues
+			for (const _dependency_acquisition &acq : _cmd_ops[i].acquire_dependency_requests) {
+				auto &queue_action = actions[acq.queue_index];
+				std::visit(overloaded{
+					[&](queue_submission_index si) {
+						// check if we've already acquired the dependency
+						if (
+							dep_acquired_batch[acq.queue_index] != queue_submission_index::invalid &&
+							dep_acquired_batch[acq.queue_index] >= si
+						) {
+							return;
+						}
+
+						const queue_submission_index acquire_index =
+							std::holds_alternative<queue_submission_index>(queue_action) ?
+							// we've already acquired a dependency from a command in this batch
+							// acquire from the later of the two commands
+							std::max(std::get<queue_submission_index>(queue_action), si) :
+							// either we've not acquired a dependency or we've acquired one from a previous batch
+							// the dependency from this batch always takes priority
+							si;
+								
+						queue_action.emplace<queue_submission_index>(acquire_index);
+						dep_acquired_batch[acq.queue_index] = acquire_index;
+					},
+					[&](gpu::timeline_semaphore::value_type value) {
+						// if we've acquired from this batch, we don't need to acquire from previous batches
+						if (dep_acquired_batch[acq.queue_index] != queue_submission_index::invalid) {
+							return;
+						}
+						// check if we've already acquired the dependency
+						if (dep_acquired_prev[acq.queue_index] >= value) {
+							return;
+						}
+
+						queue_action.emplace<gpu::timeline_semaphore::value_type>(value);
+						dep_acquired_prev[acq.queue_index] = value;
 					}
-				}
+				}, acq.target);
 			}
-			if (!can_discard) {
-				++_q.semaphore_value;
-			}
-			// set semaphore value for the dependency, if any
-			if (cur_dep) {
-				crash_if(!cur_dep->release_event.has_value());
-				crash_if(cur_dep->release_value.has_value());
-				cur_dep->release_value.emplace(_q.semaphore_value);
-			}
-			// schedule the release event
-			if (!can_discard) {
-				_queue_ctx._release_dependency_events.emplace_back(cur_idx, _q.semaphore_value);
+
+			// mark all commands that need to release a dependency
+			for (std::uint32_t qi = 0; qi < _get_num_queues(); ++qi) {
+				std::visit(overloaded{
+					[&](queue_submission_index qsi) {
+						auto &cmd = _batch_ctx.get_queue_pseudo_context(qi)._cmd_ops[std::to_underlying(qsi)];
+						cmd.release_dependency = true;
+					},
+					[](auto&) {
+						// either no dependency, or it's from a previous batch; ignored
+					}
+				}, actions[qi]);
 			}
 		}
 	}
 
-	void queue_pseudo_context::process_pseudo_acquire_events() {
-		// push all command indices towards the back
-		for (std::size_t event_i = 0; event_i < _pseudo_acquire_dependency_events.size(); ++event_i) {
-			auto &event = _pseudo_acquire_dependency_events[event_i];
-			// check that the indices are monotonically non-decreasing
-			crash_if(
-				event_i + 1 < _pseudo_acquire_dependency_events.size() &&
-				_pseudo_acquire_dependency_events[event_i + 1].command_index < event.command_index
-			);
-			if (event_i > 0) { // reuse results from previous event
-				event.command_index = std::max(
-					event.command_index,
-					_pseudo_acquire_dependency_events[event_i - 1].command_index
-				);
-			}
-			// group together consecutive acquire events
-			while (
-				std::to_underlying(event.command_index) + 1 < _q.batch_commands.size() &&
-				std::holds_alternative<commands::acquire_dependency>(
-					_q.batch_commands[std::to_underlying(event.command_index)].value
-				)
-			) {
-				event.command_index = index::next(event.command_index);
+	void queue_pseudo_context::gather_semaphore_values() {
+		gpu::timeline_semaphore::value_type &value = _q.semaphore_value;
+		queue_context &qctx = _batch_ctx.get_queue_context(_get_queue_index());
+		for (std::size_t i = 0; i < _q.batch_commands.size(); ++i) {
+			if (_cmd_ops[i].release_dependency) {
+				qctx._cmd_ops[i].release_dependency = ++value;
 			}
 		}
+	}
 
-		// fetch actual semaphore values
-		short_vector<std::size_t, 4> next_event_indices(_q.ctx.get_num_queues(), 0);
-		for (const auto &event : _pseudo_acquire_dependency_events) {
-			gpu::timeline_semaphore::value_type sem_value;
-			if (event.data == queue_submission_index::zero) {
-				// acquire from the end of the previous batch
-				sem_value = _batch_ctx.get_batch_resolve_data().queues[event.queue_index].begin_of_batch;
-			} else {
-				const queue_context &other_qctx = _batch_ctx.get_queue_context(event.queue_index);
-				const auto &other_queue_release_events = other_qctx._release_dependency_events;
-				auto &next_event_index = next_event_indices[event.queue_index];
-				// look for the first release event after the given command index
-				while (
-					next_event_index < other_queue_release_events.size() &&
-					event.data > other_queue_release_events[next_event_index].command_index
-				) {
-					++next_event_index;
-				}
-				// we need to acquire the *previous* event
-				crash_if(next_event_index == 0);
-				sem_value = other_queue_release_events[next_event_index - 1].data;
+	void queue_pseudo_context::finalize_dependency_processing() {
+		for (std::size_t i = 0; i < _q.batch_commands.size(); ++i) {
+			auto &batch_cmd_op = _batch_ctx.get_queue_context(_get_queue_index())._cmd_ops[i];
+			batch_cmd_op.acquire_dependencies.resize(_get_num_queues(), 0);
+			for (std::uint32_t qi = 0; qi < _get_num_queues(); ++qi) {
+				std::visit(overloaded{
+					[&](gpu::timeline_semaphore::value_type val) {
+						batch_cmd_op.acquire_dependencies[qi] = val;
+					},
+					[&](queue_submission_index qsi) {
+						const auto &src_cmd = _batch_ctx.get_queue_context(qi)._cmd_ops[std::to_underlying(qsi)];
+						batch_cmd_op.acquire_dependencies[qi] = src_cmd.release_dependency.value();
+					},
+					[](std::nullopt_t) {
+						// nothing to handle
+					}
+				}, _cmd_ops[i].acquire_dependencies[qi]);
 			}
-			_queue_ctx._acquire_dependency_events.emplace_back(event.queue_index, sem_value, event.command_index);
 		}
 	}
 
@@ -152,14 +149,14 @@ namespace lotus::renderer::execution {
 	void queue_pseudo_context::_pseudo_execute(const commands::copy_buffer &cmd) {
 		_pseudo_use_buffer(
 			*cmd.source._ptr,
-			_details::buffer_access(gpu::synchronization_point_mask::copy, gpu::buffer_access_mask::copy_source),
+			gpu::synchronization_point_mask::copy,
+			gpu::buffer_access_mask::copy_source,
 			_pseudo_execution_current_command_range()
 		);
 		_pseudo_use_buffer(
 			*cmd.destination._ptr,
-			_details::buffer_access(
-				gpu::synchronization_point_mask::copy, gpu::buffer_access_mask::copy_destination
-			),
+			gpu::synchronization_point_mask::copy,
+			gpu::buffer_access_mask::copy_destination,
 			_pseudo_execution_current_command_range()
 		);
 	}
@@ -167,7 +164,8 @@ namespace lotus::renderer::execution {
 	void queue_pseudo_context::_pseudo_execute(const commands::copy_buffer_to_image &cmd) {
 		_pseudo_use_buffer(
 			*cmd.source._ptr,
-			_details::buffer_access(gpu::synchronization_point_mask::copy, gpu::buffer_access_mask::copy_source),
+			gpu::synchronization_point_mask::copy,
+			gpu::buffer_access_mask::copy_source,
 			_pseudo_execution_current_command_range()
 		);
 		_pseudo_use_image(
@@ -189,19 +187,15 @@ namespace lotus::renderer::execution {
 			// mark input buffer memory usage
 			_pseudo_use_buffer(
 				*input.vertex_data._ptr,
-				_details::buffer_access(
-					gpu::synchronization_point_mask::acceleration_structure_build,
-					gpu::buffer_access_mask::acceleration_structure_build_input
-				),
+				gpu::synchronization_point_mask::acceleration_structure_build,
+				gpu::buffer_access_mask::acceleration_structure_build_input,
 				_pseudo_execution_current_command_range()
 			);
 			if (input.index_data) {
 				_pseudo_use_buffer(
 					*input.index_data._ptr,
-					_details::buffer_access(
-						gpu::synchronization_point_mask::acceleration_structure_build,
-						gpu::buffer_access_mask::acceleration_structure_build_input
-					),
+					gpu::synchronization_point_mask::acceleration_structure_build,
+					gpu::buffer_access_mask::acceleration_structure_build_input,
 					_pseudo_execution_current_command_range()
 				);
 			}
@@ -225,10 +219,8 @@ namespace lotus::renderer::execution {
 		);
 		_pseudo_use_buffer(
 			*cmd.target._ptr->memory,
-			_details::buffer_access(
-				gpu::synchronization_point_mask::acceleration_structure_build,
-				gpu::buffer_access_mask::acceleration_structure_write
-			),
+			gpu::synchronization_point_mask::acceleration_structure_build,
+			gpu::buffer_access_mask::acceleration_structure_write,
 			_pseudo_execution_current_command_range()
 		);
 
@@ -242,10 +234,8 @@ namespace lotus::renderer::execution {
 		for (const auto &input : cmd.instances) {
 			_pseudo_use_buffer(
 				*input.acceleration_structure._ptr->memory,
-				_details::buffer_access(
-					gpu::synchronization_point_mask::acceleration_structure_build,
-					gpu::buffer_access_mask::acceleration_structure_build_input
-				),
+				gpu::synchronization_point_mask::acceleration_structure_build,
+				gpu::buffer_access_mask::acceleration_structure_build_input,
 				_pseudo_execution_current_command_range()
 			);
 		}
@@ -261,10 +251,8 @@ namespace lotus::renderer::execution {
 		);
 		_pseudo_use_buffer(
 			*cmd.target._ptr->memory,
-			_details::buffer_access(
-				gpu::synchronization_point_mask::acceleration_structure_build,
-				gpu::buffer_access_mask::acceleration_structure_write
-			),
+			gpu::synchronization_point_mask::acceleration_structure_build,
+			gpu::buffer_access_mask::acceleration_structure_write,
 			_pseudo_execution_current_command_range()
 		);
 
@@ -338,18 +326,16 @@ namespace lotus::renderer::execution {
 				for (const auto &input : draw_cmd.inputs) {
 					_pseudo_use_buffer(
 						*input.data._ptr,
-						_details::buffer_access(
-							gpu::synchronization_point_mask::vertex_input, gpu::buffer_access_mask::vertex_buffer
-						),
+						gpu::synchronization_point_mask::vertex_input,
+						gpu::buffer_access_mask::vertex_buffer,
 						scope
 					);
 				}
 				if (draw_cmd.index_buffer.data) {
 					_pseudo_use_buffer(
 						*draw_cmd.index_buffer.data._ptr,
-						_details::buffer_access(
-							gpu::synchronization_point_mask::index_input, gpu::buffer_access_mask::index_buffer
-						),
+						gpu::synchronization_point_mask::index_input,
+						gpu::buffer_access_mask::index_buffer,
 						scope
 					);
 				}
@@ -402,20 +388,29 @@ namespace lotus::renderer::execution {
 		auto *dep = cmd.target._ptr;
 		crash_if(dep->release_event.has_value()); // cannot release multiple times
 		dep->release_event.emplace(_get_queue_index(), _batch_ctx.get_batch_index(), _pseudo_cmd_index);
-		// explicit in case this dependency is acquired in a later batch
-		_pseudo_release_dependency_events.emplace_back(_pseudo_cmd_index, dep);
 	}
 
 	void queue_pseudo_context::_pseudo_execute(const commands::acquire_dependency &cmd) {
 		auto *dep = cmd.target._ptr;
 		// pseudo execution should have guaranteed that this dependency has been released
 		crash_if(!dep->release_event.has_value());
-		_request_dependency_from(
-			dep->release_event->queue,
-			dep->release_event->batch,
-			dep->release_event->command_index,
-			_pseudo_cmd_index
-		);
+		if (dep->release_event->batch != _batch_ctx.get_batch_index()) {
+			// explicitly acquire from a previous batch
+			_batch_ctx.request_dependency_explicit(
+				dep->release_event->queue,
+				dep->release_value.value(),
+				_get_queue_index(),
+				_pseudo_cmd_index
+			);
+		} else {
+			// acquire from the same batch
+			_batch_ctx.request_dependency_from_this_batch(
+				dep->release_event->queue,
+				dep->release_event->command_index,
+				_get_queue_index(),
+				_pseudo_cmd_index
+			);
+		}
 	}
 
 	void queue_pseudo_context::_pseudo_execute(const commands::start_timer &cmd) {
@@ -517,9 +512,7 @@ namespace lotus::renderer::execution {
 		for (const auto &rsrc : arr._ptr->resources) {
 			if (rsrc.resource) {
 				_pseudo_use_buffer(
-					*rsrc.resource._ptr,
-					_details::buffer_access(sync_points, gpu::buffer_access_mask::shader_read),
-					scope
+					*rsrc.resource._ptr, sync_points, gpu::buffer_access_mask::shader_read, scope
 				);
 			}
 		}
@@ -541,7 +534,7 @@ namespace lotus::renderer::execution {
 			_pseudo_use_image(*img.image, img.get_image_access(sync_points), scope);
 		}
 		for (const auto &buf : set._ptr->used_buffers) {
-			_pseudo_use_buffer(*buf.buffer, buf.get_buffer_access(sync_points), scope);
+			_pseudo_use_buffer(*buf.buffer, sync_points, buf.access, scope);
 		}
 	}
 
@@ -592,9 +585,7 @@ namespace lotus::renderer::execution {
 		gpu::synchronization_point_mask sync_points,
 		_queue_submission_range scope
 	) {
-		_pseudo_use_buffer(
-			*buf.data._ptr, _details::buffer_access(sync_points, gpu::buffer_access_mask::constant_buffer), scope
-		);
+		_pseudo_use_buffer(*buf.data._ptr, sync_points, gpu::buffer_access_mask::constant_buffer, scope);
 	}
 
 	void queue_pseudo_context::_pseudo_use_resource(
@@ -602,9 +593,7 @@ namespace lotus::renderer::execution {
 		gpu::synchronization_point_mask sync_points,
 		_queue_submission_range scope
 	) {
-		_pseudo_use_buffer(
-			*buf.data._ptr, _details::buffer_access::from_binding_type(sync_points, buf.binding_type), scope
-		);
+		_pseudo_use_buffer(*buf.data._ptr, sync_points, _details::to_access_mask(buf.binding_type), scope);
 	}
 
 	void queue_pseudo_context::_pseudo_use_resource(
@@ -613,75 +602,70 @@ namespace lotus::renderer::execution {
 		_queue_submission_range scope
 	) {
 		_pseudo_use_buffer(
-			*buf._ptr->memory,
-			_details::buffer_access(sync_points, gpu::buffer_access_mask::acceleration_structure_read),
-			scope
-		);
-	}
-
-	void queue_pseudo_context::_transition_buffer_here(
-		_details::buffer &target, _details::buffer_access from, _details::buffer_access to
-	) {
-		_queue_ctx._buffer_transitions[std::to_underlying(_pseudo_cmd_index)].emplace_back(
-			target.data, from.sync_points, from.access, to.sync_points, to.access
+			*buf._ptr->memory, sync_points, gpu::buffer_access_mask::acceleration_structure_read, scope
 		);
 	}
 
 	void queue_pseudo_context::_pseudo_use_buffer(
-		_details::buffer &buf, _details::buffer_access new_access, _queue_submission_range scope
+		_details::buffer &buf,
+		gpu::synchronization_point_mask sync_points,
+		gpu::buffer_access_mask access,
+		_queue_submission_range scope
 	) {
 		_q.ctx.execution_log(
 			"    USE_BUFFER \"{}\", SYNC_POINTS {}, ACCESS {}",
 			string::to_generic(buf.name),
-			new_access.sync_points,
-			new_access.access
+			sync_points,
+			access
 		);
 
 		_q.ctx._maybe_initialize_buffer(buf);
 
-		const _details::buffer_access_event event(new_access, _batch_ctx.get_batch_index(), scope.end);
+		const gpu::buffer_barrier barrier(
+			buf.data,
+			buf.previous_access.access.sync_points,
+			buf.previous_access.access.access,
+			_batch_ctx.get_queue_context(buf.previous_access.queue_index)._q.queue.get_family(),
+			sync_points,
+			access,
+			_q.queue.get_family()
+		);
 
-		if (bit_mask::contains_any(new_access.access, gpu::buffer_access_mask::write_bits)) {
-			// write access - wait until all previous reads have finished
-			for (std::uint32_t i = 0; i < _get_num_queues(); ++i) {
-				const auto &access = buf.previous_queue_access[i];
-				if (access) {
-					if (i == _get_queue_index()) { // same queue - only need transition
-						_transition_buffer_here(buf, access->access, new_access);
-					} else { // insert dependency
-						_request_dependency_from(i, access->batch, access->queue_index, scope.begin);
-					}
-				}
-			}
+		if (
+			buf.previous_access.batch == batch_index::zero ||
+			_get_queue_index() == buf.previous_access.queue_index
+		) {
+			// same queue - only needs transition
+			_queue_ctx
+				._cmd_ops[std::to_underlying(scope.begin)]
+				.pre_buffer_transitions.emplace_back(barrier);
+		} else {
+			// needs both a dependency and a queue family transfer
+			if (buf.previous_access.batch != _batch_ctx.get_batch_index()) {
+				/*std::abort();*/ // TODO
+			} else {
+				_batch_ctx.request_dependency_from_this_batch(
+					buf.previous_access.queue_index,
+					buf.previous_access.queue_command_index,
+					_get_queue_index(),
+					scope.begin
+				);
 
-			// also record as last write
-			buf.previous_modification = { _get_queue_index(), event };
-		} else { // read-only access - only need to wait for previous write
-			const auto &[queue_idx, write_event] = buf.previous_modification;
-			const bool is_cpu_write = write_event.access.access == gpu::buffer_access_mask::cpu_write;
-
-			// must have been written to before
-			crash_if(write_event.access.access == gpu::buffer_access_mask::none);
-			// CPU write cannot coexist with other read or write access
-			crash_if(
-				!is_cpu_write &&
-				bit_mask::contains<gpu::buffer_access_mask::cpu_write>(write_event.access.access)
-			);
-
-			if (is_cpu_write || queue_idx == _get_queue_index()) { // only need transition
-				const auto &prev_read = buf.previous_queue_access[_get_queue_index()];
-				if (prev_read && prev_read->queue_index > write_event.queue_index) {
-					// we've read on the same queue before
-					// TODO: is a transition still necessary?
-					_transition_buffer_here(buf, prev_read->access, new_access);
-				} else {
-					_transition_buffer_here(buf, write_event.access, new_access);
-				}
-			} else { // need dependency
-				_request_dependency_from(queue_idx, write_event.batch, write_event.queue_index, scope.begin);
+				// queue family ownership release
+				_batch_ctx
+					.get_queue_context(buf.previous_access.queue_index)
+					._cmd_ops[std::to_underlying(buf.previous_access.queue_command_index)]
+					.post_buffer_transitions.emplace_back(barrier);
+				// queue family ownership acquire
+				_queue_ctx._cmd_ops[std::to_underlying(scope.begin)].pre_buffer_transitions.emplace_back(barrier);
 			}
 		}
-		buf.previous_queue_access[_get_queue_index()] = event;
+
+		// update access
+		buf.previous_access.access              = _details::buffer_access(sync_points, access);
+		buf.previous_access.queue_index         = _get_queue_index();
+		buf.previous_access.batch               = _batch_ctx.get_batch_index();
+		buf.previous_access.queue_command_index = scope.end;
 	}
 
 	void queue_pseudo_context::_pseudo_use_image(
@@ -715,16 +699,54 @@ namespace lotus::renderer::execution {
 			string::to_generic(img.name)
 		);
 
-		const _details::image_access_event event(access, _batch_ctx.get_batch_index(), scope.end);
+		// update each mip and array slice individually
+		for (std::uint32_t array_slice = 0; array_slice < 1; ++array_slice) { // TODO: array slices
+			for (std::uint32_t mip = 0; mip < img.num_mips; ++mip) {
+				_details::image_access_event &prev_access = img.previous_access[array_slice][mip];
 
-		const bool is_write_access = bit_mask::contains_any(access.access, gpu::image_access_mask::write_bits);
-		for (std::uint32_t i = 0; i < _get_num_queues(); ++i) {
+				const gpu::image_barrier barrier(
+					gpu::subresource_range(gpu::mip_levels::only(mip), array_slice, 1, gpu::image_aspect_mask::color), // TODO: correct aspect
+					img.get_image(),
+					prev_access.access.sync_points,
+					prev_access.access.access,
+					prev_access.access.layout,
+					_batch_ctx.get_queue_context(prev_access.queue_index)._q.queue.get_family(),
+					access.sync_points,
+					access.access,
+					access.layout,
+					_q.queue.get_family()
+				);
 
-		}
-		if (is_write_access) {
-			// write access - wait until all previous reads have finished
-		} else { // read-only access
-			// TODO: layout changes?
+				if (prev_access.batch == batch_index::zero || prev_access.queue_index == _get_queue_index()) {
+					_queue_ctx._cmd_ops[std::to_underlying(scope.begin)].pre_image_transitions.emplace_back(barrier);
+				} else {
+					if (prev_access.batch != _batch_ctx.get_batch_index()) {
+						/*std::abort();*/ // TODO
+					} else {
+						_batch_ctx.request_dependency_from_this_batch(
+							prev_access.queue_index,
+							prev_access.queue_command_index,
+							_get_queue_index(),
+							scope.begin
+						);
+
+						// queue family ownership release
+						_batch_ctx
+							.get_queue_context(prev_access.queue_index)
+							._cmd_ops[std::to_underlying(prev_access.queue_command_index)]
+							.post_image_transitions.emplace_back(barrier);
+						// queue family ownership acquire
+						_queue_ctx
+							._cmd_ops[std::to_underlying(scope.begin)]
+							.pre_image_transitions.emplace_back(barrier);
+					}
+				}
+
+				prev_access.access              = access;
+				prev_access.queue_index         = _get_queue_index();
+				prev_access.batch               = _batch_ctx.get_batch_index();
+				prev_access.queue_command_index = scope.end;
+			}
 		}
 	}
 
@@ -750,25 +772,33 @@ namespace lotus::renderer::execution {
 			_q.ctx._maybe_update_swap_chain(chain);
 		}
 
-		// TODO stage transitions
+		// TODO properly stage transitions
+		auto &back_buffer = chain.back_buffers[chain.next_image_index];
+		_queue_ctx._cmd_ops[std::to_underlying(scope.begin)].pre_image_transitions.emplace_back(
+			gpu::subresource_range::first_color(),
+			back_buffer.image,
+			back_buffer.current_usage.sync_points,
+			back_buffer.current_usage.access,
+			back_buffer.current_usage.layout,
+			_q.queue.get_family(),
+			access.sync_points,
+			access.access,
+			access.layout,
+			_q.queue.get_family()
+		);
+		back_buffer.current_usage = access;
 		/*std::abort();*/
 	}
 
-	void queue_pseudo_context::_request_dependency_from(
-		std::uint32_t release_queue, batch_index release_batch, queue_submission_index release_after,
-		queue_submission_index acquire_before
-	) {
-		_batch_ctx.request_dependency(
-			release_queue, release_batch, release_after, _get_queue_index(), acquire_before
-		);
-	}
-
 	std::uint32_t queue_pseudo_context::_maybe_insert_timestamp() {
+		/*
 		if (!_valid_timestamp) {
 			_queue_ctx._timestamp_command_indices.emplace_back(_pseudo_cmd_index);
 			_valid_timestamp = true;
 		}
 		return static_cast<std::uint32_t>(_queue_ctx._timestamp_command_indices.size() - 1);
+		*/
+		return 0;
 	}
 
 	std::uint32_t queue_pseudo_context::_get_num_queues() const {

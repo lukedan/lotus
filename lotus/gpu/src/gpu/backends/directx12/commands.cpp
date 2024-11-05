@@ -97,7 +97,7 @@ namespace lotus::gpu::backends::directx12 {
 				barrier.AccessAfter  = _details::conversions::to_barrier_access(img.to_access);
 				barrier.LayoutBefore = _details::conversions::to_barrier_layout(img.from_layout);
 				barrier.LayoutAfter  = _details::conversions::to_barrier_layout(img.to_layout);
-				barrier.pResource    = static_cast<_details::image_base*>(img.target)->_image.Get();
+				barrier.pResource    = static_cast<const _details::image_base*>(img.target)->_image.Get();
 				barrier.Subresources = _details::conversions::to_barrier_subresource_range(img.subresources);
 			}
 			auto &group = groups.emplace_back();
@@ -114,7 +114,7 @@ namespace lotus::gpu::backends::directx12 {
 				barrier.SyncAfter    = _details::conversions::to_barrier_sync(buf.to_point);
 				barrier.AccessBefore = _details::conversions::to_barrier_access(buf.from_access);
 				barrier.AccessAfter  = _details::conversions::to_barrier_access(buf.to_access);
-				barrier.pResource    = static_cast<buffer*>(buf.target)->_buffer.Get();
+				barrier.pResource    = static_cast<const buffer*>(buf.target)->_buffer.Get();
 				barrier.Offset       = 0;
 				barrier.Size         = UINT64_MAX;
 			}

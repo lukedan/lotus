@@ -259,9 +259,9 @@ namespace lotus::gpu::backends::vulkan {
 				.setDstAccessMask(_details::conversions::to_access_flags_2(i.to_access))
 				.setOldLayout(_details::conversions::to_image_layout(i.from_layout))
 				.setNewLayout(_details::conversions::to_image_layout(i.to_layout))
-				.setSrcQueueFamilyIndex(0) // TODO
-				.setDstQueueFamilyIndex(0)
-				.setImage(static_cast<_details::image_base*>(i.target)->_image)
+				.setSrcQueueFamilyIndex(_device->_queue_family_props[i.from_queue].index)
+				.setDstQueueFamilyIndex(_device->_queue_family_props[i.to_queue].index)
+				.setImage(static_cast<const _details::image_base*>(i.target)->_image)
 				.setSubresourceRange(_details::conversions::to_image_subresource_range(i.subresources));
 		}
 		for (const auto &b : bufs) {
@@ -271,9 +271,9 @@ namespace lotus::gpu::backends::vulkan {
 				.setSrcAccessMask(_details::conversions::to_access_flags_2(b.from_access))
 				.setDstStageMask(_details::conversions::to_pipeline_stage_flags_2(b.to_point))
 				.setDstAccessMask(_details::conversions::to_access_flags_2(b.to_access))
-				.setSrcQueueFamilyIndex(0) // TODO
-				.setDstQueueFamilyIndex(0)
-				.setBuffer(static_cast<buffer*>(b.target)->_buffer.get())
+				.setSrcQueueFamilyIndex(_device->_queue_family_props[b.from_queue].index)
+				.setDstQueueFamilyIndex(_device->_queue_family_props[b.to_queue].index)
+				.setBuffer(static_cast<const buffer*>(b.target)->_buffer.get())
 				.setOffset(0)
 				.setSize(VK_WHOLE_SIZE);
 		}
@@ -433,9 +433,13 @@ namespace lotus::gpu::backends::vulkan {
 		auto wait_sem_values = bookmark.create_reserved_vector_array<gpu::timeline_semaphore::value_type>(
 			synch.wait_semaphores.size()
 		);
+		auto wait_stages = bookmark.create_reserved_vector_array<vk::PipelineStageFlags>(
+			synch.wait_semaphores.size()
+		);
 		for (const auto &sem : synch.wait_semaphores) {
 			wait_sems.emplace_back(sem.semaphore->_semaphore.get());
 			wait_sem_values.emplace_back(sem.value);
+			wait_stages.emplace_back(vk::PipelineStageFlagBits::eAllCommands);
 		}
 		auto sig_sems = bookmark.create_reserved_vector_array<vk::Semaphore>(synch.notify_semaphores.size());
 		auto sig_sem_values = bookmark.create_reserved_vector_array<gpu::timeline_semaphore::value_type>(
@@ -454,6 +458,7 @@ namespace lotus::gpu::backends::vulkan {
 			.setPNext(&sem_info)
 			.setCommandBuffers(vk_lists)
 			.setWaitSemaphores(wait_sems)
+			.setWaitDstStageMask(wait_stages)
 			.setSignalSemaphores(sig_sems);
 		_details::assert_vk(_queue.submit(info, synch.notify_fence ? synch.notify_fence->_fence.get() : nullptr));
 	}

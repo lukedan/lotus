@@ -10,6 +10,11 @@
 #include "lotus/system/platforms/windows/details.h"
 #include "lotus/memory/stack_allocator.h"
 
+extern "C" {
+	_declspec(dllexport) extern const uint32_t D3D12SDKVersion = 715;
+	_declspec(dllexport) extern LPCSTR D3D12SDKPath = ".\\";
+}
+
 namespace lotus::gpu::backends::directx12 {
 	context context::create(context_options opts) {
 		context result;

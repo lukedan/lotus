@@ -139,7 +139,6 @@ namespace lotus::renderer {
 				gpu::format fmt,
 				gpu::image_tiling t,
 				gpu::image_usage_mask u,
-				std::uint32_t num_queues,
 				unique_resource_id i,
 				std::u8string_view n
 			) :
@@ -150,13 +149,11 @@ namespace lotus::renderer {
 				format(fmt),
 				tiling(t),
 				usages(u),
-				previous_queue_access(num_queues) {
+				previous_access(1, std::vector<image_access_event>(mips, std::nullopt)) {
 			}
 
-			/// Records a usage.
-			void record_usage(std::uint32_t queue_index, batch_index, queue_submission_index, image_access);
-			/// Clears \ref current_queue_usages and saves relevant entries into \ref last_queue_usages.
-			void stash_usages();
+			/// Returns the image object.
+			[[nodiscard]] virtual const gpu::image_base &get_image() const = 0;
 
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this image out of.
 			pool::token memory; ///< Allocated memory for this image.
@@ -167,11 +164,9 @@ namespace lotus::renderer {
 			gpu::image_tiling tiling = gpu::image_tiling::optimal; ///< Tiling of this image.
 			gpu::image_usage_mask usages = gpu::image_usage_mask::none; ///< Possible usages.
 
-			/// Last usage of all mips and array slices of this buffer on all queues.
-			short_vector<std::vector<image_access_event>, 4> previous_queue_access;
-			/// The last events where all mips and array slices of this image were written to, or where the layout of
-			/// them were changed. This also includes the queue where the write happened.
-			std::vector<std::pair<std::uint32_t, image_access_event>> previous_modificationss;
+			/// The last events where all mips and array slices of this image were accessed. The inner array is for
+			/// mips while the outer array is for array slices.
+			std::vector<std::vector<image_access_event>> previous_access; // TODO: subresource range is not needed
 		};
 		/// Templated base class of images. Contains the handle to the \ref gpu::basic_image.
 		template <gpu::image_type Type> struct typed_image_base : public image_base {
@@ -182,10 +177,14 @@ namespace lotus::renderer {
 				gpu::format fmt,
 				gpu::image_tiling t,
 				gpu::image_usage_mask u,
-				std::uint32_t num_queues,
 				unique_resource_id i,
 				std::u8string_view n
-			) : image_base(std::move(p), mips, fmt, t, u, num_queues, i, n), image(nullptr) {
+			) : image_base(std::move(p), mips, fmt, t, u, i, n), image(nullptr) {
+			}
+
+			/// Returns the image object.
+			[[nodiscard]] const gpu::image_base &get_image() const override {
+				return image;
 			}
 
 			gpu::basic_image<Type> image; ///< The image.
@@ -202,10 +201,9 @@ namespace lotus::renderer {
 				gpu::image_tiling t,
 				gpu::image_usage_mask u,
 				std::shared_ptr<pool> p,
-				std::uint32_t num_queues,
 				unique_resource_id i,
 				std::u8string_view n
-			) : typed_image_base(std::move(p), mips, fmt, t, u, num_queues, i, n), size(sz) {
+			) : typed_image_base(std::move(p), mips, fmt, t, u, i, n), size(sz) {
 			}
 
 			/// Returns \ref resource_type::image2d.
@@ -232,10 +230,9 @@ namespace lotus::renderer {
 				gpu::image_tiling t,
 				gpu::image_usage_mask u,
 				std::shared_ptr<pool> p,
-				std::uint32_t num_queues,
 				unique_resource_id i,
 				std::u8string_view n
-			) : typed_image_base(std::move(p), mips, fmt, t, u, num_queues, i, n), size(sz) {
+			) : typed_image_base(std::move(p), mips, fmt, t, u, i, n), size(sz) {
 			}
 
 			/// Returns \ref resource_type::image3d.
@@ -253,7 +250,6 @@ namespace lotus::renderer {
 				std::uint32_t sz,
 				gpu::buffer_usage_mask usg,
 				std::shared_ptr<pool> p,
-				std::uint32_t num_queues,
 				unique_resource_id i,
 				std::u8string_view n
 			) :
@@ -263,19 +259,13 @@ namespace lotus::renderer {
 				memory(nullptr),
 				size(sz),
 				usages(usg),
-				previous_queue_access(num_queues),
-				previous_modification(num_queues, buffer_access_event(buffer_access::initial(), zero, zero)) {
+				previous_access(std::nullopt) {
 			}
 
 			/// Returns \ref resource_type::buffer.
 			[[nodiscard]] resource_type get_type() const override {
 				return resource_type::buffer;
 			}
-
-			/// Records a usage.
-			void record_usage(std::uint32_t queue_index, batch_index, queue_submission_index, buffer_access);
-			/// Clears \ref current_queue_usages and saves the last entry into \ref last_queue_usages.
-			void stash_usages();
 
 			gpu::buffer data; ///< The buffer.
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this buffer out of.
@@ -294,12 +284,9 @@ namespace lotus::renderer {
 				descriptor_array_reference<recorded_resources::structured_buffer_view>, 4
 			> array_references;
 
-			/// Last usage of this buffer on all queues.
-			short_vector<std::optional<buffer_access_event>, 4> previous_queue_access;
-			/// The last event where this buffer was written to, and the queue where it happened. If the queue index
-			/// is larger than or equal to the number of queues, it indicates that no previous write accesses have
-			/// been made.
-			std::pair<std::uint32_t, buffer_access_event> previous_modification;
+			// resource usage tracking
+			/// Last usage of this buffer.
+			buffer_access_event previous_access;
 		};
 
 		/// A swap chain associated with a window, managed by a context.
@@ -512,12 +499,6 @@ namespace lotus::renderer {
 				std::shared_ptr<_details::buffer> buffer; ///< The buffer.
 				gpu::buffer_access_mask access; ///< How the buffer is accessed.
 				std::uint32_t register_index; ///< Register index of the descriptor.
-
-				/// Returns a \ref _details::buffer_access object that corresponds to this access with the given sync
-				/// point.
-				[[nodiscard]] _details::buffer_access get_buffer_access(gpu::synchronization_point_mask sync) const {
-					return _details::buffer_access(sync, access);
-				}
 			};
 			/// Records how this descriptor set uses a sampler.
 			struct sampler_access {

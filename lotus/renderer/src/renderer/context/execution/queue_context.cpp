@@ -3,6 +3,7 @@
 /// \file
 /// Implementation of command execution related functions.
 
+#include "lotus/utils/misc.h"
 #include "lotus/renderer/context/context.h"
 #include "lotus/renderer/context/execution/batch_context.h"
 #include "lotus/renderer/mipmap.h"
@@ -13,67 +14,69 @@ namespace lotus::renderer::execution {
 		_batch_ctx(batch_ctx),
 		_q(q) {
 
-		_image_transitions.resize(q.batch_commands.size());
-		_buffer_transitions.resize(q.batch_commands.size());
+		_cmd_ops.resize(q.batch_commands.size());
 	}
 
 	void queue_context::start_execution() {
-		// certain queue types do not support timestamps
-		if (!bit_mask::contains<gpu::queue_capabilities::timestamp_query>(_q.queue.get_capabilities())) {
-			if (!_timestamp_command_indices.empty()) {
-				log().warn(
-					"Queue {} does not support timers. {} timestamp(s) discarded",
-					_q.queue.get_index(), _timestamp_command_indices.size()
-				);
-				_timestamp_command_indices.clear();
+		// gather timestamps
+		for (const auto& cmd_ops : _cmd_ops) {
+			if (cmd_ops.insert_pre_timestamp) {
+				++_timestamp_count;
+			}
+			if (cmd_ops.insert_post_timestamp) {
+				++_timestamp_count;
 			}
 		}
 
-		_next_timestamp = _timestamp_command_indices.begin();
-		_next_acquire_event = _acquire_dependency_events.begin();
-		_next_release_event = _release_dependency_events.begin();
-		if (!_timestamp_command_indices.empty()) {
-			_timestamps = &_batch_ctx.record_batch_resource(_get_device().create_timestamp_query_heap(
-				static_cast<std::uint32_t>(_timestamp_command_indices.size())
-			));
+		// certain queue types do not support timestamps
+		if (!bit_mask::contains<gpu::queue_capabilities::timestamp_query>(_q.queue.get_capabilities())) {
+			if (_timestamp_count > 0) {
+				log().warn(
+					"Queue {} does not support timers. {} timestamp(s) discarded",
+					_q.queue.get_index(), _timestamp_count
+				);
+				for (auto& cmd_ops : _cmd_ops) {
+					cmd_ops.insert_pre_timestamp = false;
+					cmd_ops.insert_post_timestamp = false;
+				}
+			}
+		}
+
+		if (_timestamp_count > 0) {
+			_timestamps = &_batch_ctx.record_batch_resource(
+				_get_device().create_timestamp_query_heap(_timestamp_count)
+			);
 		}
 	}
 
 	void queue_context::execute_next_command() {
 		const auto &cmd = _q.batch_commands[std::to_underlying(_command_index)];
+		const auto &cmd_ops = _cmd_ops[std::to_underlying(_command_index)];
+
+		// acquire dependencies
+		{
+			short_vector<gpu::timeline_semaphore_synchronization, 4> dependencies;
+			for (std::uint32_t queue_index = 0; queue_index < _q.ctx.get_num_queues(); ++queue_index) {
+				const gpu::timeline_semaphore::value_type val = cmd_ops.acquire_dependencies[queue_index];
+				if (val > 0) {
+					dependencies.emplace_back(_batch_ctx.get_queue_context(queue_index)._q.semaphore, val);
+				}
+			}
+			if (!dependencies.empty()) {
+				_flush_command_list(nullptr, {});
+				_q.queue.submit_command_lists({}, gpu::queue_synchronization(nullptr, dependencies, {}));
+			}
+		}
+
+		// handle pre-transitions
+		if (!cmd_ops.pre_image_transitions.empty() && !cmd_ops.pre_buffer_transitions.empty()) {
+			_get_command_list().resource_barrier(cmd_ops.pre_image_transitions, cmd_ops.pre_buffer_transitions);
+		}
 
 		// check & insert timestamp
-		if (_next_timestamp != _timestamp_command_indices.end() && *_next_timestamp == _command_index) {
-			const auto timestamp_index = _next_timestamp - _timestamp_command_indices.begin();
-			_get_command_list().query_timestamp(*_timestamps, static_cast<std::uint32_t>(timestamp_index));
-			++_next_timestamp;
-		}
-
-		{ // acquire dependencies
-			std::vector<gpu::timeline_semaphore_synchronization> waits;
-			while (
-				_next_acquire_event != _acquire_dependency_events.end() &&
-				_next_acquire_event->command_index == _command_index
-			) {
-				auto &other_queue = _q.ctx._queues[_next_acquire_event->queue_index];
-				waits.emplace_back(other_queue.semaphore, _next_acquire_event->data);
-				++_next_acquire_event;
-			}
-
-			// first check for flushing the current command list - this is hit when these waits do not
-			// immediately follow any notify events
-			if (!waits.empty()) {
-				_flush_command_list(nullptr, {});
-				_pending_waits = std::move(waits);
-			}
-		}
-
-		{ // handle transitions
-			const auto &img_transitions = _image_transitions[std::to_underlying(_command_index)];
-			const auto &buf_transitions = _buffer_transitions[std::to_underlying(_command_index)];
-			if (!img_transitions.empty() && !buf_transitions.empty()) {
-				_get_command_list().resource_barrier(img_transitions, buf_transitions);
-			}
+		if (cmd_ops.insert_pre_timestamp) {
+			_get_command_list().query_timestamp(*_timestamps, _timestamp_index);
+			++_timestamp_index;
 		}
 
 		// execute command
@@ -84,20 +87,23 @@ namespace lotus::renderer::execution {
 			cmd.value
 		);
 
-		{ // release dependencies
-			std::vector<gpu::timeline_semaphore_synchronization> signals;
-			while (
-				_next_release_event != _release_dependency_events.end() &&
-				_next_release_event->command_index == _command_index
-			) {
-				signals.emplace_back(_q.semaphore, _next_release_event->data);
-				++_next_release_event;
-			}
+		// check & insert timestamp
+		if (cmd_ops.insert_post_timestamp) {
+			_get_command_list().query_timestamp(*_timestamps, _timestamp_index);
+			++_timestamp_index;
+		}
 
-			// second check for flushing the current command list - when there is a release event
-			if (!signals.empty()) {
-				_flush_command_list(nullptr, signals);
-			}
+		// handle post-transitions
+		if (!cmd_ops.post_image_transitions.empty() && !cmd_ops.post_buffer_transitions.empty()) {
+			_get_command_list().resource_barrier(cmd_ops.post_image_transitions, cmd_ops.post_buffer_transitions);
+		}
+
+		// release dependency
+		if (cmd_ops.release_dependency) {
+			const auto release_events = {
+				gpu::timeline_semaphore_synchronization(_q.semaphore, cmd_ops.release_dependency.value())
+			};
+			_flush_command_list(nullptr, release_events);
 		}
 
 		constexpr bool _debug_single_command_packets = false;
@@ -122,7 +128,7 @@ namespace lotus::renderer::execution {
 
 		auto &resolve_data = _get_queue_resolve_data();
 		resolve_data.timestamp_heap = _timestamps;
-		resolve_data.num_timestamps = static_cast<std::uint32_t>(_timestamp_command_indices.size());
+		resolve_data.num_timestamps = _timestamp_count;
 	}
 
 	gpu::command_list &queue_context::_get_command_list() {
@@ -140,15 +146,16 @@ namespace lotus::renderer::execution {
 	void queue_context::_flush_command_list(
 		gpu::fence *notify_fence, std::span<const gpu::timeline_semaphore_synchronization> notify_semaphores
 	) {
-		gpu::queue_synchronization sync(notify_fence, _pending_waits, notify_semaphores);
+		const gpu::queue_synchronization sync(notify_fence, {}, notify_semaphores);
 		if (_list) {
 			_list->finish();
-			_q.queue.submit_command_lists({ _list }, std::move(sync));
+			_q.queue.submit_command_lists({ _list }, sync);
 			_list = nullptr;
 		} else {
-			_q.queue.submit_command_lists({}, std::move(sync));
+			if (!sync.is_empty()) {
+				_q.queue.submit_command_lists({}, sync);
+			}
 		}
-		_pending_waits.clear();
 	}
 
 	void queue_context::_bind_descriptor_sets(
@@ -280,21 +287,20 @@ namespace lotus::renderer::execution {
 		{
 			// color render targets
 			std::vector<gpu::image2d_view*> color_rts;
-			for (const auto &color_rt : cmd.color_render_targets) {
-				if (std::holds_alternative<recorded_resources::image2d_view>(color_rt.view)) {
-					auto rt = std::get<recorded_resources::image2d_view>(color_rt.view).highest_mip_with_warning();
-					auto rt_size = mipmap::get_size(rt._ptr->size, rt._mip_levels.first_level);
-					crash_if(rt_size != cmd.render_target_size);
-					color_rts.emplace_back(&_q.ctx._request_image_view(rt));
-					_color_rt_formats.emplace_back(rt._view_format);
-				} else if (std::holds_alternative<recorded_resources::swap_chain>(color_rt.view)) {
-					auto rt = std::get<recorded_resources::swap_chain>(color_rt.view);
-					crash_if(rt._ptr->current_size != cmd.render_target_size);
-					color_rts.emplace_back(&_q.ctx._request_swap_chain_view(rt));
-					_color_rt_formats.emplace_back(rt._ptr->current_format);
-				} else {
-					std::abort(); // unhandled
-				}
+			for (const image2d_color &color_rt : cmd.color_render_targets) {
+				std::visit(overloaded{
+					[&](const recorded_resources::image2d_view &rt) {
+						auto rt_size = mipmap::get_size(rt._ptr->size, rt._mip_levels.first_level);
+						crash_if(rt_size != cmd.render_target_size);
+						color_rts.emplace_back(&_q.ctx._request_image_view(rt));
+						_color_rt_formats.emplace_back(rt._view_format);
+					},
+					[&](const recorded_resources::swap_chain &rt) {
+						crash_if(rt._ptr->current_size != cmd.render_target_size);
+						color_rts.emplace_back(&_q.ctx._request_swap_chain_view(rt));
+						_color_rt_formats.emplace_back(rt._ptr->current_format);
+					}
+				}, color_rt.view);
 				color_rt_access.emplace_back(color_rt.access);
 			}
 			crash_if(_color_rt_formats.size() != color_rt_access.size());
@@ -320,6 +326,12 @@ namespace lotus::renderer::execution {
 				color_rt_access, cmd.depth_stencil_target.depth_access, cmd.depth_stencil_target.stencil_access
 			)
 		);
+		_get_command_list().set_viewports({
+			gpu::viewport(aab2f::create_from_min_max(zero, cmd.render_target_size.into<float>()), 0.0f, 1.0f)
+		});
+		_get_command_list().set_scissor_rectangles({
+			aab2i::create_from_min_max(zero, cmd.render_target_size.into<int>())
+		});
 	}
 
 	void queue_context::_execute(const commands::draw_instanced &cmd) {

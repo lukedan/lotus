@@ -727,8 +727,8 @@ namespace lotus::renderer {
 
 		// resource deletion handlers
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a pool.
-		void _deferred_delete(_details::pool*) {
-			// TODO
+		void _deferred_delete(_details::pool *p) {
+			_deferred_delete_resources.pool_meta.emplace_back(p);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a 2D image.
 		void _deferred_delete(_details::image2d *surf) {
@@ -767,8 +767,8 @@ namespace lotus::renderer {
 			// TODO
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a cached descriptor set.
-		void _deferred_delete(_details::cached_descriptor_set*) {
-			// TODO
+		void _deferred_delete(_details::cached_descriptor_set *set) {
+			_deferred_delete_resources.cached_descriptor_set_meta.emplace_back(set);
 		}
 	};
 

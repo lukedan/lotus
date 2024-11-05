@@ -57,38 +57,53 @@ namespace lotus::renderer::execution {
 
 		batch_statistics_early early_statistics; ///< Accumulated statistics.
 	private:
+		/// Additional operations (e.g. synchronization) and data required for each command. The order of operations
+		/// are:
+		/// 1. Acquire dependencies.
+		/// 2. Perform pre-barrier transitions.
+		/// 3. Insert pre-timestamp.
+		/// 4. Execute the command.
+		/// 5. Insert post-timestamp.
+		/// 6. Release dependencies.
+		struct _command_operation {
+			/// Dependencies that need to be acquired before this command from all other queues. 0 means no
+			/// dependency.
+			short_vector<gpu::timeline_semaphore::value_type, 4> acquire_dependencies;
+
+			/// Image transitions to execute before the command.
+			std::vector<gpu::image_barrier> pre_image_transitions;
+			/// Buffer transitions to execute after the command.
+			std::vector<gpu::buffer_barrier> pre_buffer_transitions;
+
+			bool insert_pre_timestamp = false; ///< Whether to insert a timestamp before this command.
+
+			// command execution
+
+			bool insert_post_timestamp = false; ///< Whether to insert a timestamp after this command.
+
+			/// Image transitions to execute after this command.
+			std::vector<gpu::image_barrier> post_image_transitions;
+			/// Buffer transitions to execute after this command.
+			std::vector<gpu::buffer_barrier> post_buffer_transitions;
+
+			/// The value to set the timeline semaphore to after this command.
+			std::optional<gpu::timeline_semaphore::value_type> release_dependency;
+		};
+
 		batch_context &_batch_ctx; ///< The associated batch context.
 		_details::queue_data &_q; ///< The associated command queue.
 
 		// events collected during pseudo execution
-		/// Indices of the commands to insert timers before.
-		std::vector<queue_submission_index> _timestamp_command_indices;
-		/// List of all release dependency events, sorted based on the \ref queue_submission_index. Note that unlike
-		/// \ref queue_pseudo_context, these release events happen *after* the corresponding commands.
-		std::vector<release_dependency_event<gpu::timeline_semaphore::value_type>> _release_dependency_events;
-		/// List of all acquire dependency events that needs to happen *before* a command, sorted based on
-		/// \ref _acquire_dependency_event::acquire_command_index.
-		std::vector<acquire_dependency_event<gpu::timeline_semaphore::value_type>> _acquire_dependency_events;
-		/// Image barriers for each command.
-		std::vector<std::vector<gpu::image_barrier>> _image_transitions;
-		/// Buffer barriers for each command.
-		std::vector<std::vector<gpu::buffer_barrier>> _buffer_transitions;
+		std::vector<_command_operation> _cmd_ops; ///< Operations to execute for all commands.
 
 		// execution state
 		gpu::command_allocator *_cmd_alloc = nullptr; ///< Command allocator used by this queue.
 		gpu::command_list *_list = nullptr; ///< Current command list.
 		gpu::timestamp_query_heap *_timestamps = nullptr; ///< Timestamp query heap for this batch on this queue.
-
-		/// All waits that have been issued before any other commands have been executed or any other signal events
-		/// have been issued. Since waits are issued on command list submission, this is used to reduce the number of
-		/// command lists that we submit.
-		std::vector<gpu::timeline_semaphore_synchronization> _pending_waits;
+		std::uint32_t _timestamp_count = 0; ///< Total timestamp count in this batch.
 
 		queue_submission_index _command_index = zero; ///< Index of the next command.
-
-		decltype(_timestamp_command_indices)::const_iterator _next_timestamp; ///< Next timestamp.
-		decltype(_release_dependency_events)::const_iterator _next_release_event; ///< Next release dependency event.
-		decltype(_acquire_dependency_events)::const_iterator _next_acquire_event; ///< Next acquire dependency event.
+		std::uint32_t _timestamp_index = 0; ///< Index of the next timestamp to be inserted.
 
 		// pass-related execution state
 		bool _within_pass = false; ///< Whether we're inside a render pass.
@@ -134,10 +149,10 @@ namespace lotus::renderer::execution {
 		void _execute(const commands::trace_rays&);
 		/// Executes a present command.
 		void _execute(const commands::present&);
-		/// Does nothing - dependencies are tracked during pseudo-execution and executed manually.
+		/// Does nothing - dependency tracking is handled explicitly during pseudo execution.
 		void _execute(const commands::release_dependency&) {
 		}
-		/// Does nothing - dependencies are tracked during pseudo-execution and executed manually.
+		/// Does nothing - dependency tracking is handled explicitly during pseudo execution.
 		void _execute(const commands::acquire_dependency&) {
 		}
 		/// Does nothing - timers are tracked during pseudo-execution and executed manually.

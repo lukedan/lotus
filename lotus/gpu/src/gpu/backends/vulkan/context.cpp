@@ -70,12 +70,6 @@ namespace lotus::gpu::backends::vulkan {
 					const char *message,
 					void */*user_data*/
 				) -> VkBool32 {
-					if (
-						std::strstr(message, "VUID-VkShaderModuleCreateInfo-pCode-04147")/* || // ignore "unsupported SPIRV extension"
-						std::strstr(message, "VUID-VkGraphicsPipelineCreateInfo-layout-00756")*/
-					) {
-						return false;
-					}
 					if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
 						log().error("{}", message);
 					} else if (

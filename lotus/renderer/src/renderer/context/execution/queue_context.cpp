@@ -411,7 +411,7 @@ namespace lotus::renderer::execution {
 			_flush_command_list(nullptr, {});
 			auto result = _q.queue.present(cmd.target._ptr->chain);
 			if (result != gpu::swap_chain_status::ok) {
-				log().warn("Presenting swap chain returned %d", static_cast<int>(result));
+				log().warn("Presenting swap chain returned {}", static_cast<int>(result));
 			}
 		}
 	}

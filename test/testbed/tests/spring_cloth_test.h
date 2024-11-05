@@ -96,10 +96,11 @@ public:
 
 	void render(
 		lotus::renderer::context &ctx, lotus::renderer::context::queue &q,
+		lotus::renderer::constant_uploader &uploader,
 		lotus::renderer::image2d_color color, lotus::renderer::image2d_depth_stencil depth, lotus::cvec2u32 size
 	) override {
 		_render.draw_system(_engine);
-		_render.flush(ctx, q, color, depth, size);
+		_render.flush(ctx, q, uploader, color, depth, size);
 	}
 
 	void gui() override {

@@ -245,22 +245,24 @@ void debug_render::flush(
 	lotus::renderer::context &rctx, lotus::renderer::context::queue &q, lotus::renderer::constant_uploader &uploader,
 	lotus::renderer::image2d_color frame_buffer, lotus::renderer::image2d_depth_stencil depth_buffer, lotus::cvec2u32 size
 ) {
-	auto upload_data_buffer = [&](lotus::gpu::buffer_usage_mask usages, std::span<const std::byte> data, std::u8string_view name) -> lotus::renderer::buffer {
+	auto upload_data_buffer = [&](lotus::renderer::context::queue &q, lotus::gpu::buffer_usage_mask usages, std::span<const std::byte> data, std::u8string_view name) -> lotus::renderer::buffer {
 		if (data.empty()) {
 			return nullptr;
 		}
 		auto result = rctx.request_buffer(name, data.size_bytes(), usages | lotus::gpu::buffer_usage_mask::copy_destination, ctx->resource_pool);
-		q.upload_buffer(result, data, 0, u8"Upload Data");
+		auto temp = rctx.request_buffer(name, data.size_bytes(), lotus::gpu::buffer_usage_mask::copy_source, ctx->upload_pool);
+		rctx.write_data_to_buffer(temp, data);
+		q.copy_buffer(temp, result, 0, 0, data.size(), u8"Upload data buffer");
 		return result;
 	};
 
-	auto mesh_vert_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(mesh_vertices.data()), sizeof(vertex) * mesh_vertices.size() }, u8"Mesh Vertices");
-	auto mesh_idx_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(mesh_indices.data()), sizeof(std::uint32_t) * mesh_indices.size() }, u8"Mesh Indices");
+	auto mesh_vert_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(mesh_vertices.data()), sizeof(vertex) * mesh_vertices.size() }, u8"Mesh Vertices");
+	auto mesh_idx_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(mesh_indices.data()), sizeof(std::uint32_t) * mesh_indices.size() }, u8"Mesh Indices");
 
-	auto line_vert_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(line_vertices.data()), sizeof(vertex) * line_vertices.size() }, u8"Line Vertices");
-	auto line_idx_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(line_indices.data()), sizeof(std::uint32_t) * line_indices.size() }, u8"Line Indices");
+	auto line_vert_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(line_vertices.data()), sizeof(vertex) * line_vertices.size() }, u8"Line Vertices");
+	auto line_idx_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(line_indices.data()), sizeof(std::uint32_t) * line_indices.size() }, u8"Line Indices");
 
-	auto point_buf = upload_data_buffer(lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(point_vertices.data()), sizeof(vertex) * point_vertices.size() }, u8"Point Vertices");
+	auto point_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(point_vertices.data()), sizeof(vertex) * point_vertices.size() }, u8"Point Vertices");
 
 	auto pipeline_state = lotus::renderer::graphics_pipeline_state(
 		{ lotus::gpu::render_target_blend_options::disabled(), },
@@ -274,7 +276,7 @@ void debug_render::flush(
 	};
 
 	shader_types::default_shader_constants constants;
-	constants.light_direction = lotus::vec::unsafe_normalize(lotus::cvec3f(0.3f, -0.4f, -0.5f));
+	constants.light_direction = lotus::vec::unsafe_normalize(lotus::cvec3f(0.3f, 0.4f, 0.5f));
 	constants.projection_view = ctx->camera.projection_view_matrix.into<float>();
 
 	auto pass = q.begin_pass({ frame_buffer }, depth_buffer, size, u8"Debug Render");

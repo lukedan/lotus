@@ -80,7 +80,7 @@ public:
 		_engine.bodies.emplace_front(lotus::physics::body::create(
 			plane_shape, material,
 			lotus::physics::body_properties::kinematic(),
-			lotus::physics::body_state::stationary_at(lotus::zero, lotus::quat::from_axis_angle(lotus::cvec3d(1.0f, 0.0f, 0.0f), 90.0f * lotus::pi / 180.0f))
+			lotus::physics::body_state::stationary_at(lotus::zero, lotus::quat::from_axis_angle(lotus::cvec3d(1.0f, 0.0f, 0.0f), -0.5f * lotus::pi))
 		));
 	}
 
@@ -96,10 +96,11 @@ public:
 
 	void render(
 		lotus::renderer::context &ctx, lotus::renderer::context::queue &q,
+		lotus::renderer::constant_uploader &uploader,
 		lotus::renderer::image2d_color color, lotus::renderer::image2d_depth_stencil depth, lotus::cvec2u32 size
 	) override {
 		_render.draw_system(_engine);
-		_render.flush(ctx, q, color, depth, size);
+		_render.flush(ctx, q, uploader, color, depth, size);
 	}
 
 	void gui() override {

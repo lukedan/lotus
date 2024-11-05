@@ -16,10 +16,11 @@ public:
 
 	void render(
 		lotus::renderer::context &ctx, lotus::renderer::context::queue &q,
+		lotus::renderer::constant_uploader &uploader,
 		lotus::renderer::image2d_color color, lotus::renderer::image2d_depth_stencil depth, lotus::cvec2u32 size
 	) override {
 		_render.draw_system(_engine);
-		_render.flush(ctx, q, color, depth, size);
+		_render.flush(ctx, q, uploader, color, depth, size);
 	}
 
 	void soft_reset() override {
@@ -67,7 +68,7 @@ public:
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::zero, lotus::quat::from_normalized_axis_angle(lotus::cvec3d(1.0, 0.0, 0.0), 0.5 * lotus::pi)
+				lotus::zero, lotus::quat::from_normalized_axis_angle(lotus::cvec3d(1.0, 0.0, 0.0), -0.5 * lotus::pi)
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
@@ -90,7 +91,8 @@ public:
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::cvec3d(0.0, 0.0, 10.0), lotus::uquatd::identity()
+				lotus::cvec3d(0.0, 0.0, 10.0),
+				lotus::quat::from_normalized_axis_angle(lotus::cvec3d(0.0, 1.0, 0.0), lotus::pi)
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(

@@ -28,12 +28,20 @@ public:
 	}
 
 	/// Renders all objects.
-	void render() {
+	void render(lotus::renderer::constant_uploader &uploader) {
 		auto depth_buf = _context->request_image2d(u8"Depth Buffer", _get_window_size(), 1, lotus::gpu::format::d32_float, lotus::gpu::image_usage_mask::depth_stencil_render_target, _pool);
+
+		{
+			auto pass = _gfx_q.begin_pass(
+				{ lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::cvec4d(0.5, 0.5, 1.0, 1.0))) },
+				lotus::renderer::image2d_depth_stencil(depth_buf, lotus::gpu::depth_render_target_access::create_clear(0.0f)),
+				_get_window_size(), u8"Clear"
+			);
+		}
 
 		if (_test) {
 			_test->render(
-				*_context, _gfx_q,
+				*_context, _gfx_q, uploader,
 				lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::cvec4d(0.5, 0.5, 1.0, 1.0))),
 				lotus::renderer::image2d_depth_stencil(depth_buf, lotus::gpu::depth_render_target_access::create_clear(0.0f)),
 				_get_window_size()
@@ -220,14 +228,14 @@ protected:
 		ImGui::End();
 	}
 
-	void _process_frame(lotus::renderer::dependency constants_dep, lotus::renderer::dependency asset_dep) override {
+	void _process_frame(lotus::renderer::constant_uploader &uploader, lotus::renderer::dependency constants_dep, lotus::renderer::dependency asset_dep) override {
 		_gfx_q.acquire_dependency(constants_dep, u8"Wait for constants");
 		if (asset_dep) {
 			_gfx_q.acquire_dependency(asset_dep, u8"Wait for assets");
 		}
 
 		update();
-		render();
+		render(uploader);
 	}
 
 

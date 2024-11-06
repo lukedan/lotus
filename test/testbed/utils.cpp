@@ -12,7 +12,7 @@ namespace shader_types {
 #include <lotus/renderer/shader_types_include_wrapper.h>
 
 void debug_render::draw_point(lotus::cvec3d p, lotus::linear_rgba_f color) {
-	auto vert = point_vertices.emplace_back();
+	auto &vert = point_vertices.emplace_back();
 	vert.position = p.into<float>();
 	vert.normal   = lotus::zero;
 	vert.color    = lotus::cvec4f(color.into_vector().block<3, 1>(0, 0), 0.0f);
@@ -20,12 +20,12 @@ void debug_render::draw_point(lotus::cvec3d p, lotus::linear_rgba_f color) {
 
 void debug_render::draw_line(lotus::cvec3d a, lotus::cvec3d b, lotus::linear_rgba_f color) {
 	auto first_index = line_vertices.size();
-	auto v1 = line_vertices.emplace_back();
+	auto &v1 = line_vertices.emplace_back();
 	lotus::cvec4f vert_color = lotus::cvec4f(color.into_vector().block<3, 1>(0, 0), 0.0f);
 	v1.position = a.into<float>();
 	v1.normal   = lotus::zero;
 	v1.color    = vert_color;
-	auto v2 = line_vertices.emplace_back();
+	auto &v2 = line_vertices.emplace_back();
 	v2.position = b.into<float>();
 	v2.normal   = lotus::zero;
 	v2.color    = vert_color;
@@ -72,8 +72,8 @@ void debug_render::draw_body(
 	for (std::size_t i = 0; i < indices.size(); i += 3) {
 		if (wireframe) {
 			for (std::size_t j = 0; j < 3; ++j) {
-				auto cur = indices[j];
-				auto next = indices[(j + 1) % 3];
+				auto cur = indices[i + j];
+				auto next = indices[i + (j + 1) % 3];
 				if (cur < next) {
 					line_indices.emplace_back(cur + first_vert);
 					line_indices.emplace_back(next + first_vert);
@@ -84,7 +84,8 @@ void debug_render::draw_body(
 				mesh_indices.emplace_back(indices[i + j] + first_vert);
 			}
 		}
-	}}
+	}
+}
 
 void debug_render::draw_sphere(lotus::mat44d transform, lotus::linear_rgba_f color, bool wireframe) {
 	constexpr std::uint32_t _z_slices = 10;

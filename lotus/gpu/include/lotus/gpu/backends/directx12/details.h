@@ -13,6 +13,7 @@
 #include <directx/d3d12shader.h>
 
 #include "lotus/containers/static_optional.h"
+#include "lotus/utils/static_function.h"
 #include "lotus/gpu/common.h"
 
 namespace lotus::gpu::backends::directx12 {
@@ -21,6 +22,11 @@ namespace lotus::gpu::backends::directx12 {
 
 namespace lotus::gpu::backends::directx12::_details {
 	template <typename T> using com_ptr = Microsoft::WRL::ComPtr<T>; ///< Reference-counted pointer to a COM object.
+	/// ID type used to identify debug messages.
+	using debug_message_id = D3D12_MESSAGE_ID;
+	/// Debug message callback type.
+	using debug_message_callback =
+		static_function<void(debug_message_severity, debug_message_id, std::u8string_view)>;
 
 	/// Aborts if the given \p HRESULT does not indicate success. Specify the \p ID3D12Device parameter to also
 	/// obtain device removal reason if applicable.
@@ -123,6 +129,9 @@ namespace lotus::gpu::backends::directx12::_details {
 		/// Converts a \ref subresource_range to a \p D3D12_BARRIER_SUBRESOURCE_RANGE.
 		[[nodiscard]] D3D12_BARRIER_SUBRESOURCE_RANGE to_barrier_subresource_range(const subresource_range&);
 
+
+		/// Converts a \p D3D12_MESSAGE_SEVERITY back to a \ref debug_message_severitiy.
+		[[nodiscard]] debug_message_severity back_to_debug_message_severity(D3D12_MESSAGE_SEVERITY);
 
 		/// Converts a \p D3D12_SHADER_INPUT_BIND_DESC back to a \ref shader_resource_binding.
 		[[nodiscard]] shader_resource_binding back_to_shader_resource_binding(const D3D12_SHADER_INPUT_BIND_DESC&);

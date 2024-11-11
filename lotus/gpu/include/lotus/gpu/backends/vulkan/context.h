@@ -27,8 +27,10 @@ namespace lotus::gpu::backends::vulkan {
 		/// Destructor.
 		~context();
 	protected:
+		using debug_message_id = _details::debug_message_id; ///< Debug message ID type.
+
 		/// Calls \p vk::createInstanceUnique().
-		[[nodiscard]] static context create(context_options);
+		[[nodiscard]] static context create(context_options, _details::debug_message_callback);
 
 		/// Calls \p vk::Instance::enumeratePhysicalDevices().
 		template <typename Callback> void enumerate_adapters(Callback &&cb) {
@@ -50,12 +52,13 @@ namespace lotus::gpu::backends::vulkan {
 		);
 	private:
 		/// Initializes the context.
-		explicit context(vk::UniqueInstance, context_options);
+		context(vk::UniqueInstance, context_options, _details::debug_message_callback);
 
 		vk::UniqueInstance _instance; ///< The vulkan instance.
 		vk::DispatchLoaderDynamic _dispatch_loader; ///< Function pointer for extensions.
 		vk::DebugReportCallbackEXT _debug_callback; ///< The debug callback.
 		context_options _options = context_options::none; ///< Context options.
+		std::unique_ptr<_details::debug_message_callback> _debug_callback_func; ///< Debug callback.
 	};
 
 	/// Shader utilities using SPIRV-Reflect.

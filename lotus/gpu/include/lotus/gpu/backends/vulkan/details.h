@@ -7,9 +7,16 @@
 #include <spirv_reflect.h>
 
 #include "lotus/logging.h"
+#include "lotus/utils/static_function.h"
 #include "lotus/gpu/common.h"
 
 namespace lotus::gpu::backends::vulkan::_details {
+	/// ID type used to identify debug messages.
+	using debug_message_id = std::int32_t;
+	/// Debug message callback type.
+	using debug_message_callback =
+		static_function<void(debug_message_severity, debug_message_id, std::u8string_view)>;
+
 	/// Asserts that the result is \p vk::Result::eSuccess.
 	inline void assert_vk(vk::Result result) {
 		if (result != vk::Result::eSuccess) {
@@ -123,6 +130,8 @@ namespace lotus::gpu::backends::vulkan::_details {
 		[[nodiscard]] format back_to_format(vk::Format);
 		/// Converts a \p vk::MemoryPropertyFlagBits to a \ref memory_properties.
 		[[nodiscard]] memory_properties back_to_memory_properties(vk::MemoryPropertyFlags);
+		/// Converts a \p vk::DebugReportFlagsEXT to a \ref debug_message_severity;
+		[[nodiscard]] debug_message_severity back_to_debug_message_severity(vk::DebugReportFlagsEXT);
 
 		/// Converts a \p SpvReflectDescriptorBinding back to a \ref shader_resource_binding.
 		[[nodiscard]] shader_resource_binding back_to_shader_resource_binding(const SpvReflectDescriptorBinding&);

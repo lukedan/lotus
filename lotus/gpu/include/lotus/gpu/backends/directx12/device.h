@@ -313,5 +313,6 @@ namespace lotus::gpu::backends::directx12 {
 		[[nodiscard]] adapter_properties get_properties() const;
 	private:
 		_details::com_ptr<IDXGIAdapter1> _adapter; ///< The adapter.
+		_details::debug_message_callback *_debug_callback = nullptr; ///< The debug callback.
 	};
 }

@@ -20,14 +20,17 @@ namespace lotus::gpu::backends::directx12 {
 	/// A \p IDXGIFactory5 to access the DirectX 12 library.
 	class context {
 	protected:
+		using debug_message_id = _details::debug_message_id; ///< Debug message ID type.
+
 		/// Initializes the DXGI factory.
-		[[nodiscard]] static context create(context_options);
+		[[nodiscard]] static context create(context_options, _details::debug_message_callback);
 
 		/// Enumerates the list of adapters using \p IDXGIFactory6::EnumAdapterByGpuPreference().
 		template <typename Callback> void enumerate_adapters(Callback &&cb) {
 			for (UINT i = 0; ; ++i) {
 				adapter adap = nullptr;
-				auto result = _dxgi_factory->EnumAdapterByGpuPreference(
+				adap._debug_callback = _debug_message_callback.get();
+				const HRESULT result = _dxgi_factory->EnumAdapterByGpuPreference(
 					i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adap._adapter)
 				);
 				if (result == DXGI_ERROR_NOT_FOUND) {
@@ -44,6 +47,7 @@ namespace lotus::gpu::backends::directx12 {
 		);
 	private:
 		_details::com_ptr<IDXGIFactory6> _dxgi_factory; ///< The DXGI factory.
+		std::unique_ptr<_details::debug_message_callback> _debug_message_callback; ///< The debug message callback.
 	};
 
 	/// Contains DXC classes.

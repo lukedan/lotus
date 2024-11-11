@@ -565,6 +565,20 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 
+		debug_message_severity back_to_debug_message_severity(D3D12_MESSAGE_SEVERITY severity) {
+			constexpr static enums::sequential_mapping<
+				D3D12_MESSAGE_SEVERITY, debug_message_severity,
+				static_cast<std::size_t>(D3D12_MESSAGE_SEVERITY_MESSAGE) + 1
+			> table{
+				std::pair(D3D12_MESSAGE_SEVERITY_CORRUPTION, debug_message_severity::error),
+				std::pair(D3D12_MESSAGE_SEVERITY_ERROR,      debug_message_severity::error),
+				std::pair(D3D12_MESSAGE_SEVERITY_WARNING,    debug_message_severity::warning),
+				std::pair(D3D12_MESSAGE_SEVERITY_INFO,       debug_message_severity::information),
+				std::pair(D3D12_MESSAGE_SEVERITY_MESSAGE,    debug_message_severity::debug),
+			};
+			return table[severity];
+		}
+
 		shader_resource_binding back_to_shader_resource_binding(const D3D12_SHADER_INPUT_BIND_DESC &desc) {
 			shader_resource_binding result = uninitialized;
 			result.first_register = desc.BindPoint;

@@ -19,7 +19,7 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	}
 
-	context context::create(context_options opt) {
+	context context::create(context_options opt, _details::debug_message_callback debug_cb) {
 		auto bookmark = get_scratch_bookmark();
 		auto enabled_layers = bookmark.create_vector_array<const char*>();
 		if (bit_mask::contains<context_options::enable_validation>(opt)) {
@@ -46,42 +46,48 @@ namespace lotus::gpu::backends::vulkan {
 			.setPEnabledLayerNames(enabled_layers)
 			.setPEnabledExtensionNames(enabled_extensions);
 		// TODO allocator
-		return context(_details::unwrap(vk::createInstanceUnique(create_info)), opt);
+		return context(_details::unwrap(vk::createInstanceUnique(create_info)), opt, std::move(debug_cb));
 	}
 
-	context::context(vk::UniqueInstance inst, context_options opt) : _instance(std::move(inst)), _options(opt) {
+	context::context(vk::UniqueInstance inst, context_options opt, _details::debug_message_callback debug_cb) :
+		_instance(std::move(inst)),
+		_options(opt),
+		_debug_callback_func(std::make_unique<_details::debug_message_callback>(std::move(debug_cb))) {
+
 		_dispatch_loader.init(static_cast<VkInstance>(_instance.get()), vkGetInstanceProcAddr);
 
 		vk::DebugReportCallbackCreateInfoEXT debug_callback_info;
 		debug_callback_info
 			.setFlags(
-				vk::DebugReportFlagBitsEXT::eError |
-				vk::DebugReportFlagBitsEXT::eWarning |
-				vk::DebugReportFlagBitsEXT::ePerformanceWarning
+				vk::DebugReportFlagBitsEXT::eInformation        |
+				vk::DebugReportFlagBitsEXT::eWarning            |
+				vk::DebugReportFlagBitsEXT::ePerformanceWarning |
+				vk::DebugReportFlagBitsEXT::eError              |
+				vk::DebugReportFlagBitsEXT::eDebug
 			)
 			.setPfnCallback(
 				[](
 					VkDebugReportFlagsEXT flags,
 					VkDebugReportObjectTypeEXT /*object_type*/,
-					uint64_t /*object*/,
-					size_t /*location*/,
-					int32_t /*message_code*/,
+					uint64_t object,
+					size_t location,
+					int32_t message_code,
 					const char */*layer_prefix*/,
 					const char *message,
-					void */*user_data*/
+					void *user_data
 				) -> VkBool32 {
-					if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-						log().error("{}", message);
-					} else if (
-						flags & (VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
-					) {
-						log().warn("{}", message);
-					} else {
-						log().info("{}", message);
+					auto &cb = *static_cast<_details::debug_message_callback*>(user_data);
+					if (cb) {
+						const auto vkFlags = static_cast<vk::DebugReportFlagsEXT>(flags);
+						const std::u8string_view u8message(reinterpret_cast<const char8_t*>(message));
+						// TODO: it turns out that location argument contains the message ID, not message code
+						//       feels like a bug but it seems to have been like this forever
+						cb(_details::conversions::back_to_debug_message_severity(vkFlags), location /*message_code*/, u8message);
 					}
 					return false;
 				}
-			);
+			)
+			.setPUserData(_debug_callback_func.get());
 		// TODO allocator
 		_debug_callback = _details::unwrap(_instance->createDebugReportCallbackEXT(
 			debug_callback_info, nullptr, _dispatch_loader

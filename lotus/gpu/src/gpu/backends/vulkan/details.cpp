@@ -520,6 +520,22 @@ namespace lotus::gpu::backends::vulkan::_details {
 			return result;
 		}
 
+		debug_message_severity back_to_debug_message_severity(vk::DebugReportFlagsEXT flags) {
+			if (flags & vk::DebugReportFlagBitsEXT::eError) {
+				return debug_message_severity::error;
+			} else if (flags & vk::DebugReportFlagBitsEXT::eWarning) {
+				return debug_message_severity::warning;
+			} else if (flags & vk::DebugReportFlagBitsEXT::ePerformanceWarning) {
+				return debug_message_severity::warning;
+			} else if (flags & vk::DebugReportFlagBitsEXT::eInformation) {
+				return debug_message_severity::information;
+			} else if (flags & vk::DebugReportFlagBitsEXT::eDebug) {
+				return debug_message_severity::debug;
+			}
+			// default to debug
+			return debug_message_severity::debug;
+		}
+
 		shader_resource_binding back_to_shader_resource_binding(const SpvReflectDescriptorBinding &binding) {
 			shader_resource_binding result = uninitialized;
 			result.first_register = binding.binding;

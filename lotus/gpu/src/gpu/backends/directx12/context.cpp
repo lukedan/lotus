@@ -16,7 +16,7 @@ extern "C" {
 }
 
 namespace lotus::gpu::backends::directx12 {
-	context context::create(context_options opts) {
+	context context::create(context_options opts, _details::debug_message_callback debug_cb) {
 		context result;
 		_details::assert_dx(CreateDXGIFactory1(IID_PPV_ARGS(&result._dxgi_factory)));
 		if (bit_mask::contains<context_options::enable_validation>(opts)) { // enable debug layer
@@ -26,6 +26,7 @@ namespace lotus::gpu::backends::directx12 {
 			debug->SetEnableGPUBasedValidation(true);
 			debug->SetEnableSynchronizedCommandQueueValidation(true);
 		}
+		result._debug_message_callback = std::make_unique<_details::debug_message_callback>(std::move(debug_cb));
 		return result;
 	}
 

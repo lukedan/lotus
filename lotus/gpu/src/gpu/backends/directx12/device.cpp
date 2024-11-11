@@ -1226,42 +1226,19 @@ namespace lotus::gpu::backends::directx12 {
 					D3D12_MESSAGE_SEVERITY severity,
 					D3D12_MESSAGE_ID id,
 					LPCSTR description,
-					void*
+					void *user_data
 				) {
-					switch (severity) {
-					case D3D12_MESSAGE_SEVERITY_CORRUPTION:
-						[[fallthrough]];
-					case D3D12_MESSAGE_SEVERITY_ERROR:
-						log().error(
-							"DirectX message: category: {}, severity: {}, id: {}, \"{}\"",
-							std::to_underlying(category),
-							std::to_underlying(severity),
-							std::to_underlying(id),
-							description
+					auto &cb = *static_cast<_details::debug_message_callback*>(user_data);
+					if (cb) {
+						cb(
+							_details::conversions::back_to_debug_message_severity(severity),
+							id,
+							reinterpret_cast<const char8_t*>(description)
 						);
-						break;
-					case D3D12_MESSAGE_SEVERITY_WARNING:
-						log().warn(
-							"DirectX message: category: {}, severity: {}, id: {}, \"{}\"",
-							std::to_underlying(category),
-							std::to_underlying(severity),
-							std::to_underlying(id),
-							description
-						);
-						break;
-					default:
-						log().debug(
-							"DirectX message: category: {}, severity: {}, id: {}, \"{}\"",
-							std::to_underlying(category),
-							std::to_underlying(severity),
-							std::to_underlying(id),
-							description
-						);
-						break;
 					}
 				},
 				D3D12_MESSAGE_CALLBACK_FLAG_NONE,
-				nullptr,
+				_debug_callback,
 				&dummy
 			));
 		} else {

@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "lotus/system/window.h"
+#include "lotus/utils/static_function.h"
 #include LOTUS_GPU_BACKEND_INCLUDE
 #include "common.h"
 #include "device.h"
@@ -18,11 +19,20 @@ namespace lotus::gpu {
 	/// Represents a generic interface to the underlying graphics library.
 	class context : public backend::context {
 	public:
+		/// Backend-specific ID type used to identify debug messages.
+		using debug_message_id = backend::context::debug_message_id;
+		/// Callback type for debug messages from the graphics API.
+		using debug_message_callback = static_function<void(
+			debug_message_severity,
+			debug_message_id,
+			std::u8string_view
+		)>;
+
 		/// No default construction.
 		context() = delete;
 		/// Creates a new context object.
-		[[nodiscard]] inline static context create(context_options opt) {
-			return backend::context::create(opt);
+		[[nodiscard]] inline static context create(context_options opt, debug_message_callback debug_msg_cb = nullptr) {
+			return backend::context::create(opt, std::move(debug_msg_cb));
 		}
 		/// No copy construction.
 		context(const context&) = delete;

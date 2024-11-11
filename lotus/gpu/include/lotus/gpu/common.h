@@ -1,7 +1,8 @@
 #pragma once
 
 /// \file
-/// Common graphics-related structures. This is the only file that can be included by backends.
+/// Common graphics-related structures. This is the only file that can be included by backends, and no
+/// backend-specific files should be included by this file.
 
 #include <cassert>
 #include <array>
@@ -32,8 +33,8 @@ namespace lotus::gpu {
 	class timeline_semaphore;
 	class top_level_acceleration_structure;
 
-	// we're putting these here because we'd like to make them class members,
-	// but we'd also like to make them consistent between backends
+	// anything that ends up in the _details namespace is because we'd like to make them class members rather than
+	// direct members of the namespace, but we'd also like to make them consistent between backends
 	namespace _details {
 		using timeline_semaphore_value_type = std::uint64_t; ///< Value type for timeline semaphores.
 	}
@@ -817,6 +818,16 @@ namespace lotus::gpu {
 namespace lotus::enums {
 	/// \ref gpu::raytracing_geometry_flags is a bit mask type.
 	template <> struct is_bit_mask<gpu::raytracing_geometry_flags> : public std::true_type {
+	};
+}
+
+namespace lotus::gpu {
+	/// Indicates the severity of a debug message.
+	enum class debug_message_severity {
+		debug,       ///< Diagnostic message.
+		information, ///< Informational message.
+		warning,     ///< Non-fatal exceptions.
+		error,       ///< Fatal exceptions or violations of API usage rules.
 	};
 }
 

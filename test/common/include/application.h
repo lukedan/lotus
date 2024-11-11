@@ -24,7 +24,16 @@ namespace lotus {
 			_argc(argc),
 			_argv(argv),
 			_app(app_name),
-			_gpu_context(gpu::context::create(gpu_context_options)),
+			_gpu_context(gpu::context::create(
+				gpu_context_options,
+				[this](
+					gpu::debug_message_severity severity,
+					gpu::context::debug_message_id id,
+					std::u8string_view msg
+				) {
+					_on_gpu_debug_message(severity, id, msg);
+				}
+			)),
 			_gpu_adapter_properties(uninitialized),
 			_shader_utils(gpu::shader_utility::create()) {
 
@@ -249,6 +258,38 @@ namespace lotus {
 		}
 		/// Callback for non-ImGUI text input events.
 		virtual void _on_text_input(system::window_events::text_input&) {
+		}
+
+		/// Filters out certain backend-specific messages.
+		template <gpu::backend_type Backend> static bool _filter_message(gpu::context::debug_message_id id) {
+			if constexpr (Backend == gpu::backend_type::vulkan) {
+				return id != 0xFC68BE96 && id != 0xA5625282;
+			}
+			return true;
+		}
+		/// Callback for debug messages from the graphics API.
+		virtual void _on_gpu_debug_message(
+			gpu::debug_message_severity severity,
+			gpu::context::debug_message_id id,
+			std::u8string_view msg
+		) {
+			if (!_filter_message<gpu::current_backend>(id)) {
+				return;
+			}
+			switch (severity) {
+			case gpu::debug_message_severity::debug:
+				log().debug("{}", string::to_generic(msg));
+				break;
+			case gpu::debug_message_severity::information:
+				log().info("{}", string::to_generic(msg));
+				break;
+			case gpu::debug_message_severity::warning:
+				log().warn("{}", string::to_generic(msg));
+				break;
+			case gpu::debug_message_severity::error:
+				log().error("{}", string::to_generic(msg));
+				break;
+			}
 		}
 
 		/// Callback for frame processing. Presenting, debug drawing, and ImGUI do not need to be handled. The

@@ -50,70 +50,71 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_context::execute_next_command() {
-		const auto &cmd = _q.batch_commands[std::to_underlying(_command_index)];
-		const auto &cmd_ops = _cmd_ops[std::to_underlying(_command_index)];
+		do {
+			const auto &cmd = _q.batch_commands[std::to_underlying(_command_index)];
+			const auto &cmd_ops = _cmd_ops[std::to_underlying(_command_index)];
 
-		// acquire dependencies
-		{
-			short_vector<gpu::timeline_semaphore_synchronization, 4> dependencies;
-			for (std::uint32_t queue_index = 0; queue_index < _q.ctx.get_num_queues(); ++queue_index) {
-				const gpu::timeline_semaphore::value_type val = cmd_ops.acquire_dependencies[queue_index];
-				if (val > 0) {
-					dependencies.emplace_back(_batch_ctx.get_queue_context(queue_index)._q.semaphore, val);
+			// acquire dependencies
+			{
+				short_vector<gpu::timeline_semaphore_synchronization, 4> dependencies;
+				for (std::uint32_t queue_index = 0; queue_index < _q.ctx.get_num_queues(); ++queue_index) {
+					const gpu::timeline_semaphore::value_type val = cmd_ops.acquire_dependencies[queue_index];
+					if (val > 0) {
+						dependencies.emplace_back(_batch_ctx.get_queue_context(queue_index)._q.semaphore, val);
+					}
+				}
+				if (!dependencies.empty()) {
+					_flush_command_list(nullptr, {});
+					_q.queue.submit_command_lists({}, gpu::queue_synchronization(nullptr, dependencies, {}));
 				}
 			}
-			if (!dependencies.empty()) {
-				_flush_command_list(nullptr, {});
-				_q.queue.submit_command_lists({}, gpu::queue_synchronization(nullptr, dependencies, {}));
+
+			// handle pre-transitions
+			if (!cmd_ops.pre_image_transitions.empty() || !cmd_ops.pre_buffer_transitions.empty()) {
+				_get_command_list().resource_barrier(cmd_ops.pre_image_transitions, cmd_ops.pre_buffer_transitions);
 			}
-		}
 
-		// handle pre-transitions
-		if (!cmd_ops.pre_image_transitions.empty() && !cmd_ops.pre_buffer_transitions.empty()) {
-			_get_command_list().resource_barrier(cmd_ops.pre_image_transitions, cmd_ops.pre_buffer_transitions);
-		}
+			// check & insert timestamp
+			if (cmd_ops.insert_pre_timestamp) {
+				_get_command_list().query_timestamp(*_timestamps, _timestamp_index);
+				++_timestamp_index;
+			}
 
-		// check & insert timestamp
-		if (cmd_ops.insert_pre_timestamp) {
-			_get_command_list().query_timestamp(*_timestamps, _timestamp_index);
-			++_timestamp_index;
-		}
+			// execute command
+			std::visit(
+				[&](const auto &c) {
+					_execute(c);
+				},
+				cmd.value
+			);
 
-		// execute command
-		std::visit(
-			[&](const auto &c) {
-				_execute(c);
-			},
-			cmd.value
-		);
+			// check & insert timestamp
+			if (cmd_ops.insert_post_timestamp) {
+				_get_command_list().query_timestamp(*_timestamps, _timestamp_index);
+				++_timestamp_index;
+			}
 
-		// check & insert timestamp
-		if (cmd_ops.insert_post_timestamp) {
-			_get_command_list().query_timestamp(*_timestamps, _timestamp_index);
-			++_timestamp_index;
-		}
+			// handle post-transitions
+			if (!cmd_ops.post_image_transitions.empty() || !cmd_ops.post_buffer_transitions.empty()) {
+				_get_command_list().resource_barrier(cmd_ops.post_image_transitions, cmd_ops.post_buffer_transitions);
+			}
 
-		// handle post-transitions
-		if (!cmd_ops.post_image_transitions.empty() && !cmd_ops.post_buffer_transitions.empty()) {
-			_get_command_list().resource_barrier(cmd_ops.post_image_transitions, cmd_ops.post_buffer_transitions);
-		}
+			// release dependency
+			if (cmd_ops.release_dependency) {
+				const auto release_events = {
+					gpu::timeline_semaphore_synchronization(_q.semaphore, cmd_ops.release_dependency.value())
+				};
+				_flush_command_list(nullptr, release_events);
+			}
 
-		// release dependency
-		if (cmd_ops.release_dependency) {
-			const auto release_events = {
-				gpu::timeline_semaphore_synchronization(_q.semaphore, cmd_ops.release_dependency.value())
-			};
-			_flush_command_list(nullptr, release_events);
-		}
+			_command_index = index::next(_command_index);
+		} while (_within_pass);
+		// HACK: mimic the behavior of the pseudo context and execute all commands in a pass at the same time
 
 		constexpr bool _debug_single_command_packets = false;
 		if constexpr (_debug_single_command_packets) {
-			if (!_within_pass) {
-				_flush_command_list(nullptr, {});
-			}
+			_flush_command_list(nullptr, {});
 		}
-
-		_command_index = index::next(_command_index);
 	}
 
 	bool queue_context::is_finished() const {

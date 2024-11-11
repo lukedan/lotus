@@ -414,7 +414,6 @@ namespace lotus::renderer {
 		crash_if(std::this_thread::get_id() != _thread);
 
 		auto &batch_data = _batch_data.emplace_back();
-		_batch_index = index::next(_batch_index);
 		batch_data.resources = std::exchange(_deferred_delete_resources, execution::batch_resources());
 		batch_data.resolve_data.first_command = _first_batch_command_index;
 		batch_data.resolve_data.queues.resize(_queues.size());
@@ -425,12 +424,13 @@ namespace lotus::renderer {
 		execution::batch_context bctx(*this);
 
 		// step 1: pseudo-execute all commands, gather resource transitions and barriers
+		std::vector<std::uint32_t> command_order;
 		while (true) {
-			std::size_t next_queue_index = _queues.size();
+			std::uint32_t next_queue_index = get_num_queues();
 			{ // find a queue that can be executed
 				bool has_commands = false;
 				auto next_global_sub_index = global_submission_index::max;
-				for (std::size_t queue_i = 0; queue_i < _queues.size(); ++queue_i) {
+				for (std::uint32_t queue_i = 0; queue_i < get_num_queues(); ++queue_i) {
 					auto &qctx = bctx.get_queue_pseudo_context(queue_i);
 					if (qctx.is_pseudo_execution_finished()) {
 						continue;
@@ -450,6 +450,7 @@ namespace lotus::renderer {
 					break; // otherwise, we've finished pseudo-execution
 				}
 			}
+			command_order.emplace_back(next_queue_index);
 			bctx.get_queue_pseudo_context(next_queue_index).pseudo_execute_next_command();
 		}
 
@@ -465,13 +466,19 @@ namespace lotus::renderer {
 		}
 
 		// step 3: execute all commands, respecting previously gathered dependencies and transitions
-		// this is parallelizable
 		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
-			auto &qctx = bctx.get_queue_context(i);
-			qctx.start_execution();
-			while (!qctx.is_finished()) {
-				qctx.execute_next_command();
-			}
+			bctx.get_queue_context(i).start_execution();
+		}
+		// execute commands in the same order as they're logically executed
+		// TODO: this is just to make the Vulkan validation layer happy - is this absolutely necessary?
+		for (std::uint32_t qi : command_order) {
+			execution::queue_context &qctx = bctx.get_queue_context(qi);
+			crash_if(qctx.is_finished());
+			qctx.execute_next_command();
+		}
+		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+			execution::queue_context &qctx = bctx.get_queue_context(i);
+			crash_if(!qctx.is_finished());
 			qctx.finish_execution();
 		}
 
@@ -480,14 +487,17 @@ namespace lotus::renderer {
 		_first_batch_command_index = _sub_index;
 		for (std::size_t i = 0; i < _queues.size(); ++i) {
 			_queues[i].reset_batch();
+			// insert "start of batch" marker - the first batch doesn't need these commands
+			_queues[i].add_command<commands::start_of_batch>(u8"Start of batch");
 			batch_data.resolve_data.queues[i].end_of_batch = _queues[i].semaphore_value;
 		}
+		_batch_index = index::next(_batch_index);
 
 		_cleanup(0);
 
 		std::vector<batch_statistics_early> stats;
-		for (std::size_t i = 0; i < _queues.size(); ++i) {
-			stats.emplace_back(std::move(bctx.get_queue_context(static_cast<std::uint32_t>(i)).early_statistics));
+		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+			stats.emplace_back(std::move(bctx.get_queue_context(i).early_statistics));
 		}
 		return stats;
 	}

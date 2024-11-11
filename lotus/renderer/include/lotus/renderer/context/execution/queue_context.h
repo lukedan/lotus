@@ -129,6 +129,9 @@ namespace lotus::renderer::execution {
 		void _execute(const commands::invalid&) {
 			std::unreachable();
 		}
+		/// Does nothing.
+		void _execute(const commands::start_of_batch&) {
+		}
 		/// Executes a buffer copy command.
 		void _execute(const commands::copy_buffer&);
 		/// Executes a buffer-to-image copy command.

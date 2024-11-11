@@ -90,6 +90,10 @@ namespace lotus::gpu::backends::directx12 {
 		auto tex_barriers = bookmark.create_reserved_vector_array<D3D12_TEXTURE_BARRIER>(images.size());
 		if (!images.empty()) {
 			for (const auto &img : images) {
+				if (img.from_queue != img.to_queue) {
+					// DirectX does not require queue family transfers - fences are needed instead
+					continue;
+				}
 				auto &barrier = tex_barriers.emplace_back();
 				barrier.SyncBefore   = _details::conversions::to_barrier_sync(img.from_point);
 				barrier.SyncAfter    = _details::conversions::to_barrier_sync(img.to_point);
@@ -100,15 +104,21 @@ namespace lotus::gpu::backends::directx12 {
 				barrier.pResource    = static_cast<const _details::image_base*>(img.target)->_image.Get();
 				barrier.Subresources = _details::conversions::to_barrier_subresource_range(img.subresources);
 			}
-			auto &group = groups.emplace_back();
-			group.Type             = D3D12_BARRIER_TYPE_TEXTURE;
-			group.NumBarriers      = static_cast<UINT32>(tex_barriers.size());
-			group.pTextureBarriers = tex_barriers.data();
+			if (!tex_barriers.empty()) {
+				auto &group = groups.emplace_back();
+				group.Type             = D3D12_BARRIER_TYPE_TEXTURE;
+				group.NumBarriers      = static_cast<UINT32>(tex_barriers.size());
+				group.pTextureBarriers = tex_barriers.data();
+			}
 		}
 
 		auto buf_barriers = bookmark.create_reserved_vector_array<D3D12_BUFFER_BARRIER>(buffers.size());
 		if (!buffers.empty()) {
 			for (const auto &buf : buffers) {
+				if (buf.from_queue != buf.to_queue) {
+					// DirectX does not require queue family transfers - fences are needed instead
+					continue;
+				}
 				auto &barrier = buf_barriers.emplace_back();
 				barrier.SyncBefore   = _details::conversions::to_barrier_sync(buf.from_point);
 				barrier.SyncAfter    = _details::conversions::to_barrier_sync(buf.to_point);
@@ -118,10 +128,12 @@ namespace lotus::gpu::backends::directx12 {
 				barrier.Offset       = 0;
 				barrier.Size         = UINT64_MAX;
 			}
-			auto &group = groups.emplace_back();
-			group.Type            = D3D12_BARRIER_TYPE_BUFFER;
-			group.NumBarriers     = static_cast<UINT32>(buf_barriers.size());
-			group.pBufferBarriers = buf_barriers.data();
+			if (!buf_barriers.empty()) {
+				auto &group = groups.emplace_back();
+				group.Type            = D3D12_BARRIER_TYPE_BUFFER;
+				group.NumBarriers     = static_cast<UINT32>(buf_barriers.size());
+				group.pBufferBarriers = buf_barriers.data();
+			}
 		}
 
 		if (groups.empty()) {

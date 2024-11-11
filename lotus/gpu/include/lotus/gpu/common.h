@@ -349,7 +349,9 @@ namespace lotus::gpu {
 		depth   = 1u << 1, ///< Depth aspect.
 		stencil = 1u << 2, ///< Stencil aspect.
 
-		num_enumerators = 3 ///< The total number of aspects.
+		num_enumerators = 3, ///< The total number of aspects.
+
+		depth_stencil = depth | stencil, ///< Depth and stencil aspects.
 	};
 }
 namespace lotus::enums {

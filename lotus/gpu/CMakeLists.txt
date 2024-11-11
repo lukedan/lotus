@@ -206,7 +206,6 @@ function(add_shader FILENAME STAGE ENTRY PROFILE DEPENDENT BACKEND)
 				-Zpr
 				-Zi
 				-Qembed_debug
-				#-no-legacy-cbuf-layout # somehow crashes the exe with access violation
 				${DXC_EXTRA_ARGS}
 		COMMENT "Compiling shader ${FILENAME}"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

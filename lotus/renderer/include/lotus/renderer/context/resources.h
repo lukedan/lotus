@@ -362,7 +362,7 @@ namespace lotus::renderer {
 			) : resource(i, n), set(nullptr), capacity(cap), type(ty) {
 				// we have to do this manually because the copy constructor may be deleted
 				resources.reserve(capacity);
-				for (std::uint32_t i = 0; i < capacity; ++i) {
+				for (std::uint32_t di = 0; di < capacity; ++di) {
 					resources.emplace_back(nullptr);
 				}
 			}

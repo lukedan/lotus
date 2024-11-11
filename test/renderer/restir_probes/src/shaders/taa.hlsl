@@ -8,7 +8,7 @@ Texture2D<float3>   specular_lighting : register(t1, space0);
 Texture2D<float3>   indirect_specular : register(t2, space0);
 Texture2D<float3>   prev_irradiance   : register(t3, space0);
 Texture2D<float2>   motion_vectors    : register(t4, space0);
-RWTexture2D<float3> out_irradiance    : register(u5, space0);
+RWTexture2D<float4> out_irradiance    : register(u5, space0);
 
 ConstantBuffer<taa_constants> constants : register(b6, space0);
 
@@ -79,5 +79,5 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		irr = max(0.0f, irr); // filter out nan
 	}
 
-	out_irradiance[dispatch_thread_id] = irr;
+    out_irradiance[dispatch_thread_id] = float4(irr, 0.0f);
 }

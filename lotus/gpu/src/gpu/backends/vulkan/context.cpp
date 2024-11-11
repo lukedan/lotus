@@ -196,7 +196,6 @@ namespace lotus::gpu::backends::vulkan {
 		L"-fspv-reflect",
 		L"-fspv-target-env=vulkan1.2",
 		L"-fvk-use-dx-layout",
-		L"-no-legacy-cbuf-layout"
 	};
 	shader_utility::compilation_result shader_utility::compile_shader(
 		std::span<const std::byte> code, shader_stage stage, std::u8string_view entry,

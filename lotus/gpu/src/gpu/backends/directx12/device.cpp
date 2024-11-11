@@ -1234,18 +1234,27 @@ namespace lotus::gpu::backends::directx12 {
 					case D3D12_MESSAGE_SEVERITY_ERROR:
 						log().error(
 							"DirectX message: category: {}, severity: {}, id: {}, \"{}\"",
-							static_cast<std::underlying_type_t<D3D12_MESSAGE_CATEGORY>>(category),
-							static_cast<std::underlying_type_t<D3D12_MESSAGE_SEVERITY>>(severity),
-							static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
+							std::to_underlying(category),
+							std::to_underlying(severity),
+							std::to_underlying(id),
+							description
+						);
+						break;
+					case D3D12_MESSAGE_SEVERITY_WARNING:
+						log().warn(
+							"DirectX message: category: {}, severity: {}, id: {}, \"{}\"",
+							std::to_underlying(category),
+							std::to_underlying(severity),
+							std::to_underlying(id),
 							description
 						);
 						break;
 					default:
 						log().debug(
 							"DirectX message: category: {}, severity: {}, id: {}, \"{}\"",
-							static_cast<std::underlying_type_t<D3D12_MESSAGE_CATEGORY>>(category),
-							static_cast<std::underlying_type_t<D3D12_MESSAGE_SEVERITY>>(severity),
-							static_cast<std::underlying_type_t<D3D12_MESSAGE_ID>>(id),
+							std::to_underlying(category),
+							std::to_underlying(severity),
+							std::to_underlying(id),
 							description
 						);
 						break;

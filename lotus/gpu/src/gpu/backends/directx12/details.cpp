@@ -249,7 +249,7 @@ namespace lotus::gpu::backends::directx12::_details {
 				std::pair(buffer_access_mask::constant_buffer,                    D3D12_BARRIER_ACCESS_CONSTANT_BUFFER                        ),
 				std::pair(buffer_access_mask::shader_read,                        D3D12_BARRIER_ACCESS_SHADER_RESOURCE                        ),
 				std::pair(buffer_access_mask::shader_write,                       D3D12_BARRIER_ACCESS_UNORDERED_ACCESS                       ),
-				std::pair(buffer_access_mask::acceleration_structure_build_input, D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ ),
+				std::pair(buffer_access_mask::acceleration_structure_build_input, D3D12_BARRIER_ACCESS_SHADER_RESOURCE                        ),
 				std::pair(buffer_access_mask::acceleration_structure_read,        D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ ),
 				std::pair(buffer_access_mask::acceleration_structure_write,       D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE),
 				std::pair(buffer_access_mask::cpu_read,                           D3D12_BARRIER_ACCESS_COMMON                                 ),

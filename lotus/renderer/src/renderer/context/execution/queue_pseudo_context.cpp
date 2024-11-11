@@ -272,33 +272,32 @@ namespace lotus::renderer::execution {
 
 		// process the render targets
 		for (const auto &rt : cmd.color_render_targets) {
-			if (std::holds_alternative<recorded_resources::image2d_view>(rt.view)) {
-				const auto &img = std::get<recorded_resources::image2d_view>(rt.view);
-				_pseudo_use_image(
-					*img._ptr,
-					_details::image_access(
-						gpu::subresource_range::nonarray_color(img._mip_levels),
-						gpu::synchronization_point_mask::all_graphics,
-						gpu::image_access_mask::color_render_target,
-						gpu::image_layout::color_render_target
-					),
-					scope
-				);
-			} else if (std::holds_alternative<recorded_resources::swap_chain>(rt.view)) {
-				const auto &chain = std::get<recorded_resources::swap_chain>(rt.view);
-				_pseudo_use_swap_chain(
-					*chain._ptr,
-					_details::image_access(
-						gpu::subresource_range::first_color(),
-						gpu::synchronization_point_mask::all_graphics,
-						gpu::image_access_mask::color_render_target,
-						gpu::image_layout::color_render_target
-					),
-					scope
-				);
-			} else {
-				std::abort(); // not handled
-			}
+			std::visit(overloaded{
+				[&](const recorded_resources::image2d_view &img) {
+					_pseudo_use_image(
+						*img._ptr,
+						_details::image_access(
+							gpu::subresource_range::nonarray_color(img._mip_levels),
+							gpu::synchronization_point_mask::all_graphics,
+							gpu::image_access_mask::color_render_target,
+							gpu::image_layout::color_render_target
+						),
+						scope
+					);
+				},
+				[&](const recorded_resources::swap_chain &chain) {
+					_pseudo_use_swap_chain(
+						*chain._ptr,
+						_details::image_access(
+							gpu::subresource_range::first_color(),
+							gpu::synchronization_point_mask::all_graphics,
+							gpu::image_access_mask::color_render_target,
+							gpu::image_layout::color_render_target
+						),
+						scope
+					);
+				}
+			}, rt.view);
 		}
 		if (cmd.depth_stencil_target.view) {
 			_pseudo_use_image(
@@ -538,6 +537,14 @@ namespace lotus::renderer::execution {
 		}
 	}
 
+	/// Returns all aspects that are present in the given format.
+	[[nodiscard]] static gpu::image_aspect_mask _get_aspect_mask(gpu::format fmt) {
+		const auto &fmt_props = gpu::format_properties::get(fmt);
+		return
+			(fmt_props.has_color() ? gpu::image_aspect_mask::color : gpu::image_aspect_mask::none) |
+			(fmt_props.has_depth_stencil() ? gpu::image_aspect_mask::depth_stencil : gpu::image_aspect_mask::none);
+	}
+
 	void queue_pseudo_context::_pseudo_use_resource(
 		const descriptor_resource::image2d &img,
 		gpu::synchronization_point_mask sync_points,
@@ -546,7 +553,9 @@ namespace lotus::renderer::execution {
 		_pseudo_use_image(
 			*img.view._ptr,
 			_details::image_access::from_binding_type(
-				gpu::subresource_range::nonarray_color(img.view._mip_levels), sync_points, img.binding_type
+				gpu::subresource_range(img.view._mip_levels, 0, 1, _get_aspect_mask(img.view._ptr->format)),
+				sync_points,
+				img.binding_type
 			),
 			scope
 		);
@@ -560,7 +569,9 @@ namespace lotus::renderer::execution {
 		_pseudo_use_image(
 			*img.view._ptr,
 			_details::image_access::from_binding_type(
-				gpu::subresource_range::nonarray_color(img.view._mip_levels), sync_points, img.binding_type
+				gpu::subresource_range(img.view._mip_levels, 0, 1, _get_aspect_mask(img.view._ptr->format)),
+				sync_points,
+				img.binding_type
 			),
 			scope
 		);
@@ -574,7 +585,9 @@ namespace lotus::renderer::execution {
 		_pseudo_use_swap_chain(
 			*chain.chain._ptr,
 			_details::image_access::from_binding_type(
-				gpu::subresource_range::first_color(), sync_points, chain.binding_type
+				gpu::subresource_range::first_color(),
+				sync_points,
+				chain.binding_type
 			),
 			scope
 		);
@@ -621,7 +634,7 @@ namespace lotus::renderer::execution {
 
 		_q.ctx._maybe_initialize_buffer(buf);
 
-		const gpu::buffer_barrier barrier(
+		gpu::buffer_barrier barrier(
 			buf.data,
 			buf.previous_access.access.sync_points,
 			buf.previous_access.access.access,
@@ -631,31 +644,51 @@ namespace lotus::renderer::execution {
 			_q.queue.get_family()
 		);
 
+		if (_get_queue_index() != buf.previous_access.queue_index) {
+		}
+
 		if (
 			buf.previous_access.batch == batch_index::zero ||
+			buf.previous_access.access.access == gpu::buffer_access_mask::cpu_write ||
 			_get_queue_index() == buf.previous_access.queue_index
 		) {
-			// same queue - only needs transition
-			_queue_ctx
-				._cmd_ops[std::to_underlying(scope.begin)]
-				.pre_buffer_transitions.emplace_back(barrier);
+			// same queue or cpu access - only needs transition
+			if (
+				buf.previous_access.batch == batch_index::zero ||
+				buf.previous_access.access.access == gpu::buffer_access_mask::cpu_write
+			) {
+				// for cpu access or initial access, adjust queue index to the same as the current one
+				barrier.from_queue = barrier.to_queue;
+			}
+			crash_if(barrier.from_queue != barrier.to_queue);
+			_queue_ctx._cmd_ops[std::to_underlying(scope.begin)].pre_buffer_transitions.emplace_back(barrier);
 		} else {
-			// needs both a dependency and a queue family transfer
-			if (buf.previous_access.batch != _batch_ctx.get_batch_index()) {
-				/*std::abort();*/ // TODO
-			} else {
-				_batch_ctx.request_dependency_from_this_batch(
-					buf.previous_access.queue_index,
-					buf.previous_access.queue_command_index,
-					_get_queue_index(),
-					scope.begin
-				);
+			// different queues
+			queue_context &other_queue_ctx = _batch_ctx.get_queue_context(buf.previous_access.queue_index);
 
+			queue_submission_index cmd_index = buf.previous_access.queue_command_index;
+			if (buf.previous_access.batch != _batch_ctx.get_batch_index()) {
+				// the dependency is from a previous batch; acquire from the start of the batch
+				crash_if(!std::holds_alternative<commands::start_of_batch>(
+					other_queue_ctx._q.batch_commands[0].value
+				));
+				cmd_index = queue_submission_index::zero;
+			}
+
+			// dependency
+			_batch_ctx.request_dependency_from_this_batch(
+				buf.previous_access.queue_index,
+				cmd_index,
+				_get_queue_index(),
+				scope.begin
+			);
+
+			if (barrier.from_queue == barrier.to_queue) {
+				// no need for queue family transfer
+				_queue_ctx._cmd_ops[std::to_underlying(scope.begin)].pre_buffer_transitions.emplace_back(barrier);
+			} else {
 				// queue family ownership release
-				_batch_ctx
-					.get_queue_context(buf.previous_access.queue_index)
-					._cmd_ops[std::to_underlying(buf.previous_access.queue_command_index)]
-					.post_buffer_transitions.emplace_back(barrier);
+				other_queue_ctx._cmd_ops[std::to_underlying(cmd_index)].post_buffer_transitions.emplace_back(barrier);
 				// queue family ownership acquire
 				_queue_ctx._cmd_ops[std::to_underlying(scope.begin)].pre_buffer_transitions.emplace_back(barrier);
 			}
@@ -704,36 +737,66 @@ namespace lotus::renderer::execution {
 			for (std::uint32_t mip = 0; mip < img.num_mips; ++mip) {
 				_details::image_access_event &prev_access = img.previous_access[array_slice][mip];
 
-				const gpu::image_barrier barrier(
-					gpu::subresource_range(gpu::mip_levels::only(mip), array_slice, 1, gpu::image_aspect_mask::color), // TODO: correct aspect
-					img.get_image(),
-					prev_access.access.sync_points,
-					prev_access.access.access,
-					prev_access.access.layout,
-					_batch_ctx.get_queue_context(prev_access.queue_index)._q.queue.get_family(),
-					access.sync_points,
-					access.access,
-					access.layout,
-					_q.queue.get_family()
-				);
+				// check if this barrier can be safely skipped
+				constexpr gpu::image_access_mask write_bits =
+					gpu::image_access_mask::shader_write |
+					gpu::image_access_mask::color_render_target |
+					gpu::image_access_mask::depth_stencil_read_write |
+					gpu::image_access_mask::copy_destination;
+				const bool can_skip =
+					prev_access.queue_index == _get_queue_index() &&
+					prev_access.access.layout == access.layout &&
+					prev_access.access.access == access.access &&
+					prev_access.access.sync_points == access.sync_points &&
+					!bit_mask::contains_any(access.access, write_bits);
 
-				if (prev_access.batch == batch_index::zero || prev_access.queue_index == _get_queue_index()) {
-					_queue_ctx._cmd_ops[std::to_underlying(scope.begin)].pre_image_transitions.emplace_back(barrier);
-				} else {
-					if (prev_access.batch != _batch_ctx.get_batch_index()) {
-						/*std::abort();*/ // TODO
+				if (!can_skip) {
+					const gpu::image_barrier barrier(
+						gpu::subresource_range(
+							gpu::mip_levels::only(mip),
+							array_slice,
+							1,
+							access.subresource_range.aspects
+						),
+						img.get_image(),
+						prev_access.access.sync_points,
+						prev_access.access.access,
+						prev_access.access.layout,
+						_batch_ctx.get_queue_context(prev_access.queue_index)._q.queue.get_family(),
+						access.sync_points,
+						access.access,
+						access.layout,
+						_q.queue.get_family()
+					);
+
+					if (prev_access.batch == batch_index::zero || prev_access.queue_index == _get_queue_index()) {
+						_queue_ctx
+							._cmd_ops[std::to_underlying(scope.begin)]
+							.pre_image_transitions.emplace_back(barrier);
 					} else {
+						// different queues
+						queue_context &other_queue_ctx = _batch_ctx.get_queue_context(prev_access.queue_index);
+
+						queue_submission_index cmd_index = prev_access.queue_command_index;
+						if (prev_access.batch != _batch_ctx.get_batch_index()) {
+							// the dependency is from a previous batch; acquire from the start of the batch
+							crash_if(!std::holds_alternative<commands::start_of_batch>(
+								other_queue_ctx._q.batch_commands[0].value
+							));
+							cmd_index = queue_submission_index::zero;
+						}
+
+						// dependency
 						_batch_ctx.request_dependency_from_this_batch(
 							prev_access.queue_index,
-							prev_access.queue_command_index,
+							cmd_index,
 							_get_queue_index(),
 							scope.begin
 						);
 
 						// queue family ownership release
-						_batch_ctx
-							.get_queue_context(prev_access.queue_index)
-							._cmd_ops[std::to_underlying(prev_access.queue_command_index)]
+						other_queue_ctx
+							._cmd_ops[std::to_underlying(cmd_index)]
 							.post_image_transitions.emplace_back(barrier);
 						// queue family ownership acquire
 						_queue_ctx
@@ -742,6 +805,7 @@ namespace lotus::renderer::execution {
 					}
 				}
 
+				// need to update image usage regardless
 				prev_access.access              = access;
 				prev_access.queue_index         = _get_queue_index();
 				prev_access.batch               = _batch_ctx.get_batch_index();

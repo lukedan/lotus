@@ -45,6 +45,15 @@ namespace lotus::renderer {
 			}
 		};
 
+		/// Special command indicating the start of a batch. This command is inserted to the command queue of all
+		/// queues, and cannot be inserted any other way.
+		struct start_of_batch {
+			/// Returns the properties of this command.
+			[[nodiscard]] constexpr inline static flags get_flags() {
+				return flags::none;
+			}
+		};
+
 		/// Copies data from one buffer to another.
 		struct copy_buffer {
 			/// Initializes all fields of this struct.
@@ -364,6 +373,8 @@ namespace lotus::renderer {
 
 		std::variant<
 			commands::invalid,
+
+			commands::start_of_batch,
 
 			commands::copy_buffer,
 			commands::copy_buffer_to_image,

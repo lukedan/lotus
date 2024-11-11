@@ -98,7 +98,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	/// Additional arguments supplied to the compiler.
-	static const LPCWSTR _additional_args[] = { L"-Ges", L"-Zi", L"-Zpr", L"-no-legacy-cbuf-layout" };
+	static const LPCWSTR _additional_args[] = { L"-Ges", L"-Zi", L"-Zpr" };
 	shader_utility::compilation_result shader_utility::compile_shader(
 		std::span<const std::byte> code_utf8, shader_stage stage, std::u8string_view entry,
 		const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,

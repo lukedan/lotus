@@ -106,6 +106,9 @@ namespace lotus::renderer::execution {
 		void _pseudo_execute(const commands::invalid&) {
 			std::unreachable();
 		}
+		/// Does nothing.
+		void _pseudo_execute(const commands::start_of_batch&) {
+		}
 		/// Tracks usages of the source and destination buffers.
 		void _pseudo_execute(const commands::copy_buffer&);
 		/// Tracks usages of the source buffer and the destination image.

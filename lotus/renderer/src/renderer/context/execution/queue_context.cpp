@@ -248,7 +248,7 @@ namespace lotus::renderer::execution {
 		auto &input_buffer = _batch_ctx.record_batch_resource(_get_device().create_committed_buffer(
 			input_buffer_size,
 			_q.ctx.get_upload_memory_type_index(),
-			gpu::buffer_usage_mask::shader_read
+			gpu::buffer_usage_mask::acceleration_structure_build_input
 		));
 		auto &scratch_buffer = _batch_ctx.record_batch_resource(_get_device().create_committed_buffer(
 			build_sizes.build_scratch_size,

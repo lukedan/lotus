@@ -264,7 +264,8 @@ namespace lotus::gpu::backends::directx12::_details {
 
 		D3D12_BARRIER_LAYOUT to_barrier_layout(image_layout layout) {
 			constexpr static enums::sequential_mapping<image_layout, D3D12_BARRIER_LAYOUT> table{
-				std::pair(image_layout::undefined,                D3D12_BARRIER_LAYOUT_UNDEFINED          ),
+				// use COMMON as initial state so that resources can be used on copy queues from the get go
+				std::pair(image_layout::undefined,                D3D12_BARRIER_LAYOUT_COMMON             ),
 				std::pair(image_layout::general,                  D3D12_BARRIER_LAYOUT_COMMON             ),
 				std::pair(image_layout::copy_source,              D3D12_BARRIER_LAYOUT_COPY_SOURCE        ),
 				std::pair(image_layout::copy_destination,         D3D12_BARRIER_LAYOUT_COPY_DEST          ),

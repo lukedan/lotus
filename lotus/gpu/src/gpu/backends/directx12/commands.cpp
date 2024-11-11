@@ -84,17 +84,19 @@ namespace lotus::gpu::backends::directx12 {
 	void command_list::resource_barrier(
 		std::span<const image_barrier> images, std::span<const buffer_barrier> buffers
 	) {
+		// https://microsoft.github.io/DirectX-Specs/d3d/D3D12EnhancedBarriers.html#copy-queues
+		// copy queues do not support barriers, and all resources must be in COMMON state
+		if (_type == D3D12_COMMAND_LIST_TYPE_COPY) {
+			return;
+		}
+
 		auto bookmark = get_scratch_bookmark();
 		auto groups = bookmark.create_vector_array<D3D12_BARRIER_GROUP>();
 
 		auto tex_barriers = bookmark.create_reserved_vector_array<D3D12_TEXTURE_BARRIER>(images.size());
 		if (!images.empty()) {
 			for (const auto &img : images) {
-				if (img.from_queue != img.to_queue) {
-					// DirectX does not require queue family transfers - fences are needed instead
-					continue;
-				}
-				auto &barrier = tex_barriers.emplace_back();
+				D3D12_TEXTURE_BARRIER barrier;
 				barrier.SyncBefore   = _details::conversions::to_barrier_sync(img.from_point);
 				barrier.SyncAfter    = _details::conversions::to_barrier_sync(img.to_point);
 				barrier.AccessBefore = _details::conversions::to_barrier_access(img.from_access);
@@ -103,6 +105,19 @@ namespace lotus::gpu::backends::directx12 {
 				barrier.LayoutAfter  = _details::conversions::to_barrier_layout(img.to_layout);
 				barrier.pResource    = static_cast<const _details::image_base*>(img.target)->_image.Get();
 				barrier.Subresources = _details::conversions::to_barrier_subresource_range(img.subresources);
+				if (img.from_queue != img.to_queue) { // queue family transfer
+					// transfer to COMMON state for copy queues
+					if (img.to_queue == queue_family::copy) {
+						barrier.LayoutAfter = D3D12_BARRIER_LAYOUT_COMMON;
+					} else if (img.from_queue == queue_family::copy) {
+						barrier.LayoutBefore = D3D12_BARRIER_LAYOUT_COMMON;
+					} else if (_details::conversions::to_command_list_type(img.to_queue) != _type) {
+						// for queue family transfers, we only execute on the destination queue, so that layout
+						// changes are still respected
+						continue;
+					}
+				}
+				tex_barriers.emplace_back(barrier);
 			}
 			if (!tex_barriers.empty()) {
 				auto &group = groups.emplace_back();
@@ -115,11 +130,11 @@ namespace lotus::gpu::backends::directx12 {
 		auto buf_barriers = bookmark.create_reserved_vector_array<D3D12_BUFFER_BARRIER>(buffers.size());
 		if (!buffers.empty()) {
 			for (const auto &buf : buffers) {
+				// queue family transfers are not needed for buffers
 				if (buf.from_queue != buf.to_queue) {
-					// DirectX does not require queue family transfers - fences are needed instead
 					continue;
 				}
-				auto &barrier = buf_barriers.emplace_back();
+				D3D12_BUFFER_BARRIER barrier;
 				barrier.SyncBefore   = _details::conversions::to_barrier_sync(buf.from_point);
 				barrier.SyncAfter    = _details::conversions::to_barrier_sync(buf.to_point);
 				barrier.AccessBefore = _details::conversions::to_barrier_access(buf.from_access);
@@ -127,6 +142,7 @@ namespace lotus::gpu::backends::directx12 {
 				barrier.pResource    = static_cast<const buffer*>(buf.target)->_buffer.Get();
 				barrier.Offset       = 0;
 				barrier.Size         = UINT64_MAX;
+				buf_barriers.emplace_back(barrier);
 			}
 			if (!buf_barriers.empty()) {
 				auto &group = groups.emplace_back();

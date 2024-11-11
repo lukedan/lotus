@@ -55,6 +55,7 @@ namespace lotus::gpu::backends::directx12 {
 		} else {
 			std::fill(result._descriptor_heaps.begin(), result._descriptor_heaps.end(), nullptr);
 		}
+		result._type = alloc._type;
 		return result;
 	}
 
@@ -605,7 +606,7 @@ namespace lotus::gpu::backends::directx12 {
 		D3D12_HEAP_FLAGS heap_flags = D3D12_HEAP_FLAG_NONE;
 		_details::resource_desc::adjust_resource_flags_for_image(fmt, all_usages, &heap_flags);
 		_details::assert_dx(_device->CreateCommittedResource3(
-			&heap_properties, heap_flags, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
+			&heap_properties, heap_flags, &desc, D3D12_BARRIER_LAYOUT_COMMON, nullptr,
 			nullptr, 0, nullptr, IID_PPV_ARGS(&result._image)
 		), _device.Get());
 		return result;
@@ -621,7 +622,7 @@ namespace lotus::gpu::backends::directx12 {
 		D3D12_HEAP_FLAGS heap_flags = D3D12_HEAP_FLAG_NONE;
 		_details::resource_desc::adjust_resource_flags_for_image(fmt, all_usages, &heap_flags);
 		_details::assert_dx(_device->CreateCommittedResource3(
-			&heap_properties, heap_flags, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
+			&heap_properties, heap_flags, &desc, D3D12_BARRIER_LAYOUT_COMMON, nullptr,
 			nullptr, 0, nullptr, IID_PPV_ARGS(&result._image)
 		), _device.Get());
 		return result;
@@ -691,7 +692,7 @@ namespace lotus::gpu::backends::directx12 {
 		image2d result = nullptr;
 		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image2d(size, mip_levels, fmt, tiling, usages);
 		_details::assert_dx(_device->CreatePlacedResource2(
-			mem._heap.Get(), offset, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
+			mem._heap.Get(), offset, &desc, D3D12_BARRIER_LAYOUT_COMMON, nullptr,
 			0, nullptr, IID_PPV_ARGS(&result._image)
 		));
 		return result;
@@ -704,7 +705,7 @@ namespace lotus::gpu::backends::directx12 {
 		image3d result = nullptr;
 		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image3d(size, mip_levels, fmt, tiling, usages);
 		_details::assert_dx(_device->CreatePlacedResource2(
-			mem._heap.Get(), offset, &desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr,
+			mem._heap.Get(), offset, &desc, D3D12_BARRIER_LAYOUT_COMMON, nullptr,
 			0, nullptr, IID_PPV_ARGS(&result._image)
 		));
 		return result;

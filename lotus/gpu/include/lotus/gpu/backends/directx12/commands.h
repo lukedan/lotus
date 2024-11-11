@@ -155,6 +155,9 @@ namespace lotus::gpu::backends::directx12 {
 	private:
 		_details::com_ptr<ID3D12GraphicsCommandList7> _list; ///< The command list.
 		std::array<ID3D12DescriptorHeap*, 2> _descriptor_heaps; ///< Descriptor heaps.
+		/// The type of queue that this command list will run on; this is mostly used to adjust Vulkan-style barriers
+		/// to fit DirectX's requirements.
+		D3D12_COMMAND_LIST_TYPE _type = D3D12_COMMAND_LIST_TYPE_NONE;
 	};
 
 	/// A DirectX 12 command queue.

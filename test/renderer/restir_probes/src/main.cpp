@@ -255,7 +255,7 @@ public:
 	};
 
 protected:
-	static constexpr lgpu::queue_family _queues[] = { lgpu::queue_family::graphics, lgpu::queue_family::copy, lgpu::queue_family::copy };
+	static constexpr lgpu::queue_family _queues[] = { lgpu::queue_family::graphics, lgpu::queue_family::copy };
 
 	lren::context::queue _graphics_queue = nullptr;
 
@@ -268,7 +268,7 @@ protected:
 		return 1;
 	}
 	std::uint32_t _get_constant_upload_queue_index() const override {
-		return 2;
+		return 1;
 	}
 	std::uint32_t _get_debug_drawing_queue_index() const override {
 		return 0;

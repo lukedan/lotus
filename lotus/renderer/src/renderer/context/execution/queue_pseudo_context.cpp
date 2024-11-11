@@ -644,9 +644,6 @@ namespace lotus::renderer::execution {
 			_q.queue.get_family()
 		);
 
-		if (_get_queue_index() != buf.previous_access.queue_index) {
-		}
-
 		if (
 			buf.previous_access.batch == batch_index::zero ||
 			buf.previous_access.access.access == gpu::buffer_access_mask::cpu_write ||
@@ -751,7 +748,7 @@ namespace lotus::renderer::execution {
 					!bit_mask::contains_any(access.access, write_bits);
 
 				if (!can_skip) {
-					const gpu::image_barrier barrier(
+					gpu::image_barrier barrier(
 						gpu::subresource_range(
 							gpu::mip_levels::only(mip),
 							array_slice,
@@ -770,6 +767,12 @@ namespace lotus::renderer::execution {
 					);
 
 					if (prev_access.batch == batch_index::zero || prev_access.queue_index == _get_queue_index()) {
+						// same queue access - only needs transition
+						if (prev_access.batch == batch_index::zero) {
+							// for initial access, adjust queue index to the same as the current one
+							barrier.from_queue = barrier.to_queue;
+						}
+						crash_if(barrier.from_queue != barrier.to_queue);
 						_queue_ctx
 							._cmd_ops[std::to_underlying(scope.begin)]
 							.pre_image_transitions.emplace_back(barrier);

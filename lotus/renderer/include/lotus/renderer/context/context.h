@@ -727,24 +727,24 @@ namespace lotus::renderer {
 
 		// resource deletion handlers
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a pool.
-		void _deferred_delete(_details::pool *p) {
-			_deferred_delete_resources.pool_meta.emplace_back(p);
+		void _deferred_delete(_details::pool *ptr) {
+			_deferred_delete_resources.pool_meta.emplace_back(ptr);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a 2D image.
-		void _deferred_delete(_details::image2d *surf) {
-			_deferred_delete_resources.image2d_meta.emplace_back(surf);
+		void _deferred_delete(_details::image2d *ptr) {
+			_deferred_delete_resources.image2d_meta.emplace_back(ptr);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a 3D image.
-		void _deferred_delete(_details::image3d *surf) {
-			_deferred_delete_resources.image3d_meta.emplace_back(surf);
+		void _deferred_delete(_details::image3d *ptr) {
+			_deferred_delete_resources.image3d_meta.emplace_back(ptr);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a buffer.
-		void _deferred_delete(_details::buffer *buf) {
-			_deferred_delete_resources.buffer_meta.emplace_back(buf);
+		void _deferred_delete(_details::buffer *ptr) {
+			_deferred_delete_resources.buffer_meta.emplace_back(ptr);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a swap chain.
-		void _deferred_delete(_details::swap_chain *chain) {
-			_deferred_delete_resources.swap_chain_meta.emplace_back(chain);
+		void _deferred_delete(_details::swap_chain *ptr) {
+			_deferred_delete_resources.swap_chain_meta.emplace_back(ptr);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a descriptor array.
 		void _deferred_delete(_details::image_descriptor_array*) {
@@ -755,20 +755,20 @@ namespace lotus::renderer {
 			// TODO
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a BLAS.
-		void _deferred_delete(_details::blas*) {
-			// TODO
+		void _deferred_delete(_details::blas *ptr) {
+			_deferred_delete_resources.blas_meta.emplace_back(ptr);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a TLAS.
-		void _deferred_delete(_details::tlas*) {
-			// TODO
+		void _deferred_delete(_details::tlas *ptr) {
+			_deferred_delete_resources.tlas_meta.emplace_back(ptr);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a dependency.
-		void _deferred_delete(_details::dependency*) {
-			// TODO
+		void _deferred_delete(_details::dependency *ptr) {
+			_deferred_delete_resources.dependency_meta.emplace_back(ptr);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a cached descriptor set.
-		void _deferred_delete(_details::cached_descriptor_set *set) {
-			_deferred_delete_resources.cached_descriptor_set_meta.emplace_back(set);
+		void _deferred_delete(_details::cached_descriptor_set *ptr) {
+			_deferred_delete_resources.cached_descriptor_set_meta.emplace_back(ptr);
 		}
 	};
 

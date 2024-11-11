@@ -1052,6 +1052,20 @@ namespace lotus::renderer {
 				}
 			}
 
+			for (const auto &tlas : batch.resources.tlas_meta) {
+				tlas->handle = nullptr;
+				if (tlas->memory->memory) {
+					tlas->memory->memory_pool->free(tlas->memory->memory);
+				}
+			}
+
+			for (const auto &blas : batch.resources.blas_meta) {
+				blas->handle = nullptr;
+				if (blas->memory->memory) {
+					blas->memory->memory_pool->free(blas->memory->memory);
+				}
+			}
+
 			constexpr bool _debug_resource_disposal = false;
 			if constexpr (_debug_resource_disposal) {
 				auto rsrc = std::move(_batch_data.front());

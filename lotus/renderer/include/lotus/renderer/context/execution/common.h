@@ -82,8 +82,11 @@ namespace lotus::renderer::execution {
 		std::vector<std::unique_ptr<_details::pool>>       pool_meta;       ///< Pools.
 		std::vector<std::unique_ptr<_details::image2d>>    image2d_meta;    ///< 2D images.
 		std::vector<std::unique_ptr<_details::image3d>>    image3d_meta;    ///< 3D images.
-		std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain.
 		std::vector<std::unique_ptr<_details::buffer>>     buffer_meta;     ///< Buffers.
+		std::vector<std::unique_ptr<_details::swap_chain>> swap_chain_meta; ///< Swap chain.
+		std::vector<std::unique_ptr<_details::blas>>       blas_meta;       ///< BLASes.
+		std::vector<std::unique_ptr<_details::tlas>>       tlas_meta;       ///< TLASes.
+		std::vector<std::unique_ptr<_details::dependency>> dependency_meta; ///< Dependencies.
 		/// Cached descriptor sets.
 		std::vector<std::unique_ptr<_details::cached_descriptor_set>> cached_descriptor_set_meta;
 

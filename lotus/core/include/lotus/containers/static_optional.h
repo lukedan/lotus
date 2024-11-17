@@ -38,7 +38,11 @@ namespace lotus {
 		static_optional &operator=(const static_optional&) = default;
 
 		/// Returns the value.
-		[[nodiscard]] T *operator->() const {
+		[[nodiscard]] T *operator->() {
+			return &value;
+		}
+		/// \overload
+		[[nodiscard]] const T *operator->() const {
 			return &value;
 		}
 		/// Returns the value.

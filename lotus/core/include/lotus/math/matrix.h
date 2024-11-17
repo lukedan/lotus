@@ -754,8 +754,8 @@ namespace lotus {
 		}
 
 		/// Computes the determinant of the original matrix.
-		[[nodiscard]] constexpr double determinant() const {
-			double det = result_rows(permutation[0], 0);
+		[[nodiscard]] constexpr T determinant() const {
+			T det = result_rows(permutation[0], 0);
 			for (std::size_t i = 1; i < N; ++i) {
 				det *= result_rows(permutation[i], i);
 			}

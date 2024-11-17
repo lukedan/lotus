@@ -1223,7 +1223,7 @@ namespace lotus::gpu::backends::directx12 {
 			DWORD dummy = 0;
 			_details::assert_dx(info_queue->RegisterMessageCallback(
 				[](
-					D3D12_MESSAGE_CATEGORY category,
+					D3D12_MESSAGE_CATEGORY,
 					D3D12_MESSAGE_SEVERITY severity,
 					D3D12_MESSAGE_ID id,
 					LPCSTR description,

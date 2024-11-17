@@ -28,9 +28,9 @@ public:
 
 		auto &surface = _render.surfaces.emplace_back();
 		surface.color = lotus::linear_rgba_f(1.0f, 0.4f, 0.2f, 0.5f);
-		std::vector<std::vector<std::size_t>> pid(
+		std::vector<std::vector<std::uint32_t>> pid(
 			static_cast<std::size_t>(_side_segments),
-			std::vector<std::size_t>(static_cast<std::size_t>(_side_segments))
+			std::vector<std::uint32_t>(static_cast<std::size_t>(_side_segments))
 		);
 		for (int y = 0; y < _side_segments; ++y) {
 			for (int x = 0; x < _side_segments; ++x) {
@@ -41,7 +41,7 @@ public:
 				auto state = lotus::physics::particle_state::stationary_at(
 					{ x * segment_length, _cloth_size, y * segment_length - 0.5 * _cloth_size }
 				);
-				pid[x][y] = _engine.particles.size();
+				pid[x][y] = static_cast<std::uint32_t>(_engine.particles.size());
 				_engine.particles.emplace_back(lotus::physics::particle::create(prop, state));
 			}
 		}

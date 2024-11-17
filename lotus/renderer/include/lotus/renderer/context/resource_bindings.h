@@ -286,13 +286,13 @@ namespace lotus::renderer {
 		/// A constant buffer.
 		struct constant_buffer {
 			/// Initializes all fields of this struct.
-			constant_buffer(recorded_resources::buffer d, std::uint32_t off, std::uint32_t sz) :
+			constant_buffer(recorded_resources::buffer d, std::size_t off, std::size_t sz) :
 				data(d), offset(off), size(sz) {
 			}
 
 			recorded_resources::buffer data; ///< Buffer data.
-			std::uint32_t offset = 0; ///< Byte offset of the constant buffer.
-			std::uint32_t size = 0; ///< Size of the constant buffer in bytes.
+			std::size_t offset = 0; ///< Byte offset of the constant buffer.
+			std::size_t size = 0; ///< Size of the constant buffer in bytes.
 		};
 		/// A structured buffer.
 		struct structured_buffer {

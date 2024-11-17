@@ -233,19 +233,19 @@ namespace lotus::renderer {
 			/// Copies data from the first buffer to the second.
 			void copy_buffer(
 				const buffer &source, const buffer &target,
-				std::uint32_t src_offset, std::uint32_t dst_offset, std::uint32_t sz,
+				std::size_t src_offset, std::size_t dst_offset, std::size_t sz,
 				std::u8string_view description
 			);
 			/// Copies data from the buffer to the image.
 			void copy_buffer_to_image(
 				const buffer &source, const image2d_view &target,
-				gpu::staging_buffer::metadata, std::uint32_t src_offset, cvec2u32 dst_offset,
+				gpu::staging_buffer::metadata, std::size_t src_offset, cvec2u32 dst_offset,
 				std::u8string_view description
 			);
 			/// \overload
 			void copy_buffer_to_image(
 				const staging_buffer &source, const image2d_view &target,
-				std::uint32_t src_offset, cvec2u32 dst_offset,
+				std::size_t src_offset, cvec2u32 dst_offset,
 				std::u8string_view description
 			);
 
@@ -398,7 +398,7 @@ namespace lotus::renderer {
 		);
 		/// Creates a buffer with the given size.
 		[[nodiscard]] buffer request_buffer(
-			std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask, const pool&
+			std::u8string_view name, std::size_t size_bytes, gpu::buffer_usage_mask, const pool&
 		);
 		/// Shorthand for \ref request_buffer() and then viewing it as a structured buffer of the given type.
 		template <typename T> [[nodiscard]] structured_buffer_view request_structured_buffer(
@@ -588,7 +588,7 @@ namespace lotus::renderer {
 		/// Requests a buffer.
 		[[nodiscard]] std::shared_ptr<_details::buffer> _request_buffer_raw(
 			std::u8string_view name,
-			std::uint32_t size_bytes,
+			std::size_t size_bytes,
 			gpu::buffer_usage_mask,
 			const std::shared_ptr<_details::pool>&
 		);

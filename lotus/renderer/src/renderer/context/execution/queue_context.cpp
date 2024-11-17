@@ -378,7 +378,7 @@ namespace lotus::renderer::execution {
 		}
 	}
 
-	void queue_context::_execute(const commands::end_pass &cmd) {
+	void queue_context::_execute(const commands::end_pass&) {
 		crash_if(!_within_pass);
 		_within_pass = false;
 		// clean up pass-specific execution state
@@ -400,7 +400,7 @@ namespace lotus::renderer::execution {
 		cmd_list.run_compute_shader(cmd.num_thread_groups[0], cmd.num_thread_groups[1], cmd.num_thread_groups[2]);
 	}
 
-	void queue_context::_execute(const commands::trace_rays &cmd) {
+	void queue_context::_execute(const commands::trace_rays&) {
 		// TODO
 		std::abort();
 	}

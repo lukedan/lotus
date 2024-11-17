@@ -40,7 +40,7 @@ namespace lotus::renderer {
 
 		buffer _current_upload_buffer; ///< The current buffer used for uploading.
 		buffer _current_constant_buffer; ///< The current constant buffer.
-		std::uint32_t _watermark = 0; ///< Number of bytes allocated from the current buffers.
+		std::size_t _watermark = 0; ///< Number of bytes allocated from the current buffers.
 		std::byte *_ptr = nullptr; ///< Mapped pointer for \ref _current_upload_buffer.
 
 		/// Flushes the current upload buffer and resets the buffers.

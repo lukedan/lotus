@@ -115,7 +115,7 @@ namespace lotus::renderer {
 
 	void context::queue::copy_buffer(
 		const buffer &source, const buffer &target,
-		std::uint32_t src_offset, std::uint32_t dst_offset, std::uint32_t sz,
+		std::size_t src_offset, std::size_t dst_offset, std::size_t sz,
 		std::u8string_view description
 	) {
 		_q->add_command<commands::copy_buffer>(
@@ -125,7 +125,7 @@ namespace lotus::renderer {
 
 	void context::queue::copy_buffer_to_image(
 		const buffer &source, const image2d_view &target,
-		gpu::staging_buffer::metadata meta, std::uint32_t src_offset, cvec2u32 dst_offset,
+		gpu::staging_buffer::metadata meta, std::size_t src_offset, cvec2u32 dst_offset,
 		std::u8string_view description
 	) {
 		_q->add_command<commands::copy_buffer_to_image>(
@@ -135,7 +135,7 @@ namespace lotus::renderer {
 
 	void context::queue::copy_buffer_to_image(
 		const staging_buffer &source, const image2d_view &target,
-		std::uint32_t src_offset, cvec2u32 dst_offset,
+		std::size_t src_offset, cvec2u32 dst_offset,
 		std::u8string_view description
 	) {
 		copy_buffer_to_image(source.data, target, source.meta, src_offset, dst_offset, description);
@@ -309,7 +309,7 @@ namespace lotus::renderer {
 	}
 
 	buffer context::request_buffer(
-		std::u8string_view name, std::uint32_t size_bytes, gpu::buffer_usage_mask usages, const pool &p
+		std::u8string_view name, std::size_t size_bytes, gpu::buffer_usage_mask usages, const pool &p
 	) {
 		return buffer(_request_buffer_raw(name, size_bytes, usages, p._ptr));
 	}
@@ -409,8 +409,6 @@ namespace lotus::renderer {
 	}
 
 	std::vector<batch_statistics_early> context::execute_all() {
-		constexpr bool _insert_pass_markers = decltype(command::description)::is_enabled;
-
 		crash_if(std::this_thread::get_id() != _thread);
 
 		auto &batch_data = _batch_data.emplace_back();
@@ -651,7 +649,7 @@ namespace lotus::renderer {
 
 	std::shared_ptr<_details::buffer> context::_request_buffer_raw(
 		std::u8string_view name,
-		std::uint32_t size_bytes,
+		std::size_t size_bytes,
 		gpu::buffer_usage_mask usages,
 		const std::shared_ptr<_details::pool> &pool
 	) {
@@ -787,28 +785,28 @@ namespace lotus::renderer {
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set&, const descriptor_resource::swap_chain&, std::uint32_t idx
+		_details::cached_descriptor_set&, const descriptor_resource::swap_chain&, std::uint32_t /*idx*/
 	) {
 		// TODO
 		std::abort();
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set&, const descriptor_resource::constant_buffer&, std::uint32_t idx
+		_details::cached_descriptor_set&, const descriptor_resource::constant_buffer&, std::uint32_t /*idx*/
 	) {
 		// TODO
 		std::abort();
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set&, const descriptor_resource::structured_buffer&, std::uint32_t idx
+		_details::cached_descriptor_set&, const descriptor_resource::structured_buffer&, std::uint32_t /*idx*/
 	) {
 		// TODO
 		std::abort();
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set&, const recorded_resources::tlas&, std::uint32_t idx
+		_details::cached_descriptor_set&, const recorded_resources::tlas&, std::uint32_t /*idx*/
 	) {
 		// TODO
 		std::abort();
@@ -970,7 +968,7 @@ namespace lotus::renderer {
 				}
 				chain.current_size = chain.desired_size;
 
-				for (std::size_t i = 0; i < chain.num_images; ++i) {
+				for (std::uint32_t i = 0; i < chain.num_images; ++i) {
 					// update chain images
 					chain.back_buffers.emplace_back(chain.chain.get_image(i));
 					// create new fences

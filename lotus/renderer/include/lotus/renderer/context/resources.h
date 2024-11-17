@@ -247,7 +247,7 @@ namespace lotus::renderer {
 		struct buffer : public resource {
 			/// Initializes this buffer to empty.
 			buffer(
-				std::uint32_t sz,
+				std::size_t sz,
 				gpu::buffer_usage_mask usg,
 				std::shared_ptr<pool> p,
 				unique_resource_id i,
@@ -271,7 +271,7 @@ namespace lotus::renderer {
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this buffer out of.
 			pool::token memory; ///< Allocated memory for this image.
 
-			std::uint32_t size; ///< The size of this buffer.
+			std::size_t size; ///< The size of this buffer.
 			gpu::buffer_usage_mask usages = gpu::buffer_usage_mask::none; ///< Possible usages.
 
 			/// References in descriptor arrays.
@@ -762,7 +762,7 @@ namespace lotus::renderer {
 		}
 
 		/// Returns the size of this buffer.
-		[[nodiscard]] std::uint32_t get_size_in_bytes() const {
+		[[nodiscard]] std::size_t get_size_in_bytes() const {
 			return _ptr->size;
 		}
 

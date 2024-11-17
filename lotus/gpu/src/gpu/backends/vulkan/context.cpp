@@ -68,10 +68,10 @@ namespace lotus::gpu::backends::vulkan {
 			.setPfnCallback(
 				[](
 					VkDebugReportFlagsEXT flags,
-					VkDebugReportObjectTypeEXT /*object_type*/,
-					uint64_t object,
+					VkDebugReportObjectTypeEXT,
+					uint64_t /*object*/,
 					size_t location,
-					int32_t message_code,
+					int32_t /*message_code*/,
 					const char */*layer_prefix*/,
 					const char *message,
 					void *user_data
@@ -82,7 +82,8 @@ namespace lotus::gpu::backends::vulkan {
 						const std::u8string_view u8message(reinterpret_cast<const char8_t*>(message));
 						// TODO: it turns out that location argument contains the message ID, not message code
 						//       feels like a bug but it seems to have been like this forever
-						cb(_details::conversions::back_to_debug_message_severity(vkFlags), location /*message_code*/, u8message);
+						const auto msg_id = static_cast<debug_message_id>(location);
+						cb(_details::conversions::back_to_debug_message_severity(vkFlags), msg_id, u8message);
 					}
 					return false;
 				}

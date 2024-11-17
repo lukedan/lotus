@@ -59,15 +59,15 @@ namespace lotus::renderer {
 			/// Initializes all fields of this struct.
 			copy_buffer(
 				recorded_resources::buffer src, recorded_resources::buffer dst,
-				std::uint32_t src_off, std::uint32_t dst_off, std::uint32_t sz
+				std::size_t src_off, std::size_t dst_off, std::size_t sz
 			) : source(src), destination(dst), source_offset(src_off), destination_offset(dst_off), size(sz) {
 			}
 
 			recorded_resources::buffer source;      ///< The source buffer.
 			recorded_resources::buffer destination; ///< The destination buffer.
-			std::uint32_t source_offset      = 0; ///< Offset in the source buffer in bytes.
-			std::uint32_t destination_offset = 0; ///< Offset in the destination buffer in bytes.
-			std::uint32_t size               = 0; ///< Number of bytes to copy.
+			std::size_t source_offset      = 0; ///< Offset in the source buffer in bytes.
+			std::size_t destination_offset = 0; ///< Offset in the destination buffer in bytes.
+			std::size_t size               = 0; ///< Number of bytes to copy.
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
@@ -80,7 +80,7 @@ namespace lotus::renderer {
 			/// Initializes all fields of this struct.
 			copy_buffer_to_image(
 				recorded_resources::buffer src, recorded_resources::image2d_view dst,
-				gpu::staging_buffer::metadata meta, std::uint32_t src_off, cvec2u32 dst_off
+				gpu::staging_buffer::metadata meta, std::size_t src_off, cvec2u32 dst_off
 			) :
 				source(src),
 				destination(dst),
@@ -92,8 +92,8 @@ namespace lotus::renderer {
 			recorded_resources::buffer       source;      ///< The source buffer.
 			recorded_resources::image2d_view destination; ///< The destination image.
 			gpu::staging_buffer::metadata staging_buffer_meta; ///< Metadata of the staging buffer.
-			std::uint32_t source_offset      = 0;    ///< Offset in the source buffer in bytes.
-			cvec2u32      destination_offset = zero; ///< Offset in the destination image in pixels.
+			std::size_t source_offset      = 0;    ///< Offset in the source buffer in bytes.
+			cvec2u32    destination_offset = zero; ///< Offset in the destination image in pixels.
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {

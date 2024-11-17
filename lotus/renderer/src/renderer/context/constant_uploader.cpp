@@ -16,23 +16,21 @@ namespace lotus::renderer {
 			gpu::buffer_usage_mask::copy_destination | gpu::buffer_usage_mask::shader_read;
 		constexpr static auto _upload_buf_usage = gpu::buffer_usage_mask::copy_source;
 
-		const auto data_size = static_cast<std::uint32_t>(data.size());
-
 		if (data.size() > _chunk_size) {
 			auto constant_buf = _ctx.request_buffer(
-				u8"Constant buffer", data_size, _constant_buf_usage, _constant_pool
+				u8"Constant buffer", data.size(), _constant_buf_usage, _constant_pool
 			);
 			auto upload_buf = _ctx.request_buffer(
-				u8"Constant upload buffer", data_size, _upload_buf_usage, _upload_pool
+				u8"Constant upload buffer", data.size(), _upload_buf_usage, _upload_pool
 			);
 			_ctx.write_data_to_buffer(upload_buf, data);
-			_upload_queue.copy_buffer(upload_buf, constant_buf, 0, 0, data_size, u8"Upload constant buffer");
+			_upload_queue.copy_buffer(upload_buf, constant_buf, 0, 0, data.size(), u8"Upload constant buffer");
 			return descriptor_resource::constant_buffer(constant_buf, 0, constant_buf.get_size_in_bytes());
 		}
 
 		const bool needs_new_buffer =
 			!_current_constant_buffer.is_valid() ||
-			_watermark + data_size > _current_constant_buffer.get_size_in_bytes();
+			_watermark + data.size() > _current_constant_buffer.get_size_in_bytes();
 		if (needs_new_buffer) {
 			_maybe_flush_current_buffer();
 
@@ -48,9 +46,9 @@ namespace lotus::renderer {
 
 		const auto old_watermark = _watermark;
 		const auto alignment = _ctx.get_adapter_properties().constant_buffer_alignment;
-		_watermark = static_cast<std::uint32_t>(memory::align_up(_watermark + data_size, alignment));
+		_watermark = memory::align_up(_watermark + data.size(), alignment);
 		std::memcpy(_ptr + old_watermark, data.data(), data.size());
-		return descriptor_resource::constant_buffer(_current_constant_buffer, old_watermark, data_size);
+		return descriptor_resource::constant_buffer(_current_constant_buffer, old_watermark, data.size());
 	}
 
 	void constant_uploader::end_frame(dependency dep) {

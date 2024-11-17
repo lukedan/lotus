@@ -211,7 +211,7 @@ namespace lotus::renderer::assets {
 	) {
 		auto upload_buf = _context.request_buffer(
 			u8"Upload buffer",
-			static_cast<std::uint32_t>(data.size()),
+			data.size(),
 			gpu::buffer_usage_mask::copy_source,
 			_upload_staging_pool
 		);
@@ -225,7 +225,7 @@ namespace lotus::renderer::assets {
 		buffer buf = nullptr;
 		buf.data = _context.request_buffer(
 			id.path.u8string() + u8"|" + id.subpath,
-			static_cast<std::uint32_t>(data.size()),
+			data.size(),
 			usages | gpu::buffer_usage_mask::copy_destination,
 			p
 		);

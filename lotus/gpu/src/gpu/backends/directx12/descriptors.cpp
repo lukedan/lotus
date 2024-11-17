@@ -18,9 +18,9 @@ namespace lotus::gpu::backends::directx12 {
 				return range.RangeType < type;
 			}
 		);
-		assert(range_it != _ranges.end());
-		assert(range_it->BaseShaderRegister <= first_reg);
-		assert(range_it->BaseShaderRegister + range_it->NumDescriptors >= first_reg + num_regs);
+		crash_if(range_it == _ranges.end());
+		crash_if(range_it->BaseShaderRegister > first_reg);
+		crash_if(range_it->BaseShaderRegister + range_it->NumDescriptors < first_reg + num_regs);
 		return range_it;
 	}
 

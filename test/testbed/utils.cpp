@@ -19,7 +19,7 @@ void debug_render::draw_point(lotus::cvec3d p, lotus::linear_rgba_f color) {
 }
 
 void debug_render::draw_line(lotus::cvec3d a, lotus::cvec3d b, lotus::linear_rgba_f color) {
-	auto first_index = line_vertices.size();
+	auto first_index = static_cast<std::uint32_t>(line_vertices.size());
 	auto &v1 = line_vertices.emplace_back();
 	lotus::cvec4f vert_color = lotus::cvec4f(color.into_vector().block<3, 1>(0, 0), 0.0f);
 	v1.position = a.into<float>();
@@ -60,7 +60,7 @@ void debug_render::draw_body(
 	}
 
 	auto &verts = wireframe ? line_vertices : mesh_vertices;
-	auto first_vert = verts.size();
+	auto first_vert = static_cast<std::uint32_t>(verts.size());
 	auto full_color = lotus::cvec4f(color.into_vector().block<3, 1>(0, 0), wireframe ? 0.0f : 1.0f);
 	auto normal_transform = transform.block<3, 3>(0, 0).inverse().transposed();
 	for (std::size_t i = 0; i < positions.size(); ++i) {
@@ -173,9 +173,9 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron 
 		for (std::size_t i = 0; i < poly.vertices.size(); ++i) {
 			for (std::size_t j = i + 1; j < poly.vertices.size(); ++j) {
 				for (std::size_t k = j + 1; k < poly.vertices.size(); ++k) {
-					indices.emplace_back(i);
-					indices.emplace_back(j);
-					indices.emplace_back(k);
+					indices.emplace_back(static_cast<std::uint32_t>(i));
+					indices.emplace_back(static_cast<std::uint32_t>(j));
+					indices.emplace_back(static_cast<std::uint32_t>(k));
 				}
 			}
 		}

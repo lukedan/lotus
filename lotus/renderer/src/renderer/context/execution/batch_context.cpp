@@ -75,7 +75,7 @@ namespace lotus::renderer::execution {
 	template <
 		typename RecordedResource, typename View
 	> [[nodiscard]] static descriptor_set_info _use_descriptor_set_array(
-		const _details::descriptor_array<RecordedResource, View> &arr, context_cache &cache
+		const _details::descriptor_array<RecordedResource, View> &arr, context_cache&
 	) {
 		descriptor_set_info result;
 		result.layout_key = cache_keys::descriptor_set_layout::for_descriptor_array(arr.type);

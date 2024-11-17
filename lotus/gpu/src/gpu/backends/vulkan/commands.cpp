@@ -205,10 +205,10 @@ namespace lotus::gpu::backends::vulkan {
 	) {
 		const auto &props = format_properties::get(meta._format);
 		crash_if(offset[0] % props.fragment_size[0] != 0 || offset[1] % props.fragment_size[1] != 0);
-		const auto aligned_size = cvec2u32(
+		const auto aligned_size = cvec2s(
 			memory::align_up(meta._size[0], props.fragment_size[0]),
 			memory::align_up(meta._size[1], props.fragment_size[1])
-		);
+		).into<std::uint32_t>();
 		vk::BufferImageCopy copy;
 		copy
 			.setBufferOffset(byte_offset)

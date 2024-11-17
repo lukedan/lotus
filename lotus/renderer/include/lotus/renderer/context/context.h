@@ -608,7 +608,7 @@ namespace lotus::renderer {
 				arr.layout = &_cache.get_descriptor_set_layout(
 					execution::cache_keys::descriptor_set_layout::for_descriptor_array(arr.type)
 				);
-				arr.set = _device.create_descriptor_set(_descriptor_pool, *arr.layout, arr.capacity);
+				arr.set = _device.create_descriptor_set(_descriptor_pool, *arr.layout, arr.slots.size());
 			}
 		}
 		/// Initializes the given \ref _details::cached_descriptor_set if necessary.
@@ -683,7 +683,7 @@ namespace lotus::renderer {
 		template <typename RecordedResource, typename View> void _write_one_descriptor_array_element(
 			_details::descriptor_array<RecordedResource, View> &arr, RecordedResource rsrc, std::uint32_t index
 		) {
-			auto &cur_ref = arr.resources[index];
+			auto &cur_ref = arr.slots[index];
 			// unlink current reference
 			if (auto *surf = cur_ref.resource._ptr) {
 				// remove reference from image
@@ -693,7 +693,7 @@ namespace lotus::renderer {
 				// update the affected reference - only needs to be done if there is one
 				if (old_index < surf->array_references.size()) {
 					auto new_ref = surf->array_references[old_index];
-					new_ref.array->resources[new_ref.index].reference_index = old_index;
+					new_ref.array->slots[new_ref.index].reference_index = old_index;
 				}
 				// record the view for disposal
 				if constexpr (!std::is_same_v<View, std::nullopt_t>) {
@@ -704,7 +704,6 @@ namespace lotus::renderer {
 				}
 				// remove reference from descriptor array
 				cur_ref = nullptr;
-				arr.has_descriptor_overwrites = true;
 			}
 			// update recorded image
 			cur_ref.resource = rsrc;
@@ -716,7 +715,7 @@ namespace lotus::renderer {
 				new_ref.index = index;
 			}
 			// stage the write
-			arr.staged_transitions.emplace_back(index);
+			arr.altered_resources.emplace_back(index);
 			arr.staged_writes.emplace_back(index);
 		}
 
@@ -746,14 +745,6 @@ namespace lotus::renderer {
 		void _deferred_delete(_details::swap_chain *ptr) {
 			_deferred_delete_resources.swap_chain_meta.emplace_back(ptr);
 		}
-		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a descriptor array.
-		void _deferred_delete(_details::image_descriptor_array*) {
-			// TODO
-		}
-		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a descriptor array.
-		void _deferred_delete(_details::buffer_descriptor_array*) {
-			// TODO
-		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a BLAS.
 		void _deferred_delete(_details::blas *ptr) {
 			_deferred_delete_resources.blas_meta.emplace_back(ptr);
@@ -765,6 +756,14 @@ namespace lotus::renderer {
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a dependency.
 		void _deferred_delete(_details::dependency *ptr) {
 			_deferred_delete_resources.dependency_meta.emplace_back(ptr);
+		}
+		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a descriptor array.
+		void _deferred_delete(_details::image_descriptor_array *ptr) {
+			_deferred_delete_resources.image_descriptor_array_meta.emplace_back(ptr);
+		}
+		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a descriptor array.
+		void _deferred_delete(_details::buffer_descriptor_array *ptr) {
+			_deferred_delete_resources.buffer_descriptor_array_meta.emplace_back(ptr);
 		}
 		/// Interface to \ref _details::context_managed_deleter for deferring deletion of a cached descriptor set.
 		void _deferred_delete(_details::cached_descriptor_set *ptr) {

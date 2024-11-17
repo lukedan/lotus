@@ -481,7 +481,7 @@ namespace lotus::renderer::execution {
 		_q.ctx._maybe_initialize_descriptor_array(*arr._ptr);
 		_q.ctx._flush_descriptor_array_writes(*arr._ptr);
 
-		for (const auto &rsrc : arr._ptr->resources) {
+		for (const auto &rsrc : arr._ptr->slots) {
 			if (rsrc.resource) {
 				_pseudo_use_image(
 					*rsrc.resource._ptr,
@@ -508,7 +508,7 @@ namespace lotus::renderer::execution {
 		_q.ctx._maybe_initialize_descriptor_array(*arr._ptr);
 		_q.ctx._flush_descriptor_array_writes(*arr._ptr);
 
-		for (const auto &rsrc : arr._ptr->resources) {
+		for (const auto &rsrc : arr._ptr->slots) {
 			if (rsrc.resource) {
 				_pseudo_use_buffer(
 					*rsrc.resource._ptr, sync_points, gpu::buffer_access_mask::shader_read, scope

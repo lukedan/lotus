@@ -87,8 +87,12 @@ namespace lotus::renderer::execution {
 		std::vector<std::unique_ptr<_details::blas>>       blas_meta;       ///< BLASes.
 		std::vector<std::unique_ptr<_details::tlas>>       tlas_meta;       ///< TLASes.
 		std::vector<std::unique_ptr<_details::dependency>> dependency_meta; ///< Dependencies.
+		/// Image descriptor arrays.
+		std::vector<std::unique_ptr<_details::image_descriptor_array>>  image_descriptor_array_meta;
+		/// Buffer descriptor arrays.
+		std::vector<std::unique_ptr<_details::buffer_descriptor_array>> buffer_descriptor_array_meta;
 		/// Cached descriptor sets.
-		std::vector<std::unique_ptr<_details::cached_descriptor_set>> cached_descriptor_set_meta;
+		std::vector<std::unique_ptr<_details::cached_descriptor_set>>   cached_descriptor_set_meta;
 
 		/// Registers the given object as a resource.
 		template <typename T> T &record(T &&obj) {

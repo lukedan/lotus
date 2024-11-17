@@ -830,17 +830,13 @@ namespace lotus::renderer {
 
 	void context::_flush_descriptor_array_writes(_details::image_descriptor_array &arr) {
 		if (!arr.staged_writes.empty()) {
-			if (arr.has_descriptor_overwrites) {
-				arr.has_descriptor_overwrites = false;
-			}
-
 			auto writes = std::exchange(arr.staged_writes, {});
 			std::sort(writes.begin(), writes.end());
 			writes.erase(std::unique(writes.begin(), writes.end()), writes.end());
 			auto write_func = gpu::device::get_write_image_descriptor_function(arr.type);
 			crash_if(write_func == nullptr);
 			for (auto index : writes) {
-				auto &rsrc = arr.resources[index];
+				auto &rsrc = arr.slots[index];
 				if (rsrc.view.value) {
 					// technically this is last batch's resource
 					_batch_data.back().resources.record(std::exchange(rsrc.view.value, nullptr));
@@ -860,17 +856,13 @@ namespace lotus::renderer {
 
 	void context::_flush_descriptor_array_writes(_details::buffer_descriptor_array &arr) {
 		if (!arr.staged_writes.empty()) {
-			if (arr.has_descriptor_overwrites) {
-				arr.has_descriptor_overwrites = false;
-			}
-
 			auto writes = std::exchange(arr.staged_writes, {});
 			std::sort(writes.begin(), writes.end());
 			writes.erase(std::unique(writes.begin(), writes.end()), writes.end());
 			auto write_func = gpu::device::get_write_structured_buffer_descriptor_function(arr.type);
 			crash_if(write_func == nullptr);
 			for (auto index : writes) {
-				const auto &buf = arr.resources[index].resource;
+				const auto &buf = arr.slots[index].resource;
 				// TODO batch writes
 				gpu::structured_buffer_view view = nullptr;
 				if (buf) {

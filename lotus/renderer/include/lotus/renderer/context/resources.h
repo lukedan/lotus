@@ -271,11 +271,6 @@ namespace lotus::renderer {
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this buffer out of.
 			pool::token memory; ///< Allocated memory for this image.
 
-			/// Usage hint for this buffer - when transitioning to one of the states in this mask, this resource will
-			/// be instead transitioned to all usages in this mask, making it unnecessary to transition again when
-			/// switching between them.
-			gpu::buffer_access_mask usage_hint = gpu::buffer_access_mask::none;
-
 			std::uint32_t size; ///< The size of this buffer.
 			gpu::buffer_usage_mask usages = gpu::buffer_usage_mask::none; ///< Possible usages.
 
@@ -341,29 +336,39 @@ namespace lotus::renderer {
 			std::vector<gpu::format> expected_formats; ///< Expected swap chain formats.
 		};
 
+		// TODO: implement the behavior described below
 		/// A bindless descriptor array.
+		///
+		/// When writing a non-empty descriptor to an empty slot, that write can be carried out immediately. In
+		/// practice, we stage these writes until batch execution.
+		/// When writing a (empty or non-empty) descriptor to a non-empty slot, the context will check that the
+		/// descriptor is not in use. This means that double-buffering of descriptor arrays may be necessary.
+		/// When a resource is destroyed, it will automatically be removed from the descriptor array. Note that this
+		/// triggers the check for whether the descriptor array is in use. In most cases, it will be easier to
+		/// manually write an empty descriptor to the slot before discarding the resource.
 		template <typename RecordedResource, typename View> struct descriptor_array : public resource {
 		public:
-			/// A reference to an element in the array.
-			struct resource_reference {
+			/// A slot in this array that contains a reference to a resource.
+			struct slot {
 				/// Initializes this reference to empty.
-				resource_reference(std::nullptr_t) : resource(nullptr), view(nullptr) {
+				slot(std::nullptr_t) : resource(nullptr), view(nullptr) {
 				}
 
 				RecordedResource resource; ///< The referenced resource.
 				/// View object of the resource.
 				[[no_unique_address]] static_optional<View, !std::is_same_v<View, std::nullopt_t>> view;
 				std::uint32_t reference_index = 0; ///< Index of this reference in \p Descriptor::array_references.
+				bool written = false; ///< Whether this slot has been updated to the device.
 			};
 
 			/// Initializes all fields of this structure without creating a descriptor set.
 			descriptor_array(
-				gpu::descriptor_type ty, std::uint32_t cap, unique_resource_id i, std::u8string_view n
-			) : resource(i, n), set(nullptr), capacity(cap), type(ty) {
+				gpu::descriptor_type ty, std::uint32_t capacity, unique_resource_id i, std::u8string_view n
+			) : resource(i, n), set(nullptr), type(ty) {
 				// we have to do this manually because the copy constructor may be deleted
-				resources.reserve(capacity);
+				slots.reserve(capacity);
 				for (std::uint32_t di = 0; di < capacity; ++di) {
-					resources.emplace_back(nullptr);
+					slots.emplace_back(nullptr);
 				}
 			}
 
@@ -374,27 +379,22 @@ namespace lotus::renderer {
 				} else if constexpr (std::is_same_v<RecordedResource, recorded_resources::structured_buffer_view>) {
 					return resource_type::buffer_descriptor_array;
 				} else {
-					static_assert(!std::is_same_v<RecordedResource, RecordedResource>, "Not implemented");
-					return resource_type::num_enumerators;
+					std::unreachable(); // not implemented
 				}
 			}
 
 			gpu::descriptor_set set; ///< The descriptor set.
 			const gpu::descriptor_set_layout *layout = nullptr; ///< Layout of this descriptor array.
-			std::uint32_t capacity = 0; ///< The capacity of this array.
 			/// The type of this descriptor array.
 			gpu::descriptor_type type = gpu::descriptor_type::num_enumerators;
 
-			std::vector<resource_reference> resources; ///< Contents of this descriptor array.
+			std::vector<slot> slots; ///< Contents of this descriptor array.
 
 			/// Indices of all resources that have been used externally and may need transitions.
-			std::vector<std::uint32_t> staged_transitions;
+			std::vector<std::uint32_t> altered_resources;
 			/// Indices of all resources that have been modified in \ref resources but have not been written into
 			/// \ref set.
 			std::vector<std::uint32_t> staged_writes;
-			/// Indicates whether there are pending descriptor writes that overwrite an existing descriptor. This
-			/// means that we'll need to wait until the previous use of this descriptor array has finished.
-			bool has_descriptor_overwrites = false;
 		};
 
 		/// A bottom-level acceleration structure.
@@ -766,13 +766,6 @@ namespace lotus::renderer {
 			return _ptr->size;
 		}
 
-		/// Sets the usage hint of this buffer. Note that this method updates the value immediately; the value will
-		/// become effective before the next batch is executed and will not change during the execution of commands
-		/// unless modified using the \ref context.
-		void set_usage_hint(gpu::buffer_access_mask hint) const {
-			_ptr->usage_hint = hint;
-		}
-
 		/// Returns a view of this buffer as a structured buffer.
 		[[nodiscard]] structured_buffer_view get_view(
 			std::uint32_t stride, std::uint32_t first, std::uint32_t count
@@ -813,11 +806,6 @@ namespace lotus::renderer {
 		/// Returns the number of elements visible to this view.
 		[[nodiscard]] std::uint32_t get_num_elements() const {
 			return _count;
-		}
-
-		/// \sa buffer::set_usage_hint()
-		void set_usage_hint(gpu::buffer_access_mask hint) const {
-			_ptr->usage_hint = hint;
 		}
 
 		/// Returns the underlying raw buffer.

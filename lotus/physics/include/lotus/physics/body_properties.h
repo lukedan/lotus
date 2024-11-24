@@ -6,6 +6,7 @@
 #include "lotus/math/matrix.h"
 #include "lotus/math/vector.h"
 #include "lotus/math/quaternion.h"
+#include "lotus/physics/common.h"
 
 namespace lotus::physics {
 	/// Properties of a rigid body material.
@@ -13,18 +14,14 @@ namespace lotus::physics {
 		/// No initialization.
 		material_properties(uninitialized_t) {
 		}
-		/// Creates a new material properties from the given parameters.
-		[[nodiscard]] inline static material_properties create(double static_fric, double dyn_fric, double rest) {
-			material_properties result = uninitialized;
-			result.static_friction = static_fric;
-			result.dynamic_friction = dyn_fric;
-			result.restitution = rest;
-			return result;
+		/// Initializes all fields of this struct.
+		material_properties(scalar static_fric, scalar dyn_fric, scalar rest) :
+			static_friction(static_fric), dynamic_friction(dyn_fric), restitution(rest) {
 		}
 
-		double static_friction; ///< Static friction coefficient.
-		double dynamic_friction; ///< Dynamic friction coefficient.
-		double restitution; ///< Restitution coefficient.
+		scalar static_friction; ///< Static friction coefficient.
+		scalar dynamic_friction; ///< Dynamic friction coefficient.
+		scalar restitution; ///< Restitution coefficient.
 	};
 
 	/// Properties that are inherent to a rigid body.
@@ -33,21 +30,20 @@ namespace lotus::physics {
 		/// No initialization.
 		body_properties(uninitialized_t) {
 		}
-
 		/// Initializes a body with the given inertia matrix and mass.
-		[[nodiscard]] static constexpr body_properties create(mat33d i, double m) {
-			return body_properties(i.inverse(), 1.0 / m);
+		[[nodiscard]] static constexpr body_properties create(mat33s i, scalar m) {
+			return body_properties(i.inverse(), 1.0f / m);
 		}
 		/// Initializes a body with infinity mass, which is not affected by external forces or torques.
 		[[nodiscard]] static constexpr body_properties kinematic() {
-			return body_properties(zero, 0.0);
+			return body_properties(zero, zero);
 		}
 
-		mat33d inverse_inertia = uninitialized; ///< Inverse of the inertia matrix.
-		double inverse_mass; ///< Inverse mass.
+		mat33s inverse_inertia = uninitialized; ///< Inverse of the inertia matrix.
+		scalar inverse_mass; ///< Inverse mass.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr body_properties(mat33d inv_i, double inv_m) :
+		constexpr body_properties(mat33s inv_i, scalar inv_m) :
 			inverse_inertia(inv_i), inverse_mass(inv_m) {
 		}
 	};
@@ -58,21 +54,21 @@ namespace lotus::physics {
 		body_state(uninitialized_t) {
 		}
 		/// Initializes the body state with the given position, orientation, and linear and angular velocities.
-		[[nodiscard]] constexpr static body_state at(cvec3d pos, uquatd rot, cvec3d lin_vel, cvec3d ang_vel) {
+		[[nodiscard]] constexpr static body_state at(vec3 pos, uquats rot, vec3 lin_vel, vec3 ang_vel) {
 			return body_state(pos, rot, lin_vel, ang_vel);
 		}
 		/// Initializes the body to be stationary, with the given position and orientation.
-		[[nodiscard]] constexpr static body_state stationary_at(cvec3d pos, uquatd rot) {
+		[[nodiscard]] constexpr static body_state stationary_at(vec3 pos, uquats rot) {
 			return body_state(pos, rot, zero, zero);
 		}
 
-		cvec3d position = uninitialized; ///< The position of the center of mass in world space.
-		uquatd rotation = uninitialized; ///< The rotation/orientation of this body.
-		cvec3d linear_velocity = uninitialized; ///< Linear velocity of the center of mass.
-		cvec3d angular_velocity = uninitialized; ///< Angular velocity around the center of mass.
+		vec3 position = uninitialized; ///< The position of the center of mass in world space.
+		uquats rotation = uninitialized; ///< The rotation/orientation of this body.
+		vec3 linear_velocity = uninitialized; ///< Linear velocity of the center of mass.
+		vec3 angular_velocity = uninitialized; ///< Angular velocity around the center of mass.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr body_state(cvec3d x, uquatd q, cvec3d v, cvec3d omega) :
+		constexpr body_state(vec3 x, uquats q, vec3 v, vec3 omega) :
 			position(x), rotation(q), linear_velocity(v), angular_velocity(omega) {
 		}
 	};
@@ -83,21 +79,20 @@ namespace lotus::physics {
 		/// No initialization.
 		particle_properties(uninitialized_t) {
 		}
-
 		/// Creates a new \ref particle_properties object using the given inverse mass.
-		[[nodiscard]] constexpr static particle_properties from_mass(double m) {
-			return particle_properties(1.0 / m);
+		[[nodiscard]] constexpr static particle_properties from_mass(scalar m) {
+			return particle_properties(1.0f / m);
 		}
 		/// Creates a new \ref particle_properties with infinite mass, indicating that it is not affected by external
 		/// forces.
 		[[nodiscard]] constexpr static particle_properties kinematic() {
-			return particle_properties(0.0);
+			return particle_properties(zero);
 		}
 
-		double inverse_mass; ///< Inverse mass.
+		scalar inverse_mass; ///< Inverse mass.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr explicit particle_properties(double inv_m) : inverse_mass(inv_m) {
+		constexpr explicit particle_properties(scalar inv_m) : inverse_mass(inv_m) {
 		}
 	};
 	/// Position and velocity information about a particle.
@@ -107,19 +102,19 @@ namespace lotus::physics {
 		particle_state(uninitialized_t) {
 		}
 		/// Initializes the particle state with the given position and velocity.
-		[[nodiscard]] constexpr static particle_state at(cvec3d pos, cvec3d vel) {
+		[[nodiscard]] constexpr static particle_state at(vec3 pos, vec3 vel) {
 			return particle_state(pos, vel);
 		}
 		/// Initializes the particle to be stationary with the given position.
-		[[nodiscard]] constexpr static particle_state stationary_at(cvec3d pos) {
+		[[nodiscard]] constexpr static particle_state stationary_at(vec3 pos) {
 			return particle_state(pos, zero);
 		}
 
-		cvec3d position = uninitialized; ///< The position of this particle.
-		cvec3d velocity = uninitialized; ///< The velocity of this particle.
+		vec3 position = uninitialized; ///< The position of this particle.
+		vec3 velocity = uninitialized; ///< The velocity of this particle.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr particle_state(cvec3d x, cvec3d v) : position(x), velocity(v) {
+		constexpr particle_state(vec3 x, vec3 v) : position(x), velocity(v) {
 		}
 	};
 }

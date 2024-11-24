@@ -38,6 +38,8 @@ target_sources(lotus_core
 		"include/lotus/index.h"
 		"include/lotus/logging.h"
 	PRIVATE
+		"src/algorithms/convex_hull.cpp"
+
 		"src/math/matrix.natvis"
 
 		"src/containers/short_vector.natvis"

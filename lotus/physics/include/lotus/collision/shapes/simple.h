@@ -7,15 +7,16 @@
 #include "lotus/math/vector.h"
 #include "lotus/physics/body_properties.h"
 
+#include "lotus/collision/common.h"
+
 namespace lotus::collision::shapes {
 	/// A sphere centered at the origin.
 	struct sphere {
 		/// No initialization.
 		sphere(uninitialized_t) {
 		}
-
 		/// Creates a new uniform sphere shape with the given radius.
-		[[nodiscard]] inline static sphere from_radius(double r) {
+		[[nodiscard]] inline static sphere from_radius(scalar r) {
 			sphere result = uninitialized;
 			result.offset = zero;
 			result.radius = r;
@@ -24,15 +25,15 @@ namespace lotus::collision::shapes {
 
 		/// The offset of the center of this sphere in local coordinates. This ensures that the center of mass is
 		/// always at the origin of the local coordinate system.
-		cvec3d offset = uninitialized;
-		double radius; ///< The radius of this sphere.
+		vec3 offset = uninitialized;
+		scalar radius; ///< The radius of this sphere.
 
 		/// Returns the body properties of this shape with the given density.
-		[[nodiscard]] constexpr physics::body_properties get_body_properties(double density) const {
+		[[nodiscard]] constexpr physics::body_properties get_body_properties(scalar density) const {
 			// TODO offset this sphere
-			double mass = (4.0 / 3.0) * pi * radius * radius * radius * density;
-			double diag = 0.4 * mass * radius * radius;
-			return physics::body_properties::create(mat33d::diagonal(diag, diag, diag), mass);
+			const scalar mass = (4.0f / 3.0f) * static_cast<scalar>(pi) * radius * radius * radius * density;
+			const scalar diag = 0.4f * mass * radius * radius;
+			return physics::body_properties::create(mat33s::diagonal(diag, diag, diag), mass);
 		}
 	};
 

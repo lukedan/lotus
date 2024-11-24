@@ -50,7 +50,7 @@ public:
 
 		/*
 		if (_mouse_buttons[GLFW_MOUSE_BUTTON_LEFT] || _mouse_buttons[GLFW_MOUSE_BUTTON_MIDDLE]) {
-			lotus::cvec3d center = _camera_params.look_at;
+			vec3 center = _camera_params.look_at;
 			glDisable(GL_LIGHTING);
 			glBegin(GL_LINES);
 			glColor3f(1.0f, 0.0f, 0.0f);
@@ -72,7 +72,7 @@ public:
 	void update() {
 		if (_test_running) {
 			auto now = std::chrono::high_resolution_clock::now();
-			double dt = std::chrono::duration<double>(now - _last_update).count();
+			scalar dt = std::chrono::duration<scalar>(now - _last_update).count();
 			if (_test) {
 				_update_truncated = false;
 				double target = dt * (_time_scale / 100.0), consumed = 0.0;
@@ -126,16 +126,16 @@ protected:
 	int _iters = 1; ///< Solver iterations.
 
 	float _max_frametime = 0.1f; ///< Maximum frame time.
-	double _simulation_speed = 0.0f; ///< Simulation speed.
+	scalar _simulation_speed = 0.0f; ///< Simulation speed.
 	bool _update_truncated = false; ///< Whether the update was terminated early to prevent locking up.
-	double _timestep_cost = 0.0f; ///< Running average of timestep costs.
+	scalar _timestep_cost = 0.0f; ///< Running average of timestep costs.
 	float _timestep_cost_factor = 0.01f; ///< Running average factor of timestep costs.
 
 	lotus::renderer::context::queue _gfx_q = nullptr;
 	lotus::renderer::pool _pool = nullptr;
 	/// Sensitivity for scrolling to move the camera closer and further from the focus point.
 	float _scroll_sensitivity = 0.95f;
-	lotus::camera_control<double> _camera_control = nullptr;
+	lotus::camera_control<scalar> _camera_control = nullptr;
 
 	test_context _test_context; ///< Test context.
 	std::vector<_test_creator> _tests; ///< The list of tests.
@@ -240,7 +240,7 @@ protected:
 
 
 	void _reset_camera() {
-		_test_context.camera_params = lotus::camera_parameters<double>::create_look_at(lotus::zero, { 3.0, 4.0, 5.0 }, { 0.0, 1.0, 0.0 }, _get_window_size()[0] / std::max(1.0, static_cast<double>(_get_window_size()[1])));
+		_test_context.camera_params = lotus::camera_parameters<scalar>::create_look_at(lotus::zero, { 3.0, 4.0, 5.0 }, { 0.0, 1.0, 0.0 }, _get_window_size()[0] / std::max<scalar>(1.0f, static_cast<scalar>(_get_window_size()[1])));
 		_test_context.update_camera();
 	}
 
@@ -278,12 +278,12 @@ protected:
 		_gfx_q = _context->get_queue(0);
 		_pool = _context->request_pool(u8"Pool");
 
-		_camera_control = lotus::camera_control<double>(_test_context.camera_params);
+		_camera_control = lotus::camera_control<scalar>(_test_context.camera_params);
 	}
 
 	void _on_resize(lotus::system::window_events::resize &size) override {
 		lotus::cvec2u32 sz = _get_window_size();
-		_test_context.camera_params.aspect_ratio = sz[0] / static_cast<double>(sz[1]);
+		_test_context.camera_params.aspect_ratio = sz[0] / static_cast<scalar>(sz[1]);
 		_test_context.update_camera();
 	}
 	void _on_mouse_move(lotus::system::window_events::mouse::move &move) override {
@@ -298,7 +298,7 @@ protected:
 		_camera_control.on_mouse_up(up.button);
 	}
 	void _on_mouse_scroll(lotus::system::window_events::mouse::scroll &scroll) override {
-		lotus::cvec3d diff = _test_context.camera_params.position - _test_context.camera_params.look_at;
+		vec3 diff = _test_context.camera_params.position - _test_context.camera_params.look_at;
 		diff *= std::pow(_scroll_sensitivity, scroll.offset[1]);
 		_test_context.camera_params.position = _test_context.camera_params.look_at + diff;
 		_test_context.update_camera();
@@ -308,7 +308,7 @@ protected:
 int main(int argc, char **argv) {
 	testbed_app app(argc, argv, lotus::gpu::context_options::none);
 	app.initialize();
-	app.register_test<convex_hull_test>();
+	/*app.register_test<convex_hull_test>();*/
 	app.register_test<fem_cloth_test>();
 	app.register_test<spring_cloth_test>();
 	app.register_test<box_stack_test>();

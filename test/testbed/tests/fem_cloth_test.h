@@ -68,19 +68,19 @@ public:
 		auto &sphere_shape = _engine.shapes.emplace_back(lotus::collision::shape::create(lotus::collision::shapes::sphere::from_radius(0.25)));
 		auto &plane_shape = _engine.shapes.emplace_back(lotus::collision::shape::create(lotus::collision::shapes::plane()));
 
-		auto material = lotus::physics::material_properties::create(0.5, 0.45, 0.2);
+		auto material = lotus::physics::material_properties(0.5f, 0.45f, 0.2f);
 
 		_engine.bodies.emplace_front(lotus::physics::body::create(
 			sphere_shape, material,
 			lotus::physics::body_properties::kinematic(),
-			lotus::physics::body_state::stationary_at(lotus::zero, lotus::uquatd::identity())
+			lotus::physics::body_state::stationary_at(lotus::zero, lotus::physics::uquats::identity())
 		));
 		_sphere = _engine.bodies.begin();
 
 		_engine.bodies.emplace_front(lotus::physics::body::create(
 			plane_shape, material,
 			lotus::physics::body_properties::kinematic(),
-			lotus::physics::body_state::stationary_at(lotus::zero, lotus::quat::from_axis_angle(lotus::cvec3d(1.0f, 0.0f, 0.0f), -0.5f * lotus::pi))
+			lotus::physics::body_state::stationary_at(lotus::zero, lotus::quat::from_axis_angle(lotus::physics::vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::pi))
 		));
 	}
 

@@ -7,6 +7,7 @@
 #include "test.h"
 #include "../utils.h"
 
+#if 0
 class convex_hull_test : public test {
 public:
 	struct empty {
@@ -14,7 +15,6 @@ public:
 		}
 	};
 	using random_engine = std::default_random_engine;
-	using convex_hull_t = lotus::incremental_convex_hull<empty, empty>;
 
 	explicit convex_hull_test(const test_context &tctx) : test(tctx) {
 		soft_reset();
@@ -22,9 +22,7 @@ public:
 
 	void timestep(double, std::size_t) override {
 		if (_cur_vertex < _vertices.size()) {
-			_convex_hull.add_vertex(
-				convex_hull_t::vertex::create(_vertices[_cur_vertex], lotus::uninitialized), _dummy_face_data
-			);
+			_convex_hull.add_vertex(_vertices[_cur_vertex]);
 			++_cur_vertex;
 			_update_properties();
 		}
@@ -36,7 +34,7 @@ public:
 		std::uniform_real_distribution dist(-1.0, 1.0);
 		std::default_random_engine eng(_seed);
 		for (int i = 0; i < _num_vertices; ++i) {
-			lotus::cvec3d v = lotus::uninitialized;
+			vec3 v = lotus::uninitialized;
 			v[0] = dist(eng);
 			v[1] = dist(eng);
 			v[2] = dist(eng);
@@ -130,19 +128,17 @@ public:
 		return "Polyhedron Test";
 	}
 protected:
-	inline static void _dummy_face_data(const convex_hull_t&, const convex_hull_t::face&) {
-	}
-
 	lotus::collision::shapes::polyhedron::properties _props = lotus::uninitialized;
-	std::vector<lotus::cvec3d> _vertices;
+	std::vector<vec3> _vertices;
 	std::vector<bool> _vertex_states;
-	convex_hull_t _convex_hull = convex_hull_t::create_empty();
+	lotus::incremental_convex_hull::state _convex_hull;
+	lotus::incremental_convex_hull::storage _convex_hull_storage;
 	int _seed = 0;
 	int _num_vertices = 100;
 	std::size_t _cur_vertex = 0;
 
 	void _update_properties() {
-		std::vector<lotus::cvec3d> verts;
+		std::vector<vec3> verts;
 		std::vector<std::array<std::size_t, 3>> tris;
 		for (const auto &v : _convex_hull.vertices) {
 			verts.emplace_back(v.position);
@@ -153,3 +149,4 @@ protected:
 		_props = lotus::collision::shapes::polyhedron::properties::compute_for(verts, tris);
 	}
 };
+#endif

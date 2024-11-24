@@ -23,22 +23,18 @@ namespace lotus {
 #endif
 
 	/// Calls \p std::abort() if \p value is \p true.
-	inline void crash_if(bool value) {
-		if (value) {
-			std::abort();
-		}
-	}
-	/// Calls \ref crash_if() in debug builds.
-	inline void crash_if_debug([[maybe_unused]] bool value) {
-		if constexpr (is_debugging) {
-			crash_if(value);
-		}
-	}
-	/// \p constexpr version of \ref crash_if().
-	inline constexpr void crash_if_constexpr([[maybe_unused]] bool value) {
+	constexpr inline void crash_if(bool value) {
 		if (std::is_constant_evaluated()) {
 			assert(!value);
 		} else {
+			if (value) {
+				std::abort();
+			}
+		}
+	}
+	/// Calls \ref crash_if() in debug builds.
+	constexpr inline void crash_if_debug([[maybe_unused]] bool value) {
+		if constexpr (is_debugging) {
 			crash_if(value);
 		}
 	}
@@ -111,7 +107,7 @@ namespace lotus {
 		/// Dynamically retrieves the i-th element.
 		template <T First, T ...Others> [[nodiscard]] constexpr inline static T get(std::size_t i) {
 			if constexpr (sizeof...(Others) == 0) {
-				crash_if_constexpr(i != 0);
+				crash_if(i != 0);
 				return First;
 			} else {
 				return i == 0 ? First : get<Others...>(i - 1);

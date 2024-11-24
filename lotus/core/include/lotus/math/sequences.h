@@ -55,7 +55,7 @@ namespace lotus::sequences {
 			std::uint32_t num_bits, std::uint32_t index, std::uint32_t t = 32
 		) const {
 			cvec2<F> result = zero;
-			crash_if_constexpr((index & ~((1u << num_bits) - 1u)) != 0);
+			crash_if((index & ~((1u << num_bits) - 1u)) != 0);
 			for (std::uint32_t i = 0; i < std::min(t, num_bits); ++i) {
 				if (index & (1 << i)) {
 					result[0] += _coefficients[i];

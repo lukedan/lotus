@@ -3,310 +3,328 @@
 /// \file
 /// Implementation of 3D convex hull algorithms.
 
+#include <span>
 #include <vector>
-#include <list>
-#include <stack>
-#include <deque>
-#include <array>
 
-#include "lotus/memory/stack_allocator.h"
 #include "lotus/common.h"
+#include "lotus/containers/pool.h"
+#include "lotus/math/vector.h"
+#include "lotus/memory/stack_allocator.h"
+#include "lotus/utils/static_function.h"
 
-namespace lotus {
-	/// Computes incremental convex hull for a set of vertices.
+namespace lotus::incremental_convex_hull {
+	/// Scalar type.
+	using scalar = float;
+	/// Vector type.
+	using vec3 = cvec3<scalar>;
+
+	/// Opaque index type for vertex IDs.
+	enum class vertex_id : std::uint32_t {
+	};
+	/// Opaque index type for face IDs.
+	enum class face_id : std::uint32_t {
+		invalid = std::numeric_limits<std::underlying_type_t<face_id>>::max() ///< Invalid value.
+	};
+
+	/// Opaque index type for face vertex indices.
+	enum class face_vertex_ref : std::uint32_t {
+		invalid = 3, ///< Invalid value.
+	};
+	/// Returns the next vertex in a face. The reference must be valid.
+	[[nodiscard]] constexpr face_vertex_ref next_in_face(face_vertex_ref v) {
+		crash_if(v >= face_vertex_ref::invalid);
+		return static_cast<face_vertex_ref>((std::to_underlying(v) + 1) % 3);
+	}
+	/// Returns the previous vertex in a face. The reference must be valid.
+	[[nodiscard]] constexpr face_vertex_ref previous_in_face(face_vertex_ref v) {
+		crash_if(v >= face_vertex_ref::invalid);
+		return static_cast<face_vertex_ref>((std::to_underlying(v) + 2) % 3);
+	}
+
+	/// A reference to a half edge.
+	struct half_edge_ref {
+		/// No initialization.
+		half_edge_ref(uninitialized_t) {
+		}
+		/// Initializes this reference to empty.
+		constexpr half_edge_ref(std::nullptr_t) : face(static_cast<face_id>(0)), vertex(face_vertex_ref::invalid) {
+		}
+		/// Initializes all fields of this struct.
+		constexpr half_edge_ref(face_id f, face_vertex_ref v) : face(f), vertex(v) {
+		}
+
+		/// Returns the refence to the next half edge in the triangle.
+		[[nodiscard]] constexpr half_edge_ref next_in_face() const {
+			return half_edge_ref(face, incremental_convex_hull::next_in_face(vertex));
+		}
+		/// Returns the refence to the previous half edge in the triangle.
+		[[nodiscard]] constexpr half_edge_ref previous_in_face() const {
+			return half_edge_ref(face, incremental_convex_hull::previous_in_face(vertex));
+		}
+
+		/// Returns whether this reference is valid.
+		[[nodiscard]] constexpr bool is_valid() const {
+			return vertex != face_vertex_ref::invalid;
+		}
+		[[nodiscard]] constexpr explicit operator bool() const {
+			return is_valid();
+		}
+
+		/// Equality.
+		[[nodiscard]] friend bool operator==(half_edge_ref, half_edge_ref) = default;
+
+		face_id         face   : 30; ///< The face that owns this half edge.
+		face_vertex_ref vertex : 2;  ///< The vertex that this half edge starts from.
+	};
+
+	/// A triangular face.
+	struct face {
+		/// No initialization.
+		face(uninitialized_t) {
+		}
+		/// Initializes all fields of this struct.
+		constexpr face(std::array<vertex_id, 3> vert_ids, vec3 n) :
+			normal(n),
+			vertex_indices(vert_ids),
+			edges{ nullptr, nullptr, nullptr },
+			previous(face_id::invalid),
+			next(face_id::invalid) {
+		}
+
+		/// Returns the ID of the given vertex.
+		[[nodiscard]] constexpr vertex_id get_vertex(face_vertex_ref r) const {
+			return vertex_indices[std::to_underlying(r)];
+		}
+
+		vec3 normal = uninitialized; ///< The unnormalized normal vector of this face.
+		std::array<vertex_id, 3> vertex_indices; ///< Vertex indices in counter-clockwise order.
+		/// Half-edges of this face. Each half edge starts from the corresponding vertex of \ref vertex_indices and
+		/// ends at the next vertex in the list, wrapping around if necessary.
+		std::array<half_edge_ref, 3> edges{ uninitialized, uninitialized, uninitialized };
+		face_id previous; ///< Previous face. These form a circular doubly-linked list.
+		face_id next; ///< Next face. These form a circular doubly-linked list.
+	};
+	using face_entry = pool_entry<face, face_id>; ///< Pool entry type for a face.
+
+	/// Tag type indicating that no data is associated with an element.
+	struct no_data {
+	};
+	/// Grants access to user data.
 	template <
-		typename VertexData, typename FaceData, template <typename> typename Allocator = std::allocator
-	> struct incremental_convex_hull {
+		typename VertexData, typename FaceData, typename VertexAllocator, typename FaceAllocator
+	> struct user_data {
 	public:
-		struct face;
-		using face_collection = std::list<face, Allocator<face>>; ///< The collection of faces.
-		/// A vertex.
-		struct vertex {
-		public:
-			/// No initialization.
-			vertex(uninitialized_t) {
-			}
-			/// Creates a new vertex.
-			[[nodiscard]] constexpr static vertex create(cvec3d pos, VertexData data) {
-				return vertex(pos, std::move(data));
-			}
+		/// Indicates whether there's vertex data.
+		constexpr static bool has_vertex_data = !std::is_same_v<VertexData, no_data>;
+		/// Indicates whether there's face data.
+		constexpr static bool has_face_data = !std::is_same_v<FaceData, no_data>;
 
-			cvec3d position = uninitialized; ///< The position of this vertex.
-			[[no_unique_address]] VertexData data = uninitialized; ///< User data for this vertex.
-		protected:
-			/// Initializes all fields.
-			constexpr vertex(cvec3d pos, VertexData d) : position(pos), data(std::move(d)) {
-			}
-		};
-		/// Reference to a half-edge.
-		struct half_edge_ref {
-		public:
-			/// The value of \ref index that indicates that this reference is empty.
-			constexpr static auto null_index = std::numeric_limits<std::uint8_t>::max();
-
-			/// No initialization.
-			half_edge_ref(uninitialized_t) {
-			}
-			/// Initializes \ref index to \ref null_index.
-			half_edge_ref(std::nullptr_t) : index(null_index) {
-			}
-			/// Creates a new \ref half_edge_ref to the given edge int he given face.
-			[[nodiscard]] inline static half_edge_ref to(typename face_collection::iterator f, std::uint8_t i) {
-				return half_edge_ref(f, i);
-			}
-
-			/// Returns the next edge in \ref face.
-			[[nodiscard]] half_edge_ref next() const {
-				return to(face, static_cast<std::uint8_t>((index + 1) % 3));
-			}
-			/// Returns the previous edge in \ref face.
-			[[nodiscard]] half_edge_ref prev() const {
-				return to(face, static_cast<std::uint8_t>((index + 2) % 3));
-			}
-
-			/// Dereferencing.
-			[[nodiscard]] half_edge_ref &operator*() const {
-				return face->edges[index];
-			}
-			/// Dereferencing.
-			[[nodiscard]] half_edge_ref *operator->() const {
-				return &face->edges[index];
-			}
-
-			/// Tests whether this iterator is empty.
-			[[nodiscard]] bool empty() const {
-				return index == null_index;
-			}
-			/// \overload
-			[[nodiscard]] explicit operator bool() const {
-				return !empty();
-			}
-
-			/// Equality.
-			[[nodiscard]] friend bool operator==(half_edge_ref, half_edge_ref) = default;
-
-			typename face_collection::iterator face; ///< The face that contains the half edge.
-			std::uint8_t index; ///< The index of this edge in \ref face::edges.
-		protected:
-			/// Initializes all fields of this reference.
-			half_edge_ref(typename face_collection::iterator f, std::uint8_t i) : face(f), index(i) {
-			}
-		};
-		/// A triangular face.
-		struct face {
-		public:
-			/// No initialization.
-			face(uninitialized_t) {
-			}
-			/// Creates a new object with empty neighbor references.
-			[[nodiscard]] constexpr static face create(
-				std::array<std::size_t, 3> vert_ids, cvec3d n, FaceData data
-			) {
-				return face(vert_ids, n, std::move(data));
-			}
-			/// Creates a new object with empty neighbor references and uninitialized user data.
-			[[nodiscard]] inline static face create_without_data(std::array<std::size_t, 3> vert_ids, cvec3d n) {
-				return face(vert_ids, n);
-			}
-
-			std::array<std::size_t, 3> vertex_indices; ///< Vertex indices in counter-clockwise order.
-			/// Half-edges of this face.
-			std::array<half_edge_ref, 3> edges{
-				uninitialized, uninitialized, uninitialized
-			};
-			cvec3d normal = uninitialized; ///< The normalized normal of this face.
-			[[no_unique_address]] FaceData data = uninitialized; ///< User data for this face.
-			bool marked; ///< Marker used by the convex hull algorithm.
-		protected:
-			/// Initializes all fields of this struct.
-			constexpr face(std::array<std::size_t, 3> vert_ids, cvec3d n, FaceData fd) :
-				vertex_indices(vert_ids), edges{ nullptr, nullptr, nullptr },
-				normal(n), data(std::move(fd)), marked(false) {
-			}
-			/// Initializes all fields apart from \ref data.
-			face(std::array<std::size_t, 3> vert_ids, cvec3d n) : face(vert_ids, n, uninitialized) {
-			}
-		};
-
-		/// Creates an empty object.
-		[[nodiscard]] inline static incremental_convex_hull create_empty(
-			const Allocator<vertex> &vert_alloc = Allocator<vertex>(),
-			const Allocator<face> &face_alloc = Allocator<face>()
-		) {
-			return incremental_convex_hull(vert_alloc, face_alloc);
+		/// Initializes all fields of this struct.
+		user_data(
+			std::uint32_t vert_count,
+			std::uint32_t face_count,
+			const VertexData &vert_data,
+			const FaceData &face_data,
+			const VertexAllocator &vert_alloc,
+			const FaceAllocator &face_alloc
+		) : _verts(vert_count, vert_data, vert_alloc), _faces(face_count, face_data, face_alloc) {
 		}
+		/// Initializes only vertex data.
+		template <
+			typename T = int, std::enable_if_t<has_vertex_data && !has_face_data, T> = 0
+		> explicit user_data(std::uint32_t vert_count, std::span<VertexData> v) : _verts(vert_count, v) {
+		}
+		/// Initializes only face data.
+		template <
+			typename T = int, std::enable_if_t<has_face_data && !has_vertex_data, T> = 0
+		> explicit user_data(std::uint32_t face_count, std::span<FaceData> f) : _faces(face_count, f) {
+		}
+
+		/// Returns the vertex data associated with the given ID.
+		template <
+			typename T = int, std::enable_if_t<has_vertex_data, T> = 0
+		> [[nodiscard]] VertexData &get(vertex_id i) {
+			return (*_verts)[std::to_underlying(i)];
+		}
+		/// \overload
+		template <
+			typename T = int, std::enable_if_t<has_vertex_data, T> = 0
+		> [[nodiscard]] const VertexData &get(vertex_id i) const {
+			return (*_verts)[std::to_underlying(i)];
+		}
+		/// Returns the face data associated with the given ID.
+		template <
+			typename T = int, std::enable_if_t<has_face_data, T> = 0
+		> [[nodiscard]] FaceData &get(face_id i) {
+			return (*_faces)[std::to_underlying(i)];
+		}
+		/// \overload
+		template <
+			typename T = int, std::enable_if_t<has_face_data, T> = 0
+		> [[nodiscard]] const FaceData &get(face_id i) const {
+			return (*_faces)[std::to_underlying(i)];
+		}
+	private:
+		static_optional<std::vector<VertexData, VertexAllocator>, has_vertex_data> _verts; ///< Vertices.
+		static_optional<std::vector<FaceData, FaceAllocator>, has_face_data> _faces; ///< Faces.
+	};
+	/// Creates a new \ref user_data object.
+	template <
+		typename VertexData, typename FaceData, typename VertexAllocator, typename FaceAllocator
+	> [[nodiscard]] inline static user_data<
+		VertexData, FaceData, VertexAllocator, FaceAllocator
+	> create_user_data_storage(
+		std::uint32_t vert_count,
+		std::uint32_t face_count,
+		const VertexData &vert_data,
+		const FaceData &face_data,
+		const VertexAllocator &vert_alloc,
+		const FaceAllocator &face_alloc
+	) {
+		return user_data<VertexData, FaceData, VertexAllocator, FaceAllocator>(
+			vert_count, face_count, vert_data, face_data, vert_alloc, face_alloc
+		);
+	}
+
+	/// Computes incremental convex hull for a set of vertices.
+	struct state {
+	public:
+		/// Callback for face addition/removal events.
+		using face_callback = static_function<void(const state&, face_id)>;
+
 		/// Creates a new convex hull for the given tetrahedron.
-		template <typename ComputeFaceData> [[nodiscard]] inline static incremental_convex_hull for_tetrahedron(
-			std::array<vertex, 4> verts, const ComputeFaceData &face_data,
-			const Allocator<vertex> &vert_alloc = Allocator<vertex>(),
-			const Allocator<face> &face_alloc = Allocator<face>()
-		) {
-			incremental_convex_hull result(vert_alloc, face_alloc);
-			result.vertices = std::vector<vertex, Allocator<vertex>>(
-				std::make_move_iterator(verts.begin()), std::make_move_iterator(verts.end()), vert_alloc
-			);
-
-			bool invert_even_normals = vec::dot(
-				vec::cross(
-					result.vertices[1].position - result.vertices[0].position,
-					result.vertices[2].position - result.vertices[0].position
-				),
-				result.vertices[3].position - result.vertices[0].position
-			) > 0.0;
-
-			// create faces
-			std::array<typename face_collection::iterator, 4> faces;
-			{
-				std::array<std::array<std::size_t, 3>, 4> vertex_indices;
-				if (invert_even_normals) {
-					vertex_indices = { { { 0, 2, 1 }, { 1, 2, 3 }, { 2, 0, 3 }, { 3, 0, 1 } } };
-				} else {
-					vertex_indices = { { { 0, 1, 2 }, { 1, 3, 2 }, { 2, 3, 0 }, { 3, 1, 0 } } };
-				}
-				for (std::size_t i = 0; i < 4; ++i) {
-					faces[i] = result.faces.insert(
-						result.faces.end(), result.create_face(vertex_indices[i], face_data)
-					);
-				}
-			}
-
-			{ // initialize references
-				std::array<std::array<std::pair<std::size_t, std::size_t>, 3>, 4> neighbor_indices;
-				if (invert_even_normals) {
-					// { { 0, 2, 1 }, { 1, 2, 3 }, { 2, 0, 3 }, { 3, 0, 1 } }
-					neighbor_indices = { {
-						{ { { 2, 0 }, { 1, 0 }, { 3, 1 } } },
-						{ { { 0, 1 }, { 2, 2 }, { 3, 2 } } },
-						{ { { 0, 0 }, { 3, 0 }, { 1, 1 } } },
-						{ { { 2, 1 }, { 0, 2 }, { 1, 2 } } }
-					} };
-				} else {
-					// { { 0, 1, 2 }, { 1, 3, 2 }, { 2, 3, 0 }, { 3, 1, 0 } }
-					neighbor_indices = { {
-						{ { { 3, 1 }, { 1, 2 }, { 2, 2 } } },
-						{ { { 3, 0 }, { 2, 0 }, { 0, 1 } } },
-						{ { { 1, 1 }, { 3, 2 }, { 0, 2 } } },
-						{ { { 1, 0 }, { 0, 0 }, { 2, 1 } } }
-					} };
-				}
-				for (std::size_t i = 0; i < 4; ++i) {
-					for (std::size_t j = 0; j < 3; ++j) {
-						auto [face_id, vert_id] = neighbor_indices[i][j];
-						faces[i]->edges[j] = half_edge_ref::to(faces[face_id], static_cast<std::uint8_t>(vert_id));
-					}
-				}
-			}
-
-			return result;
-		}
+		[[nodiscard]] static state for_tetrahedron(
+			std::array<vec3, 4> initial_verts,
+			std::span<vec3> vert_storage,
+			std::span<face_entry> face_storage,
+			face_callback face_added = nullptr,
+			face_callback face_removing = nullptr
+		);
+		/// Default move constructor.
+		state(state&&) = default;
+		/// Default move assignment.
+		state &operator=(state&&) = default;
+		/// Resets the pool.
+		~state();
 
 		/// Adds a vertex to this convex hull. The iterator provides a face that faces the new vertex.
-		template <typename ComputeFaceData> void add_vertex_hint(
-			vertex v, typename face_collection::iterator hint, const ComputeFaceData &compute_data
-		) {
-			using _ptr = typename face_collection::iterator;
-			using _ptr_deque = std::deque<_ptr, memory::stack_allocator::std_allocator<_ptr>>;
-
-			std::size_t vert_id = vertices.size();
-			auto &vert = vertices.emplace_back(std::move(v));
-
-			half_edge_ref boundary_edge = uninitialized;
-			{ // find all faces that should be removed & create new faces
-				auto bookmark = get_scratch_bookmark();
-				std::stack<_ptr, _ptr_deque> stk{ _ptr_deque(bookmark.create_std_allocator<_ptr>()) };
-				stk.emplace(hint);
-				hint->marked = true;
-				while (!stk.empty()) {
-					_ptr cur = stk.top();
-					stk.pop();
-					for (std::size_t i = 0; i < 3; ++i) {
-						auto other_half_edge = cur->edges[i];
-						if (!other_half_edge) {
-							continue;
-						}
-						if (other_half_edge.face->marked) {
-							*other_half_edge = nullptr;
-							continue;
-						}
-						bool delete_face = vec::dot(
-							other_half_edge.face->normal,
-							vert.position - vertices[other_half_edge.face->vertex_indices[0]].position
-						) > 0.0;
-						if (delete_face) {
-							stk.emplace(other_half_edge.face);
-							other_half_edge.face->marked = true;
-						} else {
-							// we've found a boundary edge
-							boundary_edge = other_half_edge;
-						}
-						// make sure there are no more references to cur, since we're gonna delete it
-						*other_half_edge = nullptr;
-					}
-					// remove this face from `faces`
-					faces.erase(cur);
-				}
-			}
-
-			// update references of all newly-created faces
-			auto ref = boundary_edge;
-			half_edge_ref last_new_face = nullptr;
-			half_edge_ref first_new_face = nullptr;
-			do {
-				// create new face
-				auto new_face = faces.insert(faces.end(), create_face(
-					{ ref.face->vertex_indices[(ref.index + 1) % 3], ref.face->vertex_indices[ref.index], vert_id },
-					compute_data
-				));
-
-				// update references
-				new_face->edges[0] = ref;
-				*ref = half_edge_ref::to(new_face, 0);
-				if (last_new_face) {
-					new_face->edges[1] = last_new_face;
-					*last_new_face = half_edge_ref::to(new_face, 1);
-				} else {
-					first_new_face = half_edge_ref::to(new_face, 1);
-				}
-				last_new_face = half_edge_ref::to(new_face, 2);
-
-				// update loop variable
-				ref = ref.next();
-				while (*ref && ref != boundary_edge) {
-					ref = ref->next();
-				}
-			} while (ref != boundary_edge);
-			*first_new_face = last_new_face;
-			*last_new_face = first_new_face;
-		}
+		vertex_id add_vertex_hint(vec3, face_id hint);
 		/// Adds a new vertex to the polytope.
-		template <typename ComputeFaceData> void add_vertex(vertex v, const ComputeFaceData &compute_data) {
-			for (auto it = faces.begin(); it != faces.end(); ++it) {
-				if (vec::dot(it->normal, v.position - vertices[it->vertex_indices[0]].position) > 0.0) {
-					add_vertex_hint(std::move(v), it, compute_data);
-					return;
-				}
-			}
+		vertex_id add_vertex(vec3);
+
+		/// Returns a vertex in the polyhedra.
+		[[nodiscard]] vec3 get_vertex(vertex_id i) const {
+			return _vertices[std::to_underlying(i)];
+		}
+		/// Returns a face in the polyhedra.
+		[[nodiscard]] const face &get_face(face_id i) const {
+			return _faces_pool[i];
+		}
+		/// Returns a reference to an arbitrary face in the polyhedra that can be used to enumerate the faces.
+		[[nodiscard]] face_id get_any_face() const {
+			return _any_face;
+		}
+		/// Returns the maximum number of vertices.
+		[[nodiscard]] std::uint32_t get_vertex_capacity() const {
+			return static_cast<std::uint32_t>(_vertices.size());
+		}
+		/// Returns the maximum number of faces.
+		[[nodiscard]] std::uint32_t get_face_capacity() const {
+			return static_cast<std::uint32_t>(_faces.size());
 		}
 
+		/// Callback that's invoked after a new face has been added.
+		face_callback on_face_added    = nullptr;
+		/// Callback that's invoked before a face is being removed.
+		face_callback on_face_removing = nullptr;
+	private:
+		std::span<vec3> _vertices; ///< Vertices.
+		std::size_t _num_verts_added = 0; ///< Number of vertices that have been added.
+		std::span<face_entry> _faces; ///< Storage for faces.
+		pool_manager<face_entry> _faces_pool; ///< Pool of faces.
+		face_id _any_face = face_id::invalid; ///< Pointer to any face in the geometry.
+
+		/// Initializes the vertex and face storage references.
+		state(
+			std::span<vec3> vs,
+			std::span<face_entry> fs,
+			face_callback face_added,
+			face_callback face_removing
+		) :
+			on_face_added(std::move(face_added)),
+			on_face_removing(std::move(face_removing)),
+			_vertices(vs),
+			_faces(fs),
+			_faces_pool(_faces) {
+		}
+
+		/// Adds a vertex to the list.
+		[[nodiscard]] vertex_id _add_vertex(vec3);
 		/// Creates a new face and computes its normal and user data.
-		template <typename ComputeFaceData> [[nodiscard]] face create_face(
-			std::array<std::size_t, 3> verts, const ComputeFaceData &compute_data
-		) const {
-			cvec3d normal = vec::unsafe_normalize(vec::cross(
-				vertices[verts[1]].position - vertices[verts[0]].position,
-				vertices[verts[2]].position - vertices[verts[0]].position
-			));
-			auto result = face::create_without_data(verts, normal);
-			compute_data(*this, result);
-			return result;
+		[[nodiscard]] face_id _add_face(std::array<vertex_id, 3>);
+		/// Removes a face from the convex hull.
+		void _remove_face(face_id);
+	};
+
+	/// Returns the maximum possible number of triangular faces in a polyhedra with \p n vertices.
+	/// https://math.stackexchange.com/questions/4579790/how-many-faces-can-a-polyhedron-with-n-vertices-have
+	[[nodiscard]] inline std::uint32_t get_max_num_triangles_for_vertex_count(std::uint32_t n) {
+		return 2 * n - 4;
+	}
+
+	/// Provides storage for the convex hull algorithm.
+	template <typename VertAllocator, typename FaceAllocator> struct storage {
+	public:
+		/// Creates enough storage for creating a polyhedra with the given number of vertices.
+		[[nodiscard]] inline static storage create_for_num_vertices(
+			std::uint32_t n, const VertAllocator &vert_alloc, const FaceAllocator &face_alloc
+		) {
+			return storage(n, vert_alloc, face_alloc);
 		}
 
-		std::vector<vertex, Allocator<vertex>> vertices; ///< Vertices.
-		face_collection faces; ///< Faces.
-	protected:
-		/// Initializes the data structures with the corresponding allocators.
-		explicit incremental_convex_hull(const Allocator<vertex> &vert_alloc, const Allocator<face> &face_alloc) :
-			vertices(vert_alloc), faces(face_alloc) {
+		/// Creates user data storage for the same upper bound of the number of vertices and faces.
+		template <
+			typename VertexData, typename FaceData, typename VertexAllocator, typename FaceAllocator
+		> [[nodiscard]] user_data<VertexData, FaceData, VertexAllocator, FaceAllocator> create_user_data_storage(
+			const VertexData &vert_data,
+			const FaceData &face_data,
+			const VertexAllocator &vert_alloc,
+			const FaceAllocator &face_alloc
+		) {
+			return incremental_convex_hull::create_user_data_storage<VertexData, FaceData>(
+				static_cast<std::uint32_t>(_vertices.size()),
+				static_cast<std::uint32_t>(_faces.size()),
+				vert_data,
+				face_data,
+				vert_alloc,
+				face_alloc
+			);
+		}
+		/// Creates an algorithm state object for the given initial tetrahedron. Two state objects must not
+		/// simultaneously exist using the same underlying storage.
+		[[nodiscard]] state create_state_for_tetrahedron(
+			std::array<vec3, 4> verts,
+			state::face_callback face_added = nullptr,
+			state::face_callback face_removing = nullptr
+		) {
+			return state::for_tetrahedron(verts, _vertices, _faces, std::move(face_added), std::move(face_removing));
+		}
+	private:
+		std::vector<vec3, VertAllocator> _vertices; ///< Vertices.
+		std::vector<face_entry, FaceAllocator> _faces; ///< Faces.
+
+		/// Initializes all vectors.
+		storage(std::uint32_t n, const VertAllocator &vert_alloc, const FaceAllocator &face_alloc) :
+			_vertices(n, zero, vert_alloc),
+			_faces(face_entry::make_storage(get_max_num_triangles_for_vertex_count(n), face_alloc)) {
 		}
 	};
+	/// Shorthand for \ref storage::create_for_num_vertices().
+	template <
+		typename VertAllocator, typename FaceAllocator
+	> [[nodiscard]] inline storage<VertAllocator, FaceAllocator> create_storage_for_num_vertices(
+		std::uint32_t n, const VertAllocator &vert_alloc, const FaceAllocator &face_alloc
+	) {
+		return storage<VertAllocator, FaceAllocator>::create_for_num_vertices(n, vert_alloc, face_alloc);
+	}
 }

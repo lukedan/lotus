@@ -9,6 +9,7 @@ target_sources(lotus_physics
 		"include/lotus/collision/shapes/polyhedron.h"
 		"include/lotus/collision/shapes/simple.h"
 
+		"include/lotus/collision/common.h"
 		"include/lotus/collision/shape.h"
 
 		"include/lotus/physics/constraints/bend.h"
@@ -18,6 +19,7 @@ target_sources(lotus_physics
 
 		"include/lotus/physics/body.h"
 		"include/lotus/physics/body_properties.h"
+		"include/lotus/physics/common.h"
 		"include/lotus/physics/engine.h"
 	PRIVATE
 		"src/collision/algorithms/gjk_epa.cpp"

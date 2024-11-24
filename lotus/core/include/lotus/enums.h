@@ -24,7 +24,7 @@ namespace lotus::enums {
 			_mapping{ { std::forward<Args>(args)... } } {
 			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for enum mapping.");
 			for (std::size_t i = 0; i < NumEnumerators; ++i) {
-				crash_if_constexpr(std::to_underlying(_mapping[i].first) != i);
+				crash_if(std::to_underlying(_mapping[i].first) != i);
 			}
 		}
 
@@ -199,7 +199,7 @@ namespace lotus::enums::bit_mask {
 			_mapping{ { std::forward<Args>(args)... } } {
 			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for bit mask mapping.");
 			for (std::size_t i = 0; i < NumEnumerators; ++i) {
-				crash_if_constexpr(_mapping[i].first != static_cast<BitMask>(1 << i));
+				crash_if(_mapping[i].first != static_cast<BitMask>(1 << i));
 			}
 		}
 
@@ -209,7 +209,7 @@ namespace lotus::enums::bit_mask {
 			auto value = static_cast<_src_ty>(m);
 			while (value != 0) {
 				const int bit_index = std::countr_zero(value);
-				crash_if_constexpr(bit_index >= NumEnumerators);
+				crash_if(bit_index >= NumEnumerators);
 				const _src_ty bit = 1ull << bit_index;
 				cb(bit_index, static_cast<BitMask>(bit), _mapping[bit_index].second);
 				value ^= bit;

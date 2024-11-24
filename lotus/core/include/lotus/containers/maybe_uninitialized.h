@@ -23,13 +23,13 @@ namespace lotus {
 		maybe_uninitialized &operator=(const maybe_uninitialized&) = delete;
 		/// Checks that the object has been properly freed.
 		~maybe_uninitialized() {
-			crash_if_constexpr(_is_initialized.value_or(false));
+			crash_if(_is_initialized.value_or(false));
 		}
 
 		/// Initializes the value.
 		template <typename ...Args> void initialize(Args &&...args) {
 			if constexpr (_is_initialized.is_enabled) {
-				crash_if_constexpr(_is_initialized.value_or(false));
+				crash_if(_is_initialized.value_or(false));
 				_is_initialized.value = true;
 			}
 			_maybe_unpoison_storage();
@@ -38,7 +38,7 @@ namespace lotus {
 		/// Disposes of the value.
 		void dispose() {
 			if constexpr (_is_initialized.is_enabled) {
-				crash_if_constexpr(!_is_initialized.value_or(true));
+				crash_if(!_is_initialized.value_or(true));
 				_is_initialized.value = false;
 			}
 			_value.~T();
@@ -47,12 +47,12 @@ namespace lotus {
 
 		/// Returns the object.
 		[[nodiscard]] T &get() {
-			crash_if_constexpr(!_is_initialized.value_or(true));
+			crash_if(!_is_initialized.value_or(true));
 			return _value;
 		}
 		/// \overload
 		[[nodiscard]] const T &get() const {
-			crash_if_constexpr(!_is_initialized.value_or(true));
+			crash_if(!_is_initialized.value_or(true));
 			return _value;
 		}
 		/// \overload

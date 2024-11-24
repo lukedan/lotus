@@ -11,37 +11,36 @@ namespace shader_types {
 }
 #include <lotus/renderer/shader_types_include_wrapper.h>
 
-void debug_render::draw_point(lotus::cvec3d p, lotus::linear_rgba_f color) {
+void debug_render::draw_point(vec3 p, lotus::linear_rgba_f color) {
 	auto &vert = point_vertices.emplace_back();
 	vert.position = p.into<float>();
 	vert.normal   = lotus::zero;
-	vert.color    = lotus::cvec4f(color.into_vector().block<3, 1>(0, 0), 0.0f);
+	vert.color    = color;
 }
 
-void debug_render::draw_line(lotus::cvec3d a, lotus::cvec3d b, lotus::linear_rgba_f color) {
+void debug_render::draw_line(vec3 a, vec3 b, lotus::linear_rgba_f color) {
 	auto first_index = static_cast<std::uint32_t>(line_vertices.size());
 	auto &v1 = line_vertices.emplace_back();
-	lotus::cvec4f vert_color = lotus::cvec4f(color.into_vector().block<3, 1>(0, 0), 0.0f);
 	v1.position = a.into<float>();
 	v1.normal   = lotus::zero;
-	v1.color    = vert_color;
+	v1.color    = color;
 	auto &v2 = line_vertices.emplace_back();
 	v2.position = b.into<float>();
 	v2.normal   = lotus::zero;
-	v2.color    = vert_color;
+	v2.color    = color;
 	line_indices.emplace_back(first_index);
 	line_indices.emplace_back(first_index + 1);
 }
 
 void debug_render::draw_body(
-	std::span<const lotus::cvec3d> positions,
-	std::span<const lotus::cvec3d> normals,
+	std::span<const vec3> positions,
+	std::span<const vec3> normals,
 	std::span<const std::uint32_t> indices,
-	lotus::mat44d transform,
+	mat44s transform,
 	lotus::linear_rgba_f color,
 	bool wireframe
 ) {
-	std::vector<lotus::cvec3d> generated_normals;
+	std::vector<vec3> generated_normals;
 	if (normals.empty()) {
 		generated_normals.resize(positions.size(), lotus::zero);
 		for (std::size_t i = 0; i < indices.size(); i += 3) {
@@ -61,13 +60,12 @@ void debug_render::draw_body(
 
 	auto &verts = wireframe ? line_vertices : mesh_vertices;
 	auto first_vert = static_cast<std::uint32_t>(verts.size());
-	auto full_color = lotus::cvec4f(color.into_vector().block<3, 1>(0, 0), wireframe ? 0.0f : 1.0f);
 	auto normal_transform = transform.block<3, 3>(0, 0).inverse().transposed();
 	for (std::size_t i = 0; i < positions.size(); ++i) {
 		auto &vert = verts.emplace_back();
-		vert.position = (transform * lotus::cvec4d(positions[i], 1.0f)).block<3, 1>(0, 0).into<float>();
-		vert.color    = full_color;
-		vert.normal   = lotus::vec::unsafe_normalize(normal_transform * normals[i]).into<float>();
+		vert.position = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0);
+		vert.color    = color;
+		vert.normal   = lotus::vec::unsafe_normalize(normal_transform * normals[i]);
 	}
 	for (std::size_t i = 0; i < indices.size(); i += 3) {
 		if (wireframe) {
@@ -87,13 +85,13 @@ void debug_render::draw_body(
 	}
 }
 
-void debug_render::draw_sphere(lotus::mat44d transform, lotus::linear_rgba_f color, bool wireframe) {
+void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, bool wireframe) {
 	constexpr std::uint32_t _z_slices = 10;
 	constexpr std::uint32_t _xy_slices = 30;
 	constexpr double _z_slice_angle = lotus::pi / _z_slices;
 	constexpr double _xy_slice_angle = 2.0 * lotus::pi / _xy_slices;
 
-	static std::vector<lotus::cvec3d> _vertices;
+	static std::vector<vec3> _vertices;
 	static std::vector<std::uint32_t> _indices;
 
 	if (_vertices.empty()) {
@@ -134,10 +132,10 @@ void debug_render::draw_sphere(lotus::mat44d transform, lotus::linear_rgba_f col
 	draw_body(_vertices, _vertices, _indices, transform, color, wireframe);
 }
 
-void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, lotus::mat44d transform, const body_visual *visual, bool wireframe) {
-	lotus::cvec3d vx = lotus::vec::unsafe_normalize((transform * lotus::cvec4d(1.0f, 0.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
-	lotus::cvec3d vy = lotus::vec::unsafe_normalize((transform * lotus::cvec4d(0.0f, 1.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
-	lotus::cvec3d v0 = (transform * lotus::cvec4d(0.0f, 1.0f, 0.0f, 1.0f)).block<3, 1>(0, 0);
+void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, mat44s transform, const body_visual *visual, bool wireframe) {
+	vec3 vx = lotus::vec::unsafe_normalize((transform * vec4(1.0f, 0.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
+	vec3 vy = lotus::vec::unsafe_normalize((transform * vec4(0.0f, 1.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
+	vec3 v0 = (transform * vec4(0.0f, 1.0f, 0.0f, 1.0f)).block<3, 1>(0, 0);
 	lotus::linear_rgba_f color = visual ? visual->color : lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f);
 	if (wireframe) {
 		for (int x = -100; x <= 100; ++x) {
@@ -145,7 +143,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, lot
 			draw_line(v0 + vy * x + vx * -100.0f, v0 + vy * x + vx * 100.0f, color);
 		}
 	} else {
-		lotus::cvec3d positions[] = {
+		vec3 positions[] = {
 			v0 + vx *  100.0f + vy *  100.0f,
 			v0 + vx * -100.0f + vy *  100.0f,
 			v0 + vx *  100.0f + vy * -100.0f,
@@ -154,18 +152,18 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, lot
 		std::uint32_t indices[] = {
 			0, 1, 3, 0, 3, 2
 		};
-		draw_body(positions, {}, indices, lotus::mat44d::identity(), color, wireframe);
+		draw_body(positions, {}, indices, mat44s::identity(), color, wireframe);
 	}
 }
 
-void debug_render::draw_physics_body(const lotus::collision::shapes::sphere &sphere, lotus::mat44d transform, const body_visual *visual, bool wireframe) {
-	auto mat = lotus::mat44d::identity();
-	mat.set_block(0, 0, lotus::mat33d::identity() * 2.0 * sphere.radius);
+void debug_render::draw_physics_body(const lotus::collision::shapes::sphere &sphere, mat44s transform, const body_visual *visual, bool wireframe) {
+	auto mat = mat44s::identity();
+	mat.set_block(0, 0, mat33s::identity() * 2.0 * sphere.radius);
 	mat.set_block(0, 3, sphere.offset);
 	draw_sphere(transform * mat, visual ? visual->color : lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f), wireframe);
 }
 
-void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron &poly, lotus::mat44d transform, const body_visual *visual, bool wireframe) {
+void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron &poly, mat44s transform, const body_visual *visual, bool wireframe) {
 	if (visual) {
 		draw_body(poly.vertices, {}, visual->triangles, transform, visual->color, wireframe);
 	} else {
@@ -190,7 +188,7 @@ void debug_render::draw_system(lotus::physics::engine &engine) {
 			visual = static_cast<const body_visual*>(b.user_data);
 		}
 
-		auto mat = lotus::mat44d::identity();
+		auto mat = mat44s::identity();
 		mat.set_block(0, 0, b.state.rotation.into_matrix());
 		mat.set_block(0, 3, b.state.position);
 
@@ -203,7 +201,7 @@ void debug_render::draw_system(lotus::physics::engine &engine) {
 	}
 
 	// surfaces
-	std::vector<lotus::cvec3d> positions;
+	std::vector<vec3> positions;
 	if (!ctx->wireframe_surfaces) {
 		for (const auto &p : engine.particles) {
 			positions.emplace_back(p.state.position);
@@ -220,7 +218,7 @@ void debug_render::draw_system(lotus::physics::engine &engine) {
 				draw_line(p3, p1, surface.color);
 			}
 		} else {
-			draw_body(positions, {}, surface.triangles, lotus::mat44d::identity(), surface.color, false);
+			draw_body(positions, {}, surface.triangles, mat44s::identity(), surface.color, false);
 		}
 	}
 

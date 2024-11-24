@@ -25,7 +25,7 @@ public:
 
 	void soft_reset() override {
 		_engine = lotus::physics::engine();
-		_engine.gravity = lotus::cvec3d(0.0, -9.8, 0.0);
+		_engine.gravity = vec3(0.0, -9.8, 0.0);
 
 		_render = debug_render();
 		_render.ctx = &_get_test_context();
@@ -34,7 +34,7 @@ public:
 
 		auto &box_shape = _engine.shapes.emplace_back();
 		auto &box = box_shape.value.emplace<lotus::collision::shapes::polyhedron>();
-		lotus::cvec3d half_size(_box_size[0], _box_size[1], _box_size[2]);
+		vec3 half_size(_box_size[0], _box_size[1], _box_size[2]);
 		half_size *= 0.5;
 		box.vertices.emplace_back( half_size[0],  half_size[1],  half_size[2]);
 		box.vertices.emplace_back( half_size[0],  half_size[1], -half_size[2]);
@@ -49,7 +49,7 @@ public:
 		auto &bullet_shape = _engine.shapes.emplace_front();
 		_bullet_shape = _engine.shapes.begin();
 		auto &bullet = bullet_shape.value.emplace<lotus::collision::shapes::polyhedron>();
-		lotus::cvec3d half_bullet_size(0.05, 0.05, 0.05);
+		vec3 half_bullet_size(0.05, 0.05, 0.05);
 		bullet.vertices.emplace_back(half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
 		bullet.vertices.emplace_back(half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
 		bullet.vertices.emplace_back(half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
@@ -60,7 +60,7 @@ public:
 		bullet.vertices.emplace_back(-half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
 		_bullet_properties = bullet.bake(10.0);
 
-		auto material = lotus::physics::material_properties::create(
+		auto material = lotus::physics::material_properties(
 			_static_friction, _dynamic_friction, _restitution
 		);
 
@@ -68,38 +68,38 @@ public:
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::zero, lotus::quat::from_normalized_axis_angle(lotus::cvec3d(1.0, 0.0, 0.0), -0.5 * lotus::pi)
+				lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0, 0.0, 0.0), -0.5 * lotus::pi)
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::cvec3d(10.0, 0.0, 0.0),
-				lotus::quat::from_normalized_axis_angle(lotus::cvec3d(0.0, 1.0, 0.0), -0.5 * lotus::pi)
+				vec3(10.0, 0.0, 0.0),
+				lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), -0.5 * lotus::pi)
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::cvec3d(-10.0, 0.0, 0.0),
-				lotus::quat::from_normalized_axis_angle(lotus::cvec3d(0.0, 1.0, 0.0), 0.5 * lotus::pi)
+				vec3(-10.0, 0.0, 0.0),
+				lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), 0.5 * lotus::pi)
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::cvec3d(0.0, 0.0, 10.0),
-				lotus::quat::from_normalized_axis_angle(lotus::cvec3d(0.0, 1.0, 0.0), lotus::pi)
+				vec3(0.0, 0.0, 10.0),
+				lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), lotus::pi)
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::cvec3d(0.0, 0.0, -10.0), lotus::uquatd::identity()
+				vec3(0.0, 0.0, -10.0), uquats::identity()
 			)
 		));
 
@@ -115,12 +115,12 @@ public:
 				lotus::physics::body_state state = lotus::uninitialized;
 				if (_rotate_90) {
 					state = lotus::physics::body_state::stationary_at(
-						lotus::cvec3d(0.0, y, cx),
-						lotus::quat::from_normalized_axis_angle(lotus::cvec3d(0.0, 1.0, 0.0), 0.5 * lotus::pi)
+						vec3(0.0, y, cx),
+						lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), 0.5 * lotus::pi)
 					);
 				} else {
 					state = lotus::physics::body_state::stationary_at(
-						lotus::cvec3d(cx, y, 0.0), lotus::uquatd::identity()
+						vec3(cx, y, 0.0), uquats::identity()
 					);
 				}
 				_engine.bodies.emplace_back(lotus::physics::body::create(
@@ -152,14 +152,14 @@ public:
 
 		ImGui::Separator();
 		if (ImGui::Button("Shoot Box")) {
-			auto material = lotus::physics::material_properties::create(_static_friction, _dynamic_friction, _restitution);
+			auto material = lotus::physics::material_properties(_static_friction, _dynamic_friction, _restitution);
 			_engine.bodies.emplace_back(lotus::physics::body::create(
 				*_bullet_shape,
 				material,
 				_bullet_properties,
 				lotus::physics::body_state::at(
 					_get_test_context().camera_params.position,
-					lotus::uquatd::identity(),
+					uquats::identity(),
 					_get_test_context().camera.unit_forward * 50.0, lotus::zero
 				)
 			));

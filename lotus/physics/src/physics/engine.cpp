@@ -6,20 +6,20 @@
 #include "lotus/collision/algorithms/gjk_epa.h"
 
 namespace lotus::physics {
-	void engine::timestep(double dt, std::size_t iters) {
-		double dt2 = dt * dt;
-		double inv_dt2 = 1.0 / dt2;
+	void engine::timestep(scalar dt, std::uint32_t iters) {
+		scalar dt2 = dt * dt;
+		scalar inv_dt2 = 1.0f / dt2;
 
 		for (particle &p : particles) {
 			p.prev_position = p.state.position;
-			if (p.properties.inverse_mass > 0.0) {
+			if (p.properties.inverse_mass > 0.0f) {
 				p.state.velocity += dt * gravity;
 			}
 			p.state.position += dt * p.state.velocity;
 		}
 		for (body &b : bodies) {
 			b.prev_position = b.state.position;
-			if (b.properties.inverse_mass > 0.0) {
+			if (b.properties.inverse_mass > 0.0f) {
 				b.state.linear_velocity += dt * gravity;
 			}
 			b.state.position += dt * b.state.linear_velocity;
@@ -27,7 +27,7 @@ namespace lotus::physics {
 			b.prev_rotation = b.state.rotation;
 			// TODO external torque
 			b.state.rotation = quat::unsafe_normalize(
-				b.state.rotation + 0.5 * dt * quatd::from_vector(b.state.angular_velocity) * b.state.rotation
+				b.state.rotation + 0.5f * dt * quats::from_vector(b.state.angular_velocity) * b.state.rotation
 			);
 		}
 
@@ -139,40 +139,40 @@ namespace lotus::physics {
 			const auto &contact = contact_constraints[i];
 			auto &b1 = *contact.body1;
 			auto &b2 = *contact.body2;
-			cvec3d world_off1 = b1.state.rotation.rotate(contact.offset1);
-			cvec3d world_off2 = b2.state.rotation.rotate(contact.offset2);
-			cvec3d vel1 = b1.state.linear_velocity + vec::cross(b1.state.angular_velocity, world_off1);
-			cvec3d vel2 = b2.state.linear_velocity + vec::cross(b2.state.angular_velocity, world_off2);
-			cvec3d vel = vel1 - vel2;
-			double vn = vec::dot(contact.normal, vel);
-			cvec3d vt = vel - contact.normal * vn;
+			vec3 world_off1 = b1.state.rotation.rotate(contact.offset1);
+			vec3 world_off2 = b2.state.rotation.rotate(contact.offset2);
+			vec3 vel1 = b1.state.linear_velocity + vec::cross(b1.state.angular_velocity, world_off1);
+			vec3 vel2 = b2.state.linear_velocity + vec::cross(b2.state.angular_velocity, world_off2);
+			vec3 vel = vel1 - vel2;
+			scalar vn = vec::dot(contact.normal, vel);
+			vec3 vt = vel - contact.normal * vn;
 
-			cvec3d old_vel1 = b1.prev_linear_velocity + vec::cross(b1.prev_angular_velocity, world_off1);
-			cvec3d old_vel2 = b2.prev_linear_velocity + vec::cross(b2.prev_angular_velocity, world_off2);
-			double old_vn = vec::dot(contact.normal, old_vel1 - old_vel2);
+			vec3 old_vel1 = b1.prev_linear_velocity + vec::cross(b1.prev_angular_velocity, world_off1);
+			vec3 old_vel2 = b2.prev_linear_velocity + vec::cross(b2.prev_angular_velocity, world_off2);
+			scalar old_vn = vec::dot(contact.normal, old_vel1 - old_vel2);
 
-			double friction_coeff = std::min(b1.material.dynamic_friction, b2.material.dynamic_friction);
-			double restitution_coeff = std::max(b1.material.restitution, b2.material.restitution);
+			scalar friction_coeff = std::min(b1.material.dynamic_friction, b2.material.dynamic_friction);
+			scalar restitution_coeff = std::max(b1.material.restitution, b2.material.restitution);
 
-			double vt_norm = vt.norm();
-			double lambda_n = contact_lambdas[i].first;
+			scalar vt_norm = vt.norm();
+			scalar lambda_n = contact_lambdas[i].first;
 
-			/*cvec3d delta_vt_dir = -vt / vt_norm;
-			double delta_vt_norm = std::min(friction_coeff * -lambda_n / dt, vt_norm);
+			/*vec3 delta_vt_dir = -vt / vt_norm;
+			scalar delta_vt_norm = std::min(friction_coeff * -lambda_n / dt, vt_norm);
 			body::correction::compute(
 				b1, b2, contact.offset1, contact.offset2, delta_vt_dir, 1.0
 			).apply_velocity(delta_vt_norm);
 
-			double delta_vn_norm = std::min(-old_vn * restitution_coeff, 0.0) - vn;
+			scalar delta_vn_norm = std::min(-old_vn * restitution_coeff, 0.0) - vn;
 			body::correction::compute(
 				b1, b2, contact.offset1, contact.offset2, contact.normal, 1.0
 			).apply_velocity(delta_vn_norm);*/
 
-			cvec3d delta_vt = -vt * (std::min(friction_coeff * -lambda_n / dt, vt_norm) / vt_norm);
-			cvec3d delta_vn = contact.normal * (std::min(-old_vn * restitution_coeff, 0.0) - vn);
-			cvec3d delta_v = delta_vt + delta_vn;
-			double delta_v_norm = delta_v.norm();
-			cvec3d delta_v_unit = delta_v / delta_v_norm;
+			vec3 delta_vt = -vt * (std::min(friction_coeff * -lambda_n / dt, vt_norm) / vt_norm);
+			vec3 delta_vn = contact.normal * (std::min<scalar>(-old_vn * restitution_coeff, 0.0f) - vn);
+			vec3 delta_v = delta_vt + delta_vn;
+			scalar delta_v_norm = delta_v.norm();
+			vec3 delta_v_unit = delta_v / delta_v_norm;
 			auto correction = body::correction::compute(
 				b1, b2, contact.offset1, contact.offset2, delta_v_unit, 1.0
 			);
@@ -227,20 +227,20 @@ namespace lotus::physics {
 		const collision::shapes::plane&, const body_state &s1,
 		const collision::shapes::polyhedron &p2, const body_state &s2
 	) {
-		cvec3d norm_world = s1.rotation.rotate(cvec3d(0.0, 0.0, 1.0));
-		cvec3d norm_local2 = s2.rotation.inverse().rotate(norm_world);
-		cvec3d plane_pos = s2.rotation.inverse().rotate(s1.position - s2.position);
-		double min_depth = 0.0;
-		std::optional<cvec3d> contact;
+		vec3 norm_world = s1.rotation.rotate(vec3(0.0, 0.0, 1.0));
+		vec3 norm_local2 = s2.rotation.inverse().rotate(norm_world);
+		vec3 plane_pos = s2.rotation.inverse().rotate(s1.position - s2.position);
+		scalar min_depth = 0.0f;
+		std::optional<vec3> contact;
 		for (const auto &vert : p2.vertices) {
-			double depth = vec::dot(vert - plane_pos, norm_local2);
+			scalar depth = vec::dot(vert - plane_pos, norm_local2);
 			if (depth < min_depth) {
 				min_depth = depth;
 				contact = vert;
 			}
 		}
 		if (contact) {
-			cvec3d vert_world = s2.rotation.rotate(contact.value()) + s2.position;
+			vec3 vert_world = s2.rotation.rotate(contact.value()) + s2.position;
 			vert_world -= norm_world * min_depth;
 			return engine::collision_detection_result::create(
 				s1.rotation.inverse().rotate(vert_world - s1.position), contact.value(), norm_world
@@ -283,14 +283,16 @@ namespace lotus::physics {
 			epa_res.vertices[0].index1 == epa_res.vertices[2].index1;
 		if (face_p1) { // a vertex from p2 and a face from p1
 			result.contact2 = p2.vertices[epa_res.vertices[0].index2];
-			cvec3d contact1 = s2.rotation.rotate(result.contact2) + s2.position + epa_res.depth * epa_res.normal;
+			const vec3 contact1 =
+				s2.rotation.rotate(result.contact2) + s2.position + epa_res.penetration_depth * epa_res.normal;
 			result.contact1 = s1.rotation.inverse().rotate(contact1 - s1.position);
 		} else if (face_p2) { // a vertex from p1 and a face from p2
 			result.contact1 = p1.vertices[epa_res.vertices[0].index1];
-			cvec3d contact2 = s1.rotation.rotate(result.contact1) + s1.position - epa_res.depth * epa_res.normal;
+			const vec3 contact2 =
+				s1.rotation.rotate(result.contact1) + s1.position - epa_res.penetration_depth * epa_res.normal;
 			result.contact2 = s2.rotation.inverse().rotate(contact2 - s2.position);
 		} else { // two edges
-			std::array<cvec3d, 3> spx_pos = epa_res.simplex_positions;
+			std::array<vec3, 3> spx_pos = epa_res.simplex_positions;
 			std::array<collision::gjk_epa::simplex_vertex, 3> spx_id = epa_res.vertices;
 
 			// adjust the arrays so that the two edges can be easily determined
@@ -309,25 +311,25 @@ namespace lotus::physics {
 			}
 
 			// solve for barycentric coordinates
-			cvec3d diff12 = spx_pos[1] - spx_pos[0]; // also the x axis
-			cvec3d diff13 = spx_pos[2] - spx_pos[0];
-			cvec3d y = vec::cross(epa_res.normal, diff12);
+			vec3 diff12 = spx_pos[1] - spx_pos[0]; // also the x axis
+			vec3 diff13 = spx_pos[2] - spx_pos[0];
+			vec3 y = vec::cross(epa_res.normal, diff12);
 			auto xform = mat::concat_columns(diff12 / diff12.squared_norm(), y / y.squared_norm()).transposed();
-			cvec2d pos1 = xform * diff13;
-			cvec3d contact_offset = epa_res.depth * epa_res.normal - spx_pos[0];
-			cvec2d contact = xform * contact_offset;
+			cvec2<scalar> pos1 = xform * diff13;
+			vec3 contact_offset = epa_res.penetration_depth * epa_res.normal - spx_pos[0];
+			cvec2<scalar> contact = xform * contact_offset;
 			// [cx] = [1 px][bx]
 			// [cy]   [0 py][by]
 			//
 			// [bx] = 1 / py [py -px][cx] = [cx - px * cy / py]
 			// [by]          [0   1 ][cy]   [     cy / py     ]
-			double y_ratio = contact[1] / pos1[1];
-			cvec2d barycentric(contact[0] - pos1[0] * y_ratio, y_ratio);
+			scalar y_ratio = contact[1] / pos1[1];
+			cvec2<scalar> barycentric(contact[0] - pos1[0] * y_ratio, y_ratio);
 
-			cvec3d local_contact2 =
+			vec3 local_contact2 =
 				p2.vertices[spx_id[0].index2] * (1.0 - barycentric[1]) +
 				p2.vertices[spx_id[2].index2] * barycentric[1];
-			cvec3d local_contact1 =
+			vec3 local_contact1 =
 				p1.vertices[spx_id[0].index1] * (1.0 - barycentric[0]) +
 				p1.vertices[spx_id[1].index1] * barycentric[0];
 			result.contact1 = local_contact1;
@@ -337,9 +339,9 @@ namespace lotus::physics {
 	}
 
 	bool engine::handle_shape_particle_collision(
-		const collision::shapes::plane&, const body_state &state, cvec3d &pos
+		const collision::shapes::plane&, const body_state &state, vec3 &pos
 	) {
-		cvec3d plane_pos = state.rotation.inverse().rotate(pos - state.position);
+		vec3 plane_pos = state.rotation.inverse().rotate(pos - state.position);
 		if (plane_pos[2] < 0.0) {
 			plane_pos[2] = 0.0;
 			pos = state.rotation.rotate(plane_pos) + state.position;
@@ -349,10 +351,10 @@ namespace lotus::physics {
 	}
 
 	bool engine::handle_shape_particle_collision(
-		const collision::shapes::sphere &shape, const body_state &state, cvec3d &pos
+		const collision::shapes::sphere &shape, const body_state &state, vec3 &pos
 	) {
 		auto diff = pos - (state.position + state.rotation.rotate(shape.offset));
-		double sqr_dist = diff.squared_norm();
+		scalar sqr_dist = diff.squared_norm();
 		if (sqr_dist < shape.radius * shape.radius) {
 			pos = state.position + diff * (shape.radius / std::sqrt(sqr_dist));
 			return true;
@@ -361,7 +363,7 @@ namespace lotus::physics {
 	}
 
 	bool engine::handle_shape_particle_collision(
-		const collision::shapes::polyhedron&, const body_state&, cvec3d&
+		const collision::shapes::polyhedron&, const body_state&, vec3&
 	) {
 		// TODO
 		return false;

@@ -37,7 +37,7 @@ namespace lotus::collision {
 		case 0:
 			{
 				// position is center1 - center2; support vector is its negation
-				cvec3d initial_support_vec = center2 - center1;
+				const vec3 initial_support_vec = center2 - center1;
 				simplex[0] = support_vertex(initial_support_vec);
 				state.simplex_positions[0] = simplex_vertex_position(simplex[0]);
 				++simplex_vertices;
@@ -62,8 +62,8 @@ namespace lotus::collision {
 			[[fallthrough]];
 		case 2:
 			{
-				cvec3d line_diff = state.simplex_positions[1] - state.simplex_positions[0];
-				cvec3d support = vec::cross(line_diff, vec::cross(line_diff, state.simplex_positions[0]));
+				const vec3 line_diff = state.simplex_positions[1] - state.simplex_positions[0];
+				const vec3 support = vec::cross(line_diff, vec::cross(line_diff, state.simplex_positions[0]));
 				simplex[2] = support_vertex(support);
 				if (check_vert(simplex[2])) {
 					return { false, state }; // no collision
@@ -73,18 +73,18 @@ namespace lotus::collision {
 				state.simplex_positions[2] = simplex_vertex_position(simplex[2]);
 
 				// fast exit
-				if (vec::dot(support, state.simplex_positions[2]) < 0.0) {
+				if (vec::dot(support, state.simplex_positions[2]) < 0.0f) {
 					return { false, state };
 				}
 			}
 			[[fallthrough]];
 		case 3:
 			{
-				cvec3d support = vec::cross( // normal of the triangular face
+				vec3 support = vec::cross( // normal of the triangular face
 					state.simplex_positions[1] - state.simplex_positions[0],
 					state.simplex_positions[2] - state.simplex_positions[0]
 				);
-				if (vec::dot(support, state.simplex_positions[0]) > 0.0) {
+				if (vec::dot(support, state.simplex_positions[0]) > 0.0f) {
 					support = -support;
 				}
 				simplex[3] = support_vertex(support);
@@ -104,20 +104,20 @@ namespace lotus::collision {
 				state.simplex_positions[1] - state.simplex_positions[0],
 				state.simplex_positions[2] - state.simplex_positions[0]
 			)
-		) > 0.0;
+		) > 0.0f;
 
 		while (true) {
 			bool facing_origin = false;
 			for (std::size_t i = 0; i < 4; ++i) {
-				cvec3d normal = vec::cross(
+				vec3 normal = vec::cross(
 					state.simplex_positions[(i + 1) % 4] - state.simplex_positions[i],
 					state.simplex_positions[(i + 2) % 4] - state.simplex_positions[i]
 				);
-				bool invert_normal = (i % 2 == 0) == state.invert_even_normals;
+				const bool invert_normal = (i % 2 == 0) == state.invert_even_normals;
 				if (invert_normal) {
 					normal = -normal;
 				}
-				double dotv = vec::dot(normal, state.simplex_positions[i]);
+				const scalar dotv = vec::dot(normal, state.simplex_positions[i]);
 				if (dotv < 0.0) {
 					// this face is facing the origin; use its normal as the support vector to find the next vertex
 					auto new_vertex = support_vertex(normal);
@@ -126,7 +126,7 @@ namespace lotus::collision {
 					}
 					mark_vert(new_vertex);
 					// replace the vertex
-					std::size_t replace_index = (i + 3) % 4;
+					const std::size_t replace_index = (i + 3) % 4;
 					simplex[replace_index] = new_vertex;
 					state.simplex_positions[replace_index] = simplex_vertex_position(new_vertex);
 
@@ -149,93 +149,108 @@ namespace lotus::collision {
 	}
 
 	gjk_epa::epa_result gjk_epa::epa(gjk_result_state gjk_state) const {
-		using _convex_hull_t = incremental_convex_hull<
-			simplex_vertex, double, memory::stack_allocator::std_allocator
-		>;
+		namespace convex_hull = incremental_convex_hull;
 
 		auto bookmark = get_scratch_bookmark();
 
-		auto compute_face_data = [](const _convex_hull_t &hull, _convex_hull_t::face &f) {
-			f.data = vec::dot(f.normal, hull.vertices[f.vertex_indices[0]].position);
-		};
-
-		std::array<_convex_hull_t::vertex, 4> initial_vertices{
-			uninitialized, uninitialized, uninitialized, uninitialized
-		};
-		for (std::size_t i = 0; i < 4; ++i) {
-			initial_vertices[i] = _convex_hull_t::vertex::create(gjk_state.simplex_positions[i], simplex[i]);
-		}
-		_convex_hull_t convex_hull = _convex_hull_t::for_tetrahedron(
-			std::move(initial_vertices), compute_face_data,
-			bookmark.create_std_allocator<_convex_hull_t::vertex>(),
-			bookmark.create_std_allocator<_convex_hull_t::face>()
+		auto hull_storage = convex_hull::create_storage_for_num_vertices(
+			static_cast<std::uint32_t>(polyhedron1->vertices.size() * polyhedron2->vertices.size()),
+			bookmark.create_std_allocator<convex_hull::vec3>(),
+			bookmark.create_std_allocator<convex_hull::face_entry>()
 		);
+		auto hull_data = hull_storage.create_user_data_storage<simplex_vertex, scalar>(
+			uninitialized,
+			uninitialized,
+			bookmark.create_std_allocator<simplex_vertex>(),
+			bookmark.create_std_allocator<scalar>()
+		);
+		auto hull = hull_storage.create_state_for_tetrahedron(
+			{
+				gjk_state.simplex_positions[0].into<convex_hull::scalar>(),
+				gjk_state.simplex_positions[1].into<convex_hull::scalar>(),
+				gjk_state.simplex_positions[2].into<convex_hull::scalar>(),
+				gjk_state.simplex_positions[3].into<convex_hull::scalar>()
+			},
+			[&hull_data](const convex_hull::state &hull, convex_hull::face_id fi) {
+				const auto& face = hull.get_face(fi);
+				hull_data.get(fi) = vec::dot(
+					vec::unsafe_normalize(face.normal), hull.get_vertex(face.vertex_indices[0])
+				);
+			}
+		);
+		for (std::uint32_t i = 0; i < 4; ++i) {
+			hull_data.get(static_cast<convex_hull::vertex_id>(i)) = simplex[i];
+		}
 
 		while (true) {
 			// find the closest plane
-			double nearest_face_dist = convex_hull.faces.front().data;
-			auto nearest_face = convex_hull.faces.begin();
-			for (auto it = nearest_face; it != convex_hull.faces.end(); ++it) {
-				if (it->data < nearest_face_dist) {
-					nearest_face_dist = it->data;
-					nearest_face = it;
+			convex_hull::face_id nearest_face_id = hull.get_any_face();
+			convex_hull::scalar nearest_face_dist = hull_data.get(nearest_face_id);
+			for (convex_hull::face_id fi = hull.get_face(hull.get_any_face()).next; fi != hull.get_any_face(); ) {
+				const float dist = hull_data.get(fi);
+				if (dist < nearest_face_dist) {
+					nearest_face_dist = dist;
+					nearest_face_id = fi;
 				}
+				fi = hull.get_face(fi).next;
 			}
-			assert(nearest_face_dist >= 0.0);
+			//crash_if(nearest_face_dist < 0.0f);
 
 			// find new vertex
-			simplex_vertex new_vert_id = support_vertex(nearest_face->normal);
-			auto new_vert = _convex_hull_t::vertex::create(simplex_vertex_position(new_vert_id), new_vert_id);
-			double new_dist = vec::dot(nearest_face->normal, new_vert.position);
-			if (new_dist - nearest_face->data < 1e-6) { // TODO threshold
-				auto &vert1 = convex_hull.vertices[nearest_face->vertex_indices[0]];
-				auto &vert2 = convex_hull.vertices[nearest_face->vertex_indices[1]];
-				auto &vert3 = convex_hull.vertices[nearest_face->vertex_indices[2]];
-				return epa_result::create(
-					{ vert1.position, vert2.position, vert3.position },
-					{ vert1.data, vert2.data, vert3.data },
-					nearest_face->normal, nearest_face->data
+			const convex_hull::face &nearest_face = hull.get_face(nearest_face_id);
+			const simplex_vertex new_vert_id = support_vertex(nearest_face.normal);
+			const vec3 new_vert_pos = simplex_vertex_position(new_vert_id);
+			const scalar new_dist = vec::dot(vec::unsafe_normalize(nearest_face.normal), new_vert_pos);
+			if (new_dist - nearest_face_dist < 1e-6f) { // TODO: threshold
+				const convex_hull::vertex_id v1 = nearest_face.vertex_indices[0];
+				const convex_hull::vertex_id v2 = nearest_face.vertex_indices[1];
+				const convex_hull::vertex_id v3 = nearest_face.vertex_indices[2];
+				return epa_result(
+					std::array{ hull.get_vertex(v1), hull.get_vertex(v2), hull.get_vertex(v3) },
+					std::array{ hull_data.get(v1), hull_data.get(v2), hull_data.get(v3) },
+					nearest_face.normal, nearest_face_dist
 				);
 			}
 
 			// expand & remove faces
-			convex_hull.add_vertex_hint(std::move(new_vert), nearest_face, compute_face_data);
+			const convex_hull::vertex_id vi = hull.add_vertex_hint(new_vert_pos, nearest_face_id);
+			hull_data.get(vi) = new_vert_id;
 		}
 	}
 
-	gjk_epa::simplex_vertex gjk_epa::support_vertex(cvec3d dir) const {
+	gjk_epa::simplex_vertex gjk_epa::support_vertex(vec3 dir) const {
 		gjk_epa::simplex_vertex result = uninitialized;
 
 		// polyhedron 1
-		cvec3d dir1 = orient1.inverse().rotate(dir);
+		const vec3 dir1 = orient1.inverse().rotate(dir);
 		result.index1 = 0;
-		double dot1max = vec::dot(polyhedron1->vertices[0], dir1);
+		scalar dot1max = vec::dot(polyhedron1->vertices[0].into<scalar>(), dir1);
 		for (std::size_t i = 1; i < polyhedron1->vertices.size(); ++i) {
-			double dv = vec::dot(polyhedron1->vertices[i], dir1);
+			const scalar dv = vec::dot(polyhedron1->vertices[i].into<scalar>(), dir1);
 			if (dv > dot1max) {
 				dot1max = dv;
-				result.index1 = i;
+				result.index1 = static_cast<std::uint32_t>(i);
 			}
 		}
 
 		// polyhedron 2
-		cvec3d dir2 = orient2.inverse().rotate(dir);
+		const vec3 dir2 = orient2.inverse().rotate(dir);
 		result.index2 = 0;
-		double dot2min = vec::dot(polyhedron2->vertices[0], dir2);
+		scalar dot2min = vec::dot(polyhedron2->vertices[0].into<scalar>(), dir2);
 		for (std::size_t i = 1; i < polyhedron2->vertices.size(); ++i) {
-			double dv = vec::dot(polyhedron2->vertices[i], dir2);
+			const scalar dv = vec::dot(polyhedron2->vertices[i].into<scalar>(), dir2);
 			if (dv < dot2min) {
 				dot2min = dv;
-				result.index2 = i;
+				result.index2 = static_cast<std::uint32_t>(i);
 			}
 		}
 
 		return result;
 	}
 
-	cvec3d gjk_epa::simplex_vertex_position(simplex_vertex v) const {
+	vec3 gjk_epa::simplex_vertex_position(simplex_vertex v) const {
 		return
-			(center1 + orient1.rotate(polyhedron1->vertices[v.index1])) -
-			(center2 + orient2.rotate(polyhedron2->vertices[v.index2]));
+			(center1 + orient1.rotate(polyhedron1->vertices[v.index1].into<scalar>())) -
+			(center2 + orient2.rotate(polyhedron2->vertices[v.index2].into<scalar>()));
 	}
 }

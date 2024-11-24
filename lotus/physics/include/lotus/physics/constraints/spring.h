@@ -15,8 +15,8 @@ namespace lotus::physics::constraints {
 		spring_constraint_properties(uninitialized_t) {
 		}
 
-		double length; ///< The length of this spring.
-		double inverse_stiffness; ///< The inverse stiffness of this spring.
+		scalar length; ///< The length of this spring.
+		scalar inverse_stiffness; ///< The inverse stiffness of this spring.
 	};
 
 	/// A constraint between two particles that follows the Hooke's law.
@@ -26,15 +26,15 @@ namespace lotus::physics::constraints {
 		}
 
 		/// Projects this constraint.
-		void project(cvec3d &x1, cvec3d &x2, double inv_m1, double inv_m2, double inv_dt2, double &lambda) const {
-			cvec3d t = x2 - x1;
-			double t_len = t.norm();
-			double t_diff = t_len - properties.length;
-			double c = t_diff;
-			double inv_k_dt2 = properties.inverse_stiffness * inv_dt2;
-			double delta_lambda = -(c + inv_k_dt2 * lambda) / (inv_m1 + inv_m2 + inv_k_dt2);
+		void project(vec3 &x1, vec3 &x2, scalar inv_m1, scalar inv_m2, scalar inv_dt2, scalar &lambda) const {
+			vec3 t = x2 - x1;
+			scalar t_len = t.norm();
+			scalar t_diff = t_len - properties.length;
+			scalar c = t_diff;
+			scalar inv_k_dt2 = properties.inverse_stiffness * inv_dt2;
+			scalar delta_lambda = -(c + inv_k_dt2 * lambda) / (inv_m1 + inv_m2 + inv_k_dt2);
 			lambda += delta_lambda;
-			cvec3d dx = (delta_lambda / t_len) * t;
+			vec3 dx = (delta_lambda / t_len) * t;
 			x1 -= inv_m1 * dx;
 			x2 += inv_m2 * dx;
 		}
@@ -54,9 +54,9 @@ namespace lotus::physics::constraints {
 
 		spring_constraint_properties properties = uninitialized; ///< Properties of this constraint.
 		/// Offset of the spring's connection to \ref body1 in its local coordinates.
-		cvec3d offset1 = uninitialized;
+		vec3 offset1 = uninitialized;
 		/// Offset of the spring's connection to \ref body2 in its local coordinates.
-		cvec3d offset2 = uninitialized;
+		vec3 offset2 = uninitialized;
 		body *body1; ///< The first body.
 		body *body2; ///< The second body.
 	};

@@ -87,7 +87,7 @@ public:
 	void timestep(double dt, std::size_t iterations) override {
 		_world_time += dt;
 		_sphere->state.position = {
-			_sphere_travel * std::cos((2.0 * lotus::pi / _sphere_period) * _world_time),
+			_sphere_travel * std::cos((2.0 * lotus::physics::pi / _sphere_period) * _world_time),
 			_sphere_yz[0],
 			_sphere_yz[1]
 		};

@@ -80,14 +80,14 @@ public:
 		_engine.bodies.emplace_front(lotus::physics::body::create(
 			plane_shape, material,
 			lotus::physics::body_properties::kinematic(),
-			lotus::physics::body_state::stationary_at(lotus::zero, lotus::quat::from_axis_angle(lotus::physics::vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::pi))
+			lotus::physics::body_state::stationary_at(lotus::zero, lotus::quat::from_axis_angle(lotus::physics::vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::physics::pi))
 		));
 	}
 
 	void timestep(double dt, std::size_t iterations) override {
 		_world_time += dt;
 		_sphere->state.position = {
-			_sphere_travel * std::cos((2.0 * lotus::pi / _sphere_period) * _world_time),
+			_sphere_travel * std::cos((2.0 * lotus::physics::pi / _sphere_period) * _world_time),
 			_sphere_yz[0],
 			_sphere_yz[1]
 		};

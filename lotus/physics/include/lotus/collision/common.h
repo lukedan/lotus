@@ -9,4 +9,5 @@
 
 namespace lotus::collision {
 	using namespace lotus::physics::types;
+	using namespace lotus::physics::constants;
 }

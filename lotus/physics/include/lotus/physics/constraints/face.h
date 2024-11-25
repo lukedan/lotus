@@ -115,9 +115,9 @@ namespace lotus::physics::constraints {
 				mat::concat_columns(d1_norm, vec::cross(normal_norm, d1_norm), normal_norm);
 			mat33s r = r_t.transposed();
 			mat33s f = // deformation gradient
-				mat::concat_columns(r * d1, r * d2, vec3(0.0, 0.0, 1.0)) *
+				mat::concat_columns(r * d1, r * d2, vec3(0.0f, 0.0f, 1.0f)) *
 				state.inverse_configuration;
-			mat33s g = 0.5 * (f.transposed() * f - mat33s::identity());
+			mat33s g = 0.5f * (f.transposed() * f - mat33s::identity());
 
 			column_vector<6, scalar> c(g(0, 0), g(1, 1), g(2, 2), g(0, 1), g(0, 2), g(1, 2));
 			c *= sqrt_vol;
@@ -128,7 +128,7 @@ namespace lotus::physics::constraints {
 				state.inverse_configuration.row(1)
 			).transposed();
 			mat33s f2_t = (f * sqrt_vol).transposed();
-			mat33s f2_t_half = 0.5 * f2_t;
+			mat33s f2_t_half = 0.5f * f2_t;
 			matrix<6, 9, scalar> dep_dx = uninitialized;
 			dep_dx.set_block(0, 0, mat::kronecker_product(df_dx.row(0), f2_t.row(0)));
 			dep_dx.set_block(1, 0, mat::kronecker_product(df_dx.row(1), f2_t.row(1)));

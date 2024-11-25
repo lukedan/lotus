@@ -47,16 +47,16 @@ namespace lotus::physics {
 
 		// solve constraints
 		contact_lambdas.resize(contact_constraints.size());
-		std::fill(contact_lambdas.begin(), contact_lambdas.end(), std::make_pair(0.0, 0.0));
+		std::fill(contact_lambdas.begin(), contact_lambdas.end(), std::make_pair(0.0f, 0.0f));
 
 		spring_lambdas.resize(particle_spring_constraints.size());
-		std::fill(spring_lambdas.begin(), spring_lambdas.end(), 0.0);
+		std::fill(spring_lambdas.begin(), spring_lambdas.end(), 0.0f);
 
 		face_lambdas.resize(face_constraints.size(), uninitialized);
 		std::fill(face_lambdas.begin(), face_lambdas.end(), zero);
 
 		bend_lambdas.resize(bend_constraints.size());
-		std::fill(bend_lambdas.begin(), bend_lambdas.end(), 0.0);
+		std::fill(bend_lambdas.begin(), bend_lambdas.end(), 0.0f);
 
 		for (std::size_t i = 0; i < iters; ++i) {
 			// project body contact constraints
@@ -66,7 +66,7 @@ namespace lotus::physics {
 
 			// handle body-particle collisions
 			for (const body &b : bodies) {
-				if (b.properties.inverse_mass == 0.0) {
+				if (b.properties.inverse_mass == 0.0f) {
 					for (particle &p : particles) {
 						std::visit(
 							[&](const auto &shape) {
@@ -128,8 +128,8 @@ namespace lotus::physics {
 
 			b.state.linear_velocity = (b.state.position - b.prev_position) / dt;
 			auto dq = b.state.rotation * b.prev_rotation.inverse();
-			b.state.angular_velocity = dq.axis() * (2.0 / dt);
-			if (dq.w() < 0.0) {
+			b.state.angular_velocity = dq.axis() * (2.0f / dt);
+			if (dq.w() < 0.0f) {
 				b.state.angular_velocity = -b.state.angular_velocity;
 			}
 		}
@@ -174,7 +174,7 @@ namespace lotus::physics {
 			scalar delta_v_norm = delta_v.norm();
 			vec3 delta_v_unit = delta_v / delta_v_norm;
 			auto correction = body::correction::compute(
-				b1, b2, contact.offset1, contact.offset2, delta_v_unit, 1.0
+				b1, b2, contact.offset1, contact.offset2, delta_v_unit, 1.0f
 			);
 			correction.apply_velocity(delta_v_norm);
 		}
@@ -227,7 +227,7 @@ namespace lotus::physics {
 		const collision::shapes::plane&, const body_state &s1,
 		const collision::shapes::polyhedron &p2, const body_state &s2
 	) {
-		vec3 norm_world = s1.rotation.rotate(vec3(0.0, 0.0, 1.0));
+		vec3 norm_world = s1.rotation.rotate(vec3(0.0f, 0.0f, 1.0f));
 		vec3 norm_local2 = s2.rotation.inverse().rotate(norm_world);
 		vec3 plane_pos = s2.rotation.inverse().rotate(s1.position - s2.position);
 		scalar min_depth = 0.0f;
@@ -327,10 +327,10 @@ namespace lotus::physics {
 			cvec2<scalar> barycentric(contact[0] - pos1[0] * y_ratio, y_ratio);
 
 			vec3 local_contact2 =
-				p2.vertices[spx_id[0].index2] * (1.0 - barycentric[1]) +
+				p2.vertices[spx_id[0].index2] * (1.0f - barycentric[1]) +
 				p2.vertices[spx_id[2].index2] * barycentric[1];
 			vec3 local_contact1 =
-				p1.vertices[spx_id[0].index1] * (1.0 - barycentric[0]) +
+				p1.vertices[spx_id[0].index1] * (1.0f - barycentric[0]) +
 				p1.vertices[spx_id[1].index1] * barycentric[0];
 			result.contact1 = local_contact1;
 			result.contact2 = local_contact2;
@@ -342,8 +342,8 @@ namespace lotus::physics {
 		const collision::shapes::plane&, const body_state &state, vec3 &pos
 	) {
 		vec3 plane_pos = state.rotation.inverse().rotate(pos - state.position);
-		if (plane_pos[2] < 0.0) {
-			plane_pos[2] = 0.0;
+		if (plane_pos[2] < 0.0f) {
+			plane_pos[2] = 0.0f;
 			pos = state.rotation.rotate(plane_pos) + state.position;
 			return true;
 		}

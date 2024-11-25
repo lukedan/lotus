@@ -34,7 +34,7 @@ namespace trowbridge_reitz {
 		double denom = xi * (squared(alpha) - 1.0) + 1.0;
 		return cvec2d(
 			std::sqrt((1.0 - xi) / denom),
-			squared(denom) / (lotus::pi_f * squared(alpha))
+			squared(denom) / (lotus::constants::pi * squared(alpha))
 		);
 	}
 }
@@ -52,7 +52,7 @@ cvec2d integrate_brdf(double roughness, double n_dot_v, std::uint32_t seq_bits) 
 	for (std::uint32_t i = 0; i < num_samples; ++i) {
 		cvec2d xi = seq(seq_bits, i);
 		double n_dot_h = trowbridge_reitz::importance_sample_d(xi[0], alpha)[0];
-		double phi = xi[1] * 2.0 * lotus::pi_f;
+		double phi = xi[1] * 2.0 * lotus::constants::pi;
 		double sin_theta = std::sqrt(1.0 - squared(n_dot_h));
 		cvec3d h(sin_theta * std::cos(phi), sin_theta * std::sin(phi), n_dot_h);
 		double v_dot_h = vec::dot(v, h);

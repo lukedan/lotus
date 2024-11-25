@@ -118,7 +118,7 @@ namespace lotus::incremental_convex_hull {
 					}
 					face &other_face = _faces_pool[half_edge.face];
 					const vec3 offset = v - _vertices[std::to_underlying(other_face.vertex_indices[0])];
-					const bool delete_face = vec::dot(other_face.normal, offset) > 0.0;
+					const bool delete_face = vec::dot(other_face.normal, offset) > 0.0f;
 					if (delete_face) {
 						mark_face(half_edge.face);
 					} else {

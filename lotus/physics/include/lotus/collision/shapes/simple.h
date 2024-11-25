@@ -31,7 +31,7 @@ namespace lotus::collision::shapes {
 		/// Returns the body properties of this shape with the given density.
 		[[nodiscard]] constexpr physics::body_properties get_body_properties(scalar density) const {
 			// TODO offset this sphere
-			const scalar mass = (4.0f / 3.0f) * static_cast<scalar>(pi) * radius * radius * radius * density;
+			const scalar mass = (4.0f / 3.0f) * pi * radius * radius * radius * density;
 			const scalar diag = 0.4f * mass * radius * radius;
 			return physics::body_properties::create(mat33s::diagonal(diag, diag, diag), mass);
 		}

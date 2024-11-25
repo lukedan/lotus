@@ -3,6 +3,7 @@
 /// \file
 /// Common physics engine definitions.
 
+#include "lotus/math/constants.h"
 #include "lotus/math/vector.h"
 #include "lotus/math/quaternion.h"
 
@@ -14,5 +15,9 @@ namespace lotus::physics {
 		using quats = quaternion<scalar>; ///< Quaternion type.
 		using uquats = unit_quaternion<scalar>; ///< Unit quaternion type.
 		using mat33s = mat33<scalar>; ///< 3x3 matrix type.
+	}
+
+	inline namespace constants {
+		constexpr static scalar pi = static_cast<scalar>(lotus::constants::pi); ///< Pi.
 	}
 }

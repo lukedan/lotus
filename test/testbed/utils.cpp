@@ -88,8 +88,8 @@ void debug_render::draw_body(
 void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, bool wireframe) {
 	constexpr std::uint32_t _z_slices = 10;
 	constexpr std::uint32_t _xy_slices = 30;
-	constexpr double _z_slice_angle = lotus::pi / _z_slices;
-	constexpr double _xy_slice_angle = 2.0 * lotus::pi / _xy_slices;
+	constexpr double _z_slice_angle = lotus::physics::pi / _z_slices;
+	constexpr double _xy_slice_angle = 2.0 * lotus::physics::pi / _xy_slices;
 
 	static std::vector<vec3> _vertices;
 	static std::vector<std::uint32_t> _indices;
@@ -97,7 +97,7 @@ void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, boo
 	if (_vertices.empty()) {
 		// http://www.songho.ca/opengl/gl_sphere.html
 		for (std::uint32_t i = 0; i <= _z_slices; ++i) {
-			double z_angle = lotus::pi / 2 - static_cast<double>(i) * _z_slice_angle;
+			double z_angle = lotus::physics::pi / 2 - static_cast<double>(i) * _z_slice_angle;
 			double xy = 0.5 * std::cos(z_angle);
 			double z = 0.5 * std::sin(z_angle);
 

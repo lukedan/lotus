@@ -68,7 +68,7 @@ public:
 			plane, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0, 0.0, 0.0), -0.5 * lotus::pi)
+				lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0, 0.0, 0.0), -0.5 * lotus::physics::pi)
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
@@ -76,7 +76,7 @@ public:
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
 				vec3(10.0, 0.0, 0.0),
-				lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), -0.5 * lotus::pi)
+				lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), -0.5 * lotus::physics::pi)
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
@@ -84,7 +84,7 @@ public:
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
 				vec3(-10.0, 0.0, 0.0),
-				lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), 0.5 * lotus::pi)
+				lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), 0.5 * lotus::physics::pi)
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
@@ -92,7 +92,7 @@ public:
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
 				vec3(0.0, 0.0, 10.0),
-				lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), lotus::pi)
+				lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), lotus::physics::pi)
 			)
 		));
 		_engine.bodies.emplace_back(lotus::physics::body::create(
@@ -116,7 +116,7 @@ public:
 				if (_rotate_90) {
 					state = lotus::physics::body_state::stationary_at(
 						vec3(0.0, y, cx),
-						lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), 0.5 * lotus::pi)
+						lotus::quat::from_normalized_axis_angle(vec3(0.0, 1.0, 0.0), 0.5 * lotus::physics::pi)
 					);
 				} else {
 					state = lotus::physics::body_state::stationary_at(

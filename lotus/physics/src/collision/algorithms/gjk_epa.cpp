@@ -19,14 +19,14 @@ namespace lotus::collision {
 			state.simplex_positions[i] = simplex_vertex_position(simplex[i]);
 		}
 
-		auto vertex_looked_at = bookmark.create_vector_array<std::uint8_t>(
-			polyhedron1->vertices.size() * polyhedron2->vertices.size(), static_cast<uint8_t>(0)
+		auto vertex_looked_at = bookmark.create_vector_array<bool>(
+			polyhedron1->vertices.size() * polyhedron2->vertices.size(), false
 		);
 		auto mark_vert = [&](simplex_vertex v) {
-			vertex_looked_at[v.index1 * polyhedron2->vertices.size() + v.index2] = 1;
+			vertex_looked_at[v.index1 * polyhedron2->vertices.size() + v.index2] = true;
 		};
 		auto check_vert = [&](simplex_vertex v) {
-			return vertex_looked_at[v.index1 * polyhedron2->vertices.size() + v.index2] != 0;
+			return vertex_looked_at[v.index1 * polyhedron2->vertices.size() + v.index2];
 		};
 		for (std::size_t i = 0; i < simplex_vertices; ++i) {
 			mark_vert(simplex[i]);
@@ -55,7 +55,7 @@ namespace lotus::collision {
 
 				// fast exit: the support vertex does not reach the origin, thus the Minkowski difference does not
 				// contain the origin
-				if (vec::dot(state.simplex_positions[0], state.simplex_positions[1]) > 0.0) {
+				if (vec::dot(state.simplex_positions[0], state.simplex_positions[1]) > 0.0f) {
 					return { false, state };
 				}
 			}
@@ -118,7 +118,7 @@ namespace lotus::collision {
 					normal = -normal;
 				}
 				const scalar dotv = vec::dot(normal, state.simplex_positions[i]);
-				if (dotv < 0.0) {
+				if (dotv < 0.0f) {
 					// this face is facing the origin; use its normal as the support vector to find the next vertex
 					auto new_vertex = support_vertex(normal);
 					if (check_vert(new_vertex)) {
@@ -131,7 +131,7 @@ namespace lotus::collision {
 					state.simplex_positions[replace_index] = simplex_vertex_position(new_vertex);
 
 					// fast exit
-					if (vec::dot(normal, state.simplex_positions[replace_index]) <= 0.0) {
+					if (vec::dot(normal, state.simplex_positions[replace_index]) <= 0.0f) {
 						return { false, state };
 					}
 

@@ -3,6 +3,7 @@
 /// \file
 /// Implementation of 3D convex hull algorithms.
 
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -209,8 +210,9 @@ namespace lotus::incremental_convex_hull {
 
 		/// Adds a vertex to this convex hull. The iterator provides a face that faces the new vertex.
 		vertex_id add_vertex_hint(vec3, face_id hint);
-		/// Adds a new vertex to the polytope.
-		vertex_id add_vertex(vec3);
+		/// Adds a new vertex to the polytope. This may return \p std::nullopt if the vertex is already inside the
+		/// convex hull.
+		std::optional<vertex_id> add_vertex(vec3);
 
 		/// Returns a vertex in the polyhedra.
 		[[nodiscard]] vec3 get_vertex(vertex_id i) const {
@@ -284,12 +286,12 @@ namespace lotus::incremental_convex_hull {
 
 		/// Creates user data storage for the same upper bound of the number of vertices and faces.
 		template <
-			typename VertexData, typename FaceData, typename VertexAllocator, typename FaceAllocator
-		> [[nodiscard]] user_data<VertexData, FaceData, VertexAllocator, FaceAllocator> create_user_data_storage(
+			typename VertexData, typename FaceData, typename VertexDataAllocator, typename FaceDataAllocator
+		> [[nodiscard]] user_data<VertexData, FaceData, VertexDataAllocator, FaceDataAllocator> create_user_data_storage(
 			const VertexData &vert_data,
 			const FaceData &face_data,
-			const VertexAllocator &vert_alloc,
-			const FaceAllocator &face_alloc
+			const VertexDataAllocator &vert_alloc,
+			const FaceDataAllocator &face_alloc
 		) {
 			return incremental_convex_hull::create_user_data_storage<VertexData, FaceData>(
 				static_cast<std::uint32_t>(_vertices.size()),

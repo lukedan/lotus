@@ -119,9 +119,9 @@ namespace lotus::gpu {
 		) {
 			switch (type) {
 			case descriptor_type::read_only_image:
-				return &write_descriptor_set_read_only_images;
+				return &device::write_descriptor_set_read_only_images;
 			case descriptor_type::read_write_image:
-				return &write_descriptor_set_read_write_images;
+				return &device::write_descriptor_set_read_write_images;
 			default:
 				return nullptr;
 			}
@@ -133,9 +133,9 @@ namespace lotus::gpu {
 		) {
 			switch (type) {
 			case descriptor_type::read_only_buffer:
-				return &write_descriptor_set_read_only_structured_buffers;
+				return &device::write_descriptor_set_read_only_structured_buffers;
 			case descriptor_type::read_write_buffer:
-				return &write_descriptor_set_read_write_structured_buffers;
+				return &device::write_descriptor_set_read_write_structured_buffers;
 			default:
 				return nullptr;
 			}

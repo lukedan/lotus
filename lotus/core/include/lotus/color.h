@@ -40,7 +40,7 @@ namespace lotus {
 		template <typename U> constexpr linear_rgba<U> into() const {
 			if constexpr (std::is_integral_v<T>) {
 				if constexpr (std::is_integral_v<U>) {
-					return into<float>().into<U>(); // TODO better approach?
+					return into<float>().template into<U>(); // TODO better approach?
 				} else {
 					return linear_rgba<U>(
 						static_cast<U>(r) / std::numeric_limits<T>::max(),

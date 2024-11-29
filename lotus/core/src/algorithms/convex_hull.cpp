@@ -168,7 +168,7 @@ namespace lotus::incremental_convex_hull {
 		return result;
 	}
 
-	vertex_id state::add_vertex(vec3 v) {
+	std::optional<vertex_id> state::add_vertex(vec3 v) {
 		face_id cur_face = _any_face;
 		do {
 			const face &f = _faces_pool[cur_face];
@@ -178,6 +178,7 @@ namespace lotus::incremental_convex_hull {
 			}
 			cur_face = f.next;
 		} while (cur_face != _any_face);
+		return std::nullopt;
 	}
 
 	vertex_id state::_add_vertex(vec3 v) {

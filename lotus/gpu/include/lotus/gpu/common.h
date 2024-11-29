@@ -1245,7 +1245,7 @@ namespace lotus::gpu {
 		constexpr input_buffer_layout(
 			std::span<const input_buffer_element> elems,
 			std::size_t s, input_buffer_rate rate, std::size_t buf_id
-		) : elements(elems), stride(s), input_rate(rate), buffer_index(buf_id) {
+		) : elements(elems), stride(s), buffer_index(buf_id), input_rate(rate) {
 		}
 		/// Creates a new layout for vertex buffers with the given arguments.
 		[[nodiscard]] constexpr inline static input_buffer_layout create_vertex_buffer(
@@ -1615,7 +1615,7 @@ namespace lotus::gpu {
 		}
 		/// Initializes all fields of this struct.
 		timeline_semaphore_synchronization(timeline_semaphore &sem, _details::timeline_semaphore_value_type v) :
-			semaphore(&sem), value(v) {
+			value(v), semaphore(&sem) {
 		}
 
 		_details::timeline_semaphore_value_type value = 0; ///< The value of the semaphore.

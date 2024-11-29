@@ -62,7 +62,6 @@ namespace lotus::gpu::backends::common {
 			std::pair(shader_stage::closest_hit_shader,    "INVALID"),
 			std::pair(shader_stage::miss_shader,           "INVALID"),
 		};
-		using _wstring = memory::stack_allocator::string_type<WCHAR>;
 
 		auto bookmark = get_scratch_bookmark();
 
@@ -72,7 +71,7 @@ namespace lotus::gpu::backends::common {
 		auto fmt_result = std::format_to_n(
 			profile_ascii, std::size(profile_ascii) - 1, "{}_{}_{}", stage_names[stage], 6, 6
 		);
-		assert(static_cast<std::size_t>(fmt_result.size) + 1 < std::size(profile_ascii));
+		crash_if(static_cast<std::size_t>(fmt_result.size) + 1 >= std::size(profile_ascii));
 		profile_ascii[fmt_result.size] = '\0';
 		auto profile = _u8string_to_wstring(bookmark, reinterpret_cast<const char8_t*>(profile_ascii));
 

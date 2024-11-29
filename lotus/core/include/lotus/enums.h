@@ -14,7 +14,8 @@
 namespace lotus::enums {
 	/// Stores a mapping from consecutive zero-based enum values to mapped values, with additional checks.
 	template <
-		typename Enum, typename Value, std::size_t NumEnumerators = static_cast<std::size_t>(Enum::num_enumerators)
+		typename Enum, typename Value,
+		std::underlying_type_t<Enum> NumEnumerators = std::to_underlying(Enum::num_enumerators)
 	> class sequential_mapping {
 	public:
 		using storage = std::array<std::pair<Enum, Value>, NumEnumerators>; ///< Storage type.
@@ -23,7 +24,7 @@ namespace lotus::enums {
 		template <typename ...Args> constexpr sequential_mapping(Args &&...args) :
 			_mapping{ { std::forward<Args>(args)... } } {
 			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for enum mapping.");
-			for (std::size_t i = 0; i < NumEnumerators; ++i) {
+			for (std::underlying_type_t<Enum> i = 0; i < NumEnumerators; ++i) {
 				crash_if(std::to_underlying(_mapping[i].first) != i);
 			}
 		}
@@ -191,14 +192,14 @@ namespace lotus::enums::bit_mask {
 	/// Stores a mapping from one bit mask type to another.
 	template <
 		typename BitMask, typename Value,
-		std::size_t NumEnumerators = static_cast<std::size_t>(BitMask::num_enumerators)
+		std::underlying_type_t<BitMask> NumEnumerators = std::to_underlying(BitMask::num_enumerators)
 	> class mapping {
 	public:
 		/// Initializes the mapping.
 		template <typename ...Args> constexpr mapping(Args &&...args) :
 			_mapping{ { std::forward<Args>(args)... } } {
 			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for bit mask mapping.");
-			for (std::size_t i = 0; i < NumEnumerators; ++i) {
+			for (std::underlying_type_t<BitMask> i = 0; i < NumEnumerators; ++i) {
 				crash_if(_mapping[i].first != static_cast<BitMask>(1 << i));
 			}
 		}
@@ -209,7 +210,7 @@ namespace lotus::enums::bit_mask {
 			auto value = static_cast<_src_ty>(m);
 			while (value != 0) {
 				const int bit_index = std::countr_zero(value);
-				crash_if(bit_index >= NumEnumerators);
+				crash_if(static_cast<_src_ty>(bit_index) >= NumEnumerators);
 				const _src_ty bit = 1ull << bit_index;
 				cb(bit_index, static_cast<BitMask>(bit), _mapping[bit_index].second);
 				value ^= bit;

@@ -185,13 +185,13 @@ namespace lotus {
 		template <typename T> struct constants;
 		/// Constants for 32-bit FNV-1a hash.
 		template <> struct constants<std::uint32_t> {
-			constexpr static std::uint32_t prime  = 16777619;   ///< The multiplier.
-			constexpr static std::uint32_t offset = 2166136261; ///< The initial offset.
+			constexpr static std::uint32_t prime  = 16777619u;   ///< The multiplier.
+			constexpr static std::uint32_t offset = 2166136261u; ///< The initial offset.
 		};
 		/// Constants for 64-bit FNV-1a hash.
 		template <> struct constants<std::uint64_t> {
-			constexpr static std::uint64_t prime  = 1099511628211;        ///< The multiplier.
-			constexpr static std::uint64_t offset = 14695981039346656037; ///< The initial offset.
+			constexpr static std::uint64_t prime  = 1099511628211ULL;        ///< The multiplier.
+			constexpr static std::uint64_t offset = 14695981039346656037ULL; ///< The initial offset.
 		};
 
 		/// Hashes the given range of bytes using FNV-1a.

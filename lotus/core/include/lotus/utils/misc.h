@@ -3,38 +3,50 @@
 /// \file
 /// Miscellaneous utilities.
 
-#include <cstdio>
+#include <filesystem>
 
 #include "lotus/memory/common.h"
 #include "lotus/memory/block.h"
 
 namespace lotus {
-	/// Loads the specified binary file.
+	/// Loads the specified file as binary. The size of the file will be passed to the callback function, which
+	/// should allocate and return storage for the contents of the file.
+	///
+	/// \return Whether the file was successfully loaded.
+	[[nodiscard]] bool load_binary_file(
+		const std::filesystem::path&, std::span<std::byte>(*allocate)(std::size_t, void*), void *user_data
+	);
+	/// \overload
+	template <typename Callback> [[nodiscard]] bool load_binary_file(
+		const std::filesystem::path &path, Callback &&allocate
+	) {
+		return load_binary_file(path,
+			[](std::size_t sz, void *user_data) {
+				return (*static_cast<std::remove_reference_t<Callback&&>*>(user_data))(sz);
+			},
+			&allocate
+		);
+	}
+	/// \overload
 	template <
 		typename Allocator = memory::raw::allocator
-	> std::pair<memory::block<Allocator>, std::size_t> load_binary_file(
-		const char *path, Allocator alloc = Allocator{}, std::size_t alignment = 1
+	> [[nodiscard]] std::pair<memory::block<Allocator>, std::size_t> load_binary_file(
+		const std::filesystem::path &path, const Allocator &alloc = Allocator{}, std::size_t alignment = 1
 	) {
-		FILE *fin = std::fopen(path, "rb");
-		if (fin) {
-			if (std::fseek(fin, 0, SEEK_END) == 0) {
-				long pos = std::ftell(fin);
-				if (pos >= 0) {
-					std::rewind(fin);
-					auto size = static_cast<std::size_t>(pos);
-					auto block = memory::block<Allocator>::allocate(
-						memory::size_alignment(size, alignment), std::move(alloc)
-					);
-					std::size_t bytes_read = std::fread(block.get(), 1, size, fin);
-					if (bytes_read == size) {
-						std::fclose(fin);
-						return std::make_pair(std::move(block), size);
-					}
-				}
+		memory::block<Allocator> result(nullptr, alloc);
+		std::size_t result_size;
+		const bool success = load_binary_file(path,
+			[&](std::size_t sz) -> std::span<std::byte> {
+				result = memory::allocate_block(memory::size_alignment(sz, alignment), alloc);
+				result_size = sz;
+				return { result.get(), result_size };
 			}
-			std::fclose(fin);
+		);
+		if (!success) {
+			result.reset();
+			result_size = 0;
 		}
-		return { memory::block<Allocator>(nullptr, std::move(alloc)), 0};
+		return { std::move(result), result_size };
 	}
 
 

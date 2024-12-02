@@ -141,9 +141,7 @@ namespace lotus {
 			typename Profile = custom_float::conversion_profile_full<custom_float::rounding_mode::towards_zero>
 		> [[nodiscard]] constexpr F into() const {
 			using _ufrom = Storage;
-			using _sfrom = std::make_signed_t<_ufrom>;
 			using _uto = typename F::storage_type;
-			using _sto = std::make_signed_t<_uto>;
 			constexpr std::uint32_t _mant_to = F::mantissa_bits;
 			constexpr std::uint32_t _exp_to = F::exponent_bits;
 

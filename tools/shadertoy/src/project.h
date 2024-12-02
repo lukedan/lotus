@@ -19,12 +19,7 @@ public:
 	/// Loads a project from the given JSON object.
 	[[nodiscard]] static project load(const nlohmann::json&);
 	/// Loads resources for all passes.
-	void load_resources(
-		lren::assets::manager&,
-		lren::assets::handle<lren::assets::shader> vert_shader,
-		const std::filesystem::path &root,
-		const lren::pool&
-	);
+	void load_resources(lren::assets::manager&, const std::filesystem::path &root, const lren::pool&);
 
 	/// Finds the output buffer corresponding to the given name.
 	[[nodiscard]] pass::target *find_target(std::u8string_view name);

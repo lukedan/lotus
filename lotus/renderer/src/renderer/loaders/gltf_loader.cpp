@@ -13,7 +13,7 @@ namespace lotus::renderer::gltf {
 	/// Loads a data buffer with the given properties.
 	template <typename T> static assets::handle<assets::buffer> _load_data_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask, const pool &p
+		int accessor_index, std::int32_t expected_components, gpu::buffer_usage_mask usage_mask, const pool &p
 	) {
 		auto id = assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 			"buffer{}|{}|{}({})", accessor_index, expected_components, typeid(T).hash_code(), typeid(T).name()
@@ -41,10 +41,10 @@ namespace lotus::renderer::gltf {
 		auto *data_raw = reinterpret_cast<const std::byte*>(
 			model.buffers[buffer_view.buffer].data.data() + buffer_view.byteOffset + accessor.byteOffset
 		);
-		for (int i = 0; i < accessor.count; ++i) {
+		for (std::size_t i = 0; i < accessor.count; ++i) {
 			auto *current_raw = data_raw + stride * i;
 			auto *target = data.data() + i * expected_components;
-			for (int j = 0; j < std::min(static_cast<std::size_t>(num_components), expected_components); ++j) {
+			for (std::int32_t j = 0; j < std::min(num_components, expected_components); ++j) {
 				switch (component_type) {
 				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
 					{
@@ -108,7 +108,7 @@ namespace lotus::renderer::gltf {
 	/// Wrapper around \ref _load_data_buffer() that loads an \ref assets::geometry::input_buffer.
 	template <typename T> static assets::geometry::input_buffer _load_input_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::size_t expected_components, gpu::buffer_usage_mask usage_mask, const pool &p
+		int accessor_index, std::int32_t expected_components, gpu::buffer_usage_mask usage_mask, const pool &p
 	) {
 		assets::geometry::input_buffer result = nullptr;
 		result.data = _load_data_buffer<T>(man, path, model, accessor_index, expected_components, usage_mask, p);
@@ -116,7 +116,7 @@ namespace lotus::renderer::gltf {
 		result.stride = static_cast<std::uint32_t>(sizeof(T) * expected_components);
 
 		std::uint8_t count[4] = { 0, 0, 0, 0 };
-		for (std::size_t i = 0; i < expected_components; ++i) {
+		for (std::int32_t i = 0; i < expected_components; ++i) {
 			count[i] = sizeof(T) * 8;
 		}
 		auto ty = gpu::format_properties::data_type::unknown;

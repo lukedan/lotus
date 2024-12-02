@@ -323,9 +323,11 @@ namespace lotus::incremental_convex_hull {
 	};
 	/// Shorthand for \ref storage::create_for_num_vertices().
 	template <
-		typename VertAllocator, typename FaceAllocator
+		typename VertAllocator = std::allocator<vec3>, typename FaceAllocator = std::allocator<face_entry>
 	> [[nodiscard]] inline storage<VertAllocator, FaceAllocator> create_storage_for_num_vertices(
-		std::uint32_t n, const VertAllocator &vert_alloc, const FaceAllocator &face_alloc
+		std::uint32_t n,
+		const VertAllocator &vert_alloc = VertAllocator(),
+		const FaceAllocator &face_alloc = FaceAllocator()
 	) {
 		return storage<VertAllocator, FaceAllocator>::create_for_num_vertices(n, vert_alloc, face_alloc);
 	}

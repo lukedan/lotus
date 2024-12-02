@@ -117,7 +117,7 @@ namespace lotus::gpu::backends::directx12 {
 		/// Enumerates over all shaders using \p ID3D12LibraryReflection::GetFunctionByIndex().
 		template <typename Callback> void enumerate_shaders(Callback &&cb) const {
 			D3D12_LIBRARY_DESC desc = {};
-			_details::assert_dx(_reflection->GetDesc());
+			_details::assert_dx(_reflection->GetDesc(&desc));
 			for (UINT i = 0; i < desc.FunctionCount; ++i) {
 				auto *refl = _reflection->GetFunctionByIndex(static_cast<INT>(i));
 				if (!cb(shader_reflection(refl))) {

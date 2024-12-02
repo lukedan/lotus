@@ -223,7 +223,7 @@ namespace lotus::renderer::fbx {
 					}
 
 					int material_index = polygon_materials ? polygon_materials->GetAt(i_poly) : 0;
-					if (material_index + 1 > mesh_indices.size()) {
+					if (static_cast<std::size_t>(material_index) >= mesh_indices.size()) {
 						mesh_indices.resize(material_index + 1);
 					}
 
@@ -259,7 +259,7 @@ namespace lotus::renderer::fbx {
 					}
 
 					int material_index = polygon_materials ? polygon_materials->GetAt(i_poly) : 0;
-					if (material_index >= mesh_positions.size()) {
+					if (static_cast<std::size_t>(material_index) >= mesh_positions.size()) {
 						mesh_positions.resize(material_index + 1);
 						mesh_normals.resize(material_index + 1);
 						mesh_uvs.resize(material_index + 1);

@@ -39,6 +39,7 @@ namespace lotus::collision {
 				// position is center1 - center2; support vector is its negation
 				const vec3 initial_support_vec = center2 - center1;
 				simplex[0] = support_vertex(initial_support_vec);
+				mark_vert(simplex[0]);
 				state.simplex_positions[0] = simplex_vertex_position(simplex[0]);
 				++simplex_vertices;
 			}
@@ -69,8 +70,8 @@ namespace lotus::collision {
 					return { false, state }; // no collision
 				}
 				mark_vert(simplex[2]);
-				++simplex_vertices;
 				state.simplex_positions[2] = simplex_vertex_position(simplex[2]);
+				++simplex_vertices;
 
 				// fast exit
 				if (vec::dot(support, state.simplex_positions[2]) < 0.0f) {
@@ -219,33 +220,10 @@ namespace lotus::collision {
 	}
 
 	gjk_epa::simplex_vertex gjk_epa::support_vertex(vec3 dir) const {
-		gjk_epa::simplex_vertex result = uninitialized;
-
-		// polyhedron 1
-		const vec3 dir1 = orient1.inverse().rotate(dir);
-		result.index1 = 0;
-		scalar dot1max = vec::dot(polyhedron1->vertices[0].into<scalar>(), dir1);
-		for (std::size_t i = 1; i < polyhedron1->vertices.size(); ++i) {
-			const scalar dv = vec::dot(polyhedron1->vertices[i].into<scalar>(), dir1);
-			if (dv > dot1max) {
-				dot1max = dv;
-				result.index1 = static_cast<std::uint32_t>(i);
-			}
-		}
-
-		// polyhedron 2
-		const vec3 dir2 = orient2.inverse().rotate(dir);
-		result.index2 = 0;
-		scalar dot2min = vec::dot(polyhedron2->vertices[0].into<scalar>(), dir2);
-		for (std::size_t i = 1; i < polyhedron2->vertices.size(); ++i) {
-			const scalar dv = vec::dot(polyhedron2->vertices[i].into<scalar>(), dir2);
-			if (dv < dot2min) {
-				dot2min = dv;
-				result.index2 = static_cast<std::uint32_t>(i);
-			}
-		}
-
-		return result;
+		return gjk_epa::simplex_vertex(
+			polyhedron1->get_support_vertex(orient1.inverse().rotate(dir)).first,
+			polyhedron2->get_support_vertex(-orient2.inverse().rotate(dir)).first
+		);
 	}
 
 	vec3 gjk_epa::simplex_vertex_position(simplex_vertex v) const {

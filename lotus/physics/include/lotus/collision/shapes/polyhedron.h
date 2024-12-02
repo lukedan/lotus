@@ -56,49 +56,9 @@ namespace lotus::collision::shapes {
 
 		/// Offsets this shape so that the center of mass is at the origin, and returns the resulting
 		/// \ref body_properties.
-		[[nodiscard]] physics::body_properties bake(scalar density) {
-			auto bookmark = get_scratch_bookmark();
+		[[nodiscard]] physics::body_properties bake(scalar density);
 
-			// compute convex hull
-			auto hull_storage = incremental_convex_hull::create_storage_for_num_vertices(
-				static_cast<std::uint32_t>(vertices.size()),
-				bookmark.create_std_allocator<incremental_convex_hull::vec3>(),
-				bookmark.create_std_allocator<incremental_convex_hull::face_entry>()
-			);
-			auto hull_state = hull_storage.create_state_for_tetrahedron({
-				vertices[0].into<float>(),
-				vertices[1].into<float>(),
-				vertices[2].into<float>(),
-				vertices[3].into<float>()
-			});
-			for (std::size_t i = 4; i < vertices.size(); ++i) {
-				hull_state.add_vertex(vertices[i].into<float>());
-			}
-
-			// gather faces
-			auto faces = bookmark.create_reserved_vector_array<std::array<std::uint32_t, 3>>(
-				incremental_convex_hull::get_max_num_triangles_for_vertex_count(
-					static_cast<std::uint32_t>(vertices.size())
-				)
-			);
-			{ // enumerate all faces
-				auto face_ptr = hull_state.get_any_face();
-				do {
-					const incremental_convex_hull::face &face = hull_state.get_face(face_ptr);
-					faces.emplace_back(std::array{
-						std::to_underlying(face.vertex_indices[0]),
-						std::to_underlying(face.vertex_indices[1]),
-						std::to_underlying(face.vertex_indices[2])
-					});
-					face_ptr = face.next;
-				} while (face_ptr != hull_state.get_any_face());
-			}
-			const auto prop = properties::compute_for(vertices, faces);
-
-			for (vec3 &v : vertices) {
-				v -= prop.center_of_mass;
-			}
-			return prop.translated(-prop.center_of_mass).get_body_properties(density);
-		}
+		/// Returns the index of the support vertex in the given direction, and its dot product with the direction.
+		[[nodiscard]] std::pair<std::uint32_t, scalar> get_support_vertex(vec3 dir) const;
 	};
 }

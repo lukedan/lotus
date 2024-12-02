@@ -47,6 +47,8 @@ target_sources(lotus_core
 		"src/memory/common.cpp"
 		"src/memory/stack_allocator.cpp"
 		
+		"src/utils/misc.cpp"
+
 		"src/logging.cpp")
 
 if("${LOTUS_USE_ALLOCATOR}" STREQUAL "mimalloc")

@@ -8,19 +8,19 @@ namespace lotus::memory {
 	template <typename Allocator = raw::allocator> struct block {
 	public:
 		/// Creates an empty block.
-		block(std::nullptr_t, Allocator alloc = Allocator()) : _allocator(std::move(alloc)), _ptr(nullptr) {
+		block(std::nullptr_t, const Allocator &alloc = Allocator()) : _allocator(alloc), _ptr(nullptr) {
 		}
 		/// Passes the given pointer to be managed by a \ref block.
-		[[nodiscard]] inline static block manage(std::byte *ptr, Allocator alloc = Allocator()) {
-			return block(ptr, std::move(alloc));
+		[[nodiscard]] inline static block manage(std::byte *ptr, const Allocator &alloc = Allocator()) {
+			return block(ptr, alloc);
 		}
 		/// Allocates a new block.
-		[[nodiscard]] inline static block allocate(size_alignment s, Allocator alloc = Allocator()) {
+		[[nodiscard]] inline static block allocate(size_alignment s, const Allocator &alloc = Allocator()) {
 			std::byte *ptr = alloc.allocate(s);
-			return block::manage(ptr, std::move(alloc));
+			return block::manage(ptr, alloc);
 		}
 		/// Move constructor.
-		block(block &&src) : _allocator(std::move(src._allocator)), _ptr(std::exchange(src._ptr, nullptr)) {
+		block(block &&src) : _allocator(src._allocator), _ptr(std::exchange(src._ptr, nullptr)) {
 		}
 		/// No copy construction.
 		block(const block&) = delete;
@@ -68,7 +68,14 @@ namespace lotus::memory {
 		[[no_unique_address]] std::byte *_ptr; ///< Pointer to the memory block.
 
 		/// Initializes all fields of this struct.
-		block(std::byte *p, Allocator alloc) : _allocator(std::move(alloc)), _ptr(p) {
+		block(std::byte *p, const Allocator &alloc) : _allocator(alloc), _ptr(p) {
 		}
 	};
+
+	/// Shorthand for \ref block::allocate().
+	template <typename Allocator> block<Allocator> allocate_block(
+		size_alignment sz, const Allocator &alloc = Allocator()
+	) {
+		return block<Allocator>::allocate(sz, alloc);
+	}
 }

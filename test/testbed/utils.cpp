@@ -167,17 +167,37 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron 
 	if (visual) {
 		draw_body(poly.vertices, {}, visual->triangles, transform, visual->color, wireframe);
 	} else {
+		std::vector<vec3> verts;
 		std::vector<std::uint32_t> indices;
-		for (std::size_t i = 0; i < poly.vertices.size(); ++i) {
-			for (std::size_t j = i + 1; j < poly.vertices.size(); ++j) {
-				for (std::size_t k = j + 1; k < poly.vertices.size(); ++k) {
-					indices.emplace_back(static_cast<std::uint32_t>(i));
-					indices.emplace_back(static_cast<std::uint32_t>(j));
-					indices.emplace_back(static_cast<std::uint32_t>(k));
-				}
-			}
+
+		namespace convex_hull = lotus::incremental_convex_hull;
+
+		auto storage = convex_hull::create_storage_for_num_vertices(poly.vertices.size());
+		auto hull = storage.create_state_for_tetrahedron({ poly.vertices[0], poly.vertices[1], poly.vertices[2], poly.vertices[3] });
+		for (std::size_t i = 4; i < poly.vertices.size(); ++i) {
+			hull.add_vertex(poly.vertices[i]);
 		}
-		draw_body(poly.vertices, {}, indices, transform, lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f), wireframe);
+
+		{
+			convex_hull::face_id fi = hull.get_any_face();
+			do {
+				const convex_hull::face &face = hull.get_face(fi);
+				const auto i0 = static_cast<std::uint32_t>(verts.size());
+				const vec3 v1 = hull.get_vertex(face.vertex_indices[0]);
+				const vec3 v2 = hull.get_vertex(face.vertex_indices[1]);
+				const vec3 v3 = hull.get_vertex(face.vertex_indices[2]);
+				const vec3 normal = lotus::vec::unsafe_normalize(lotus::vec::cross(v2 - v1, v3 - v1));
+				verts.emplace_back(v1);
+				verts.emplace_back(v2);
+				verts.emplace_back(v3);
+				indices.emplace_back(i0);
+				indices.emplace_back(i0 + 1);
+				indices.emplace_back(i0 + 2);
+				fi = face.next;
+			} while (fi != hull.get_any_face());
+		}
+
+		draw_body(verts, {}, indices, transform, lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f), wireframe);
 	}
 }
 

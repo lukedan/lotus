@@ -53,6 +53,8 @@ namespace lotus::renderer::execution {
 		case buffer_binding_type::read_write:
 			_ctx._device.write_descriptor_set_read_write_structured_buffers(_result, _layout, reg, { buf_view });
 			break;
+		case buffer_binding_type::num_enumerators:
+			std::unreachable();
 		}
 	}
 

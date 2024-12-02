@@ -15,6 +15,11 @@
 #include <span>
 #include <bit>
 
+#if defined(__clang__) && defined(_MSC_VER)
+// clang-cl does not implement no_unique_address
+#	define no_unique_address msvc::no_unique_address
+#endif
+
 namespace lotus {
 #ifndef NDEBUG
 	constexpr bool is_debugging = true;
@@ -119,7 +124,7 @@ namespace lotus {
 		template <
 			std::size_t Size, typename T, std::size_t ...Is
 		> [[nodiscard]] constexpr std::array<T, Size> filled_array_impl(const T &val, std::index_sequence<Is...>) {
-			return { { (Is, val)... } };
+			return { { (static_cast<void>(Is), val)... } };
 		}
 	}
 	/// Creates an array filled with the given element.

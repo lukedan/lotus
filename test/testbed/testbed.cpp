@@ -268,7 +268,7 @@ protected:
 		return { "shaders/", _get_asset_library_path() / "shaders/" };
 	}
 
-	void _on_initialized() {
+	void _on_initialized() override {
 		_test_context.default_shader_vs = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
 		_test_context.default_shader_ps = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
 		_test_context.resource_pool = _context->request_pool(u8"Test Resource Pool");

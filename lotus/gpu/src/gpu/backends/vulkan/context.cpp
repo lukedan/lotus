@@ -116,7 +116,6 @@ namespace lotus::gpu::backends::vulkan {
 		crash_if(!_details::unwrap(dev._physical_device.getSurfaceSupportKHR(
 			dev._queue_family_props[queue_family::graphics].index, result._surface.get()
 		)));
-		auto capabilities = _details::unwrap(dev._physical_device.getSurfaceCapabilitiesKHR(result._surface.get()));
 		auto allocator = bookmark.create_std_allocator<vk::SurfaceFormatKHR>();
 		auto available_fmts = _details::unwrap(dev._physical_device.getSurfaceFormatsKHR(
 			result._surface.get(), allocator

@@ -31,4 +31,63 @@ namespace lotus::collision::shapes {
 		result.volume         /= 6.0f;
 		return result;
 	}
+
+
+	physics::body_properties polyhedron::bake(scalar density) {
+		auto bookmark = get_scratch_bookmark();
+
+		// compute convex hull
+		auto hull_storage = incremental_convex_hull::create_storage_for_num_vertices(
+			static_cast<std::uint32_t>(vertices.size()),
+			bookmark.create_std_allocator<incremental_convex_hull::vec3>(),
+			bookmark.create_std_allocator<incremental_convex_hull::face_entry>()
+		);
+		auto hull_state = hull_storage.create_state_for_tetrahedron({
+			vertices[0].into<float>(),
+			vertices[1].into<float>(),
+			vertices[2].into<float>(),
+			vertices[3].into<float>()
+		});
+		for (std::size_t i = 4; i < vertices.size(); ++i) {
+			hull_state.add_vertex(vertices[i].into<float>());
+		}
+
+		// gather faces
+		auto faces = bookmark.create_reserved_vector_array<std::array<std::uint32_t, 3>>(
+			incremental_convex_hull::get_max_num_triangles_for_vertex_count(
+				static_cast<std::uint32_t>(vertices.size())
+			)
+		);
+		{ // enumerate all faces
+			auto face_ptr = hull_state.get_any_face();
+			do {
+				const incremental_convex_hull::face &face = hull_state.get_face(face_ptr);
+				faces.emplace_back(std::array{
+					std::to_underlying(face.vertex_indices[0]),
+					std::to_underlying(face.vertex_indices[1]),
+					std::to_underlying(face.vertex_indices[2])
+				});
+				face_ptr = face.next;
+			} while (face_ptr != hull_state.get_any_face());
+		}
+		const auto prop = properties::compute_for(vertices, faces);
+
+		for (vec3 &v : vertices) {
+			v -= prop.center_of_mass;
+		}
+		return prop.translated(-prop.center_of_mass).get_body_properties(density);
+	}
+
+	std::pair<std::uint32_t, scalar> polyhedron::get_support_vertex(vec3 dir) const {
+		std::size_t result = 0;
+		scalar dot1max = vec::dot(vertices[result], dir);
+		for (std::size_t i = 1; i < vertices.size(); ++i) {
+			const scalar dv = vec::dot(vertices[i], dir);
+			if (dv > dot1max) {
+				dot1max = dv;
+				result = i;
+			}
+		}
+		return { static_cast<std::uint32_t>(result), dot1max };
+	}
 }

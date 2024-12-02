@@ -35,13 +35,11 @@ namespace lotus::renderer::execution {
 	public:
 		/// Initializes this context.
 		queue_context(batch_context&, _details::queue_data&);
-		/// Default move constructor.
+		/// Default move construction.
 		queue_context(queue_context&&) = default;
-		/// No move construction.
+		/// No copy construction.
 		queue_context(const queue_context&) = delete;
-		/// Default move assignment.
-		queue_context &operator=(queue_context&&) = default;
-		/// No move assignment.
+		/// No move or copy assignment.
 		queue_context &operator=(const queue_context&) = delete;
 
 

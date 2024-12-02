@@ -60,6 +60,8 @@ namespace lotus {
 			case system::mouse_button::middle:
 				_is_moving = true;
 				return true;
+			case system::mouse_button::num_enumerators:
+				std::unreachable();
 			}
 			return false;
 		}
@@ -77,6 +79,8 @@ namespace lotus {
 			case system::mouse_button::middle:
 				_is_moving = false;
 				break;
+			case system::mouse_button::num_enumerators:
+				std::unreachable();
 			}
 			return !_is_rotating && !_is_zooming && !_is_moving;
 		}

@@ -112,10 +112,7 @@ public:
 		lren::assets::manager&, const std::filesystem::path &root, const lren::pool&
 	);
 	/// Loads the shader and uses its reflection data to initialize the pipeline.
-	void load_shader(
-		lren::assets::manager&, lren::assets::handle<lren::assets::shader> vert_shader,
-		const std::filesystem::path &root
-	);
+	void load_shader(lren::assets::manager&, const std::filesystem::path &root);
 
 
 	/// Returns whether this pass is ready to be rendered.

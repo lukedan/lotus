@@ -302,6 +302,11 @@ namespace lotus::renderer::assimp {
 					loaded_light.type = shader_types::light_type::point_light;
 					log().warn("Area light treated as a point light: {}", light->mName.C_Str());
 					break;
+				case aiLightSource_UNDEFINED:
+					[[fallthrough]];
+				case _aiLightSource_Force32Bit:
+					log().error("Undefined light type: {}", light->mName.C_Str());
+					break;
 				}
 				loaded_light.position   = cvec3f(light->mPosition.x, light->mPosition.y, light->mPosition.z);
 				loaded_light.direction  = cvec3f(light->mDirection.x, light->mDirection.y, light->mDirection.z);

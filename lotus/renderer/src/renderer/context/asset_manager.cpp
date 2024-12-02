@@ -329,11 +329,9 @@ namespace lotus::renderer::assets {
 				// find out how many mips we've loaded
 				std::uint32_t highest_mip = j.results[0].mip;
 				std::uint32_t lowest_mip = j.results[0].mip;
-				std::uint32_t mip_mask = 0;
 				for (const auto &res : j.results) {
 					highest_mip = std::min(highest_mip, res.mip);
 					lowest_mip = std::max(lowest_mip, res.mip);
-					mip_mask |= 1 << res.mip;
 				}
 
 				tex.image = _context.request_image2d(

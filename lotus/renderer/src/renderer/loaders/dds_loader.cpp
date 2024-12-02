@@ -216,6 +216,12 @@ namespace lotus::dds {
 					return std::nullopt;
 				}
 				break;
+			case resource_dimension::buffer:
+				log().debug("DDS: Buffers are not supported");
+				return std::nullopt;
+			case resource_dimension::unknown:
+				log().debug("DDS: Unknown resource dimension");
+				return std::nullopt;
 			}
 		} else {
 			result._format = infer_format_from(dds_header.pixel_format);

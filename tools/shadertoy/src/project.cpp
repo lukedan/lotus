@@ -39,15 +39,10 @@ project project::load(const nlohmann::json &val) {
 	return result;
 }
 
-void project::load_resources(
-	lren::assets::manager &man,
-	lren::assets::handle<lren::assets::shader> vert_shader,
-	const std::filesystem::path &root,
-	const lren::pool &p
-) {
+void project::load_resources(lren::assets::manager &man, const std::filesystem::path &root, const lren::pool &p) {
 	for (auto &it : passes) {
 		it.second.load_input_images(man, root, p);
-		it.second.load_shader(man, std::move(vert_shader), root);
+		it.second.load_shader(man, root);
 	}
 }
 

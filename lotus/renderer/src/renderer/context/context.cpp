@@ -602,7 +602,7 @@ namespace lotus::renderer {
 		gpu::device &dev,
 		std::span<const gpu::command_queue> queues
 	) :
-		_device(dev), _context(ctx),
+		_context(ctx), _device(dev),
 		_descriptor_pool(_device.create_descriptor_pool({
 			gpu::descriptor_range::create(gpu::descriptor_type::acceleration_structure, 10240),
 			gpu::descriptor_range::create(gpu::descriptor_type::constant_buffer, 10240),

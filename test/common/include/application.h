@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fstream>
+
 #include <lotus/utils/strings.h>
 #include <lotus/system/application.h>
 #include <lotus/system/window.h>
@@ -578,25 +580,23 @@ namespace lotus {
 			
 			{
 				// set up debug output buffer
-				FILE *debug_out = nullptr;
+				std::ofstream debug_fout;
 				constexpr bool _enable_debug_analysis = false;
 				if constexpr (_enable_debug_analysis) {
-					debug_out = fopen("test.txt", "w");
+					debug_fout = std::ofstream("test.txt");
 					_context->on_execution_log =
-						[debug_out](std::u8string_view text) {
-							std::fprintf(
-								debug_out, "%.*s\n",
-								static_cast<int>(text.size()),
-								reinterpret_cast<const char*>(text.data())
+						[&debug_fout](std::u8string_view text) {
+							debug_fout.write(
+								reinterpret_cast<const char*>(text.data()),
+								static_cast<std::streamsize>(text.size())
 							);
-							std::fflush(debug_out);
+							debug_fout.flush();
 						};
 				}
 
 				batch_stats_early = _context->execute_all();
 
 				if constexpr (_enable_debug_analysis) {
-					std::fclose(debug_out);
 					_context->on_execution_log = nullptr;
 				}
 			}

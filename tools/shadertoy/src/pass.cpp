@@ -151,10 +151,7 @@ void pass::load_input_images(
 	images_loaded = true;
 }
 
-void pass::load_shader(
-	lren::assets::manager &man, lren::assets::handle<lren::assets::shader> vert_shader,
-	const std::filesystem::path &root
-) {
+void pass::load_shader(lren::assets::manager &man, const std::filesystem::path &root) {
 	shader_loaded = false;
 
 	// load shader

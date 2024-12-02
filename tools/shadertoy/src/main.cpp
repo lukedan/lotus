@@ -170,7 +170,7 @@ int main(int argc, char **argv) {
 				}
 			}
 			proj = project::load(proj_json);
-			proj.load_resources(ass_man, vert_shader, proj_path.parent_path(), resource_pool);
+			proj.load_resources(ass_man, proj_path.parent_path(), resource_pool);
 			pass_order = proj.get_pass_order();
 		}
 

@@ -325,7 +325,7 @@ namespace lotus::gpu::backends::directx12 {
 		// check that we don't have unbounded ranges
 		if constexpr (is_debugging) {
 			for (const auto &range : layout._ranges) {
-				assert(range.NumDescriptors != UINT_MAX);
+				crash_if(range.NumDescriptors == UINT_MAX);
 			}
 		}
 
@@ -361,7 +361,7 @@ namespace lotus::gpu::backends::directx12 {
 					break;
 				}
 			}
-			assert(has_unbounded);
+			crash_if(!has_unbounded);
 		}
 
 		// TODO check max values
@@ -411,6 +411,8 @@ namespace lotus::gpu::backends::directx12 {
 					case DXGI_FORMAT_D24_UNORM_S8_UINT:
 						desc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
 						break;
+					default:
+						break;
 					}
 					_device->CreateShaderResourceView(view->_image.Get(), &desc, current_descriptor);
 				}
@@ -438,6 +440,8 @@ namespace lotus::gpu::backends::directx12 {
 					switch (desc.Format) {
 					case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
 						desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+						break;
+					default:
 						break;
 					}
 					_device->CreateUnorderedAccessView(view->_image.Get(), nullptr, &desc, current_descriptor);
@@ -749,7 +753,6 @@ namespace lotus::gpu::backends::directx12 {
 	image2d_view device::create_image2d_view_from(const image2d &img, format fmt, mip_levels mip) {
 		crash_if(!img.is_valid());
 
-		auto mips = mip.get_num_levels();
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 		srv_desc.Format                        = _details::conversions::to_format(fmt);
 		srv_desc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -833,8 +836,8 @@ namespace lotus::gpu::backends::directx12 {
 			if (img._srv_desc.Texture2D.MipLevels == 1) {
 				return true;
 			}
-			if (img._srv_desc.Texture2D.MipLevels != -1) {
-				return false;
+			if (img._srv_desc.Texture2D.MipLevels != static_cast<UINT>(-1)) {
+				return false; // explicitly requiring more than 1 mips
 			}
 			return img._image->GetDesc().MipLevels - img._srv_desc.Texture2D.MostDetailedMip == 1;
 		};

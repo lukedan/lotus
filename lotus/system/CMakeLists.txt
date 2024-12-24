@@ -11,9 +11,31 @@ target_sources(lotus_system
 		"include/lotus/system/window.h")
 
 target_include_directories(lotus_system PUBLIC "include/")
+target_link_libraries(lotus_system PUBLIC lotus_core)
 
-if(WIN32)
-	target_include_directories(lotus_system PUBLIC "include/")
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	enable_language(OBJCXX)
+	target_sources(lotus_system
+		PUBLIC
+			"include/lotus/system/platforms/macos/application.h"
+			"include/lotus/system/platforms/macos/window.h"
+
+			"include/lotus/system/platforms/macos.h"
+		PRIVATE
+			"src/system/platforms/macos/application.mm"
+			"src/system/platforms/macos/window.mm")
+	target_compile_definitions(lotus_system
+		PUBLIC
+			"${LOTUS_SYSTEM_PLATFORM_INCLUDE_NAME}=<lotus/system/platforms/macos.h>")
+
+	find_library(FOUNDATION_LIB Foundation)
+	find_library(APP_KIT_LIB AppKit)
+	find_library(QUARTZ_CORE_LIB QuartzCore)
+	find_library(METAL_LIB Metal)
+	target_link_libraries(lotus_system
+		PUBLIC
+			${FOUNDATION_LIB} ${APP_KIT_LIB} ${QUARTZ_CORE_LIB} ${METAL_LIB})
+elseif(WIN32)
 	target_sources(lotus_system
 		PUBLIC
 			"include/lotus/system/platforms/windows/application.h"
@@ -29,7 +51,6 @@ if(WIN32)
 		PUBLIC
 			"${LOTUS_SYSTEM_PLATFORM_INCLUDE_NAME}=<lotus/system/platforms/windows.h>"
 			WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
-	target_link_libraries(lotus_system PUBLIC lotus_core)
 elseif(UNIX)
 	# TODO
 endif()

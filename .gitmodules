@@ -7,3 +7,6 @@
 [submodule "lotus/gpu/thirdparty/DirectX-Headers"]
 	path = lotus/gpu/thirdparty/DirectX-Headers
 	url = https://github.com/microsoft/DirectX-Headers.git
+[submodule "test/thirdparty/imgui"]
+	path = test/thirdparty/imgui
+	url = https://github.com/ocornut/imgui.git

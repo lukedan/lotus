@@ -1,6 +1,8 @@
-find_package(imgui CONFIG REQUIRED)
-
 function(add_testbed_executable GPU_BACKEND)
+	if(NOT TARGET lotus_renderer_${GPU_BACKEND})
+		return()
+	endif()
+
 	set(PROJ testbed_${GPU_BACKEND})
 
 	add_executable(${PROJ})
@@ -15,8 +17,9 @@ function(add_testbed_executable GPU_BACKEND)
 			"testbed.cpp"
 			"utils.cpp"
 			"utils.h")
-	target_link_libraries(${PROJ} PRIVATE lotus_system lotus_renderer_${GPU_BACKEND} lotus_physics imgui::imgui)
+	target_link_libraries(${PROJ} PRIVATE lotus_system lotus_renderer_${GPU_BACKEND} lotus_physics)
 	target_include_directories(${PROJ} PRIVATE "../common/include")
+	target_include_directories(${PROJ} PRIVATE "../thirdparty/imgui")
 	set_target_properties(${PROJ} PROPERTIES
 		INTERPROCEDURAL_OPTIMIZATION ON)
 endfunction()

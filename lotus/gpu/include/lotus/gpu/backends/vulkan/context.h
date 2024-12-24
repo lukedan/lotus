@@ -3,8 +3,7 @@
 /// \file
 /// A Vulkan context.
 
-#include <Unknwn.h>
-#include <dxcapi.h>
+#include <dxc/dxcapi.h>
 
 #include "lotus/memory/stack_allocator.h"
 #include "lotus/system/window.h"

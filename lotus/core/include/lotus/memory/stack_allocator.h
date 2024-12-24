@@ -117,7 +117,7 @@ namespace lotus::memory {
 
 			/// Allocates a piece of memory from the current segment.
 			[[nodiscard]] std::byte *allocate(memory::size_alignment s) {
-				if constexpr (_this_bookmark.is_enabled) {
+				if constexpr (decltype(_this_bookmark)::is_enabled) {
 					assert(_alloc && _alloc->_top_bookmark == *_this_bookmark);
 				}
 				return _alloc->_allocate(s);

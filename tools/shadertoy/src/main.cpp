@@ -26,22 +26,26 @@ int main(int argc, char **argv) {
 	lsys::window wnd = app.create_window();
 
 	auto gctx = lgpu::context::create(lgpu::context_options::enable_validation);
-	std::vector<lgpu::command_queue> gqueues;
 	auto shader_utils = lgpu::shader_utility::create();
-	lgpu::device gdev = nullptr;
-	lgpu::adapter_properties gdev_props = uninitialized;
+	lgpu::adapter gadap = nullptr;
+	lgpu::adapter gadap_fallback = nullptr;
 	gctx.enumerate_adapters([&](lgpu::adapter adap) {
-		auto properties = adap.get_properties();
+		const lgpu::adapter_properties properties = adap.get_properties();
 		if (!properties.is_discrete) {
+			gadap_fallback = adap;
 			return true;
 		}
-		lotus::log().info("Selected device: {}", lotus::string::to_generic(properties.name));
-		auto &&[dev, queues] = adap.create_device({ lgpu::queue_family::graphics, lgpu::queue_family::copy });
-		gdev = std::move(dev);
-		gqueues = std::move(queues);
-		gdev_props = properties;
+		gadap = adap;
 		return false;
 	});
+	if (!gadap) {
+		gadap = gadap_fallback;
+	}
+	lgpu::adapter_properties gdev_props = gadap.get_properties();
+	lotus::log().info("Selected device: {}", lotus::string::to_generic(gdev_props.name));
+	auto &&[dev, queues] = gadap.create_device({ lgpu::queue_family::graphics, lgpu::queue_family::copy });
+	lgpu::device gdev = std::move(dev);
+	std::vector<lgpu::command_queue> gqueues = std::move(queues);
 
 	auto rctx = lren::context::create(gctx, gdev_props, gdev, gqueues);
 	auto gfx_q = rctx.get_queue(0);

@@ -18,6 +18,11 @@
 #include "tests/polyhedron_test.h"
 #include "tests/spring_cloth_test.h"
 
+#include <imgui.cpp>
+#include <imgui_draw.cpp>
+#include <imgui_widgets.cpp>
+#include <imgui_tables.cpp>
+
 /// The testbed applicaiton.
 class testbed_app : public lotus::application {
 public:
@@ -292,7 +297,7 @@ protected:
 		}
 	}
 	void _on_mouse_down(lotus::system::window_events::mouse::button_down &down) override {
-		_camera_control.on_mouse_down(down.button);
+		_camera_control.on_mouse_down(down.button, down.modifiers);
 	}
 	void _on_mouse_up(lotus::system::window_events::mouse::button_up &up) override {
 		_camera_control.on_mouse_up(up.button);

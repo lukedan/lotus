@@ -4,10 +4,12 @@
 /// Common types and functions.
 
 #include <type_traits>
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstring>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include <optional>
 #include <string_view>

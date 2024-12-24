@@ -1,6 +1,10 @@
 find_package(nlohmann_json CONFIG REQUIRED)
 
 function(add_shadertoy_executable GPU_BACKEND)
+	if(NOT TARGET lotus_renderer_${GPU_BACKEND})
+		return()
+	endif()
+
 	set(PROJ shadertoy_${GPU_BACKEND})
 	add_executable(${PROJ})
 	configure_lotus_module(${PROJ})

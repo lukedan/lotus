@@ -257,6 +257,14 @@ namespace lotus::gpu {
 		[[nodiscard]] constexpr bool has_color() const {
 			return has_uncompressed_color() || has_compressed_color();
 		}
+		/// Returns whether this format has any depth components.
+		[[nodiscard]] constexpr bool has_depth() const {
+			return depth_bits > 0;
+		}
+		/// Returns whether this format has any stencil components.
+		[[nodiscard]] constexpr bool has_stencil() const {
+			return stencil_bits > 0;
+		}
 		/// Returns whether this format has any depth or stencil components.
 		[[nodiscard]] constexpr bool has_depth_stencil() const {
 			return depth_bits > 0 || stencil_bits > 0;

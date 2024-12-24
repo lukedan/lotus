@@ -934,7 +934,7 @@ namespace lotus::renderer {
 			// recreate swap chain if necessary
 			if (
 				chain.current_size != chain.desired_size ||
-				back_buffer.status != gpu::swap_chain_status::ok
+				back_buffer.status == gpu::swap_chain_status::unavailable
 			) {
 				// wait for all queues to finish executing
 				for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
@@ -978,7 +978,7 @@ namespace lotus::renderer {
 
 				// re-acquire back buffer
 				back_buffer = _device.acquire_back_buffer(chain.chain);
-				crash_if(back_buffer.status != gpu::swap_chain_status::ok);
+				crash_if(back_buffer.status == gpu::swap_chain_status::unavailable);
 				// wait for back buffer
 				if (back_buffer.on_presented) {
 					_device.wait_for_fence(*back_buffer.on_presented);

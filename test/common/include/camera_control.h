@@ -48,41 +48,45 @@ namespace lotus {
 		}
 		/// Called when a mouse button is pressed.
 		///
-		/// \return \p true if the camera is being manipulated.
-		bool on_mouse_down(system::mouse_button button) {
+		/// \return \p true if this action causes camera manipulation to start.
+		bool on_mouse_down(system::mouse_button button, system::modifier_key_mask mods) {
+			if (_is_rotating || _is_zooming || _is_moving) {
+				return false;
+			}
 			switch (button) {
 			case system::mouse_button::primary:
-				_is_rotating = true;
-				return true;
+				if (bit_mask::contains<system::modifier_key_mask::control>(mods)) {
+					_is_zooming = true;
+				} else if (bit_mask::contains<system::modifier_key_mask::alt>(mods)) {
+					_is_moving = true;
+				} else {
+					_is_rotating = true;
+				}
+				break;
 			case system::mouse_button::secondary:
 				_is_zooming = true;
-				return true;
+				break;
 			case system::mouse_button::middle:
 				_is_moving = true;
-				return true;
-			case system::mouse_button::num_enumerators:
-				std::unreachable();
+				break;
+			default:
+				return false;
 			}
-			return false;
+			_trigger_button = button;
+			return true;
 		}
 		/// Called when a mouse button is released.
 		///
 		/// \return \p true if the camera is *not* being manipulated.
 		bool on_mouse_up(system::mouse_button button) {
-			switch (button) {
-			case system::mouse_button::primary:
-				_is_rotating = false;
-				break;
-			case system::mouse_button::secondary:
-				_is_zooming = false;
-				break;
-			case system::mouse_button::middle:
-				_is_moving = false;
-				break;
-			case system::mouse_button::num_enumerators:
-				std::unreachable();
+			if (!_is_rotating && !_is_zooming && !_is_moving) {
+				return false;
 			}
-			return !_is_rotating && !_is_zooming && !_is_moving;
+			if (button == _trigger_button) {
+				_is_rotating = _is_zooming = _is_moving = false;
+				return true;
+			}
+			return false;
 		}
 		/// Called when mouse capture is broken.
 		void on_capture_broken() {
@@ -98,5 +102,7 @@ namespace lotus {
 		bool _is_zooming = false; ///< Whether this camera is being zoomed in and out.
 		bool _is_moving = false; ///< Whether the camera is being moved.
 		cvec2i _prev_mouse = zero; ///< Previous mouse position.
+		/// The mouse button that triggered the last action.
+		system::mouse_button _trigger_button = system::mouse_button::num_enumerators;
 	};
 }

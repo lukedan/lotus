@@ -1429,7 +1429,7 @@ namespace lotus::gpu::backends::vulkan {
 					queue_capabilities::none;
 				if (bit_mask::contains_all(flags, graphics_queue_flags)) {
 					result._queue_family_props[queue_family::graphics] = device::_queue_family_properties(
-						i, supports_timestamps_bit						
+						i, supports_timestamps_bit
 					);
 				} else if (bit_mask::contains_all(flags, compute_queue_flags)) {
 					result._queue_family_props[queue_family::compute] = device::_queue_family_properties(
@@ -1478,15 +1478,22 @@ namespace lotus::gpu::backends::vulkan {
 		std::vector<const char*> extensions{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 			VK_KHR_SPIRV_1_4_EXTENSION_NAME,
-			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
 			VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
+			VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, // needed by MoltenVK
+#ifndef __APPLE__
+			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
+#endif
 
 			// HLSL to SPIR-V
 			// getting ErrorExtensionNotPresent with these, but the program runs fine without them
 			/*VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
+#ifdef __APPLE__
+		constexpr static bool _disable_advanced_extensions = true; // so that RenderDoc can capture
+#else
 		constexpr static bool _disable_advanced_extensions = false; // so that RenderDoc can capture
+#endif
 		if constexpr (!_disable_advanced_extensions) {
 			extensions.insert(extensions.end(),
 				{
@@ -1524,8 +1531,10 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		vk::PhysicalDeviceRobustness2FeaturesEXT robustness_features;
+#ifndef __APPLE__
 		robustness_features
 			.setNullDescriptor(true);
+#endif
 		vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageable_memory_features;
 		pageable_memory_features
 			.setPNext(&robustness_features)

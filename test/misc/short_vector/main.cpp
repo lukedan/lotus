@@ -1,6 +1,8 @@
 /*#define _CRTDBG_MAP_ALLOC*/ // does not compile
 #include <cstdlib>
-#include <crtdbg.h>
+#if _WIN32
+#	include <crtdbg.h>
+#endif
 
 #include <csignal>
 #include <random>
@@ -179,7 +181,9 @@ void insert_random() {
 }
 
 int main() {
+#if _WIN32
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
 
 	void (*funcs[])() = {
 		push_back_new,

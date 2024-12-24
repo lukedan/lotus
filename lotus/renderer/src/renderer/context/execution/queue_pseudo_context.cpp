@@ -7,6 +7,16 @@
 #include "lotus/renderer/context/context.h"
 
 namespace lotus::renderer::execution {
+	/// Returns all aspects that are present in the given format.
+	[[nodiscard]] static gpu::image_aspect_mask _get_aspect_mask(gpu::format fmt) {
+		const auto &fmt_props = gpu::format_properties::get(fmt);
+		return
+			(fmt_props.has_color() ? gpu::image_aspect_mask::color : gpu::image_aspect_mask::none) |
+			(fmt_props.has_depth() ? gpu::image_aspect_mask::depth : gpu::image_aspect_mask::none) |
+			(fmt_props.has_stencil() ? gpu::image_aspect_mask::stencil : gpu::image_aspect_mask::none);
+	}
+
+
 	queue_pseudo_context::queue_pseudo_context(batch_context &bctx, queue_context &qctx, _details::queue_data &q) :
 		_batch_ctx(bctx),
 		_queue_ctx(qctx),
@@ -303,7 +313,12 @@ namespace lotus::renderer::execution {
 			_pseudo_use_image(
 				*cmd.depth_stencil_target.view._ptr,
 				_details::image_access(
-					gpu::subresource_range::nonarray_depth_stencil(cmd.depth_stencil_target.view._mip_levels),
+					gpu::subresource_range(
+						cmd.depth_stencil_target.view._mip_levels,
+						0,
+						1,
+						_get_aspect_mask(cmd.depth_stencil_target.view._view_format)
+					),
 					gpu::synchronization_point_mask::all_graphics,
 					gpu::image_access_mask::depth_stencil_read_write, // TODO: use read_only for these two when possible
 					gpu::image_layout::depth_stencil_read_write
@@ -535,14 +550,6 @@ namespace lotus::renderer::execution {
 		for (const auto &buf : set._ptr->used_buffers) {
 			_pseudo_use_buffer(*buf.buffer, sync_points, buf.access, scope);
 		}
-	}
-
-	/// Returns all aspects that are present in the given format.
-	[[nodiscard]] static gpu::image_aspect_mask _get_aspect_mask(gpu::format fmt) {
-		const auto &fmt_props = gpu::format_properties::get(fmt);
-		return
-			(fmt_props.has_color() ? gpu::image_aspect_mask::color : gpu::image_aspect_mask::none) |
-			(fmt_props.has_depth_stencil() ? gpu::image_aspect_mask::depth_stencil : gpu::image_aspect_mask::none);
 	}
 
 	void queue_pseudo_context::_pseudo_use_resource(

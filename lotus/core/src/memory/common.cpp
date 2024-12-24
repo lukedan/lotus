@@ -18,6 +18,9 @@
 namespace lotus::memory {
 	namespace raw {
 		std::byte *allocate(size_alignment s) {
+			// we may need to massage the size and alignment to satisfy the allocator's requirements
+			[[maybe_unused]] const std::size_t align = std::max(s.alignment, sizeof(void*));
+			[[maybe_unused]] const std::size_t aligned_size = memory::align_up(s.size, align);
 			return static_cast<std::byte*>(
 #ifdef LOTUS_USE_MIMALLOC
 				mi_aligned_alloc(s.alignment, s.size)
@@ -25,7 +28,7 @@ namespace lotus::memory {
 #	ifdef _MSC_VER
 				_aligned_malloc(s.size, s.alignment)
 #	else
-				std::aligned_alloc(s.alignment, s.size)
+				std::aligned_alloc(align, aligned_size)
 #	endif
 #endif
 			);

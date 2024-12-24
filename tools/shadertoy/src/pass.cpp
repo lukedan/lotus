@@ -3,8 +3,6 @@
 /// \file
 /// Pass implementation.
 
-#include <dxcapi.h>
-
 #include <stb_image.h>
 
 #include "lotus/utils/strings.h"

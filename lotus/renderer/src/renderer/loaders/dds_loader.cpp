@@ -177,7 +177,7 @@ namespace lotus::dds {
 			const auto *dds_dx10_header = result.get_dx10_header();
 
 			result._format = gpu::backends::common::_details::conversions::back_to_format(
-				static_cast<DXGI_FORMAT>(dds_dx10_header->dxgi_format)
+				static_cast<gpu::backends::common::_details::conversions::dxgi_format>(dds_dx10_header->dxgi_format)
 			);
 			if (result._format == gpu::format::none) {
 				log().debug("Unsupported format: {}", dds_dx10_header->dxgi_format);

@@ -5,9 +5,17 @@
 
 #include <vector>
 
+#include <Unknwn.h>
+#include <directx/d3d12.h>
+
 #include "lotus/common.h"
 
 namespace lotus::gpu::backends::common::_details::conversions {
+	static_assert(
+		std::is_same_v<std::underlying_type_t<DXGI_FORMAT>, std::underlying_type_t<dxgi_format>>,
+		"Format type mismatch"
+	);
+
 	/// Lookup table of all available formats.
 	constexpr static enums::sequential_mapping<format, DXGI_FORMAT> _lookup_table{
 		std::pair(format::none,               DXGI_FORMAT_UNKNOWN             ),
@@ -73,8 +81,8 @@ namespace lotus::gpu::backends::common::_details::conversions {
 		std::pair(format::bc7_srgb,           DXGI_FORMAT_BC7_UNORM_SRGB      ),
 	};
 
-	DXGI_FORMAT to_format(format fmt) {
-		return _lookup_table[fmt];
+	dxgi_format to_format(format fmt) {
+		return static_cast<dxgi_format>(_lookup_table[fmt]);
 	}
 
 	[[nodiscard]] constexpr static std::array<
@@ -86,9 +94,10 @@ namespace lotus::gpu::backends::common::_details::conversions {
 		});
 		return table;
 	}
-	format back_to_format(DXGI_FORMAT fmt) {
+	format back_to_format(dxgi_format raw_fmt) {
 		constexpr static std::array table = _get_sorted_format_table();
 
+		const auto fmt = static_cast<DXGI_FORMAT>(raw_fmt);
 		auto it = std::lower_bound(table.begin(), table.end(), fmt, [](const auto &pair, auto fmt) {
 			return pair.second < fmt;
 		});

@@ -344,9 +344,14 @@ namespace lotus::gpu::backends::vulkan {
 		[[nodiscard]] std::pair<device, std::vector<command_queue>> create_device(std::span<const queue_family>);
 		/// Returns the results of \p vk::PhysicalDevice::getProperties().
 		[[nodiscard]] adapter_properties get_properties() const;
+
+		/// Checks if the adapter is valid.
+		[[nodiscard]] bool is_valid() const {
+			return _device != nullptr;
+		}
 	private:
-		vk::PhysicalDevice _device; ///< The physical device.
-		const vk::DispatchLoaderDynamic *_dispatch_loader; ///< Dispatch loader.
+		vk::PhysicalDevice _device = nullptr; ///< The physical device.
+		const vk::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< Dispatch loader.
 		context_options _options = context_options::none; ///< Context options.
 
 		/// Initializes all fields of the struct.

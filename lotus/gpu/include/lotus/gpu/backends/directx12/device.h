@@ -311,6 +311,11 @@ namespace lotus::gpu::backends::directx12 {
 		[[nodiscard]] std::pair<device, std::vector<command_queue>> create_device(std::span<const queue_family>);
 		/// Returns the properties of this adapter.
 		[[nodiscard]] adapter_properties get_properties() const;
+
+		/// Checks if the adapter is empty.
+		[[nodiscard]] bool is_valid() const {
+			return _adapter;
+		}
 	private:
 		_details::com_ptr<IDXGIAdapter1> _adapter; ///< The adapter.
 		_details::debug_message_callback *_debug_callback = nullptr; ///< The debug callback.

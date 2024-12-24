@@ -158,6 +158,24 @@ namespace lotus::gpu::backends::vulkan::_details {
 			return table.get_union(mask);
 		}
 
+		vk::AccessFlags to_access_flags(buffer_access_mask usage) {
+			constexpr static bit_mask::mapping<buffer_access_mask, vk::AccessFlagBits> table{
+				std::pair(buffer_access_mask::copy_source,                        vk::AccessFlagBits::eTransferRead                 ),
+				std::pair(buffer_access_mask::copy_destination,                   vk::AccessFlagBits::eTransferWrite                ),
+				std::pair(buffer_access_mask::vertex_buffer,                      vk::AccessFlagBits::eVertexAttributeRead          ),
+				std::pair(buffer_access_mask::index_buffer,                       vk::AccessFlagBits::eIndexRead                    ),
+				std::pair(buffer_access_mask::constant_buffer,                    vk::AccessFlagBits::eUniformRead                  ),
+				std::pair(buffer_access_mask::shader_read,                        vk::AccessFlagBits::eShaderRead                   ),
+				std::pair(buffer_access_mask::shader_write,                       vk::AccessFlagBits::eShaderWrite                  ),
+				std::pair(buffer_access_mask::acceleration_structure_build_input, vk::AccessFlagBits::eAccelerationStructureReadKHR ),
+				std::pair(buffer_access_mask::acceleration_structure_read,        vk::AccessFlagBits::eAccelerationStructureReadKHR ),
+				std::pair(buffer_access_mask::acceleration_structure_write,       vk::AccessFlagBits::eAccelerationStructureWriteKHR),
+				std::pair(buffer_access_mask::cpu_read,                           vk::AccessFlagBits::eHostRead                     ),
+				std::pair(buffer_access_mask::cpu_write,                          vk::AccessFlagBits::eHostWrite                    ),
+			};
+			return table.get_union(usage);
+		}
+
 		vk::AccessFlags2 to_access_flags_2(buffer_access_mask access) {
 			constexpr static bit_mask::mapping<buffer_access_mask, vk::AccessFlagBits2> table{
 				std::pair(buffer_access_mask::copy_source,                        vk::AccessFlagBits2::eTransferRead                 ),
@@ -172,6 +190,19 @@ namespace lotus::gpu::backends::vulkan::_details {
 				std::pair(buffer_access_mask::acceleration_structure_write,       vk::AccessFlagBits2::eAccelerationStructureWriteKHR),
 				std::pair(buffer_access_mask::cpu_read,                           vk::AccessFlagBits2::eHostRead                     ),
 				std::pair(buffer_access_mask::cpu_write,                          vk::AccessFlagBits2::eHostWrite                    ),
+			};
+			return table.get_union(access);
+		}
+
+		vk::AccessFlags to_access_flags(image_access_mask access) {
+			constexpr static bit_mask::mapping<image_access_mask, vk::AccessFlagBits> table{
+				std::pair(image_access_mask::copy_source,              vk::AccessFlagBits::eTransferRead               ),
+				std::pair(image_access_mask::copy_destination,         vk::AccessFlagBits::eTransferWrite              ),
+				std::pair(image_access_mask::color_render_target,      vk::AccessFlagBits::eColorAttachmentWrite       ),
+				std::pair(image_access_mask::depth_stencil_read_only,  vk::AccessFlagBits::eDepthStencilAttachmentRead ),
+				std::pair(image_access_mask::depth_stencil_read_write, vk::AccessFlagBits::eDepthStencilAttachmentWrite),
+				std::pair(image_access_mask::shader_read,              vk::AccessFlagBits::eShaderRead                 ),
+				std::pair(image_access_mask::shader_write,             vk::AccessFlagBits::eShaderWrite                ),
 			};
 			return table.get_union(access);
 		}

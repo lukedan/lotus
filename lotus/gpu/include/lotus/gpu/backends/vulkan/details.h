@@ -58,8 +58,12 @@ namespace lotus::gpu::backends::vulkan::_details {
 		[[nodiscard]] vk::ImageUsageFlags to_image_usage_flags(image_usage_mask);
 		/// Converts a \ref synchronization_point_mask to a \p vk::PipelineStageFlags2.
 		[[nodiscard]] vk::PipelineStageFlags2 to_pipeline_stage_flags_2(synchronization_point_mask);
+		/// Converts a \ref buffer_access_mask to a \p vk::AccessFlags.
+		[[nodiscard]] vk::AccessFlags to_access_flags(buffer_access_mask);
 		/// Converts a \ref buffer_access_mask to a \p vk::AccessFlags2.
 		[[nodiscard]] vk::AccessFlags2 to_access_flags_2(buffer_access_mask);
+		/// Converts a \ref image_access_mask to a \p vk::AccessFlags.
+		[[nodiscard]] vk::AccessFlags to_access_flags(image_access_mask);
 		/// Converts a \ref image_access_mask to a \p vk::AccessFlags2.
 		[[nodiscard]] vk::AccessFlags2 to_access_flags_2(image_access_mask);
 		/// Converts a \ref descriptor_type to a \p vk::DescriptorType.

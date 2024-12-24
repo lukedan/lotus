@@ -89,7 +89,11 @@ namespace lotus::gpu::backends::vulkan {
 				.setPStencilAttachment(&stencil_attachment);
 		}
 
+#ifdef __APPLE__
+		_buffer.beginRenderingKHR(info, *_device->_dispatch_loader);
+#else
 		_buffer.beginRendering(info);
+#endif
 	}
 
 	void command_list::bind_pipeline_state(const graphics_pipeline_state &state) {
@@ -247,6 +251,42 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::resource_barrier(std::span<const image_barrier> imgs, std::span<const buffer_barrier> bufs) {
+#ifdef __APPLE__
+		auto bookmark = get_scratch_bookmark();
+		auto img_barriers = bookmark.create_reserved_vector_array<vk::ImageMemoryBarrier>(imgs.size());
+		auto buf_barriers = bookmark.create_reserved_vector_array<vk::BufferMemoryBarrier>(bufs.size());
+		for (const auto &i : imgs) {
+			auto &barrier = img_barriers.emplace_back();
+			barrier
+				.setSrcAccessMask(_details::conversions::to_access_flags(i.from_access))
+				.setDstAccessMask(_details::conversions::to_access_flags(i.to_access))
+				.setOldLayout(_details::conversions::to_image_layout(i.from_layout))
+				.setNewLayout(_details::conversions::to_image_layout(i.to_layout))
+				.setSrcQueueFamilyIndex(_device->_queue_family_props[i.from_queue].index)
+				.setDstQueueFamilyIndex(_device->_queue_family_props[i.to_queue].index)
+				.setImage(static_cast<const _details::image_base*>(i.target)->_image)
+				.setSubresourceRange(_details::conversions::to_image_subresource_range(i.subresources));
+		}
+		for (const auto &b : bufs) {
+			auto &barrier = buf_barriers.emplace_back();
+			barrier
+				.setSrcAccessMask(_details::conversions::to_access_flags(b.from_access))
+				.setDstAccessMask(_details::conversions::to_access_flags(b.to_access))
+				.setSrcQueueFamilyIndex(_device->_queue_family_props[b.from_queue].index)
+				.setDstQueueFamilyIndex(_device->_queue_family_props[b.to_queue].index)
+				.setBuffer(static_cast<const buffer*>(b.target)->_buffer.get())
+				.setOffset(0)
+				.setSize(VK_WHOLE_SIZE);
+		}
+		_buffer.pipelineBarrier(
+			vk::PipelineStageFlagBits::eBottomOfPipe,
+			vk::PipelineStageFlagBits::eTopOfPipe,
+			vk::DependencyFlags(),
+			{},
+			buf_barriers,
+			img_barriers
+		);
+#else
 		auto bookmark = get_scratch_bookmark();
 		auto img_barriers = bookmark.create_reserved_vector_array<vk::ImageMemoryBarrier2>(imgs.size());
 		auto buf_barriers = bookmark.create_reserved_vector_array<vk::BufferMemoryBarrier2>(bufs.size());
@@ -282,10 +322,15 @@ namespace lotus::gpu::backends::vulkan {
 			.setImageMemoryBarriers(img_barriers)
 			.setBufferMemoryBarriers(buf_barriers);
 		_buffer.pipelineBarrier2(info);
+#endif
 	}
 
 	void command_list::end_pass() {
+#ifdef __APPLE__
+		_buffer.endRenderingKHR(*_device->_dispatch_loader);
+#else
 		_buffer.endRendering();
+#endif
 	}
 
 	void command_list::query_timestamp(timestamp_query_heap &h, std::uint32_t index) {

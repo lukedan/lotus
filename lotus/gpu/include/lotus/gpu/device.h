@@ -343,7 +343,7 @@ namespace lotus::gpu {
 		}
 		/// Creates a buffer that can be used to upload/download image data to/from the GPU. The image data is
 		/// assumed to be row-major and have the returned layout.
-		/// 
+		///
 		/// \return The buffer and its layout properties.
 		[[nodiscard]] staging_buffer create_committed_staging_buffer(
 			cvec2u32 size, format fmt, memory_type_index mem_type,
@@ -675,6 +675,15 @@ namespace lotus::gpu {
 		/// Retrieves information about this adapter.
 		[[nodiscard]] adapter_properties get_properties() const {
 			return backend::adapter::get_properties();
+		}
+
+		/// Checks if the adapter is valid.
+		[[nodiscard]] bool is_valid() const {
+			return backend::adapter::is_valid();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
 		}
 	protected:
 		/// Creates an adapter from a backend adapter.

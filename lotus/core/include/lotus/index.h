@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <limits>
+#include <utility>
 
 #include "lotus/common.h"
 

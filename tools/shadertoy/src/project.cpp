@@ -3,6 +3,8 @@
 /// \file
 /// Project implementation.
 
+#include <charconv>
+
 #include "lotus/utils/strings.h"
 
 project project::load(const nlohmann::json &val) {

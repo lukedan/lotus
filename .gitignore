@@ -5,3 +5,5 @@
 lotus/gpu/thirdparty/WinPixEventRuntime/
 
 out/
+
+.DS_Store

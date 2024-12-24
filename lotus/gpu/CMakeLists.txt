@@ -134,7 +134,7 @@ if(LOTUS_GPU_USE_VULKAN)
 			"src/gpu/backends/vulkan/frame_buffer.cpp"
 			"src/gpu/backends/vulkan/pipeline.cpp"
 			"src/gpu/backends/vulkan/resources.cpp"
-			
+
 			"src/gpu/common.cpp")
 	target_link_libraries(lotus_gpu_vulkan
 		PUBLIC
@@ -145,6 +145,10 @@ if(LOTUS_GPU_USE_VULKAN)
 			"LOTUS_GPU_BACKEND_INCLUDE=<lotus/gpu/backends/vulkan.h>")
 	if(WIN32)
 		target_compile_definitions(lotus_gpu_vulkan PUBLIC VK_USE_PLATFORM_WIN32_KHR)
+	endif()
+	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		target_compile_options(lotus_gpu_vulkan PUBLIC -fms-extensions)
+		target_compile_definitions(lotus_gpu_vulkan PUBLIC VK_USE_PLATFORM_METAL_EXT)
 	endif()
 
 	# if using DXC for shader compilation, find and link DXC

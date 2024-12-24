@@ -6,12 +6,11 @@
 #include <filesystem>
 #include <span>
 
-#include <winerror.h>
-
-#ifdef _WIN32
+#if _WIN32
+#	include <winerror.h>
 #	include <atlbase.h>
 #endif
-#include <dxcapi.h>
+#include <dxc/dxcapi.h>
 
 #include "lotus/logging.h"
 #include "lotus/gpu/common.h"

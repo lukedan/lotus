@@ -31,8 +31,12 @@ namespace lotus::gpu::backends::vulkan {
 		std::array enabled_extensions = {
 			VK_KHR_SURFACE_EXTENSION_NAME,
 			VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
-#ifdef WIN32
+			VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, // needed for MoltenVK
+#if _WIN32
 			VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+#endif
+#ifdef __APPLE__
+			VK_EXT_METAL_SURFACE_EXTENSION_NAME,
 #endif
 		};
 		vk::ApplicationInfo app_info;
@@ -44,7 +48,8 @@ namespace lotus::gpu::backends::vulkan {
 		create_info
 			.setPApplicationInfo(&app_info)
 			.setPEnabledLayerNames(enabled_layers)
-			.setPEnabledExtensionNames(enabled_extensions);
+			.setPEnabledExtensionNames(enabled_extensions)
+			.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
 		// TODO allocator
 		return context(_details::unwrap(vk::createInstanceUnique(create_info)), opt, std::move(debug_cb));
 	}
@@ -102,7 +107,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		auto bookmark = get_scratch_bookmark();
 
-#ifdef WIN32
+#if _WIN32
 		vk::Win32SurfaceCreateInfoKHR surface_info;
 		auto instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtr(wnd.get_native_handle(), GWLP_HINSTANCE));
 		system::platforms::windows::_details::assert_win32(instance);
@@ -111,6 +116,11 @@ namespace lotus::gpu::backends::vulkan {
 			.setHwnd(wnd.get_native_handle());
 		// TODO allocator
 		result._surface = _details::unwrap(_instance->createWin32SurfaceKHRUnique(surface_info));
+#elif defined(__APPLE__)
+		vk::MetalSurfaceCreateInfoEXT surface_info;
+		surface_info.pLayer = static_cast<const CAMetalLayer*>(wnd.get_native_handle().metal_layer);
+		// TODO allocator
+		result._surface = _details::unwrap(_instance->createMetalSurfaceEXTUnique(surface_info));
 #endif
 
 		crash_if(!_details::unwrap(dev._physical_device.getSurfaceSupportKHR(

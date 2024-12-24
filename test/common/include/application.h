@@ -11,6 +11,7 @@
 #include <lotus/renderer/context/asset_manager.h>
 #include <lotus/renderer/context/constant_uploader.h>
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <lotus/system/dear_imgui.h>
 #include <lotus/renderer/dear_imgui.h>

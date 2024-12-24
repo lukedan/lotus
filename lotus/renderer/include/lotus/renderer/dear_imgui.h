@@ -138,7 +138,7 @@ namespace lotus::renderer::dear_imgui {
 
 				auto pass = _q.begin_pass({ target }, nullptr, target_size, u8"ImGui Draw Pass");
 				for (const ImDrawCmd &cmd : cmd_list->CmdBuffer) {
-					auto texture_index = reinterpret_cast<intptr_t>(cmd.TextureId);
+					auto texture_index = cmd.TextureId;
 					shader_types::dear_imgui_draw_data data;
 					data.projection = projection;
 					data.scissor_min = cvec2f(cmd.ClipRect.x, cmd.ClipRect.y) - pos;
@@ -183,10 +183,10 @@ namespace lotus::renderer::dear_imgui {
 		/// Registers a texture to be used with Dear ImGui. This needs to be called every frame the texture is used.
 		[[nodiscard]] ImTextureID register_texture(image2d_view img) {
 			if (!img) {
-				return nullptr;
+				return 0;
 			}
 			_registered_images.emplace_back(std::move(img));
-			return reinterpret_cast<ImTextureID>(static_cast<intptr_t>(_registered_images.size()));
+			return static_cast<ImTextureID>(_registered_images.size());
 		}
 	private:
 		/// Initializes the asset manager.

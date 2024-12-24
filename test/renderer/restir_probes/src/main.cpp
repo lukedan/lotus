@@ -347,7 +347,7 @@ protected:
 		}
 	}
 	void _on_mouse_down(lsys::window_events::mouse::button_down &down) override {
-		if (cam_control.on_mouse_down(down.button)) {
+		if (cam_control.on_mouse_down(down.button, down.modifiers)) {
 			_window->acquire_mouse_capture();
 		}
 	}

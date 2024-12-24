@@ -1,4 +1,8 @@
 function(add_path_tracer_executable GPU_BACKEND)
+	if(NOT TARGET lotus_renderer_${GPU_BACKEND})
+		return()
+	endif()
+
 	set(PROJ path_tracer_${GPU_BACKEND})
 
 	add_executable(${PROJ})

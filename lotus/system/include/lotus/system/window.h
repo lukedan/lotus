@@ -4,7 +4,11 @@
 /// Windows.
 
 #include LOTUS_SYSTEM_PLATFORM_INCLUDE
+
+#include "lotus/math/vector.h"
 #include "lotus/utils/static_function.h"
+
+#include "lotus/system/common.h"
 
 namespace lotus::system {
 	class application;

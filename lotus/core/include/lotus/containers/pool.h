@@ -3,6 +3,7 @@
 /// \file
 /// Pool implementation.
 
+#include <utility>
 #include <span>
 
 #include "lotus/common.h"

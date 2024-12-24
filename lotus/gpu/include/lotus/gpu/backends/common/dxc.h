@@ -9,6 +9,7 @@
 #if _WIN32
 #	include <winerror.h>
 #	include <atlbase.h>
+#	include <Unknwn.h>
 #endif
 #include <dxc/dxcapi.h>
 

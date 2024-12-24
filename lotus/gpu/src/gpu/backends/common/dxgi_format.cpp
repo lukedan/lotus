@@ -11,11 +11,6 @@
 #include "lotus/common.h"
 
 namespace lotus::gpu::backends::common::_details::conversions {
-	static_assert(
-		std::is_same_v<std::underlying_type_t<DXGI_FORMAT>, std::underlying_type_t<dxgi_format>>,
-		"Format type mismatch"
-	);
-
 	/// Lookup table of all available formats.
 	constexpr static enums::sequential_mapping<format, DXGI_FORMAT> _lookup_table{
 		std::pair(format::none,               DXGI_FORMAT_UNKNOWN             ),

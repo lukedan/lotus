@@ -68,25 +68,34 @@ namespace lotus::gpu::backends::vulkan {
 		if (buf._depth_stencil_view) {
 			const auto &depth_access = access.depth_render_target;
 			const auto &stencil_access = access.stencil_render_target;
-			depth_attachment
-				.setImageView(buf._depth_stencil_view)
-				.setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
-				.setLoadOp(_details::conversions::to_attachment_load_op(depth_access.load_operation))
-				.setStoreOp(_details::conversions::to_attachment_store_op(depth_access.store_operation))
-				.setClearValue(vk::ClearDepthStencilValue(
-					static_cast<float>(depth_access.clear_value), stencil_access.clear_value
-				));
-			stencil_attachment
-				.setImageView(buf._depth_stencil_view)
-				.setImageLayout(vk::ImageLayout::eStencilAttachmentOptimal)
-				.setLoadOp(_details::conversions::to_attachment_load_op(stencil_access.load_operation))
-				.setStoreOp(_details::conversions::to_attachment_store_op(stencil_access.store_operation))
-				.setClearValue(vk::ClearDepthStencilValue(
-					static_cast<float>(depth_access.clear_value), stencil_access.clear_value
-				));
-			info
-				.setPDepthAttachment(&depth_attachment)
-				.setPStencilAttachment(&stencil_attachment);
+			if (
+				depth_access.load_operation != pass_load_operation::discard ||
+				depth_access.store_operation != pass_store_operation::discard
+			) {
+				depth_attachment
+					.setImageView(buf._depth_stencil_view)
+					.setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+					.setLoadOp(_details::conversions::to_attachment_load_op(depth_access.load_operation))
+					.setStoreOp(_details::conversions::to_attachment_store_op(depth_access.store_operation))
+					.setClearValue(vk::ClearDepthStencilValue(
+						static_cast<float>(depth_access.clear_value), stencil_access.clear_value
+					));
+				info.setPDepthAttachment(&depth_attachment);
+			}
+			if (
+				stencil_access.load_operation != pass_load_operation::discard ||
+				stencil_access.store_operation != pass_store_operation::discard
+			) {
+				stencil_attachment
+					.setImageView(buf._depth_stencil_view)
+					.setImageLayout(vk::ImageLayout::eStencilAttachmentOptimal)
+					.setLoadOp(_details::conversions::to_attachment_load_op(stencil_access.load_operation))
+					.setStoreOp(_details::conversions::to_attachment_store_op(stencil_access.store_operation))
+					.setClearValue(vk::ClearDepthStencilValue(
+						static_cast<float>(depth_access.clear_value), stencil_access.clear_value
+					));
+				info.setPStencilAttachment(&stencil_attachment);
+			}
 		}
 
 #ifdef __APPLE__

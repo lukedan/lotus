@@ -578,7 +578,7 @@ namespace lotus {
 
 			// finally, present and execute
 			_present_queue.present(_swap_chain, u8"Present");
-			
+
 			{
 				// set up debug output buffer
 				std::ofstream debug_fout;

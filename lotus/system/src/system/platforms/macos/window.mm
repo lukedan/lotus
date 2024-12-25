@@ -3,6 +3,7 @@
 /// \file
 /// Implementation of MacOS windows.
 
+#include <Foundation/Foundation.h>
 #include <AppKit/AppKit.h>
 #include <Cocoa/Cocoa.h>
 #include <QuartzCore/QuartzCore.h>
@@ -11,7 +12,15 @@
 #include "lotus/logging.h"
 #include "lotus/system/window.h"
 
+namespace lotus::system::platforms::macos::_details {
+	/// Custom event type
+	enum class custom_event_type : short {
+		window_initialized, ///< Event indicating that a window has just been created.
+	};
+}
+
 using _window_ptr_t = lotus::system::window*; ///< Window pointer type.
+using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_event_type; ///< Custom event type.
 
 /// Window delegate.
 @interface lotus_window_delegate : NSObject<NSWindowDelegate>
@@ -41,8 +50,8 @@ using _window_ptr_t = lotus::system::window*; ///< Window pointer type.
 
 - (void)windowDidResize: (NSNotification*)notification {
 	if (_ptr->on_resize) {
-		NSView *view = ((NSWindow*)_ptr->get_native_handle().window).contentView;
-		const NSSize size = [view convertSizeToBacking: view.frame.size];
+		auto *wnd = static_cast<NSWindow*>(_ptr->get_native_handle().window);
+		const NSSize size = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
 		lotus::system::window_events::resize event(lotus::cvec2u32(size.width, size.height));
 		_ptr->on_resize(event);
 	}
@@ -92,9 +101,14 @@ using _window_ptr_t = lotus::system::window*; ///< Window pointer type.
 	return result;
 }
 
+/// \return Pointer to the lotus window associated with this \p NSWindow.
+- (_window_ptr_t)get_window_ptr {
+	return *[static_cast<lotus_window_delegate*>(self.delegate) get_window_ptr];
+}
+
 /// Handles a mouse move event.
 - (void)handle_mouse_move_event: (NSEvent*)e {
-	_window_ptr_t wnd = *[(lotus_window_delegate*)self.delegate get_window_ptr];
+	const _window_ptr_t wnd = [self get_window_ptr];
 	if (wnd->on_mouse_move) {
 		lotus::system::window_events::mouse::move event(
 			[self convert_mouse_position: e.locationInWindow],
@@ -106,7 +120,7 @@ using _window_ptr_t = lotus::system::window*; ///< Window pointer type.
 
 /// Handles a mouse button down event.
 - (void)handle_mouse_down_event: (NSEvent*)e button: (lotus::system::mouse_button)button {
-	_window_ptr_t wnd = *[(lotus_window_delegate*)self.delegate get_window_ptr];
+	const _window_ptr_t wnd = [self get_window_ptr];
 	if (wnd->on_mouse_button_down) {
 		lotus::system::window_events::mouse::button_down event(
 			[self convert_mouse_position: e.locationInWindow],
@@ -119,7 +133,7 @@ using _window_ptr_t = lotus::system::window*; ///< Window pointer type.
 
 /// Handles a mouse button up event.
 - (void)handle_mouse_up_event: (NSEvent*)e button: (lotus::system::mouse_button)button {
-	_window_ptr_t wnd = *[(lotus_window_delegate*)self.delegate get_window_ptr];
+	const _window_ptr_t wnd = [self get_window_ptr];
 	if (wnd->on_mouse_button_up) {
 		lotus::system::window_events::mouse::button_up event(
 			[self convert_mouse_position: e.locationInWindow],
@@ -159,10 +173,26 @@ using _window_ptr_t = lotus::system::window*; ///< Window pointer type.
 }
 
 - (void)mouseExited: (NSEvent*)e {
-	_window_ptr_t wnd = *[(lotus_window_delegate*)self.delegate get_window_ptr];
+	const _window_ptr_t wnd = [self get_window_ptr];
 	if (wnd->on_mouse_leave) {
 		wnd->on_mouse_leave();
 	}
+}
+
+- (void)sendEvent: (NSEvent*)event {
+	if (event.type == NSEventTypeApplicationDefined) {
+		switch (static_cast<_custom_event_type_t>(event.subtype)) {
+		case _custom_event_type_t::window_initialized:
+			const _window_ptr_t wnd = [self get_window_ptr];
+			if (wnd->on_resize) {
+				const NSSize size = [self.contentView convertSizeToBacking: self.contentView.frame.size];
+				lotus::system::window_events::resize event(lotus::cvec2u32(size.width, size.height));
+				wnd->on_resize(event);
+			}
+			return;
+		}
+	}
+	[super sendEvent: event];
 }
 
 @end
@@ -170,14 +200,16 @@ using _window_ptr_t = lotus::system::window*; ///< Window pointer type.
 
 namespace lotus::system::platforms::macos {
 	window::~window() {
-		[(lotus_window*)_handle.window release];
-		[(CAMetalLayer*)_handle.metal_layer release];
-		[(lotus_window_delegate*)_delegate release];
+		[static_cast<lotus_window*>(_handle.window) release];
+		[static_cast<CAMetalLayer*>(_handle.metal_layer) release];
+		[static_cast<lotus_window_delegate*>(_delegate) release];
+		[static_cast<NSTrackingArea*>(_tracking_area) release];
 	}
 
 	window::window(window &&src) :
 		_handle(std::exchange(src._handle, {})),
 		_delegate(std::exchange(src._delegate, nullptr)),
+		_tracking_area(std::exchange(src._tracking_area, nullptr)),
 		_window_ptr(std::exchange(src._window_ptr, nullptr)) {
 
 		if (_window_ptr) {
@@ -186,18 +218,20 @@ namespace lotus::system::platforms::macos {
 	}
 
 	void window::show() {
-		NSWindow *wnd = (NSWindow*)_handle.window;
+		auto *wnd = static_cast<NSWindow*>(_handle.window);
 		[wnd setIsVisible: true];
 	}
 
 	void window::show_and_activate() {
-		NSWindow *wnd = (NSWindow*)_handle.window;
+		auto *wnd = static_cast<NSWindow*>(_handle.window);
 		[wnd setIsVisible: true];
-		[wnd makeKeyAndOrderFront: nullptr];
+		[wnd makeKeyAndOrderFront: wnd];
+		// MacOS has stricter rules regarding application activation, so this is not guaranteed to work
+		[NSApp activate];
 	}
 
 	void window::hide() {
-		NSWindow *wnd = (NSWindow*)_handle.window;
+		auto *wnd = static_cast<NSWindow*>(_handle.window);
 		[wnd setIsVisible: false];
 	}
 
@@ -214,7 +248,7 @@ namespace lotus::system::platforms::macos {
 	}
 
 	cvec2s window::get_size() const {
-		NSWindow *wnd = (NSWindow*)_handle.window;
+		auto *wnd = static_cast<NSWindow*>(_handle.window);
 		const NSSize size = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
 		return cvec2s(size.width, size.height);
 	}
@@ -231,13 +265,13 @@ namespace lotus::system::platforms::macos {
 
 	window::window() {
 		// initialize window delegate
-		lotus_window_delegate *delegate = [[lotus_window_delegate alloc]
+		auto *delegate = [[lotus_window_delegate alloc]
 			init_with_window_ptr: static_cast<system::window*>(this)
 		];
 		_window_ptr = [delegate get_window_ptr];
 
 		// initialize window
-		NSWindow *wnd = [[lotus_window alloc]
+		auto *wnd = [[lotus_window alloc]
 			initWithContentRect: CGRectMake(100.0f, 100.0f, 640.0f, 480.0f)
 			styleMask:
 				NSWindowStyleMaskTitled         |
@@ -247,20 +281,48 @@ namespace lotus::system::platforms::macos {
 			backing:             NSBackingStoreBuffered
 			defer:               false
 		];
-		wnd.delegate                = delegate;
-		wnd.releasedWhenClosed      = false;
-		wnd.acceptsMouseMovedEvents = true;
+		wnd.delegate           = delegate;
+		wnd.releasedWhenClosed = false;
+
+		// add a tracking area to the window to enable mouse leave events
+		auto *tracking_area = [[NSTrackingArea alloc]
+			initWithRect: NSZeroRect
+			options:
+				NSTrackingMouseEnteredAndExited |
+				NSTrackingMouseMoved |
+				NSTrackingCursorUpdate |
+				NSTrackingActiveAlways |
+				NSTrackingInVisibleRect // to avoid having to manually resize
+			owner:        wnd
+			userInfo:     nullptr
+		];
+		[wnd.contentView addTrackingArea: tracking_area];
 
 		// initialize metal layer
-		CAMetalLayer *layer = [[CAMetalLayer alloc] init];
+		auto *layer = [[CAMetalLayer alloc] init];
 		layer.device       = MTLCreateSystemDefaultDevice();
 		layer.opaque       = true;
 		layer.drawableSize = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
 
 		wnd.contentView.layer = layer;
 
-		window::native_handle_t handle;
 		_handle.window      = wnd;
 		_handle.metal_layer = layer;
+		_tracking_area      = tracking_area;
+		_delegate           = delegate;
+
+		// post a custom "initialized" event to the message queue so that the initial window size event can be sent
+		auto *event = [NSEvent
+			otherEventWithType: NSEventTypeApplicationDefined
+			location:           NSMakePoint(0.0f, 0.0f)
+			modifierFlags:      0
+			timestamp:          [[NSProcessInfo processInfo] systemUptime]
+			windowNumber:       wnd.windowNumber
+			context:            nullptr
+			subtype:            static_cast<short>(_details::custom_event_type::window_initialized)
+			data1:              0
+			data2:              0
+		];
+		[NSApp postEvent: event atStart: false];
 	}
 }

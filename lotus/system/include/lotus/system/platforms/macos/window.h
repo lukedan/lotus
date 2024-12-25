@@ -58,6 +58,7 @@ namespace lotus::system::platforms::macos {
 	private:
 		native_handle_t _handle; ///< The window handle.
 		void *_delegate = nullptr; ///< The delegate.
+		void *_tracking_area = nullptr; ///< The \p NSTrackingArea.
 		system::window **_window_ptr = nullptr; ///< Pointer in the delegate to the window.
 
 		/// Initializes the window.

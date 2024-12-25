@@ -13,6 +13,7 @@ namespace lotus::system::platforms::macos {
 	application::application(std::u8string_view name) {
 		_pool = [[NSAutoreleasePool alloc] init];
 		[NSApplication sharedApplication];
+		[NSApp setActivationPolicy: NSApplicationActivationPolicyRegular];
 	}
 
 	window application::create_window() const {

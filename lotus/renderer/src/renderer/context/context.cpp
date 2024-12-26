@@ -1001,7 +1001,7 @@ namespace lotus::renderer {
 			auto &batch = _batch_data.front();
 			bool batch_ongoing = false;
 			for (std::size_t i = 0; i < _queues.size(); ++i) {
-				if (semaphore_values[i] < batch.resolve_data.queues[0].end_of_batch) {
+				if (semaphore_values[i] < batch.resolve_data.queues[i].end_of_batch) {
 					batch_ongoing = true;
 					break;
 				}

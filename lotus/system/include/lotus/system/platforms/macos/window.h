@@ -46,7 +46,8 @@ namespace lotus::system::platforms::macos {
 		[[nodiscard]] bool has_mouse_capture() const; // TODO
 		void release_mouse_capture(); // TODO
 
-		[[nodiscard]] cvec2s get_size() const; // TODO
+		/// \return \p NSWindow.frame.size.
+		[[nodiscard]] cvec2s get_size() const;
 
 		/// Calls <tt>NSWindow setTitle</tt>.
 		void set_title(std::u8string_view);

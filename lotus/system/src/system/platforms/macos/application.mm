@@ -25,6 +25,14 @@ namespace lotus::system::platforms::macos {
 		if (!event) {
 			return message_type::none;
 		}
+		if (event.type == NSEventTypeApplicationDefined) {
+			switch (static_cast<_details::custom_event_type>(event.subtype)) {
+			case _details::custom_event_type::quit:
+				return message_type::quit;
+			default:
+				break;
+			}
+		}
 		[NSApp sendEvent: event];
 		return message_type::normal;
 	}
@@ -50,6 +58,17 @@ namespace lotus::system::platforms::macos {
 	}
 
 	void application::quit() {
-		[NSApp terminate: nullptr]; // TODO this won't generate an event - investigate some other method
+		auto *event = [NSEvent
+			otherEventWithType: NSEventTypeApplicationDefined
+			location:           NSZeroPoint
+			modifierFlags:      0
+			timestamp:          [[NSProcessInfo processInfo] systemUptime]
+			windowNumber:       0
+			context:            nullptr
+			subtype:            static_cast<NSEventSubtype>(_details::custom_event_type::quit)
+			data1:              0
+			data2:              0
+		];
+		[NSApp postEvent: event atStart: false];
 	}
 }

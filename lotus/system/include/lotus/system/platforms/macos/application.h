@@ -7,6 +7,14 @@
 #include "window.h"
 
 namespace lotus::system::platforms::macos {
+	namespace _details {
+		/// Custom event type.
+		enum class custom_event_type : short {
+			quit, ///< Event indicating that the application should quit.
+			window_initialized, ///< Event indicating that a window has just been created.
+		};
+	}
+
 	/// Application class for MacOS.
 	class application {
 	public:

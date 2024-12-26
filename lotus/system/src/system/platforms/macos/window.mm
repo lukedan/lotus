@@ -12,13 +12,6 @@
 #include "lotus/logging.h"
 #include "lotus/system/window.h"
 
-namespace lotus::system::platforms::macos::_details {
-	/// Custom event type
-	enum class custom_event_type : short {
-		window_initialized, ///< Event indicating that a window has just been created.
-	};
-}
-
 using _window_ptr_t = lotus::system::window*; ///< Window pointer type.
 using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_event_type; ///< Custom event type.
 
@@ -108,6 +101,9 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 
 /// Handles a mouse move event.
 - (void)handle_mouse_move_event: (NSEvent*)e {
+	if (!NSMouseInRect(e.locationInWindow, self.contentView.frame, false)) {
+		return; // the mouse is out of the client area
+	}
 	const _window_ptr_t wnd = [self get_window_ptr];
 	if (wnd->on_mouse_move) {
 		lotus::system::window_events::mouse::move event(
@@ -120,6 +116,9 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 
 /// Handles a mouse button down event.
 - (void)handle_mouse_down_event: (NSEvent*)e button: (lotus::system::mouse_button)button {
+	if (!NSMouseInRect(e.locationInWindow, self.contentView.frame, false)) {
+		return; // the mouse is out of the client area
+	}
 	const _window_ptr_t wnd = [self get_window_ptr];
 	if (wnd->on_mouse_button_down) {
 		lotus::system::window_events::mouse::button_down event(
@@ -133,6 +132,9 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 
 /// Handles a mouse button up event.
 - (void)handle_mouse_up_event: (NSEvent*)e button: (lotus::system::mouse_button)button {
+	if (!NSMouseInRect(e.locationInWindow, self.contentView.frame, false)) {
+		return; // the mouse is out of the client area
+	}
 	const _window_ptr_t wnd = [self get_window_ptr];
 	if (wnd->on_mouse_button_up) {
 		lotus::system::window_events::mouse::button_up event(
@@ -183,13 +185,17 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 	if (event.type == NSEventTypeApplicationDefined) {
 		switch (static_cast<_custom_event_type_t>(event.subtype)) {
 		case _custom_event_type_t::window_initialized:
-			const _window_ptr_t wnd = [self get_window_ptr];
-			if (wnd->on_resize) {
-				const NSSize size = [self.contentView convertSizeToBacking: self.contentView.frame.size];
-				lotus::system::window_events::resize event(lotus::cvec2u32(size.width, size.height));
-				wnd->on_resize(event);
+			{
+				const _window_ptr_t wnd = [self get_window_ptr];
+				if (wnd->on_resize) {
+					const NSSize size = [self.contentView convertSizeToBacking: self.contentView.frame.size];
+					lotus::system::window_events::resize event(lotus::cvec2u32(size.width, size.height));
+					wnd->on_resize(event);
+				}
+				return;
 			}
-			return;
+		default:
+			break;
 		}
 	}
 	[super sendEvent: event];
@@ -314,12 +320,12 @@ namespace lotus::system::platforms::macos {
 		// post a custom "initialized" event to the message queue so that the initial window size event can be sent
 		auto *event = [NSEvent
 			otherEventWithType: NSEventTypeApplicationDefined
-			location:           NSMakePoint(0.0f, 0.0f)
+			location:           NSZeroPoint
 			modifierFlags:      0
 			timestamp:          [[NSProcessInfo processInfo] systemUptime]
 			windowNumber:       wnd.windowNumber
 			context:            nullptr
-			subtype:            static_cast<short>(_details::custom_event_type::window_initialized)
+			subtype:            static_cast<NSEventSubtype>(_details::custom_event_type::window_initialized)
 			data1:              0
 			data2:              0
 		];

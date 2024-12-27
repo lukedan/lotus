@@ -3,12 +3,11 @@
 /// \file
 /// Windows.
 
-#include LOTUS_SYSTEM_PLATFORM_INCLUDE
-
 #include "lotus/math/vector.h"
 #include "lotus/utils/static_function.h"
 
-#include "lotus/system/common.h"
+#include LOTUS_SYSTEM_PLATFORM_INCLUDE_COMMON
+#include LOTUS_SYSTEM_PLATFORM_INCLUDE_WINDOW
 
 namespace lotus::system {
 	class application;

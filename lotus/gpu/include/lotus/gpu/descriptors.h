@@ -3,7 +3,8 @@
 /// \file
 /// Descriptor pools.
 
-#include LOTUS_GPU_BACKEND_INCLUDE
+#include LOTUS_GPU_BACKEND_INCLUDE_COMMON
+#include LOTUS_GPU_BACKEND_INCLUDE_DESCRIPTORS
 
 namespace lotus::gpu {
 	class device;

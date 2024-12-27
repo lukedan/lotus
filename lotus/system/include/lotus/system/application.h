@@ -5,7 +5,8 @@
 
 #include <string_view>
 
-#include LOTUS_SYSTEM_PLATFORM_INCLUDE
+#include LOTUS_SYSTEM_PLATFORM_INCLUDE_COMMON
+#include LOTUS_SYSTEM_PLATFORM_INCLUDE_APPLICATION
 #include "window.h"
 
 namespace lotus::system {

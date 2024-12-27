@@ -3,7 +3,8 @@
 /// \file
 /// Pipeline-related classes.
 
-#include LOTUS_GPU_BACKEND_INCLUDE
+#include LOTUS_GPU_BACKEND_INCLUDE_COMMON
+#include LOTUS_GPU_BACKEND_INCLUDE_PIPELINE
 
 namespace lotus::gpu {
 	class device;

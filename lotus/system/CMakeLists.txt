@@ -1,5 +1,3 @@
-set(LOTUS_SYSTEM_PLATFORM_INCLUDE_NAME "LOTUS_SYSTEM_PLATFORM_INCLUDE")
-
 add_library(lotus_system STATIC)
 configure_lotus_module(lotus_system)
 
@@ -18,15 +16,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_sources(lotus_system
 		PUBLIC
 			"include/lotus/system/platforms/macos/application.h"
+			"include/lotus/system/platforms/macos/common.h"
 			"include/lotus/system/platforms/macos/window.h"
-
-			"include/lotus/system/platforms/macos.h"
 		PRIVATE
 			"src/system/platforms/macos/application.mm"
 			"src/system/platforms/macos/window.mm")
-	target_compile_definitions(lotus_system
-		PUBLIC
-			"${LOTUS_SYSTEM_PLATFORM_INCLUDE_NAME}=<lotus/system/platforms/macos.h>")
+	set(LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR "lotus/system/platforms/macos/")
 
 	find_library(FOUNDATION_LIB Foundation)
 	find_library(APP_KIT_LIB AppKit)
@@ -39,18 +34,23 @@ elseif(WIN32)
 	target_sources(lotus_system
 		PUBLIC
 			"include/lotus/system/platforms/windows/application.h"
+			"include/lotus/system/platforms/windows/common.h"
 			"include/lotus/system/platforms/windows/details.h"
 			"include/lotus/system/platforms/windows/window.h"
-
-			"include/lotus/system/platforms/windows.h"
 		PRIVATE
 			"src/system/platforms/windows/application.cpp"
 			"src/system/platforms/windows/details.cpp"
 			"src/system/platforms/windows/window.cpp")
+	set(LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR "lotus/system/platforms/windows/")
 	target_compile_definitions(lotus_system
 		PUBLIC
-			"${LOTUS_SYSTEM_PLATFORM_INCLUDE_NAME}=<lotus/system/platforms/windows.h>"
 			WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
 elseif(UNIX)
 	# TODO
 endif()
+
+target_compile_definitions(lotus_system
+	PUBLIC
+		"LOTUS_SYSTEM_PLATFORM_INCLUDE_APPLICATION=<${LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR}application.h>"
+		"LOTUS_SYSTEM_PLATFORM_INCLUDE_COMMON=<${LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR}common.h>"
+		"LOTUS_SYSTEM_PLATFORM_INCLUDE_WINDOW=<${LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR}window.h>")

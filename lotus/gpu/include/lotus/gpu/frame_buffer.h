@@ -4,7 +4,8 @@
 /// Interface to swap chains.
 
 #include "lotus/memory/stack_allocator.h"
-#include LOTUS_GPU_BACKEND_INCLUDE
+#include LOTUS_GPU_BACKEND_INCLUDE_COMMON
+#include LOTUS_GPU_BACKEND_INCLUDE_FRAME_BUFFER
 #include "resources.h"
 #include "synchronization.h"
 

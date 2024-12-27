@@ -7,7 +7,8 @@
 
 #include "lotus/system/window.h"
 #include "lotus/utils/static_function.h"
-#include LOTUS_GPU_BACKEND_INCLUDE
+#include LOTUS_GPU_BACKEND_INCLUDE_COMMON
+#include LOTUS_GPU_BACKEND_INCLUDE_CONTEXT
 #include "common.h"
 #include "device.h"
 #include "frame_buffer.h"

@@ -3,7 +3,8 @@
 /// \file
 /// Ray-tracing acceleration structures.
 
-#include LOTUS_GPU_BACKEND_INCLUDE
+#include LOTUS_GPU_BACKEND_INCLUDE_COMMON
+#include LOTUS_GPU_BACKEND_INCLUDE_ACCELERATION_STRUCTURE
 
 namespace lotus::gpu {
 	class bottom_level_acceleration_structure;

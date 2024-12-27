@@ -7,6 +7,12 @@
 #include "lotus/math/vector.h"
 
 namespace lotus::system {
+	/// Platform type.
+	enum class platform_type {
+		windows, ///< The Windows platform.
+		macos, ///< The MacOS platform.
+	};
+
 	/// The type of a message processed by the message queue.
 	enum class message_type {
 		none,   ///< No message was processed.

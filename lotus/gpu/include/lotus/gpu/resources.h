@@ -3,7 +3,8 @@
 /// \file
 /// Buffers and textures.
 
-#include LOTUS_GPU_BACKEND_INCLUDE
+#include LOTUS_GPU_BACKEND_INCLUDE_COMMON
+#include LOTUS_GPU_BACKEND_INCLUDE_RESOURCES
 
 namespace lotus::gpu {
 	class device;

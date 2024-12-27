@@ -3,6 +3,8 @@
 /// \file
 /// Asset types.
 
+#include <filesystem>
+
 #include "resource_bindings.h"
 #include "resources.h"
 

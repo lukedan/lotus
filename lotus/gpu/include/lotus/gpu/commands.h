@@ -6,7 +6,8 @@
 #include <span>
 #include <initializer_list>
 
-#include LOTUS_GPU_BACKEND_INCLUDE
+#include LOTUS_GPU_BACKEND_INCLUDE_COMMON
+#include LOTUS_GPU_BACKEND_INCLUDE_COMMANDS
 #include "lotus/math/aab.h"
 #include "lotus/color.h"
 #include "acceleration_structure.h"

@@ -3,7 +3,8 @@
 /// \file
 /// Generic interface for synchronization primitives.
 
-#include LOTUS_GPU_BACKEND_INCLUDE
+#include LOTUS_GPU_BACKEND_INCLUDE_COMMON
+#include LOTUS_GPU_BACKEND_INCLUDE_SYNCHRONIZATION
 
 namespace lotus::gpu {
 	class device;

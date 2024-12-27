@@ -11,6 +11,7 @@
 
 #include "lotus/logging.h"
 #include "lotus/system/window.h"
+#include "lotus/system/platforms/macos/application.h"
 
 using _window_ptr_t = lotus::system::window*; ///< Window pointer type.
 using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_event_type; ///< Custom event type.

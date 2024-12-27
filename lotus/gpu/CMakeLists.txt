@@ -25,6 +25,21 @@ set(LOTUS_GPU_COMMON_SOURCES
 
 add_subdirectory("thirdparty/DirectX-Headers/")
 
+function(add_gpu_backend_include_definitions TARGET INCLUDE_DIR)
+	target_compile_definitions(${TARGET}
+		PUBLIC
+			"LOTUS_GPU_BACKEND_INCLUDE_ACCELERATION_STRUCTURE=<${INCLUDE_DIR}acceleration_structure.h>"
+			"LOTUS_GPU_BACKEND_INCLUDE_COMMANDS=<${INCLUDE_DIR}commands.h>"
+			"LOTUS_GPU_BACKEND_INCLUDE_COMMON=<${INCLUDE_DIR}common.h>"
+			"LOTUS_GPU_BACKEND_INCLUDE_CONTEXT=<${INCLUDE_DIR}context.h>"
+			"LOTUS_GPU_BACKEND_INCLUDE_DESCRIPTORS=<${INCLUDE_DIR}descriptors.h>"
+			"LOTUS_GPU_BACKEND_INCLUDE_DEVICE=<${INCLUDE_DIR}device.h>"
+			"LOTUS_GPU_BACKEND_INCLUDE_FRAME_BUFFER=<${INCLUDE_DIR}frame_buffer.h>"
+			"LOTUS_GPU_BACKEND_INCLUDE_PIPELINE=<${INCLUDE_DIR}pipeline.h>"
+			"LOTUS_GPU_BACKEND_INCLUDE_RESOURCES=<${INCLUDE_DIR}resources.h>"
+			"LOTUS_GPU_BACKEND_INCLUDE_SYNCHRONIZATION=<${INCLUDE_DIR}synchronization.h>")
+endfunction()
+
 # DirectX 12
 set(LOTUS_GPU_HAS_DIRECTX12 NO CACHE INTERNAL "Whether the DirectX12 backend is available.")
 if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
@@ -40,6 +55,7 @@ if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 
 			"include/lotus/gpu/backends/directx12/acceleration_structure.h"
 			"include/lotus/gpu/backends/directx12/commands.h"
+			"include/lotus/gpu/backends/directx12/common.h"
 			"include/lotus/gpu/backends/directx12/context.h"
 			"include/lotus/gpu/backends/directx12/descriptors.h"
 			"include/lotus/gpu/backends/directx12/details.h"
@@ -48,8 +64,6 @@ if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 			"include/lotus/gpu/backends/directx12/pipeline.h"
 			"include/lotus/gpu/backends/directx12/resources.h"
 			"include/lotus/gpu/backends/directx12/synchronization.h"
-
-			"include/lotus/gpu/backends/directx12.h"
 		PRIVATE
 			${LOTUS_GPU_COMMON_SOURCES}
 
@@ -62,12 +76,10 @@ if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 			"src/gpu/backends/directx12/pipeline.cpp"
 
 			"src/gpu/common.cpp")
+	add_gpu_backend_include_definitions(lotus_gpu_directx12 "lotus/gpu/backends/directx12/")
 	target_link_libraries(lotus_gpu_directx12
 		PUBLIC
 			lotus_core lotus_system d3d12 dxgi dxguid d3dcompiler dxcompiler Microsoft::DirectX-Headers)
-	target_compile_definitions(lotus_gpu_directx12
-		PUBLIC
-			"LOTUS_GPU_BACKEND_INCLUDE=<lotus/gpu/backends/directx12.h>")
 
 	# WinPixEventRuntime support
 	if(LOTUS_GPU_DIRECTX12_USE_PIX)
@@ -114,6 +126,7 @@ if(LOTUS_GPU_USE_VULKAN)
 
 			"include/lotus/gpu/backends/vulkan/acceleration_structure.h"
 			"include/lotus/gpu/backends/vulkan/commands.h"
+			"include/lotus/gpu/backends/vulkan/common.h"
 			"include/lotus/gpu/backends/vulkan/context.h"
 			"include/lotus/gpu/backends/vulkan/descriptors.h"
 			"include/lotus/gpu/backends/vulkan/details.h"
@@ -122,8 +135,6 @@ if(LOTUS_GPU_USE_VULKAN)
 			"include/lotus/gpu/backends/vulkan/pipeline.h"
 			"include/lotus/gpu/backends/vulkan/resources.h"
 			"include/lotus/gpu/backends/vulkan/synchronization.h"
-
-			"include/lotus/gpu/backends/vulkan.h"
 		PRIVATE
 			${LOTUS_GPU_COMMON_SOURCES}
 
@@ -136,13 +147,13 @@ if(LOTUS_GPU_USE_VULKAN)
 			"src/gpu/backends/vulkan/resources.cpp"
 
 			"src/gpu/common.cpp")
+	add_gpu_backend_include_definitions(lotus_gpu_vulkan "lotus/gpu/backends/vulkan/")
 	target_link_libraries(lotus_gpu_vulkan
 		PUBLIC
 			lotus_core lotus_system Vulkan::Vulkan SPIRV_Reflect Microsoft::DirectX-Headers)
 	target_compile_definitions(lotus_gpu_vulkan
 		PUBLIC
-			VULKAN_HPP_NO_EXCEPTIONS
-			"LOTUS_GPU_BACKEND_INCLUDE=<lotus/gpu/backends/vulkan.h>")
+			VULKAN_HPP_NO_EXCEPTIONS)
 	if(WIN32)
 		target_compile_definitions(lotus_gpu_vulkan PUBLIC VK_USE_PLATFORM_WIN32_KHR)
 	endif()

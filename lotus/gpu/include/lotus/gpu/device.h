@@ -6,7 +6,8 @@
 #include <optional>
 
 #include "lotus/common.h"
-#include LOTUS_GPU_BACKEND_INCLUDE
+#include LOTUS_GPU_BACKEND_INCLUDE_COMMON
+#include LOTUS_GPU_BACKEND_INCLUDE_DEVICE
 #include "acceleration_structure.h"
 #include "commands.h"
 #include "descriptors.h"

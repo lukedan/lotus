@@ -121,6 +121,8 @@ namespace lotus::gpu::backends::vulkan {
 		surface_info.pLayer = static_cast<const CAMetalLayer*>(wnd.get_native_handle().metal_layer);
 		// TODO allocator
 		result._surface = _details::unwrap(_instance->createMetalSurfaceEXTUnique(surface_info));
+#else
+#	error "Swap chain not implemented for platform"
 #endif
 
 		crash_if(!_details::unwrap(dev._physical_device.getSurfaceSupportKHR(

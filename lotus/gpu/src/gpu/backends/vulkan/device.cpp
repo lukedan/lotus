@@ -8,6 +8,7 @@
 #include <spirv_reflect.h>
 
 #include "lotus/logging.h"
+#include "lotus/system/identifier.h"
 #include "lotus/gpu/acceleration_structure.h"
 #include "lotus/gpu/descriptors.h"
 #include "lotus/gpu/frame_buffer.h"
@@ -340,15 +341,8 @@ namespace lotus::gpu::backends::vulkan {
 		linear_rgba_f border_color, comparison_function comparison
 	) {
 		sampler result = nullptr;
-
-		vk::SamplerCustomBorderColorCreateInfoEXT border_color_info;
-		std::array<float, 4> border_color_arr{ { border_color.r, border_color.g, border_color.b, border_color.a } };
-		border_color_info
-			.setCustomBorderColor(vk::ClearColorValue(border_color_arr))
-			.setFormat(vk::Format::eUndefined);
 		vk::SamplerCreateInfo info;
 		info
-			.setPNext(&border_color_info)
 			.setMagFilter(_details::conversions::to_filter(magnification))
 			.setMinFilter(_details::conversions::to_filter(minification))
 			.setMipmapMode(_details::conversions::to_sampler_mipmap_mode(mipmapping))
@@ -361,8 +355,20 @@ namespace lotus::gpu::backends::vulkan {
 			.setCompareEnable(comparison != comparison_function::none)
 			.setCompareOp(_details::conversions::to_compare_op(comparison))
 			.setMinLod(min_lod)
-			.setMaxLod(max_lod)
-			.setBorderColor(vk::BorderColor::eFloatCustomEXT);
+			.setMaxLod(max_lod);
+		if constexpr (system::platform::type == system::platform_type::macos) {
+			info.setBorderColor(vk::BorderColor::eFloatOpaqueBlack);
+		} else {
+			const std::array<float, 4> border_color_arr{ { border_color.r, border_color.g, border_color.b, border_color.a } };
+			vk::SamplerCustomBorderColorCreateInfoEXT border_color_info;
+			border_color_info
+				.setPNext(info.pNext)
+				.setCustomBorderColor(vk::ClearColorValue(border_color_arr))
+				.setFormat(vk::Format::eUndefined);
+			info
+				.setPNext(&border_color_info)
+				.setBorderColor(vk::BorderColor::eFloatCustomEXT);
+		}
 		// TODO allocator
 		result._sampler = _details::unwrap(_device->createSamplerUnique(info));
 
@@ -1479,33 +1485,38 @@ namespace lotus::gpu::backends::vulkan {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 			VK_KHR_SPIRV_1_4_EXTENSION_NAME,
 			VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
-			VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, // needed by MoltenVK
-#ifndef __APPLE__
-			VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
-#endif
 
 			// HLSL to SPIR-V
 			// getting ErrorExtensionNotPresent with these, but the program runs fine without them
 			/*VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME,
 			VK_GOOGLE_USER_TYPE_EXTENSION_NAME,*/
 		};
-#ifdef __APPLE__
-		constexpr static bool _disable_advanced_extensions = true; // so that RenderDoc can capture
-#else
-		constexpr static bool _disable_advanced_extensions = false; // so that RenderDoc can capture
-#endif
-		if constexpr (!_disable_advanced_extensions) {
+		if constexpr (system::platform::type == system::platform_type::macos) {
 			extensions.insert(extensions.end(),
 				{
-					// raytracing related
+					VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+					VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+				}
+			);
+		} else {
+			// MoltenVK does not support these extensions
+			extensions.insert(extensions.end(),
+				{
+					VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
+					VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
+					VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
+				}
+			);
+		}
+		constexpr static bool _enable_raytracing_extensions =
+			system::platform::type != system::platform_type::macos;
+		if constexpr (_enable_raytracing_extensions) {
+			extensions.insert(extensions.end(),
+				{
 					VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 					VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 					VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 					VK_KHR_RAY_QUERY_EXTENSION_NAME,
-
-					// pageable heap
-					VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
-					VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
 				}
 			);
 		}
@@ -1531,10 +1542,10 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		vk::PhysicalDeviceRobustness2FeaturesEXT robustness_features;
-#ifndef __APPLE__
-		robustness_features
-			.setNullDescriptor(true);
-#endif
+		if constexpr (system::platform::type != system::platform_type::macos) {
+			robustness_features
+				.setNullDescriptor(true);
+		}
 		vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageable_memory_features;
 		pageable_memory_features
 			.setPNext(&robustness_features)

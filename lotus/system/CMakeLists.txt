@@ -31,6 +31,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_link_libraries(lotus_system
 		PUBLIC
 			${FOUNDATION_LIB} ${APP_KIT_LIB} ${QUARTZ_CORE_LIB} ${METAL_LIB})
+	target_compile_options(lotus_system
+		PUBLIC
+			-fobjc-arc)
 elseif(WIN32)
 	target_sources(lotus_system
 		PUBLIC

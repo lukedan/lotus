@@ -44,7 +44,7 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 
 - (void)windowDidResize: (NSNotification*)notification {
 	if (_ptr->on_resize) {
-		auto *wnd = static_cast<NSWindow*>(_ptr->get_native_handle().window);
+		auto *wnd = (__bridge NSWindow*)_ptr->get_native_handle().window;
 		const NSSize size = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
 		lotus::system::window_events::resize event(lotus::cvec2u32(size.width, size.height));
 		_ptr->on_resize(event);
@@ -207,16 +207,13 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 
 namespace lotus::system::platforms::macos {
 	window::~window() {
-		[static_cast<lotus_window*>(_handle.window) release];
-		[static_cast<CAMetalLayer*>(_handle.metal_layer) release];
-		[static_cast<lotus_window_delegate*>(_delegate) release];
-		[static_cast<NSTrackingArea*>(_tracking_area) release];
+		auto *wnd = (__bridge_transfer lotus_window*)_handle.window;
+		auto *delegate = (__bridge_transfer lotus_window_delegate*)_delegate;
 	}
 
 	window::window(window &&src) :
 		_handle(std::exchange(src._handle, {})),
 		_delegate(std::exchange(src._delegate, nullptr)),
-		_tracking_area(std::exchange(src._tracking_area, nullptr)),
 		_window_ptr(std::exchange(src._window_ptr, nullptr)) {
 
 		if (_window_ptr) {
@@ -225,12 +222,12 @@ namespace lotus::system::platforms::macos {
 	}
 
 	void window::show() {
-		auto *wnd = static_cast<NSWindow*>(_handle.window);
+		auto *wnd = (__bridge NSWindow*)_handle.window;
 		[wnd setIsVisible: true];
 	}
 
 	void window::show_and_activate() {
-		auto *wnd = static_cast<NSWindow*>(_handle.window);
+		auto *wnd = (__bridge NSWindow*)_handle.window;
 		[wnd setIsVisible: true];
 		[wnd makeKeyAndOrderFront: wnd];
 		// MacOS has stricter rules regarding application activation, so this is not guaranteed to work
@@ -238,7 +235,7 @@ namespace lotus::system::platforms::macos {
 	}
 
 	void window::hide() {
-		auto *wnd = static_cast<NSWindow*>(_handle.window);
+		auto *wnd = (__bridge NSWindow*)_handle.window;
 		[wnd setIsVisible: false];
 	}
 
@@ -255,18 +252,18 @@ namespace lotus::system::platforms::macos {
 	}
 
 	cvec2s window::get_size() const {
-		auto *wnd = static_cast<NSWindow*>(_handle.window);
+		auto *wnd = (__bridge NSWindow*)_handle.window;
 		const NSSize size = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
 		return cvec2s(size.width, size.height);
 	}
 
 	void window::set_title(std::u8string_view title) {
-		NSString *title_str = [[NSString alloc]
+		auto *title_str = [[NSString alloc]
 			initWithBytes: title.data()
 			length:        title.size()
 			encoding:      NSUTF8StringEncoding
 		];
-		NSWindow *wnd = (NSWindow*)_handle.window;
+		auto *wnd = (__bridge NSWindow*)_handle.window;
 		[wnd setTitle: title_str];
 	}
 
@@ -296,9 +293,9 @@ namespace lotus::system::platforms::macos {
 			initWithRect: NSZeroRect
 			options:
 				NSTrackingMouseEnteredAndExited |
-				NSTrackingMouseMoved |
-				NSTrackingCursorUpdate |
-				NSTrackingActiveAlways |
+				NSTrackingMouseMoved            |
+				NSTrackingCursorUpdate          |
+				NSTrackingActiveAlways          |
 				NSTrackingInVisibleRect // to avoid having to manually resize
 			owner:        wnd
 			userInfo:     nullptr
@@ -313,10 +310,9 @@ namespace lotus::system::platforms::macos {
 
 		wnd.contentView.layer = layer;
 
-		_handle.window      = wnd;
-		_handle.metal_layer = layer;
-		_tracking_area      = tracking_area;
-		_delegate           = delegate;
+		_handle.window      = (__bridge_retained void*)wnd;
+		_handle.metal_layer = (__bridge void*)layer;
+		_delegate           = (__bridge_retained void*)delegate;
 
 		// post a custom "initialized" event to the message queue so that the initial window size event can be sent
 		auto *event = [NSEvent

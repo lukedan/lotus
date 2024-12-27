@@ -17,9 +17,6 @@ namespace lotus::system::platforms::macos {
 
 	/// Application class for MacOS.
 	class application {
-	public:
-		/// Destroys the application.
-		~application();
 	protected:
 		/// Initializes the application.
 		explicit application(std::u8string_view);
@@ -34,7 +31,5 @@ namespace lotus::system::platforms::macos {
 
 		/// Calls <tt>NSApp terminate</tt>.
 		void quit();
-	private:
-		void *_pool; ///< The \p NSAutoreleasePool.
 	};
 }

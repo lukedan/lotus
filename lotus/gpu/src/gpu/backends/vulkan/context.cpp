@@ -118,7 +118,7 @@ namespace lotus::gpu::backends::vulkan {
 		result._surface = _details::unwrap(_instance->createWin32SurfaceKHRUnique(surface_info));
 #elif defined(__APPLE__)
 		vk::MetalSurfaceCreateInfoEXT surface_info;
-		surface_info.pLayer = static_cast<const CAMetalLayer*>(wnd.get_native_handle().metal_layer);
+		surface_info.setPLayer(static_cast<const CAMetalLayer*>(wnd.get_native_handle().metal_layer));
 		// TODO allocator
 		result._surface = _details::unwrap(_instance->createMetalSurfaceEXTUnique(surface_info));
 #else

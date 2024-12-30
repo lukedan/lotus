@@ -44,6 +44,7 @@ endfunction()
 set(LOTUS_GPU_HAS_DIRECTX12 NO CACHE INTERNAL "Whether the DirectX12 backend is available.")
 if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 	set(LOTUS_GPU_HAS_DIRECTX12 YES CACHE INTERNAL "Whether the DirectX12 backend is available.")
+	list(APPEND ALL_BACKENDS directx12)
 
 	add_library(lotus_gpu_directx12 STATIC)
 	configure_lotus_module(lotus_gpu_directx12)
@@ -108,6 +109,7 @@ endif()
 set(LOTUS_GPU_HAS_VULKAN NO CACHE INTERNAL "Whether the Vulkan backend is available.")
 if(LOTUS_GPU_USE_VULKAN)
 	set(LOTUS_GPU_HAS_VULKAN YES CACHE INTERNAL "Whether the Vulkan backend is available.")
+	list(APPEND ALL_BACKENDS vulkan)
 
 	find_package(Vulkan REQUIRED)
 	# SPIRV-Reflect
@@ -175,6 +177,9 @@ if(LOTUS_GPU_USE_VULKAN)
 		target_link_libraries(lotus_gpu_vulkan PUBLIC "${LOTUS_GPU_VULKAN_DXC_LIBRARY}")
 	endif()
 endif()
+
+
+set(LOTUS_GPU_ALL_AVAILABLE_BACKENDS ${ALL_BACKENDS} CACHE INTERNAL "List of all available GPU backends.")
 
 
 function(add_shader FILENAME STAGE ENTRY PROFILE DEPENDENT BACKEND)

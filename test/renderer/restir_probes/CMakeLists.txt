@@ -1,8 +1,4 @@
 function(add_restir_probe_executable GPU_BACKEND)
-	if(NOT TARGET lotus_renderer_${GPU_BACKEND})
-		return()
-	endif()
-
 	set(PROJ restir_probe_${GPU_BACKEND})
 
 	add_executable(${PROJ})
@@ -15,5 +11,6 @@ function(add_restir_probe_executable GPU_BACKEND)
 	target_include_directories(${PROJ} PRIVATE "../../thirdparty/imgui")
 endfunction()
 
-add_restir_probe_executable(vulkan)
-add_restir_probe_executable(directx12)
+foreach(GPU_BACKEND ${LOTUS_GPU_ALL_AVAILABLE_BACKENDS})
+	add_restir_probe_executable(${GPU_BACKEND})
+endforeach()

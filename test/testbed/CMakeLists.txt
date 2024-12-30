@@ -1,8 +1,4 @@
 function(add_testbed_executable GPU_BACKEND)
-	if(NOT TARGET lotus_renderer_${GPU_BACKEND})
-		return()
-	endif()
-
 	set(PROJ testbed_${GPU_BACKEND})
 
 	add_executable(${PROJ})
@@ -24,5 +20,6 @@ function(add_testbed_executable GPU_BACKEND)
 		INTERPROCEDURAL_OPTIMIZATION ON)
 endfunction()
 
-add_testbed_executable(vulkan)
-add_testbed_executable(directx12)
+foreach(GPU_BACKEND ${LOTUS_GPU_ALL_AVAILABLE_BACKENDS})
+	add_testbed_executable(${GPU_BACKEND})
+endforeach()

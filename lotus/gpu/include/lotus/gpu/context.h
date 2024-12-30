@@ -40,19 +40,15 @@ namespace lotus::gpu {
 		/// No copy assignment.
 		context &operator=(const context&) = delete;
 
-		/// Enumerates over all adapters. The callback function will be called for every adapter, and may return a
-		/// boolean indicating whether or not to continue enumeration.
-		template <typename Callback> void enumerate_adapters(Callback &&cb) {
-			using _result_t = std::invoke_result_t<Callback&&, adapter>;
-			backend::context::enumerate_adapters([&cb](backend::adapter adap) {
-				if constexpr (std::is_same_v<_result_t, bool>) {
-					return cb(adapter(std::move(adap)));
-				} else {
-					static_assert(std::is_same_v<_result_t, void>, "Callback must return bool or nothing");
-					cb(adapter(std::move(adap)));
-					return true;
-				}
-			});
+		/// Returns a list of all available graphics adapters.
+		[[nodiscard]] std::vector<adapter> get_all_adapters() const {
+			std::vector<backend::adapter> adapters = backend::context::get_all_adapters();
+			std::vector<adapter> result;
+			result.reserve(adapters.size());
+			for (backend::adapter &adap : adapters) {
+				result.emplace_back(adapter(std::move(adap)));
+			}
+			return result;
 		}
 
 		/// Creates a swap chain for the given window.

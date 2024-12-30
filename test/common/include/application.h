@@ -51,13 +51,14 @@ namespace lotus {
 
 			{ // choose adapter
 				int best_adapter_score = std::numeric_limits<int>::min();
-				_gpu_context.enumerate_adapters([&](gpu::adapter adap) {
-					int score = _score_device(adap);
+				std::vector<gpu::adapter> adapters = _gpu_context.get_all_adapters();
+				for (std::size_t i = 0; i < adapters.size(); ++i) {
+					const int score = _score_device(adapters[i]);
 					if (score > best_adapter_score) {
 						best_adapter_score = score;
-						best_adapter = adap;
+						best_adapter = adapters[i];
 					}
-				});
+				}
 			}
 
 			{ // create device, context, and swap chain

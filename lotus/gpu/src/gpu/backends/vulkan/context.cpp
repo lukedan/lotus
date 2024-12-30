@@ -100,6 +100,19 @@ namespace lotus::gpu::backends::vulkan {
 		));
 	}
 
+	std::vector<adapter> context::get_all_adapters() const {
+		auto bookmark = get_scratch_bookmark();
+		auto allocator = bookmark.create_std_allocator<vk::PhysicalDevice>();
+		auto physical_devices = _details::unwrap(_instance->enumeratePhysicalDevices(allocator));
+
+		std::vector<adapter> result;
+		result.reserve(physical_devices.size());
+		for (vk::PhysicalDevice dev : physical_devices) {
+			result.emplace_back(adapter(dev, _options, _dispatch_loader));
+		}
+		return result;
+	}
+
 	std::pair<swap_chain, format> context::create_swap_chain_for_window(
 		system::window &wnd, device &dev, command_queue&, std::size_t frame_count, std::span<const format> formats
 	) {

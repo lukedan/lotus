@@ -30,17 +30,7 @@ namespace lotus::gpu::backends::vulkan {
 		[[nodiscard]] static context create(context_options, _details::debug_message_callback);
 
 		/// Calls \p vk::Instance::enumeratePhysicalDevices().
-		template <typename Callback> void enumerate_adapters(Callback &&cb) {
-			auto bookmark = get_scratch_bookmark();
-			auto allocator = bookmark.create_std_allocator<vk::PhysicalDevice>();
-			auto physical_devices = _details::unwrap(_instance->enumeratePhysicalDevices(allocator));
-			for (const auto &dev : physical_devices) {
-				adapter adap(dev, _options, _dispatch_loader);
-				if (!cb(adap)) {
-					break;
-				}
-			}
-		}
+		[[nodiscard]] std::vector<adapter> get_all_adapters() const;
 
 		/// Creates a platform-specific surface for the window, then creates a swapchain using
 		/// \p createSwapchainKHRUnique().

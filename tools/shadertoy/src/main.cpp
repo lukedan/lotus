@@ -29,15 +29,16 @@ int main(int argc, char **argv) {
 	auto shader_utils = lgpu::shader_utility::create();
 	lgpu::adapter gadap = nullptr;
 	lgpu::adapter gadap_fallback = nullptr;
-	gctx.enumerate_adapters([&](lgpu::adapter adap) {
-		const lgpu::adapter_properties properties = adap.get_properties();
-		if (!properties.is_discrete) {
+	{
+		std::vector<lgpu::adapter> adapters = gctx.get_all_adapters();
+		for (lgpu::adapter &adap : adapters) {
+			const lgpu::adapter_properties properties = adap.get_properties();
+			if (properties.is_discrete) {
+				gadap = adap;
+			}
 			gadap_fallback = adap;
-			return true;
 		}
-		gadap = adap;
-		return false;
-	});
+	}
 	if (!gadap) {
 		gadap = gadap_fallback;
 	}

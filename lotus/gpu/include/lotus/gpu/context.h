@@ -4,6 +4,7 @@
 /// Interface to graphics contexts.
 
 #include <utility>
+#include <filesystem>
 
 #include "lotus/system/window.h"
 #include "lotus/utils/static_function.h"

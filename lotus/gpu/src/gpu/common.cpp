@@ -9,6 +9,7 @@ namespace lotus::gpu {
 	constexpr static enums::sequential_mapping<backend_type, std::u8string_view> _backend_name_table{
 		std::pair(backend_type::directx12, u8"DirectX 12"),
 		std::pair(backend_type::vulkan,    u8"Vulkan"    ),
+		std::pair(backend_type::metal,     u8"Metal"     ),
 	};
 	std::u8string_view get_backend_name(backend_type ty) {
 		return _backend_name_table[ty];

@@ -1,5 +1,6 @@
 option(LOTUS_GPU_USE_DIRECTX12 "Whether to generate target for the DirectX 12 backend." YES)
 option(LOTUS_GPU_USE_VULKAN "Whether to generate target for the Vulkan backend." YES)
+option(LOTUS_GPU_USE_METAL "Whether to generate target for the Metal backend." YES)
 
 option(LOTUS_GPU_DIRECTX12_USE_PIX "Whether to use the PIX API if it's available." YES)
 
@@ -176,6 +177,43 @@ if(LOTUS_GPU_USE_VULKAN)
 			NO_DEFAULT_PATH)
 		target_link_libraries(lotus_gpu_vulkan PUBLIC "${LOTUS_GPU_VULKAN_DXC_LIBRARY}")
 	endif()
+endif()
+
+# Metal
+set(LOTUS_GPU_HAS_METAL NO CACHE INTERNAL "Whether the Metal backend is available.")
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND LOTUS_GPU_USE_METAL)
+	set(LOTUS_GPU_HAS_METAL YES CACHE INTERNAL "Whether the Metal backend is available.")
+	list(APPEND ALL_BACKENDS metal)
+
+	add_library(lotus_gpu_metal STATIC)
+	configure_lotus_module(lotus_gpu_metal)
+
+	target_include_directories(lotus_gpu_metal PUBLIC "include/")
+	target_sources(lotus_gpu_metal
+		PUBLIC
+			${LOTUS_GPU_COMMON_HEADERS}
+
+			"include/lotus/gpu/backends/metal/acceleration_structure.h"
+			"include/lotus/gpu/backends/metal/commands.h"
+			"include/lotus/gpu/backends/metal/common.h"
+			"include/lotus/gpu/backends/metal/context.h"
+			"include/lotus/gpu/backends/metal/descriptors.h"
+			"include/lotus/gpu/backends/metal/details.h"
+			"include/lotus/gpu/backends/metal/device.h"
+			"include/lotus/gpu/backends/metal/frame_buffer.h"
+			"include/lotus/gpu/backends/metal/pipeline.h"
+			"include/lotus/gpu/backends/metal/resources.h"
+			"include/lotus/gpu/backends/metal/synchronization.h"
+		PRIVATE
+			"src/gpu/backends/metal/commands.cpp"
+			"src/gpu/backends/metal/context.cpp"
+			"src/gpu/backends/metal/device.cpp")
+	add_gpu_backend_include_definitions(lotus_gpu_metal "lotus/gpu/backends/metal/")
+	target_include_directories(lotus_gpu_metal PRIVATE "thirdparty/metal-cpp/")
+	find_library(METAL_LIB Metal)
+	target_link_libraries(lotus_gpu_metal
+		PUBLIC
+			lotus_core lotus_system "${METAL_LIB}")
 endif()
 
 

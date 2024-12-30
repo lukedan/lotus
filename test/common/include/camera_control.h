@@ -20,7 +20,7 @@ namespace lotus {
 		bool on_mouse_move(cvec2i new_position) {
 			bool changed = false;
 
-			cvec2<T> offset = (new_position - _prev_mouse).into<T>();
+			cvec2<T> offset = (new_position - _prev_mouse).template into<T>();
 			offset[0] = -offset[0];
 			if (_is_rotating) {
 				_target->rotate_around_world_up(offset * rotation_speed);

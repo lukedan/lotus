@@ -3,6 +3,8 @@
 /// \file
 /// Implementation of resource binding related classes.
 
+#include "lotus/logging.h"
+
 namespace lotus::renderer::_details {
 	/// Collects a single descriptor.
 	template <typename T> static void _collect_single_descriptor(

@@ -58,6 +58,7 @@ namespace lotus::gpu {
 	enum class backend_type {
 		directx12, ///< DirectX 12 backend.
 		vulkan,    ///< Vulkan backend.
+		metal,     ///< Metal backend.
 
 		num_enumerators ///< Total number of enumerators.
 	};
@@ -132,15 +133,15 @@ namespace lotus::gpu {
 		r32_uint,
 		r32_sint,
 		r32_float,
-	
+
 		r32g32_uint,
 		r32g32_sint,
 		r32g32_float,
-	
+
 		r32g32b32_uint,
 		r32g32b32_sint,
 		r32g32b32_float,
-	
+
 		r32g32b32a32_uint,
 		r32g32b32a32_sint,
 		r32g32b32a32_float,
@@ -588,7 +589,7 @@ namespace lotus::gpu {
 		num_enumerators ///< The total number of enumerators.
 	};
 
-	
+
 	/// The layout of an image.
 	enum class image_layout {
 		undefined,                ///< Cannot be used with any operation. Default initial state.
@@ -962,7 +963,7 @@ namespace lotus::gpu {
 
 
 		bool enabled = false; ///< Whether or not blend is enabled for this render target.
-		
+
 		/// \ref blend_factor to be multiplied with the output color RGB.
 		blend_factor source_color = blend_factor::one;
 		/// \ref blend_factor to be multiplied with the color RGB on the destination surface.

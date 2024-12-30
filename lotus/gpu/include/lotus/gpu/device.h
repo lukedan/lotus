@@ -601,7 +601,8 @@ namespace lotus::gpu {
 
 		/// Creates a \ref raytracing_pipeline_state.
 		[[nodiscard]] raytracing_pipeline_state create_raytracing_pipeline_state(
-			std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
+			std::span<const shader_function> hit_group_shaders,
+			std::span<const hit_shader_group> hit_groups,
 			std::span<const shader_function> general_shaders,
 			std::size_t max_recursion_depth, std::size_t max_payload_size, std::size_t max_attribute_size,
 			const pipeline_resources &rsrc

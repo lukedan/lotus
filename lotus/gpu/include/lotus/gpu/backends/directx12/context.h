@@ -7,8 +7,6 @@
 #include <filesystem>
 
 #include <dxgi1_6.h>
-#include <directx/d3d12.h>
-#include <dxcapi.h>
 
 #include "lotus/system/platforms/windows/window.h"
 #include "lotus/gpu/backends/common/dxc.h"
@@ -26,21 +24,7 @@ namespace lotus::gpu::backends::directx12 {
 		[[nodiscard]] static context create(context_options, _details::debug_message_callback);
 
 		/// Enumerates the list of adapters using \p IDXGIFactory6::EnumAdapterByGpuPreference().
-		template <typename Callback> void enumerate_adapters(Callback &&cb) {
-			for (UINT i = 0; ; ++i) {
-				adapter adap = nullptr;
-				adap._debug_callback = _debug_message_callback.get();
-				const HRESULT result = _dxgi_factory->EnumAdapterByGpuPreference(
-					i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adap._adapter)
-				);
-				if (result == DXGI_ERROR_NOT_FOUND) {
-					break;
-				}
-				if (!cb(std::move(adap))) {
-					break;
-				}
-			}
-		}
+		[[nodiscard]] std::vector<adapter> get_all_adapters() const;
 		/// Calls \p CreateSwapChainForHwnd to create a swap chain.
 		[[nodiscard]] std::pair<swap_chain, format> create_swap_chain_for_window(
 			system::platforms::windows::window&, device&, command_queue&, std::size_t, std::span<const format>

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.25)
 project(lotus C CXX)
 
 cmake_policy(SET CMP0092 NEW) # don't add /W3 for MSVC

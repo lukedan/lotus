@@ -33,7 +33,7 @@ namespace lotus::gpu::backends::directx12::_details {
 
 	namespace conversions {
 		DXGI_FORMAT to_format(format fmt) {
-			return backends::common::_details::conversions::to_format(fmt);
+			return static_cast<DXGI_FORMAT>(backends::common::_details::conversions::to_dxgi_format(fmt));
 		}
 
 		DXGI_FORMAT to_format(index_format fmt) {
@@ -178,7 +178,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			constexpr static bit_mask::mapping<synchronization_point_mask, D3D12_BARRIER_SYNC> table{
 				std::pair(synchronization_point_mask::all,                          D3D12_BARRIER_SYNC_ALL                                    ),
 				std::pair(synchronization_point_mask::all_graphics,                 D3D12_BARRIER_SYNC_DRAW                                   ),
-				std::pair(synchronization_point_mask::index_input,                  D3D12_BARRIER_SYNC_INPUT_ASSEMBLER                        ),
+				std::pair(synchronization_point_mask::index_input,                  D3D12_BARRIER_SYNC_INDEX_INPUT                            ),
 				std::pair(synchronization_point_mask::vertex_input,                 D3D12_BARRIER_SYNC_VERTEX_SHADING                         ),
 				std::pair(synchronization_point_mask::vertex_shader,                D3D12_BARRIER_SYNC_VERTEX_SHADING                         ),
 				std::pair(synchronization_point_mask::pixel_shader,                 D3D12_BARRIER_SYNC_PIXEL_SHADING                          ),

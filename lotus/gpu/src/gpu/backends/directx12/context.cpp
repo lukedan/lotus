@@ -30,6 +30,22 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
+	std::vector<adapter> context::get_all_adapters() const {
+		std::vector<adapter> adapters;
+		for (UINT i = 0; ; ++i) {
+			adapter adap = nullptr;
+			const HRESULT result = _dxgi_factory->EnumAdapterByGpuPreference(
+				i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adap._adapter)
+			);
+			if (result == DXGI_ERROR_NOT_FOUND) {
+				break;
+			}
+			adap._debug_callback = _debug_message_callback.get();
+			adapters.emplace_back(adap);
+		}
+		return adapters;
+	}
+
 	std::pair<swap_chain, format> context::create_swap_chain_for_window(
 		system::platforms::windows::window &wnd, device&, command_queue &q,
 		std::size_t num_frames, std::span<const format> formats

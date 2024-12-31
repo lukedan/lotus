@@ -11,7 +11,7 @@
 #	include <atlbase.h>
 #	include <Unknwn.h>
 #endif
-#include <dxc/dxcapi.h>
+#include LOTUS_GPU_DXC_HEADER
 
 #include "lotus/logging.h"
 #include "lotus/gpu/common.h"

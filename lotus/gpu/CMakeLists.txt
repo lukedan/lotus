@@ -82,6 +82,9 @@ if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 	target_link_libraries(lotus_gpu_directx12
 		PUBLIC
 			lotus_core lotus_system d3d12 dxgi dxguid d3dcompiler dxcompiler Microsoft::DirectX-Headers)
+	target_compile_definitions(lotus_gpu_directx12
+		PUBLIC
+			"LOTUS_GPU_DXC_HEADER=<dxcapi.h>")
 
 	# WinPixEventRuntime support
 	if(LOTUS_GPU_DIRECTX12_USE_PIX)
@@ -112,7 +115,15 @@ if(LOTUS_GPU_USE_VULKAN)
 	set(LOTUS_GPU_HAS_VULKAN YES CACHE INTERNAL "Whether the Vulkan backend is available.")
 	list(APPEND ALL_BACKENDS vulkan)
 
-	find_package(Vulkan REQUIRED)
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND LOTUS_GPU_VULKAN_USE_SYSTEM_DXC)
+		set(USE_SYSTEM_DXC YES)
+	endif()
+
+	if(NOT USE_SYSTEM_DXC)
+		list(APPEND LOTUS_GPU_VULKAN_VULKAN_COMPONENTS dxc)
+	endif()
+
+	find_package(Vulkan REQUIRED COMPONENTS ${LOTUS_GPU_VULKAN_VULKAN_COMPONENTS})
 	# SPIRV-Reflect
 	add_library(SPIRV_Reflect STATIC)
 	target_sources(SPIRV_Reflect PRIVATE "thirdparty/SPIRV-Reflect/spirv_reflect.c")
@@ -183,16 +194,17 @@ if(LOTUS_GPU_USE_VULKAN)
 	endif()
 
 	# if using DXC for shader compilation, find and link DXC
-	if(LOTUS_GPU_VULKAN_USE_SYSTEM_DXC)
+	if(USE_SYSTEM_DXC)
 		target_link_libraries(lotus_gpu_vulkan PUBLIC dxcompiler)
+		target_compile_definitions(lotus_gpu_vulkan
+			PUBLIC
+				"LOTUS_GPU_DXC_HEADER=<dxcapi.h>")
 	else()
-		set(VULKAN_SDK_PATH "${Vulkan_LIBRARY}/../../")
-		find_library(LOTUS_GPU_VULKAN_DXC_LIBRARY
-			dxcompiler
-			PATHS "${VULKAN_SDK_PATH}/Lib/"
-			REQUIRED
-			NO_DEFAULT_PATH)
-		target_link_libraries(lotus_gpu_vulkan PUBLIC "${LOTUS_GPU_VULKAN_DXC_LIBRARY}")
+		target_link_libraries(lotus_gpu_vulkan PUBLIC Vulkan::dxc_lib)
+		# unlike the Windows SDK, the Vulkan SDK puts dxcapi.h under a folder
+		target_compile_definitions(lotus_gpu_vulkan
+			PUBLIC
+				"LOTUS_GPU_DXC_HEADER=<dxc/dxcapi.h>")
 	endif()
 endif()
 

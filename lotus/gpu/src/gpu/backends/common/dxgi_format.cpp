@@ -76,7 +76,7 @@ namespace lotus::gpu::backends::common::_details::conversions {
 		std::pair(format::bc7_srgb,           DXGI_FORMAT_BC7_UNORM_SRGB      ),
 	};
 
-	dxgi_format to_format(format fmt) {
+	dxgi_format to_dxgi_format(format fmt) {
 		return static_cast<dxgi_format>(_lookup_table[fmt]);
 	}
 

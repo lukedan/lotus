@@ -17,6 +17,11 @@ namespace shader_types {
 }
 #include <lotus/renderer/shader_types_include_wrapper.h>
 
+#include <imgui.cpp>
+#include <imgui_draw.cpp>
+#include <imgui_widgets.cpp>
+#include <imgui_tables.cpp>
+
 template <typename T> struct ImGuiAutoDataType;
 template <> struct ImGuiAutoDataType<std::uint32_t> {
 	constexpr static ImGuiDataType value = ImGuiDataType_U32;

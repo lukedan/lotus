@@ -21,7 +21,7 @@ namespace lotus::system::platforms::macos {
 		/// Initializes the application.
 		explicit application(std::u8string_view);
 
-		/// Creates a \p NSWindow and a \p CAMetalLayer.
+		/// Creates a \p NSWindow.
 		[[nodiscard]] window create_window() const;
 
 		/// Processes a single message, blocking until one is received.

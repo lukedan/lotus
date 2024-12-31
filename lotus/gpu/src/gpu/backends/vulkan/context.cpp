@@ -11,6 +11,10 @@
 #	include "lotus/system/platforms/windows/details.h"
 #endif
 
+#ifdef __APPLE__
+#	include "lotus/gpu/backends/vulkan/moltenvk.h"
+#endif
+
 namespace lotus::gpu::backends::vulkan {
 	context::~context() {
 		if (_instance) {
@@ -120,23 +124,26 @@ namespace lotus::gpu::backends::vulkan {
 
 		auto bookmark = get_scratch_bookmark();
 
+		{
 #if _WIN32
-		vk::Win32SurfaceCreateInfoKHR surface_info;
-		auto instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtr(wnd.get_native_handle(), GWLP_HINSTANCE));
-		system::platforms::windows::_details::assert_win32(instance);
-		surface_info
-			.setHinstance(instance)
-			.setHwnd(wnd.get_native_handle());
-		// TODO allocator
-		result._surface = _details::unwrap(_instance->createWin32SurfaceKHRUnique(surface_info));
+			vk::Win32SurfaceCreateInfoKHR surface_info;
+			auto instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtr(wnd.get_native_handle(), GWLP_HINSTANCE));
+			system::platforms::windows::_details::assert_win32(instance);
+			surface_info
+				.setHinstance(instance)
+				.setHwnd(wnd.get_native_handle());
+			// TODO allocator
+			result._surface = _details::unwrap(_instance->createWin32SurfaceKHRUnique(surface_info));
 #elif defined(__APPLE__)
-		vk::MetalSurfaceCreateInfoEXT surface_info;
-		surface_info.setPLayer(static_cast<const CAMetalLayer*>(wnd.get_native_handle().metal_layer));
-		// TODO allocator
-		result._surface = _details::unwrap(_instance->createMetalSurfaceEXTUnique(surface_info));
+			CAMetalLayer *layer = _details::create_core_animation_metal_layer(wnd.get_native_handle());
+			vk::MetalSurfaceCreateInfoEXT surface_info;
+			surface_info.setPLayer(layer);
+			// TODO allocator
+			result._surface = _details::unwrap(_instance->createMetalSurfaceEXTUnique(surface_info));
 #else
 #	error "Swap chain not implemented for platform"
 #endif
+		}
 
 		crash_if(!_details::unwrap(dev._physical_device.getSurfaceSupportKHR(
 			dev._queue_family_props[queue_family::graphics].index, result._surface.get()

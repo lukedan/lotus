@@ -157,11 +157,28 @@ if(LOTUS_GPU_USE_VULKAN)
 	target_compile_definitions(lotus_gpu_vulkan
 		PUBLIC
 			VULKAN_HPP_NO_EXCEPTIONS)
-	if(WIN32)
+
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		# Windows-specific settings
 		target_compile_definitions(lotus_gpu_vulkan PUBLIC VK_USE_PLATFORM_WIN32_KHR)
-	endif()
-	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-		target_compile_options(lotus_gpu_vulkan PUBLIC -fms-extensions)
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		# MoltenVK-specific settings
+		enable_language(OBJCXX)
+		target_sources(lotus_gpu_vulkan
+			PUBLIC
+				"include/lotus/gpu/backends/vulkan/moltenvk.h"
+			PRIVATE
+				"src/gpu/backends/vulkan/moltenvk.mm")
+		find_library(QUARTZ_CORE_LIB QuartzCore)
+		find_library(METAL_LIB Metal)
+		target_link_libraries(lotus_gpu_vulkan
+			PUBLIC
+				"${QUARTZ_CORE_LIB}" "${METAL_LIB}")
+		target_compile_options(lotus_gpu_vulkan
+			PUBLIC
+				-fms-extensions
+			PRIVATE
+				-fobjc-arc)
 		target_compile_definitions(lotus_gpu_vulkan PUBLIC VK_USE_PLATFORM_METAL_EXT)
 	endif()
 

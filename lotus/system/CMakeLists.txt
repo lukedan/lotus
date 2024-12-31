@@ -26,13 +26,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 
 	find_library(FOUNDATION_LIB Foundation)
 	find_library(APP_KIT_LIB AppKit)
-	find_library(QUARTZ_CORE_LIB QuartzCore)
-	find_library(METAL_LIB Metal)
 	target_link_libraries(lotus_system
 		PUBLIC
-			"${FOUNDATION_LIB}" "${APP_KIT_LIB}" "${QUARTZ_CORE_LIB}" "${METAL_LIB}")
+			"${FOUNDATION_LIB}" "${APP_KIT_LIB}")
 	target_compile_options(lotus_system
-		PUBLIC
+		PRIVATE
 			-fobjc-arc)
 elseif(WIN32)
 	target_sources(lotus_system

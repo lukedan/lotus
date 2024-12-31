@@ -19,11 +19,8 @@ namespace lotus::system::platforms::macos {
 		/// Destroys the window.
 		~window();
 	protected:
-		/// Native handle type.
-		struct native_handle_t {
-			void *window = nullptr; ///< The \p NSWindow.
-			void *metal_layer = nullptr; ///< The \p CAMetalLayer.
-		};
+		/// The native handle is a \p NSWindow.
+		using native_handle_t = void*;
 
 		/// Initializes this window to empty.
 		window(nullptr_t) {

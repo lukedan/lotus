@@ -29,7 +29,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		assert_vk(res.result);
 		return std::move(res.value);
 	}
-	/// Asserts that the given result is 
+	/// Asserts that the given result indicates success.
 	inline void assert_spv_reflect(SpvReflectResult result) {
 		if (result != SPV_REFLECT_RESULT_SUCCESS) {
 			log().error("SPIRV-Reflect error {}", static_cast<std::underlying_type_t<decltype(result)>>(result));

@@ -51,9 +51,9 @@ namespace lotus::gpu {
 			backend::device::resize_swap_chain_buffers(swapchain, size);
 		}
 
-		/// Creates a \ref command_allocator for the given queue family.
-		[[nodiscard]] command_allocator create_command_allocator(queue_family f) {
-			return backend::device::create_command_allocator(f);
+		/// Creates a \ref command_allocator for the given command queue.
+		[[nodiscard]] command_allocator create_command_allocator(command_queue &q) {
+			return backend::device::create_command_allocator(q);
 		}
 		/// Creates a new empty \ref command_list and immediately starts recording commands.
 		[[nodiscard]] command_list create_and_start_command_list(command_allocator &allocator) {

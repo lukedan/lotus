@@ -201,6 +201,7 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	private:
 		vk::Queue _queue; ///< The queue.
+		std::uint32_t _family_index = std::numeric_limits<std::uint32_t>::max(); ///< Queue family index.
 		double _timestamp_frequency = 0.0f; ///< Timestamp frequency.
 		queue_capabilities _capabilities = queue_capabilities::none; ///< The capabilities of this queue.
 	};

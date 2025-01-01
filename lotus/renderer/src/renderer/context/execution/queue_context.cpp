@@ -136,7 +136,7 @@ namespace lotus::renderer::execution {
 		if (!_list) {
 			if (!_cmd_alloc) {
 				_cmd_alloc = &_batch_ctx.record_batch_resource(
-					_get_device().create_command_allocator(_q.queue.get_family())
+					_get_device().create_command_allocator(_q.queue)
 				);
 			}
 			_list = &_batch_ctx.record_batch_resource(_get_device().create_and_start_command_list(*_cmd_alloc));

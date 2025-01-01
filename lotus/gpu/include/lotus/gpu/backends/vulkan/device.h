@@ -36,7 +36,7 @@ namespace lotus::gpu::backends::vulkan {
 		void resize_swap_chain_buffers(swap_chain&, cvec2u32);
 
 		/// Calls \p vk::UniqueDevice::createCommandPoolUnique().
-		[[nodiscard]] command_allocator create_command_allocator(queue_family);
+		[[nodiscard]] command_allocator create_command_allocator(command_queue&);
 		/// Calls \p vk::UniqueDevice::allocateCommandBuffers() and \p vk::CommandBuffer::begin().
 		[[nodiscard]] command_list create_and_start_command_list(command_allocator&);
 

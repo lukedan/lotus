@@ -76,13 +76,13 @@ namespace lotus::gpu::backends::vulkan {
 		s._synchronization.resize(s._images.size(), nullptr);
 	}
 
-	command_allocator device::create_command_allocator(queue_family ty) {
+	command_allocator device::create_command_allocator(command_queue &q) {
 		command_allocator alloc = nullptr;
 
 		vk::CommandPoolCreateInfo info;
 		info
 			.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
-			.setQueueFamilyIndex(_queue_family_props[ty].index);
+			.setQueueFamilyIndex(q._family_index);
 		// TODO allocator
 		alloc._pool = _details::unwrap(_device->createCommandPoolUnique(info));
 
@@ -1634,6 +1634,7 @@ namespace lotus::gpu::backends::vulkan {
 				const auto &family_props = result._queue_family_props[param];
 				command_queue new_queue = nullptr;
 				new_queue._queue               = result._device->getQueue(family_props.index, cur_queue[param]);
+				new_queue._family_index        = family_props.index;
 				new_queue._timestamp_frequency = timestamp_freq;
 				new_queue._capabilities        = family_props.capabilities;
 				queues.emplace_back(std::move(new_queue));

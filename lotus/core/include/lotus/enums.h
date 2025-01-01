@@ -207,28 +207,36 @@ namespace lotus::enums::bit_mask {
 		/// Calls the callback function for each bit inside the mask with (bit index, bit, mapped value).
 		template <typename Cb> constexpr void for_each_bit(BitMask m, Cb &&cb) const {
 			using _src_ty = std::underlying_type_t<BitMask>;
-			auto value = static_cast<_src_ty>(m);
+			auto value = std::to_underlying(m);
 			while (value != 0) {
 				const int bit_index = std::countr_zero(value);
 				crash_if(static_cast<_src_ty>(bit_index) >= NumEnumerators);
-				const _src_ty bit = 1ull << bit_index;
+				const auto bit = static_cast<_src_ty>(1ull << bit_index);
 				cb(bit_index, static_cast<BitMask>(bit), _mapping[bit_index].second);
 				value ^= bit;
 			}
 		}
 		/// Returns the bitwise or of all values corresponding to all bits in the given bit mask.
 		template <typename T = Value> [[nodiscard]] constexpr T get_union(BitMask m) const {
-			auto result = static_cast<std::underlying_type_t<Value>>(0);
-			for_each_bit(
-				m,
-				[&](int, BitMask, Value bit) {
-					result |= std::to_underlying(bit);
-				}
-			);
-			return static_cast<Value>(result);
+			if constexpr (std::is_enum_v<T>) {
+				return static_cast<T>(_get_union_impl<std::underlying_type_t<T>>(m));
+			} else {
+				return static_cast<T>(_get_union_impl<T>(m));
+			}
 		}
 	private:
 		const std::array<std::pair<BitMask, Value>, NumEnumerators> _mapping; ///< Storage for the mapping.
+
+		template <typename T> [[nodiscard]] constexpr T _get_union_impl(BitMask m) const {
+			auto result = static_cast<T>(0);
+			for_each_bit(
+				m,
+				[&](int, BitMask, Value bit) {
+					result |= static_cast<T>(bit);
+				}
+			);
+			return result;
+		}
 	};
 
 	/// Mappings between bit values and their string representations.

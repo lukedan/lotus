@@ -58,6 +58,7 @@ namespace lotus::renderer::execution {
 		~batch_resources() {
 			// command lists must be destroyed before the command allocators
 			command_lists.clear();
+			command_allocs.clear();
 		}
 
 		std::deque<gpu::descriptor_set>            descriptor_sets;        ///< Descriptor sets.

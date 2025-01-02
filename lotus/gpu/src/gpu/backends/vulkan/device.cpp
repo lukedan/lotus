@@ -769,9 +769,9 @@ namespace lotus::gpu::backends::vulkan {
 		buffer result_buf = create_committed_buffer(layout.size, mem_id, allowed_usage);
 
 		staging_buffer_metadata result_pitch = uninitialized;
-		result_pitch._size   = size;
-		result_pitch._bytes  = static_cast<std::uint32_t>(layout.rowPitch);
-		result_pitch._format = fmt;
+		result_pitch.image_size         = size;
+		result_pitch.row_pitch_in_bytes = static_cast<std::uint32_t>(layout.rowPitch);
+		result_pitch.pixel_format       = fmt;
 
 		return std::make_tuple(std::move(result_buf), result_pitch, layout.size);
 	}

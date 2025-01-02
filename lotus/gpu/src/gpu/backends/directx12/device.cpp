@@ -280,7 +280,7 @@ namespace lotus::gpu::backends::directx12 {
 		}
 		desc.DSVFormat                       =
 			_details::conversions::to_format(fb_layout.depth_stencil_render_target_format);
-		
+
 		// TODO multisample settings
 		desc.SampleDesc.Count                = 1;
 		desc.SampleDesc.Quality              = 0;
@@ -515,7 +515,7 @@ namespace lotus::gpu::backends::directx12 {
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, first_register, buffers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = 
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor =
 			set._shader_resource_descriptors.get_cpu(static_cast<_details::descriptor_range::index_t>(
 				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
 			));
@@ -646,9 +646,9 @@ namespace lotus::gpu::backends::directx12 {
 
 		buffer result = create_committed_buffer(static_cast<std::size_t>(total_bytes), mem_id, all_usages);
 		staging_buffer_metadata result_meta = uninitialized;
-		result_meta._pitch  = footprint.Footprint.RowPitch;
-		result_meta._size   = size;
-		result_meta._format = fmt;
+		result_meta.image_size         = size;
+		result_meta.row_pitch_in_bytes = footprint.Footprint.RowPitch;
+		result_meta.pixel_format       = fmt;
 		return std::make_tuple(std::move(result), result_meta, total_bytes);
 	}
 
@@ -1063,7 +1063,7 @@ namespace lotus::gpu::backends::directx12 {
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, as.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor = 
+		D3D12_CPU_DESCRIPTOR_HANDLE current_descriptor =
 			set._shader_resource_descriptors.get_cpu(static_cast<_details::descriptor_range::index_t>(
 				range_it->OffsetInDescriptorsFromTableStart + (first_register - range_it->BaseShaderRegister)
 			));

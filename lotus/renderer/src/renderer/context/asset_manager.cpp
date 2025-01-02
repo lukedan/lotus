@@ -423,7 +423,7 @@ namespace lotus::renderer::assets {
 									linear_rgba_u8(255, 0, 255, 255) :
 									linear_rgba_u8(0, 255, 0, 255);
 							}
-							cur_dst += staging_buf.meta.get_pitch_in_bytes();
+							cur_dst += staging_buf.meta.row_pitch_in_bytes;
 						}
 					}
 				);

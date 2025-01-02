@@ -68,33 +68,6 @@ namespace lotus::gpu::backends::vulkan {
 		vk::UniqueBuffer _buffer; ///< The buffer.
 	};
 
-	/// Stores additional information about a staging buffer.
-	struct staging_buffer_metadata {
-		friend command_list;
-		friend device;
-	public:
-		/// No initialization.
-		staging_buffer_metadata(uninitialized_t) : _size(uninitialized) {
-		}
-	protected:
-		/// Returns \ref _bytes.
-		[[nodiscard]] std::size_t get_pitch_in_bytes() const {
-			return _bytes;
-		}
-		/// Returns \ref _size.
-		[[nodiscard]] cvec2u32 get_size() const {
-			return _size;
-		}
-		/// Returns \ref _format.
-		[[nodiscard]] gpu::format get_format() const {
-			return _format;
-		}
-	private:
-		cvec2u32 _size; ///< Size of the texture in pixels.
-		std::uint32_t _bytes; ///< The number of bytes between two consecutive rows.
-		gpu::format _format; ///< Image data format.
-	};
-
 	namespace _details {
 		/// Base class of all image types, contains a \p vk::Image and the \p vk::Device that created it.
 		class image_base : public gpu::image_base {

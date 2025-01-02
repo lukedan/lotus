@@ -41,24 +41,6 @@ namespace lotus::gpu::backends::metal {
 		}
 	};
 
-	// TODO
-	struct staging_buffer_metadata {
-	protected:
-		/// No initialization.
-		staging_buffer_metadata(uninitialized_t) {
-		}
-
-		[[nodiscard]] std::size_t get_pitch_in_bytes() const {
-			// TODO
-		}
-		[[nodiscard]] cvec2u32 get_size() const {
-			// TODO
-		}
-		[[nodiscard]] gpu::format get_format() const {
-			// TODO
-		}
-	};
-
 	namespace _details {
 		/// Base class for images that holds a \p MTL::Texture.
 		class basic_image_base : public gpu::image_base {

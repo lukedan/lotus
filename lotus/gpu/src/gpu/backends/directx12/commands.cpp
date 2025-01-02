@@ -313,16 +313,16 @@ namespace lotus::gpu::backends::directx12 {
 		source.pResource = from._buffer.Get();
 		source.Type      = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
 		source.PlacedFootprint.Offset = static_cast<UINT64>(byte_offset);
-		const auto &fmt_props = format_properties::get(meta._format);
+		const auto &fmt_props = format_properties::get(meta.pixel_format);
 		cvec2s aligned_size(
-			memory::align_up(meta._size[0], fmt_props.fragment_size[0]),
-			memory::align_up(meta._size[1], fmt_props.fragment_size[1])
+			memory::align_up(meta.image_size[0], fmt_props.fragment_size[0]),
+			memory::align_up(meta.image_size[1], fmt_props.fragment_size[1])
 		);
 		source.PlacedFootprint.Footprint.Format   = to._image->GetDesc().Format;
 		source.PlacedFootprint.Footprint.Width    = static_cast<UINT>(aligned_size[0]);
 		source.PlacedFootprint.Footprint.Height   = static_cast<UINT>(aligned_size[1]);
 		source.PlacedFootprint.Footprint.Depth    = 1;
-		source.PlacedFootprint.Footprint.RowPitch = meta._pitch;
+		source.PlacedFootprint.Footprint.RowPitch = meta.row_pitch_in_bytes;
 		D3D12_BOX src_box = {};
 		src_box.left   = static_cast<UINT>(off[0]);
 		src_box.top    = static_cast<UINT>(off[1]);

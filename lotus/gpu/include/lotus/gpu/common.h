@@ -1688,6 +1688,17 @@ namespace lotus::gpu {
 		swap_chain_status status; ///< The status of this swapchain.
 	};
 
+	/// Contains additional metadata about a staging buffer.
+	struct staging_buffer_metadata {
+		/// No initialization.
+		staging_buffer_metadata(uninitialized_t) {
+		}
+
+		cvec2u32 image_size = uninitialized; ///< The size of the image.
+		std::uint32_t row_pitch_in_bytes; ///< The number of bytes in a row.
+		format pixel_format; ///< The pixel format of the image.
+	};
+
 
 	/// A range of descriptors of the same type.
 	struct descriptor_range {

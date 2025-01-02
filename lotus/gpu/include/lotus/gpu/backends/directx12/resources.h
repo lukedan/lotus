@@ -41,34 +41,6 @@ namespace lotus::gpu::backends::directx12 {
 	};
 
 
-	/// Stores additional information about a staging buffer.
-	struct staging_buffer_metadata {
-		friend command_list;
-		friend device;
-	public:
-		/// No initialization.
-		staging_buffer_metadata(uninitialized_t) : _size(uninitialized) {
-		}
-	protected:
-		/// Returns \ref _pitch.
-		[[nodiscard]] std::size_t get_pitch_in_bytes() const {
-			return _pitch;
-		}
-		/// Returns \ref _size.
-		[[nodiscard]] cvec2u32 get_size() const {
-			return _size;
-		}
-		/// Returns \ref _format.
-		[[nodiscard]] gpu::format get_format() const {
-			return _format;
-		}
-	private:
-		UINT _pitch; ///< Pitch in bytes.
-		cvec2u32 _size; ///< Size of the buffer in pixels.
-		gpu::format _format; ///< Format of the buffer.
-	};
-
-
 	namespace _details {
 		/// Base class for images.
 		class image_base : public gpu::image_base {

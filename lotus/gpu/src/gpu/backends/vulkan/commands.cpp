@@ -217,11 +217,11 @@ namespace lotus::gpu::backends::vulkan {
 		const buffer &from, std::size_t byte_offset, staging_buffer_metadata meta,
 		image2d &to, subresource_index subresource, cvec2u32 offset
 	) {
-		const auto &props = format_properties::get(meta._format);
+		const auto &props = format_properties::get(meta.pixel_format);
 		crash_if(offset[0] % props.fragment_size[0] != 0 || offset[1] % props.fragment_size[1] != 0);
 		const auto aligned_size = cvec2s(
-			memory::align_up(meta._size[0], props.fragment_size[0]),
-			memory::align_up(meta._size[1], props.fragment_size[1])
+			memory::align_up(meta.image_size[0], props.fragment_size[0]),
+			memory::align_up(meta.image_size[1], props.fragment_size[1])
 		).into<std::uint32_t>();
 		vk::BufferImageCopy copy;
 		copy
@@ -230,7 +230,7 @@ namespace lotus::gpu::backends::vulkan {
 			.setBufferImageHeight(aligned_size[1])
 			.setImageSubresource(_details::conversions::to_image_subresource_layers(subresource))
 			.setImageOffset(vk::Offset3D(_details::conversions::to_offset_2d(offset), 0))
-			.setImageExtent(vk::Extent3D(_details::conversions::to_extent_2d(meta._size), 1));
+			.setImageExtent(vk::Extent3D(_details::conversions::to_extent_2d(meta.image_size), 1));
 		_buffer.copyBufferToImage(from._buffer.get(), to._image, vk::ImageLayout::eTransferDstOptimal, copy);
 	}
 

@@ -552,10 +552,10 @@ namespace lotus::renderer {
 		write_data_to_buffer_custom(
 			buf,
 			[&](std::byte *dst) {
-				const auto &format_props = gpu::format_properties::get(meta.get_format());
+				const auto &format_props = gpu::format_properties::get(meta.pixel_format);
 				const auto frag_size = format_props.fragment_size.into<std::uint32_t>();
 				const auto num_frags = vec::memberwise_divide(
-					meta.get_size() + frag_size - cvec2u32(1, 1), frag_size
+					meta.image_size + frag_size - cvec2u32(1, 1), frag_size
 				);
 				const auto frag_bytes = format_props.bytes_per_fragment;
 				const auto row_bytes = num_frags[0] * frag_bytes;
@@ -565,7 +565,7 @@ namespace lotus::renderer {
 				std::byte *cur_dst = dst;
 				for (std::uint32_t y = 0; y < num_frags[1]; ++y) {
 					std::memcpy(cur_dst, cur_src, row_bytes);
-					cur_dst += meta.get_pitch_in_bytes();
+					cur_dst += meta.row_pitch_in_bytes;
 					cur_src += row_bytes;
 				}
 			}

@@ -71,35 +71,11 @@ namespace lotus::gpu {
 	/// A \ref buffer used for uploading image data to the device.
 	class staging_buffer {
 	public:
+		using metadata = staging_buffer_metadata; ///< Metadata type.
+
 		/// Initializes the buffer to empty without initializing \ref row_pitch or \ref total_size.
 		staging_buffer(std::nullptr_t) : data(nullptr), meta(uninitialized) {
 		}
-
-		/// An opaque token used by backends to record additional metadata of the image.
-		struct metadata : public backend::staging_buffer_metadata {
-			friend device;
-		public:
-			/// No initialization.
-			metadata(uninitialized_t) : backend::staging_buffer_metadata(uninitialized) {
-			}
-
-			/// Returns the pitch in bytes.
-			[[nodiscard]] std::size_t get_pitch_in_bytes() const {
-				return backend::staging_buffer_metadata::get_pitch_in_bytes();
-			}
-			/// Returns the size of the image in pixels.
-			[[nodiscard]] cvec2u32 get_size() const {
-				return backend::staging_buffer_metadata::get_size();
-			}
-			/// Returns the target pixel format of this staging buffer.
-			[[nodiscard]] gpu::format get_format() const {
-				return backend::staging_buffer_metadata::get_format();
-			}
-		private:
-			/// Initializes the base class object.
-			metadata(backend::staging_buffer_metadata p) : backend::staging_buffer_metadata(std::move(p)) {
-			}
-		};
 
 		buffer data; ///< The actual buffer.
 		metadata meta; ///< Additional metadata.

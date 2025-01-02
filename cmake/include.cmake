@@ -9,7 +9,11 @@ function(configure_lotus_module TARGET_NAME)
 		target_compile_definitions(${TARGET_NAME}
 			PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN
 			PRIVATE _CRT_SECURE_NO_WARNINGS)
-	elseif((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+	elseif(
+		(CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
+		(CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
+		(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+	)
 		target_compile_options(${TARGET_NAME}
 			PUBLIC -Wall -Wextra -Wconversion)
 	else()

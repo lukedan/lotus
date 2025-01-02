@@ -229,7 +229,7 @@ namespace lotus {
 
 		/// Replaces the contents of this container with the given range of objects.
 		template <typename It> void assign(It begin, It end) {
-			T *storage = _assign_impl(std::distance(begin, end));
+			T *storage = _assign_impl(static_cast<size_type>(std::distance(begin, end)));
 			std::uninitialized_copy(begin, end, storage);
 		}
 		/// Replaces the contents of this container with \p count copies of the given object.

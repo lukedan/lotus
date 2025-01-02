@@ -181,7 +181,7 @@ namespace lotus::gpu::backends::vulkan {
 		auto scissors = bookmark.create_reserved_vector_array<vk::Rect2D>(rects.size());
 		for (const auto &r : rects) {
 			cvec2i size = r.signed_size();
-			scissors.emplace_back(vk::Offset2D(r.min[0], r.min[1]), vk::Extent2D(size[0], size[1]));
+			scissors.emplace_back(vk::Offset2D(r.min[0], r.min[1]), _details::conversions::to_extent_2d(size));
 		}
 		_buffer.setScissor(0, scissors);
 	}
@@ -251,7 +251,7 @@ namespace lotus::gpu::backends::vulkan {
 	) {
 		_buffer.drawIndexed(
 			static_cast<std::uint32_t>(index_count), static_cast<std::uint32_t>(instance_count),
-			static_cast<std::uint32_t>(first_index), static_cast<std::uint32_t>(first_vertex),
+			static_cast<std::uint32_t>(first_index), static_cast<std::int32_t>(first_vertex),
 			static_cast<std::uint32_t>(first_instance)
 		);
 	}

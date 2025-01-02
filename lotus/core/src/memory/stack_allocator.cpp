@@ -16,7 +16,7 @@ namespace lotus::memory {
 	}
 
 	std::byte *stack_allocator::_page_ref::allocate(memory::size_alignment s) {
-		std::size_t sz = end - current;
+		auto sz = static_cast<std::size_t>(end - current);
 		void *v_current = current;
 		if (void *result = std::align(s.alignment, s.size, v_current, sz)) {
 			current = static_cast<std::byte*>(v_current) + s.size;

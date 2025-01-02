@@ -89,7 +89,7 @@ namespace lotus::gpu {
 		std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type type
 	) {
 		format result = format::none;
-		for (const auto [value, key] : _format_property_table.get_raw_table()) {
+		for (const auto &[value, key] : _format_property_table.get_raw_table()) {
 			if (key.depth_bits > 0 || key.stencil_bits > 0) {
 				continue;
 			}
@@ -101,7 +101,7 @@ namespace lotus::gpu {
 				key.type == type &&
 				key.contents == fragment_contents::rgba
 			) {
-				assert(result == format::none); // duplicate formats?
+				crash_if(result != format::none); // duplicate formats?
 				result = value;
 			}
 		}

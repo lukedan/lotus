@@ -249,7 +249,7 @@ namespace lotus::memory {
 					custom_end = end;
 				}
 				if constexpr (should_poison_freed_memory) {
-					memory::poison(ptr, custom_end - ptr);
+					memory::poison(ptr, static_cast<std::size_t>(custom_end - ptr));
 				}
 			}
 

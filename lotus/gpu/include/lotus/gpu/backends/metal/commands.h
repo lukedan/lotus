@@ -12,23 +12,39 @@
 
 namespace lotus::gpu::backends::metal {
 	class adapter;
+	class command_list;
 	class device;
 
-	// TODO
+	/// Metal command buffers are specific to command queues - this object holds a weak reference to the
+	/// \p MTL::CommandQueue.
 	class command_allocator {
+		friend command_list;
+		friend device;
 	protected:
-		command_allocator(std::nullptr_t); // TODO
+		/// Initializes this object to empty.
+		command_allocator(std::nullptr_t) {
+		}
 
-		void reset(device&); // TODO
+		/// Does nothing.
+		void reset(device&);
 	private:
+		MTL::CommandQueue *_q = nullptr; ///< The command queue.
+
+		/// Initializes \ref _q.
+		explicit command_allocator(MTL::CommandQueue *q) : _q(q) {
+		}
 	};
 
-	// TODO
+	/// Holds a \p MTL::CommandBuffer.
 	class command_list {
+		friend device;
 	protected:
-		command_list(std::nullptr_t); // TODO
+		/// Initializes this object to empty.
+		command_list(std::nullptr_t) {
+		}
 
-		void reset_and_start(command_allocator&); // TODO
+		/// Replaces \ref _buf with a new command list allocated using \p MTL::CommandQueue::commandBuffer().
+		void reset_and_start(command_allocator&);
 
 		void begin_pass(const frame_buffer&, const frame_buffer_access&); // TODO
 
@@ -73,25 +89,26 @@ namespace lotus::gpu::backends::metal {
 		void trace_rays(constant_buffer_view ray_generation, shader_record_view miss_shaders, shader_record_view hit_groups, std::size_t width, std::size_t height, std::size_t depth); // TODO
 
 
-		[[nodiscard]] bool is_valid() const; // TODO
+		/// Checks whether this object is valid.
+		[[nodiscard]] bool is_valid() const {
+			return _buf.is_valid();
+		}
+	private:
+		_details::metal_ptr<MTL::CommandBuffer> _buf; ///< The command buffer.
+
+		/// Initializes \ref _buf.
+		explicit command_list(_details::metal_ptr<MTL::CommandBuffer> buf) : _buf(std::move(buf)) {
+		}
 	};
 
 	/// Holds a \p MTL::CommandQueue.
 	class command_queue {
 		friend adapter;
-	public:
-		/// Deferred definition to accommodate incomplete metal types.
-		command_queue(command_queue&&) noexcept;
-		/// Deferred definition to accommodate incomplete metal types.
-		command_queue(const command_queue&);
-		/// Deferred definition to accommodate incomplete metal types.
-		command_queue &operator=(command_queue&&) noexcept;
-		/// Deferred definition to accommodate incomplete metal types.
-		command_queue &operator=(const command_queue&);
-		/// Deferred definition to accommodate incomplete metal types.
-		~command_queue();
+		friend device;
 	protected:
-		command_queue(std::nullptr_t); // TODO
+		/// Initializes this object to empty.
+		command_queue(std::nullptr_t) {
+		}
 
 		[[nodiscard]] double get_timestamp_frequency(); // TODO
 
@@ -103,11 +120,15 @@ namespace lotus::gpu::backends::metal {
 
 		[[nodiscard]] queue_capabilities get_capabilities() const; // TODO
 
-		[[nodiscard]] bool is_valid() const; // TODO
+		/// Checks if this object is valid.
+		[[nodiscard]] bool is_valid() const {
+			return _q.is_valid();
+		}
 	private:
 		_details::metal_ptr<MTL::CommandQueue> _q; ///< The command queue.
 
 		/// Initializes \ref _q.
-		command_queue(_details::metal_ptr<MTL::CommandQueue>);
+		explicit command_queue(_details::metal_ptr<MTL::CommandQueue> q) : _q(std::move(q)) {
+		}
 	};
 }

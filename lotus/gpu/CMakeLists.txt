@@ -22,7 +22,9 @@ set(LOTUS_GPU_COMMON_HEADERS
 	"include/lotus/gpu/synchronization.h")
 set(LOTUS_GPU_COMMON_SOURCES
 	"src/gpu/backends/common/dxc.cpp"
-	"src/gpu/backends/common/dxgi_format.cpp")
+	"src/gpu/backends/common/dxgi_format.cpp"
+
+	"src/gpu/common.cpp")
 
 add_subdirectory("thirdparty/DirectX-Headers/")
 
@@ -75,9 +77,7 @@ if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 			"src/gpu/backends/directx12/details.cpp"
 			"src/gpu/backends/directx12/device.cpp"
 			"src/gpu/backends/directx12/frame_buffer.cpp"
-			"src/gpu/backends/directx12/pipeline.cpp"
-
-			"src/gpu/common.cpp")
+			"src/gpu/backends/directx12/pipeline.cpp")
 	add_gpu_backend_include_definitions(lotus_gpu_directx12 "lotus/gpu/backends/directx12/")
 	target_link_libraries(lotus_gpu_directx12
 		PUBLIC
@@ -158,9 +158,7 @@ if(LOTUS_GPU_USE_VULKAN)
 			"src/gpu/backends/vulkan/device.cpp"
 			"src/gpu/backends/vulkan/frame_buffer.cpp"
 			"src/gpu/backends/vulkan/pipeline.cpp"
-			"src/gpu/backends/vulkan/resources.cpp"
-
-			"src/gpu/common.cpp")
+			"src/gpu/backends/vulkan/resources.cpp")
 	add_gpu_backend_include_definitions(lotus_gpu_vulkan "lotus/gpu/backends/vulkan/")
 	target_link_libraries(lotus_gpu_vulkan
 		PUBLIC
@@ -214,6 +212,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND LOTUS_GPU_USE_METAL)
 	set(LOTUS_GPU_HAS_METAL YES CACHE INTERNAL "Whether the Metal backend is available.")
 	list(APPEND ALL_BACKENDS metal)
 
+	enable_language(OBJCXX)
 	add_library(lotus_gpu_metal STATIC)
 	configure_lotus_module(lotus_gpu_metal)
 
@@ -234,15 +233,36 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND LOTUS_GPU_USE_METAL)
 			"include/lotus/gpu/backends/metal/resources.h"
 			"include/lotus/gpu/backends/metal/synchronization.h"
 		PRIVATE
+			${LOTUS_GPU_COMMON_SOURCES}
+
 			"src/gpu/backends/metal/commands.cpp"
 			"src/gpu/backends/metal/context.cpp"
-			"src/gpu/backends/metal/device.cpp")
+			"src/gpu/backends/metal/context.mm"
+			"src/gpu/backends/metal/details.cpp"
+			"src/gpu/backends/metal/device.cpp"
+			"src/gpu/backends/metal/frame_buffer.cpp"
+			"src/gpu/backends/metal/metal_impl.cpp")
 	add_gpu_backend_include_definitions(lotus_gpu_metal "lotus/gpu/backends/metal/")
-	target_include_directories(lotus_gpu_metal PRIVATE "thirdparty/metal-cpp/")
+	target_include_directories(lotus_gpu_metal PUBLIC "thirdparty/metal-cpp/")
+	find_library(QUARTZ_CORE_LIB QuartzCore)
 	find_library(METAL_LIB Metal)
 	target_link_libraries(lotus_gpu_metal
 		PUBLIC
-			lotus_core lotus_system "${METAL_LIB}")
+			lotus_core lotus_system "${QUARTZ_CORE_LIB}" "${METAL_LIB}" Microsoft::DirectX-Headers)
+	target_compile_options(lotus_gpu_metal
+		PUBLIC
+			-fms-extensions
+		PRIVATE
+			-fobjc-arc)
+
+	# TODO temporarily using Vulkan DXC for Metal. should we compile DXC ourselves?
+	find_package(Vulkan REQUIRED COMPONENTS dxc)
+	target_link_libraries(lotus_gpu_metal
+		PUBLIC
+			Vulkan::Vulkan Vulkan::dxc_lib)  # for some reason need to also link Vulkan
+	target_compile_definitions(lotus_gpu_metal
+		PUBLIC
+			"LOTUS_GPU_DXC_HEADER=<dxc/dxcapi.h>")
 endif()
 
 

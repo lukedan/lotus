@@ -6,17 +6,10 @@
 #include <cstddef>
 #include <utility>
 
+#include <Metal/Metal.hpp>
+
 #include "lotus/utils/static_function.h"
 #include "lotus/gpu/common.h"
-
-// forward declarations
-namespace CA {
-	class MetalDrawable;
-}
-namespace MTL {
-	class CommandQueue;
-	class Device;
-}
 
 namespace lotus::gpu::backends::metal::_details {
 	// TODO
@@ -119,4 +112,53 @@ namespace lotus::gpu::backends::metal::_details {
 	template <typename T> metal_ptr<T> share_ownership(T *p) {
 		return metal_ptr<T>::share_ownership(p);
 	}
+
+
+	/// Memory types supported by Metal.
+	enum class memory_type_index : std::underlying_type_t<gpu::memory_type_index> {
+		shared_cpu_cached,   ///< \p MTL::StorageModeShared with CPU-side caching enabled.
+		shared_cpu_uncached, ///< \p MTL::StorageModeShared with CPU-side caching disabled.
+		device_private,      ///< \p MTL::StroageModePrivate.
+
+		num_enumerators ///< The number of enumerators.
+	};
+
+	/// Conversion helpers between lotus and Metal data types.
+	namespace conversions {
+		/// Converts a \ref format to a \p MTL::PixelFormat.
+		[[nodiscard]] MTL::PixelFormat to_pixel_format(format);
+		/// Converts a \ref memory_type_index to a \p MTL::ResourceOptions.
+		[[nodiscard]] MTL::ResourceOptions to_resource_options(_details::memory_type_index);
+		/// \overload
+		[[nodiscard]] inline MTL::ResourceOptions to_resource_options(gpu::memory_type_index i) {
+			return to_resource_options(static_cast<memory_type_index>(i));
+		}
+		/// Converts a \ref mip_levels to a \p NS::Range based on an associated texture.
+		[[nodiscard]] NS::Range to_range(mip_levels, MTL::Texture*);
+		/// Converts a \ref image_usage_mask to a \p MTL::TextureUsage.
+		[[nodiscard]] MTL::TextureUsage to_texture_usage(image_usage_mask);
+		/// Converts a \ref sampler_address_mode to a \p MTL::SamplerAddressMode.
+		[[nodiscard]] MTL::SamplerAddressMode to_sampler_address_mode(sampler_address_mode);
+		/// Converts a \ref filtering to a \p MTL::SamplerMinMagFilter.
+		[[nodiscard]] MTL::SamplerMinMagFilter to_sampler_min_mag_filter(filtering);
+		/// Converts a \ref filtering to a \p MTL::SamplerMipFilter.
+		[[nodiscard]] MTL::SamplerMipFilter to_sampler_mip_filter(filtering);
+		/// Converts a C-style string to a \p NS::String.
+		[[nodiscard]] _details::metal_ptr<NS::String> to_string(const char8_t*);
+
+		/// Converts a \p NS::String back to a \p std::string.
+		[[nodiscard]] std::u8string back_to_string(NS::String*);
+		/// Converts a \p MTL::SizeAndAlign back to a \ref memory::size_alignment.
+		[[nodiscard]] memory::size_alignment back_to_size_alignment(MTL::SizeAndAlign);
+	}
+
+	/// Creates a new \p MTL::TextureDescriptor based on the given settings.
+	[[nodiscard]] _details::metal_ptr<MTL::TextureDescriptor> create_texture_descriptor(
+		MTL::TextureType,
+		format,
+		cvec3u32 size,
+		std::uint32_t mip_levels,
+		MTL::ResourceOptions,
+		image_usage_mask
+	);
 }

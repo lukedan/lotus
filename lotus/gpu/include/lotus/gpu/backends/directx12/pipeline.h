@@ -30,36 +30,13 @@ namespace lotus::gpu::backends::directx12 {
 		/// Returns the result of \p ID3D12ShaderReflection::GetResourceBindingDescByName() or
 		/// \p ID3D12FunctionReflection::GetResourceBindingDescByName().
 		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const;
-		/// Enumerates over all resource bindings using \p ID3D12ShaderReflection::GetResourceBindingDesc().
-		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) const {
-			UINT count = _get_resource_binding_count();
-			for (UINT i = 0; i < count; ++i) {
-				D3D12_SHADER_INPUT_BIND_DESC desc = {};
-				std::visit([&](const auto &refl) {
-					_details::assert_dx(refl->GetResourceBindingDesc(i, &desc));
-				}, _reflection);
-				if (!cb(_details::conversions::back_to_shader_resource_binding(desc))) {
-					break;
-				}
-			}
-		}
+		/// Returns the number of resource bindings.
+		[[nodiscard]] std::uint32_t get_resource_binding_count() const;
+		/// Returns the result of \p ID3D12ShaderReflection::GetResourceBindingDesc().
+		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t) const;
 
-		/// Returns the number of output variables.
-		[[nodiscard]] std::size_t get_output_variable_count() const;
-		/// Enumerates over all output variables using \p ID3D12ShaderReflection::GetOutputParameterDesc().
-		template <typename Callback> void enumerate_output_variables(Callback &&cb) const {
-			std::size_t count = get_output_variable_count();
-			if (std::holds_alternative<_shader_refl_ptr>(_reflection)) {
-				const auto &refl = std::get<_shader_refl_ptr>(_reflection);
-				for (UINT i = 0; i < count; ++i) {
-					D3D12_SIGNATURE_PARAMETER_DESC desc = {};
-					_details::assert_dx(refl->GetOutputParameterDesc(i, &desc));
-					if (!cb(_details::conversions::back_to_shader_output_variable(desc))) {
-						break;
-					}
-				}
-			}
-		}
+		/// Returns the number of render targets.
+		[[nodiscard]] std::uint32_t get_render_target_count() const;
 
 		/// Returns the result of \p ID3D12ShaderReflection::GetThreadGroupSize().
 		[[nodiscard]] cvec3s get_thread_group_size() const;
@@ -102,8 +79,6 @@ namespace lotus::gpu::backends::directx12 {
 				return cb(desc);
 			}
 		}
-		/// Returns the number of resource bindings.
-		[[nodiscard]] UINT _get_resource_binding_count() const;
 	};
 
 	/// Contains a \p ID3D12LibraryReflection.

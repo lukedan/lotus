@@ -9,7 +9,7 @@
 
 namespace lotus::gpu::backends::metal {
 	class device;
-	
+
 
 	// TODO
 	class shader_reflection {
@@ -22,15 +22,15 @@ namespace lotus::gpu::backends::metal {
 			// TODO
 		}
 
-		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) const {
+		[[nodiscard]] std::uint32_t get_resource_binding_count() const {
 			// TODO
 		}
 
-		[[nodiscard]] std::size_t get_output_variable_count() const {
+		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t) const {
 			// TODO
 		}
 
-		template <typename Callback> void enumerate_output_variables(Callback &&cb) const {
+		[[nodiscard]] std::uint32_t get_render_target_count() const {
 			// TODO
 		}
 

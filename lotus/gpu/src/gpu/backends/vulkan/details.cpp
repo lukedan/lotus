@@ -601,26 +601,6 @@ namespace lotus::gpu::backends::vulkan::_details {
 			}
 			return result;
 		}
-
-		shader_output_variable back_to_shader_output_variable(const SpvReflectInterfaceVariable &var) {
-			shader_output_variable result = uninitialized;
-			result.semantic_name = reinterpret_cast<const char8_t*>(var.semantic);
-			result.semantic_index = 0;
-			std::size_t mul = 1;
-			while (
-				!result.semantic_name.empty() &&
-				result.semantic_name.back() >= u8'0' &&
-				result.semantic_name.back() <= u8'9'
-			) {
-				result.semantic_index += (result.semantic_name.back() - u8'0') * mul;
-				mul *= 10;
-				result.semantic_name.pop_back();
-			}
-			for (auto &ch : result.semantic_name) {
-				ch = static_cast<char8_t>(std::toupper(ch));
-			}
-			return result;
-		}
 	}
 
 	namespace create_info {

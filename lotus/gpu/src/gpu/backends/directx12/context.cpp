@@ -134,34 +134,15 @@ namespace lotus::gpu::backends::directx12 {
 		return _compiler.compile_shader_library(code_utf8, shader_path, include_paths, defines, _additional_args);
 	}
 
-	/// Loads reflection from the DXIL in the supplied container.
-	template <typename Ptr> static void _do_load_shader_reflection(std::span<const std::byte> data, Ptr &ptr) {
-		// create container reflection
-		_details::com_ptr<IDxcBlob> blob;
-		{
-			_details::com_ptr<ID3DBlob> d3d_blob;
-			_details::assert_dx(D3DCreateBlob(data.size(), &d3d_blob));
-			_details::assert_dx(d3d_blob->QueryInterface(IID_PPV_ARGS(&blob)));
-			std::memcpy(blob->GetBufferPointer(), data.data(), data.size());
-		}
-		_details::com_ptr<IDxcContainerReflection> container_reflection;
-		_details::assert_dx(DxcCreateInstance(CLSID_DxcContainerReflection, IID_PPV_ARGS(&container_reflection)));
-		_details::assert_dx(container_reflection->Load(blob.Get()));
-
-		UINT32 part_index;
-		_details::assert_dx(container_reflection->FindFirstPartKind(DXC_PART_DXIL, &part_index));
-
-		_details::assert_dx(container_reflection->GetPartReflection(part_index, IID_PPV_ARGS(&ptr)));
-	}
 	shader_reflection shader_utility::load_shader_reflection(std::span<const std::byte> data) {
 		shader_reflection::_shader_refl_ptr result = nullptr;
-		_do_load_shader_reflection(data, result);
+		_compiler.load_shader_reflection(data, IID_PPV_ARGS(result));
 		return shader_reflection(std::move(result));
 	}
 
 	shader_library_reflection shader_utility::load_shader_library_reflection(std::span<const std::byte> data) {
 		shader_library_reflection result = nullptr;
-		_do_load_shader_reflection(data, result._reflection);
+		_compiler.load_shader_reflection(data, IID_PPV_ARGS(result._reflection));
 		return result;
 	}
 }

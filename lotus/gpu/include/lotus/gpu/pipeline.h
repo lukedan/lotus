@@ -48,42 +48,18 @@ namespace lotus::gpu {
 		) const {
 			return find_resource_binding_by_name(name.c_str());
 		}
-		/// Calls the given callback function for each resource binding. The callback function can return \p false to
-		/// stop the enumeration early.
-		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) const {
-			backend::shader_reflection::enumerate_resource_bindings(
-				[&](const shader_resource_binding &binding) {
-					using _result_t = std::invoke_result_t<Callback&&, const shader_resource_binding&>;
-					if constexpr (std::is_same_v<_result_t, bool>) {
-						return cb(binding);
-					} else {
-						static_assert(std::is_same_v<_result_t, void>, "Callback must return bool or nothing");
-						cb(binding);
-						return true;
-					}
-				}
-			);
+		/// Returns the number of shader resource bindings.
+		[[nodiscard]] std::uint32_t get_resource_binding_count() const {
+			return backend::shader_reflection::get_resource_binding_count();
+		}
+		/// Returns the shader resource binding at the given index.
+		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t i) const {
+			return backend::shader_reflection::get_resource_binding_at_index(i);
 		}
 
-		/// Returns the number of output variables.
-		[[nodiscard]] std::size_t get_output_variable_count() const {
-			return backend::shader_reflection::get_output_variable_count();
-		}
-		/// Calls the given callback for each output variable. The callback function can return \p false to stop the
-		/// enumeration early.
-		template <typename Callback> void enumerate_output_variables(Callback &&cb) const {
-			backend::shader_reflection::enumerate_output_variables(
-				[&](const shader_output_variable &var) {
-					using _result_t = std::invoke_result_t<Callback&&, const shader_output_variable&>;
-					if constexpr (std::is_same_v<_result_t, bool>) {
-						return cb(var);
-					} else {
-						static_assert(std::is_same_v<_result_t, void>, "Callback must return bool or nothing");
-						cb(var);
-						return true;
-					}
-				}
-			);
+		/// Returns the number of render targets for a pixel shader.
+		[[nodiscard]] std::uint32_t get_render_target_count() const {
+			return backend::shader_reflection::get_render_target_count();
 		}
 
 		/// Returns the thread group size of this shader if it's a compute shader.

@@ -2030,18 +2030,6 @@ namespace lotus::gpu {
 		// TODO more fields
 	};
 
-	/// An output variable of a shader.
-	struct shader_output_variable {
-	public:
-		/// No initialization.
-		shader_output_variable(uninitialized_t) {
-		}
-
-		// TODO allocator
-		std::u8string semantic_name; ///< Upper case semantic name without the index.
-		std::size_t semantic_index; ///< Semantic index.
-	};
-
 
 	// raytracing related
 	/// Computed sizes of an acceleration structure.

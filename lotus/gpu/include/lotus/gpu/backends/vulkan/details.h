@@ -139,8 +139,6 @@ namespace lotus::gpu::backends::vulkan::_details {
 
 		/// Converts a \p SpvReflectDescriptorBinding back to a \ref shader_resource_binding.
 		[[nodiscard]] shader_resource_binding back_to_shader_resource_binding(const SpvReflectDescriptorBinding&);
-		/// Converts a \p SpvReflectInterfaceVariable back to a \ref shader_output_variable.
-		[[nodiscard]] shader_output_variable back_to_shader_output_variable(const SpvReflectInterfaceVariable&);
 	}
 
 	namespace create_info {

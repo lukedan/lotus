@@ -20,7 +20,24 @@ namespace lotus::gpu::backends::directx12 {
 		return _details::conversions::back_to_shader_resource_binding(desc);
 	}
 
-	std::size_t shader_reflection::get_output_variable_count() const {
+	std::uint32_t shader_reflection::get_resource_binding_count() const {
+		return _visit_desc([](const auto &desc) {
+			return desc.BoundResources;
+		});
+	}
+
+	shader_resource_binding shader_reflection::get_resource_binding_at_index(std::uint32_t i) const {
+		D3D12_SHADER_INPUT_BIND_DESC desc = {};
+		std::visit(
+			[&](const auto &refl) {
+				_details::assert_dx(refl->GetResourceBindingDesc(i, &desc));
+			},
+			_reflection
+		);
+		return _details::conversions::back_to_shader_resource_binding(desc);
+	}
+
+	std::size_t shader_reflection::get_render_target_count() const {
 		if (std::holds_alternative<_shader_refl_ptr>(_reflection)) {
 			D3D12_SHADER_DESC desc = {};
 			_details::assert_dx(std::get<_shader_refl_ptr>(_reflection)->GetDesc(&desc));
@@ -36,12 +53,6 @@ namespace lotus::gpu::backends::directx12 {
 			return cvec3s(x, y, z);
 		}
 		return zero; // there doesn't seem to be a way to bundle a compute shader into a library
-	}
-
-	UINT shader_reflection::_get_resource_binding_count() const {
-		return _visit_desc([](const auto &desc) {
-			return desc.BoundResources;
-		});
 	}
 
 

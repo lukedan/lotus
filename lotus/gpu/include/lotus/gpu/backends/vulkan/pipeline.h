@@ -30,38 +30,13 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Iterates through the bindings and returns the one with the specified name.
 		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const;
-		/// Gets all \p SpvReflectDescriptorBinding using \p spv_reflect::ShaderModule::EnumerateDescriptorBindings()
-		/// and then enumerates over them.
-		template <typename Callback> void enumerate_resource_bindings(Callback &&cb) const {
-			const auto &module = _reflection->GetShaderModule();
-			const auto &entry = module.entry_points[_entry_point_index];
-			auto past_last_uniform = entry.used_uniforms + entry.used_uniform_count;
-			for (std::uint32_t i = 0; i < module.descriptor_binding_count; ++i) {
-				const auto it = std::lower_bound(
-					entry.used_uniforms,
-					past_last_uniform,
-					module.descriptor_bindings[i].spirv_id
-				);
-				if (it != past_last_uniform) {
-					if (!cb(_details::conversions::back_to_shader_resource_binding(module.descriptor_bindings[i]))) {
-						break;
-					}
-				}
-			}
-		}
+		/// Returns the number of bindings available to this entry point.
+		[[nodiscard]] std::uint32_t get_resource_binding_count() const;
+		/// Returns the resource binding at the given index.
+		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t) const;
 
-		/// Queries the number of output variables using \p spv_reflect::ShaderModuleEnumerateOutputVariables().
-		[[nodiscard]] std::size_t get_output_variable_count() const;
-		/// Enumerates over all output varibles using \p spv_reflect::ShaderModuleEnumerateOutputVariables().
-		template <typename Callback> void enumerate_output_variables(Callback &&cb) const {
-			const auto &entry = _reflection->GetShaderModule().entry_points[_entry_point_index];
-			auto count = entry.output_variable_count;
-			for (std::uint32_t i = 0; i < count; ++i) {
-				if (!cb(_details::conversions::back_to_shader_output_variable(*entry.output_variables[i]))) {
-					break;
-				}
-			}
-		}
+		/// Returns \p SpvReflectEntryPoint::output_variable_count.
+		[[nodiscard]] std::uint32_t get_render_target_count() const;
 
 		/// Returns the thread group size.
 		[[nodiscard]] cvec3s get_thread_group_size() const;
@@ -71,14 +46,20 @@ namespace lotus::gpu::backends::vulkan {
 			return _reflection != nullptr;
 		}
 	private:
+		// TODO *maybe* this is not needed for single-entry modules?
+		/// Data cached for a specific entry point.
+		struct _cached_data {
+			/// Descriptor bindings used by the entry point.
+			std::vector<shader_resource_binding> descriptor_bindings;
+		};
+
 		// TODO allocator
 		std::shared_ptr<spv_reflect::ShaderModule> _reflection; ///< Reflection data.
+		std::shared_ptr<_cached_data> _cache; ///< Additional cached data.
 		std::uint32_t _entry_point_index = 0; ///< Entry point index of the relevant shader.
 
-		/// Initializes all fields of this struct.
-		shader_reflection(std::shared_ptr<spv_reflect::ShaderModule> ptr, std::uint32_t entry) :
-			_reflection(std::move(ptr)), _entry_point_index(entry) {
-		}
+		/// Initializes all fields of this struct and precomputes the \ref _cached_data.
+		shader_reflection(std::shared_ptr<spv_reflect::ShaderModule>, std::uint32_t entry_idx);
 	};
 
 	/// Contains a \p SpvReflectShaderModule.
@@ -104,7 +85,7 @@ namespace lotus::gpu::backends::vulkan {
 		std::shared_ptr<spv_reflect::ShaderModule> _reflection; ///< Reflection data.
 	};
 
-	
+
 	/// Contains a \p vk::UniqueShaderModule.
 	class shader_binary {
 		friend device;

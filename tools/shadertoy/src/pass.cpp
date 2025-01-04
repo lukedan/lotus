@@ -178,13 +178,7 @@ void pass::load_shader(lren::assets::manager &man, const std::filesystem::path &
 	}
 
 	// find the number of outputs
-	std::size_t num_outputs = 0;
-	reflection.enumerate_output_variables([&](const lgpu::shader_output_variable &var) {
-		if (var.semantic_name == u8"SV_TARGET") {
-			++num_outputs;
-		}
-		// TODO do we need to make sure that these targets have contiguous indices?
-	});
+	const std::size_t num_outputs = reflection.get_render_target_count();
 	if (!targets.empty() && targets.size() < num_outputs) {
 		log().error("Only {} output names specified, while the shader has {} outputs", targets.size(), num_outputs);
 	} else if (targets.size() > num_outputs) {
@@ -197,13 +191,15 @@ void pass::load_shader(lren::assets::manager &man, const std::filesystem::path &
 	targets.resize(num_outputs, nullptr);
 
 	// check that all resources are bound in space 0
-	reflection.enumerate_resource_bindings([&](const lgpu::shader_resource_binding &b) {
+	const std::uint32_t num_bindings = reflection.get_resource_binding_count();
+	for (std::uint32_t i = 0; i < num_bindings; ++i) {
+		const lgpu::shader_resource_binding b = reflection.get_resource_binding_at_index(i);
 		if (b.register_space != 0) {
 			if (b.name != u8"globals" && b.name != u8"nearest_sampler" && b.name != u8"linear_sampler") {
 				log().error("Resource binding must be in register space 0: {}", lstr::to_generic(b.name));
 			}
 		}
-	});
+	}
 
 	shader_loaded = true;
 }

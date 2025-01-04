@@ -100,6 +100,26 @@ namespace lotus::gpu::backends::common {
 		);
 	}
 
+	void dxc_compiler::load_shader_reflection(std::span<const std::byte> data, REFIID iid, void **ppvObject) {
+		// create blob
+		// TODO: we're copying the blob here. is it safe to not do that?
+		//       (does the reflection object copy all the data it needs?)
+		_details::com_ptr<IDxcBlobEncoding> blob;
+		_details::assert_dx(get_utils().CreateBlob(
+			data.data(), static_cast<UINT32>(data.size()), DXC_CP_ACP, &blob
+		));
+
+		// create container reflection
+		_details::com_ptr<IDxcContainerReflection> container_reflection;
+		_details::assert_dx(DxcCreateInstance(CLSID_DxcContainerReflection, IID_PPV_ARGS(&container_reflection)));
+		_details::assert_dx(container_reflection->Load(blob));
+
+		UINT32 part_index;
+		_details::assert_dx(container_reflection->FindFirstPartKind(DXC_PART_DXIL, &part_index));
+
+		_details::assert_dx(container_reflection->GetPartReflection(part_index, iid, ppvObject));
+	}
+
 	IDxcUtils &dxc_compiler::get_utils() {
 		if (!_dxc_utils) {
 			_details::assert_dx(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&_dxc_utils)));

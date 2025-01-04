@@ -97,6 +97,9 @@ namespace lotus::gpu::backends::common {
 			return compile_shader_library(code, shader_path, include_paths, defines, { args.begin(), args.end() });
 		}
 
+		/// Loads shader reflection using \p IDxcContainerReflection::GetPartReflection().
+		void load_shader_reflection(std::span<const std::byte> data, REFIID iid, void **ppvObject);
+
 		/// Initializes \ref _dxc_utils if necessary, and returns it.
 		[[nodiscard]] IDxcUtils &get_utils();
 		/// Initializes \ref _dxc_compiler if necessary, and returns it.

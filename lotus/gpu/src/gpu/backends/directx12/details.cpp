@@ -626,16 +626,6 @@ namespace lotus::gpu::backends::directx12::_details {
 
 			return result;
 		}
-
-		shader_output_variable back_to_shader_output_variable(const D3D12_SIGNATURE_PARAMETER_DESC &desc) {
-			shader_output_variable result = uninitialized;
-			result.semantic_name  = reinterpret_cast<const char8_t*>(desc.SemanticName);
-			result.semantic_index = desc.SemanticIndex;
-			for (auto &ch : result.semantic_name) {
-				ch = static_cast<char8_t>(std::toupper(ch));
-			}
-			return result;
-		}
 	}
 
 
@@ -708,7 +698,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		) {
 			if (heap_flags && type == D3D12_HEAP_TYPE_DEFAULT) {
 				if (bit_mask::contains<buffer_usage_mask::shader_write>(usages)) {
-					*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;	
+					*heap_flags |= D3D12_HEAP_FLAG_ALLOW_SHADER_ATOMICS;
 				}
 			}
 		}

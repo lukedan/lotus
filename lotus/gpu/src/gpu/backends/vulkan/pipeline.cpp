@@ -9,32 +9,51 @@ namespace lotus::gpu::backends::vulkan {
 	std::optional<shader_resource_binding> shader_reflection::find_resource_binding_by_name(
 		const char8_t *name
 	) const {
-		const auto &module = _reflection->GetShaderModule();
-		const auto &entry = module.entry_points[_entry_point_index];
-		auto past_last_uniform = entry.used_uniforms + entry.used_uniform_count;
-		for (std::uint32_t i = 0; i < module.descriptor_binding_count; ++i) {
-			const auto it = std::lower_bound(
-				entry.used_uniforms,
-				past_last_uniform,
-				module.descriptor_bindings[i].spirv_id
-			);
-			if (it == past_last_uniform) {
-				continue;
-			}
-			if (std::strcmp(module.descriptor_bindings[i].name, reinterpret_cast<const char*>(name)) == 0) {
-				return _details::conversions::back_to_shader_resource_binding(module.descriptor_bindings[i]);
+		for (const shader_resource_binding &binding : _cache->descriptor_bindings) {
+			if (binding.name == name) {
+				return binding;
 			}
 		}
 		return std::nullopt;
 	}
 
-	std::size_t shader_reflection::get_output_variable_count() const {
+	std::uint32_t shader_reflection::get_resource_binding_count() const {
+		return static_cast<std::uint32_t>(_cache->descriptor_bindings.size());
+	}
+
+	shader_resource_binding shader_reflection::get_resource_binding_at_index(std::uint32_t i) const {
+		return _cache->descriptor_bindings[i];
+	}
+
+	std::uint32_t shader_reflection::get_render_target_count() const {
 		return _reflection->GetShaderModule().entry_points[_entry_point_index].output_variable_count;
 	}
 
 	cvec3s shader_reflection::get_thread_group_size() const {
 		const auto &size = _reflection->GetShaderModule().entry_points[_entry_point_index].local_size;
 		return cvec3s(size.x, size.y, size.z);
+	}
+
+	shader_reflection::shader_reflection(std::shared_ptr<spv_reflect::ShaderModule> ptr, std::uint32_t entry) :
+		_reflection(std::move(ptr)), _entry_point_index(entry) {
+
+		if (_reflection) {
+			_cache = std::make_unique<_cached_data>();
+			const SpvReflectShaderModule &module = _reflection->GetShaderModule();
+			const SpvReflectEntryPoint &entry = module.entry_points[_entry_point_index];
+			const uint32_t *uniforms_begin = entry.used_uniforms;
+			const uint32_t *uniforms_end = uniforms_begin + entry.used_uniform_count;
+			for (std::uint32_t i = 0; i < module.descriptor_binding_count; ++i) {
+				const SpvReflectDescriptorBinding &binding = module.descriptor_bindings[i];
+				const auto it = std::lower_bound(uniforms_begin, uniforms_end, binding.spirv_id);
+				if (it == uniforms_end) {
+					continue;
+				}
+				_cache->descriptor_bindings.emplace_back(
+					_details::conversions::back_to_shader_resource_binding(binding)
+				);
+			}
+		}
 	}
 
 

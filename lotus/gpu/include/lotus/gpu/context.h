@@ -88,6 +88,20 @@ namespace lotus::gpu {
 		class compilation_result : public backend::shader_utility::compilation_result {
 			friend shader_utility;
 		public:
+			/// Move constructor.
+			compilation_result(compilation_result &&src) :
+				backend::shader_utility::compilation_result(std::move(src)) {
+			}
+			/// No copy constructor.
+			compilation_result(const compilation_result&) = delete;
+			/// Move assignment.
+			compilation_result &operator=(compilation_result &&src) {
+				backend::shader_utility::compilation_result::operator=(std::move(src));
+				return *this;
+			}
+			/// No copy assignment.
+			compilation_result &operator=(const compilation_result&) = delete;
+
 			/// Returns whether shader compilation succeeded.
 			[[nodiscard]] bool succeeded() const {
 				return backend::shader_utility::compilation_result::succeeded();

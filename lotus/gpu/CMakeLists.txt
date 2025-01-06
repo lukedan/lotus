@@ -241,14 +241,22 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND LOTUS_GPU_USE_METAL)
 			"src/gpu/backends/metal/details.cpp"
 			"src/gpu/backends/metal/device.cpp"
 			"src/gpu/backends/metal/frame_buffer.cpp"
-			"src/gpu/backends/metal/metal_impl.cpp")
+			"src/gpu/backends/metal/metal_impl.cpp"
+			"src/gpu/backends/metal/metal_irconverter_include.h"
+			"src/gpu/backends/metal/pipeline.cpp")
 	add_gpu_backend_include_definitions(lotus_gpu_metal "lotus/gpu/backends/metal/")
 	target_include_directories(lotus_gpu_metal PUBLIC "thirdparty/metal-cpp/")
 	find_library(QUARTZ_CORE_LIB QuartzCore)
 	find_library(METAL_LIB Metal)
+	find_library(METAL_SHADER_CONVERTER_LIB NAMES libmetalirconverter.dylib)
 	target_link_libraries(lotus_gpu_metal
 		PUBLIC
-			lotus_core lotus_system "${QUARTZ_CORE_LIB}" "${METAL_LIB}" Microsoft::DirectX-Headers)
+			lotus_core
+			lotus_system
+			"${QUARTZ_CORE_LIB}"
+			"${METAL_LIB}"
+			Microsoft::DirectX-Headers
+			"${METAL_SHADER_CONVERTER_LIB}")
 	target_compile_options(lotus_gpu_metal
 		PUBLIC
 			-fms-extensions

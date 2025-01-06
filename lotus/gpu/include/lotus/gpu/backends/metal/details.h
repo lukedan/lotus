@@ -19,100 +19,6 @@ namespace lotus::gpu::backends::metal::_details {
 	using debug_message_callback =
 		static_function<void(debug_message_severity, debug_message_id, std::u8string_view)>;
 
-	/// Smart pointer class that automatically calls the \p retain() and \p release() methods.
-	template <typename T> struct metal_ptr {
-	public:
-		/// Default constructor.
-		metal_ptr() = default;
-		/// Initializes this pointer to null.
-		metal_ptr(std::nullptr_t) {
-		}
-		/// Move constructor.
-		metal_ptr(metal_ptr &&src) noexcept : _ptr(std::exchange(src._ptr, nullptr)) {
-		}
-		/// Copy constructor.
-		metal_ptr(const metal_ptr &src) : _ptr(src._ptr) {
-			if (_ptr) {
-				_ptr->retain();
-			}
-		}
-		/// Move assignment.
-		metal_ptr &operator=(metal_ptr &&src) noexcept {
-			if (&src != this) {
-				release();
-				_ptr = std::exchange(src._ptr, nullptr);
-			}
-			return *this;
-		}
-		/// Copy assignment.
-		metal_ptr &operator=(const metal_ptr &src) {
-			if (&src != this) {
-				release();
-				_ptr = src._ptr;
-				_ptr->retain();
-			}
-			return *this;
-		}
-		/// Releases the object, if any.
-		~metal_ptr() {
-			release();
-		}
-
-		/// Takes ownership of the given pointer. The input pointer should not be used afterwards.
-		[[nodiscard]] static metal_ptr take_ownership(T *&&ptr) {
-			return metal_ptr(std::exchange(ptr, nullptr));
-		}
-		/// Shares ownership of the given pointer.
-		[[nodiscard]] static metal_ptr share_ownership(T *ptr) {
-			ptr->retain();
-			return metal_ptr(ptr);
-		}
-
-		/// Releases the object, if any.
-		void release() {
-			if (_ptr) {
-				_ptr->release();
-				_ptr = nullptr;
-			}
-		}
-
-		/// Returns a pointer to the object.
-		[[nodiscard]] T *get() const {
-			return _ptr;
-		}
-		/// \overload
-		[[nodiscard]] T *operator->() const {
-			return _ptr;
-		}
-		/// \overload
-		[[nodiscard]] T &operator*() const {
-			return *_ptr;
-		}
-
-		/// Checks if this pointer points to a valid object.
-		[[nodiscard]] bool is_valid() const {
-			return _ptr != nullptr;
-		}
-		/// \overload
-		[[nodiscard]] explicit operator bool() const {
-			return is_valid();
-		}
-	private:
-		T *_ptr = nullptr; ///< The pointer.
-
-		/// Initializes \ref _ptr to the given value.
-		explicit metal_ptr(T *p) : _ptr(p) {
-		}
-	};
-	/// Convenience function for taking the ownership of a given Metal object.
-	template <typename T> metal_ptr<T> take_ownership(T *&&p) {
-		return metal_ptr<T>::take_ownership(std::move(p));
-	}
-	/// Convenience function for sharing the ownership of a given Metal object.
-	template <typename T> metal_ptr<T> share_ownership(T *p) {
-		return metal_ptr<T>::share_ownership(p);
-	}
-
 
 	/// Memory types supported by Metal.
 	enum class memory_type_index : std::underlying_type_t<gpu::memory_type_index> {
@@ -127,6 +33,8 @@ namespace lotus::gpu::backends::metal::_details {
 	namespace conversions {
 		/// Converts a \ref format to a \p MTL::PixelFormat.
 		[[nodiscard]] MTL::PixelFormat to_pixel_format(format);
+		/// Converts a \ref format to a \p MTL::VertexFormat.
+		[[nodiscard]] MTL::VertexFormat to_vertex_format(format);
 		/// Converts a \ref memory_type_index to a \p MTL::ResourceOptions.
 		[[nodiscard]] MTL::ResourceOptions to_resource_options(_details::memory_type_index);
 		/// \overload
@@ -143,8 +51,38 @@ namespace lotus::gpu::backends::metal::_details {
 		[[nodiscard]] MTL::SamplerMinMagFilter to_sampler_min_mag_filter(filtering);
 		/// Converts a \ref filtering to a \p MTL::SamplerMipFilter.
 		[[nodiscard]] MTL::SamplerMipFilter to_sampler_mip_filter(filtering);
+		/// Converts a \ref comparison_function to a \p MTL::CompareFunction.
+		[[nodiscard]] MTL::CompareFunction to_compare_function(comparison_function);
+		/// Converts a \ref pass_load_operation to a \p MTL::LoadAction.
+		[[nodiscard]] MTL::LoadAction to_load_action(pass_load_operation);
+		/// Converts a \ref pass_store_operation to a \p MTL::StoreAction.
+		[[nodiscard]] MTL::StoreAction to_store_action(pass_store_operation);
+		/// Converts a \ref primitive_topology to a \p MTL::PrimitiveType.
+		[[nodiscard]] MTL::PrimitiveType to_primitive_type(primitive_topology);
+		/// Converts a \ref primitive_topology to a \p MTL::PrimitiveTopologyClass.
+		[[nodiscard]] MTL::PrimitiveTopologyClass to_primitive_topology_class(primitive_topology);
+		/// Converts a \ref index_format to a \p MTL::IndexType.
+		[[nodiscard]] MTL::IndexType to_index_type(index_format);
+		/// Converts a \ref input_buffer_rate to a \p MTL::VertexStepFunction.
+		[[nodiscard]] MTL::VertexStepFunction to_vertex_step_function(input_buffer_rate);
+		/// Converts a \ref front_facing_mode to a \p MTL::Winding.
+		[[nodiscard]] MTL::Winding to_winding(front_facing_mode);
+		/// Converts a \ref cull_mode to a \p MTL::CullMode.
+		[[nodiscard]] MTL::CullMode to_cull_mode(cull_mode);
+		/// Converts a \ref stencil_operation to a \p MTL::StencilOperation.
+		[[nodiscard]] MTL::StencilOperation to_stencil_operation(stencil_operation);
+		/// Converts a \ref blend_operation to a \p MTL::BlendOperation.
+		[[nodiscard]] MTL::BlendOperation to_blend_operation(blend_operation);
+		/// Converts a \ref blend_factor to a \p MTL::BlendFactor.
+		[[nodiscard]] MTL::BlendFactor to_blend_factor(blend_factor);
+		/// Converts a \ref channel_mask to a \p MTL::ColorWriteMask.
+		[[nodiscard]] MTL::ColorWriteMask to_color_write_mask(channel_mask);
 		/// Converts a C-style string to a \p NS::String.
-		[[nodiscard]] _details::metal_ptr<NS::String> to_string(const char8_t*);
+		[[nodiscard]] NS::SharedPtr<NS::String> to_string(const char8_t*);
+		/// Converts a \ref stencil_options to a \p MTL::StencilDescriptor.
+		[[nodiscard]] NS::SharedPtr<MTL::StencilDescriptor> to_stencil_descriptor(
+			stencil_options, std::uint8_t stencil_read, std::uint8_t stencil_write
+		);
 
 		/// Converts a \p NS::String back to a \p std::string.
 		[[nodiscard]] std::u8string back_to_string(NS::String*);
@@ -153,7 +91,7 @@ namespace lotus::gpu::backends::metal::_details {
 	}
 
 	/// Creates a new \p MTL::TextureDescriptor based on the given settings.
-	[[nodiscard]] _details::metal_ptr<MTL::TextureDescriptor> create_texture_descriptor(
+	[[nodiscard]] NS::SharedPtr<MTL::TextureDescriptor> create_texture_descriptor(
 		MTL::TextureType,
 		format,
 		cvec3u32 size,

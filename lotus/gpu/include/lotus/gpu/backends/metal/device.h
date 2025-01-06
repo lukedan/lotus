@@ -98,7 +98,10 @@ namespace lotus::gpu::backends::metal {
 		[[nodiscard]] image3d create_committed_image3d(
 			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
 		);
-		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, std::size_t> create_committed_staging_buffer(cvec2u32 size, format, memory_type_index, buffer_usage_mask); // TODO
+		/// Staging buffers are tightly packed.
+		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, std::size_t> create_committed_staging_buffer(
+			cvec2u32 size, format, memory_type_index, buffer_usage_mask
+		);
 
 		/// Calls \p MTL::Device::heapTextureSizeAndAlign().
 		[[nodiscard]] memory::size_alignment get_image2d_memory_requirements(
@@ -149,9 +152,10 @@ namespace lotus::gpu::backends::metal {
 		/// Creates a \ref image3d_view using \p MTL::Texture::newTextureView().
 		[[nodiscard]] image3d_view create_image3d_view_from(const image3d&, format, mip_levels);
 
+		/// Fills in the fields of a \ref frame_buffer object.
 		[[nodiscard]] frame_buffer create_frame_buffer(
 			std::span<const gpu::image2d_view *const> color_rts, const image2d_view *depth_stencil_rt, cvec2u32 size
-		); // TODO
+		);
 
 		[[nodiscard]] fence create_fence(synchronization_state); // TODO
 		/// Calls \p MTL::Device::newSharedEvent().
@@ -219,10 +223,10 @@ namespace lotus::gpu::backends::metal {
 			const pipeline_resources&
 		); // TODO
 	private:
-		_details::metal_ptr<MTL::Device> _dev; ///< The device.
+		NS::SharedPtr<MTL::Device> _dev; ///< The device.
 
 		/// Initializes \ref _dev.
-		explicit device(_details::metal_ptr<MTL::Device> dev) : _dev(std::move(dev)) {
+		explicit device(NS::SharedPtr<MTL::Device> dev) : _dev(std::move(dev)) {
 		}
 	};
 
@@ -241,13 +245,13 @@ namespace lotus::gpu::backends::metal {
 
 		/// Checks if this adapter object holds a valid reference to a \p MTL::Device.
 		[[nodiscard]] bool is_valid() const {
-			return _dev.is_valid();
+			return !!_dev;
 		}
 	private:
-		_details::metal_ptr<MTL::Device> _dev; ///< The device.
+		NS::SharedPtr<MTL::Device> _dev; ///< The device.
 
 		/// Initializes \p _dev.
-		adapter(_details::metal_ptr<MTL::Device> dev) : _dev(std::move(dev)) {
+		adapter(NS::SharedPtr<MTL::Device> dev) : _dev(std::move(dev)) {
 		}
 	};
 }

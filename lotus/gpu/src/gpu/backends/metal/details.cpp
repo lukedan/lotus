@@ -72,6 +72,73 @@ namespace lotus::gpu::backends::metal::_details {
 			return table[f];
 		}
 
+		MTL::VertexFormat to_vertex_format(format f) {
+			constexpr static enums::sequential_mapping<format, MTL::VertexFormat> table{
+				std::pair(format::none,               MTL::VertexFormatInvalid              ),
+				std::pair(format::d32_float_s8,       MTL::VertexFormatInvalid              ),
+				std::pair(format::d32_float,          MTL::VertexFormatInvalid              ),
+				std::pair(format::d24_unorm_s8,       MTL::VertexFormatInvalid              ),
+				std::pair(format::d16_unorm,          MTL::VertexFormatInvalid              ),
+				std::pair(format::r8_unorm,           MTL::VertexFormatUCharNormalized      ),
+				std::pair(format::r8_snorm,           MTL::VertexFormatCharNormalized       ),
+				std::pair(format::r8_uint,            MTL::VertexFormatUChar                ),
+				std::pair(format::r8_sint,            MTL::VertexFormatChar                 ),
+				std::pair(format::r8g8_unorm,         MTL::VertexFormatUChar2Normalized     ),
+				std::pair(format::r8g8_snorm,         MTL::VertexFormatChar2Normalized      ),
+				std::pair(format::r8g8_uint,          MTL::VertexFormatUChar2               ),
+				std::pair(format::r8g8_sint,          MTL::VertexFormatChar2                ),
+				std::pair(format::r8g8b8a8_unorm,     MTL::VertexFormatUChar4Normalized     ),
+				std::pair(format::r8g8b8a8_snorm,     MTL::VertexFormatChar4Normalized      ),
+				std::pair(format::r8g8b8a8_srgb,      MTL::VertexFormatInvalid              ),
+				std::pair(format::r8g8b8a8_uint,      MTL::VertexFormatUChar4               ),
+				std::pair(format::r8g8b8a8_sint,      MTL::VertexFormatChar4                ),
+				std::pair(format::b8g8r8a8_unorm,     MTL::VertexFormatUChar4Normalized_BGRA),
+				std::pair(format::b8g8r8a8_srgb,      MTL::VertexFormatInvalid              ),
+				std::pair(format::r16_unorm,          MTL::VertexFormatUShortNormalized     ),
+				std::pair(format::r16_snorm,          MTL::VertexFormatShortNormalized      ),
+				std::pair(format::r16_uint,           MTL::VertexFormatUShort               ),
+				std::pair(format::r16_sint,           MTL::VertexFormatShort                ),
+				std::pair(format::r16_float,          MTL::VertexFormatHalf                 ),
+				std::pair(format::r16g16_unorm,       MTL::VertexFormatUShort2Normalized    ),
+				std::pair(format::r16g16_snorm,       MTL::VertexFormatShort2Normalized     ),
+				std::pair(format::r16g16_uint,        MTL::VertexFormatUShort2              ),
+				std::pair(format::r16g16_sint,        MTL::VertexFormatShort2               ),
+				std::pair(format::r16g16_float,       MTL::VertexFormatHalf2                ),
+				std::pair(format::r16g16b16a16_unorm, MTL::VertexFormatUShort4Normalized    ),
+				std::pair(format::r16g16b16a16_snorm, MTL::VertexFormatShort4Normalized     ),
+				std::pair(format::r16g16b16a16_uint,  MTL::VertexFormatUShort4              ),
+				std::pair(format::r16g16b16a16_sint,  MTL::VertexFormatShort4               ),
+				std::pair(format::r16g16b16a16_float, MTL::VertexFormatHalf4                ),
+				std::pair(format::r32_uint,           MTL::VertexFormatUInt                 ),
+				std::pair(format::r32_sint,           MTL::VertexFormatInt                  ),
+				std::pair(format::r32_float,          MTL::VertexFormatFloat                ),
+				std::pair(format::r32g32_uint,        MTL::VertexFormatUInt2                ),
+				std::pair(format::r32g32_sint,        MTL::VertexFormatInt2                 ),
+				std::pair(format::r32g32_float,       MTL::VertexFormatFloat2               ),
+				std::pair(format::r32g32b32_uint,     MTL::VertexFormatUInt3                ),
+				std::pair(format::r32g32b32_sint,     MTL::VertexFormatInt3                 ),
+				std::pair(format::r32g32b32_float,    MTL::VertexFormatFloat3               ),
+				std::pair(format::r32g32b32a32_uint,  MTL::VertexFormatUInt4                ),
+				std::pair(format::r32g32b32a32_sint,  MTL::VertexFormatInt4                 ),
+				std::pair(format::r32g32b32a32_float, MTL::VertexFormatFloat4               ),
+				std::pair(format::bc1_unorm,          MTL::VertexFormatInvalid              ),
+				std::pair(format::bc1_srgb,           MTL::VertexFormatInvalid              ),
+				std::pair(format::bc2_unorm,          MTL::VertexFormatInvalid              ),
+				std::pair(format::bc2_srgb,           MTL::VertexFormatInvalid              ),
+				std::pair(format::bc3_unorm,          MTL::VertexFormatInvalid              ),
+				std::pair(format::bc3_srgb,           MTL::VertexFormatInvalid              ),
+				std::pair(format::bc4_unorm,          MTL::VertexFormatInvalid              ),
+				std::pair(format::bc4_snorm,          MTL::VertexFormatInvalid              ),
+				std::pair(format::bc5_unorm,          MTL::VertexFormatInvalid              ),
+				std::pair(format::bc5_snorm,          MTL::VertexFormatInvalid              ),
+				std::pair(format::bc6h_f16,           MTL::VertexFormatInvalid              ),
+				std::pair(format::bc6h_uf16,          MTL::VertexFormatInvalid              ),
+				std::pair(format::bc7_unorm,          MTL::VertexFormatInvalid              ),
+				std::pair(format::bc7_srgb,           MTL::VertexFormatInvalid              ),
+			};
+			return table[f];
+		}
+
 		MTL::ResourceOptions to_resource_options(_details::memory_type_index i) {
 			constexpr static enums::sequential_mapping<memory_type_index, MTL::ResourceOptions> table{
 				std::pair(memory_type_index::shared_cpu_cached,   MTL::ResourceStorageModeShared | MTL::ResourceOptionCPUCacheModeDefault      ),
@@ -126,8 +193,170 @@ namespace lotus::gpu::backends::metal::_details {
 			return table[f];
 		}
 
-		metal_ptr<NS::String> to_string(const char8_t *str) {
-			return take_ownership(NS::String::string(reinterpret_cast<const char*>(str), NS::UTF8StringEncoding));
+		MTL::CompareFunction to_compare_function(comparison_function cmp) {
+			constexpr static enums::sequential_mapping<comparison_function, MTL::CompareFunction> table{
+				std::pair(comparison_function::none,             MTL::CompareFunctionNever       ),
+				std::pair(comparison_function::never,            MTL::CompareFunctionNever       ),
+				std::pair(comparison_function::less,             MTL::CompareFunctionLess        ),
+				std::pair(comparison_function::equal,            MTL::CompareFunctionEqual       ),
+				std::pair(comparison_function::less_or_equal,    MTL::CompareFunctionLessEqual   ),
+				std::pair(comparison_function::greater,          MTL::CompareFunctionGreater     ),
+				std::pair(comparison_function::not_equal,        MTL::CompareFunctionNotEqual    ),
+				std::pair(comparison_function::greater_or_equal, MTL::CompareFunctionGreaterEqual),
+				std::pair(comparison_function::always,           MTL::CompareFunctionAlways      ),
+			};
+			return table[cmp];
+		}
+
+		MTL::LoadAction to_load_action(pass_load_operation o) {
+			constexpr static enums::sequential_mapping<pass_load_operation, MTL::LoadAction> table{
+				std::pair(pass_load_operation::discard,  MTL::LoadActionDontCare),
+				std::pair(pass_load_operation::preserve, MTL::LoadActionLoad    ),
+				std::pair(pass_load_operation::clear,    MTL::LoadActionClear   ),
+			};
+			return table[o];
+		}
+
+		MTL::StoreAction to_store_action(pass_store_operation o) {
+			constexpr static enums::sequential_mapping<pass_store_operation, MTL::StoreAction> table{
+				std::pair(pass_store_operation::discard,  MTL::StoreActionDontCare),
+				std::pair(pass_store_operation::preserve, MTL::StoreActionStore   ),
+			};
+			return table[o];
+		}
+
+		MTL::PrimitiveType to_primitive_type(primitive_topology t) {
+			constexpr static enums::sequential_mapping<primitive_topology, MTL::PrimitiveType> table{
+				std::pair(primitive_topology::point_list,                    MTL::PrimitiveTypePoint        ),
+				std::pair(primitive_topology::line_list,                     MTL::PrimitiveTypeLine         ),
+				std::pair(primitive_topology::line_strip,                    MTL::PrimitiveTypeLineStrip    ),
+				std::pair(primitive_topology::triangle_list,                 MTL::PrimitiveTypeTriangle     ),
+				std::pair(primitive_topology::triangle_strip,                MTL::PrimitiveTypeTriangleStrip),
+				// TODO what to do about these?
+				std::pair(primitive_topology::line_list_with_adjacency,      MTL::PrimitiveTypeLine         ),
+				std::pair(primitive_topology::line_strip_with_adjacency,     MTL::PrimitiveTypeLineStrip    ),
+				std::pair(primitive_topology::triangle_list_with_adjacency,  MTL::PrimitiveTypeTriangle     ),
+				std::pair(primitive_topology::triangle_strip_with_adjacency, MTL::PrimitiveTypeTriangleStrip),
+			};
+			return table[t];
+		}
+
+		MTL::PrimitiveTopologyClass to_primitive_topology_class(primitive_topology t) {
+			constexpr static enums::sequential_mapping<primitive_topology, MTL::PrimitiveTopologyClass> table{
+				std::pair(primitive_topology::point_list,                    MTL::PrimitiveTopologyClassPoint   ),
+				std::pair(primitive_topology::line_list,                     MTL::PrimitiveTopologyClassLine    ),
+				std::pair(primitive_topology::line_strip,                    MTL::PrimitiveTopologyClassLine    ),
+				std::pair(primitive_topology::triangle_list,                 MTL::PrimitiveTopologyClassTriangle),
+				std::pair(primitive_topology::triangle_strip,                MTL::PrimitiveTopologyClassTriangle),
+				std::pair(primitive_topology::line_list_with_adjacency,      MTL::PrimitiveTopologyClassLine    ),
+				std::pair(primitive_topology::line_strip_with_adjacency,     MTL::PrimitiveTopologyClassLine    ),
+				std::pair(primitive_topology::triangle_list_with_adjacency,  MTL::PrimitiveTopologyClassTriangle),
+				std::pair(primitive_topology::triangle_strip_with_adjacency, MTL::PrimitiveTopologyClassTriangle),
+			};
+			return table[t];
+		}
+
+		MTL::IndexType to_index_type(index_format f) {
+			constexpr static enums::sequential_mapping<index_format, MTL::IndexType> table{
+				std::pair(index_format::uint16, MTL::IndexTypeUInt16),
+				std::pair(index_format::uint32, MTL::IndexTypeUInt32),
+			};
+			return table[f];
+		}
+
+		MTL::VertexStepFunction to_vertex_step_function(input_buffer_rate r) {
+			constexpr static enums::sequential_mapping<input_buffer_rate, MTL::VertexStepFunction> table{
+				std::pair(input_buffer_rate::per_vertex,   MTL::VertexStepFunctionPerVertex  ),
+				std::pair(input_buffer_rate::per_instance, MTL::VertexStepFunctionPerInstance),
+			};
+			return table[r];
+		}
+
+		MTL::Winding to_winding(front_facing_mode f) {
+			constexpr static enums::sequential_mapping<front_facing_mode, MTL::Winding> table{
+				std::pair(front_facing_mode::clockwise,         MTL::WindingClockwise       ),
+				std::pair(front_facing_mode::counter_clockwise, MTL::WindingCounterClockwise),
+			};
+			return table[f];
+		}
+
+		MTL::CullMode to_cull_mode(cull_mode c) {
+			constexpr static enums::sequential_mapping<cull_mode, MTL::CullMode> table{
+				std::pair(cull_mode::none,       MTL::CullModeNone ),
+				std::pair(cull_mode::cull_front, MTL::CullModeFront),
+				std::pair(cull_mode::cull_back,  MTL::CullModeBack ),
+			};
+			return table[c];
+		}
+
+		MTL::StencilOperation to_stencil_operation(stencil_operation s) {
+			constexpr static enums::sequential_mapping<stencil_operation, MTL::StencilOperation> table{
+				std::pair(stencil_operation::keep,                MTL::StencilOperationKeep          ),
+				std::pair(stencil_operation::zero,                MTL::StencilOperationZero          ),
+				std::pair(stencil_operation::replace,             MTL::StencilOperationReplace       ),
+				std::pair(stencil_operation::increment_and_clamp, MTL::StencilOperationIncrementClamp),
+				std::pair(stencil_operation::decrement_and_clamp, MTL::StencilOperationDecrementClamp),
+				std::pair(stencil_operation::bitwise_invert,      MTL::StencilOperationInvert        ),
+				std::pair(stencil_operation::increment_and_wrap,  MTL::StencilOperationIncrementWrap ),
+				std::pair(stencil_operation::decrement_and_wrap,  MTL::StencilOperationDecrementWrap ),
+			};
+			return table[s];
+		}
+
+		MTL::BlendOperation to_blend_operation(blend_operation b) {
+			constexpr static enums::sequential_mapping<blend_operation, MTL::BlendOperation> table{
+				std::pair(blend_operation::add,              MTL::BlendOperationAdd            ),
+				std::pair(blend_operation::subtract,         MTL::BlendOperationSubtract       ),
+				std::pair(blend_operation::reverse_subtract, MTL::BlendOperationReverseSubtract),
+				std::pair(blend_operation::min,              MTL::BlendOperationMin            ),
+				std::pair(blend_operation::max,              MTL::BlendOperationMax            ),
+			};
+			return table[b];
+		}
+
+		MTL::BlendFactor to_blend_factor(blend_factor b) {
+			constexpr static enums::sequential_mapping<blend_factor, MTL::BlendFactor> table{
+				std::pair(blend_factor::zero,                        MTL::BlendFactorZero                    ),
+				std::pair(blend_factor::one,                         MTL::BlendFactorOne                     ),
+				std::pair(blend_factor::source_color,                MTL::BlendFactorSourceColor             ),
+				std::pair(blend_factor::one_minus_source_color,      MTL::BlendFactorOneMinusSourceColor     ),
+				std::pair(blend_factor::destination_color,           MTL::BlendFactorDestinationColor        ),
+				std::pair(blend_factor::one_minus_destination_color, MTL::BlendFactorOneMinusDestinationColor),
+				std::pair(blend_factor::source_alpha,                MTL::BlendFactorSourceAlpha             ),
+				std::pair(blend_factor::one_minus_source_alpha,      MTL::BlendFactorOneMinusSourceAlpha     ),
+				std::pair(blend_factor::destination_alpha,           MTL::BlendFactorDestinationAlpha        ),
+				std::pair(blend_factor::one_minus_destination_alpha, MTL::BlendFactorOneMinusDestinationAlpha),
+			};
+			return table[b];
+		}
+
+		MTL::ColorWriteMask to_color_write_mask(channel_mask m) {
+			constexpr static bit_mask::mapping<channel_mask, MTL::ColorWriteMask> table{
+				std::pair(channel_mask::red,   MTL::ColorWriteMaskRed  ),
+				std::pair(channel_mask::green, MTL::ColorWriteMaskGreen),
+				std::pair(channel_mask::blue,  MTL::ColorWriteMaskBlue ),
+				std::pair(channel_mask::alpha, MTL::ColorWriteMaskAlpha),
+			};
+			return table.get_union(m);
+		}
+
+		NS::SharedPtr<NS::String> to_string(const char8_t *str) {
+			return NS::TransferPtr(NS::String::alloc()->init(
+				reinterpret_cast<const char*>(str), NS::UTF8StringEncoding
+			));
+		}
+
+		NS::SharedPtr<MTL::StencilDescriptor> to_stencil_descriptor(
+			stencil_options s, std::uint8_t stencil_read, std::uint8_t stencil_write
+		) {
+			auto desc = NS::TransferPtr(MTL::StencilDescriptor::alloc()->init());
+			desc->setStencilFailureOperation(to_stencil_operation(s.fail));
+			desc->setDepthFailureOperation(to_stencil_operation(s.depth_fail));
+			desc->setDepthStencilPassOperation(to_stencil_operation(s.pass));
+			desc->setStencilCompareFunction(to_compare_function(s.comparison));
+			desc->setReadMask(stencil_read);
+			desc->setWriteMask(stencil_write);
+			return desc;
 		}
 
 
@@ -143,7 +372,7 @@ namespace lotus::gpu::backends::metal::_details {
 		}
 	}
 
-	_details::metal_ptr<MTL::TextureDescriptor> create_texture_descriptor(
+	NS::SharedPtr<MTL::TextureDescriptor> create_texture_descriptor(
 		MTL::TextureType type,
 		format fmt,
 		cvec3u32 size,
@@ -151,7 +380,7 @@ namespace lotus::gpu::backends::metal::_details {
 		MTL::ResourceOptions opts,
 		image_usage_mask usages
 	) {
-		auto descriptor = take_ownership(MTL::TextureDescriptor::alloc()->init());
+		auto descriptor = NS::TransferPtr(MTL::TextureDescriptor::alloc()->init());
 		descriptor->setTextureType(type);
 		descriptor->setPixelFormat(conversions::to_pixel_format(fmt));
 		descriptor->setWidth(size[0]);

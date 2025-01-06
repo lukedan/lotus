@@ -7,8 +7,11 @@
 #include <vector>
 #include <span>
 
+#include <metal_irconverter/metal_irconverter.h>
+
 #include "lotus/system/window.h"
 #include "lotus/gpu/common.h"
+#include "lotus/gpu/backends/common/dxc.h"
 #include "details.h"
 #include "device.h"
 #include "frame_buffer.h"
@@ -38,23 +41,44 @@ namespace lotus::gpu::backends::metal {
 	// TODO
 	class shader_utility {
 	protected:
-		// TODO
+		/// Holds a \p IRObject containing the compiled shader.
 		struct compilation_result {
+			friend shader_utility;
+		public:
+			/// Destroys the IR object if necessary.
+			~compilation_result();
 		protected:
+			/// Move construction.
+			compilation_result(compilation_result&&);
+			/// No copy construction.
+			compilation_result(const compilation_result&) = delete;
+			/// Move assignment.
+			compilation_result &operator=(compilation_result&&);
+			/// No copy assignment.
+			compilation_result &operator=(const compilation_result&) = delete;
+
+			/// Returns \p true if \ref _ir is not \p nullptr.
 			[[nodiscard]] bool succeeded() const {
-				// TODO
+				return _ir != nullptr;
 			}
+			/// \return \ref _compiler_output.
 			[[nodiscard]] std::u8string_view get_compiler_output() {
-				// TODO
+				return _compiler_output;
 			}
-			[[nodiscard]] std::span<const std::byte> get_compiled_binary() {
-				// TODO
+			/// Retrieves the compiled IR from the \p IRObject.
+			[[nodiscard]] std::span<const std::byte> get_compiled_binary();
+		private:
+			std::u8string _compiler_output; ///< Combined compiler output of DXC and the Metal shader converter.
+			IRObject *_ir = nullptr; ///< Output Metal IR.
+			shader_stage _stage = shader_stage::num_enumerators; ///< The shader stage.
+
+			/// Initializes this object to empty.
+			compilation_result(std::nullptr_t) {
 			}
 		};
 
-		[[nodiscard]] static shader_utility create() {
-			// TODO
-		}
+		/// Creates a shader utility object.
+		[[nodiscard]] static shader_utility create();
 
 		[[nodiscard]] shader_reflection load_shader_reflection(std::span<const std::byte> data) {
 			// TODO
@@ -62,13 +86,15 @@ namespace lotus::gpu::backends::metal {
 		[[nodiscard]] shader_library_reflection load_shader_library_reflection(std::span<const std::byte> data) {
 			// TODO
 		}
+		/// Compiles the given code using DXC, then converts it to Metal IR using Metal shader converter.
 		[[nodiscard]] compilation_result compile_shader(
-			std::span<const std::byte> code_utf8, shader_stage, std::u8string_view entry,
-			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
+			std::span<const std::byte> code_utf8,
+			shader_stage,
+			std::u8string_view entry,
+			const std::filesystem::path &shader_path,
+			std::span<const std::filesystem::path> include_paths,
 			std::span<const std::pair<std::u8string_view, std::u8string_view>> defines
-		) {
-			// TODO
-		}
+		);
 		[[nodiscard]] compilation_result compile_shader_library(
 			std::span<const std::byte> code_utf8,
 			const std::filesystem::path &shader_path, std::span<const std::filesystem::path> include_paths,
@@ -76,5 +102,7 @@ namespace lotus::gpu::backends::metal {
 		) {
 			// TODO
 		}
+	private:
+		common::dxc_compiler _dxc_compiler = nullptr; ///< The DXC compiler.
 	};
 }

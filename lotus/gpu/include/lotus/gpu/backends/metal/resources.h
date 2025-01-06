@@ -8,21 +8,24 @@
 #include "details.h"
 
 namespace lotus::gpu::backends::metal {
+	class command_list;
 	class device;
+	class swap_chain;
 
 	/// Holds a \p MTL::Heap.
 	class memory_block {
 		friend device;
 	private:
-		_details::metal_ptr<MTL::Heap> _heap; ///< The heap.
+		NS::SharedPtr<MTL::Heap> _heap; ///< The heap.
 
 		/// Initializes \ref _heap.
-		explicit memory_block(_details::metal_ptr<MTL::Heap> heap) : _heap(std::move(heap)) {
+		explicit memory_block(NS::SharedPtr<MTL::Heap> heap) : _heap(std::move(heap)) {
 		}
 	};
 
 	/// Holds a \p MTL::Buffer.
 	class buffer {
+		friend command_list;
 		friend device;
 	protected:
 		/// Initializes this object to empty.
@@ -31,19 +34,20 @@ namespace lotus::gpu::backends::metal {
 
 		/// Checks if this object is valid.
 		[[nodiscard]] bool is_valid() const {
-			return _buf.is_valid();
+			return !!_buf;
 		}
 	private:
-		_details::metal_ptr<MTL::Buffer> _buf; ///< The buffer.
+		NS::SharedPtr<MTL::Buffer> _buf; ///< The buffer.
 
 		/// Initializes \ref _buf.
-		explicit buffer(_details::metal_ptr<MTL::Buffer> buf) : _buf(std::move(buf)) {
+		explicit buffer(NS::SharedPtr<MTL::Buffer> buf) : _buf(std::move(buf)) {
 		}
 	};
 
 	namespace _details {
 		/// Base class for images that holds a \p MTL::Texture.
 		class basic_image_base : public gpu::image_base {
+			friend command_list;
 			friend device;
 		protected:
 			/// Initializes this object to empty.
@@ -52,14 +56,14 @@ namespace lotus::gpu::backends::metal {
 
 			/// Checks if this object is valid.
 			[[nodiscard]] bool is_valid() const {
-				return _tex.is_valid();
+				return !!_tex;
 			}
 
 			/// Initializes \ref _tex.
-			explicit basic_image_base(_details::metal_ptr<MTL::Texture> tex) : _tex(std::move(tex)) {
+			explicit basic_image_base(NS::SharedPtr<MTL::Texture> tex) : _tex(std::move(tex)) {
 			}
 		private:
-			_details::metal_ptr<MTL::Texture> _tex; ///< The texture.
+			NS::SharedPtr<MTL::Texture> _tex; ///< The texture.
 		};
 
 		/// Base class for image views that holds a \p MTL::Texture created using \p MTL::Texture::newTextureView().
@@ -72,27 +76,28 @@ namespace lotus::gpu::backends::metal {
 
 			/// Checks if this object is valid.
 			[[nodiscard]] bool is_valid() const {
-				return _tex.is_valid();
+				return !!_tex;
 			}
 
 			/// Initializes \ref _tex.
-			explicit basic_image_view_base(_details::metal_ptr<MTL::Texture> tex) : _tex(std::move(tex)) {
+			explicit basic_image_view_base(NS::SharedPtr<MTL::Texture> tex) : _tex(std::move(tex)) {
 			}
 		private:
-			_details::metal_ptr<MTL::Texture> _tex; ///< The texture.
+			NS::SharedPtr<MTL::Texture> _tex; ///< The texture.
 		};
 	}
 
 	/// A typed texture that inherits from \ref _details::basic_image_base.
 	template <image_type Type> class basic_image : public _details::basic_image_base {
 		friend device;
+		friend swap_chain;
 	protected:
 		/// Initializes this object to empty.
 		basic_image(std::nullptr_t) : basic_image_base(nullptr) {
 		}
 	private:
 		/// Initializes the base class.
-		explicit basic_image(_details::metal_ptr<MTL::Texture> tex) : basic_image_base(std::move(tex)) {
+		explicit basic_image(NS::SharedPtr<MTL::Texture> tex) : basic_image_base(std::move(tex)) {
 		}
 	};
 	using image2d = basic_image<image_type::type_2d>; ///< 2D images.
@@ -107,7 +112,7 @@ namespace lotus::gpu::backends::metal {
 		}
 	private:
 		/// Initializes the base class.
-		explicit basic_image_view(_details::metal_ptr<MTL::Texture> tex) : basic_image_view_base(std::move(tex)) {
+		explicit basic_image_view(NS::SharedPtr<MTL::Texture> tex) : basic_image_view_base(std::move(tex)) {
 		}
 	};
 	using image2d_view = basic_image_view<image_type::type_2d>; ///< 2D image views.
@@ -121,10 +126,10 @@ namespace lotus::gpu::backends::metal {
 		sampler(std::nullptr_t) {
 		}
 	private:
-		_details::metal_ptr<MTL::SamplerState> _smp; ///< The sampler.
+		NS::SharedPtr<MTL::SamplerState> _smp; ///< The sampler.
 
 		/// Initializes \ref _smp.
-		explicit sampler(_details::metal_ptr<MTL::SamplerState> smp) : _smp(std::move(smp)) {
+		explicit sampler(NS::SharedPtr<MTL::SamplerState> smp) : _smp(std::move(smp)) {
 		}
 	};
 }

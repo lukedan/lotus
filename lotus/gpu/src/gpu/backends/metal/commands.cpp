@@ -5,20 +5,90 @@
 
 #include <Metal/Metal.hpp>
 
+#include "lotus/gpu/commands.h"
+#include "lotus/gpu/synchronization.h"
+#include "metal_irconverter_include.h"
+
 namespace lotus::gpu::backends::metal {
 	void command_allocator::reset(device&) {
 	}
 
 
 	void command_list::reset_and_start(command_allocator &alloc) {
-		_buf = _details::take_ownership(alloc._q->commandBuffer());
+		_buf = NS::RetainPtr(alloc._q->commandBuffer());
 	}
 
-	void command_list::begin_pass(const frame_buffer&, const frame_buffer_access&) {
-		// TODO
+	void command_list::begin_pass(const frame_buffer &fb, const frame_buffer_access &access) {
+		crash_if(fb._color_rts.size() != access.color_render_targets.size());
+
+		auto descriptor = NS::TransferPtr(MTL::RenderPassDescriptor::alloc()->init());
+		// color render targets
+		for (std::size_t i = 0; i < fb._color_rts.size(); ++i) {
+			const color_render_target_access &rt_access = access.color_render_targets[i];
+
+			MTL::RenderPassColorAttachmentDescriptor *desc = descriptor->colorAttachments()->object(i);
+			desc->setTexture(fb._color_rts[i]);
+			std::visit(
+				[&](const auto &v) {
+					desc->setClearColor(MTL::ClearColor(v[0], v[1], v[2], v[3]));
+				},
+				rt_access.clear_value.value
+			);
+			desc->setLevel(0); // TODO
+			desc->setSlice(0); // TODO
+			desc->setLoadAction(_details::conversions::to_load_action(rt_access.load_operation));
+			desc->setStoreAction(_details::conversions::to_store_action(rt_access.store_operation));
+		}
+		if (fb._depth_stencil_rt) {
+			const depth_render_target_access &depth_access = access.depth_render_target;
+			const stencil_render_target_access &stencil_access = access.stencil_render_target;
+			if (
+				depth_access.load_operation != pass_load_operation::discard ||
+				depth_access.store_operation != pass_store_operation::discard
+			) {
+				MTL::RenderPassDepthAttachmentDescriptor *desc = descriptor->depthAttachment();
+				desc->setTexture(fb._depth_stencil_rt);
+				desc->setClearDepth(depth_access.clear_value);
+				desc->setLevel(0); // TODO
+				desc->setSlice(0); // TODO
+				desc->setLoadAction(_details::conversions::to_load_action(depth_access.load_operation));
+				desc->setStoreAction(_details::conversions::to_store_action(depth_access.store_operation));
+			}
+			if (
+				stencil_access.load_operation != pass_load_operation::discard ||
+				stencil_access.store_operation != pass_store_operation::discard
+			) {
+				MTL::RenderPassStencilAttachmentDescriptor *desc = descriptor->stencilAttachment();
+				desc->setTexture(fb._depth_stencil_rt);
+				desc->setClearStencil(stencil_access.clear_value);
+				desc->setLevel(0); // TODO
+				desc->setSlice(0); // TODO
+				desc->setLoadAction(_details::conversions::to_load_action(stencil_access.load_operation));
+				desc->setStoreAction(_details::conversions::to_store_action(stencil_access.store_operation));
+			}
+		}
+		descriptor->setRenderTargetWidth(fb._size[0]);
+		descriptor->setRenderTargetHeight(fb._size[1]);
+
+		_pass_encoder = NS::RetainPtr(_buf->renderCommandEncoder(descriptor.get()));
 	}
 
-	void command_list::bind_pipeline_state(const graphics_pipeline_state&) {
+	void command_list::bind_pipeline_state(const graphics_pipeline_state &s) {
+		_pass_encoder->setRenderPipelineState(s._pipeline.get());
+		_pass_encoder->setDepthStencilState(s._ds_state.get());
+		// set rasterizer state
+		_pass_encoder->setTriangleFillMode(
+			s._rasterizer_options.is_wireframe ? MTL::TriangleFillModeLines : MTL::TriangleFillModeFill
+		);
+		_pass_encoder->setFrontFacingWinding(_details::conversions::to_winding(s._rasterizer_options.front_facing));
+		_pass_encoder->setCullMode(_details::conversions::to_cull_mode(s._rasterizer_options.culling));
+		_pass_encoder->setDepthBias(
+			s._rasterizer_options.depth_bias.bias,
+			s._rasterizer_options.depth_bias.slope_scaled_bias,
+			s._rasterizer_options.depth_bias.clamp
+		);
+		// set topology
+		_topology = s._topology;
 		// TODO
 	}
 
@@ -26,12 +96,40 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer>) {
-		// TODO
+	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
+		if constexpr (true) {
+			for (std::size_t i = 0; i < buffers.size(); ++i) {
+				_pass_encoder->setVertexBuffer(
+					buffers[i].data->_buf.get(),
+					buffers[i].offset,
+					buffers[i].stride,
+					kIRVertexBufferBindPoint + start + i
+				);
+			}
+		} else {
+			auto bookmark = get_scratch_bookmark();
+			auto ptrs    = bookmark.create_vector_array<const MTL::Buffer*>(buffers.size());
+			auto offsets = bookmark.create_vector_array<NS::UInteger>(buffers.size());
+			auto strides = bookmark.create_vector_array<NS::UInteger>(buffers.size());
+			for (std::size_t i = 0; i < buffers.size(); ++i) {
+				ptrs[i]    = buffers[i].data->_buf.get();
+				offsets[i] = buffers[i].offset;
+				strides[i] = buffers[i].stride;
+			}
+			// TODO this does not work, but there's no documentation
+			_pass_encoder->setVertexBuffers(
+				ptrs.data(),
+				offsets.data(),
+				strides.data(),
+				NS::Range(kIRVertexBufferBindPoint + start, buffers.size())
+			);
+		}
 	}
 
-	void command_list::bind_index_buffer(const buffer&, std::size_t offset, index_format) {
-		// TODO
+	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset_bytes, index_format fmt) {
+		_index_buffer       = buf._buf.get();
+		_index_offset_bytes = offset_bytes;
+		_index_format       = fmt;
 	}
 
 	void command_list::bind_graphics_descriptor_sets(const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>) {
@@ -50,24 +148,85 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	void command_list::copy_buffer(const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size) {
-		// TODO
+	void command_list::copy_buffer(
+		const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size
+	) {
+		auto encoder = NS::RetainPtr(_buf->blitCommandEncoder());
+		encoder->copyFromBuffer(from._buf.get(), off1, to._buf.get(), off2, size);
+		encoder->endEncoding();
 	}
 
-	void command_list::copy_image2d(image2d &from, subresource_index sub1, aab2u32 region, image2d &to, subresource_index sub2, cvec2u32 off) {
-		// TODO
+	void command_list::copy_image2d(
+		image2d &from, subresource_index sub1, aab2u32 region, image2d &to, subresource_index sub2, cvec2u32 off
+	) {
+		auto encoder = NS::RetainPtr(_buf->blitCommandEncoder());
+		encoder->copyFromTexture(
+			from._tex.get(),
+			sub1.array_slice,
+			sub1.mip_level,
+			MTL::Origin(region.min[0], region.min[1], 0),
+			MTL::Size(region.signed_size()[0], region.signed_size()[1], 1),
+			to._tex.get(),
+			sub2.array_slice,
+			sub2.mip_level,
+			MTL::Origin(off[0], off[1], 0)
+		);
+		encoder->endEncoding();
 	}
 
-	void command_list::copy_buffer_to_image(const buffer &from, std::size_t byte_offset, staging_buffer_metadata, image2d &to, subresource_index subresource, cvec2u32 off) {
-		// TODO
+	void command_list::copy_buffer_to_image(
+		const buffer &from,
+		std::size_t byte_offset,
+		staging_buffer_metadata metadata,
+		image2d &to,
+		subresource_index subresource,
+		cvec2u32 off
+	) {
+		auto encoder = NS::RetainPtr(_buf->blitCommandEncoder());
+		encoder->copyFromBuffer(
+			from._buf.get(),
+			byte_offset,
+			metadata.row_pitch_in_bytes,
+			0,
+			MTL::Size(metadata.image_size[0], metadata.image_size[1], 1),
+			to._tex.get(),
+			subresource.array_slice,
+			subresource.mip_level,
+			MTL::Origin(off[0], off[1], 0)
+		);
+		encoder->endEncoding();
 	}
 
-	void command_list::draw_instanced(std::size_t first_vertex, std::size_t vertex_count, std::size_t first_instance, std::size_t instance_count) {
-		// TODO
+	void command_list::draw_instanced(
+		std::size_t first_vertex, std::size_t vertex_count, std::size_t first_instance, std::size_t instance_count
+	) {
+		_pass_encoder->drawPrimitives(
+			_details::conversions::to_primitive_type(_topology),
+			first_vertex,
+			vertex_count,
+			instance_count,
+			first_instance
+		);
 	}
 
-	void command_list::draw_indexed_instanced(std::size_t first_index, std::size_t index_count, std::size_t first_vertex, std::size_t first_instance, std::size_t instance_count) {
-		// TODO
+	void command_list::draw_indexed_instanced(
+		std::size_t first_index,
+		std::size_t index_count,
+		std::size_t first_vertex,
+		std::size_t first_instance,
+		std::size_t instance_count
+	) {
+		crash_if(_index_offset_bytes % 4 != 0); // Metal does not support non-multiple-of-4 offsets
+		_pass_encoder->drawIndexedPrimitives(
+			_details::conversions::to_primitive_type(_topology),
+			index_count,
+			_details::conversions::to_index_type(_index_format),
+			_index_buffer,
+			_index_offset_bytes / 4,
+			instance_count,
+			first_vertex,
+			first_instance
+		);
 	}
 
 	void command_list::run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z) {
@@ -79,7 +238,8 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::end_pass() {
-		// TODO
+		_pass_encoder->endEncoding();
+		_pass_encoder = nullptr;
 	}
 
 	void command_list::query_timestamp(timestamp_query_heap&, std::uint32_t index) {
@@ -103,7 +263,6 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::finish() {
-		// TODO
 	}
 
 	void command_list::build_acceleration_structure(
@@ -150,12 +309,38 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	void command_queue::submit_command_lists(std::span<const gpu::command_list *const>, queue_synchronization) {
-		// TODO
+	void command_queue::submit_command_lists(
+		std::span<const gpu::command_list *const> cmd_lists, queue_synchronization sync
+	) {
+		if (!sync.wait_semaphores.empty()) {
+			// use a command buffer to submit the waits
+			auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
+			for (const timeline_semaphore_synchronization &sem : sync.wait_semaphores) {
+				cmd_buf->encodeWait(sem.semaphore->_event.get(), sem.value);
+			}
+			cmd_buf->commit();
+		}
+		for (const gpu::command_list *list : cmd_lists) {
+			static_cast<const command_list*>(list)->_buf->commit();
+		}
+		if (sync.notify_fence) {
+			std::abort(); // TODO
+		}
+		if (!sync.notify_semaphores.empty()) {
+			// use a command buffer to submit the signals
+			auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
+			for (const timeline_semaphore_synchronization &sem : sync.notify_semaphores) {
+				cmd_buf->encodeSignalEvent(sem.semaphore->_event.get(), sem.value);
+			}
+			cmd_buf->commit();
+		}
 	}
 
-	swap_chain_status command_queue::present(swap_chain&) {
-		// TODO
+	swap_chain_status command_queue::present(swap_chain &chain) {
+		auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
+		cmd_buf->presentDrawable(chain._drawable.get());
+		cmd_buf->commit();
+		return swap_chain_status::ok;
 	}
 
 	void command_queue::signal(fence&) {

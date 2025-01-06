@@ -11,11 +11,14 @@
 #include "resources.h"
 
 namespace lotus::gpu::backends::metal {
+	class command_list;
+	class command_queue;
 	class context;
 	class device;
 
 	/// Holds the next \p CA::MetalDrawable.
 	class swap_chain {
+		friend command_queue;
 		friend context;
 		friend device;
 	protected:
@@ -36,12 +39,21 @@ namespace lotus::gpu::backends::metal {
 		}
 	private:
 		CA::MetalLayer *_layer = nullptr; ///< The \p CAMetalLayer.
-		_details::metal_ptr<CA::MetalDrawable> _drawable; ///< The next back buffer to render onto.
+		NS::SharedPtr<CA::MetalDrawable> _drawable; ///< The next back buffer to render onto.
 	};
 
-	// TODO
+	/// Contains references to \p MTL::Texture objects for color and depth-stencil render targets, as well as the
+	/// size of the frame buffer.
 	class frame_buffer {
+		friend command_list;
+		friend device;
 	protected:
-		frame_buffer(std::nullptr_t); // TODO
+		/// Initializes the object to empty.
+		frame_buffer(std::nullptr_t) {
+		}
+	private:
+		std::vector<MTL::Texture*> _color_rts; ///< Color render targets.
+		MTL::Texture *_depth_stencil_rt = nullptr; ///< The depth-stencil target.
+		cvec2u32 _size = zero; ///< The size of the frame buffer.
 	};
 }

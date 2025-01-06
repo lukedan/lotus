@@ -8,6 +8,7 @@
 #include "details.h"
 
 namespace lotus::gpu::backends::metal {
+	class command_list;
 	class device;
 
 
@@ -67,11 +68,14 @@ namespace lotus::gpu::backends::metal {
 		shader_binary(std::nullptr_t) {
 		}
 	private:
-		_details::metal_ptr<MTL::Library> _lib; ///< The Metal library.
+		NS::SharedPtr<MTL::Library> _lib; ///< The Metal library.
 
 		/// Initializes \ref _lib.
-		explicit shader_binary(_details::metal_ptr<MTL::Library> lib) : _lib(std::move(lib)) {
+		explicit shader_binary(NS::SharedPtr<MTL::Library> lib) : _lib(std::move(lib)) {
 		}
+
+		/// Checks that \ref _lib contains only one function, and returns it.
+		NS::SharedPtr<MTL::Function> _get_single_function() const;
 	};
 
 	// TODO
@@ -82,11 +86,28 @@ namespace lotus::gpu::backends::metal {
 		}
 	};
 
-	// TODO
+	/// Contains a \p MTL::RenderPipelineState, a \p MTL::DepthStencilState, and a \ref rasterizer_options for the
+	/// full state of the pipeline.
 	class graphics_pipeline_state {
+		friend command_list;
+		friend device;
 	protected:
+		/// Initializes this object to empty.
 		graphics_pipeline_state(std::nullptr_t) {
-			// TODO
+		}
+	private:
+		NS::SharedPtr<MTL::RenderPipelineState> _pipeline; ///< The pipeline state object.
+		NS::SharedPtr<MTL::DepthStencilState> _ds_state; ///< The depth-stencil state object.
+		rasterizer_options _rasterizer_options = nullptr; ///< Rasterizer options.
+		primitive_topology _topology = primitive_topology::num_enumerators; ///< Topology.
+
+		/// Initializes all fields of this struct.
+		graphics_pipeline_state(
+			NS::SharedPtr<MTL::RenderPipelineState> p,
+			NS::SharedPtr<MTL::DepthStencilState> ds,
+			rasterizer_options r,
+			primitive_topology t
+		) : _pipeline(std::move(p)), _ds_state(std::move(ds)), _rasterizer_options(r), _topology(t) {
 		}
 	};
 

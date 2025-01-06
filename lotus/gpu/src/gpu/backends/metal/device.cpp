@@ -8,14 +8,17 @@
 #include <QuartzCore/QuartzCore.hpp>
 #include <Metal/Metal.hpp>
 
+#include "lotus/gpu/resources.h"
+#include "metal_irconverter_include.h"
+
 namespace lotus::gpu::backends::metal {
 	back_buffer_info device::acquire_back_buffer(swap_chain &chain) {
-		chain._drawable = _details::take_ownership(chain._layer->nextDrawable());
+		chain._drawable = NS::RetainPtr(chain._layer->nextDrawable());
 		if (!chain._drawable) {
 			return nullptr;
 		}
 		back_buffer_info result = nullptr;
-		result.index  = static_cast<std::uint32_t>(chain._drawable->drawableID());
+		result.index  = 0;
 		result.status = swap_chain_status::ok;
 		return result;
 	}
@@ -29,7 +32,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	command_list device::create_and_start_command_list(command_allocator &alloc) {
-		return command_list(_details::take_ownership(alloc._q->commandBuffer()));
+		return command_list(NS::RetainPtr(alloc._q->commandBuffer()));
 	}
 
 	descriptor_pool device::create_descriptor_pool(
@@ -100,7 +103,7 @@ namespace lotus::gpu::backends::metal {
 	shader_binary device::load_shader(std::span<const std::byte> data) {
 		NS::Error *err = nullptr;
 		auto *dispatch_data = dispatch_data_create(data.data(), data.size(), nullptr, nullptr);
-		auto lib = _details::take_ownership(_dev->newLibrary(dispatch_data, &err));
+		auto lib = NS::TransferPtr(_dev->newLibrary(dispatch_data, &err));
 		if (err) {
 			std::abort(); // TODO error handling
 		}
@@ -124,7 +127,7 @@ namespace lotus::gpu::backends::metal {
 		linear_rgba_f border_color,
 		comparison_function comparison
 	) {
-		auto smp = _details::take_ownership(MTL::SamplerDescriptor::alloc()->init());
+		auto smp = NS::TransferPtr(MTL::SamplerDescriptor::alloc()->init());
 		smp->setSAddressMode(_details::conversions::to_sampler_address_mode(addressing_u));
 		smp->setTAddressMode(_details::conversions::to_sampler_address_mode(addressing_v));
 		smp->setRAddressMode(_details::conversions::to_sampler_address_mode(addressing_w));
@@ -136,7 +139,8 @@ namespace lotus::gpu::backends::metal {
 		smp->setLodMinClamp(min_lod);
 		smp->setLodMaxClamp(max_lod);
 		smp->setMaxAnisotropy(static_cast<NS::UInteger>(max_anisotropy.value_or(1.0f)));
-		return sampler(_details::take_ownership(_dev->newSamplerState(smp.get())));
+		smp->setCompareFunction(_details::conversions::to_compare_function(comparison));
+		return sampler(NS::TransferPtr(_dev->newSamplerState(smp.get())));
 	}
 
 	descriptor_set_layout device::create_descriptor_set_layout(
@@ -150,21 +154,107 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	graphics_pipeline_state device::create_graphics_pipeline_state(
-		const pipeline_resources&,
+		const pipeline_resources &rsrc,
 		const shader_binary *vs,
 		const shader_binary *ps,
 		const shader_binary *ds,
 		const shader_binary *hs,
 		const shader_binary *gs,
-		std::span<const render_target_blend_options>,
-		const rasterizer_options&,
-		const depth_stencil_options&,
-		std::span<const input_buffer_layout>,
-		primitive_topology,
-		const frame_buffer_layout&,
+		std::span<const render_target_blend_options> blend,
+		const rasterizer_options &rasterizer,
+		const depth_stencil_options &depth_stencil,
+		std::span<const input_buffer_layout> input_buffers,
+		primitive_topology topology,
+		const frame_buffer_layout &fb_layout,
 		std::size_t num_viewports
 	) {
-		// TODO
+		auto vert_descriptor = NS::TransferPtr(MTL::VertexDescriptor::alloc()->init());
+		NS::UInteger num_elements = 0;
+		for (const input_buffer_layout &input_layout : input_buffers) {
+			const NS::UInteger buffer_index = kIRVertexBufferBindPoint + input_layout.buffer_index;
+			MTL::VertexBufferLayoutDescriptor *buffer_layout = vert_descriptor->layouts()->object(buffer_index);
+			buffer_layout->setStride(input_layout.stride);
+			buffer_layout->setStepFunction(_details::conversions::to_vertex_step_function(input_layout.input_rate));
+			for (const input_buffer_element &input_elem: input_layout.elements) {
+				const NS::UInteger elem_index = kIRStageInAttributeStartIndex + num_elements; // TODO THIS IS INCORRECT!
+				MTL::VertexAttributeDescriptor *attr = vert_descriptor->attributes()->object(elem_index);
+				attr->setFormat(_details::conversions::to_vertex_format(input_elem.element_format));
+				attr->setOffset(input_elem.byte_offset);
+				attr->setBufferIndex(buffer_index);
+				++num_elements;
+			}
+		}
+
+		auto descriptor = NS::TransferPtr(MTL::RenderPipelineDescriptor::alloc()->init());
+		descriptor->setVertexFunction(vs->_get_single_function().get());
+		descriptor->setFragmentFunction(ps->_get_single_function().get());
+		// TODO tessellation shaders?
+		descriptor->setVertexDescriptor(vert_descriptor.get());
+		for (std::size_t i = 0; i < fb_layout.color_render_target_formats.size(); ++i) {
+			const render_target_blend_options &blend_opts = blend[i];
+			MTL::RenderPipelineColorAttachmentDescriptor *attachment = descriptor->colorAttachments()->object(i);
+			attachment->setPixelFormat(_details::conversions::to_pixel_format(
+				fb_layout.color_render_target_formats[i]
+			));
+			attachment->setWriteMask(_details::conversions::to_color_write_mask(blend_opts.write_mask));
+			attachment->setBlendingEnabled(blend_opts.enabled);
+			attachment->setAlphaBlendOperation(
+				_details::conversions::to_blend_operation(blend_opts.alpha_operation)
+			);
+			attachment->setRgbBlendOperation(
+				_details::conversions::to_blend_operation(blend_opts.color_operation)
+			);
+			attachment->setDestinationAlphaBlendFactor(
+				_details::conversions::to_blend_factor(blend_opts.destination_alpha)
+			);
+			attachment->setDestinationRGBBlendFactor(
+				_details::conversions::to_blend_factor(blend_opts.destination_color)
+			);
+			attachment->setSourceAlphaBlendFactor(
+				_details::conversions::to_blend_factor(blend_opts.source_alpha)
+			);
+			attachment->setSourceRGBBlendFactor(
+				_details::conversions::to_blend_factor(blend_opts.source_color)
+			);
+		}
+		descriptor->setDepthAttachmentPixelFormat(
+			_details::conversions::to_pixel_format(fb_layout.depth_stencil_render_target_format)
+		);
+		descriptor->setStencilAttachmentPixelFormat(
+			_details::conversions::to_pixel_format(fb_layout.depth_stencil_render_target_format)
+		);
+		descriptor->setInputPrimitiveTopology(_details::conversions::to_primitive_topology_class(topology));
+		// TODO multisample and tessellation settings
+		descriptor->setSupportIndirectCommandBuffers(true);
+
+		auto ds_descriptor = NS::TransferPtr(MTL::DepthStencilDescriptor::alloc()->init());
+		if (depth_stencil.enable_depth_testing) {
+			ds_descriptor->setDepthCompareFunction(
+				_details::conversions::to_compare_function(depth_stencil.depth_comparison)
+			);
+			ds_descriptor->setDepthWriteEnabled(depth_stencil.write_depth);
+		}
+		if (depth_stencil.enable_stencil_testing) {
+			ds_descriptor->setBackFaceStencil(_details::conversions::to_stencil_descriptor(
+				depth_stencil.stencil_back_face, depth_stencil.stencil_read_mask, depth_stencil.stencil_write_mask
+			).get());
+			ds_descriptor->setFrontFaceStencil(_details::conversions::to_stencil_descriptor(
+				depth_stencil.stencil_front_face, depth_stencil.stencil_read_mask, depth_stencil.stencil_write_mask
+			).get());
+		}
+
+		NS::Error *error = nullptr;
+		auto pipeline_state = NS::TransferPtr(_dev->newRenderPipelineState(descriptor.get(), &error));
+		if (error) {
+			// TODO handle error
+			std::abort();
+		}
+		auto depth_stencil_state = NS::TransferPtr(_dev->newDepthStencilState(ds_descriptor.get()));
+		// TODO pipeline resources?
+		// TODO num viewports?
+		return graphics_pipeline_state(
+			std::move(pipeline_state), std::move(depth_stencil_state), rasterizer, topology
+		);
 	}
 
 	compute_pipeline_state device::create_compute_pipeline_state(
@@ -187,16 +277,16 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	memory_block device::allocate_memory(std::size_t size, memory_type_index type) {
-		auto heap_descriptor = _details::take_ownership(MTL::HeapDescriptor::alloc()->init());
+		auto heap_descriptor = NS::TransferPtr(MTL::HeapDescriptor::alloc()->init());
 		heap_descriptor->setType(MTL::HeapTypePlacement);
 		heap_descriptor->setResourceOptions(_details::conversions::to_resource_options(type));
 		// TODO hazard tracking mode?
 		heap_descriptor->setSize(size);
-		return memory_block(_details::take_ownership(_dev->newHeap(heap_descriptor.get())));
+		return memory_block(NS::TransferPtr(_dev->newHeap(heap_descriptor.get())));
 	}
 
 	buffer device::create_committed_buffer(std::size_t size, memory_type_index type, buffer_usage_mask usages) {
-		return buffer(_details::take_ownership(
+		return buffer(NS::TransferPtr(
 			_dev->newBuffer(size, _details::conversions::to_resource_options(type))
 		));
 	}
@@ -216,7 +306,7 @@ namespace lotus::gpu::backends::metal {
 			MTL::ResourceOptionCPUCacheModeWriteCombined | MTL::ResourceStorageModePrivate,
 			usages
 		);
-		return image2d(_details::take_ownership(_dev->newTexture(descriptor.get())));
+		return image2d(NS::TransferPtr(_dev->newTexture(descriptor.get())));
 	}
 
 	image3d device::create_committed_image3d(
@@ -234,13 +324,22 @@ namespace lotus::gpu::backends::metal {
 			MTL::ResourceOptionCPUCacheModeWriteCombined | MTL::ResourceStorageModePrivate,
 			usages
 		);
-		return image3d(_details::take_ownership(_dev->newTexture(descriptor.get())));
+		return image3d(NS::TransferPtr(_dev->newTexture(descriptor.get())));
 	}
 
 	std::tuple<buffer, staging_buffer_metadata, std::size_t> device::create_committed_staging_buffer(
-		cvec2u32 size, format, memory_type_index, buffer_usage_mask
+		cvec2u32 size, format fmt, memory_type_index mem_type, buffer_usage_mask usages
 	) {
-		// TODO
+		// the buffer is tightly packed
+		const auto &format_props = format_properties::get(fmt);
+		const std::size_t bytes_per_row = size[0] * format_props.bytes_per_fragment;
+		const std::size_t buf_size = bytes_per_row * size[1];
+		buffer buf = create_committed_buffer(buf_size, mem_type, usages);
+		staging_buffer_metadata result = uninitialized;
+		result.image_size         = size;
+		result.row_pitch_in_bytes = static_cast<std::uint32_t>(bytes_per_row);
+		result.pixel_format       = fmt;
+		return { std::move(buf), result, buf_size };
 	}
 
 	memory::size_alignment device::get_image2d_memory_requirements(
@@ -285,9 +384,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	buffer device::create_placed_buffer(std::size_t size, buffer_usage_mask usages, const memory_block &mem, std::size_t offset) {
-		return buffer(_details::take_ownership(
-			mem._heap->newBuffer(size, mem._heap->resourceOptions(), offset)
-		));
+		return buffer(NS::TransferPtr(mem._heap->newBuffer(size, mem._heap->resourceOptions(), offset)));
 	}
 
 	image2d device::create_placed_image2d(
@@ -307,7 +404,7 @@ namespace lotus::gpu::backends::metal {
 			mem._heap->resourceOptions(),
 			usages
 		);
-		return image2d(_details::take_ownership(mem._heap->newTexture(descriptor.get(), offset)));
+		return image2d(NS::TransferPtr(mem._heap->newTexture(descriptor.get(), offset)));
 	}
 
 	image3d device::create_placed_image3d(
@@ -327,7 +424,7 @@ namespace lotus::gpu::backends::metal {
 			mem._heap->resourceOptions(),
 			usages
 		);
-		return image3d(_details::take_ownership(mem._heap->newTexture(descriptor.get(), offset)));
+		return image3d(NS::TransferPtr(mem._heap->newTexture(descriptor.get(), offset)));
 	}
 
 	std::byte *device::map_buffer(buffer &buf) {
@@ -344,7 +441,13 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	image2d_view device::create_image2d_view_from(const image2d &img, format fmt, mip_levels mips) {
-		return image2d_view(_details::take_ownership(img._tex->newTextureView(
+		if (img._tex->framebufferOnly()) {
+			// cannot create views of framebuffer only textures
+			// TODO check that the formats etc. match
+			return image2d_view(img._tex);
+		}
+
+		return image2d_view(NS::TransferPtr(img._tex->newTextureView(
 			_details::conversions::to_pixel_format(fmt),
 			MTL::TextureType2D,
 			_details::conversions::to_range(mips, img._tex.get()),
@@ -353,7 +456,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	image3d_view device::create_image3d_view_from(const image3d &img, format fmt, mip_levels mips) {
-		return image3d_view(_details::take_ownership(img._tex->newTextureView(
+		return image3d_view(NS::TransferPtr(img._tex->newTextureView(
 			_details::conversions::to_pixel_format(fmt),
 			MTL::TextureType3D,
 			_details::conversions::to_range(mips, img._tex.get()),
@@ -364,7 +467,16 @@ namespace lotus::gpu::backends::metal {
 	frame_buffer device::create_frame_buffer(
 		std::span<const gpu::image2d_view *const> color_rts, const image2d_view *depth_stencil_rt, cvec2u32 size
 	) {
-		// TODO
+		frame_buffer result = nullptr;
+		result._color_rts.reserve(color_rts.size());
+		for (const gpu::image2d_view *rt : color_rts) {
+			result._color_rts.emplace_back(rt->_tex.get());
+		}
+		if (depth_stencil_rt) {
+			result._depth_stencil_rt = depth_stencil_rt->_tex.get();
+		}
+		result._size = size;
+		return result;
 	}
 
 	fence device::create_fence(synchronization_state) {
@@ -372,7 +484,9 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	timeline_semaphore device::create_timeline_semaphore(gpu::_details::timeline_semaphore_value_type val) {
-		return timeline_semaphore(_details::take_ownership(_dev->newSharedEvent()));
+		auto event = NS::TransferPtr(_dev->newSharedEvent());
+		event->setSignaledValue(val);
+		return timeline_semaphore(std::move(event));
 	}
 
 	void device::reset_fence(fence&) {
@@ -496,7 +610,7 @@ namespace lotus::gpu::backends::metal {
 		std::vector<command_queue> queues;
 		queues.reserve(families.size());
 		for (queue_family fam : families) {
-			auto ptr = _details::take_ownership(_dev->newCommandQueue());
+			auto ptr = NS::TransferPtr(_dev->newCommandQueue());
 			queues.emplace_back(command_queue(std::move(ptr)));
 		}
 		return { device(_dev), std::move(queues) };

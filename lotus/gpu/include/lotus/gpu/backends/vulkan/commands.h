@@ -67,7 +67,7 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::CommandBuffer::bindVertexBuffers().
 		void bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer>);
 		/// Calls \p vk::CommandBuffer::bindIndexBuffer().
-		void bind_index_buffer(const buffer&, std::size_t offset, index_format);
+		void bind_index_buffer(const buffer&, std::size_t offset_bytes, index_format);
 		/// Calls \p vk::CommandBuffer::bindDescriptorSets().
 		void bind_graphics_descriptor_sets(
 			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>

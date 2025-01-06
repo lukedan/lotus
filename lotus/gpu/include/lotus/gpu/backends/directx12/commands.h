@@ -59,7 +59,7 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p ID3D12GraphicsCommandList::IASetVertexBuffers().
 		void bind_vertex_buffers(std::size_t, std::span<const vertex_buffer>);
 		/// Calls \p ID3D12GraphicsCommandList::IASetIndexBuffer().
-		void bind_index_buffer(const buffer&, std::size_t offset, index_format);
+		void bind_index_buffer(const buffer&, std::size_t offset_bytes, index_format);
 		/// Calls \p ID3D12GraphicsCommandList::SetGraphicsRootDescriptorTable() for all given descriptor sets.
 		void bind_graphics_descriptor_sets(
 			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>

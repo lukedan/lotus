@@ -128,9 +128,9 @@ namespace lotus::gpu::backends::vulkan {
 		_buffer.bindVertexBuffers(static_cast<std::uint32_t>(start), buffer_ptrs, offsets);
 	}
 
-	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset, index_format fmt) {
+	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset_bytes, index_format fmt) {
 		_buffer.bindIndexBuffer(
-			buf._buffer.get(), static_cast<vk::DeviceSize>(offset), _details::conversions::to_index_type(fmt)
+			buf._buffer.get(), static_cast<vk::DeviceSize>(offset_bytes), _details::conversions::to_index_type(fmt)
 		);
 	}
 

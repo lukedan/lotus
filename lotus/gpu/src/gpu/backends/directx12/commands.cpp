@@ -186,10 +186,10 @@ namespace lotus::gpu::backends::directx12 {
 		);
 	}
 
-	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset, index_format fmt) {
+	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset_bytes, index_format fmt) {
 		D3D12_INDEX_BUFFER_VIEW buf_view = {};
-		buf_view.BufferLocation = buf._buffer->GetGPUVirtualAddress() + offset;
-		buf_view.SizeInBytes    = static_cast<UINT>(buf._buffer->GetDesc().Width - offset);
+		buf_view.BufferLocation = buf._buffer->GetGPUVirtualAddress() + offset_bytes;
+		buf_view.SizeInBytes    = static_cast<UINT>(buf._buffer->GetDesc().Width - offset_bytes);
 		buf_view.Format         = _details::conversions::to_format(fmt);
 		_list->IASetIndexBuffer(&buf_view);
 	}

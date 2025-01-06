@@ -176,7 +176,7 @@ namespace lotus::renderer {
 		}
 
 		recorded_resources::buffer data; ///< The index buffer.
-		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer where indices start in bytes.
+		std::uint32_t offset = 0; ///< Offset in bytes from the beginning of the buffer where indices start in bytes.
 		gpu::index_format format = gpu::index_format::uint32; ///< Format of indices.
 	};
 	/// A view into buffers related to a geometry used for ray tracing.

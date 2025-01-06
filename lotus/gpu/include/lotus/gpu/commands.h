@@ -99,8 +99,8 @@ namespace lotus::gpu {
 			bind_vertex_buffers(start, { buffers.begin(), buffers.end() });
 		}
 		/// Binds an index buffer for rendering.
-		void bind_index_buffer(const buffer &buf, std::size_t offset, index_format fmt) {
-			backend::command_list::bind_index_buffer(buf, offset, fmt);
+		void bind_index_buffer(const buffer &buf, std::size_t offset_bytes, index_format fmt) {
+			backend::command_list::bind_index_buffer(buf, offset_bytes, fmt);
 		}
 		/// Binds descriptor sets for rendering.
 		void bind_graphics_descriptor_sets(

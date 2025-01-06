@@ -89,7 +89,7 @@ namespace lotus::renderer::execution {
 							// either we've not acquired a dependency or we've acquired one from a previous batch
 							// the dependency from this batch always takes priority
 							si;
-								
+
 						queue_action.emplace<queue_submission_index>(acquire_index);
 						dep_acquired_batch[acq.queue_index] = acquire_index;
 					},
@@ -378,7 +378,7 @@ namespace lotus::renderer::execution {
 			cmd.resources, gpu::synchronization_point_mask::compute_shader, _pseudo_execution_current_command_range()
 		);
 	}
-	
+
 	void queue_pseudo_context::_pseudo_execute(const commands::trace_rays &cmd) {
 		_pseudo_use_resource_sets(
 			cmd.resource_bindings, gpu::synchronization_point_mask::raytracing, _pseudo_execution_current_command_range()
@@ -846,11 +846,16 @@ namespace lotus::renderer::execution {
 			_q.ctx._maybe_update_swap_chain(chain);
 		}
 
+		// retrieve the swap chain image if necessary
+		if (!chain.current_image) {
+			chain.current_image = &_batch_ctx.record_batch_resource(chain.chain.get_image(chain.next_image_index));
+		}
+
 		// TODO properly stage transitions
 		auto &back_buffer = chain.back_buffers[chain.next_image_index];
 		_queue_ctx._cmd_ops[std::to_underlying(scope.begin)].pre_image_transitions.emplace_back(
 			gpu::subresource_range::first_color(),
-			back_buffer.image,
+			*chain.current_image,
 			back_buffer.current_usage.sync_points,
 			back_buffer.current_usage.access,
 			back_buffer.current_usage.layout,

@@ -414,6 +414,7 @@ namespace lotus::renderer::execution {
 			if (result != gpu::swap_chain_status::ok) {
 				log().warn("Presenting swap chain returned {}", static_cast<int>(result));
 			}
+			cmd.target._ptr->current_image = nullptr; // the image is no longer useful
 		}
 	}
 

@@ -912,7 +912,7 @@ namespace lotus::renderer {
 	gpu::image2d_view &context::_request_swap_chain_view(const recorded_resources::swap_chain &chain) {
 		crash_if(chain._ptr->next_image_index == _details::swap_chain::invalid_image_index);
 		return _batch_data.back().resources.record(_device.create_image2d_view_from(
-			chain._ptr->back_buffers[chain._ptr->next_image_index].image,
+			*chain._ptr->current_image,
 			chain._ptr->current_format,
 			gpu::mip_levels::only_top()
 		));
@@ -970,7 +970,7 @@ namespace lotus::renderer {
 
 				for (std::uint32_t i = 0; i < chain.num_images; ++i) {
 					// update chain images
-					chain.back_buffers.emplace_back(chain.chain.get_image(i));
+					chain.back_buffers.emplace_back(nullptr);
 					// create new fences
 					chain.fences.emplace_back(_device.create_fence(gpu::synchronization_state::unset));
 				}
@@ -1009,7 +1009,7 @@ namespace lotus::renderer {
 			if (batch_ongoing) {
 				break;
 			}
-			
+
 			for (const auto &img : batch.resources.image2d_meta) {
 				while (!img->array_references.empty()) {
 					_write_one_descriptor_array_element(
@@ -1066,7 +1066,7 @@ namespace lotus::renderer {
 
 			if (on_batch_statistics_available) {
 				batch_statistics_late result = zero;
-				
+
 				for (std::size_t iq = 0; iq < _queues.size(); ++iq) { // read back timer information
 					auto &queue_data = batch.resolve_data.queues[iq];
 					double frequency = _queues[iq].queue.get_timestamp_frequency();

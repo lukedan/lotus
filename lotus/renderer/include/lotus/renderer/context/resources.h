@@ -293,11 +293,9 @@ namespace lotus::renderer {
 			/// Data associated with a single back buffer within this chain.
 			struct back_buffer {
 				/// Initializes this back buffer with the given image.
-				explicit back_buffer(gpu::image2d img) :
-					image(std::move(img)), current_usage(image_access::initial()) {
+				back_buffer(std::nullptr_t) : current_usage(image_access::initial()) {
 				}
 
-				gpu::image2d image; ///< The image.
 				image_access current_usage; ///< Current usage of the image.
 			};
 
@@ -326,6 +324,10 @@ namespace lotus::renderer {
 
 			/// Index of the next image that would be presented in this swap chain.
 			std::uint32_t next_image_index = invalid_image_index;
+			/// Holds the current image to be written to and presented in the swap chain. This is initialized during
+			/// the pseudo execution phase when the swap chain is used, and cleared when it is finally presented
+			/// during execution.
+			gpu::image2d *current_image = nullptr;
 			/// The last batch when this swap chain was presented.
 			batch_index previous_present = batch_index::zero;
 

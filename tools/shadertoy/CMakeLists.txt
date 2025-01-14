@@ -1,10 +1,6 @@
 find_package(nlohmann_json CONFIG REQUIRED)
 
 function(add_shadertoy_executable GPU_BACKEND)
-	if(NOT TARGET lotus_renderer_${GPU_BACKEND})
-		return()
-	endif()
-
 	set(PROJ shadertoy_${GPU_BACKEND})
 	add_executable(${PROJ})
 	configure_lotus_module(${PROJ})
@@ -23,5 +19,6 @@ function(add_shadertoy_executable GPU_BACKEND)
 		nlohmann_json::nlohmann_json)
 endfunction()
 
-add_shadertoy_executable(directx12)
-add_shadertoy_executable(vulkan)
+foreach(GPU_BACKEND ${LOTUS_GPU_ALL_AVAILABLE_BACKENDS})
+	add_shadertoy_executable(${GPU_BACKEND})
+endforeach()

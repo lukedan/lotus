@@ -77,8 +77,6 @@ namespace lotus::gpu::backends::directx12::_details {
 		[[nodiscard]] D3D12_TEXTURE_ADDRESS_MODE to_texture_address_mode(sampler_address_mode);
 		/// Converts a \ref comparison_function to a \p D3D12_COMPARISON_FUNC.
 		[[nodiscard]] D3D12_COMPARISON_FUNC to_comparison_function(comparison_function);
-		/// Converts a \ref shader_stage to a \p D3D12_SHADER_VERSION_TYPE.
-		[[nodiscard]] D3D12_SHADER_VERSION_TYPE to_shader_version_type(shader_stage);
 		/// Converts a \ref queue_family to a \p D3D12_COMMAND_LIST_TYPE.
 		[[nodiscard]] D3D12_COMMAND_LIST_TYPE to_command_list_type(queue_family);
 		/// Converts a \ref raytracing_instance_flags to a \p D3D12_RAYTRACING_INSTANCE_FLAGS.
@@ -132,9 +130,6 @@ namespace lotus::gpu::backends::directx12::_details {
 
 		/// Converts a \p D3D12_MESSAGE_SEVERITY back to a \ref debug_message_severitiy.
 		[[nodiscard]] debug_message_severity back_to_debug_message_severity(D3D12_MESSAGE_SEVERITY);
-
-		/// Converts a \p D3D12_SHADER_INPUT_BIND_DESC back to a \ref shader_resource_binding.
-		[[nodiscard]] shader_resource_binding back_to_shader_resource_binding(const D3D12_SHADER_INPUT_BIND_DESC&);
 	}
 
 

@@ -6,57 +6,84 @@
 #include <cstddef>
 
 #include "details.h"
+#include "lotus/gpu/backends/common/dxil_reflection.h"
 
 namespace lotus::gpu::backends::metal {
 	class command_list;
 	class device;
+	class shader_library_reflection;
+	class shader_utility;
 
 
-	// TODO
-	class shader_reflection {
+	/// Metal uses DXIL reflection. The reason for this is that Metal shader reflection information cannot be
+	/// retrieved from the bytecode directly; instead it has to be either retrieved from the pipeline or the compiled
+	/// \p IRObject.
+	class shader_reflection : private common::dxil_reflection {
+		friend shader_library_reflection;
+		friend shader_utility;
 	protected:
-		shader_reflection(std::nullptr_t) {
-			// TODO
+		/// Initializes this object to empty.
+		shader_reflection(std::nullptr_t) : dxil_reflection(nullptr) {
 		}
 
-		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const {
-			// TODO
+		/// Calls the method in the base class.
+		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(
+			const char8_t *name
+		) const {
+			return dxil_reflection::find_resource_binding_by_name(name);
 		}
-
+		/// Calls the method in the base class.
 		[[nodiscard]] std::uint32_t get_resource_binding_count() const {
-			// TODO
+			return dxil_reflection::get_resource_binding_count();
+		}
+		/// Calls the method in the base class.
+		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t i) const {
+			return dxil_reflection::get_resource_binding_at_index(i);
 		}
 
-		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t) const {
-			// TODO
-		}
-
+		/// Calls the method in the base class.
 		[[nodiscard]] std::uint32_t get_render_target_count() const {
-			// TODO
+			return dxil_reflection::get_render_target_count();
 		}
 
+		/// Calls the method in the base class.
 		[[nodiscard]] cvec3s get_thread_group_size() const {
-			// TODO
+			return dxil_reflection::get_thread_group_size();
 		}
 
+		/// Calls the method in the base class.
 		[[nodiscard]] bool is_valid() const {
-			// TODO
+			return dxil_reflection::is_valid();
+		}
+	private:
+		/// Initializes the base class object.
+		explicit shader_reflection(dxil_reflection reflection) : dxil_reflection(std::move(reflection)) {
 		}
 	};
 
-	// TODO
-	class shader_library_reflection {
+	/// DXIL reflection for shader libraries.
+	class shader_library_reflection : private common::dxil_library_reflection {
+		friend shader_utility;
 	protected:
-		shader_library_reflection(std::nullptr_t) {
-			// TODO
+		/// Initializes this object to empty.
+		shader_library_reflection(std::nullptr_t) : dxil_library_reflection(nullptr) {
 		}
 
-		template <typename Callback> void enumerate_shaders(Callback &&cb) const {
-			// TODO
+		/// Calls the method in the base class.
+		[[nodiscard]] std::uint32_t get_num_shaders() const {
+			return dxil_library_reflection::get_num_shaders();
 		}
-
-		[[nodiscard]] shader_reflection find_shader(std::u8string_view entry, shader_stage) const {
-			// TODO
+		/// Calls the method in the base class.
+		[[nodiscard]] shader_reflection get_shader_at(std::uint32_t i) const {
+			return shader_reflection(dxil_library_reflection::get_shader_at(i));
+		}
+		/// Calls the method in the base class.
+		[[nodiscard]] shader_reflection find_shader(std::u8string_view entry, shader_stage stage) const {
+			return shader_reflection(dxil_library_reflection::find_shader(entry, stage));
+		}
+	private:
+		/// Initializes the base class object.
+		explicit shader_library_reflection(dxil_library_reflection refl) : dxil_library_reflection(std::move(refl)) {
 		}
 	};
 
@@ -68,14 +95,17 @@ namespace lotus::gpu::backends::metal {
 		shader_binary(std::nullptr_t) {
 		}
 	private:
-		NS::SharedPtr<MTL::Library> _lib; ///< The Metal library.
+		/// Describes a vertex input attribute.
+		struct _vertex_input_attribute {
+			std::u8string name; ///< The semantic of this attribute.
+			std::uint8_t attribute_index; ///< The index of this attribute.
+		};
 
-		/// Initializes \ref _lib.
-		explicit shader_binary(NS::SharedPtr<MTL::Library> lib) : _lib(std::move(lib)) {
-		}
+		NS::SharedPtr<MTL::Library> _lib; ///< The Metal library.
+		std::vector<_vertex_input_attribute> _vs_input_attributes; ///< Vertex shader input attributes.
 
 		/// Checks that \ref _lib contains only one function, and returns it.
-		NS::SharedPtr<MTL::Function> _get_single_function() const;
+		[[nodiscard]] NS::SharedPtr<MTL::Function> _get_single_function() const;
 	};
 
 	// TODO

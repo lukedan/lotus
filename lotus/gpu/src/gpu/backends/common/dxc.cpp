@@ -120,6 +120,18 @@ namespace lotus::gpu::backends::common {
 		_details::assert_dx(container_reflection->GetPartReflection(part_index, iid, ppvObject));
 	}
 
+	dxil_reflection dxc_compiler::load_shader_reflection(std::span<const std::byte> data) {
+		_details::com_ptr<ID3D12ShaderReflection> refl;
+		load_shader_reflection(data, IID_PPV_ARGS(&refl));
+		return dxil_reflection(refl);
+	}
+
+	dxil_library_reflection dxc_compiler::load_shader_library_reflection(std::span<const std::byte> data) {
+		_details::com_ptr<ID3D12LibraryReflection> refl;
+		load_shader_reflection(data, IID_PPV_ARGS(&refl));
+		return dxil_library_reflection(refl);
+	}
+
 	IDxcUtils &dxc_compiler::get_utils() {
 		if (!_dxc_utils) {
 			_details::assert_dx(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&_dxc_utils)));

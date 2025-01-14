@@ -6,30 +6,11 @@
 #include <filesystem>
 #include <span>
 
-#if _WIN32
-#	include <winerror.h>
-#	include <atlbase.h>
-#	include <Unknwn.h>
-#endif
-#include LOTUS_GPU_DXC_HEADER
-
-#include "lotus/logging.h"
 #include "lotus/gpu/common.h"
+#include "details.h"
+#include "dxil_reflection.h"
 
 namespace lotus::gpu::backends::common {
-	namespace _details {
-		/// COM pointers.
-		template <typename T> using com_ptr = CComPtr<T>;
-
-		/// Checks that the given \p HRESULT indicates success.
-		inline void assert_dx(HRESULT hr) {
-			if (hr != S_OK) {
-				log().error("DirectX error {}", hr);
-				std::abort();
-			}
-		}
-	}
-
 	/// DXC compiler.
 	struct dxc_compiler {
 	public:
@@ -99,6 +80,10 @@ namespace lotus::gpu::backends::common {
 
 		/// Loads shader reflection using \p IDxcContainerReflection::GetPartReflection().
 		void load_shader_reflection(std::span<const std::byte> data, REFIID iid, void **ppvObject);
+		/// Loads a shader reflection for a \p ID3D12ShaderReflection.
+		[[nodiscard]] dxil_reflection load_shader_reflection(std::span<const std::byte> data);
+		/// Loads a shader reflection for a \p ID3D12LibraryReflection.
+		[[nodiscard]] dxil_library_reflection load_shader_library_reflection(std::span<const std::byte> data);
 
 		/// Initializes \ref _dxc_utils if necessary, and returns it.
 		[[nodiscard]] IDxcUtils &get_utils();

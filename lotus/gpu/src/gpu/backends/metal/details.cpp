@@ -340,6 +340,45 @@ namespace lotus::gpu::backends::metal::_details {
 			return table.get_union(m);
 		}
 
+		IRDescriptorRangeType to_ir_descriptor_range_type(D3D_SHADER_INPUT_TYPE type) {
+			constexpr static enums::sequential_mapping<
+				D3D_SHADER_INPUT_TYPE, IRDescriptorRangeType, D3D_SIT_UAV_FEEDBACKTEXTURE + 1
+			> table{
+				std::pair(D3D_SIT_CBUFFER,                       IRDescriptorRangeTypeCBV    ),
+				std::pair(D3D_SIT_TBUFFER,                       IRDescriptorRangeTypeSRV    ),
+				std::pair(D3D_SIT_TEXTURE,                       IRDescriptorRangeTypeSRV    ),
+				std::pair(D3D_SIT_SAMPLER,                       IRDescriptorRangeTypeSampler),
+				std::pair(D3D_SIT_UAV_RWTYPED,                   IRDescriptorRangeTypeUAV    ),
+				std::pair(D3D_SIT_STRUCTURED,                    IRDescriptorRangeTypeSRV    ),
+				std::pair(D3D_SIT_UAV_RWSTRUCTURED,              IRDescriptorRangeTypeUAV    ),
+				std::pair(D3D_SIT_BYTEADDRESS,                   IRDescriptorRangeTypeSRV    ),
+				std::pair(D3D_SIT_UAV_RWBYTEADDRESS,             IRDescriptorRangeTypeUAV    ),
+				std::pair(D3D_SIT_UAV_APPEND_STRUCTURED,         IRDescriptorRangeTypeUAV    ),
+				std::pair(D3D_SIT_UAV_CONSUME_STRUCTURED,        IRDescriptorRangeTypeUAV    ),
+				std::pair(D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER, IRDescriptorRangeTypeUAV    ),
+				std::pair(D3D_SIT_RTACCELERATIONSTRUCTURE,       IRDescriptorRangeTypeSRV    ),
+				std::pair(D3D_SIT_UAV_FEEDBACKTEXTURE,           IRDescriptorRangeTypeUAV    ),
+			};
+			return table[type];
+		}
+
+		IRShaderStage to_ir_shader_stage(shader_stage stage) {
+			constexpr static enums::sequential_mapping<shader_stage, IRShaderStage> table{
+				std::pair(shader_stage::all,                   IRShaderStageInvalid      ),
+				std::pair(shader_stage::vertex_shader,         IRShaderStageVertex       ),
+				std::pair(shader_stage::geometry_shader,       IRShaderStageGeometry     ),
+				std::pair(shader_stage::pixel_shader,          IRShaderStageFragment     ),
+				std::pair(shader_stage::compute_shader,        IRShaderStageCompute      ),
+				std::pair(shader_stage::callable_shader,       IRShaderStageCallable     ),
+				std::pair(shader_stage::ray_generation_shader, IRShaderStageRayGeneration),
+				std::pair(shader_stage::intersection_shader,   IRShaderStageIntersection ),
+				std::pair(shader_stage::any_hit_shader,        IRShaderStageAnyHit       ),
+				std::pair(shader_stage::closest_hit_shader,    IRShaderStageClosestHit   ),
+				std::pair(shader_stage::miss_shader,           IRShaderStageMiss         ),
+			};
+			return table[stage];
+		}
+
 		NS::SharedPtr<NS::String> to_string(const char8_t *str) {
 			return NS::TransferPtr(NS::String::alloc()->init(
 				reinterpret_cast<const char*>(str), NS::UTF8StringEncoding
@@ -390,5 +429,91 @@ namespace lotus::gpu::backends::metal::_details {
 		descriptor->setResourceOptions(opts);
 		descriptor->setUsage(conversions::to_texture_usage(usages));
 		return descriptor;
+	}
+
+
+	namespace shader {
+		ir_unique_ptr<IRRootSignature> create_root_signature_for_dxil_reflection(ID3D12ShaderReflection *refl) {
+			auto bookmark = get_scratch_bookmark();
+			auto descriptor_spaces =
+				bookmark.create_vector_array<memory::stack_allocator::vector_type<IRDescriptorRange1>>();
+
+			D3D12_SHADER_DESC desc = {};
+			common::_details::assert_dx(refl->GetDesc(&desc));
+			for (UINT i = 0; i < desc.BoundResources; ++i) {
+				D3D12_SHADER_INPUT_BIND_DESC binding = {};
+				common::_details::assert_dx(refl->GetResourceBindingDesc(i, &binding));
+
+				// record this descriptor range
+				while (descriptor_spaces.size() <= binding.Space) {
+					descriptor_spaces.emplace_back(bookmark.create_vector_array<IRDescriptorRange1>());
+				}
+				IRDescriptorRange1 &range = descriptor_spaces[binding.Space].emplace_back();
+				range.RangeType                         = conversions::to_ir_descriptor_range_type(binding.Type);
+				range.NumDescriptors                    = binding.BindCount;
+				range.BaseShaderRegister                = binding.BindPoint;
+				range.RegisterSpace                     = binding.Space;
+				range.Flags                             = IRDescriptorRangeFlagNone;
+				range.OffsetInDescriptorsFromTableStart = binding.BindPoint;
+			}
+
+			// create descriptor binding array
+			auto descriptor_bindings = bookmark.create_vector_array<IRRootParameter1>(descriptor_spaces.size());
+			for (std::size_t i = 0; i < descriptor_spaces.size(); ++i) {
+				descriptor_bindings[i].ParameterType                       = IRRootParameterTypeDescriptorTable;
+				descriptor_bindings[i].DescriptorTable.NumDescriptorRanges = descriptor_spaces[i].size();
+				descriptor_bindings[i].DescriptorTable.pDescriptorRanges   = descriptor_spaces[i].data();
+				descriptor_bindings[i].ShaderVisibility                    = IRShaderVisibilityAll;
+			}
+
+			IRVersionedRootSignatureDescriptor root_sig_desc = {};
+			root_sig_desc.version                = IRRootSignatureVersion_1_1;
+			root_sig_desc.desc_1_1.NumParameters = descriptor_bindings.size();
+			root_sig_desc.desc_1_1.pParameters   = descriptor_bindings.data();
+			IRError *error = nullptr;
+			auto root_signature = ir_make_unique(
+				IRRootSignatureCreateFromDescriptor(&root_sig_desc, &error
+			));
+			if (error) {
+				log().error(
+					"Failed to create IR root signature {}", static_cast<const char*>(IRErrorGetPayload(error))
+				);
+				IRErrorDestroy(error);
+			}
+			return root_signature;
+		}
+
+		ir_conversion_result convert_to_metal_ir(
+			std::span<const std::byte> dxil_buf, ID3D12ShaderReflection *refl
+		) {
+			ir_conversion_result result = nullptr;
+
+			auto dxil = ir_make_unique(IRObjectCreateFromDXIL(
+				reinterpret_cast<const std::uint8_t*>(dxil_buf.data()), dxil_buf.size(), IRBytecodeOwnershipNone
+			));
+
+			// create root signature
+			ir_unique_ptr<IRRootSignature> root_signature = create_root_signature_for_dxil_reflection(refl);
+
+			// convert
+			auto compiler = ir_make_unique(IRCompilerCreate());
+			IRCompilerSetGlobalRootSignature(compiler.get(), root_signature.get());
+			IRError *error = nullptr;
+			result.object = ir_make_unique(IRCompilerAllocCompileAndLink(
+				compiler.get(), nullptr, dxil.get(), &error
+			));
+			if (error) {
+				log().error("Failed to compile IR {}", static_cast<const char*>(IRErrorGetPayload(error)));
+				IRErrorDestroy(error);
+			}
+
+			// retrieve Metal lib and bytes
+			const IRShaderStage stage = IRObjectGetMetalIRShaderStage(result.object.get());
+			auto lib = ir_make_unique(IRMetalLibBinaryCreate());
+			IRObjectGetMetalLibBinary(result.object.get(), stage, lib.get());
+			result.data = IRMetalLibGetBytecodeData(lib.get()); // "Do not release this object"
+
+			return result;
+		}
 	}
 }

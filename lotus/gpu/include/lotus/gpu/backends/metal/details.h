@@ -8,8 +8,11 @@
 
 #include <Metal/Metal.hpp>
 
+#include <metal_irconverter/metal_irconverter.h>
+
 #include "lotus/utils/static_function.h"
 #include "lotus/gpu/common.h"
+#include "lotus/gpu/backends/common/dxil_reflection.h"
 
 namespace lotus::gpu::backends::metal::_details {
 	// TODO
@@ -77,6 +80,12 @@ namespace lotus::gpu::backends::metal::_details {
 		[[nodiscard]] MTL::BlendFactor to_blend_factor(blend_factor);
 		/// Converts a \ref channel_mask to a \p MTL::ColorWriteMask.
 		[[nodiscard]] MTL::ColorWriteMask to_color_write_mask(channel_mask);
+
+		/// Converts a \ref D3D_SHADER_INPUT_TYPE to a \p IRDescriptorRangeType.
+		[[nodiscard]] IRDescriptorRangeType to_ir_descriptor_range_type(D3D_SHADER_INPUT_TYPE);
+		/// Converts a \ref shader_stage back to a \p IRShaderStage.
+		[[nodiscard]] IRShaderStage to_ir_shader_stage(shader_stage);
+
 		/// Converts a C-style string to a \p NS::String.
 		[[nodiscard]] NS::SharedPtr<NS::String> to_string(const char8_t*);
 		/// Converts a \ref stencil_options to a \p MTL::StencilDescriptor.
@@ -99,4 +108,57 @@ namespace lotus::gpu::backends::metal::_details {
 		MTL::ResourceOptions,
 		image_usage_mask
 	);
+
+
+	/// Declaration of deleter types for various IR converter library types.
+	template <typename T> struct ir_object_deleter;
+	/// Shorthand for declaring a deleter with a function.
+	template <auto Func> struct basic_ir_object_deleter {
+		/// Calls \p Func with the given object.
+		void operator()(auto *obj) const {
+			Func(obj);
+		}
+	};
+	/// Calls \p IRObjectDestroy() for \p IRObject.
+	template <> struct ir_object_deleter<IRObject> : basic_ir_object_deleter<IRObjectDestroy> {
+	};
+	/// Calls \p IRCompilerDestroy() for \p IRCompiler.
+	template <> struct ir_object_deleter<IRCompiler> : basic_ir_object_deleter<IRCompilerDestroy> {
+	};
+	/// Calls \p IRRootSignatureDestroy() for \p IRRootSignature.
+	template <> struct ir_object_deleter<IRRootSignature> : basic_ir_object_deleter<IRRootSignatureDestroy> {
+	};
+	/// Calls \p IRMetalLibBinaryDestroy() for \p IRMetalLibBinary.
+	template <> struct ir_object_deleter<IRMetalLibBinary> : basic_ir_object_deleter<IRMetalLibBinaryDestroy> {
+	};
+	/// Calls \p IRShaderReflectionDestroy for \p IRShaderReflection.
+	template <> struct ir_object_deleter<IRShaderReflection> : basic_ir_object_deleter<IRShaderReflectionDestroy> {
+	};
+	/// Unique pointer type for Metal shader converter types.
+	template <typename T> using ir_unique_ptr = std::unique_ptr<T, ir_object_deleter<T>>;
+	/// Creates a new \ref ir_unique_ptr.
+	template <typename T> [[nodiscard]] static ir_unique_ptr<T> ir_make_unique(T *ptr) {
+		return ir_unique_ptr<T>(ptr);
+	}
+
+	namespace shader {
+		/// Contains all relevant IR conversion results.
+		struct ir_conversion_result {
+			/// Initializes this object to empty.
+			ir_conversion_result(std::nullptr_t) {
+			}
+
+			ir_unique_ptr<IRObject> object; ///< Object containing the IR.
+			dispatch_data_t data = nullptr; ///< Raw IR bytes.
+		};
+
+		/// Creates a \p IRRootSignature matching the given \p ID3D12ShaderReflection.
+		[[nodiscard]] ir_unique_ptr<IRRootSignature> create_root_signature_for_dxil_reflection(
+			ID3D12ShaderReflection*
+		);
+		/// Converts the given DXIL into Metal IR, with a root signature derived from the given reflection object.
+		[[nodiscard]] ir_conversion_result convert_to_metal_ir(
+			std::span<const std::byte> dxil, ID3D12ShaderReflection*
+		);
+	}
 }

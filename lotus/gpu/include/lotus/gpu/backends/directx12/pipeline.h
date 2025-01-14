@@ -5,9 +5,8 @@
 
 #include <optional>
 
-#include <directx/d3d12shader.h>
-
 #include "details.h"
+#include "lotus/gpu/backends/common/dxil_reflection.h"
 
 namespace lotus::gpu::backends::directx12 {
 	class device;
@@ -18,66 +17,43 @@ namespace lotus::gpu::backends::directx12 {
 	class shader_utility;
 	class shader_library_reflection;
 
-	/// Contains a \p ID3D12ShaderReflection or a \p ID3D12FunctionReflection.
-	class shader_reflection {
+	/// Shader reflection using DXIL.
+	class shader_reflection : public common::dxil_reflection {
 		friend shader_utility;
 		friend shader_library_reflection;
 	protected:
 		/// Initializes an empty reflection object.
-		shader_reflection(std::nullptr_t) {
+		shader_reflection(std::nullptr_t) : dxil_reflection(nullptr) {
 		}
 
-		/// Returns the result of \p ID3D12ShaderReflection::GetResourceBindingDescByName() or
-		/// \p ID3D12FunctionReflection::GetResourceBindingDescByName().
-		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const;
-		/// Returns the number of resource bindings.
-		[[nodiscard]] std::uint32_t get_resource_binding_count() const;
-		/// Returns the result of \p ID3D12ShaderReflection::GetResourceBindingDesc().
-		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t) const;
+		/// Calls the method in the base class.
+		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(
+			const char8_t *name
+		) const {
+			return dxil_reflection::find_resource_binding_by_name(name);
+		}
+		/// Calls the method in the base class.
+		[[nodiscard]] std::uint32_t get_resource_binding_count() const {
+			return dxil_reflection::get_resource_binding_count();
+		}
+		/// Calls the method in the base class.
+		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t i) const {
+			return dxil_reflection::get_resource_binding_at_index(i);
+		}
 
-		/// Returns the number of render targets.
-		[[nodiscard]] std::uint32_t get_render_target_count() const;
+		/// Calls the method in the base class.
+		[[nodiscard]] std::uint32_t get_render_target_count() const {
+			return dxil_reflection::get_render_target_count();
+		}
 
-		/// Returns the result of \p ID3D12ShaderReflection::GetThreadGroupSize().
-		[[nodiscard]] cvec3s get_thread_group_size() const;
+		/// Calls the method in the base class.
+		[[nodiscard]] cvec3s get_thread_group_size() const {
+			return dxil_reflection::get_thread_group_size();
+		}
 
 		/// Returns whether this holds a valid object.
 		[[nodiscard]] bool is_valid() const {
-			return std::visit([](const auto &refl) {
-				return refl != nullptr;
-			}, _reflection);
-		}
-	private:
-		/// Shared pointer to a \p ID3D12ShaderReflection.
-		using _shader_refl_ptr = _details::com_ptr<ID3D12ShaderReflection>;
-		/// Raw pointer to a \p ID3D12FunctionReflection.
-		using _function_refl_ptr = ID3D12FunctionReflection*;
-		/// Union of possible shader reflection types.
-		using _union = std::variant<_shader_refl_ptr, _function_refl_ptr>;
-
-		_union _reflection; ///< Shader reflection object.
-
-		/// Initializes this object with a shader reflection object.
-		explicit shader_reflection(_shader_refl_ptr ptr) :
-			_reflection(std::in_place_type<_shader_refl_ptr>, std::move(ptr)) {
-		}
-		/// Initializes this object with a function reflection object.
-		explicit shader_reflection(_function_refl_ptr ptr) :
-			_reflection(std::in_place_type<_function_refl_ptr>, ptr) {
-		}
-
-		/// Calls the given callback with either a \p D3D12_SHADER_DESC or a \p D3D12_FUNCTION_DESC, depending on
-		/// which type is currently held by this reflection obejct.
-		template <typename Cb> auto _visit_desc(Cb &&cb) const {
-			if (std::holds_alternative<_shader_refl_ptr>(_reflection)) {
-				D3D12_SHADER_DESC desc = {};
-				_details::assert_dx(std::get<_shader_refl_ptr>(_reflection)->GetDesc(&desc));
-				return cb(desc);
-			} else {
-				D3D12_FUNCTION_DESC desc = {};
-				_details::assert_dx(std::get<_function_refl_ptr>(_reflection)->GetDesc(&desc));
-				return cb(desc);
-			}
+			return dxil_reflection::is_valid();
 		}
 	};
 

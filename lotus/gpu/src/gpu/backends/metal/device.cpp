@@ -9,6 +9,7 @@
 #include <Metal/Metal.hpp>
 
 #include "lotus/gpu/resources.h"
+#include "lotus/gpu/backends/common/dxc.h"
 #include "metal_irconverter_include.h"
 
 namespace lotus::gpu::backends::metal {
@@ -35,82 +36,184 @@ namespace lotus::gpu::backends::metal {
 		return command_list(NS::RetainPtr(alloc._q->commandBuffer()));
 	}
 
+	/// Default resource options for argument buffers. Assumes that we don't need to read from the argument buffer.
+	constexpr static MTL::ResourceOptions _arg_buffer_options =
+		MTL::ResourceOptionCPUCacheModeWriteCombined |
+		MTL::ResourceStorageModeShared |
+		MTL::ResourceHazardTrackingModeUntracked;
+
 	descriptor_pool device::create_descriptor_pool(
 		std::span<const descriptor_range> capacity, std::size_t max_num_sets
 	) {
-		// TODO
+		std::size_t total_resources = 0;
+		for (const descriptor_range &range : capacity) {
+			total_resources += range.count;
+		}
+		auto heap_desc = NS::TransferPtr(MTL::HeapDescriptor::alloc()->init());
+		heap_desc->setType(MTL::HeapTypeAutomatic);
+		heap_desc->setResourceOptions(_arg_buffer_options);
+		heap_desc->setSize(total_resources * sizeof(IRDescriptorTableEntry));
+		auto heap = NS::TransferPtr(_dev->newHeap(heap_desc.get()));
+		return descriptor_pool(std::move(heap));
 	}
 
-	descriptor_set device::create_descriptor_set(descriptor_pool&, const descriptor_set_layout&) {
-		// TODO
+	descriptor_set device::create_descriptor_set(descriptor_pool &pool, const descriptor_set_layout &layout) {
+		std::uint32_t max_slot_index = 0;
+		for (const descriptor_range_binding &range : layout._bindings) {
+			max_slot_index = std::max(max_slot_index, range.get_last_register_index());
+		}
+		const NS::UInteger size_bytes = (max_slot_index + 1) * sizeof(IRDescriptorTableEntry);
+		auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
+		return descriptor_set(std::move(buf_ptr), max_slot_index + 1);
 	}
 
 	descriptor_set device::create_descriptor_set(
-		descriptor_pool&, const descriptor_set_layout&, std::size_t dynamic_size
+		descriptor_pool &pool, const descriptor_set_layout &layout, std::size_t dynamic_size
 	) {
-		// TODO
+		std::uint32_t max_slot_index = 0;
+		for (const descriptor_range_binding &range : layout._bindings) {
+			if (range.range.count == descriptor_range::unbounded_count) {
+				max_slot_index = range.register_index + dynamic_size - 1;
+			} else {
+				max_slot_index = std::max(max_slot_index, range.get_last_register_index());
+			}
+		}
+		const NS::UInteger size_bytes = (max_slot_index + 1) * sizeof(IRDescriptorTableEntry);
+		auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
+		return descriptor_set(std::move(buf_ptr), max_slot_index + 1);
 	}
 
 	void device::write_descriptor_set_read_only_images(
-		descriptor_set&,
-		const descriptor_set_layout&,
+		descriptor_set &set,
+		const descriptor_set_layout &layout,
 		std::size_t first_register,
-		std::span<const image_view_base *const>
+		std::span<const image_view_base *const> images
 	) {
-		// TODO
+		// TODO validate that we're writing to a range of the correct type
+		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
+		for (std::size_t i = 0; i < images.size(); ++i) {
+			const auto *const img = static_cast<const _details::basic_image_view_base*>(images[i]);
+			// TODO lod clamp
+			IRDescriptorTableSetTexture(&arr[first_register + i], img->_tex.get(), 0.0f, 0);
+			set._resources[first_register + i] = img->_tex;
+		}
 	}
 
 	void device::write_descriptor_set_read_write_images(
-		descriptor_set&,
-		const descriptor_set_layout&,
+		descriptor_set &set,
+		const descriptor_set_layout &layout,
 		std::size_t first_register,
-		std::span<const image_view_base *const>
+		std::span<const image_view_base *const> images
 	) {
-		// TODO
+		// Metal does not distinguish between read-only and read-write bindings
+		write_descriptor_set_read_only_images(set, layout, first_register, images);
 	}
 
 	void device::write_descriptor_set_read_only_structured_buffers(
-		descriptor_set&,
-		const descriptor_set_layout&,
+		descriptor_set &set,
+		const descriptor_set_layout &layout,
 		std::size_t first_regsiter,
-		std::span<const structured_buffer_view>
+		std::span<const structured_buffer_view> buffers
 	) {
-		// TODO
+		// TODO validate that we're writing to a range of the correct type
+		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
+		for (std::size_t i = 0; i < buffers.size(); ++i) {
+			// TODO metal does not support custom strides?
+			IRBufferView view = {};
+			view.buffer       = buffers[i].data->_buf.get();
+			view.bufferOffset = buffers[i].first * buffers[i].stride;
+			view.bufferSize   = buffers[i].count * buffers[i].stride;
+			view.typedBuffer  = true;
+			IRDescriptorTableSetBufferView(&arr[first_regsiter + i], &view);
+			set._resources[first_regsiter + i] = buffers[i].data->_buf;
+		}
 	}
 
 	void device::write_descriptor_set_read_write_structured_buffers(
-		descriptor_set&,
-		const descriptor_set_layout&,
+		descriptor_set &set,
+		const descriptor_set_layout &layout,
 		std::size_t first_regsiter,
-		std::span<const structured_buffer_view>
+		std::span<const structured_buffer_view> buffers
 	) {
-		// TODO
+		// Metal does not distinguish between read-only and read-write bindings
+		write_descriptor_set_read_only_structured_buffers(set, layout, first_regsiter, buffers);
 	}
 
 	void device::write_descriptor_set_constant_buffers(
-		descriptor_set&,
-		const descriptor_set_layout&,
+		descriptor_set &set,
+		const descriptor_set_layout &layout,
 		std::size_t first_register,
-		std::span<const constant_buffer_view>
+		std::span<const constant_buffer_view> buffers
 	) {
-		// TODO
+		// TODO validate that we're writing to a range of the correct type
+		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
+		for (std::size_t i = 0; i < buffers.size(); ++i) {
+			const std::uint64_t base_addr = buffers[i].data->_buf->gpuAddress();
+			IRDescriptorTableSetBuffer(&arr[first_register + i], base_addr + buffers[i].offset, 0);
+			set._resources[first_register + i] = buffers[i].data->_buf;
+		}
 	}
 
-	void device::write_descriptor_set_samplers(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const gpu::sampler *const>) {
-		// TODO
+	void device::write_descriptor_set_samplers(
+		descriptor_set &set,
+		const descriptor_set_layout &layout,
+		std::size_t first_register,
+		std::span<const gpu::sampler *const> samplers
+	) {
+		// TODO validate that we're writing to a range of the correct type
+		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
+		for (std::size_t i = 0; i < samplers.size(); ++i) {
+			IRDescriptorTableSetSampler(
+				&arr[first_register + i],
+				samplers[i]->_smp.get(),
+				samplers[i]->_mip_lod_bias
+			);
+			set._resources[first_register + i] = nullptr; // no need to call useResource() for samplers
+		}
 	}
 
 	shader_binary device::load_shader(std::span<const std::byte> data) {
+		shader_binary result = nullptr;
+
+		// convert from DXIL to Metal IR
+		common::dxc_compiler compiler = nullptr;
+		common::dxil_reflection refl = compiler.load_shader_reflection(data);
+		const common::dxil_reflection::reflection_ptr_union &refl_ptr = refl.get_raw_ptr();
+		crash_if(!std::holds_alternative<common::dxil_reflection::shader_reflection_ptr>(refl_ptr));
+		ID3D12ShaderReflection *dx_refl = std::get<common::dxil_reflection::shader_reflection_ptr>(refl_ptr).p;
+		_details::ir_unique_ptr<IRRootSignature> root_signature =
+			_details::shader::create_root_signature_for_dxil_reflection(dx_refl);
+		_details::shader::ir_conversion_result result_ir = _details::shader::convert_to_metal_ir(data, dx_refl);
+
+		// load vertex shader reflection data
+		auto shader_refl = _details::ir_make_unique(IRShaderReflectionCreate());
+		crash_if(!IRObjectGetReflection(
+			result_ir.object.get(),
+			IRObjectGetMetalIRShaderStage(result_ir.object.get()),
+			shader_refl.get()
+		));
+		if (
+			IRVersionedVSInfo vsinfo;
+			IRShaderReflectionCopyVertexInfo(shader_refl.get(), IRReflectionVersion_1_0, &vsinfo)
+		) {
+			for (std::size_t i = 0; i < vsinfo.info_1_0.num_vertex_inputs; ++i) {
+				const IRVertexInputInfo_1_0 &input = vsinfo.info_1_0.vertex_inputs[i];
+				result._vs_input_attributes.emplace_back(
+					std::u8string(string::assume_utf8(input.name)),
+					input.attributeIndex
+				);
+			}
+			IRShaderReflectionReleaseVertexInfo(&vsinfo);
+		}
+
 		NS::Error *err = nullptr;
-		auto *dispatch_data = dispatch_data_create(data.data(), data.size(), nullptr, nullptr);
-		auto lib = NS::TransferPtr(_dev->newLibrary(dispatch_data, &err));
+		result._lib = NS::TransferPtr(_dev->newLibrary(result_ir.data, &err));
 		if (err) {
 			std::abort(); // TODO error handling
 		}
-		// TODO do we need to retain this until the library is freed?
-		dispatch_release(dispatch_data);
 		// TODO do we need to keep the memory around until the library is freed?
-		return shader_binary(std::move(lib));
+
+		return result;
 	}
 
 	sampler device::create_sampler(
@@ -135,18 +238,32 @@ namespace lotus::gpu::backends::metal {
 		smp->setMinFilter(_details::conversions::to_sampler_min_mag_filter(minification));
 		smp->setMagFilter(_details::conversions::to_sampler_min_mag_filter(magnification));
 		smp->setMipFilter(_details::conversions::to_sampler_mip_filter(mipmapping));
-		// TODO lod bias?
 		smp->setLodMinClamp(min_lod);
 		smp->setLodMaxClamp(max_lod);
 		smp->setMaxAnisotropy(static_cast<NS::UInteger>(max_anisotropy.value_or(1.0f)));
 		smp->setCompareFunction(_details::conversions::to_compare_function(comparison));
-		return sampler(NS::TransferPtr(_dev->newSamplerState(smp.get())));
+		smp->setSupportArgumentBuffers(true);
+		return sampler(NS::TransferPtr(_dev->newSamplerState(smp.get())), mip_lod_bias);
 	}
 
 	descriptor_set_layout device::create_descriptor_set_layout(
-		std::span<const descriptor_range_binding>, shader_stage
+		std::span<const descriptor_range_binding> bindings, shader_stage stage
 	) {
-		// TODO
+		descriptor_set_layout result = nullptr;
+		result._bindings.insert(result._bindings.end(), bindings.begin(), bindings.end());
+		result._stage = stage;
+		std::sort(
+			result._bindings.begin(),
+			result._bindings.end(),
+			[](descriptor_range_binding lhs, descriptor_range_binding rhs) {
+				return lhs.register_index < rhs.register_index;
+			}
+		);
+		// verify that there are no overlapping ranges
+		for (std::size_t i = 1; i < result._bindings.size(); ++i) {
+			crash_if(result._bindings[i].register_index <= result._bindings[i - 1].get_last_register_index());
+		}
+		return result;
 	}
 
 	pipeline_resources device::create_pipeline_resources(std::span<const gpu::descriptor_set_layout *const>) {
@@ -176,7 +293,24 @@ namespace lotus::gpu::backends::metal {
 			buffer_layout->setStride(input_layout.stride);
 			buffer_layout->setStepFunction(_details::conversions::to_vertex_step_function(input_layout.input_rate));
 			for (const input_buffer_element &input_elem: input_layout.elements) {
-				const NS::UInteger elem_index = kIRStageInAttributeStartIndex + num_elements; // TODO THIS IS INCORRECT!
+				// find the index of this attribute
+				std::string semantic = std::format(
+					"{}{}", string::to_generic(input_elem.semantic_name), input_elem.semantic_index
+				);
+				for (char &c : semantic) {
+					c = std::tolower(c);
+				}
+				NS::UInteger elem_index = std::numeric_limits<NS::UInteger>::max();
+				for (std::size_t i = 0; i < vs->_vs_input_attributes.size(); ++i) {
+					if (vs->_vs_input_attributes[i].name == string::assume_utf8(semantic)) {
+						crash_if(elem_index != std::numeric_limits<NS::UInteger>::max()); // duplicate semantic
+						elem_index = i;
+					}
+				}
+				crash_if(elem_index == std::numeric_limits<NS::UInteger>::max());
+				elem_index += kIRStageInAttributeStartIndex;
+
+				// add vertex attribute
 				MTL::VertexAttributeDescriptor *attr = vert_descriptor->attributes()->object(elem_index);
 				attr->setFormat(_details::conversions::to_vertex_format(input_elem.element_format));
 				attr->setOffset(input_elem.byte_offset);
@@ -217,12 +351,17 @@ namespace lotus::gpu::backends::metal {
 				_details::conversions::to_blend_factor(blend_opts.source_color)
 			);
 		}
-		descriptor->setDepthAttachmentPixelFormat(
-			_details::conversions::to_pixel_format(fb_layout.depth_stencil_render_target_format)
-		);
-		descriptor->setStencilAttachmentPixelFormat(
-			_details::conversions::to_pixel_format(fb_layout.depth_stencil_render_target_format)
-		);
+		{
+			const auto &fmt_props = format_properties::get(fb_layout.depth_stencil_render_target_format);
+			const MTL::PixelFormat ds_format =
+				_details::conversions::to_pixel_format(fb_layout.depth_stencil_render_target_format);
+			if (fmt_props.has_depth()) {
+				descriptor->setDepthAttachmentPixelFormat(ds_format);
+			}
+			if (fmt_props.has_stencil()) {
+				descriptor->setStencilAttachmentPixelFormat(ds_format);
+			}
+		}
 		descriptor->setInputPrimitiveTopology(_details::conversions::to_primitive_topology_class(topology));
 		// TODO multisample and tessellation settings
 		descriptor->setSupportIndirectCommandBuffers(true);
@@ -247,6 +386,7 @@ namespace lotus::gpu::backends::metal {
 		auto pipeline_state = NS::TransferPtr(_dev->newRenderPipelineState(descriptor.get(), &error));
 		if (error) {
 			// TODO handle error
+			log().error("{}", error->localizedDescription()->utf8String());
 			std::abort();
 		}
 		auto depth_stencil_state = NS::TransferPtr(_dev->newDepthStencilState(ds_descriptor.get()));

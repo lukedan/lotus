@@ -38,9 +38,16 @@ namespace lotus::gpu::backends::metal {
 		/// Calls \p MTL::CommandQueue::commandBuffer().
 		[[nodiscard]] command_list create_and_start_command_list(command_allocator&);
 
-		[[nodiscard]] descriptor_pool create_descriptor_pool(std::span<const descriptor_range> capacity, std::size_t max_num_sets); // TODO
-		[[nodiscard]] descriptor_set create_descriptor_set(descriptor_pool&, const descriptor_set_layout&); // TODO
-		[[nodiscard]] descriptor_set create_descriptor_set(descriptor_pool&, const descriptor_set_layout&, std::size_t dynamic_size); // TODO
+		/// Creates a new \p MTL::Heap that is used to allocate descriptor sets out of.
+		[[nodiscard]] descriptor_pool create_descriptor_pool(
+			std::span<const descriptor_range> capacity, std::size_t max_num_sets
+		);
+		/// Creates a new \p MTL::Buffer allocated out of the given \p MTL::Heap to be used as an argument buffer.
+		[[nodiscard]] descriptor_set create_descriptor_set(descriptor_pool&, const descriptor_set_layout&);
+		/// Creates an argument buffer for the given bindless descriptor layout.
+		[[nodiscard]] descriptor_set create_descriptor_set(
+			descriptor_pool&, const descriptor_set_layout&, std::size_t dynamic_size
+		);
 
 		void write_descriptor_set_read_only_images(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const image_view_base *const>); // TODO
 		void write_descriptor_set_read_write_images(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const image_view_base *const>); // TODO
@@ -51,7 +58,8 @@ namespace lotus::gpu::backends::metal {
 		void write_descriptor_set_constant_buffers(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const constant_buffer_view>); // TODO
 		void write_descriptor_set_samplers(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const gpu::sampler *const>); // TODO
 
-		/// Calls \p MTL::Device::newLibrary() to load the given shader blob.
+		/// Converts the input DXIL into Metal IR, then calls \p MTL::Device::newLibrary() to load the given shader
+		/// blob.
 		[[nodiscard]] shader_binary load_shader(std::span<const std::byte> data);
 
 		/// Calls \p MTL::Device::newSamplerState().
@@ -62,7 +70,10 @@ namespace lotus::gpu::backends::metal {
 			linear_rgba_f border_color, comparison_function comparison
 		);
 
-		[[nodiscard]] descriptor_set_layout create_descriptor_set_layout(std::span<const descriptor_range_binding>, shader_stage); // TODO
+		/// Creates a new \ref descriptor_set_layout object.
+		[[nodiscard]] descriptor_set_layout create_descriptor_set_layout(
+			std::span<const descriptor_range_binding>, shader_stage
+		);
 
 		[[nodiscard]] pipeline_resources create_pipeline_resources(std::span<const gpu::descriptor_set_layout *const>); // TODO
 		[[nodiscard]] graphics_pipeline_state create_graphics_pipeline_state(

@@ -70,16 +70,11 @@ namespace lotus::gpu::backends::vulkan {
 		shader_library_reflection(std::nullptr_t) {
 		}
 
-		/// Enumerates over all shaders in this shader library.
-		template <typename Callback> void enumerate_shaders(Callback &cb) const {
-			auto count = _reflection->GetEntryPointCount();
-			for (std::uint32_t i = 0; i < count; ++i) {
-				if (!cb(shader_reflection(_reflection, i))) {
-					break;
-				}
-			}
-		}
-		///
+		/// Returns \p spv_reflect::ShaderModule::GetEntryPointCount().
+		[[nodiscard]] std::uint32_t get_num_shaders() const;
+		/// Returns the given entry point in the module.
+		[[nodiscard]] shader_reflection get_shader_at(std::uint32_t) const;
+		/// Finds the entry point that matches the given name and \ref shader_stage.
 		[[nodiscard]] shader_reflection find_shader(std::u8string_view entry, shader_stage) const;
 	private:
 		std::shared_ptr<spv_reflect::ShaderModule> _reflection; ///< Reflection data.

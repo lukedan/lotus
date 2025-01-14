@@ -8,6 +8,7 @@
 #include "lotus/gpu/commands.h"
 #include "lotus/gpu/synchronization.h"
 #include "metal_irconverter_include.h"
+#include "lotus/gpu/descriptors.h"
 
 namespace lotus::gpu::backends::metal {
 	void command_allocator::reset(device&) {
@@ -99,11 +100,15 @@ namespace lotus::gpu::backends::metal {
 	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
 		if constexpr (true) {
 			for (std::size_t i = 0; i < buffers.size(); ++i) {
+				// TODO stride not supported?
 				_pass_encoder->setVertexBuffer(
 					buffers[i].data->_buf.get(),
 					buffers[i].offset,
-					buffers[i].stride,
+					//buffers[i].stride,
 					kIRVertexBufferBindPoint + start + i
+				);
+				_pass_encoder->useResource(
+					buffers[i].data->_buf.get(), MTL::ResourceUsageRead, MTL::RenderStageVertex
 				);
 			}
 		} else {
@@ -132,8 +137,35 @@ namespace lotus::gpu::backends::metal {
 		_index_format       = fmt;
 	}
 
-	void command_list::bind_graphics_descriptor_sets(const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>) {
-		// TODO
+	void command_list::bind_graphics_descriptor_sets(
+		const pipeline_resources&,
+		std::size_t first,
+		std::span<const gpu::descriptor_set *const> sets
+	) {
+		const std::size_t bufsize_bytes = (first + sets.size() * sizeof(std::uint64_t));
+		auto buf = NS::TransferPtr(_buf->device()->newBuffer(bufsize_bytes, 0));
+		buf->setLabel(NS::String::string("Argument Buffer", NS::UTF8StringEncoding));
+		auto *ptr = static_cast<std::uint64_t*>(buf->contents());
+		for (std::size_t i = 0; i < sets.size(); ++i) {
+			ptr[first + i] = sets[i]->_arg_buffer->gpuAddress();
+			for (const NS::SharedPtr<MTL::Resource> &rsrc : sets[i]->_resources) {
+				if (rsrc) {
+					_pass_encoder->useResource(
+						rsrc.get(),
+						MTL::ResourceUsageRead | MTL::ResourceUsageSample,
+						MTL::RenderStageVertex | MTL::RenderStageFragment
+					);
+				}
+			}
+			_pass_encoder->useResource(
+				sets[i]->_arg_buffer.get(),
+				MTL::ResourceUsageRead,
+				MTL::RenderStageVertex | MTL::RenderStageFragment
+			);
+		}
+		// TODO is this correct?
+		_pass_encoder->setFragmentBuffer(buf.get(), 0, kIRArgumentBufferBindPoint);
+		_pass_encoder->setVertexBuffer(buf.get(), 0, kIRArgumentBufferBindPoint);
 	}
 
 	void command_list::bind_compute_descriptor_sets(const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>) {
@@ -222,7 +254,7 @@ namespace lotus::gpu::backends::metal {
 			index_count,
 			_details::conversions::to_index_type(_index_format),
 			_index_buffer,
-			_index_offset_bytes / 4,
+			_index_offset_bytes,
 			instance_count,
 			first_vertex,
 			first_instance
@@ -234,6 +266,9 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::resource_barrier(std::span<const image_barrier>, std::span<const buffer_barrier>) {
+		auto event = NS::TransferPtr(_buf->device()->newEvent());
+		_buf->encodeSignalEvent(event.get(), 1);
+		_buf->encodeWait(event.get(), 1);
 		// TODO
 	}
 

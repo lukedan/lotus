@@ -46,31 +46,8 @@ namespace lotus::renderer::dear_imgui {
 			io.BackendRendererName = "imgui_impl_lotus_renderer";
 			io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
 
-			{
-				auto &ctx = result._asset_man.get_context();
-
-				unsigned char *tex_data;
-				int width;
-				int height;
-				io.Fonts->GetTexDataAsRGBA32(&tex_data, &width, &height);
-
-				result._font_texture = ctx.request_image2d(
-					u8"Dear ImGui Font Atlas", cvec2i(width, height).into<std::uint32_t>(), 1,
-					gpu::format::r8g8b8a8_unorm,
-					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read, nullptr
-				);
-				auto staging_buffer = ctx.request_staging_buffer_for(
-					u8"Dear ImGui Font Atlas Staging Buffer", result._font_texture
-				);
-				auto *tex_data_bytes = reinterpret_cast<const std::byte*>(tex_data);
-				ctx.write_image_data_to_buffer_tight(
-					staging_buffer.data, staging_buffer.meta, { tex_data_bytes, tex_data_bytes + width * height * 4 }
-				);
-				result._q.copy_buffer_to_image(
-					staging_buffer, result._font_texture, 0, zero, u8"Upload Dear ImGui Font Atlas"
-				);
-				io.Fonts->SetTexID(result.register_texture(result._font_texture));
-			}
+			result._font_texture = _upload_font_texture(io, result._asset_man.get_context(), result._q);
+			io.Fonts->SetTexID(result.register_texture(result._font_texture));
 
 			return result;
 		}
@@ -180,6 +157,7 @@ namespace lotus::renderer::dear_imgui {
 			}
 		}
 
+		// TODO this won't work!
 		/// Registers a texture to be used with Dear ImGui. This needs to be called every frame the texture is used.
 		[[nodiscard]] ImTextureID register_texture(image2d_view img) {
 			if (!img) {
@@ -201,5 +179,34 @@ namespace lotus::renderer::dear_imgui {
 		assets::handle<assets::shader> _vertex_shader; ///< Vertex shader.
 		assets::handle<assets::shader> _pixel_shader; ///< Pixel shader.
 		image2d_view _font_texture; ///< The font texture.
+
+		/// Uploads the font texture to the GPU, without setting the font texture label.
+		[[nodiscard]] static image2d_view _upload_font_texture(
+			const ImGuiIO &io,
+			renderer::context &rctx,
+			renderer::context::queue &q
+		) {
+			unsigned char *tex_data;
+			int width;
+			int height;
+			io.Fonts->GetTexDataAsRGBA32(&tex_data, &width, &height);
+
+			image2d_view result = rctx.request_image2d(
+				u8"Dear ImGui Font Atlas", cvec2i(width, height).into<std::uint32_t>(), 1,
+				gpu::format::r8g8b8a8_unorm,
+				gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read, nullptr
+			);
+			auto staging_buffer = rctx.request_staging_buffer_for(
+				u8"Dear ImGui Font Atlas Staging Buffer", result
+			);
+			auto *tex_data_bytes = reinterpret_cast<const std::byte*>(tex_data);
+			rctx.write_image_data_to_buffer_tight(
+				staging_buffer.data, staging_buffer.meta, { tex_data_bytes, tex_data_bytes + width * height * 4 }
+			);
+			q.copy_buffer_to_image(
+				staging_buffer, result, 0, zero, u8"Upload Dear ImGui Font Atlas"
+			);
+			return result;
+		}
 	};
 }

@@ -7,8 +7,10 @@ option(LOTUS_GPU_DIRECTX12_USE_PIX "Whether to use the PIX API if it's available
 option(LOTUS_GPU_VULKAN_USE_SYSTEM_DXC "Whether to use system DXC for vulkan instead of the one bundled in Vulkan SDK." NO)
 
 set(LOTUS_GPU_COMMON_HEADERS
+	"include/lotus/gpu/backends/common/details.h"
 	"include/lotus/gpu/backends/common/dxc.h"
 	"include/lotus/gpu/backends/common/dxgi_format.h"
+	"include/lotus/gpu/backends/common/dxil_reflection.h"
 
 	"include/lotus/gpu/acceleration_structure.h"
 	"include/lotus/gpu/commands.h"
@@ -21,8 +23,10 @@ set(LOTUS_GPU_COMMON_HEADERS
 	"include/lotus/gpu/resources.h"
 	"include/lotus/gpu/synchronization.h")
 set(LOTUS_GPU_COMMON_SOURCES
+	"src/gpu/backends/common/details.cpp"
 	"src/gpu/backends/common/dxc.cpp"
 	"src/gpu/backends/common/dxgi_format.cpp"
+	"src/gpu/backends/common/dxil_reflection.cpp"
 
 	"src/gpu/common.cpp")
 
@@ -76,8 +80,7 @@ if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 			"src/gpu/backends/directx12/descriptors.cpp"
 			"src/gpu/backends/directx12/details.cpp"
 			"src/gpu/backends/directx12/device.cpp"
-			"src/gpu/backends/directx12/frame_buffer.cpp"
-			"src/gpu/backends/directx12/pipeline.cpp")
+			"src/gpu/backends/directx12/frame_buffer.cpp")
 	add_gpu_backend_include_definitions(lotus_gpu_directx12 "lotus/gpu/backends/directx12/")
 	target_link_libraries(lotus_gpu_directx12
 		PUBLIC

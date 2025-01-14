@@ -40,9 +40,9 @@ namespace lotus::gpu::backends::vulkan {
 		if (_reflection) {
 			_cache = std::make_unique<_cached_data>();
 			const SpvReflectShaderModule &module = _reflection->GetShaderModule();
-			const SpvReflectEntryPoint &entry = module.entry_points[_entry_point_index];
-			const uint32_t *uniforms_begin = entry.used_uniforms;
-			const uint32_t *uniforms_end = uniforms_begin + entry.used_uniform_count;
+			const SpvReflectEntryPoint &entry_point = module.entry_points[_entry_point_index];
+			const uint32_t *uniforms_begin = entry_point.used_uniforms;
+			const uint32_t *uniforms_end = uniforms_begin + entry_point.used_uniform_count;
 			for (std::uint32_t i = 0; i < module.descriptor_binding_count; ++i) {
 				const SpvReflectDescriptorBinding &binding = module.descriptor_bindings[i];
 				const auto it = std::lower_bound(uniforms_begin, uniforms_end, binding.spirv_id);
@@ -56,6 +56,14 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	}
 
+
+	std::uint32_t shader_library_reflection::get_num_shaders() const {
+		return _reflection->GetEntryPointCount();
+	}
+
+	shader_reflection shader_library_reflection::get_shader_at(std::uint32_t i) const {
+		return shader_reflection(_reflection, i);
+	}
 
 	shader_reflection shader_library_reflection::find_shader(std::u8string_view entry, shader_stage stage) const {
 		auto count = _reflection->GetEntryPointCount();

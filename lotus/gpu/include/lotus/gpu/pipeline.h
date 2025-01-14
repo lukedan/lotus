@@ -98,20 +98,13 @@ namespace lotus::gpu {
 			return *this;
 		}
 
-		/// Enumerates all shaders in this library.
-		template <typename Callback> void enumerate_shaders(Callback &&cb) const {
-			backend::shader_library_reflection::enumerate_shaders(
-				[&](const shader_reflection &refl) {
-					using _result_t = std::invoke_result_t<Callback&&, const shader_reflection&>;
-					if constexpr (std::is_same_v<_result_t, bool>) {
-						return cb(refl);
-					} else {
-						static_assert(std::is_same_v<_result_t, void>, "Callback must return bool or nothing");
-						cb(refl);
-						return true;
-					}
-				}
-			);
+		/// Returns the number of shaders contained by this shader library.
+		[[nodiscard]] std::uint32_t get_num_shaders() const {
+			return backend::shader_library_reflection::get_num_shaders();
+		}
+		/// Returns the i-th shader in this shader library.
+		[[nodiscard]] shader_reflection get_shader_at(std::uint32_t i) const {
+			return backend::shader_library_reflection::get_shader_at(i);
 		}
 		/// Finds a shader that matches the given entry name and stage. If none is found, returns an empty object.
 		[[nodiscard]] shader_reflection find_shader(std::u8string_view entry, shader_stage stage) const {

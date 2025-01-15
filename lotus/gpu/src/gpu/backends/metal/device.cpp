@@ -439,7 +439,7 @@ namespace lotus::gpu::backends::metal {
 		image_usage_mask usages
 	) {
 		auto descriptor = _details::create_texture_descriptor(
-			MTL::TextureType2D,
+			MTL::TextureType2DArray, // need to use array type for Metal-DXIR interop
 			fmt,
 			cvec3u32(size, 1),
 			mip_levels,
@@ -490,7 +490,7 @@ namespace lotus::gpu::backends::metal {
 		image_usage_mask usages
 	) {
 		auto descriptor = _details::create_texture_descriptor(
-			MTL::TextureType2D,
+			MTL::TextureType2DArray,
 			fmt,
 			cvec3u32(size, 1),
 			mip_levels,
@@ -537,7 +537,7 @@ namespace lotus::gpu::backends::metal {
 		std::size_t offset
 	) {
 		auto descriptor = _details::create_texture_descriptor(
-			MTL::TextureType2D,
+			MTL::TextureType2DArray,
 			fmt,
 			cvec3u32(size, 1),
 			mip_levels,
@@ -589,7 +589,7 @@ namespace lotus::gpu::backends::metal {
 
 		return image2d_view(NS::TransferPtr(img._tex->newTextureView(
 			_details::conversions::to_pixel_format(fmt),
-			MTL::TextureType2D,
+			MTL::TextureType2DArray,
 			_details::conversions::to_range(mips, img._tex.get()),
 			NS::Range(0, 1)
 		)));

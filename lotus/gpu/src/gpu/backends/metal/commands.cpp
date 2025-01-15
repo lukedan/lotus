@@ -142,12 +142,10 @@ namespace lotus::gpu::backends::metal {
 		std::size_t first,
 		std::span<const gpu::descriptor_set *const> sets
 	) {
-		const std::size_t bufsize_bytes = (first + sets.size() * sizeof(std::uint64_t));
-		auto buf = NS::TransferPtr(_buf->device()->newBuffer(bufsize_bytes, 0));
-		buf->setLabel(NS::String::string("Argument Buffer", NS::UTF8StringEncoding));
-		auto *ptr = static_cast<std::uint64_t*>(buf->contents());
+		auto bookmark = get_scratch_bookmark();
+		auto bindings = bookmark.create_vector_array<std::uint64_t>(first + sets.size());
 		for (std::size_t i = 0; i < sets.size(); ++i) {
-			ptr[first + i] = sets[i]->_arg_buffer->gpuAddress();
+			bindings[first + i] = sets[i]->_arg_buffer->gpuAddress();
 			for (const NS::SharedPtr<MTL::Resource> &rsrc : sets[i]->_resources) {
 				if (rsrc) {
 					_pass_encoder->useResource(
@@ -163,9 +161,9 @@ namespace lotus::gpu::backends::metal {
 				MTL::RenderStageVertex | MTL::RenderStageFragment
 			);
 		}
-		// TODO is this correct?
-		_pass_encoder->setFragmentBuffer(buf.get(), 0, kIRArgumentBufferBindPoint);
-		_pass_encoder->setVertexBuffer(buf.get(), 0, kIRArgumentBufferBindPoint);
+		const std::size_t bindings_bytes = bindings.size() * sizeof(std::uint64_t);
+		_pass_encoder->setVertexBytes(bindings.data(), bindings_bytes, kIRArgumentBufferBindPoint);
+		_pass_encoder->setFragmentBytes(bindings.data(), bindings_bytes, kIRArgumentBufferBindPoint);
 	}
 
 	void command_list::bind_compute_descriptor_sets(const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>) {
@@ -232,7 +230,10 @@ namespace lotus::gpu::backends::metal {
 	void command_list::draw_instanced(
 		std::size_t first_vertex, std::size_t vertex_count, std::size_t first_instance, std::size_t instance_count
 	) {
-		_pass_encoder->drawPrimitives(
+		// this function is used instead of the member function to bind additional auxiliary buffers for HLSL
+		// interoperability; same for draw_indexed_instanced()
+		IRRuntimeDrawPrimitives(
+			_pass_encoder.get(),
 			_details::conversions::to_primitive_type(_topology),
 			first_vertex,
 			vertex_count,
@@ -249,7 +250,8 @@ namespace lotus::gpu::backends::metal {
 		std::size_t instance_count
 	) {
 		crash_if(_index_offset_bytes % 4 != 0); // Metal does not support non-multiple-of-4 offsets
-		_pass_encoder->drawIndexedPrimitives(
+		IRRuntimeDrawIndexedPrimitives(
+			_pass_encoder.get(),
 			_details::conversions::to_primitive_type(_topology),
 			index_count,
 			_details::conversions::to_index_type(_index_format),

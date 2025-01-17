@@ -39,7 +39,7 @@ namespace lotus::gpu::backends::vulkan {
 		[[nodiscard]] std::uint32_t get_render_target_count() const;
 
 		/// Returns the thread group size.
-		[[nodiscard]] cvec3s get_thread_group_size() const;
+		[[nodiscard]] cvec3u32 get_thread_group_size() const;
 
 		/// Returns whether this object is valid.
 		[[nodiscard]] bool is_valid() const {

@@ -41,7 +41,7 @@ namespace lotus::gpu::backends::common {
 		[[nodiscard]] std::uint32_t get_render_target_count() const;
 
 		/// Returns the result of \p ID3D12ShaderReflection::GetThreadGroupSize().
-		[[nodiscard]] cvec3s get_thread_group_size() const;
+		[[nodiscard]] cvec3u32 get_thread_group_size() const;
 
 		/// Returns whether this holds a valid object.
 		[[nodiscard]] bool is_valid() const {

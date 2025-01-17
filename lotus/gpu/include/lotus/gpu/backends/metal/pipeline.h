@@ -47,7 +47,7 @@ namespace lotus::gpu::backends::metal {
 		}
 
 		/// Calls the method in the base class.
-		[[nodiscard]] cvec3s get_thread_group_size() const {
+		[[nodiscard]] cvec3u32 get_thread_group_size() const {
 			return dxil_reflection::get_thread_group_size();
 		}
 
@@ -103,6 +103,7 @@ namespace lotus::gpu::backends::metal {
 
 		NS::SharedPtr<MTL::Library> _lib; ///< The Metal library.
 		std::vector<_vertex_input_attribute> _vs_input_attributes; ///< Vertex shader input attributes.
+		cvec3u32 _thread_group_size = zero; ///< Compute shader thread group size.
 
 		/// Checks that \ref _lib contains only one function, and returns it.
 		[[nodiscard]] NS::SharedPtr<MTL::Function> _get_single_function() const;
@@ -110,6 +111,7 @@ namespace lotus::gpu::backends::metal {
 
 	// TODO
 	class pipeline_resources {
+		friend device;
 	protected:
 		pipeline_resources(std::nullptr_t) {
 			// TODO
@@ -141,11 +143,21 @@ namespace lotus::gpu::backends::metal {
 		}
 	};
 
-	// TODO
+	/// Contains a \p MTL::ComputePipelineState.
 	class compute_pipeline_state {
+		friend command_list;
+		friend device;
 	protected:
+		/// Initializes the object to empty.
 		compute_pipeline_state(std::nullptr_t) {
-			// TODO
+		}
+	private:
+		NS::SharedPtr<MTL::ComputePipelineState> _pipeline; ///< The pipeline state object.
+		cvec3u32 _thread_group_size = zero;
+
+		/// Initializes all fields of this struct.
+		compute_pipeline_state(NS::SharedPtr<MTL::ComputePipelineState> p, cvec3u32 thread_group_size) :
+			_pipeline(std::move(p)), _thread_group_size(thread_group_size) {
 		}
 	};
 

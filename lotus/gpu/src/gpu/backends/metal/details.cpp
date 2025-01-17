@@ -340,6 +340,13 @@ namespace lotus::gpu::backends::metal::_details {
 			return table.get_union(m);
 		}
 
+		MTL::ShaderValidation to_shader_validation(context_options opts) {
+			return
+				bit_mask::contains<context_options::enable_validation>(opts) ?
+				MTL::ShaderValidationEnabled :
+				MTL::ShaderValidationDisabled;
+		}
+
 		IRDescriptorRangeType to_ir_descriptor_range_type(D3D_SHADER_INPUT_TYPE type) {
 			constexpr static enums::sequential_mapping<
 				D3D_SHADER_INPUT_TYPE, IRDescriptorRangeType, D3D_SIT_UAV_FEEDBACKTEXTURE + 1
@@ -396,6 +403,10 @@ namespace lotus::gpu::backends::metal::_details {
 			desc->setReadMask(stencil_read);
 			desc->setWriteMask(stencil_write);
 			return desc;
+		}
+
+		MTL::Size to_size(cvec3<NS::UInteger> sz) {
+			return MTL::Size(sz[0], sz[1], sz[2]);
 		}
 
 

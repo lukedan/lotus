@@ -93,7 +93,6 @@ namespace lotus::gpu::backends::metal {
 		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
 		for (std::size_t i = 0; i < images.size(); ++i) {
 			const auto *const img = static_cast<const _details::basic_image_view_base*>(images[i]);
-			// TODO lod clamp
 			IRDescriptorTableSetTexture(&arr[first_register + i], img->_tex.get(), 0.0f, 0);
 			set._resources[first_register + i] = img->_tex;
 		}
@@ -206,10 +205,14 @@ namespace lotus::gpu::backends::metal {
 			IRShaderReflectionReleaseVertexInfo(&vsinfo);
 		}
 
+		// load compute shader reflection data
+		result._thread_group_size = refl.get_thread_group_size();
+
 		NS::Error *err = nullptr;
 		result._lib = NS::TransferPtr(_dev->newLibrary(result_ir.data, &err));
 		if (err) {
-			std::abort(); // TODO error handling
+			log().error("{}", err->localizedDescription()->utf8String());
+			std::abort();
 		}
 		// TODO do we need to keep the memory around until the library is freed?
 
@@ -268,6 +271,7 @@ namespace lotus::gpu::backends::metal {
 
 	pipeline_resources device::create_pipeline_resources(std::span<const gpu::descriptor_set_layout *const>) {
 		// TODO
+		return nullptr;
 	}
 
 	graphics_pipeline_state device::create_graphics_pipeline_state(
@@ -365,6 +369,7 @@ namespace lotus::gpu::backends::metal {
 		descriptor->setInputPrimitiveTopology(_details::conversions::to_primitive_topology_class(topology));
 		// TODO multisample and tessellation settings
 		descriptor->setSupportIndirectCommandBuffers(true);
+		descriptor->setShaderValidation(_details::conversions::to_shader_validation(_context_opts));
 
 		auto ds_descriptor = NS::TransferPtr(MTL::DepthStencilDescriptor::alloc()->init());
 		if (depth_stencil.enable_depth_testing) {
@@ -385,7 +390,6 @@ namespace lotus::gpu::backends::metal {
 		NS::Error *error = nullptr;
 		auto pipeline_state = NS::TransferPtr(_dev->newRenderPipelineState(descriptor.get(), &error));
 		if (error) {
-			// TODO handle error
 			log().error("{}", error->localizedDescription()->utf8String());
 			std::abort();
 		}
@@ -398,9 +402,15 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	compute_pipeline_state device::create_compute_pipeline_state(
-		const pipeline_resources&, const shader_binary&
+		const pipeline_resources&, const shader_binary &shader
 	) {
-		// TODO
+		NS::Error *error = nullptr;
+		auto pipeline = NS::TransferPtr(_dev->newComputePipelineState(shader._get_single_function().get(), &error));
+		if (error) {
+			log().error("{}", error->localizedDescription()->utf8String());
+			std::abort();
+		}
+		return compute_pipeline_state(std::move(pipeline), shader._thread_group_size);
 	}
 
 	std::span<const std::pair<memory_type_index, memory_properties>> device::enumerate_memory_types() const {
@@ -584,6 +594,7 @@ namespace lotus::gpu::backends::metal {
 		if (img._tex->framebufferOnly()) {
 			// cannot create views of framebuffer only textures
 			// TODO check that the formats etc. match
+			crash_if(_details::conversions::to_pixel_format(fmt) != img._tex->pixelFormat());
 			return image2d_view(img._tex);
 		}
 
@@ -753,7 +764,7 @@ namespace lotus::gpu::backends::metal {
 			auto ptr = NS::TransferPtr(_dev->newCommandQueue());
 			queues.emplace_back(command_queue(std::move(ptr)));
 		}
-		return { device(_dev), std::move(queues) };
+		return { device(_dev, _context_opts), std::move(queues) };
 	}
 
 	adapter_properties adapter::get_properties() const {
@@ -763,10 +774,10 @@ namespace lotus::gpu::backends::metal {
 		result.is_discrete = _dev->location() != MTL::DeviceLocationBuiltIn;
 		// TODO no way to query these?
 		// https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf
-		result.constant_buffer_alignment = 32;
-		result.acceleration_structure_alignment = 1; // TODO
-		result.shader_group_handle_size = 1; // TODO
-		result.shader_group_handle_alignment = 1; // TODO
+		result.constant_buffer_alignment           = 32;
+		result.acceleration_structure_alignment    = 1; // TODO
+		result.shader_group_handle_size            = 1; // TODO
+		result.shader_group_handle_alignment       = 1; // TODO
 		result.shader_group_handle_table_alignment = 1; // TODO
 		return result;
 	}

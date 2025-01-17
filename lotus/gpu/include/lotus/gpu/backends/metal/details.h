@@ -39,7 +39,7 @@ namespace lotus::gpu::backends::metal::_details {
 		/// Converts a \ref format to a \p MTL::VertexFormat.
 		[[nodiscard]] MTL::VertexFormat to_vertex_format(format);
 		/// Converts a \ref memory_type_index to a \p MTL::ResourceOptions.
-		[[nodiscard]] MTL::ResourceOptions to_resource_options(_details::memory_type_index);
+		[[nodiscard]] MTL::ResourceOptions to_resource_options(memory_type_index);
 		/// \overload
 		[[nodiscard]] inline MTL::ResourceOptions to_resource_options(gpu::memory_type_index i) {
 			return to_resource_options(static_cast<memory_type_index>(i));
@@ -80,6 +80,8 @@ namespace lotus::gpu::backends::metal::_details {
 		[[nodiscard]] MTL::BlendFactor to_blend_factor(blend_factor);
 		/// Converts a \ref channel_mask to a \p MTL::ColorWriteMask.
 		[[nodiscard]] MTL::ColorWriteMask to_color_write_mask(channel_mask);
+		/// Converts a \ref context_options to a \p MTL::ShaderValidation.
+		[[nodiscard]] MTL::ShaderValidation to_shader_validation(context_options);
 
 		/// Converts a \ref D3D_SHADER_INPUT_TYPE to a \p IRDescriptorRangeType.
 		[[nodiscard]] IRDescriptorRangeType to_ir_descriptor_range_type(D3D_SHADER_INPUT_TYPE);
@@ -92,6 +94,8 @@ namespace lotus::gpu::backends::metal::_details {
 		[[nodiscard]] NS::SharedPtr<MTL::StencilDescriptor> to_stencil_descriptor(
 			stencil_options, std::uint8_t stencil_read, std::uint8_t stencil_write
 		);
+		/// Converts a \ref cvec3 to a \p MTL::Size.
+		[[nodiscard]] MTL::Size to_size(cvec3<NS::UInteger>);
 
 		/// Converts a \p NS::String back to a \p std::string.
 		[[nodiscard]] std::u8string back_to_string(NS::String*);

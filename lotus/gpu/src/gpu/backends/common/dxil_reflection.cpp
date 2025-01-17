@@ -46,11 +46,11 @@ namespace lotus::gpu::backends::common {
 		return 0; // function shaders don't have output variables... do they?
 	}
 
-	cvec3s dxil_reflection::get_thread_group_size() const {
+	cvec3u32 dxil_reflection::get_thread_group_size() const {
 		if (std::holds_alternative<shader_reflection_ptr>(_reflection)) {
 			UINT x, y, z;
 			std::get<shader_reflection_ptr>(_reflection)->GetThreadGroupSize(&x, &y, &z);
-			return cvec3s(x, y, z);
+			return cvec3u32(x, y, z);
 		}
 		return zero; // there doesn't seem to be a way to bundle a compute shader into a library
 	}

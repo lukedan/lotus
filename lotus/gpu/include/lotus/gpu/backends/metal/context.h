@@ -34,6 +34,12 @@ namespace lotus::gpu::backends::metal {
 			std::size_t frame_count,
 			std::span<const format> formats
 		);
+	private:
+		context_options _context_options = context_options::none; ///< Context options.
+
+		/// Initializes all fields of this struct.
+		explicit context(context_options opts) : _context_options(opts) {
+		}
 	};
 
 	/// The DXC compiler.

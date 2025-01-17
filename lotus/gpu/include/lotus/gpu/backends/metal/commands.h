@@ -11,6 +11,7 @@
 #include "pipeline.h"
 #include "resources.h"
 #include "synchronization.h"
+#include "descriptors.h"
 
 namespace lotus::gpu::backends::metal {
 	class adapter;
@@ -54,14 +55,22 @@ namespace lotus::gpu::backends::metal {
 		/// \p MTL::RenderCommandEncoder with it.
 		void begin_pass(const frame_buffer&, const frame_buffer_access&);
 
-		void bind_pipeline_state(const graphics_pipeline_state&); // TODO
-		void bind_pipeline_state(const compute_pipeline_state&); // TODO
+		/// Binds all graphics pipeline related state to \ref _pass_encoder.
+		void bind_pipeline_state(const graphics_pipeline_state&);
+		/// Records the given pipeline state object to be bound during dispatches.
+		void bind_pipeline_state(const compute_pipeline_state&);
 		/// Calls \p MTL::RenderCommandEncoder::setVertexBuffers().
 		void bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer>);
 		/// Updates \ref _index_buffer, \ref _index_offset_bytes, and \ref _index_format.
 		void bind_index_buffer(const buffer&, std::size_t offset_bytes, index_format);
-		void bind_graphics_descriptor_sets(const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>); // TODO
-		void bind_compute_descriptor_sets(const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>); // TODO
+		/// Binds descriptor sets to \ref _pass_encoder.
+		void bind_graphics_descriptor_sets(
+			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>
+		);
+		/// Records the given descriptor sets to be bound during dispatches.
+		void bind_compute_descriptor_sets(
+			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>
+		);
 
 		void set_viewports(std::span<const viewport>); // TODO
 		void set_scissor_rectangles(std::span<const aab2i>); // TODO
@@ -97,7 +106,8 @@ namespace lotus::gpu::backends::metal {
 			std::size_t first_instance,
 			std::size_t instance_count
 		);
-		void run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z); // TODO
+		/// Creates a new \p MTL::ComputeCommandEncoder, binds resources, and calls \p dispatchThreadgroups().
+		void run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z);
 
 		void resource_barrier(std::span<const image_barrier>, std::span<const buffer_barrier>); // TODO
 
@@ -136,6 +146,24 @@ namespace lotus::gpu::backends::metal {
 		std::size_t _index_offset_bytes; ///< Currently bound index buffer offset.
 		index_format _index_format; ///< Currently bound index buffer format.
 		primitive_topology _topology; ///< Primitive topology of the last bound graphics pipeline.
+
+		NS::SharedPtr<MTL::ComputePipelineState> _compute_pipeline; ///< Currently bound compute pipeline state.
+		std::uint32_t _compute_first_descriptor_set = 0; ///< First descriptor set slot for the compute pass.
+		std::vector<const gpu::descriptor_set*> _compute_sets; ///< Descriptor sets to bind to the compute pass.
+		cvec3u32 _compute_thread_group_size = zero; ///< Thread group size of the currently bound compute pipeline.
+
+		/// Creates an argument buffer for the given set of descriptor tables.
+		[[nodiscard]] memory::stack_allocator::vector_type<std::uint64_t> _create_argument_buffer(
+			memory::stack_allocator::scoped_bookmark&,
+			std::uint32_t first,
+			std::span<const gpu::descriptor_set *const> sets
+		);
+		/// Marks all resources in the given descriptor sets to be used.
+		void _mark_resource_usage(
+			MTL::CommandEncoder*,
+			std::span<const gpu::descriptor_set *const>,
+			void (*mark)(MTL::CommandEncoder*, MTL::Resource*, MTL::ResourceUsage)
+		);
 
 		/// Initializes \ref _buf.
 		explicit command_list(NS::SharedPtr<MTL::CommandBuffer> buf) : _buf(std::move(buf)) {

@@ -29,9 +29,9 @@ namespace lotus::gpu::backends::vulkan {
 		return _reflection->GetShaderModule().entry_points[_entry_point_index].output_variable_count;
 	}
 
-	cvec3s shader_reflection::get_thread_group_size() const {
+	cvec3u32 shader_reflection::get_thread_group_size() const {
 		const auto &size = _reflection->GetShaderModule().entry_points[_entry_point_index].local_size;
-		return cvec3s(size.x, size.y, size.z);
+		return cvec3u32(size.x, size.y, size.z);
 	}
 
 	shader_reflection::shader_reflection(std::shared_ptr<spv_reflect::ShaderModule> ptr, std::uint32_t entry) :

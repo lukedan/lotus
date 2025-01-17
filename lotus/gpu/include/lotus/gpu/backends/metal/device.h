@@ -49,14 +49,50 @@ namespace lotus::gpu::backends::metal {
 			descriptor_pool&, const descriptor_set_layout&, std::size_t dynamic_size
 		);
 
-		void write_descriptor_set_read_only_images(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const image_view_base *const>); // TODO
-		void write_descriptor_set_read_write_images(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const image_view_base *const>); // TODO
+		/// Writes the given images into the descriptor table.
+		void write_descriptor_set_read_only_images(
+			descriptor_set&,
+			const descriptor_set_layout&,
+			std::size_t first_register,
+			std::span<const image_view_base *const>
+		);
+		/// Writes the given images into the descriptor table.
+		void write_descriptor_set_read_write_images(
+			descriptor_set&,
+			const descriptor_set_layout&,
+			std::size_t first_register,
+			std::span<const image_view_base *const>
+		);
 
-		void write_descriptor_set_read_only_structured_buffers(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const structured_buffer_view>); // TODO
-		void write_descriptor_set_read_write_structured_buffers(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const structured_buffer_view>); // TODO
+		/// Writes the given buffers into the descriptor table.
+		void write_descriptor_set_read_only_structured_buffers(
+			descriptor_set&,
+			const descriptor_set_layout&,
+			std::size_t first_register,
+			std::span<const structured_buffer_view>
+		);
+		/// Writes the given buffers into the descriptor table.
+		void write_descriptor_set_read_write_structured_buffers(
+			descriptor_set&,
+			const descriptor_set_layout&,
+			std::size_t first_register,
+			std::span<const structured_buffer_view>
+		);
 
-		void write_descriptor_set_constant_buffers(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const constant_buffer_view>); // TODO
-		void write_descriptor_set_samplers(descriptor_set&, const descriptor_set_layout&, std::size_t first_register, std::span<const gpu::sampler *const>); // TODO
+		/// Writes the given constant buffer into the descriptor table.
+		void write_descriptor_set_constant_buffers(
+			descriptor_set&,
+			const descriptor_set_layout&,
+			std::size_t first_register,
+			std::span<const constant_buffer_view>
+		);
+		/// Writes the given sampler into the descriptor table.
+		void write_descriptor_set_samplers(
+			descriptor_set&,
+			const descriptor_set_layout&,
+			std::size_t first_register,
+			std::span<const gpu::sampler *const>
+		);
 
 		/// Converts the input DXIL into Metal IR, then calls \p MTL::Device::newLibrary() to load the given shader
 		/// blob.
@@ -76,6 +112,7 @@ namespace lotus::gpu::backends::metal {
 		);
 
 		[[nodiscard]] pipeline_resources create_pipeline_resources(std::span<const gpu::descriptor_set_layout *const>); // TODO
+		/// Creates a new \p MTL::RenderPipelineState and a new \p MTL::DepthStencilState.
 		[[nodiscard]] graphics_pipeline_state create_graphics_pipeline_state(
 			const pipeline_resources&,
 			const shader_binary *vs,
@@ -90,7 +127,7 @@ namespace lotus::gpu::backends::metal {
 			primitive_topology,
 			const frame_buffer_layout&,
 			std::size_t num_viewports
-		); // TODO
+		);
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(
 			const pipeline_resources&, const shader_binary&
 		); // TODO
@@ -235,9 +272,10 @@ namespace lotus::gpu::backends::metal {
 		); // TODO
 	private:
 		NS::SharedPtr<MTL::Device> _dev; ///< The device.
+		context_options _context_opts = context_options::none; ///< Context options.
 
-		/// Initializes \ref _dev.
-		explicit device(NS::SharedPtr<MTL::Device> dev) : _dev(std::move(dev)) {
+		/// Initializes all fields of this class.
+		device(NS::SharedPtr<MTL::Device> dev, context_options opts) : _dev(std::move(dev)), _context_opts(opts) {
 		}
 	};
 
@@ -260,9 +298,10 @@ namespace lotus::gpu::backends::metal {
 		}
 	private:
 		NS::SharedPtr<MTL::Device> _dev; ///< The device.
+		context_options _context_opts = context_options::none; ///< Context options.
 
-		/// Initializes \p _dev.
-		adapter(NS::SharedPtr<MTL::Device> dev) : _dev(std::move(dev)) {
+		/// Initializes all fields of this class.
+		adapter(NS::SharedPtr<MTL::Device> dev, context_options opts) : _dev(std::move(dev)), _context_opts(opts) {
 		}
 	};
 }

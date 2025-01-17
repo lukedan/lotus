@@ -8,9 +8,9 @@
 #include "lotus/gpu/backends/metal/details.h"
 
 namespace lotus::gpu::backends::metal {
-	context context::create(context_options, _details::debug_message_callback) {
+	context context::create(context_options opts, _details::debug_message_callback) {
 		// TODO honor the options and debug callback?
-		return context();
+		return context(opts);
 	}
 
 	std::vector<adapter> context::get_all_adapters() const {
@@ -20,7 +20,7 @@ namespace lotus::gpu::backends::metal {
 		std::vector<adapter> result;
 		result.reserve(count);
 		for (std::size_t i = 0; i < count; ++i) {
-			result.emplace_back(adapter(NS::RetainPtr(arr->object<MTL::Device>(i))));
+			result.emplace_back(adapter(NS::RetainPtr(arr->object<MTL::Device>(i)), _context_options));
 		}
 		return result;
 	}

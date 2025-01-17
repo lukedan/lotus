@@ -6,9 +6,9 @@
 #include <Metal/Metal.hpp>
 
 #include "lotus/gpu/commands.h"
+#include "lotus/gpu/descriptors.h"
 #include "lotus/gpu/synchronization.h"
 #include "metal_irconverter_include.h"
-#include "lotus/gpu/descriptors.h"
 
 namespace lotus::gpu::backends::metal {
 	void command_allocator::reset(device&) {
@@ -90,11 +90,11 @@ namespace lotus::gpu::backends::metal {
 		);
 		// set topology
 		_topology = s._topology;
-		// TODO
 	}
 
-	void command_list::bind_pipeline_state(const compute_pipeline_state&) {
-		// TODO
+	void command_list::bind_pipeline_state(const compute_pipeline_state &s) {
+		_compute_pipeline          = s._pipeline;
+		_compute_thread_group_size = s._thread_group_size;
 	}
 
 	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
@@ -106,9 +106,6 @@ namespace lotus::gpu::backends::metal {
 					buffers[i].offset,
 					//buffers[i].stride,
 					kIRVertexBufferBindPoint + start + i
-				);
-				_pass_encoder->useResource(
-					buffers[i].data->_buf.get(), MTL::ResourceUsageRead, MTL::RenderStageVertex
 				);
 			}
 		} else {
@@ -143,31 +140,26 @@ namespace lotus::gpu::backends::metal {
 		std::span<const gpu::descriptor_set *const> sets
 	) {
 		auto bookmark = get_scratch_bookmark();
-		auto bindings = bookmark.create_vector_array<std::uint64_t>(first + sets.size());
-		for (std::size_t i = 0; i < sets.size(); ++i) {
-			bindings[first + i] = sets[i]->_arg_buffer->gpuAddress();
-			for (const NS::SharedPtr<MTL::Resource> &rsrc : sets[i]->_resources) {
-				if (rsrc) {
-					_pass_encoder->useResource(
-						rsrc.get(),
-						MTL::ResourceUsageRead | MTL::ResourceUsageSample,
-						MTL::RenderStageVertex | MTL::RenderStageFragment
-					);
-				}
+		auto bindings = _create_argument_buffer(bookmark, first, sets);
+		_mark_resource_usage(
+			_pass_encoder.get(), sets,
+			[](MTL::CommandEncoder *encoder, MTL::Resource *resource, MTL::ResourceUsage usages) {
+				static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(
+					resource, usages, MTL::RenderStageVertex | MTL::RenderStageFragment
+				);
 			}
-			_pass_encoder->useResource(
-				sets[i]->_arg_buffer.get(),
-				MTL::ResourceUsageRead,
-				MTL::RenderStageVertex | MTL::RenderStageFragment
-			);
-		}
+		);
 		const std::size_t bindings_bytes = bindings.size() * sizeof(std::uint64_t);
 		_pass_encoder->setVertexBytes(bindings.data(), bindings_bytes, kIRArgumentBufferBindPoint);
 		_pass_encoder->setFragmentBytes(bindings.data(), bindings_bytes, kIRArgumentBufferBindPoint);
 	}
 
-	void command_list::bind_compute_descriptor_sets(const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>) {
-		// TODO
+	void command_list::bind_compute_descriptor_sets(
+		const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const> sets
+	) {
+		_compute_first_descriptor_set = first;
+		_compute_sets.clear();
+		_compute_sets.insert(_compute_sets.end(), sets.begin(), sets.end());
 	}
 
 	void command_list::set_viewports(std::span<const viewport>) {
@@ -264,7 +256,25 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z) {
-		// TODO
+		auto bookmark = get_scratch_bookmark();
+		auto data = _create_argument_buffer(bookmark, _compute_first_descriptor_set, _compute_sets);
+		std::size_t data_size = data.size() * sizeof(std::uint64_t);
+
+		auto encoder = NS::TransferPtr(_buf->computeCommandEncoder());
+		encoder->setComputePipelineState(_compute_pipeline.get());
+		// bind resources
+		encoder->setBytes(data.data(), data_size, kIRArgumentBufferBindPoint);
+		_mark_resource_usage(
+			encoder.get(), _compute_sets,
+			[](MTL::CommandEncoder *encoder, MTL::Resource *rsrc, MTL::ResourceUsage usages) {
+				static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(rsrc, usages);
+			}
+		);
+		encoder->dispatchThreadgroups(
+			MTL::Size(x, y, z),
+			_details::conversions::to_size(_compute_thread_group_size.into<NS::UInteger>())
+		);
+		encoder->endEncoding();
 	}
 
 	void command_list::resource_barrier(std::span<const image_barrier>, std::span<const buffer_barrier>) {
@@ -339,6 +349,38 @@ namespace lotus::gpu::backends::metal {
 		std::size_t depth
 	) {
 		// TODO
+	}
+
+	memory::stack_allocator::vector_type<std::uint64_t> command_list::_create_argument_buffer(
+		memory::stack_allocator::scoped_bookmark &bookmark,
+		std::uint32_t first,
+		std::span<const gpu::descriptor_set *const> sets
+	) {
+		auto bindings = bookmark.create_vector_array<std::uint64_t>(first + sets.size());
+		for (std::size_t i = 0; i < sets.size(); ++i) {
+			bindings[first + i] = sets[i]->_arg_buffer->gpuAddress();
+		}
+		return bindings;
+	}
+
+	void command_list::_mark_resource_usage(
+		MTL::CommandEncoder *encoder,
+		std::span<const gpu::descriptor_set *const> sets,
+		void (*mark)(MTL::CommandEncoder*, MTL::Resource*, MTL::ResourceUsage)
+	) {
+		for (const gpu::descriptor_set *gpu_set : sets) {
+			const auto *set = static_cast<const descriptor_set*>(gpu_set);
+			for (const NS::SharedPtr<MTL::Resource> &rsrc : set->_resources) {
+				if (rsrc) {
+					mark(
+						encoder,
+						rsrc.get(),
+						MTL::ResourceUsageRead | MTL::ResourceUsageSample | MTL::ResourceUsageWrite // TODO
+					);
+				}
+			}
+			mark(encoder, set->_arg_buffer.get(), MTL::ResourceUsageRead);
+		}
 	}
 
 

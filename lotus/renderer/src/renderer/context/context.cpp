@@ -221,7 +221,7 @@ namespace lotus::renderer {
 		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_threads, all_resource_bindings resources,
 		std::u8string_view description
 	) {
-		auto thread_group_size = shader->reflection.get_thread_group_size().into<std::uint32_t>();
+		auto thread_group_size = shader->reflection.get_thread_group_size();
 		cvec3u32 groups = mat::memberwise_divide(
 			num_threads + thread_group_size - cvec3u32(1, 1, 1), thread_group_size
 		);

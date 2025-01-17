@@ -63,7 +63,7 @@ namespace lotus::gpu {
 		}
 
 		/// Returns the thread group size of this shader if it's a compute shader.
-		[[nodiscard]] cvec3s get_thread_group_size() const {
+		[[nodiscard]] cvec3u32 get_thread_group_size() const {
 			return backend::shader_reflection::get_thread_group_size();
 		}
 

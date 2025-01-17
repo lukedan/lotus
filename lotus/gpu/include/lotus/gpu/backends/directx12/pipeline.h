@@ -47,7 +47,7 @@ namespace lotus::gpu::backends::directx12 {
 		}
 
 		/// Calls the method in the base class.
-		[[nodiscard]] cvec3s get_thread_group_size() const {
+		[[nodiscard]] cvec3u32 get_thread_group_size() const {
 			return dxil_reflection::get_thread_group_size();
 		}
 

@@ -260,7 +260,7 @@ namespace lotus::gpu::backends::metal {
 		auto data = _create_argument_buffer(bookmark, _compute_first_descriptor_set, _compute_sets);
 		std::size_t data_size = data.size() * sizeof(std::uint64_t);
 
-		auto encoder = NS::TransferPtr(_buf->computeCommandEncoder());
+		auto encoder = NS::RetainPtr(_buf->computeCommandEncoder());
 		encoder->setComputePipelineState(_compute_pipeline.get());
 		// bind resources
 		encoder->setBytes(data.data(), data_size, kIRArgumentBufferBindPoint);
@@ -313,12 +313,16 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::build_acceleration_structure(
-		const bottom_level_acceleration_structure_geometry&,
+		const bottom_level_acceleration_structure_geometry &geom,
 		bottom_level_acceleration_structure &output,
 		buffer &scratch,
 		std::size_t scratch_offset
 	) {
-		// TODO
+		auto encoder = NS::RetainPtr(_buf->accelerationStructureCommandEncoder());
+		encoder->buildAccelerationStructure(
+			output._as.get(), geom._descriptor.get(), scratch._buf.get(), scratch_offset
+		);
+		encoder->endEncoding();
 	}
 
 	void command_list::build_acceleration_structure(
@@ -329,7 +333,36 @@ namespace lotus::gpu::backends::metal {
 		buffer &scratch,
 		std::size_t scratch_offset
 	) {
-		// TODO
+		using _count_type = NS::UInteger;
+
+		auto count_buffer = NS::TransferPtr(_buf->device()->newBuffer(sizeof(_count_type), 0));
+		*static_cast<_count_type*>(count_buffer->contents()) = count;
+		count_buffer->setLabel(NS::String::string("Build TLAS Count Buffer", NS::UTF8StringEncoding));
+
+		auto desc = NS::TransferPtr(MTL::IndirectInstanceAccelerationStructureDescriptor::alloc()->init());
+		desc->setInstanceCountBuffer(count_buffer.get());
+		desc->setInstanceCountBufferOffset(0);
+		desc->setInstanceDescriptorBuffer(instances._buf.get());
+		desc->setInstanceDescriptorBufferOffset(offset);
+		desc->setInstanceDescriptorStride(sizeof(instance_description));
+		desc->setInstanceDescriptorType(MTL::AccelerationStructureInstanceDescriptorTypeIndirect);
+		desc->setMaxInstanceCount(count);
+
+		// update the instance id buffer
+		const auto *header = static_cast<IRRaytracingAccelerationStructureGPUHeader*>(output._header->contents());
+		auto *instance_ids = reinterpret_cast<std::uint32_t*>(header->addressOfInstanceContributions);
+		const auto *instance_descriptors = static_cast<instance_description*>(instances._buf->contents());
+		for (std::size_t i = 0; i < count; ++i) {
+			instance_ids[i] = instance_descriptors[i]._descriptor.userID;
+		}
+
+		auto encoder = NS::RetainPtr(_buf->accelerationStructureCommandEncoder());
+		encoder->useResource(count_buffer.get(), MTL::ResourceUsageRead);
+		encoder->useResource(instances._buf.get(), MTL::ResourceUsageRead);
+		encoder->buildAccelerationStructure(
+			output._as.get(), desc.get(), scratch._buf.get(), scratch_offset
+		);
+		encoder->endEncoding();
 	}
 
 	void command_list::bind_pipeline_state(const raytracing_pipeline_state&) {
@@ -370,13 +403,13 @@ namespace lotus::gpu::backends::metal {
 	) {
 		for (const gpu::descriptor_set *gpu_set : sets) {
 			const auto *set = static_cast<const descriptor_set*>(gpu_set);
-			for (const NS::SharedPtr<MTL::Resource> &rsrc : set->_resources) {
-				if (rsrc) {
-					mark(
-						encoder,
-						rsrc.get(),
-						MTL::ResourceUsageRead | MTL::ResourceUsageSample | MTL::ResourceUsageWrite // TODO
-					);
+			for (const auto &rsrc_pair : set->_resources) {
+				const MTL::ResourceUsage usage = MTL::ResourceUsageRead | MTL::ResourceUsageWrite; // TODO
+				if (rsrc_pair.first) {
+					mark(encoder, rsrc_pair.first.get(), usage);
+				}
+				if (rsrc_pair.second) {
+					mark(encoder, rsrc_pair.second.get(), usage);
 				}
 			}
 			mark(encoder, set->_arg_buffer.get(), MTL::ResourceUsageRead);

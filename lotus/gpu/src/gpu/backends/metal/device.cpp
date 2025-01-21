@@ -8,6 +8,7 @@
 #include <QuartzCore/QuartzCore.hpp>
 #include <Metal/Metal.hpp>
 
+#include "lotus/gpu/acceleration_structure.h"
 #include "lotus/gpu/resources.h"
 #include "lotus/gpu/backends/common/dxc.h"
 #include "metal_irconverter_include.h"
@@ -63,7 +64,10 @@ namespace lotus::gpu::backends::metal {
 			max_slot_index = std::max(max_slot_index, range.get_last_register_index());
 		}
 		const NS::UInteger size_bytes = (max_slot_index + 1) * sizeof(IRDescriptorTableEntry);
-		auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
+		auto buf_ptr = NS::TransferPtr(_dev->newBuffer(size_bytes, _arg_buffer_options));
+		// TODO running out of buffer space for descriptor heaps?
+		//auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
+		crash_if(!buf_ptr);
 		return descriptor_set(std::move(buf_ptr), max_slot_index + 1);
 	}
 
@@ -79,7 +83,10 @@ namespace lotus::gpu::backends::metal {
 			}
 		}
 		const NS::UInteger size_bytes = (max_slot_index + 1) * sizeof(IRDescriptorTableEntry);
-		auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
+		auto buf_ptr = NS::TransferPtr(_dev->newBuffer(size_bytes, _arg_buffer_options));
+		// TODO running out of buffer space for descriptor heaps?
+		//auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
+		crash_if(!buf_ptr);
 		return descriptor_set(std::move(buf_ptr), max_slot_index + 1);
 	}
 
@@ -94,7 +101,7 @@ namespace lotus::gpu::backends::metal {
 		for (std::size_t i = 0; i < images.size(); ++i) {
 			const auto *const img = static_cast<const _details::basic_image_view_base*>(images[i]);
 			IRDescriptorTableSetTexture(&arr[first_register + i], img->_tex.get(), 0.0f, 0);
-			set._resources[first_register + i] = img->_tex;
+			set._resources[first_register + i] = { img->_tex, nullptr };
 		}
 	}
 
@@ -124,7 +131,7 @@ namespace lotus::gpu::backends::metal {
 			view.bufferSize   = buffers[i].count * buffers[i].stride;
 			view.typedBuffer  = true;
 			IRDescriptorTableSetBufferView(&arr[first_regsiter + i], &view);
-			set._resources[first_regsiter + i] = buffers[i].data->_buf;
+			set._resources[first_regsiter + i] = { buffers[i].data->_buf, nullptr };
 		}
 	}
 
@@ -149,7 +156,7 @@ namespace lotus::gpu::backends::metal {
 		for (std::size_t i = 0; i < buffers.size(); ++i) {
 			const std::uint64_t base_addr = buffers[i].data->_buf->gpuAddress();
 			IRDescriptorTableSetBuffer(&arr[first_register + i], base_addr + buffers[i].offset, 0);
-			set._resources[first_register + i] = buffers[i].data->_buf;
+			set._resources[first_register + i] = { buffers[i].data->_buf, nullptr };
 		}
 	}
 
@@ -167,7 +174,7 @@ namespace lotus::gpu::backends::metal {
 				samplers[i]->_smp.get(),
 				samplers[i]->_mip_lod_bias
 			);
-			set._resources[first_register + i] = nullptr; // no need to call useResource() for samplers
+			set._resources[first_register + i] = { nullptr, nullptr }; // no need to call useResource() for samplers
 		}
 	}
 
@@ -689,53 +696,130 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
-		std::span<const raytracing_geometry_view>
+		std::span<const raytracing_geometry_view> geoms
 	) {
-		// TODO
+		std::vector<NS::SharedPtr<MTL::AccelerationStructureTriangleGeometryDescriptor>> descs_ptrs;
+		std::vector<MTL::AccelerationStructureGeometryDescriptor*> descs;
+		descs.reserve(geoms.size());
+		for (std::size_t i = 0; i < geoms.size(); ++i) {
+			const raytracing_geometry_view &geom = geoms[i];
+			auto desc = NS::TransferPtr(MTL::AccelerationStructureTriangleGeometryDescriptor::alloc()->init());
+			desc->setOpaque(bit_mask::contains<raytracing_geometry_flags::opaque>(geom.flags));
+			desc->setAllowDuplicateIntersectionFunctionInvocation(
+				!bit_mask::contains<raytracing_geometry_flags::no_duplicate_any_hit_invocation>(geom.flags)
+			);
+			desc->setTriangleCount(geom.index_buffer.count / 3);
+			desc->setIndexBuffer(geom.index_buffer.data->_buf.get());
+			desc->setIndexType(_details::conversions::to_index_type(geom.index_buffer.element_format));
+			desc->setIndexBufferOffset(geom.index_buffer.offset);
+			desc->setVertexBuffer(geom.vertex_buffer.data->_buf.get());
+			desc->setVertexBufferOffset(geom.vertex_buffer.offset);
+			desc->setVertexStride(geom.vertex_buffer.stride);
+			desc->setVertexFormat(_details::conversions::to_attribute_format(geom.vertex_buffer.vertex_format));
+			descs.emplace_back(desc.get());
+			descs_ptrs.emplace_back(std::move(desc));
+		}
+		const CFArrayRef cfarray = CFArrayCreate(
+			kCFAllocatorDefault,
+			const_cast<const void**>(reinterpret_cast<void**>(descs.data())),
+			descs.size(),
+			&kCFTypeArrayCallBacks
+		);
+		auto *array = reinterpret_cast<const NS::Array*>(cfarray);
+		auto as_desc = NS::TransferPtr(MTL::PrimitiveAccelerationStructureDescriptor::alloc()->init());
+		as_desc->setGeometryDescriptors(array);
+		CFRelease(cfarray);
+		return bottom_level_acceleration_structure_geometry(std::move(as_desc));
 	}
 
 	instance_description device::get_bottom_level_acceleration_structure_description(
-		bottom_level_acceleration_structure&,
+		bottom_level_acceleration_structure &blas,
 		mat44f trans,
 		std::uint32_t id,
 		std::uint8_t mask,
 		std::uint32_t hit_group_offset,
-		raytracing_instance_flags
+		raytracing_instance_flags flags
 	) const {
-		// TODO
+		instance_description result = uninitialized;
+		result._descriptor.transformationMatrix            =
+			_details::conversions::to_packed_float4x3(trans.block<3, 4>(0, 0));
+		result._descriptor.options                         =
+			_details::conversions::to_acceleration_structure_instance_options(flags);
+		result._descriptor.mask                            = mask;
+		result._descriptor.intersectionFunctionTableOffset = hit_group_offset;
+		result._descriptor.userID                          = id;
+		result._descriptor.accelerationStructureID         = blas._as->gpuResourceID();
+		return result;
 	}
 
 	acceleration_structure_build_sizes device::get_bottom_level_acceleration_structure_build_sizes(
-		const bottom_level_acceleration_structure_geometry&
+		const bottom_level_acceleration_structure_geometry &geom
 	) {
-		// TODO
+		acceleration_structure_build_sizes result = uninitialized;
+		return _details::conversions::back_to_acceleration_structure_build_sizes(
+			_dev->accelerationStructureSizes(geom._descriptor.get())
+		);
 	}
 
 	acceleration_structure_build_sizes device::get_top_level_acceleration_structure_build_sizes(
 		std::size_t instance_count
 	) {
-		// TODO
+		auto desc = NS::TransferPtr(MTL::IndirectInstanceAccelerationStructureDescriptor::alloc()->init());
+		desc->setInstanceDescriptorType(MTL::AccelerationStructureInstanceDescriptorTypeIndirect);
+		desc->setMaxInstanceCount(instance_count);
+		return _details::conversions::back_to_acceleration_structure_build_sizes(
+			_dev->accelerationStructureSizes(desc.get())
+		);
 	}
 
 	bottom_level_acceleration_structure device::create_bottom_level_acceleration_structure(
-		buffer&, std::size_t offset, std::size_t size
+		buffer &buf, std::size_t offset, std::size_t size
 	) {
-		// TODO
+		// TODO metal does not support creating acceleration structures directly inside buffers
+		return bottom_level_acceleration_structure(NS::TransferPtr(_dev->newAccelerationStructure(size)));
 	}
 
 	top_level_acceleration_structure device::create_top_level_acceleration_structure(
 		buffer&, std::size_t offset, std::size_t size
 	) {
-		// TODO
+		// a conservative estimate of how many instances there are in the acceleration structure
+		const std::size_t instance_count = (size / sizeof(MTL::IndirectAccelerationStructureInstanceDescriptor)) + 1;
+
+		// create acceleration structure
+		// TODO metal does not support creating acceleration structures directly inside buffers
+		auto as = NS::TransferPtr(_dev->newAccelerationStructure(size));
+
+		// header buffer
+		auto header = NS::TransferPtr(_dev->newBuffer(
+			sizeof(IRRaytracingAccelerationStructureGPUHeader) + sizeof(std::uint32_t) * instance_count,
+			MTL::ResourceCPUCacheModeWriteCombined |
+				MTL::ResourceStorageModeShared            |
+				MTL::ResourceHazardTrackingModeUntracked
+		));
+		auto *const header_data = static_cast<std::uint8_t*>(header->contents());
+		std::vector<std::uint32_t> instance_offsets(instance_count, 0);
+		IRRaytracingSetAccelerationStructure(
+			header_data,
+			as->gpuResourceID(),
+			header_data + sizeof(IRRaytracingAccelerationStructureGPUHeader),
+			instance_offsets.data(),
+			instance_count
+		);
+		return top_level_acceleration_structure(std::move(as), std::move(header));
 	}
 
 	void device::write_descriptor_set_acceleration_structures(
-		descriptor_set&,
-		const descriptor_set_layout&,
+		descriptor_set &set,
+		const descriptor_set_layout &layout,
 		std::size_t first_register,
-		std::span<gpu::top_level_acceleration_structure *const>
+		std::span<gpu::top_level_acceleration_structure *const> as
 	) {
-		// TODO
+		// TODO validate that we're writing to a range of the correct type
+		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
+		for (std::size_t i = 0; i < as.size(); ++i) {
+			IRDescriptorTableSetAccelerationStructure(&arr[first_register + i], as[i]->_header->gpuAddress());
+			set._resources[first_register + i] = { as[i]->_as, as[i]->_header };
+		}
 	}
 
 	shader_group_handle device::get_shader_group_handle(const raytracing_pipeline_state&, std::size_t index) {

@@ -38,6 +38,8 @@ namespace lotus::gpu::backends::metal::_details {
 		[[nodiscard]] MTL::PixelFormat to_pixel_format(format);
 		/// Converts a \ref format to a \p MTL::VertexFormat.
 		[[nodiscard]] MTL::VertexFormat to_vertex_format(format);
+		/// Converts a \ref format to a \p MTL::AttributeFormat.
+		[[nodiscard]] MTL::AttributeFormat to_attribute_format(format);
 		/// Converts a \ref memory_type_index to a \p MTL::ResourceOptions.
 		[[nodiscard]] MTL::ResourceOptions to_resource_options(memory_type_index);
 		/// \overload
@@ -82,6 +84,10 @@ namespace lotus::gpu::backends::metal::_details {
 		[[nodiscard]] MTL::ColorWriteMask to_color_write_mask(channel_mask);
 		/// Converts a \ref context_options to a \p MTL::ShaderValidation.
 		[[nodiscard]] MTL::ShaderValidation to_shader_validation(context_options);
+		/// Converts a \ref raytracing_instance_flags to a \p MTL::AccelerationStructureInstanceOptions.
+		[[nodiscard]] MTL::AccelerationStructureInstanceOptions to_acceleration_structure_instance_options(
+			raytracing_instance_flags
+		);
 
 		/// Converts a \ref D3D_SHADER_INPUT_TYPE to a \p IRDescriptorRangeType.
 		[[nodiscard]] IRDescriptorRangeType to_ir_descriptor_range_type(D3D_SHADER_INPUT_TYPE);
@@ -96,11 +102,17 @@ namespace lotus::gpu::backends::metal::_details {
 		);
 		/// Converts a \ref cvec3 to a \p MTL::Size.
 		[[nodiscard]] MTL::Size to_size(cvec3<NS::UInteger>);
+		/// Converts a \ref mat34f to a \p MTL::PackedFloat4x3.
+		[[nodiscard]] MTL::PackedFloat4x3 to_packed_float4x3(mat34f);
 
 		/// Converts a \p NS::String back to a \p std::string.
 		[[nodiscard]] std::u8string back_to_string(NS::String*);
 		/// Converts a \p MTL::SizeAndAlign back to a \ref memory::size_alignment.
 		[[nodiscard]] memory::size_alignment back_to_size_alignment(MTL::SizeAndAlign);
+		/// Converts a \p MTL::AccelerationStructureSizes back to a \ref acceleration_structure_build_sizes.
+		[[nodiscard]] acceleration_structure_build_sizes back_to_acceleration_structure_build_sizes(
+			MTL::AccelerationStructureSizes
+		);
 	}
 
 	/// Creates a new \p MTL::TextureDescriptor based on the given settings.

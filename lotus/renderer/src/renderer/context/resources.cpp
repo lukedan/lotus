@@ -37,7 +37,7 @@ namespace lotus::renderer {
 				}
 			}
 			std::size_t index = _chunks.size();
-			auto new_chunk_size = chunk_size;
+			std::size_t new_chunk_size = chunk_size;
 			while (new_chunk_size < size_align.size) {
 				new_chunk_size *= 2;
 			}

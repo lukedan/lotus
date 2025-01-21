@@ -126,8 +126,23 @@ namespace lotus::gpu::backends::metal {
 
 
 		// ray-tracing related
-		void build_acceleration_structure(const bottom_level_acceleration_structure_geometry&, bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset); // TODO
-		void build_acceleration_structure(const buffer &instances, std::size_t offset, std::size_t count, top_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset); // TODO
+		/// Creates a \p MTL::AccelerationStructureCommandEncoder and calls \p buildAccelerationStructure().
+		void build_acceleration_structure(
+			const bottom_level_acceleration_structure_geometry&,
+			bottom_level_acceleration_structure &output,
+			buffer &scratch,
+			std::size_t scratch_offset
+		);
+		/// Creates a \p MTL::IndirectAccelerationStructureInstanceDescriptor and builds an acceleration structure
+		/// with it.
+		void build_acceleration_structure(
+			const buffer &instances,
+			std::size_t offset,
+			std::size_t count,
+			top_level_acceleration_structure &output,
+			buffer &scratch,
+			std::size_t scratch_offset
+		);
 
 		void bind_pipeline_state(const raytracing_pipeline_state&); // TODO
 		void bind_ray_tracing_descriptor_sets(const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>); // TODO

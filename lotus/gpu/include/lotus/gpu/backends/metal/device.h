@@ -232,8 +232,9 @@ namespace lotus::gpu::backends::metal {
 
 
 		// ray-tracing related
+		/// Fills out \p MTL::AccelerationStructureTriangleGeometryDescriptor instances.
 		[[nodiscard]] bottom_level_acceleration_structure_geometry
-			create_bottom_level_acceleration_structure_geometry(std::span<const raytracing_geometry_view>); // TODO
+			create_bottom_level_acceleration_structure_geometry(std::span<const raytracing_geometry_view>);
 
 		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
 			bottom_level_acceleration_structure&,

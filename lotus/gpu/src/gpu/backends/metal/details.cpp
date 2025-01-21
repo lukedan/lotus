@@ -139,6 +139,73 @@ namespace lotus::gpu::backends::metal::_details {
 			return table[f];
 		}
 
+		MTL::AttributeFormat to_attribute_format(format f) {
+			constexpr static enums::sequential_mapping<format, MTL::AttributeFormat> table{
+				std::pair(format::none,               MTL::AttributeFormatInvalid              ),
+				std::pair(format::d32_float_s8,       MTL::AttributeFormatInvalid              ),
+				std::pair(format::d32_float,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::d24_unorm_s8,       MTL::AttributeFormatInvalid              ),
+				std::pair(format::d16_unorm,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::r8_unorm,           MTL::AttributeFormatUCharNormalized      ),
+				std::pair(format::r8_snorm,           MTL::AttributeFormatCharNormalized       ),
+				std::pair(format::r8_uint,            MTL::AttributeFormatUChar                ),
+				std::pair(format::r8_sint,            MTL::AttributeFormatChar                 ),
+				std::pair(format::r8g8_unorm,         MTL::AttributeFormatUChar2Normalized     ),
+				std::pair(format::r8g8_snorm,         MTL::AttributeFormatChar2Normalized      ),
+				std::pair(format::r8g8_uint,          MTL::AttributeFormatUChar2               ),
+				std::pair(format::r8g8_sint,          MTL::AttributeFormatChar2                ),
+				std::pair(format::r8g8b8a8_unorm,     MTL::AttributeFormatUChar4Normalized     ),
+				std::pair(format::r8g8b8a8_snorm,     MTL::AttributeFormatChar4Normalized      ),
+				std::pair(format::r8g8b8a8_srgb,      MTL::AttributeFormatInvalid              ),
+				std::pair(format::r8g8b8a8_uint,      MTL::AttributeFormatUChar4               ),
+				std::pair(format::r8g8b8a8_sint,      MTL::AttributeFormatChar4                ),
+				std::pair(format::b8g8r8a8_unorm,     MTL::AttributeFormatUChar4Normalized_BGRA),
+				std::pair(format::b8g8r8a8_srgb,      MTL::AttributeFormatInvalid              ),
+				std::pair(format::r16_unorm,          MTL::AttributeFormatUShortNormalized     ),
+				std::pair(format::r16_snorm,          MTL::AttributeFormatShortNormalized      ),
+				std::pair(format::r16_uint,           MTL::AttributeFormatUShort               ),
+				std::pair(format::r16_sint,           MTL::AttributeFormatShort                ),
+				std::pair(format::r16_float,          MTL::AttributeFormatHalf                 ),
+				std::pair(format::r16g16_unorm,       MTL::AttributeFormatUShort2Normalized    ),
+				std::pair(format::r16g16_snorm,       MTL::AttributeFormatShort2Normalized     ),
+				std::pair(format::r16g16_uint,        MTL::AttributeFormatUShort2              ),
+				std::pair(format::r16g16_sint,        MTL::AttributeFormatShort2               ),
+				std::pair(format::r16g16_float,       MTL::AttributeFormatHalf2                ),
+				std::pair(format::r16g16b16a16_unorm, MTL::AttributeFormatUShort4Normalized    ),
+				std::pair(format::r16g16b16a16_snorm, MTL::AttributeFormatShort4Normalized     ),
+				std::pair(format::r16g16b16a16_uint,  MTL::AttributeFormatUShort4              ),
+				std::pair(format::r16g16b16a16_sint,  MTL::AttributeFormatShort4               ),
+				std::pair(format::r16g16b16a16_float, MTL::AttributeFormatHalf4                ),
+				std::pair(format::r32_uint,           MTL::AttributeFormatUInt                 ),
+				std::pair(format::r32_sint,           MTL::AttributeFormatInt                  ),
+				std::pair(format::r32_float,          MTL::AttributeFormatFloat                ),
+				std::pair(format::r32g32_uint,        MTL::AttributeFormatUInt2                ),
+				std::pair(format::r32g32_sint,        MTL::AttributeFormatInt2                 ),
+				std::pair(format::r32g32_float,       MTL::AttributeFormatFloat2               ),
+				std::pair(format::r32g32b32_uint,     MTL::AttributeFormatUInt3                ),
+				std::pair(format::r32g32b32_sint,     MTL::AttributeFormatInt3                 ),
+				std::pair(format::r32g32b32_float,    MTL::AttributeFormatFloat3               ),
+				std::pair(format::r32g32b32a32_uint,  MTL::AttributeFormatUInt4                ),
+				std::pair(format::r32g32b32a32_sint,  MTL::AttributeFormatInt4                 ),
+				std::pair(format::r32g32b32a32_float, MTL::AttributeFormatFloat4               ),
+				std::pair(format::bc1_unorm,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc1_srgb,           MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc2_unorm,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc2_srgb,           MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc3_unorm,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc3_srgb,           MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc4_unorm,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc4_snorm,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc5_unorm,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc5_snorm,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc6h_f16,           MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc6h_uf16,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc7_unorm,          MTL::AttributeFormatInvalid              ),
+				std::pair(format::bc7_srgb,           MTL::AttributeFormatInvalid              ),
+			};
+			return table[f];
+		}
+
 		MTL::ResourceOptions to_resource_options(_details::memory_type_index i) {
 			constexpr static enums::sequential_mapping<memory_type_index, MTL::ResourceOptions> table{
 				std::pair(memory_type_index::shared_cpu_cached,   MTL::ResourceStorageModeShared | MTL::ResourceOptionCPUCacheModeDefault      ),
@@ -347,6 +414,18 @@ namespace lotus::gpu::backends::metal::_details {
 				MTL::ShaderValidationDisabled;
 		}
 
+		MTL::AccelerationStructureInstanceOptions to_acceleration_structure_instance_options(
+			raytracing_instance_flags flags
+		) {
+			constexpr static bit_mask::mapping<raytracing_instance_flags, MTL::AccelerationStructureInstanceOptions> table{
+				std::pair(raytracing_instance_flags::disable_triangle_culling,        MTL::AccelerationStructureInstanceOptionDisableTriangleCulling                    ),
+				std::pair(raytracing_instance_flags::triangle_front_counterclockwise, MTL::AccelerationStructureInstanceOptionTriangleFrontFacingWindingCounterClockwise),
+				std::pair(raytracing_instance_flags::force_opaque,                    MTL::AccelerationStructureInstanceOptionOpaque                                    ),
+				std::pair(raytracing_instance_flags::force_non_opaque,                MTL::AccelerationStructureInstanceOptionNonOpaque                                 ),
+			};
+			return table.get_union(flags);
+		}
+
 		IRDescriptorRangeType to_ir_descriptor_range_type(D3D_SHADER_INPUT_TYPE type) {
 			constexpr static enums::sequential_mapping<
 				D3D_SHADER_INPUT_TYPE, IRDescriptorRangeType, D3D_SIT_UAV_FEEDBACKTEXTURE + 1
@@ -409,6 +488,16 @@ namespace lotus::gpu::backends::metal::_details {
 			return MTL::Size(sz[0], sz[1], sz[2]);
 		}
 
+		MTL::PackedFloat4x3 to_packed_float4x3(mat34f m) {
+			MTL::PackedFloat4x3 result;
+			for (std::size_t r = 0; r < 3; ++r) {
+				for (std::size_t c = 0; c < 4; ++c) {
+					result[c][r] = m(r, c);
+				}
+			}
+			return result;
+		}
+
 
 		std::u8string back_to_string(NS::String *str) {
 			return std::u8string(
@@ -420,6 +509,17 @@ namespace lotus::gpu::backends::metal::_details {
 		memory::size_alignment back_to_size_alignment(MTL::SizeAndAlign sa) {
 			return memory::size_alignment(sa.size, sa.align);
 		}
+
+		acceleration_structure_build_sizes back_to_acceleration_structure_build_sizes(
+			MTL::AccelerationStructureSizes sz
+		) {
+			acceleration_structure_build_sizes result = uninitialized;
+			result.acceleration_structure_size = sz.accelerationStructureSize;
+			result.build_scratch_size          = sz.buildScratchBufferSize;
+			result.update_scratch_size         = sz.refitScratchBufferSize;
+			return result;
+		}
+
 	}
 
 	NS::SharedPtr<MTL::TextureDescriptor> create_texture_descriptor(
@@ -461,7 +561,8 @@ namespace lotus::gpu::backends::metal::_details {
 				}
 				IRDescriptorRange1 &range = descriptor_spaces[binding.Space].emplace_back();
 				range.RangeType                         = conversions::to_ir_descriptor_range_type(binding.Type);
-				range.NumDescriptors                    = binding.BindCount;
+				range.NumDescriptors                    =
+					binding.BindCount == 0 ? std::numeric_limits<std::uint32_t>::max() : binding.BindCount;
 				range.BaseShaderRegister                = binding.BindPoint;
 				range.RegisterSpace                     = binding.Space;
 				range.Flags                             = IRDescriptorRangeFlagNone;
@@ -487,7 +588,7 @@ namespace lotus::gpu::backends::metal::_details {
 			));
 			if (error) {
 				log().error(
-					"Failed to create IR root signature {}", static_cast<const char*>(IRErrorGetPayload(error))
+					"Failed to create IR root signature: {}", static_cast<const char*>(IRErrorGetPayload(error))
 				);
 				IRErrorDestroy(error);
 			}
@@ -514,7 +615,7 @@ namespace lotus::gpu::backends::metal::_details {
 				compiler.get(), nullptr, dxil.get(), &error
 			));
 			if (error) {
-				log().error("Failed to compile IR {}", static_cast<const char*>(IRErrorGetPayload(error)));
+				log().error("Failed to compile IR: {}", static_cast<const char*>(IRErrorGetPayload(error)));
 				IRErrorDestroy(error);
 			}
 

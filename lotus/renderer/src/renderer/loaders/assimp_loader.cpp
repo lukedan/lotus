@@ -210,8 +210,15 @@ namespace lotus::renderer::assimp {
 			// textures
 			aiString tex_path;
 			auto current_texture = [&]() {
+				std::string norm_path = tex_path.C_Str();
+				// assume portable path names
+				for (char &c : norm_path) {
+					if (c == '\\') {
+						c = '/';
+					}
+				}
 				return _asset_manager.get_image2d(
-					assets::identifier(path.parent_path() / tex_path.C_Str()), tex_pool
+					assets::identifier(path.parent_path() / norm_path), tex_pool
 				);
 			};
 			if (mat->GetTexture(aiTextureType_BASE_COLOR, 0, &tex_path) == aiReturn_SUCCESS) {

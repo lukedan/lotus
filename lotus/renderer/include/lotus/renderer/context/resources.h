@@ -74,13 +74,13 @@ namespace lotus::renderer {
 				}
 			private:
 				/// Index indicating an invalid token.
-				constexpr static std::uint32_t invalid_chunk_index = std::numeric_limits<std::uint32_t>::max();
+				constexpr static std::size_t invalid_chunk_index = std::numeric_limits<std::size_t>::max();
 
-				std::uint32_t _chunk_index = invalid_chunk_index; ///< The index of the chunk.
-				std::uint32_t _address = 0; ///< Address of the memory block within the chunk.
+				std::size_t _chunk_index = invalid_chunk_index; ///< The index of the chunk.
+				std::size_t _address = 0; ///< Address of the memory block within the chunk.
 
 				/// Initializes all fields of this struct.
-				token(std::uint32_t ch, std::uint32_t addr) : _chunk_index(ch), _address(addr) {
+				token(std::size_t ch, std::size_t addr) : _chunk_index(ch), _address(addr) {
 				}
 			};
 			/// Callback function used to allocate memory chunks.
@@ -88,7 +88,7 @@ namespace lotus::renderer {
 
 			/// Initializes the pool.
 			explicit pool(
-				allocation_function alloc, std::uint32_t chunk_sz, unique_resource_id i, std::u8string_view n
+				allocation_function alloc, std::size_t chunk_sz, unique_resource_id i, std::u8string_view n
 			) : resource(i, n), allocate_memory(std::move(alloc)), chunk_size(chunk_sz) {
 			}
 
@@ -103,13 +103,13 @@ namespace lotus::renderer {
 			void free(token);
 
 			/// Given a \ref token, returns the corresponding memory block and its offset within it.
-			[[nodiscard]] std::pair<const gpu::memory_block&, std::uint32_t> get_memory_and_offset(token tk) const {
+			[[nodiscard]] std::pair<const gpu::memory_block&, std::size_t> get_memory_and_offset(token tk) const {
 				return { _chunks[tk._chunk_index].memory, tk._address };
 			}
 
 			/// Callback for allocating memory blocks.
 			static_function<gpu::memory_block(std::size_t)> allocate_memory;
-			std::uint32_t chunk_size = 0; ///< Chunk size.
+			std::size_t chunk_size = 0; ///< Chunk size.
 			bool debug_log_allocations = false;
 		private:
 			/// A chunk of GPU memory managed by this pool.

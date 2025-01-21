@@ -60,7 +60,8 @@ namespace lotus::gpu::backends::metal {
 		}
 	private:
 		NS::SharedPtr<MTL::Buffer> _arg_buffer; ///< The argument buffer.
-		std::vector<NS::SharedPtr<MTL::Resource>> _resources; ///< List of resources used in the argument buffer.
+		/// List of resources used in the argument buffer.
+		std::vector<std::pair<NS::SharedPtr<MTL::Resource>, NS::SharedPtr<MTL::Resource>>> _resources;
 
 		/// Initializes \ref _arg_buffer and \ref _resources.
 		descriptor_set(NS::SharedPtr<MTL::Buffer> arg_buffer, std::size_t num_slots) :

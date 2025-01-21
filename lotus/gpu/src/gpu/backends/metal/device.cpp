@@ -34,7 +34,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	command_list device::create_and_start_command_list(command_allocator &alloc) {
-		return command_list(NS::RetainPtr(alloc._q->commandBuffer()));
+		return command_list(NS::RetainPtr(alloc._q->commandBuffer()), _blas_mapping.get());
 	}
 
 	/// Default resource options for argument buffers. Assumes that we don't need to read from the argument buffer.
@@ -536,6 +536,9 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	memory::size_alignment device::get_buffer_memory_requirements(std::size_t size, buffer_usage_mask usages) {
+		if (bit_mask::contains<buffer_usage_mask::acceleration_structure>(usages)) {
+			return _details::conversions::back_to_size_alignment(_dev->heapAccelerationStructureSizeAndAlign(size));
+		}
 		// TODO what resource options should be used? does it affect anything?
 		return _details::conversions::back_to_size_alignment(_dev->heapBufferSizeAndAlign(size, 0));
 	}
@@ -755,7 +758,6 @@ namespace lotus::gpu::backends::metal {
 	acceleration_structure_build_sizes device::get_bottom_level_acceleration_structure_build_sizes(
 		const bottom_level_acceleration_structure_geometry &geom
 	) {
-		acceleration_structure_build_sizes result = uninitialized;
 		return _details::conversions::back_to_acceleration_structure_build_sizes(
 			_dev->accelerationStructureSizes(geom._descriptor.get())
 		);
@@ -772,22 +774,36 @@ namespace lotus::gpu::backends::metal {
 		);
 	}
 
+	[[nodiscard]] NS::SharedPtr<MTL::AccelerationStructure> _create_acceleration_structure(
+		MTL::Buffer *buf, std::size_t offset, std::size_t size
+	) {
+		NS::SharedPtr<MTL::AccelerationStructure> result;
+		if (buf->heap()) {
+			result = NS::TransferPtr(buf->heap()->newAccelerationStructure(size, buf->heapOffset() + offset));
+		} else {
+			// TODO metal does not support creating acceleration structures directly inside buffers
+			result = NS::TransferPtr(buf->device()->newAccelerationStructure(size));
+		}
+		crash_if(!result);
+		return result;
+	}
+
 	bottom_level_acceleration_structure device::create_bottom_level_acceleration_structure(
 		buffer &buf, std::size_t offset, std::size_t size
 	) {
-		// TODO metal does not support creating acceleration structures directly inside buffers
-		return bottom_level_acceleration_structure(NS::TransferPtr(_dev->newAccelerationStructure(size)));
+		auto blas = _create_acceleration_structure(buf._buf.get(), offset, size);
+		_blas_mapping->register_resource(blas.get());
+		return bottom_level_acceleration_structure(std::move(blas), _blas_mapping.get());
 	}
 
 	top_level_acceleration_structure device::create_top_level_acceleration_structure(
-		buffer&, std::size_t offset, std::size_t size
+		buffer &buf, std::size_t offset, std::size_t size
 	) {
 		// a conservative estimate of how many instances there are in the acceleration structure
 		const std::size_t instance_count = (size / sizeof(MTL::IndirectAccelerationStructureInstanceDescriptor)) + 1;
 
 		// create acceleration structure
-		// TODO metal does not support creating acceleration structures directly inside buffers
-		auto as = NS::TransferPtr(_dev->newAccelerationStructure(size));
+		auto as = _create_acceleration_structure(buf._buf.get(), offset, size);
 
 		// header buffer
 		auto header = NS::TransferPtr(_dev->newBuffer(

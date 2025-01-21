@@ -155,6 +155,7 @@ namespace lotus::gpu::backends::metal {
 		}
 	private:
 		NS::SharedPtr<MTL::CommandBuffer> _buf; ///< The command buffer.
+		const _details::blas_resource_id_mapping *_mapping = nullptr; ///< The resource ID to BLAS mapping.
 
 		NS::SharedPtr<MTL::RenderCommandEncoder> _pass_encoder; ///< Encoder for the render pass.
 		MTL::Buffer *_index_buffer = nullptr; ///< Currently bound index buffer.
@@ -180,8 +181,9 @@ namespace lotus::gpu::backends::metal {
 			void (*mark)(MTL::CommandEncoder*, MTL::Resource*, MTL::ResourceUsage)
 		);
 
-		/// Initializes \ref _buf.
-		explicit command_list(NS::SharedPtr<MTL::CommandBuffer> buf) : _buf(std::move(buf)) {
+		/// Initializes \ref _buf and \ref _mapping.
+		command_list(NS::SharedPtr<MTL::CommandBuffer> buf, const _details::blas_resource_id_mapping *mapping) :
+			_buf(std::move(buf)), _mapping(mapping) {
 		}
 	};
 

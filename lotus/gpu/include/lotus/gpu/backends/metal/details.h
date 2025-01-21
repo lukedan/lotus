@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <utility>
+#include <map>
 
 #include <Metal/Metal.hpp>
 
@@ -177,4 +178,33 @@ namespace lotus::gpu::backends::metal::_details {
 			std::span<const std::byte> dxil, ID3D12ShaderReflection*
 		);
 	}
+
+	/// Mapping from \p MTL::AccelerationStructure to \p MTL::Resource.
+	struct blas_resource_id_mapping {
+	public:
+		/// Registers a resource.
+		void register_resource(MTL::AccelerationStructure *blas) {
+			auto [it, inserted] = _mapping.emplace(blas->gpuResourceID(), blas);
+			crash_if(!inserted);
+		}
+		/// Maps a \p MTL::ResourceID back to a \p MTL::AccelerationStructure.
+		[[nodiscard]] MTL::AccelerationStructure *get_resource(MTL::ResourceID id) const {
+			const auto it = _mapping.find(id);
+			return it == _mapping.end() ? nullptr : it->second;
+		}
+		/// Unregisters the given resource.
+		void unregister_resource(MTL::ResourceID id) {
+			crash_if(_mapping.erase(id) == 0);
+		}
+	private:
+		/// Comparison functions for \p MTL::ResourceID.
+		struct _compare {
+			/// Compares the underlying representations of two resource IDs.
+			bool operator()(MTL::ResourceID lhs, MTL::ResourceID rhs) const {
+				return lhs._impl < rhs._impl;
+			}
+		};
+
+		std::map<MTL::ResourceID, MTL::AccelerationStructure*, _compare> _mapping; ///< The mapping.
+	};
 }

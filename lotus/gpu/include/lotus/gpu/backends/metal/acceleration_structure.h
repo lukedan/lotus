@@ -49,6 +49,21 @@ namespace lotus::gpu::backends::metal {
 	class bottom_level_acceleration_structure {
 		friend command_list;
 		friend device;
+	public:
+		/// Default move constructor.
+		bottom_level_acceleration_structure(bottom_level_acceleration_structure&&) = default;
+		/// No move constructor.
+		bottom_level_acceleration_structure(const bottom_level_acceleration_structure&) = delete;
+		/// Default move assignment.
+		bottom_level_acceleration_structure &operator=(bottom_level_acceleration_structure&&) = default;
+		/// No move assignment.
+		bottom_level_acceleration_structure &operator=(const bottom_level_acceleration_structure&) = delete;
+		/// Unregisters the resource if necessary.
+		~bottom_level_acceleration_structure() {
+			if (_as) {
+				_mapping->unregister_resource(_as->gpuResourceID());
+			}
+		}
 	protected:
 		/// Initializes the object to empty.
 		bottom_level_acceleration_structure(std::nullptr_t) {
@@ -60,10 +75,12 @@ namespace lotus::gpu::backends::metal {
 		}
 	private:
 		NS::SharedPtr<MTL::AccelerationStructure> _as; ///< The acceleration structure.
+		_details::blas_resource_id_mapping *_mapping = nullptr; ///< Mapping between resource ID and resources.
 
-		/// Initializes \ref _as.
-		explicit bottom_level_acceleration_structure(NS::SharedPtr<MTL::AccelerationStructure> as) :
-			_as(std::move(as)) {
+		/// Initializes all fields of this struct.
+		bottom_level_acceleration_structure(
+			NS::SharedPtr<MTL::AccelerationStructure> as, _details::blas_resource_id_mapping *mapping
+		) : _as(std::move(as)), _mapping(mapping) {
 		}
 	};
 

@@ -359,6 +359,12 @@ namespace lotus::gpu::backends::metal {
 		auto encoder = NS::RetainPtr(_buf->accelerationStructureCommandEncoder());
 		encoder->useResource(count_buffer.get(), MTL::ResourceUsageRead);
 		encoder->useResource(instances._buf.get(), MTL::ResourceUsageRead);
+		for (std::size_t i = 0; i < count; ++i) {
+			encoder->useResource(
+				_mapping->get_resource(instance_descriptors[i]._descriptor.accelerationStructureID),
+				MTL::ResourceUsageRead
+			);
+		}
 		encoder->buildAccelerationStructure(
 			output._as.get(), desc.get(), scratch._buf.get(), scratch_offset
 		);

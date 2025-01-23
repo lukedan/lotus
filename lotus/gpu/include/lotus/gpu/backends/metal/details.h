@@ -24,6 +24,73 @@ namespace lotus::gpu::backends::metal::_details {
 		static_function<void(debug_message_severity, debug_message_id, std::u8string_view)>;
 
 
+	/// A pointer that has an associated residency set, from which the resource is removed upon disposal.
+	template <typename T> struct residency_ptr {
+	public:
+		/// Initializes this object to empty.
+		residency_ptr(std::nullptr_t) {
+		}
+		/// Initializes the pointer, and adds the resource to the residency set.
+		residency_ptr(NS::SharedPtr<T> ptr, MTL::ResidencySet *set) : _ptr(std::move(ptr)), _residency_set(set) {
+			if (_residency_set) {
+				_residency_set->addAllocation(_ptr.get());
+				_residency_set->commit(); // TODO committing immediately
+			}
+		}
+		/// Move constructor.
+		residency_ptr(residency_ptr &&src) :
+			_ptr(std::move(src._ptr)),
+			_residency_set(std::exchange(src._residency_set, nullptr)) {
+		}
+		/// No copy constructor.
+		residency_ptr(const residency_ptr&) = delete;
+		/// Move assignment.
+		residency_ptr &operator=(residency_ptr &&src) {
+			if (this != &src) {
+				_remove_allocation();
+				_ptr = std::move(src._ptr);
+				_residency_set = std::exchange(src._residency_set, nullptr);
+			}
+			return *this;
+		}
+		/// No copy assignment.
+		residency_ptr& operator=(const residency_ptr&) = delete;
+		/// Removes the allocation from the residency set if necessary.
+		~residency_ptr() {
+			_remove_allocation();
+		}
+
+		/// Returns the underlying allocation.
+		[[nodiscard]] T *get() const {
+			return _ptr.get();
+		}
+		/// \overload
+		[[nodiscard]] T *operator->() const {
+			return _ptr.get();
+		}
+		/// Returns the shared pointer.
+		[[nodiscard]] const NS::SharedPtr<T> &get_ptr() const {
+			return _ptr;
+		}
+
+		/// Checks if this holds a valid object.
+		[[nodiscard]] explicit operator bool() const {
+			return !!_ptr;
+		}
+	private:
+		NS::SharedPtr<T> _ptr; ///< The allocation.
+		MTL::ResidencySet *_residency_set = nullptr; ///< The associated residency set.
+
+		/// Removes the allocation from the residency set.
+		void _remove_allocation() {
+			if (_residency_set) {
+				_residency_set->removeAllocation(_ptr.get());
+				_residency_set->commit(); // TODO committing immediately
+			}
+		}
+	};
+
+
 	/// Memory types supported by Metal.
 	enum class memory_type_index : std::underlying_type_t<gpu::memory_type_index> {
 		shared_cpu_cached,   ///< \p MTL::StorageModeShared with CPU-side caching enabled.
@@ -178,33 +245,4 @@ namespace lotus::gpu::backends::metal::_details {
 			std::span<const std::byte> dxil, ID3D12ShaderReflection*
 		);
 	}
-
-	/// Mapping from \p MTL::AccelerationStructure to \p MTL::Resource.
-	struct blas_resource_id_mapping {
-	public:
-		/// Registers a resource.
-		void register_resource(MTL::AccelerationStructure *blas) {
-			auto [it, inserted] = _mapping.emplace(blas->gpuResourceID(), blas);
-			crash_if(!inserted);
-		}
-		/// Maps a \p MTL::ResourceID back to a \p MTL::AccelerationStructure.
-		[[nodiscard]] MTL::AccelerationStructure *get_resource(MTL::ResourceID id) const {
-			const auto it = _mapping.find(id);
-			return it == _mapping.end() ? nullptr : it->second;
-		}
-		/// Unregisters the given resource.
-		void unregister_resource(MTL::ResourceID id) {
-			crash_if(_mapping.erase(id) == 0);
-		}
-	private:
-		/// Comparison functions for \p MTL::ResourceID.
-		struct _compare {
-			/// Compares the underlying representations of two resource IDs.
-			bool operator()(MTL::ResourceID lhs, MTL::ResourceID rhs) const {
-				return lhs._impl < rhs._impl;
-			}
-		};
-
-		std::map<MTL::ResourceID, MTL::AccelerationStructure*, _compare> _mapping; ///< The mapping.
-	};
 }

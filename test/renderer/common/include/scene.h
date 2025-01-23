@@ -44,6 +44,7 @@ public:
 		q.build_blas(
 			blas, { geom->get_geometry_buffers_view(lgpu::raytracing_geometry_flags::opaque) }, u8"Build BLAS"
 		);
+		rctx.execute_all(); // flush BLAS builds to avoid using too much memory at once
 
 		auto &inst = geometries.emplace_back();
 		if (geom->index_buffer) {

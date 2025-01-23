@@ -273,16 +273,18 @@ namespace lotus::gpu::backends::metal {
 		); // TODO
 	private:
 		NS::SharedPtr<MTL::Device> _dev; ///< The device.
-		/// Mapping between BLAS resource IDs and resources.
-		std::unique_ptr<_details::blas_resource_id_mapping> _blas_mapping;
+		NS::SharedPtr<MTL::ResidencySet> _residency_set; ///< Manages all resources.
 		context_options _context_opts = context_options::none; ///< Context options.
 
 		/// Initializes all fields of this class.
-		device(NS::SharedPtr<MTL::Device> dev, context_options opts) :
-			_dev(std::move(dev)),
-			_blas_mapping(std::make_unique<_details::blas_resource_id_mapping>()),
-			_context_opts(opts) {
+		device(NS::SharedPtr<MTL::Device> dev, NS::SharedPtr<MTL::ResidencySet> set, context_options opts) :
+			_dev(std::move(dev)), _residency_set(std::move(set)), _context_opts(opts) {
 		}
+
+		/// Creates a new acceleration structure.
+		[[nodiscard]] _details::residency_ptr<MTL::AccelerationStructure> _create_acceleration_structure(
+			buffer&, std::size_t offset, std::size_t size
+		);
 	};
 
 	/// Holds a \p MTL::Device.

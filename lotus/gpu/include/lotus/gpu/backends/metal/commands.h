@@ -155,13 +155,13 @@ namespace lotus::gpu::backends::metal {
 		}
 	private:
 		NS::SharedPtr<MTL::CommandBuffer> _buf; ///< The command buffer.
-		const _details::blas_resource_id_mapping *_mapping = nullptr; ///< The resource ID to BLAS mapping.
 
 		NS::SharedPtr<MTL::RenderCommandEncoder> _pass_encoder; ///< Encoder for the render pass.
 		MTL::Buffer *_index_buffer = nullptr; ///< Currently bound index buffer.
-		std::size_t _index_offset_bytes; ///< Currently bound index buffer offset.
-		index_format _index_format; ///< Currently bound index buffer format.
-		primitive_topology _topology; ///< Primitive topology of the last bound graphics pipeline.
+		std::size_t _index_offset_bytes = 0; ///< Currently bound index buffer offset.
+		index_format _index_format = index_format::num_enumerators; ///< Currently bound index buffer format.
+		/// Primitive topology of the last bound graphics pipeline.
+		primitive_topology _topology = primitive_topology::num_enumerators;
 
 		NS::SharedPtr<MTL::ComputePipelineState> _compute_pipeline; ///< Currently bound compute pipeline state.
 		std::uint32_t _compute_first_descriptor_set = 0; ///< First descriptor set slot for the compute pass.
@@ -174,16 +174,9 @@ namespace lotus::gpu::backends::metal {
 			std::uint32_t first,
 			std::span<const gpu::descriptor_set *const> sets
 		);
-		/// Marks all resources in the given descriptor sets to be used.
-		void _mark_resource_usage(
-			MTL::CommandEncoder*,
-			std::span<const gpu::descriptor_set *const>,
-			void (*mark)(MTL::CommandEncoder*, MTL::Resource*, MTL::ResourceUsage)
-		);
 
 		/// Initializes \ref _buf and \ref _mapping.
-		command_list(NS::SharedPtr<MTL::CommandBuffer> buf, const _details::blas_resource_id_mapping *mapping) :
-			_buf(std::move(buf)), _mapping(mapping) {
+		explicit command_list(NS::SharedPtr<MTL::CommandBuffer> buf) : _buf(std::move(buf)) {
 		}
 	};
 
@@ -205,9 +198,11 @@ namespace lotus::gpu::backends::metal {
 		[[nodiscard]] swap_chain_status present(swap_chain&);
 
 		void signal(fence&); // TODO
-		void signal(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type); // TODO
+		/// Creates a new command buffer and signals the given semaphore.
+		void signal(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 
-		[[nodiscard]] queue_capabilities get_capabilities() const; // TODO
+		/// All Metal command queues support timestamp queries.
+		[[nodiscard]] queue_capabilities get_capabilities() const;
 
 		/// Checks if this object is valid.
 		[[nodiscard]] bool is_valid() const {

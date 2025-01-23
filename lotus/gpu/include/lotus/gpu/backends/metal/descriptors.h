@@ -8,6 +8,8 @@
 
 #include <Metal/Metal.hpp>
 
+#include "details.h"
+
 namespace lotus::gpu::backends::metal {
 	class command_list;
 	class device;
@@ -21,10 +23,10 @@ namespace lotus::gpu::backends::metal {
 		descriptor_pool(std::nullptr_t) {
 		}
 	private:
-		NS::SharedPtr<MTL::Heap> _heap; ///< The memory heap.
+		_details::residency_ptr<MTL::Heap> _heap = nullptr; ///< The memory heap.
 
 		/// Initializes \ref _heap.
-		explicit descriptor_pool(NS::SharedPtr<MTL::Heap> heap) : _heap(std::move(heap)) {
+		explicit descriptor_pool(_details::residency_ptr<MTL::Heap> heap) : _heap(std::move(heap)) {
 		}
 	};
 
@@ -59,13 +61,12 @@ namespace lotus::gpu::backends::metal {
 			return !!_arg_buffer;
 		}
 	private:
-		NS::SharedPtr<MTL::Buffer> _arg_buffer; ///< The argument buffer.
-		/// List of resources used in the argument buffer.
-		std::vector<std::pair<NS::SharedPtr<MTL::Resource>, NS::SharedPtr<MTL::Resource>>> _resources;
+		// TODO this can be just a regular NS::SharedPtr once all of these are converted to be allocated from heaps
+		_details::residency_ptr<MTL::Buffer> _arg_buffer = nullptr; ///< The argument buffer.
 
-		/// Initializes \ref _arg_buffer and \ref _resources.
-		descriptor_set(NS::SharedPtr<MTL::Buffer> arg_buffer, std::size_t num_slots) :
-			_arg_buffer(std::move(arg_buffer)), _resources(num_slots) {
+		/// Initializes \ref _arg_buffer.
+		explicit descriptor_set(_details::residency_ptr<MTL::Buffer> arg_buffer) :
+			_arg_buffer(std::move(arg_buffer)) {
 		}
 	};
 }

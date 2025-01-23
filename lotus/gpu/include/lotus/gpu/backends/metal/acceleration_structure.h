@@ -5,6 +5,8 @@
 
 #include <cstddef>
 
+#include "details.h"
+
 namespace lotus::gpu::backends::metal {
 	class command_list;
 	class device;
@@ -49,21 +51,6 @@ namespace lotus::gpu::backends::metal {
 	class bottom_level_acceleration_structure {
 		friend command_list;
 		friend device;
-	public:
-		/// Default move constructor.
-		bottom_level_acceleration_structure(bottom_level_acceleration_structure&&) = default;
-		/// No move constructor.
-		bottom_level_acceleration_structure(const bottom_level_acceleration_structure&) = delete;
-		/// Default move assignment.
-		bottom_level_acceleration_structure &operator=(bottom_level_acceleration_structure&&) = default;
-		/// No move assignment.
-		bottom_level_acceleration_structure &operator=(const bottom_level_acceleration_structure&) = delete;
-		/// Unregisters the resource if necessary.
-		~bottom_level_acceleration_structure() {
-			if (_as) {
-				_mapping->unregister_resource(_as->gpuResourceID());
-			}
-		}
 	protected:
 		/// Initializes the object to empty.
 		bottom_level_acceleration_structure(std::nullptr_t) {
@@ -74,13 +61,11 @@ namespace lotus::gpu::backends::metal {
 			return !!_as;
 		}
 	private:
-		NS::SharedPtr<MTL::AccelerationStructure> _as; ///< The acceleration structure.
-		_details::blas_resource_id_mapping *_mapping = nullptr; ///< Mapping between resource ID and resources.
+		_details::residency_ptr<MTL::AccelerationStructure> _as = nullptr; ///< The acceleration structure.
 
 		/// Initializes all fields of this struct.
-		bottom_level_acceleration_structure(
-			NS::SharedPtr<MTL::AccelerationStructure> as, _details::blas_resource_id_mapping *mapping
-		) : _as(std::move(as)), _mapping(mapping) {
+		explicit bottom_level_acceleration_structure(_details::residency_ptr<MTL::AccelerationStructure> as) :
+			_as(std::move(as)) {
 		}
 	};
 
@@ -98,12 +83,12 @@ namespace lotus::gpu::backends::metal {
 			return !!_as;
 		}
 	private:
-		NS::SharedPtr<MTL::AccelerationStructure> _as; ///< The acceleration structure.
-		NS::SharedPtr<MTL::Buffer> _header; ///< The acceleration structure header buffer.
+		_details::residency_ptr<MTL::AccelerationStructure> _as = nullptr; ///< The acceleration structure.
+		_details::residency_ptr<MTL::Buffer> _header = nullptr; ///< The acceleration structure header buffer.
 
 		/// Initializes all fields of this struct.
 		top_level_acceleration_structure(
-			NS::SharedPtr<MTL::AccelerationStructure> as, NS::SharedPtr<MTL::Buffer> header
+			_details::residency_ptr<MTL::AccelerationStructure> as, _details::residency_ptr<MTL::Buffer> header
 		) : _as(std::move(as)), _header(std::move(header)) {
 		}
 	};

@@ -34,7 +34,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	command_list device::create_and_start_command_list(command_allocator &alloc) {
-		return command_list(NS::RetainPtr(alloc._q->commandBuffer()), _blas_mapping.get());
+		return command_list(NS::RetainPtr(alloc._q->commandBuffer()));
 	}
 
 	/// Default resource options for argument buffers. Assumes that we don't need to read from the argument buffer.
@@ -55,7 +55,7 @@ namespace lotus::gpu::backends::metal {
 		heap_desc->setResourceOptions(_arg_buffer_options);
 		heap_desc->setSize(total_resources * sizeof(IRDescriptorTableEntry));
 		auto heap = NS::TransferPtr(_dev->newHeap(heap_desc.get()));
-		return descriptor_pool(std::move(heap));
+		return descriptor_pool({ std::move(heap), _residency_set.get() });
 	}
 
 	descriptor_set device::create_descriptor_set(descriptor_pool &pool, const descriptor_set_layout &layout) {
@@ -68,7 +68,7 @@ namespace lotus::gpu::backends::metal {
 		// TODO running out of buffer space for descriptor heaps?
 		//auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
 		crash_if(!buf_ptr);
-		return descriptor_set(std::move(buf_ptr), max_slot_index + 1);
+		return descriptor_set({ std::move(buf_ptr), _residency_set.get() });
 	}
 
 	descriptor_set device::create_descriptor_set(
@@ -87,7 +87,7 @@ namespace lotus::gpu::backends::metal {
 		// TODO running out of buffer space for descriptor heaps?
 		//auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
 		crash_if(!buf_ptr);
-		return descriptor_set(std::move(buf_ptr), max_slot_index + 1);
+		return descriptor_set({ std::move(buf_ptr), _residency_set.get() });
 	}
 
 	void device::write_descriptor_set_read_only_images(
@@ -101,7 +101,6 @@ namespace lotus::gpu::backends::metal {
 		for (std::size_t i = 0; i < images.size(); ++i) {
 			const auto *const img = static_cast<const _details::basic_image_view_base*>(images[i]);
 			IRDescriptorTableSetTexture(&arr[first_register + i], img->_tex.get(), 0.0f, 0);
-			set._resources[first_register + i] = { img->_tex, nullptr };
 		}
 	}
 
@@ -131,7 +130,6 @@ namespace lotus::gpu::backends::metal {
 			view.bufferSize   = buffers[i].count * buffers[i].stride;
 			view.typedBuffer  = true;
 			IRDescriptorTableSetBufferView(&arr[first_regsiter + i], &view);
-			set._resources[first_regsiter + i] = { buffers[i].data->_buf, nullptr };
 		}
 	}
 
@@ -156,7 +154,6 @@ namespace lotus::gpu::backends::metal {
 		for (std::size_t i = 0; i < buffers.size(); ++i) {
 			const std::uint64_t base_addr = buffers[i].data->_buf->gpuAddress();
 			IRDescriptorTableSetBuffer(&arr[first_register + i], base_addr + buffers[i].offset, 0);
-			set._resources[first_register + i] = { buffers[i].data->_buf, nullptr };
 		}
 	}
 
@@ -174,7 +171,6 @@ namespace lotus::gpu::backends::metal {
 				samplers[i]->_smp.get(),
 				samplers[i]->_mip_lod_bias
 			);
-			set._resources[first_register + i] = { nullptr, nullptr }; // no need to call useResource() for samplers
 		}
 	}
 
@@ -437,15 +433,15 @@ namespace lotus::gpu::backends::metal {
 		auto heap_descriptor = NS::TransferPtr(MTL::HeapDescriptor::alloc()->init());
 		heap_descriptor->setType(MTL::HeapTypePlacement);
 		heap_descriptor->setResourceOptions(_details::conversions::to_resource_options(type));
-		// TODO hazard tracking mode?
+		heap_descriptor->setHazardTrackingMode(MTL::HazardTrackingModeUntracked);
 		heap_descriptor->setSize(size);
-		return memory_block(NS::TransferPtr(_dev->newHeap(heap_descriptor.get())));
+		auto heap = NS::TransferPtr(_dev->newHeap(heap_descriptor.get()));
+		return memory_block({ std::move(heap), _residency_set.get() });
 	}
 
 	buffer device::create_committed_buffer(std::size_t size, memory_type_index type, buffer_usage_mask usages) {
-		return buffer(NS::TransferPtr(
-			_dev->newBuffer(size, _details::conversions::to_resource_options(type))
-		));
+		auto buf = NS::TransferPtr(_dev->newBuffer(size, _details::conversions::to_resource_options(type)));
+		return buffer({ std::move(buf), _residency_set.get() });
 	}
 
 	image2d device::create_committed_image2d(
@@ -463,7 +459,8 @@ namespace lotus::gpu::backends::metal {
 			MTL::ResourceOptionCPUCacheModeWriteCombined | MTL::ResourceStorageModePrivate,
 			usages
 		);
-		return image2d(NS::TransferPtr(_dev->newTexture(descriptor.get())));
+		auto img = NS::TransferPtr(_dev->newTexture(descriptor.get()));
+		return image2d({ std::move(img), _residency_set.get() });
 	}
 
 	image3d device::create_committed_image3d(
@@ -481,7 +478,8 @@ namespace lotus::gpu::backends::metal {
 			MTL::ResourceOptionCPUCacheModeWriteCombined | MTL::ResourceStorageModePrivate,
 			usages
 		);
-		return image3d(NS::TransferPtr(_dev->newTexture(descriptor.get())));
+		auto img = NS::TransferPtr(_dev->newTexture(descriptor.get()));
+		return image3d({ std::move(img), _residency_set.get() });
 	}
 
 	std::tuple<buffer, staging_buffer_metadata, std::size_t> device::create_committed_staging_buffer(
@@ -544,7 +542,8 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	buffer device::create_placed_buffer(std::size_t size, buffer_usage_mask usages, const memory_block &mem, std::size_t offset) {
-		return buffer(NS::TransferPtr(mem._heap->newBuffer(size, mem._heap->resourceOptions(), offset)));
+		auto ptr = NS::TransferPtr(mem._heap->newBuffer(size, mem._heap->resourceOptions(), offset));
+		return buffer({ std::move(ptr), nullptr });
 	}
 
 	image2d device::create_placed_image2d(
@@ -564,7 +563,8 @@ namespace lotus::gpu::backends::metal {
 			mem._heap->resourceOptions(),
 			usages
 		);
-		return image2d(NS::TransferPtr(mem._heap->newTexture(descriptor.get(), offset)));
+		auto ptr = NS::TransferPtr(mem._heap->newTexture(descriptor.get(), offset));
+		return image2d({ std::move(ptr), nullptr });
 	}
 
 	image3d device::create_placed_image3d(
@@ -584,7 +584,8 @@ namespace lotus::gpu::backends::metal {
 			mem._heap->resourceOptions(),
 			usages
 		);
-		return image3d(NS::TransferPtr(mem._heap->newTexture(descriptor.get(), offset)));
+		auto ptr = NS::TransferPtr(mem._heap->newTexture(descriptor.get(), offset));
+		return image3d({ std::move(ptr), nullptr });
 	}
 
 	std::byte *device::map_buffer(buffer &buf) {
@@ -605,7 +606,7 @@ namespace lotus::gpu::backends::metal {
 			// cannot create views of framebuffer only textures
 			// TODO check that the formats etc. match
 			crash_if(_details::conversions::to_pixel_format(fmt) != img._tex->pixelFormat());
-			return image2d_view(img._tex);
+			return image2d_view(img._tex.get_ptr());
 		}
 
 		return image2d_view(NS::TransferPtr(img._tex->newTextureView(
@@ -774,26 +775,11 @@ namespace lotus::gpu::backends::metal {
 		);
 	}
 
-	[[nodiscard]] NS::SharedPtr<MTL::AccelerationStructure> _create_acceleration_structure(
-		MTL::Buffer *buf, std::size_t offset, std::size_t size
-	) {
-		NS::SharedPtr<MTL::AccelerationStructure> result;
-		if (buf->heap()) {
-			result = NS::TransferPtr(buf->heap()->newAccelerationStructure(size, buf->heapOffset() + offset));
-		} else {
-			// TODO metal does not support creating acceleration structures directly inside buffers
-			result = NS::TransferPtr(buf->device()->newAccelerationStructure(size));
-		}
-		crash_if(!result);
-		return result;
-	}
-
 	bottom_level_acceleration_structure device::create_bottom_level_acceleration_structure(
 		buffer &buf, std::size_t offset, std::size_t size
 	) {
-		auto blas = _create_acceleration_structure(buf._buf.get(), offset, size);
-		_blas_mapping->register_resource(blas.get());
-		return bottom_level_acceleration_structure(std::move(blas), _blas_mapping.get());
+		auto blas = _create_acceleration_structure(buf, offset, size);
+		return bottom_level_acceleration_structure(std::move(blas));
 	}
 
 	top_level_acceleration_structure device::create_top_level_acceleration_structure(
@@ -803,7 +789,7 @@ namespace lotus::gpu::backends::metal {
 		const std::size_t instance_count = (size / sizeof(MTL::IndirectAccelerationStructureInstanceDescriptor)) + 1;
 
 		// create acceleration structure
-		auto as = _create_acceleration_structure(buf._buf.get(), offset, size);
+		auto as = _create_acceleration_structure(buf, offset, size);
 
 		// header buffer
 		auto header = NS::TransferPtr(_dev->newBuffer(
@@ -821,7 +807,7 @@ namespace lotus::gpu::backends::metal {
 			instance_offsets.data(),
 			instance_count
 		);
-		return top_level_acceleration_structure(std::move(as), std::move(header));
+		return top_level_acceleration_structure(std::move(as), { std::move(header), _residency_set.get() });
 	}
 
 	void device::write_descriptor_set_acceleration_structures(
@@ -834,7 +820,6 @@ namespace lotus::gpu::backends::metal {
 		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
 		for (std::size_t i = 0; i < as.size(); ++i) {
 			IRDescriptorTableSetAccelerationStructure(&arr[first_register + i], as[i]->_header->gpuAddress());
-			set._resources[first_register + i] = { as[i]->_as, as[i]->_header };
 		}
 	}
 
@@ -854,17 +839,50 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
+	_details::residency_ptr<MTL::AccelerationStructure> device::_create_acceleration_structure(
+		buffer &buf, std::size_t offset, std::size_t size
+	) {
+		NS::SharedPtr<MTL::AccelerationStructure> result;
+		MTL::ResidencySet *set = nullptr;
+		if (buf._buf->heap()) {
+			result = NS::TransferPtr(buf._buf->heap()->newAccelerationStructure(
+				size, buf._buf->heapOffset() + offset
+			));
+		} else {
+			// TODO metal does not support creating acceleration structures directly inside buffers
+			result = NS::TransferPtr(buf._buf->device()->newAccelerationStructure(size));
+			set = _residency_set.get();
+		}
+		crash_if(!result);
+		return { std::move(result), set };
+	}
+
 
 	std::pair<device, std::vector<command_queue>> adapter::create_device(
 		std::span<const queue_family> families
 	) {
+		// create residency set
+		auto residency_set_desc = NS::TransferPtr(MTL::ResidencySetDescriptor::alloc()->init());
+		NS::Error *error = nullptr;
+		auto residency_set = NS::TransferPtr(_dev->newResidencySet(residency_set_desc.get(), &error));
+		if (error) {
+			log().error(
+				"Failed to create residency set: {}",
+				error->localizedDescription()->cString(NS::UTF8StringEncoding)
+			);
+			std::abort();
+		}
+
+		// create command queues
 		std::vector<command_queue> queues;
 		queues.reserve(families.size());
 		for (queue_family fam : families) {
 			auto ptr = NS::TransferPtr(_dev->newCommandQueue());
+			ptr->addResidencySet(residency_set.get());
 			queues.emplace_back(command_queue(std::move(ptr)));
 		}
-		return { device(_dev, _context_opts), std::move(queues) };
+
+		return { device(_dev, std::move(residency_set), _context_opts), std::move(queues) };
 	}
 
 	adapter_properties adapter::get_properties() const {

@@ -16,10 +16,10 @@ namespace lotus::gpu::backends::metal {
 	class memory_block {
 		friend device;
 	private:
-		NS::SharedPtr<MTL::Heap> _heap; ///< The heap.
+		_details::residency_ptr<MTL::Heap> _heap; ///< The heap.
 
 		/// Initializes \ref _heap.
-		explicit memory_block(NS::SharedPtr<MTL::Heap> heap) : _heap(std::move(heap)) {
+		explicit memory_block(_details::residency_ptr<MTL::Heap> heap) : _heap(std::move(heap)) {
 		}
 	};
 
@@ -37,10 +37,10 @@ namespace lotus::gpu::backends::metal {
 			return !!_buf;
 		}
 	private:
-		NS::SharedPtr<MTL::Buffer> _buf; ///< The buffer.
+		_details::residency_ptr<MTL::Buffer> _buf = nullptr; ///< The buffer.
 
 		/// Initializes \ref _buf.
-		explicit buffer(NS::SharedPtr<MTL::Buffer> buf) : _buf(std::move(buf)) {
+		explicit buffer(_details::residency_ptr<MTL::Buffer> buf) : _buf(std::move(buf)) {
 		}
 	};
 
@@ -60,10 +60,10 @@ namespace lotus::gpu::backends::metal {
 			}
 
 			/// Initializes \ref _tex.
-			explicit basic_image_base(NS::SharedPtr<MTL::Texture> tex) : _tex(std::move(tex)) {
+			explicit basic_image_base(_details::residency_ptr<MTL::Texture> tex) : _tex(std::move(tex)) {
 			}
 		private:
-			NS::SharedPtr<MTL::Texture> _tex; ///< The texture.
+			_details::residency_ptr<MTL::Texture> _tex = nullptr; ///< The texture.
 		};
 
 		/// Base class for image views that holds a \p MTL::Texture created using \p MTL::Texture::newTextureView().
@@ -97,7 +97,7 @@ namespace lotus::gpu::backends::metal {
 		}
 	private:
 		/// Initializes the base class.
-		explicit basic_image(NS::SharedPtr<MTL::Texture> tex) : basic_image_base(std::move(tex)) {
+		explicit basic_image(_details::residency_ptr<MTL::Texture> tex) : basic_image_base(std::move(tex)) {
 		}
 	};
 	using image2d = basic_image<image_type::type_2d>; ///< 2D images.

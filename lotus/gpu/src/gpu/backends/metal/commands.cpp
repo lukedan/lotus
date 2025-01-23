@@ -141,14 +141,6 @@ namespace lotus::gpu::backends::metal {
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto bindings = _create_argument_buffer(bookmark, first, sets);
-		_mark_resource_usage(
-			_pass_encoder.get(), sets,
-			[](MTL::CommandEncoder *encoder, MTL::Resource *resource, MTL::ResourceUsage usages) {
-				static_cast<MTL::RenderCommandEncoder*>(encoder)->useResource(
-					resource, usages, MTL::RenderStageVertex | MTL::RenderStageFragment
-				);
-			}
-		);
 		const std::size_t bindings_bytes = bindings.size() * sizeof(std::uint64_t);
 		_pass_encoder->setVertexBytes(bindings.data(), bindings_bytes, kIRArgumentBufferBindPoint);
 		_pass_encoder->setFragmentBytes(bindings.data(), bindings_bytes, kIRArgumentBufferBindPoint);
@@ -264,12 +256,6 @@ namespace lotus::gpu::backends::metal {
 		encoder->setComputePipelineState(_compute_pipeline.get());
 		// bind resources
 		encoder->setBytes(data.data(), data_size, kIRArgumentBufferBindPoint);
-		_mark_resource_usage(
-			encoder.get(), _compute_sets,
-			[](MTL::CommandEncoder *encoder, MTL::Resource *rsrc, MTL::ResourceUsage usages) {
-				static_cast<MTL::ComputeCommandEncoder*>(encoder)->useResource(rsrc, usages);
-			}
-		);
 		encoder->dispatchThreadgroups(
 			MTL::Size(x, y, z),
 			_details::conversions::to_size(_compute_thread_group_size.into<NS::UInteger>())
@@ -335,6 +321,7 @@ namespace lotus::gpu::backends::metal {
 	) {
 		using _count_type = NS::UInteger;
 
+		// this buffer is not added to the residency set; manually calling useResource() later
 		auto count_buffer = NS::TransferPtr(_buf->device()->newBuffer(sizeof(_count_type), 0));
 		*static_cast<_count_type*>(count_buffer->contents()) = count;
 		count_buffer->setLabel(NS::String::string("Build TLAS Count Buffer", NS::UTF8StringEncoding));
@@ -349,6 +336,7 @@ namespace lotus::gpu::backends::metal {
 		desc->setMaxInstanceCount(count);
 
 		// update the instance id buffer
+		// TODO this needs to be a compute dispatch
 		const auto *header = static_cast<IRRaytracingAccelerationStructureGPUHeader*>(output._header->contents());
 		auto *instance_ids = reinterpret_cast<std::uint32_t*>(header->addressOfInstanceContributions);
 		const auto *instance_descriptors = static_cast<instance_description*>(instances._buf->contents());
@@ -358,13 +346,6 @@ namespace lotus::gpu::backends::metal {
 
 		auto encoder = NS::RetainPtr(_buf->accelerationStructureCommandEncoder());
 		encoder->useResource(count_buffer.get(), MTL::ResourceUsageRead);
-		encoder->useResource(instances._buf.get(), MTL::ResourceUsageRead);
-		for (std::size_t i = 0; i < count; ++i) {
-			encoder->useResource(
-				_mapping->get_resource(instance_descriptors[i]._descriptor.accelerationStructureID),
-				MTL::ResourceUsageRead
-			);
-		}
 		encoder->buildAccelerationStructure(
 			output._as.get(), desc.get(), scratch._buf.get(), scratch_offset
 		);
@@ -402,26 +383,6 @@ namespace lotus::gpu::backends::metal {
 		return bindings;
 	}
 
-	void command_list::_mark_resource_usage(
-		MTL::CommandEncoder *encoder,
-		std::span<const gpu::descriptor_set *const> sets,
-		void (*mark)(MTL::CommandEncoder*, MTL::Resource*, MTL::ResourceUsage)
-	) {
-		for (const gpu::descriptor_set *gpu_set : sets) {
-			const auto *set = static_cast<const descriptor_set*>(gpu_set);
-			for (const auto &rsrc_pair : set->_resources) {
-				const MTL::ResourceUsage usage = MTL::ResourceUsageRead | MTL::ResourceUsageWrite; // TODO
-				if (rsrc_pair.first) {
-					mark(encoder, rsrc_pair.first.get(), usage);
-				}
-				if (rsrc_pair.second) {
-					mark(encoder, rsrc_pair.second.get(), usage);
-				}
-			}
-			mark(encoder, set->_arg_buffer.get(), MTL::ResourceUsageRead);
-		}
-	}
-
 
 	double command_queue::get_timestamp_frequency() {
 		// TODO
@@ -439,7 +400,7 @@ namespace lotus::gpu::backends::metal {
 			cmd_buf->commit();
 		}
 		for (const gpu::command_list *list : cmd_lists) {
-			static_cast<const command_list*>(list)->_buf->commit();
+			list->_buf->commit();
 		}
 		if (sync.notify_fence) {
 			std::abort(); // TODO
@@ -465,11 +426,13 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	void command_queue::signal(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type) {
-		// TODO
+	void command_queue::signal(timeline_semaphore &sem, gpu::_details::timeline_semaphore_value_type val) {
+		auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
+		cmd_buf->encodeSignalEvent(sem._event.get(), val);
+		cmd_buf->commit();
 	}
 
 	queue_capabilities command_queue::get_capabilities() const {
-		// TODO
+		return queue_capabilities::timestamp_query;
 	}
 }

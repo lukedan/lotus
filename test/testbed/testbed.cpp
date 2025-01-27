@@ -16,6 +16,7 @@
 #include "tests/box_stack_test.h"
 #include "tests/fem_cloth_test.h"
 #include "tests/polyhedron_test.h"
+#include "tests/shallow_water_test.h"
 #include "tests/spring_cloth_test.h"
 
 #include <imgui.cpp>
@@ -86,9 +87,9 @@ public:
 				for (; _time_accum >= _time_step; _time_accum -= _time_step) {
 					_test->timestep(_time_step, _iters);
 					consumed += _time_step;
-					
+
 					auto timestep_end = std::chrono::high_resolution_clock::now();
-					
+
 					double this_cost = std::chrono::duration<double, std::milli>(timestep_end - timestep_beg).count();
 					_timestep_cost = (1.0f - _timestep_cost_factor) * _timestep_cost + _timestep_cost_factor * this_cost;
 					timestep_beg = timestep_end;
@@ -317,6 +318,7 @@ int main(int argc, char **argv) {
 	app.register_test<fem_cloth_test>();
 	app.register_test<spring_cloth_test>();
 	app.register_test<box_stack_test>();
+	app.register_test<shallow_water_test>();
 
 	return app.run();
 }

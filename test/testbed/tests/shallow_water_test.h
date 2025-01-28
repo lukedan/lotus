@@ -51,8 +51,8 @@ public:
 		_render = debug_render();
 		_render.ctx = &_get_test_context();
 
-		const auto w = static_cast<std::uint32_t>(_width);
-		const auto h = static_cast<std::uint32_t>(_height);
+		const auto w = static_cast<std::uint32_t>(_size[0]);
+		const auto h = static_cast<std::uint32_t>(_size[1]);
 
 		_b.resize({ w, h });
 		_h.resize({ w, h });
@@ -60,32 +60,26 @@ public:
 		_uy.resize({ w, h - 1 });
 
 		_h.fill(_water_height);
-		_b.fill(0.0f);
 		_ux.fill(0.0f);
 		_uy.fill(0.0f);
 
-		// boundary
-		const float border_value = 2.0f * _water_height;
-		for (std::uint32_t x = 0; x < w; ++x) {
-			_h(x, 0) = _h(x, h - 1) = _b(x, 0) = _b(x, h - 1) = border_value;
-		}
-		for (std::uint32_t y = 1; y + 1 < h; ++y) {
-			_h(0, y) = _h(w - 1, y) = _b(0, y) = _b(w - 1, y) = border_value;
-		}
+		_generate_terrain();
 
 		_h_prev = _h;
 	}
 
-	void timestep(double dt_total, std::size_t iterations) override {
+	void timestep(double dt, std::size_t iterations) override {
 		if (_impulse) {
 			_impulse = false;
-			_h(_h.get_size()[0] / 2, _h.get_size()[1] / 2) *= 2.0f;
+			_h(_h.get_size()[0] / 2, _h.get_size()[1] / 2) += _impulse_vel * dt;
 		}
 
-		const float dt = dt_total / iterations;
 		for (std::size_t i = 0; i < iterations; ++i) {
+			const auto [vol, cells] = _volume();
 			_solve_horizontal(dt);
 			_solve_vertical(dt);
+			const auto [new_vol, new_cells] = _volume();
+			_distribute_volume((vol - new_vol) / new_cells);
 		}
 	}
 
@@ -97,18 +91,133 @@ public:
 		lotus::renderer::image2d_depth_stencil depth,
 		lotus::cvec2u32 size
 	) override {
+		const mat44s transform({
+			{ 1.0f, 0.0f, 0.0f, -0.5f * _grid_size[0] },
+			{ 0.0f, 1.0f, 0.0f, 0.0f },
+			{ 0.0f, 0.0f, 1.0f, -0.5f * _grid_size[1] },
+			{ 0.0f, 0.0f, 0.0f, 0.0f },
+		});
+		const vec2 cell_size = lotus::vec::memberwise_divide(vec2(_grid_size[0], _grid_size[1]), (_h.get_size() - lotus::cvec2u32(1, 1)).into<scalar>());
+		_draw_heightfield(_h, _render, cell_size, lotus::linear_rgba_f(0.3f, 0.3f, 1.0f, 1.0f), transform, _get_test_context().wireframe_surfaces);
+		_draw_heightfield(_b, _render, cell_size, lotus::linear_rgba_f(0.8f, 0.5f, 0.0f, 1.0f), transform, _get_test_context().wireframe_surfaces);
+		_render.flush(ctx, q, uploader, color, depth, size);
+	}
+
+	void gui() override {
+		ImGui::SliderInt2("Divisions", _size, 4, 2048);
+		ImGui::SliderFloat2("Grid Size", _grid_size, 1.0f, 1000.0f);
+		ImGui::SliderFloat("Water Height", &_water_height, 0.0f, 10.0f);
+		ImGui::SliderFloat("Gravity", &_gravity, -20.0f, 20.0f);
+		ImGui::SliderFloat("Damping", &_damping, 0.0f, 1.0f);
+		ImGui::Separator();
+
+		if (ImGui::Button("Impulse")) {
+			_impulse = true;
+		}
+		ImGui::SliderFloat2("Impulse Pos", _impulse_pos, 0.0f, 1.0f);
+		ImGui::SliderFloat("Impulse Velocity", &_impulse_vel, 0.0f, 300.0f);
+		ImGui::Separator();
+
+		bool terrain_changed = false;
+		terrain_changed = ImGui::SliderFloat("Terrain Offset", &_terrain_offset, -5.0f, 5.0f) || terrain_changed;
+		terrain_changed = ImGui::SliderFloat("Terrain Amplitude", &_terrain_amp, 0.0f, 20.0f) || terrain_changed;
+		terrain_changed = ImGui::SliderFloat("Terrain Frequency", &_terrain_freq, 0.0f, 1.0f) || terrain_changed;
+		terrain_changed = ImGui::SliderFloat2("Terrain Phase", _terrain_phase, -5.0f, 5.0f) || terrain_changed;
+		if (terrain_changed) {
+			_generate_terrain();
+		}
+
+		test::gui();
+	}
+
+	inline static std::string_view get_name() {
+		return "Shallow Water";
+	}
+protected:
+	debug_render _render;
+
+	int _size[2] = { 128, 128 };
+	float _grid_size[2] = { 10.0f, 10.0f };
+	float _water_height = 2.0f;
+	float _gravity = 9.8f;
+	float _damping = 0.0f;
+
+	grid2<float> _b;
+	grid2<float> _h;
+	grid2<float> _h_prev;
+	grid2<float> _ux;
+	grid2<float> _uy;
+
+	bool _impulse = false;
+	float _impulse_pos[2] = { 0.0f, 0.0f };
+	float _impulse_vel = 100.0f;
+
+	float _terrain_offset = 1.5f;
+	float _terrain_amp = 5.0f;
+	float _terrain_freq = 0.5f;
+	float _terrain_phase[2] = { 0.0f, 0.0f };
+
+
+	void _generate_terrain() {
+		const auto mmul = [](auto x, auto y) {
+			return lotus::vec::memberwise_multiply(x, y);
+		};
+		const auto fract = [](float x) {
+			return x - static_cast<int>(x);
+		};
+		const auto fractv = [](auto x) {
+			return x - x.template into<int>().template into<float>();
+		};
+		const auto hash = [&mmul, &fract, &fractv](vec2 x) {
+			const vec2 k(0.3183099, 0.3678794);
+			x = mmul(x, k) + vec2(k[1], k[0]);
+			return -vec2(1.0f, 1.0f) + 2.0f * fractv(16.0f * k * fract(x[0] * x[1] * (x[0] + x[1])));
+		};
+		// https://www.shadertoy.com/view/XdXBRH
+		const auto noise = [&mmul, &hash](vec2 p) {
+			const lotus::cvec2i i(std::floor(p[0]), std::floor(p[1]));
+			const vec2 f = p - i.into<float>();
+			const vec2 u = mmul(mmul(mmul(f, f), f), mmul(f, (f * 6.0f - vec2(15.0f, 15.0f))) + vec2(10.0f, 10.0f));
+			const vec2 ga = hash(i.into<float>() + vec2(0.0f, 0.0f));
+			const vec2 gb = hash(i.into<float>() + vec2(1.0f, 0.0f));
+			const vec2 gc = hash(i.into<float>() + vec2(0.0f, 1.0f));
+			const vec2 gd = hash(i.into<float>() + vec2(1.0f, 1.0f));
+			const float va = lotus::vec::dot(ga, f - vec2(0.0f, 0.0f));
+			const float vb = lotus::vec::dot(gb, f - vec2(1.0f, 0.0f));
+			const float vc = lotus::vec::dot(gc, f - vec2(0.0f, 1.0f));
+			const float vd = lotus::vec::dot(gd, f - vec2(1.0f, 1.0f));
+			return va + u[0] * (vb - va) + u[1] * (vc - va) + u[0] * u[1] * (va - vb - vc + vd);
+		};
+
+		for (std::uint32_t y = 0; y < _size[1]; ++y) {
+			const float yp = _terrain_freq * (_grid_size[1] * y / (_size[1] - 1) + _terrain_phase[1]);
+			for (std::uint32_t x = 0; x < _size[0]; ++x) {
+				const float xp = _terrain_freq * (_grid_size[0] * x / (_size[0] - 1) + _terrain_phase[0]);
+				_b(x, y) = _terrain_offset + _terrain_amp * noise(vec2(xp, yp));
+			}
+		}
+	}
+
+	static void _draw_heightfield(
+		const grid2<float> &hf,
+		debug_render &render,
+		vec2 cell_size,
+		lotus::linear_rgba_f color,
+		mat44s transform,
+		bool wireframe
+	) {
 		std::vector<vec3> pos;
 		std::vector<vec3> norm;
 		std::vector<std::uint32_t> indices;
-		const auto w = static_cast<std::uint32_t>(_h.get_size()[0]);
-		const auto h = static_cast<std::uint32_t>(_h.get_size()[1]);
+		const std::uint32_t w = hf.get_size()[0];
+		const std::uint32_t h = hf.get_size()[1];
 		for (std::uint32_t y = 0; y < h; ++y) {
 			for (std::uint32_t x = 0; x < w; ++x) {
 				const std::uint32_t x1y1 = pos.size();
 				const std::uint32_t x0y1 = x1y1 - 1;
 				const std::uint32_t x1y0 = x1y1 - w;
 				const std::uint32_t x0y0 = x0y1 - w;
-				pos.emplace_back(x * _cell_size, _h(x, y), y * _cell_size);
+				pos.emplace_back(x * cell_size[0], hf(x, y), y * cell_size[1]);
 				if (x > 0 && y > 0) {
 					indices.emplace_back(x0y0);
 					indices.emplace_back(x1y0);
@@ -131,37 +240,8 @@ public:
 				norm.emplace_back(lotus::vec::unsafe_normalize(lotus::vec::cross(xp - xn, yp - yn)));
 			}
 		}
-		_render.draw_body(pos, norm, indices, mat44s::identity(), lotus::linear_rgba_f(0.2f, 0.2f, 1.0f, 1.0f), false);
-		_render.flush(ctx, q, uploader, color, depth, size);
+		render.draw_body(pos, norm, indices, transform, color, wireframe);
 	}
-
-	void gui() override {
-		if (ImGui::Button("Impulse")) {
-			_impulse = true;
-		}
-		// TODO
-	}
-
-	inline static std::string_view get_name() {
-		return "Shallow Water";
-	}
-protected:
-	debug_render _render;
-
-	int _width = 128;
-	int _height = 128;
-	float _cell_size = 0.2f;
-	float _water_height = 0.2f;
-	float _gravity = 9.8f;
-	float _damping = 0.0f;
-
-	grid2<float> _b;
-	grid2<float> _h;
-	grid2<float> _h_prev;
-	grid2<float> _ux;
-	grid2<float> _uy;
-
-	bool _impulse = false;
 
 
 	// https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm
@@ -190,12 +270,13 @@ protected:
 	}
 
 	[[nodiscard]] float _d(std::uint32_t x, std::uint32_t y) const {
-		return std::max(0.0f, _h(x, y) - _b(x, y));
+		return std::max(0.0f, _h(x, y) - _b(x, y)); // this clamp is crucial for stability
 	}
 	void _solve_horizontal(float dt) {
 		const std::uint32_t w = _h.get_size()[0];
 		const std::uint32_t h = _h.get_size()[1];
-		const float constant = _gravity * (dt * dt) / (_cell_size * _cell_size);
+		const float cell_size = _grid_size[0] / (w - 1);
+		const float constant = _gravity * (dt * dt) / (cell_size * cell_size);
 
 		std::vector<float> e(w);
 		std::vector<float> f(w - 1);
@@ -228,7 +309,8 @@ protected:
 	void _solve_vertical(float dt) {
 		const std::uint32_t w = _h.get_size()[0];
 		const std::uint32_t h = _h.get_size()[1];
-		const float constant = _gravity * (dt * dt) / (_cell_size * _cell_size);
+		const float cell_size = _grid_size[1] / (h - 1);
+		const float constant = _gravity * (dt * dt) / (cell_size * cell_size);
 
 		std::vector<float> e(h);
 		std::vector<float> f(h - 1);
@@ -257,5 +339,32 @@ protected:
 		}
 
 		std::swap(_h, _h_prev);
+	}
+
+	[[nodiscard]] std::pair<float, std::uint32_t> _volume() const {
+		float volume = 0.0f;
+		std::uint32_t liquid_cells = 0;
+		for (std::uint32_t y = 0; y < _h.get_size()[1]; ++y) {
+			for (std::uint32_t x = 0; x < _h.get_size()[0]; ++x) {
+				const float hv = _h(x, y);
+				const float bv = _b(x, y);
+				if (hv > bv) {
+					volume += hv - bv;
+					++liquid_cells;
+				}
+			}
+		}
+		return { volume, liquid_cells };
+	}
+
+	void _distribute_volume(float per_cell) {
+		for (std::uint32_t y = 0; y < _h.get_size()[1]; ++y) {
+			for (std::uint32_t x = 0; x < _h.get_size()[0]; ++x) {
+				float &hv = _h(x, y);
+				if (hv > _b(x, y)) {
+					hv += per_cell;
+				}
+			}
+		}
 	}
 };

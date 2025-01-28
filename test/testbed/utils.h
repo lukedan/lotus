@@ -11,6 +11,8 @@
 
 using namespace lotus::physics::types;
 
+using vec2 = lotus::cvec2<scalar>;
+using vec3 = lotus::cvec3<scalar>;
 using vec4 = lotus::cvec4<scalar>;
 using mat44s = lotus::mat44<scalar>;
 

@@ -243,6 +243,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND LOTUS_GPU_USE_METAL)
 			"src/gpu/backends/metal/context.mm"
 			"src/gpu/backends/metal/details.cpp"
 			"src/gpu/backends/metal/device.cpp"
+			"src/gpu/backends/metal/device.mm"
 			"src/gpu/backends/metal/frame_buffer.cpp"
 			"src/gpu/backends/metal/metal_impl.cpp"
 			"src/gpu/backends/metal/metal_irconverter_include.h"

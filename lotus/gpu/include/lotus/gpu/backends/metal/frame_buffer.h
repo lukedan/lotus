@@ -40,6 +40,8 @@ namespace lotus::gpu::backends::metal {
 	private:
 		CA::MetalLayer *_layer = nullptr; ///< The \p CAMetalLayer.
 		NS::SharedPtr<CA::MetalDrawable> _drawable; ///< The next back buffer to render onto.
+		// TODO remove this once we can resize the layer normally
+		void *_window = nullptr; ///< The window that owns this swap chain.
 	};
 
 	/// Contains references to \p MTL::Texture objects for color and depth-stencil render targets, as well as the

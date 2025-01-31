@@ -25,10 +25,6 @@ namespace lotus::gpu::backends::metal {
 		return result;
 	}
 
-	void device::resize_swap_chain_buffers(swap_chain &chain, cvec2u32 size) {
-		chain._layer->setDrawableSize(CGSizeMake(size[0], size[1]));
-	}
-
 	command_allocator device::create_command_allocator(command_queue &q) {
 		return command_allocator(q._q.get());
 	}

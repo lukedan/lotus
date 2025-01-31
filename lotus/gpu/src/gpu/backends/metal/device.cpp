@@ -68,6 +68,7 @@ namespace lotus::gpu::backends::metal {
 		// TODO running out of buffer space for descriptor heaps?
 		//auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
 		crash_if(!buf_ptr);
+		_maybe_set_descriptor_set_name(buf_ptr.get(), layout);
 		return descriptor_set({ std::move(buf_ptr), _residency_set.get() });
 	}
 
@@ -87,6 +88,7 @@ namespace lotus::gpu::backends::metal {
 		// TODO running out of buffer space for descriptor heaps?
 		//auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
 		crash_if(!buf_ptr);
+		_maybe_set_descriptor_set_name(buf_ptr.get(), layout);
 		return descriptor_set({ std::move(buf_ptr), _residency_set.get() });
 	}
 
@@ -855,6 +857,32 @@ namespace lotus::gpu::backends::metal {
 		}
 		crash_if(!result);
 		return { std::move(result), set };
+	}
+
+	void device::_maybe_set_descriptor_set_name(MTL::Buffer *buf, const descriptor_set_layout &layout) {
+		constexpr static enums::sequential_mapping<descriptor_type, char8_t> _ids{
+			std::pair(descriptor_type::sampler,                u8's'),
+			std::pair(descriptor_type::read_only_image,        u8'i'),
+			std::pair(descriptor_type::read_write_image,       u8'I'),
+			std::pair(descriptor_type::read_only_buffer,       u8'b'),
+			std::pair(descriptor_type::read_write_buffer,      u8'B'),
+			std::pair(descriptor_type::constant_buffer,        u8'c'),
+			std::pair(descriptor_type::acceleration_structure, u8'a'),
+		};
+
+		if (bit_mask::contains<context_options::enable_debug_info>(_context_opts)) {
+			std::string name = "DescriptorTable";
+			for (const descriptor_range_binding &binding : layout._bindings) {
+				const std::string count =
+					binding.range.count == descriptor_range::unbounded_count ?
+					"+" :
+					std::format("{}", binding.range.count);
+				name += std::format(
+					"_{}[{},{}]", static_cast<char>(_ids[binding.range.type]), binding.register_index, count
+				);
+			}
+			buf->setLabel(_details::conversions::to_string(reinterpret_cast<const char8_t*>(name.c_str())).get());
+		}
 	}
 
 

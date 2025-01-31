@@ -162,18 +162,22 @@ namespace lotus::gpu::backends::metal {
 		index_format _index_format = index_format::num_enumerators; ///< Currently bound index buffer format.
 		/// Primitive topology of the last bound graphics pipeline.
 		primitive_topology _topology = primitive_topology::num_enumerators;
+		std::vector<std::uint64_t> _graphics_sets; ///< Currently bound graphics descriptor sets.
+		/// Whether the latest version of \ref _graphics_sets is bound to the active command encoder.
+		bool _graphics_sets_bound = false;
 
 		NS::SharedPtr<MTL::ComputePipelineState> _compute_pipeline; ///< Currently bound compute pipeline state.
-		std::uint32_t _compute_first_descriptor_set = 0; ///< First descriptor set slot for the compute pass.
-		std::vector<const gpu::descriptor_set*> _compute_sets; ///< Descriptor sets to bind to the compute pass.
 		cvec3u32 _compute_thread_group_size = zero; ///< Thread group size of the currently bound compute pipeline.
+		std::vector<std::uint64_t> _compute_sets; ///< Currently bound compute descriptor sets.
 
 		/// Creates an argument buffer for the given set of descriptor tables.
-		[[nodiscard]] memory::stack_allocator::vector_type<std::uint64_t> _create_argument_buffer(
-			memory::stack_allocator::scoped_bookmark&,
+		void _update_descriptor_set_bindings(
+			std::vector<std::uint64_t> &bindings,
 			std::uint32_t first,
 			std::span<const gpu::descriptor_set *const> sets
 		);
+		/// Refreshes graphics descriptor bindings to \ref _pass_encoder if necessary.
+		void _maybe_refresh_graphics_descriptor_set_bindings();
 
 		/// Initializes \ref _buf and \ref _mapping.
 		explicit command_list(NS::SharedPtr<MTL::CommandBuffer> buf) : _buf(std::move(buf)) {

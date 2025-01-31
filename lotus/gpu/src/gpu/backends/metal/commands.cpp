@@ -72,6 +72,7 @@ namespace lotus::gpu::backends::metal {
 		descriptor->setRenderTargetHeight(fb._size[1]);
 
 		_pass_encoder = NS::RetainPtr(_buf->renderCommandEncoder(descriptor.get()));
+		_graphics_sets_bound = false;
 	}
 
 	void command_list::bind_pipeline_state(const graphics_pipeline_state &s) {
@@ -139,19 +140,14 @@ namespace lotus::gpu::backends::metal {
 		std::size_t first,
 		std::span<const gpu::descriptor_set *const> sets
 	) {
-		auto bookmark = get_scratch_bookmark();
-		auto bindings = _create_argument_buffer(bookmark, first, sets);
-		const std::size_t bindings_bytes = bindings.size() * sizeof(std::uint64_t);
-		_pass_encoder->setVertexBytes(bindings.data(), bindings_bytes, kIRArgumentBufferBindPoint);
-		_pass_encoder->setFragmentBytes(bindings.data(), bindings_bytes, kIRArgumentBufferBindPoint);
+		_update_descriptor_set_bindings(_graphics_sets, first, sets);
+		_graphics_sets_bound = false;
 	}
 
 	void command_list::bind_compute_descriptor_sets(
 		const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const> sets
 	) {
-		_compute_first_descriptor_set = first;
-		_compute_sets.clear();
-		_compute_sets.insert(_compute_sets.end(), sets.begin(), sets.end());
+		_update_descriptor_set_bindings(_compute_sets, first, sets);
 	}
 
 	void command_list::set_viewports(std::span<const viewport>) {
@@ -214,6 +210,7 @@ namespace lotus::gpu::backends::metal {
 	void command_list::draw_instanced(
 		std::size_t first_vertex, std::size_t vertex_count, std::size_t first_instance, std::size_t instance_count
 	) {
+		_maybe_refresh_graphics_descriptor_set_bindings();
 		// this function is used instead of the member function to bind additional auxiliary buffers for HLSL
 		// interoperability; same for draw_indexed_instanced()
 		IRRuntimeDrawPrimitives(
@@ -234,6 +231,7 @@ namespace lotus::gpu::backends::metal {
 		std::size_t instance_count
 	) {
 		crash_if(_index_offset_bytes % 4 != 0); // Metal does not support non-multiple-of-4 offsets
+		_maybe_refresh_graphics_descriptor_set_bindings();
 		IRRuntimeDrawIndexedPrimitives(
 			_pass_encoder.get(),
 			_details::conversions::to_primitive_type(_topology),
@@ -248,14 +246,12 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z) {
-		auto bookmark = get_scratch_bookmark();
-		auto data = _create_argument_buffer(bookmark, _compute_first_descriptor_set, _compute_sets);
-		std::size_t data_size = data.size() * sizeof(std::uint64_t);
+		const std::size_t data_size = _compute_sets.size() * sizeof(std::uint64_t);
 
 		auto encoder = NS::RetainPtr(_buf->computeCommandEncoder());
 		encoder->setComputePipelineState(_compute_pipeline.get());
 		// bind resources
-		encoder->setBytes(data.data(), data_size, kIRArgumentBufferBindPoint);
+		encoder->setBytes(_compute_sets.data(), data_size, kIRArgumentBufferBindPoint);
 		encoder->dispatchThreadgroups(
 			MTL::Size(x, y, z),
 			_details::conversions::to_size(_compute_thread_group_size.into<NS::UInteger>())
@@ -371,16 +367,27 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	memory::stack_allocator::vector_type<std::uint64_t> command_list::_create_argument_buffer(
-		memory::stack_allocator::scoped_bookmark &bookmark,
+	void command_list::_update_descriptor_set_bindings(
+		std::vector<std::uint64_t> &bindings,
 		std::uint32_t first,
 		std::span<const gpu::descriptor_set *const> sets
 	) {
-		auto bindings = bookmark.create_vector_array<std::uint64_t>(first + sets.size());
+		if (first + sets.size() > bindings.size()) {
+			bindings.resize(first + sets.size(), 0);
+		}
 		for (std::size_t i = 0; i < sets.size(); ++i) {
 			bindings[first + i] = sets[i]->_arg_buffer->gpuAddress();
 		}
-		return bindings;
+	}
+
+	void command_list::_maybe_refresh_graphics_descriptor_set_bindings() {
+		if (_graphics_sets_bound) {
+			return;
+		}
+		const std::size_t bindings_bytes = _graphics_sets.size() * sizeof(std::uint64_t);
+		_pass_encoder->setVertexBytes(_graphics_sets.data(), bindings_bytes, kIRArgumentBufferBindPoint);
+		_pass_encoder->setFragmentBytes(_graphics_sets.data(), bindings_bytes, kIRArgumentBufferBindPoint);
+		_graphics_sets_bound = true;
 	}
 
 

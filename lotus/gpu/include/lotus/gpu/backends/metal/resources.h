@@ -60,10 +60,10 @@ namespace lotus::gpu::backends::metal {
 			}
 
 			/// Initializes \ref _tex.
-			explicit basic_image_base(_details::residency_ptr<MTL::Texture> tex) : _tex(std::move(tex)) {
+			explicit basic_image_base(residency_ptr<MTL::Texture> tex) : _tex(std::move(tex)) {
 			}
 		private:
-			_details::residency_ptr<MTL::Texture> _tex = nullptr; ///< The texture.
+			residency_ptr<MTL::Texture> _tex = nullptr; ///< The texture.
 		};
 
 		/// Base class for image views that holds a \p MTL::Texture created using \p MTL::Texture::newTextureView().

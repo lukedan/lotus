@@ -285,6 +285,8 @@ namespace lotus::gpu::backends::metal {
 		[[nodiscard]] _details::residency_ptr<MTL::AccelerationStructure> _create_acceleration_structure(
 			buffer&, std::size_t offset, std::size_t size
 		);
+		/// Sets the debug name of the given descriptor set.
+		void _maybe_set_descriptor_set_name(MTL::Buffer *buf, const descriptor_set_layout &layout);
 	};
 
 	/// Holds a \p MTL::Device.

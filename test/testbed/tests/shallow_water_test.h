@@ -39,11 +39,11 @@ public:
 
 		[[nodiscard]] lotus::mat22<T> gather_zero(lotus::cvec2i pos) const {
 			auto value = [&](int x, int y) -> T {
-				if (x < 0 || x >= get_size()[0]) {
-					return 0;
+				if (x < 0 || x >= static_cast<int>(get_size()[0])) {
+					return lotus::zero;
 				}
-				if (y < 0 || y >= get_size()[1]) {
-					return 0;
+				if (y < 0 || y >= static_cast<int>(get_size()[1])) {
+					return lotus::zero;
 				}
 				return at(x, y);
 			};
@@ -55,6 +55,8 @@ public:
 			return result;
 		}
 		[[nodiscard]] std::pair<T, lotus::mat22<T>> sample_zero(vec2 pos) const {
+			pos[0] = std::clamp(pos[0], -10000.0f, 10000.0f);
+			pos[1] = std::clamp(pos[1], -10000.0f, 10000.0f);
 			const auto x = static_cast<int>(std::floor(pos[0]));
 			const auto y = static_cast<int>(std::floor(pos[1]));
 			const auto gather_res = gather_zero({ x, y });
@@ -268,16 +270,29 @@ public:
 
 		void timestep(float dt) override {
 			_advect_velocity(dt);
+			_clamp_velocity(dt);
 			_integrate_height(dt);
 			_integrate_velocity(dt);
 		}
 		[[nodiscard]] float height(std::uint32_t x, std::uint32_t y) const override {
-			return _get_test()._terrain(x, y) + _h(x, y);
+			const float h = _h(x, y);
+			const float t = _get_test()._terrain(x, y);
+			if (h < 0.0001f) {
+				return t - 0.1f;
+			}
+			return t + h;
 		}
 	private:
 		grid2<float> _h;
 		grid2<float> _ux;
 		grid2<float> _uy;
+
+		[[nodiscard]] vec2 _cell_size() const {
+			return lotus::vec::memberwise_divide(
+				vec2(_get_test()._grid_size[0], _get_test()._grid_size[1]),
+				(_h.get_size() - lotus::cvec2u32(1, 1)).into<scalar>()
+			);
+		}
 
 		[[nodiscard]] static grid2<float> _advect_velocity_x(
 			const grid2<float> &ux,
@@ -334,11 +349,51 @@ public:
 			}
 		}
 
+		void _clamp_velocity(float dt) {
+			const float threshold = 0.0001f;
+			const float alpha = 0.5f;
+
+			const vec2 clamp = _cell_size() * alpha / dt;
+			for (std::uint32_t y = 0; y < _ux.get_size()[1]; ++y) {
+				for (std::uint32_t x = 0; x < _ux.get_size()[0]; ++x) {
+					const float hn = _h(x, y);
+					const float hp = _h(x + 1, y);
+					const float tn = _get_test()._terrain(x, y);
+					const float tp = _get_test()._terrain(x + 1, y);
+					if (
+						(hn < threshold && hp < threshold) ||
+						(hn < threshold && tn > hp + tp) ||
+						(hp < threshold && tp > hn + tn)
+					) {
+						_ux(x, y) = 0.0f;
+					}
+					_ux(x, y) = std::clamp(_ux(x, y), -clamp[0], clamp[0]);
+				}
+			}
+			for (std::uint32_t y = 0; y < _uy.get_size()[1]; ++y) {
+				for (std::uint32_t x = 0; x < _uy.get_size()[0]; ++x) {
+					const float hn = _h(x, y);
+					const float hp = _h(x, y + 1);
+					const float tn = _get_test()._terrain(x, y);
+					const float tp = _get_test()._terrain(x, y + 1);
+					if (
+						(hn < threshold && hp < threshold) ||
+						(hn < threshold && tn > hp + tp) ||
+						(hp < threshold && tp > hn + tn)
+					) {
+						_uy(x, y) = 0.0f;
+					}
+					_uy(x, y) = std::clamp(_uy(x, y), -clamp[1], clamp[1]);
+				}
+			}
+		}
+
 		void _integrate_height(float dt) {
-			const float dxx = _get_test()._grid_size[0] / (_h.get_size()[0] - 1);
-			const float dxy = _get_test()._grid_size[1] / (_h.get_size()[1] - 1);
-			const float fx = dt / dxx;
-			const float fy = dt / dxy;
+			const float beta = 2.0f;
+
+			const vec2 cell_size = _cell_size();
+			const vec2 f = lotus::vec::memberwise_reciprocal(cell_size) * dt;
+			const float havgmax = beta * 0.5f * (cell_size[0] + cell_size[1]) / (_get_test()._gravity * dt);
 			grid2<float> nh(_h.get_size());
 			for (std::uint32_t y = 0; y < _h.get_size()[1]; ++y) {
 				for (std::uint32_t x = 0; x < _h.get_size()[0]; ++x) {
@@ -354,7 +409,15 @@ public:
 					const float hbyn = uyn > 0.0f ? _h(x, y - 1) : h;
 					const float hbyp = uyp < 0.0f ? _h(x, y + 1) : h;
 
-					nh(x, y) = std::max(0.0f, h - (fx * (hbxp * uxp - hbxn * uxn) + fy * (hbyp * uyp - hbyn * uyn)));
+					const float hadj = std::max(0.0f, 0.25f * (hbxn + hbxp + hbyn + hbyp) - havgmax);
+
+					nh(x, y) = std::max(
+						0.0f,
+						h - (
+							f[0] * ((hbxp - hadj) * uxp - (hbxn - hadj) * uxn) +
+							f[1] * ((hbyp - hadj) * uyp - (hbyn - hadj) * uyn)
+						)
+					);
 				}
 			}
 			_h = std::move(nh);
@@ -364,19 +427,16 @@ public:
 			return _get_test()._terrain(x, y) + _h(x, y);
 		}
 		void _integrate_velocity(float dt) {
-			const float dxx = _get_test()._grid_size[0] / (_h.get_size()[0] - 1);
-			const float dxy = _get_test()._grid_size[1] / (_h.get_size()[1] - 1);
 			// TODO no external acceleration
-			const float fx = _get_test()._gravity * dt / dxx;
-			const float fy = _get_test()._gravity * dt / dxy;
+			const vec2 f = lotus::vec::memberwise_reciprocal(_cell_size()) * _get_test()._gravity * dt;
 			for (std::uint32_t y = 0; y < _ux.get_size()[1]; ++y) {
 				for (std::uint32_t x = 0; x < _ux.get_size()[0]; ++x) {
-					_ux(x, y) -= fx * (_eta(x + 1, y) - _eta(x, y));
+					_ux(x, y) -= f[0] * (_eta(x + 1, y) - _eta(x, y));
 				}
 			}
 			for (std::uint32_t y = 0; y < _uy.get_size()[1]; ++y) {
 				for (std::uint32_t x = 0; x < _uy.get_size()[0]; ++x) {
-					_uy(x, y) -= fy * (_eta(x, y + 1) - _eta(x, y));
+					_uy(x, y) -= f[1] * (_eta(x, y + 1) - _eta(x, y));
 				}
 			}
 		}

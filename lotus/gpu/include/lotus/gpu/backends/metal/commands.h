@@ -201,7 +201,8 @@ namespace lotus::gpu::backends::metal {
 		/// Creates a new command list, calls \p MTL::CommandBuffer::presentDrawable(), then submits it.
 		[[nodiscard]] swap_chain_status present(swap_chain&);
 
-		void signal(fence&); // TODO
+		/// Creates a new command buffer and signals the given fence.
+		void signal(fence&);
 		/// Creates a new command buffer and signals the given semaphore.
 		void signal(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 

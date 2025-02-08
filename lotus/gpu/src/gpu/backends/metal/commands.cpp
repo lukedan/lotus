@@ -99,34 +99,21 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
-		if constexpr (true) {
-			for (std::size_t i = 0; i < buffers.size(); ++i) {
-				// TODO stride not supported?
-				_pass_encoder->setVertexBuffer(
-					buffers[i].data->_buf.get(),
-					buffers[i].offset,
-					//buffers[i].stride,
-					kIRVertexBufferBindPoint + start + i
-				);
-			}
-		} else {
-			auto bookmark = get_scratch_bookmark();
-			auto ptrs    = bookmark.create_vector_array<const MTL::Buffer*>(buffers.size());
-			auto offsets = bookmark.create_vector_array<NS::UInteger>(buffers.size());
-			auto strides = bookmark.create_vector_array<NS::UInteger>(buffers.size());
-			for (std::size_t i = 0; i < buffers.size(); ++i) {
-				ptrs[i]    = buffers[i].data->_buf.get();
-				offsets[i] = buffers[i].offset;
-				strides[i] = buffers[i].stride;
-			}
-			// TODO this does not work, but there's no documentation
-			_pass_encoder->setVertexBuffers(
-				ptrs.data(),
-				offsets.data(),
-				strides.data(),
-				NS::Range(kIRVertexBufferBindPoint + start, buffers.size())
-			);
+		auto bookmark = get_scratch_bookmark();
+		auto ptrs    = bookmark.create_vector_array<const MTL::Buffer*>(buffers.size());
+		auto offsets = bookmark.create_vector_array<NS::UInteger>(buffers.size());
+		// TODO strides not supported for converted shaders?
+		auto strides = bookmark.create_vector_array<NS::UInteger>(buffers.size());
+		for (std::size_t i = 0; i < buffers.size(); ++i) {
+			ptrs[i]    = buffers[i].data->_buf.get();
+			offsets[i] = buffers[i].offset;
+			strides[i] = buffers[i].stride;
 		}
+		_pass_encoder->setVertexBuffers(
+			ptrs.data(),
+			offsets.data(),
+			NS::Range(kIRVertexBufferBindPoint + start, buffers.size())
+		);
 	}
 
 	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset_bytes, index_format fmt) {
@@ -409,12 +396,12 @@ namespace lotus::gpu::backends::metal {
 		for (const gpu::command_list *list : cmd_lists) {
 			list->_buf->commit();
 		}
-		if (sync.notify_fence) {
-			std::abort(); // TODO
-		}
-		if (!sync.notify_semaphores.empty()) {
+		if (sync.notify_fence || !sync.notify_semaphores.empty()) {
 			// use a command buffer to submit the signals
 			auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
+			if (sync.notify_fence) {
+				cmd_buf->encodeSignalEvent(sync.notify_fence->_event.get(), 1);
+			}
 			for (const timeline_semaphore_synchronization &sem : sync.notify_semaphores) {
 				cmd_buf->encodeSignalEvent(sem.semaphore->_event.get(), sem.value);
 			}
@@ -429,8 +416,10 @@ namespace lotus::gpu::backends::metal {
 		return swap_chain_status::ok;
 	}
 
-	void command_queue::signal(fence&) {
-		// TODO
+	void command_queue::signal(fence &f) {
+		auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
+		cmd_buf->encodeSignalEvent(f._event.get(), 1);
+		cmd_buf->commit();
 	}
 
 	void command_queue::signal(timeline_semaphore &sem, gpu::_details::timeline_semaphore_value_type val) {

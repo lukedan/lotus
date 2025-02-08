@@ -181,15 +181,23 @@ namespace lotus::gpu::backends::metal {
 		}
 	};
 
-	// TODO
+	/// Contains a \p MTL::CounterSampleBuffer.
 	class timestamp_query_heap {
+		friend device;
 	protected:
+		/// Initializes this object to empty.
 		timestamp_query_heap(std::nullptr_t) {
-			// TODO
 		}
 
+		/// Checks if this object is valid.
 		[[nodiscard]] bool is_valid() const {
-			// TODO
+			return !!_buf;
+		}
+	private:
+		NS::SharedPtr<MTL::CounterSampleBuffer> _buf; ///< The counter sample buffer.
+
+		/// Initializes \ref _buf.
+		explicit timestamp_query_heap(NS::SharedPtr<MTL::CounterSampleBuffer> buf) : _buf(std::move(buf)) {
 		}
 	};
 }

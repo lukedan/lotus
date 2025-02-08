@@ -639,8 +639,10 @@ namespace lotus::gpu::backends::metal {
 		return result;
 	}
 
-	fence device::create_fence(synchronization_state) {
-		// TODO
+	fence device::create_fence(synchronization_state st) {
+		auto event = NS::TransferPtr(_dev->newSharedEvent());
+		event->setSignaledValue(st == synchronization_state::set ? 1 : 0);
+		return fence(std::move(event));
 	}
 
 	timeline_semaphore device::create_timeline_semaphore(gpu::_details::timeline_semaphore_value_type val) {
@@ -649,12 +651,12 @@ namespace lotus::gpu::backends::metal {
 		return timeline_semaphore(std::move(event));
 	}
 
-	void device::reset_fence(fence&) {
-		// TODO
+	void device::reset_fence(fence &f) {
+		f._event->setSignaledValue(0);
 	}
 
-	void device::wait_for_fence(fence&) {
-		// TODO
+	void device::wait_for_fence(fence &f) {
+		f._event->waitUntilSignaledValue(1, std::numeric_limits<std::uint64_t>::max());
 	}
 
 	void device::signal_timeline_semaphore(
@@ -674,7 +676,17 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	timestamp_query_heap device::create_timestamp_query_heap(std::uint32_t size) {
-		// TODO
+		auto descriptor = NS::TransferPtr(MTL::CounterSampleBufferDescriptor::alloc()->init());
+		descriptor->setCounterSet(_timestamp_counter_set);
+		descriptor->setStorageMode(MTL::StorageModeShared);
+		descriptor->setSampleCount(size);
+		NS::Error *err = nullptr;
+		auto heap = NS::TransferPtr(_dev->newCounterSampleBuffer(descriptor.get(), &err));
+		if (err) {
+			log().error("Failed to create counter sample buffer: {}", err->localizedDescription()->utf8String());
+			std::abort();
+		}
+		return timestamp_query_heap(std::move(heap));
 	}
 
 	void device::fetch_query_results(
@@ -835,6 +847,20 @@ namespace lotus::gpu::backends::metal {
 		const pipeline_resources&
 	) {
 		// TODO
+	}
+
+	device::device(NS::SharedPtr<MTL::Device> dev, NS::SharedPtr<MTL::ResidencySet> set, context_options opts) :
+		_dev(std::move(dev)), _residency_set(std::move(set)), _context_opts(opts) {
+
+		// find the timestamp counter set
+		NS::Array *counter_sets = _dev->counterSets();
+		for (NS::UInteger i = 0; i < counter_sets->count(); ++i) {
+			auto *counter_set = counter_sets->object<MTL::CounterSet>(i);
+			if (counter_set->name()->isEqualToString(MTL::CommonCounterSetTimestamp)) {
+				_timestamp_counter_set = counter_set;
+				break;
+			}
+		}
 	}
 
 	_details::residency_ptr<MTL::AccelerationStructure> device::_create_acceleration_structure(

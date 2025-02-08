@@ -11,10 +11,20 @@ namespace lotus::gpu::backends::metal {
 	class command_queue;
 	class device;
 
-	// TODO
+	/// Holds a \p MTL::SharedEvent.
 	class fence {
+		friend command_queue;
+		friend device;
 	protected:
-		fence(std::nullptr_t); // TODO
+		/// Initializes the object to empty.
+		fence(std::nullptr_t) {
+		}
+	private:
+		NS::SharedPtr<MTL::SharedEvent> _event; ///< The event object.
+
+		/// Initializes \ref _event.
+		explicit fence(NS::SharedPtr<MTL::SharedEvent> event) : _event(std::move(event)) {
+		}
 	};
 
 	/// Holds a \p MTL::SharedEvent.

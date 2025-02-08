@@ -128,9 +128,10 @@ namespace lotus::gpu::backends::metal {
 			const frame_buffer_layout&,
 			std::size_t num_viewports
 		);
+		/// Creates a new \p MTL::ComputePipelineState.
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(
 			const pipeline_resources&, const shader_binary&
-		); // TODO
+		);
 
 		/// Returns predefined memory types supported by Metal.
 		[[nodiscard]] std::span<const std::pair<memory_type_index, memory_properties>> enumerate_memory_types() const;
@@ -205,12 +206,15 @@ namespace lotus::gpu::backends::metal {
 			std::span<const gpu::image2d_view *const> color_rts, const image2d_view *depth_stencil_rt, cvec2u32 size
 		);
 
-		[[nodiscard]] fence create_fence(synchronization_state); // TODO
+		/// Calls \p MTL::Device::newSharedEvent().
+		[[nodiscard]] fence create_fence(synchronization_state);
 		/// Calls \p MTL::Device::newSharedEvent().
 		[[nodiscard]] timeline_semaphore create_timeline_semaphore(gpu::_details::timeline_semaphore_value_type);
 
-		void reset_fence(fence&); // TODO
-		void wait_for_fence(fence&); // TODO
+		/// Calls \p MTL::SharedEvent::setSignaledValue().
+		void reset_fence(fence&);
+		/// Calls \p MTL::SharedEvent::waitUntilSignaledValue().
+		void wait_for_fence(fence&);
 
 		/// Calls \p MTL::SharedEvent::setSignaledValue().
 		void signal_timeline_semaphore(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
@@ -236,29 +240,35 @@ namespace lotus::gpu::backends::metal {
 		[[nodiscard]] bottom_level_acceleration_structure_geometry
 			create_bottom_level_acceleration_structure_geometry(std::span<const raytracing_geometry_view>);
 
+		/// Fills out a \p MTL::IndirectAccelerationStructureInstanceDescriptor.
 		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
 			bottom_level_acceleration_structure&,
 			mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
 			raytracing_instance_flags
-		) const; // TODO
+		) const;
 
+		/// Calls \p MTL::Device::accelerationStructureSizes().
 		[[nodiscard]] acceleration_structure_build_sizes get_bottom_level_acceleration_structure_build_sizes(
 			const bottom_level_acceleration_structure_geometry&
-		); // TODO
+		);
+		/// Calls \p MTL::Device::accelerationStructureSizes().
 		[[nodiscard]] acceleration_structure_build_sizes get_top_level_acceleration_structure_build_sizes(
 			std::size_t instance_count
-		); // TODO
+		);
+		/// Calls \ref _create_acceleration_structure().
 		[[nodiscard]] bottom_level_acceleration_structure create_bottom_level_acceleration_structure(
 			buffer&, std::size_t offset, std::size_t size
-		); // TODO
+		);
+		/// Calls \ref _create_acceleration_structure().
 		[[nodiscard]] top_level_acceleration_structure create_top_level_acceleration_structure(
 			buffer&, std::size_t offset, std::size_t size
-		); // TODO
+		);
 
+		/// Writes the given acceleration structure into the given descriptor table.
 		void write_descriptor_set_acceleration_structures(
 			descriptor_set&, const descriptor_set_layout&, std::size_t first_register,
 			std::span<gpu::top_level_acceleration_structure *const>
-		); // TODO
+		);
 
 		[[nodiscard]] shader_group_handle get_shader_group_handle(const raytracing_pipeline_state&, std::size_t index); // TODO
 
@@ -274,12 +284,11 @@ namespace lotus::gpu::backends::metal {
 	private:
 		NS::SharedPtr<MTL::Device> _dev; ///< The device.
 		NS::SharedPtr<MTL::ResidencySet> _residency_set; ///< Manages all resources.
+		MTL::CounterSet *_timestamp_counter_set = nullptr; ///< The counter set for timestamps.
 		context_options _context_opts = context_options::none; ///< Context options.
 
 		/// Initializes all fields of this class.
-		device(NS::SharedPtr<MTL::Device> dev, NS::SharedPtr<MTL::ResidencySet> set, context_options opts) :
-			_dev(std::move(dev)), _residency_set(std::move(set)), _context_opts(opts) {
-		}
+		device(NS::SharedPtr<MTL::Device>, NS::SharedPtr<MTL::ResidencySet>, context_options);
 
 		/// Creates a new acceleration structure.
 		[[nodiscard]] _details::residency_ptr<MTL::AccelerationStructure> _create_acceleration_structure(

@@ -886,7 +886,7 @@ namespace lotus::gpu {
 	struct color_clear_value {
 	public:
 		/// Initializes the value to integer zero.
-		constexpr color_clear_value(zero_t) : value(std::in_place_type<cvec4<std::uint64_t>>, 0, 0, 0, 0) {
+		constexpr color_clear_value(zero_t) : value(std::in_place_type<cvec4<std::uint64_t>>, zero) {
 		}
 		/// Initializes this struct with the given integral value.
 		constexpr color_clear_value(cvec4<std::uint64_t> v) : value(v) {

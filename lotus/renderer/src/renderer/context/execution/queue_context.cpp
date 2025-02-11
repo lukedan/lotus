@@ -174,21 +174,20 @@ namespace lotus::renderer::execution {
 				++end;
 			}
 
+			const std::span<const gpu::descriptor_set *const> range(
+				set_ptrs.begin() + static_cast<std::ptrdiff_t>(i),
+				set_ptrs.begin() + static_cast<std::ptrdiff_t>(end)
+			);
 			switch (bind_point) {
 			case descriptor_set_bind_point::graphics:
-				_get_command_list().bind_graphics_descriptor_sets(
-					*rsrc.pipeline_resources, sets[i].space, { set_ptrs.begin() + i, set_ptrs.begin() + end }
-				);
+				_get_command_list().bind_graphics_descriptor_sets(*rsrc.pipeline_resources, sets[i].space, range);
 				break;
 			case descriptor_set_bind_point::compute:
-				_get_command_list().bind_compute_descriptor_sets(
-					*rsrc.pipeline_resources, sets[i].space, { set_ptrs.begin() + i, set_ptrs.begin() + end }
-				);
+				_get_command_list().bind_compute_descriptor_sets(*rsrc.pipeline_resources, sets[i].space, range);
 				break;
 			case descriptor_set_bind_point::raytracing:
-				_get_command_list().bind_ray_tracing_descriptor_sets(
-					*rsrc.pipeline_resources, sets[i].space, { set_ptrs.begin() + i, set_ptrs.begin() + end }
-				);
+				_get_command_list().bind_ray_tracing_descriptor_sets(*rsrc.pipeline_resources, sets[i].space, range);
+				break;
 			}
 
 			i = end;

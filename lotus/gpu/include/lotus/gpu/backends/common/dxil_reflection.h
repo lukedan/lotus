@@ -51,7 +51,7 @@ namespace lotus::gpu::backends::common {
 		}
 
 		/// Returns the raw DirectX reflection object.
-		[[nodsicard]] const reflection_ptr_union &get_raw_ptr() const {
+		[[nodiscard]] const reflection_ptr_union &get_raw_ptr() const {
 			return _reflection;
 		}
 	private:

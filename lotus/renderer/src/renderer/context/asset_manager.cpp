@@ -88,7 +88,7 @@ namespace lotus::renderer::assets {
 
 				const auto &format_props = gpu::format_properties::get(loaded->get_format());
 				const auto frag_size = format_props.fragment_size.into<std::uint32_t>();
-				const cvec2u32 one(1, 1);
+				const cvec2u32 one(1u, 1u);
 				const auto raw_data = loaded->get_raw_data();
 				auto current = raw_data.data();
 				for (std::uint32_t i = 0; i < loaded->get_num_mips(); ++i) {
@@ -99,7 +99,7 @@ namespace lotus::renderer::assets {
 					const std::size_t size_bytes =
 						num_fragments[0] * num_fragments[1] * format_props.bytes_per_fragment;
 
-					if ((current - raw_data.data()) + size_bytes > raw_data.size()) {
+					if (static_cast<std::size_t>(current - raw_data.data()) + size_bytes > raw_data.size()) {
 						log().error("{}: Not enough space for mip {} and below", j.path.string(), i);
 						break;
 					}
@@ -393,7 +393,7 @@ namespace lotus::renderer::assets {
 		);
 
 		{ // create "invalid" texture
-			constexpr cvec2u32 size(128, 128);
+			constexpr cvec2u32 size(128u, 128u);
 			{
 				image2d tex = nullptr;
 				tex.image = _context.request_image2d(
@@ -437,7 +437,7 @@ namespace lotus::renderer::assets {
 			{
 				image2d tex = nullptr;
 				tex.image = _context.request_image2d(
-					u8"Null", cvec2u32(1, 1), 1, gpu::format::r8g8b8a8_unorm,
+					u8"Null", cvec2u32(1u, 1u), 1, gpu::format::r8g8b8a8_unorm,
 					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read,
 					nullptr // TODO pool?
 				);
@@ -465,7 +465,7 @@ namespace lotus::renderer::assets {
 			{
 				image2d tex = nullptr;
 				tex.image = _context.request_image2d(
-					u8"Default Normal", cvec2u32(1, 1), 1, gpu::format::r8g8b8a8_unorm,
+					u8"Default Normal", cvec2u32(1u, 1u), 1, gpu::format::r8g8b8a8_unorm,
 					gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read,
 					nullptr // TODO pool?
 				);

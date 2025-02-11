@@ -99,7 +99,7 @@ namespace lotus {
 			///
 			/// \tparam T Expected return type. If the file is not large enough to contain the value, \p nullptr will
 			///           be returned.
-			template <typename T = std::byte> const T *_data_at_offset(std::ptrdiff_t off) const {
+			template <typename T = std::byte> const T *_data_at_offset(std::size_t off) const {
 				if constexpr (!std::is_same_v<T, std::byte>) {
 					if (off + sizeof(T) > _size) {
 						return nullptr;

@@ -5,8 +5,6 @@
 
 #include <format>
 
-#include <spirv_reflect.h>
-
 #include "lotus/logging.h"
 #include "lotus/system/identifier.h"
 #include "lotus/gpu/acceleration_structure.h"

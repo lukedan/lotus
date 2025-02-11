@@ -314,7 +314,7 @@ namespace lotus {
 			}
 			std::destroy(dst, arr_end);
 
-			_set_size(sz - (range_end - range_beg));
+			_set_size(sz - static_cast<std::size_t>(range_end - range_beg));
 		}
 
 		/// Resizes this array.

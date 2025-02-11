@@ -492,7 +492,7 @@ namespace lotus::gpu::backends::metal::_details {
 			MTL::PackedFloat4x3 result;
 			for (std::size_t r = 0; r < 3; ++r) {
 				for (std::size_t c = 0; c < 4; ++c) {
-					result[c][r] = m(r, c);
+					result[static_cast<int>(c)][static_cast<int>(r)] = m(r, c);
 				}
 			}
 			return result;
@@ -573,19 +573,20 @@ namespace lotus::gpu::backends::metal::_details {
 			auto descriptor_bindings = bookmark.create_vector_array<IRRootParameter1>(descriptor_spaces.size());
 			for (std::size_t i = 0; i < descriptor_spaces.size(); ++i) {
 				descriptor_bindings[i].ParameterType                       = IRRootParameterTypeDescriptorTable;
-				descriptor_bindings[i].DescriptorTable.NumDescriptorRanges = descriptor_spaces[i].size();
+				descriptor_bindings[i].DescriptorTable.NumDescriptorRanges =
+					static_cast<std::uint32_t>(descriptor_spaces[i].size());
 				descriptor_bindings[i].DescriptorTable.pDescriptorRanges   = descriptor_spaces[i].data();
 				descriptor_bindings[i].ShaderVisibility                    = IRShaderVisibilityAll;
 			}
 
 			IRVersionedRootSignatureDescriptor root_sig_desc = {};
 			root_sig_desc.version                = IRRootSignatureVersion_1_1;
-			root_sig_desc.desc_1_1.NumParameters = descriptor_bindings.size();
+			root_sig_desc.desc_1_1.NumParameters = static_cast<std::uint32_t>(descriptor_bindings.size());
 			root_sig_desc.desc_1_1.pParameters   = descriptor_bindings.data();
 			IRError *error = nullptr;
 			auto root_signature = ir_make_unique(
-				IRRootSignatureCreateFromDescriptor(&root_sig_desc, &error
-			));
+				IRRootSignatureCreateFromDescriptor(&root_sig_desc, &error)
+			);
 			if (error) {
 				log().error(
 					"Failed to create IR root signature: {}", static_cast<const char*>(IRErrorGetPayload(error))

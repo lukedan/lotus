@@ -82,8 +82,10 @@ namespace lotus {
 			crash_if(data.size() != Rows);
 			for (auto row_it = data.begin(); row_it != data.end(); ++row_it) {
 				crash_if(row_it->size() != Cols);
+				const auto r = static_cast<std::size_t>(row_it - data.begin());
 				for (auto col_it = row_it->begin(); col_it != row_it->end(); ++col_it) {
-					elements[row_it - data.begin()][col_it - row_it->begin()] = std::move(*col_it);
+					const auto c = static_cast<std::size_t>(col_it - row_it->begin());
+					elements[r][c] = std::move(*col_it);
 				}
 			}
 		}

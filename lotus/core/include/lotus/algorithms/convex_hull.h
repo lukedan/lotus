@@ -24,7 +24,7 @@ namespace lotus::incremental_convex_hull {
 	};
 	/// Opaque index type for face IDs.
 	enum class face_id : std::uint32_t {
-		invalid = std::numeric_limits<std::underlying_type_t<face_id>>::max() ///< Invalid value.
+		invalid = 0x3FFFFFFFu ///< Invalid value - not the maximum value to avoid generating warnings later.
 	};
 
 	/// Opaque index type for face vertex indices.

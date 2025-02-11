@@ -60,7 +60,6 @@ namespace lotus::renderer::dear_imgui {
 			}
 
 			auto &ctx = _asset_man.get_context();
-			auto &io = ImGui::GetIO();
 
 			cvec2f pos(draw_data->DisplayPos.x, draw_data->DisplayPos.y);
 			cvec2f size(draw_data->DisplaySize.x, draw_data->DisplaySize.y);

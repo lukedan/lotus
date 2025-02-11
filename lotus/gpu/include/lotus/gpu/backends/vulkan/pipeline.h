@@ -5,9 +5,6 @@
 
 #include <optional>
 
-#include <vulkan/vulkan.hpp>
-#include <spirv_reflect.h>
-
 #include "details.h"
 #include "lotus/memory/stack_allocator.h"
 

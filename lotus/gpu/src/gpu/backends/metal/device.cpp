@@ -40,7 +40,7 @@ namespace lotus::gpu::backends::metal {
 		MTL::ResourceHazardTrackingModeUntracked;
 
 	descriptor_pool device::create_descriptor_pool(
-		std::span<const descriptor_range> capacity, std::size_t max_num_sets
+		std::span<const descriptor_range> capacity, std::size_t // max_num_sets is not important
 	) {
 		std::size_t total_resources = 0;
 		for (const descriptor_range &range : capacity) {
@@ -60,9 +60,7 @@ namespace lotus::gpu::backends::metal {
 			max_slot_index = std::max(max_slot_index, range.get_last_register_index());
 		}
 		const NS::UInteger size_bytes = (max_slot_index + 1) * sizeof(IRDescriptorTableEntry);
-		auto buf_ptr = NS::TransferPtr(_dev->newBuffer(size_bytes, _arg_buffer_options));
-		// TODO running out of buffer space for descriptor heaps?
-		//auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
+		auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
 		crash_if(!buf_ptr);
 		_maybe_set_descriptor_set_name(buf_ptr.get(), layout);
 		return descriptor_set({ std::move(buf_ptr), _residency_set.get() });
@@ -80,9 +78,7 @@ namespace lotus::gpu::backends::metal {
 			}
 		}
 		const NS::UInteger size_bytes = (max_slot_index + 1) * sizeof(IRDescriptorTableEntry);
-		auto buf_ptr = NS::TransferPtr(_dev->newBuffer(size_bytes, _arg_buffer_options));
-		// TODO running out of buffer space for descriptor heaps?
-		//auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
+		auto buf_ptr = NS::TransferPtr(pool._heap->newBuffer(size_bytes, _arg_buffer_options));
 		crash_if(!buf_ptr);
 		_maybe_set_descriptor_set_name(buf_ptr.get(), layout);
 		return descriptor_set({ std::move(buf_ptr), _residency_set.get() });
@@ -215,7 +211,6 @@ namespace lotus::gpu::backends::metal {
 			log().error("{}", err->localizedDescription()->utf8String());
 			std::abort();
 		}
-		// TODO do we need to keep the memory around until the library is freed?
 
 		return result;
 	}
@@ -291,7 +286,6 @@ namespace lotus::gpu::backends::metal {
 		std::size_t num_viewports
 	) {
 		auto vert_descriptor = NS::TransferPtr(MTL::VertexDescriptor::alloc()->init());
-		NS::UInteger num_elements = 0;
 		for (const input_buffer_layout &input_layout : input_buffers) {
 			const NS::UInteger buffer_index = kIRVertexBufferBindPoint + input_layout.buffer_index;
 			MTL::VertexBufferLayoutDescriptor *buffer_layout = vert_descriptor->layouts()->object(buffer_index);
@@ -303,7 +297,7 @@ namespace lotus::gpu::backends::metal {
 					"{}{}", string::to_generic(input_elem.semantic_name), input_elem.semantic_index
 				);
 				for (char &c : semantic) {
-					c = std::tolower(c);
+					c = static_cast<char>(std::tolower(c));
 				}
 				NS::UInteger elem_index = std::numeric_limits<NS::UInteger>::max();
 				for (std::size_t i = 0; i < vs->_vs_input_attributes.size(); ++i) {
@@ -320,7 +314,6 @@ namespace lotus::gpu::backends::metal {
 				attr->setFormat(_details::conversions::to_vertex_format(input_elem.element_format));
 				attr->setOffset(input_elem.byte_offset);
 				attr->setBufferIndex(buffer_index);
-				++num_elements;
 			}
 		}
 
@@ -446,13 +439,13 @@ namespace lotus::gpu::backends::metal {
 		cvec2u32 size,
 		std::uint32_t mip_levels,
 		format fmt,
-		image_tiling tiling,
+		image_tiling, // no support
 		image_usage_mask usages
 	) {
 		auto descriptor = _details::create_texture_descriptor(
 			MTL::TextureType2DArray, // need to use array type for Metal-DXIR interop
 			fmt,
-			cvec3u32(size, 1),
+			cvec3u32(size, 1u),
 			mip_levels,
 			MTL::ResourceOptionCPUCacheModeWriteCombined | MTL::ResourceStorageModePrivate,
 			usages
@@ -465,7 +458,7 @@ namespace lotus::gpu::backends::metal {
 		cvec3u32 size,
 		std::uint32_t mip_levels,
 		format fmt,
-		image_tiling tiling,
+		image_tiling, // no support
 		image_usage_mask usages
 	) {
 		auto descriptor = _details::create_texture_descriptor(
@@ -499,13 +492,13 @@ namespace lotus::gpu::backends::metal {
 		cvec2u32 size,
 		std::uint32_t mip_levels,
 		format fmt,
-		image_tiling tiling,
+		image_tiling, // no support
 		image_usage_mask usages
 	) {
 		auto descriptor = _details::create_texture_descriptor(
 			MTL::TextureType2DArray,
 			fmt,
-			cvec3u32(size, 1),
+			cvec3u32(size, 1u),
 			mip_levels,
 			0, // TODO what resource options should be used? does it affect anything?
 			usages
@@ -517,7 +510,7 @@ namespace lotus::gpu::backends::metal {
 		cvec3u32 size,
 		std::uint32_t mip_levels,
 		format fmt,
-		image_tiling tiling,
+		image_tiling, // no support
 		image_usage_mask usages
 	) {
 		auto descriptor = _details::create_texture_descriptor(
@@ -548,7 +541,7 @@ namespace lotus::gpu::backends::metal {
 		cvec2u32 size,
 		std::uint32_t mip_levels,
 		format fmt,
-		image_tiling tiling,
+		image_tiling, // no support
 		image_usage_mask usages,
 		const memory_block &mem,
 		std::size_t offset
@@ -556,7 +549,7 @@ namespace lotus::gpu::backends::metal {
 		auto descriptor = _details::create_texture_descriptor(
 			MTL::TextureType2DArray,
 			fmt,
-			cvec3u32(size, 1),
+			cvec3u32(size, 1u),
 			mip_levels,
 			mem._heap->resourceOptions(),
 			usages
@@ -569,7 +562,7 @@ namespace lotus::gpu::backends::metal {
 		cvec3u32 size,
 		std::uint32_t mip_levels,
 		format fmt,
-		image_tiling tiling,
+		image_tiling, // no support
 		image_usage_mask usages,
 		const memory_block &mem,
 		std::size_t offset
@@ -736,7 +729,7 @@ namespace lotus::gpu::backends::metal {
 		const CFArrayRef cfarray = CFArrayCreate(
 			kCFAllocatorDefault,
 			const_cast<const void**>(reinterpret_cast<void**>(descs.data())),
-			descs.size(),
+			static_cast<CFIndex>(descs.size()),
 			&kCFTypeArrayCallBacks
 		);
 		auto *array = reinterpret_cast<const NS::Array*>(cfarray);
@@ -926,7 +919,8 @@ namespace lotus::gpu::backends::metal {
 		// create command queues
 		std::vector<command_queue> queues;
 		queues.reserve(families.size());
-		for (queue_family fam : families) {
+		for (std::size_t i = 0; i < families.size(); ++i) {
+			// Metal does not distinguish between different types of queues
 			auto ptr = NS::TransferPtr(_dev->newCommandQueue());
 			ptr->addResidencySet(residency_set.get());
 			queues.emplace_back(command_queue(std::move(ptr)));

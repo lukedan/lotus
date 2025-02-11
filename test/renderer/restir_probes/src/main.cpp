@@ -78,7 +78,7 @@ public:
 	int lighting_mode = 1;
 	char sky_hdri_path[1024] = { 0 };
 	float sky_scale = 1.0f;
-	cvec3u32 probe_density = cvec3u32(50, 50, 50);
+	cvec3u32 probe_density = cvec3u32(50u, 50u, 50u);
 	std::uint32_t direct_reservoirs_per_probe = 2;
 	std::uint32_t indirect_reservoirs_per_probe = 4;
 	std::uint32_t direct_sample_count_cap = 10;
@@ -648,7 +648,7 @@ protected:
 					lgpu::rasterizer_options(lgpu::depth_bias_options::disabled(), lgpu::front_facing_mode::clockwise, lgpu::cull_mode::none, false),
 					lgpu::depth_stencil_options(true, false, lgpu::comparison_function::equal, false, 0, 0, lgpu::stencil_options::always_pass_no_op(), lgpu::stencil_options::always_pass_no_op())
 				);
-				
+
 				auto pass = _graphics_queue.begin_pass(
 					{
 						lren::image2d_color(light_diffuse, lgpu::color_render_target_access::create_preserve_and_write()),

@@ -223,7 +223,7 @@ namespace lotus::renderer {
 	) {
 		auto thread_group_size = shader->reflection.get_thread_group_size();
 		cvec3u32 groups = mat::memberwise_divide(
-			num_threads + thread_group_size - cvec3u32(1, 1, 1), thread_group_size
+			num_threads + thread_group_size - cvec3u32(1u, 1u, 1u), thread_group_size
 		);
 		run_compute_shader(std::move(shader), groups, std::move(resources), description);
 	}
@@ -555,7 +555,7 @@ namespace lotus::renderer {
 				const auto &format_props = gpu::format_properties::get(meta.pixel_format);
 				const auto frag_size = format_props.fragment_size.into<std::uint32_t>();
 				const auto num_frags = vec::memberwise_divide(
-					meta.image_size + frag_size - cvec2u32(1, 1), frag_size
+					meta.image_size + frag_size - cvec2u32(1u, 1u), frag_size
 				);
 				const auto frag_bytes = format_props.bytes_per_fragment;
 				const auto row_bytes = num_frags[0] * frag_bytes;

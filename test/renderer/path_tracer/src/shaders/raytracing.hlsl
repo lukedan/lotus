@@ -1,6 +1,6 @@
 #include "common.hlsli"
 #include "material_common.hlsli"
-#include "pcg32.hlsli"
+#include "utils/pcg32.hlsli"
 
 #include "types.hlsli"
 #include "brdf.hlsl"
@@ -114,15 +114,6 @@ hit_triangle get_hit_triangle_unindexed_object_space() {
 	}
 	return result;
 }
-hit_triangle transform_hit_triangle_to_world_space(hit_triangle tri, float3x3 normal_transform, float determinant) {
-	[unroll]
-	for (int i = 0; i < 3; ++i) {
-		tri.verts[i].position = mul(ObjectToWorld3x4(), float4(tri.verts[i].position, 1.0f));
-		tri.verts[i].normal   = mul(normal_transform,   tri.verts[i].normal);
-		tri.verts[i].tangent  = float4(mul(ObjectToWorld3x4(), float4(tri.verts[i].tangent.xyz, 0.0f)) / determinant, tri.verts[i].tangent.w);
-	}
-	return tri;
-}
 
 struct hit_point {
 	float3 position;
@@ -158,12 +149,12 @@ hit_point interpolate_hit_point(hit_triangle tri, float2 barycentrics) {
 	result.bitangent = cross(result.normal, result.tangent) * tangent.w;
 	return result;
 }
-hit_point transform_hit_point_to_world_space(hit_point pt, float3x3 normal_transform, float determinant) {
+hit_point transform_hit_point_to_world_space(hit_point pt, float3x3 normal_transform) {
 	pt.position         = mul(ObjectToWorld3x4(), float4(pt.position, 1.0f));
 	pt.normal           = mul(normal_transform,   pt.normal);
 	pt.geometric_normal = mul(normal_transform,   pt.geometric_normal);
-	pt.tangent          = mul(ObjectToWorld3x4(), float4(pt.tangent.xyz, 0.0f)) / determinant;
-	pt.bitangent        = mul(ObjectToWorld3x4(), float4(pt.bitangent, 0.0f)) / determinant;
+	pt.tangent          = normalize(mul(ObjectToWorld3x4(), float4(pt.tangent.xyz, 0.0f)));
+	pt.bitangent        = normalize(mul(ObjectToWorld3x4(), float4(pt.bitangent, 0.0f)));
 	return pt;
 }
 
@@ -211,7 +202,7 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	generic_pbr_material::material mat = materials[instance.material_index];
 
 	hit_point interpolated_hit = interpolate_hit_point(tri, barycentrics);
-	hit_point hit = transform_hit_point_to_world_space(interpolated_hit, (float3x3)instance.normal_transform, instance.determinant);
+	hit_point hit = transform_hit_point_to_world_space(interpolated_hit, (float3x3)instance.normal_transform);
 
 	if (dot(WorldRayDirection(), hit.geometric_normal) >= 0.0f) {
 		hit.geometric_normal = -hit.geometric_normal;

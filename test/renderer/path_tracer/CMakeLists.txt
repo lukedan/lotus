@@ -8,6 +8,7 @@ function(add_path_tracer_executable GPU_BACKEND)
 	target_link_libraries(${PROJ} PRIVATE lotus_renderer_${GPU_BACKEND})
 	target_include_directories(${PROJ} PRIVATE "../common/include")
 	target_include_directories(${PROJ} PRIVATE "../../common/include")
+	target_include_directories(${PROJ} PRIVATE "../../thirdparty/imgui")
 endfunction()
 
 foreach(GPU_BACKEND ${LOTUS_GPU_ALL_AVAILABLE_BACKENDS})

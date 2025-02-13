@@ -153,6 +153,7 @@ namespace lotus {
 
 		/// Runs the application until exit.
 		int run() {
+			crash_if(!_context); // not initialized!
 			_window->show_and_activate();
 			bool quit = false;
 			while (!quit) {

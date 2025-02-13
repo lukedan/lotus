@@ -176,6 +176,7 @@ namespace lotus::renderer {
 			reflections.emplace_back(sh.shader_library->reflection.find_shader(sh.entry_point, sh.stage));
 		}
 		std::vector<const gpu::shader_reflection*> reflection_ptrs;
+		reflection_ptrs.reserve(reflections.size());
 		for (const auto &r : reflections) {
 			reflection_ptrs.emplace_back(&r);
 		}

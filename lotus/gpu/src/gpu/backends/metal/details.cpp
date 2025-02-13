@@ -544,7 +544,7 @@ namespace lotus::gpu::backends::metal::_details {
 
 
 	namespace shader {
-		ir_unique_ptr<IRRootSignature> create_root_signature_for_dxil_reflection(ID3D12ShaderReflection *refl) {
+		ir_unique_ptr<IRRootSignature> create_root_signature_for_shader_reflection(ID3D12ShaderReflection *refl) {
 			auto bookmark = get_scratch_bookmark();
 			auto descriptor_spaces =
 				bookmark.create_vector_array<memory::stack_allocator::vector_type<IRDescriptorRange1>>();
@@ -597,20 +597,16 @@ namespace lotus::gpu::backends::metal::_details {
 		}
 
 		ir_conversion_result convert_to_metal_ir(
-			std::span<const std::byte> dxil_buf, ID3D12ShaderReflection *refl
+			std::span<const std::byte> dxil_buf, IRRootSignature *root_sig
 		) {
 			ir_conversion_result result = nullptr;
 
+			// convert
 			auto dxil = ir_make_unique(IRObjectCreateFromDXIL(
 				reinterpret_cast<const std::uint8_t*>(dxil_buf.data()), dxil_buf.size(), IRBytecodeOwnershipNone
 			));
-
-			// create root signature
-			ir_unique_ptr<IRRootSignature> root_signature = create_root_signature_for_dxil_reflection(refl);
-
-			// convert
 			auto compiler = ir_make_unique(IRCompilerCreate());
-			IRCompilerSetGlobalRootSignature(compiler.get(), root_signature.get());
+			IRCompilerSetGlobalRootSignature(compiler.get(), root_sig);
 			IRError *error = nullptr;
 			result.object = ir_make_unique(IRCompilerAllocCompileAndLink(
 				compiler.get(), nullptr, dxil.get(), &error

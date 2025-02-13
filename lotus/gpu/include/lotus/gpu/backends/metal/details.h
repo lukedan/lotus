@@ -237,12 +237,12 @@ namespace lotus::gpu::backends::metal::_details {
 		};
 
 		/// Creates a \p IRRootSignature matching the given \p ID3D12ShaderReflection.
-		[[nodiscard]] ir_unique_ptr<IRRootSignature> create_root_signature_for_dxil_reflection(
+		[[nodiscard]] ir_unique_ptr<IRRootSignature> create_root_signature_for_shader_reflection(
 			ID3D12ShaderReflection*
 		);
 		/// Converts the given DXIL into Metal IR, with a root signature derived from the given reflection object.
 		[[nodiscard]] ir_conversion_result convert_to_metal_ir(
-			std::span<const std::byte> dxil, ID3D12ShaderReflection*
+			std::span<const std::byte> dxil, IRRootSignature*
 		);
 	}
 }

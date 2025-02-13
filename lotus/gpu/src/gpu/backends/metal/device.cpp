@@ -171,44 +171,63 @@ namespace lotus::gpu::backends::metal {
 	shader_binary device::load_shader(std::span<const std::byte> data) {
 		shader_binary result = nullptr;
 
-		// convert from DXIL to Metal IR
+		// load reflection from DXIL
 		common::dxc_compiler compiler = nullptr;
-		common::dxil_reflection refl = compiler.load_shader_reflection(data);
-		const common::dxil_reflection::reflection_ptr_union &refl_ptr = refl.get_raw_ptr();
-		crash_if(!std::holds_alternative<common::dxil_reflection::shader_reflection_ptr>(refl_ptr));
-		ID3D12ShaderReflection *dx_refl = std::get<common::dxil_reflection::shader_reflection_ptr>(refl_ptr).p;
-		_details::ir_unique_ptr<IRRootSignature> root_signature =
-			_details::shader::create_root_signature_for_dxil_reflection(dx_refl);
-		_details::shader::ir_conversion_result result_ir = _details::shader::convert_to_metal_ir(data, dx_refl);
+		common::_details::com_ptr<IUnknown> raw_refl;
+		compiler.load_shader_reflection(data, IID_PPV_ARGS(&raw_refl));
 
-		// load vertex shader reflection data
-		auto shader_refl = _details::ir_make_unique(IRShaderReflectionCreate());
-		crash_if(!IRObjectGetReflection(
-			result_ir.object.get(),
-			IRObjectGetMetalIRShaderStage(result_ir.object.get()),
-			shader_refl.get()
-		));
-		if (
-			IRVersionedVSInfo vsinfo;
-			IRShaderReflectionCopyVertexInfo(shader_refl.get(), IRReflectionVersion_1_0, &vsinfo)
-		) {
-			for (std::size_t i = 0; i < vsinfo.info_1_0.num_vertex_inputs; ++i) {
-				const IRVertexInputInfo_1_0 &input = vsinfo.info_1_0.vertex_inputs[i];
-				result._vs_input_attributes.emplace_back(
-					std::u8string(string::assume_utf8(input.name)),
-					input.attributeIndex
-				);
+		common::_details::com_ptr<ID3D12ShaderReflection> refl_shader;
+		const HRESULT shader_res = raw_refl->QueryInterface(IID_PPV_ARGS(&refl_shader));
+		if (shader_res != E_NOINTERFACE) { // regular shader
+			common::_details::assert_dx(shader_res);
+			_details::shader::ir_conversion_result result_ir = _details::shader::convert_to_metal_ir(
+				data, _details::shader::create_root_signature_for_shader_reflection(refl_shader).get()
+			);
+
+			// load vertex shader reflection data
+			auto shader_refl = _details::ir_make_unique(IRShaderReflectionCreate());
+			crash_if(!IRObjectGetReflection(
+				result_ir.object.get(),
+				IRObjectGetMetalIRShaderStage(result_ir.object.get()),
+				shader_refl.get()
+			));
+			if (
+				IRVersionedVSInfo vsinfo;
+				IRShaderReflectionCopyVertexInfo(shader_refl.get(), IRReflectionVersion_1_0, &vsinfo)
+			) {
+				for (std::size_t i = 0; i < vsinfo.info_1_0.num_vertex_inputs; ++i) {
+					const IRVertexInputInfo_1_0 &input = vsinfo.info_1_0.vertex_inputs[i];
+					result._vs_input_attributes.emplace_back(
+						std::u8string(string::assume_utf8(input.name)),
+						input.attributeIndex
+					);
+				}
+				IRShaderReflectionReleaseVertexInfo(&vsinfo);
 			}
-			IRShaderReflectionReleaseVertexInfo(&vsinfo);
-		}
 
-		// load compute shader reflection data
-		result._thread_group_size = refl.get_thread_group_size();
+			// load compute shader reflection data
+			UINT x, y, z;
+			common::_details::assert_dx(refl_shader->GetThreadGroupSize(&x, &y, &z));
+			result._thread_group_size = cvec3u32(x, y, z);
 
-		NS::Error *err = nullptr;
-		result._lib = NS::TransferPtr(_dev->newLibrary(result_ir.data, &err));
-		if (err) {
-			log().error("{}", err->localizedDescription()->utf8String());
+			// create shader library
+			NS::Error *err = nullptr;
+			result._lib = NS::TransferPtr(_dev->newLibrary(result_ir.data, &err));
+			if (err) {
+				log().error("{}", err->localizedDescription()->utf8String());
+				std::abort();
+			}
+		} else { // shader library
+			common::_details::com_ptr<ID3D12LibraryReflection> refl_lib;
+			common::_details::assert_dx(raw_refl->QueryInterface(IID_PPV_ARGS(&refl_lib)));
+
+			D3D12_LIBRARY_DESC desc = {};
+			common::_details::assert_dx(refl_lib->GetDesc(&desc));
+			for (UINT i = 0; i < desc.FunctionCount; ++i) {
+				ID3D12FunctionReflection *refl_func = refl_lib->GetFunctionByIndex(i);
+				// TODO
+			}
+			// TODO
 			std::abort();
 		}
 

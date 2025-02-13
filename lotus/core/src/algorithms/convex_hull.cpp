@@ -2,8 +2,8 @@
 
 #include <stack>
 
-namespace lotus::incremental_convex_hull {
-	state state::for_tetrahedron(
+namespace lotus {
+	incremental_convex_hull::state incremental_convex_hull::state::for_tetrahedron(
 		std::array<vec3, 4> verts,
 		std::span<vec3> vert_storage,
 		std::span<face_entry> face_storage,
@@ -69,18 +69,31 @@ namespace lotus::incremental_convex_hull {
 		return result;
 	}
 
-	state::~state() {
-		if (_any_face != face_id::invalid) {
-			face_id fid = _any_face;
-			do {
-				const face_id next = _faces_pool[fid].next;
-				_faces_pool.free(fid);
-				fid = next;
-			} while (fid != _any_face);
-		}
+	incremental_convex_hull::state::state(state &&src) :
+		_vertices(std::exchange(src._vertices, {})),
+		_num_verts_added(std::exchange(src._num_verts_added, 0)),
+		_faces(std::exchange(src._faces, {})),
+		_faces_pool(std::move(src._faces_pool)),
+		_any_face(std::exchange(src._any_face, face_id::invalid)) {
 	}
 
-	vertex_id state::add_vertex_hint(vec3 v, face_id hint) {
+	incremental_convex_hull::state &incremental_convex_hull::state::operator=(state &&src) {
+		if (&src != this) {
+			_free_all_faces();
+			_vertices        = std::exchange(src._vertices, {});
+			_num_verts_added = std::exchange(src._num_verts_added, 0);
+			_faces           = std::exchange(src._faces, {});
+			_faces_pool      = std::move(src._faces_pool);
+			_any_face        = std::exchange(src._any_face, face_id::invalid);
+		}
+		return *this;
+	}
+
+	incremental_convex_hull::state::~state() {
+		_free_all_faces();
+	}
+
+	incremental_convex_hull::vertex_id incremental_convex_hull::state::add_vertex_hint(vec3 v, face_id hint) {
 		const vertex_id result = _add_vertex(v);
 
 		auto deref = [this](half_edge_ref r) -> half_edge_ref& {
@@ -92,7 +105,9 @@ namespace lotus::incremental_convex_hull {
 			auto bookmark = get_scratch_bookmark();
 
 			auto face_marked = bookmark.create_vector_array<bool>(_faces.size(), false);
-			std::stack<face_id, std::deque<face_id, memory::stack_allocator::std_allocator<face_id>>> stk(bookmark.create_std_allocator<face_id>());
+			std::stack<face_id, std::deque<face_id, memory::stack_allocator::std_allocator<face_id>>> stk(
+				bookmark.create_std_allocator<face_id>()
+			);
 			auto is_face_marked = [&](face_id i) {
 				return face_marked[std::to_underlying(i)];
 			};
@@ -168,7 +183,7 @@ namespace lotus::incremental_convex_hull {
 		return result;
 	}
 
-	std::optional<vertex_id> state::add_vertex(vec3 v) {
+	std::optional<incremental_convex_hull::vertex_id> incremental_convex_hull::state::add_vertex(vec3 v) {
 		face_id cur_face = _any_face;
 		do {
 			const face &f = _faces_pool[cur_face];
@@ -181,7 +196,7 @@ namespace lotus::incremental_convex_hull {
 		return std::nullopt;
 	}
 
-	vertex_id state::_add_vertex(vec3 v) {
+	incremental_convex_hull::vertex_id incremental_convex_hull::state::_add_vertex(vec3 v) {
 		crash_if(_num_verts_added >= _vertices.size());
 		_vertices[_num_verts_added] = v;
 		const auto result = static_cast<vertex_id>(_num_verts_added);
@@ -189,7 +204,7 @@ namespace lotus::incremental_convex_hull {
 		return result;
 	}
 
-	face_id state::_add_face(std::array<vertex_id, 3> verts) {
+	incremental_convex_hull::face_id incremental_convex_hull::state::_add_face(std::array<vertex_id, 3> verts) {
 		const vec3 normal = vec::cross(
 			_vertices[std::to_underlying(verts[1])] - _vertices[std::to_underlying(verts[0])],
 			_vertices[std::to_underlying(verts[2])] - _vertices[std::to_underlying(verts[0])]
@@ -214,7 +229,7 @@ namespace lotus::incremental_convex_hull {
 		return fi;
 	}
 
-	void state::_remove_face(face_id i) {
+	void incremental_convex_hull::state::_remove_face(face_id i) {
 		if (on_face_removing) {
 			on_face_removing(*this, i);
 		}
@@ -226,5 +241,16 @@ namespace lotus::incremental_convex_hull {
 			_any_face = f.next;
 		}
 		_faces_pool.free(i);
+	}
+
+	void incremental_convex_hull::state::_free_all_faces() {
+		if (_any_face != face_id::invalid) {
+			face_id fid = _any_face;
+			do {
+				const face_id next = _faces_pool[fid].next;
+				_faces_pool.free(fid);
+				fid = next;
+			} while (fid != _any_face);
+		}
 	}
 }

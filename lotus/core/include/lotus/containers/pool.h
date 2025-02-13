@@ -105,6 +105,9 @@ namespace lotus {
 		using value_type = Entry::value_type; ///< Value type.
 		using index_type = entry_type::index_type; ///< Index type.
 
+		/// Initializes this pool to empty.
+		pool_manager(std::nullptr_t) {
+		}
 		/// Initializes this pool, and checks that all entries are free if possible.
 		explicit pool_manager(std::span<entry_type> st) : _storage(st) {
 			if constexpr (_has_markers) {
@@ -123,7 +126,8 @@ namespace lotus {
 		pool_manager(const pool_manager&) = delete;
 		/// Move assignment.
 		pool_manager &operator=(pool_manager &&src) {
-			crash_if(_allocated > 0);
+			// need to free all entries before moving into this pool; otherwise they won't be freed
+			crash_if(this != &src && _allocated > 0);
 			_storage   = std::exchange(src._storage, {});
 			_allocated = std::exchange(src._allocated, 0);
 			_head      = std::exchange(src._head, index_type::invalid);

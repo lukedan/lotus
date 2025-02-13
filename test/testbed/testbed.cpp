@@ -27,10 +27,9 @@
 /// The testbed applicaiton.
 class testbed_app : public lotus::application {
 public:
-	/// Initializes the GLFW window.
+	/// Initializes the application.
 	testbed_app(int argc, char **argv, lotus::gpu::context_options options) :
 		application(argc, argv, u8"Physics Testbed", options) {
-
 	}
 
 	/// Renders all objects.
@@ -314,7 +313,7 @@ protected:
 int main(int argc, char **argv) {
 	testbed_app app(argc, argv, lotus::gpu::context_options::none);
 	app.initialize();
-	/*app.register_test<convex_hull_test>();*/
+	app.register_test<convex_hull_test>();
 	app.register_test<fem_cloth_test>();
 	app.register_test<spring_cloth_test>();
 	app.register_test<box_stack_test>();

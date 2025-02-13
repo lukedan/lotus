@@ -170,7 +170,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron 
 		std::vector<vec3> verts;
 		std::vector<std::uint32_t> indices;
 
-		namespace convex_hull = lotus::incremental_convex_hull;
+		using convex_hull = lotus::incremental_convex_hull;
 
 		auto storage = convex_hull::create_storage_for_num_vertices(poly.vertices.size());
 		auto hull = storage.create_state_for_tetrahedron({ poly.vertices[0], poly.vertices[1], poly.vertices[2], poly.vertices[3] });

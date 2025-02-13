@@ -150,7 +150,7 @@ namespace lotus::collision {
 	}
 
 	gjk_epa::epa_result gjk_epa::epa(gjk_result_state gjk_state) const {
-		namespace convex_hull = incremental_convex_hull;
+		using convex_hull = incremental_convex_hull;
 
 		auto bookmark = get_scratch_bookmark();
 

@@ -135,14 +135,10 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	shader_reflection shader_utility::load_shader_reflection(std::span<const std::byte> data) {
-		shader_reflection::_shader_refl_ptr result = nullptr;
-		_compiler.load_shader_reflection(data, IID_PPV_ARGS(result));
-		return shader_reflection(std::move(result));
+		return shader_reflection(_compiler.load_shader_reflection(data));
 	}
 
 	shader_library_reflection shader_utility::load_shader_library_reflection(std::span<const std::byte> data) {
-		shader_library_reflection result = nullptr;
-		_compiler.load_shader_reflection(data, IID_PPV_ARGS(result._reflection));
-		return result;
+		return shader_library_reflection(_compiler.load_shader_library_reflection(data));
 	}
 }

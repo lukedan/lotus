@@ -45,7 +45,7 @@ namespace lotus::gpu::backends::directx12 {
 		void resize_swap_chain_buffers(swap_chain&, cvec2u32);
 
 		/// Calls \p ID3D12Device::CreateCommandAllocator().
-		[[nodiscard]] command_allocator create_command_allocator(queue_family);
+		[[nodiscard]] command_allocator create_command_allocator(command_queue&);
 		/// Calls \p ID3D12Device::CreateCommandList().
 		[[nodiscard]] command_list create_and_start_command_list(command_allocator&);
 

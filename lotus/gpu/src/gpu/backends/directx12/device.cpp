@@ -33,9 +33,9 @@ namespace lotus::gpu::backends::directx12 {
 		}
 	}
 
-	command_allocator device::create_command_allocator(queue_family f) {
+	command_allocator device::create_command_allocator(command_queue &q) {
 		command_allocator result = nullptr;
-		result._type = _details::conversions::to_command_list_type(f);
+		result._type = q._queue->GetDesc().Type;
 		_details::assert_dx(_device->CreateCommandAllocator(result._type, IID_PPV_ARGS(&result._allocator)));
 		return result;
 	}

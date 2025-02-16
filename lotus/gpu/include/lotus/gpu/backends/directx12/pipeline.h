@@ -55,31 +55,36 @@ namespace lotus::gpu::backends::directx12 {
 		[[nodiscard]] bool is_valid() const {
 			return dxil_reflection::is_valid();
 		}
+	private:
+		/// Initializes the base class object.
+		explicit shader_reflection(common::dxil_reflection refl) : dxil_reflection(std::move(refl)) {
+		}
 	};
 
 	/// Contains a \p ID3D12LibraryReflection.
-	class shader_library_reflection {
+	class shader_library_reflection : private common::dxil_library_reflection {
 		friend shader_utility;
 	protected:
 		/// Initializes an empty reflection object.
-		shader_library_reflection(std::nullptr_t) {
+		shader_library_reflection(std::nullptr_t) : dxil_library_reflection(nullptr) {
 		}
 
-		/// Enumerates over all shaders using \p ID3D12LibraryReflection::GetFunctionByIndex().
-		template <typename Callback> void enumerate_shaders(Callback &&cb) const {
-			D3D12_LIBRARY_DESC desc = {};
-			_details::assert_dx(_reflection->GetDesc(&desc));
-			for (UINT i = 0; i < desc.FunctionCount; ++i) {
-				auto *refl = _reflection->GetFunctionByIndex(static_cast<INT>(i));
-				if (!cb(shader_reflection(refl))) {
-					break;
-				}
-			}
+		/// Returns the number of shaders.
+		[[nodiscard]] std::uint32_t get_num_shaders() const {
+			return dxil_library_reflection::get_num_shaders();
 		}
-		/// Finds the shader that matches the given entry point and stage using \ref enumerate_shaders().
-		[[nodiscard]] shader_reflection find_shader(std::u8string_view, shader_stage) const;
+		/// Returns the shader at the given index.
+		[[nodiscard]] shader_reflection get_shader_at(std::uint32_t i) const {
+			return shader_reflection(dxil_library_reflection::get_shader_at(i));
+		}
+		[[nodiscard]] shader_reflection find_shader(std::u8string_view entry, shader_stage stage) const {
+			return shader_reflection(dxil_library_reflection::find_shader(entry, stage));
+		}
 	private:
-		_details::com_ptr<ID3D12LibraryReflection> _reflection; ///< Shader library reflection object.
+		/// Initializes the base class object.
+		explicit shader_library_reflection(common::dxil_library_reflection refl) :
+			dxil_library_reflection(std::move(refl)) {
+		}
 	};
 
 

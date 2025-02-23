@@ -520,6 +520,19 @@ namespace lotus::gpu::backends::metal::_details {
 			return result;
 		}
 
+		IRDescriptorRange1 d3d12_shader_input_bind_desc_to_ir_descriptor_range(
+			D3D12_SHADER_INPUT_BIND_DESC desc
+		) {
+			IRDescriptorRange1 result;
+			result.RangeType                         = to_ir_descriptor_range_type(desc.Type);
+			result.NumDescriptors                    =
+				desc.BindCount == 0 ? std::numeric_limits<std::uint32_t>::max() : desc.BindCount;
+			result.BaseShaderRegister                = desc.BindPoint;
+			result.RegisterSpace                     = desc.Space;
+			result.Flags                             = IRDescriptorRangeFlagNone;
+			result.OffsetInDescriptorsFromTableStart = desc.BindPoint;
+			return result;
+		}
 	}
 
 	NS::SharedPtr<MTL::TextureDescriptor> create_texture_descriptor(
@@ -544,6 +557,25 @@ namespace lotus::gpu::backends::metal::_details {
 
 
 	namespace shader {
+		ir_unique_ptr<IRRootSignature> create_root_signature_for_bindings(std::span<IRRootParameter1> params) {
+			IRVersionedRootSignatureDescriptor root_sig_desc = {};
+			root_sig_desc.version                = IRRootSignatureVersion_1_1;
+			root_sig_desc.desc_1_1.NumParameters = static_cast<std::uint32_t>(params.size());
+			root_sig_desc.desc_1_1.pParameters   = params.data();
+			IRError *error = nullptr;
+			auto root_signature = ir_make_unique(
+				IRRootSignatureCreateFromDescriptor(&root_sig_desc, &error)
+			);
+			if (error) {
+				log().error(
+					"Failed to create IR root signature: {}", static_cast<const char*>(IRErrorGetPayload(error))
+				);
+				IRErrorDestroy(error);
+				std::abort();
+			}
+			return root_signature;
+		}
+
 		ir_unique_ptr<IRRootSignature> create_root_signature_for_shader_reflection(ID3D12ShaderReflection *refl) {
 			auto bookmark = get_scratch_bookmark();
 			auto descriptor_spaces =
@@ -559,14 +591,9 @@ namespace lotus::gpu::backends::metal::_details {
 				while (descriptor_spaces.size() <= binding.Space) {
 					descriptor_spaces.emplace_back(bookmark.create_vector_array<IRDescriptorRange1>());
 				}
-				IRDescriptorRange1 &range = descriptor_spaces[binding.Space].emplace_back();
-				range.RangeType                         = conversions::to_ir_descriptor_range_type(binding.Type);
-				range.NumDescriptors                    =
-					binding.BindCount == 0 ? std::numeric_limits<std::uint32_t>::max() : binding.BindCount;
-				range.BaseShaderRegister                = binding.BindPoint;
-				range.RegisterSpace                     = binding.Space;
-				range.Flags                             = IRDescriptorRangeFlagNone;
-				range.OffsetInDescriptorsFromTableStart = binding.BindPoint;
+				descriptor_spaces[binding.Space].emplace_back(
+					conversions::d3d12_shader_input_bind_desc_to_ir_descriptor_range(binding)
+				);
 			}
 
 			// create descriptor binding array
@@ -579,21 +606,7 @@ namespace lotus::gpu::backends::metal::_details {
 				descriptor_bindings[i].ShaderVisibility                    = IRShaderVisibilityAll;
 			}
 
-			IRVersionedRootSignatureDescriptor root_sig_desc = {};
-			root_sig_desc.version                = IRRootSignatureVersion_1_1;
-			root_sig_desc.desc_1_1.NumParameters = static_cast<std::uint32_t>(descriptor_bindings.size());
-			root_sig_desc.desc_1_1.pParameters   = descriptor_bindings.data();
-			IRError *error = nullptr;
-			auto root_signature = ir_make_unique(
-				IRRootSignatureCreateFromDescriptor(&root_sig_desc, &error)
-			);
-			if (error) {
-				log().error(
-					"Failed to create IR root signature: {}", static_cast<const char*>(IRErrorGetPayload(error))
-				);
-				IRErrorDestroy(error);
-			}
-			return root_signature;
+			return create_root_signature_for_bindings(descriptor_bindings);
 		}
 
 		ir_conversion_result convert_to_metal_ir(
@@ -605,8 +618,21 @@ namespace lotus::gpu::backends::metal::_details {
 			auto dxil = ir_make_unique(IRObjectCreateFromDXIL(
 				reinterpret_cast<const std::uint8_t*>(dxil_buf.data()), dxil_buf.size(), IRBytecodeOwnershipNone
 			));
+
 			auto compiler = ir_make_unique(IRCompilerCreate());
 			IRCompilerSetGlobalRootSignature(compiler.get(), root_sig);
+			// TODO these are only available when building the pipeline
+			IRCompilerSetRayTracingPipelineArguments(
+				compiler.get(),
+				128,
+				IRRaytracingPipelineFlagNone,
+				IRIntrinsicMaskClosestHitAll,
+				IRIntrinsicMaskMissShaderAll,
+				IRIntrinsicMaskAnyHitShaderAll,
+				IRIntrinsicMaskCallableShaderAll,
+				IRRayTracingUnlimitedRecursionDepth,
+				IRRayGenerationCompilationVisibleFunction
+			);
 			IRError *error = nullptr;
 			result.object = ir_make_unique(IRCompilerAllocCompileAndLink(
 				compiler.get(), nullptr, dxil.get(), &error
@@ -614,6 +640,7 @@ namespace lotus::gpu::backends::metal::_details {
 			if (error) {
 				log().error("Failed to compile IR: {}", static_cast<const char*>(IRErrorGetPayload(error)));
 				IRErrorDestroy(error);
+				std::abort();
 			}
 
 			// retrieve Metal lib and bytes

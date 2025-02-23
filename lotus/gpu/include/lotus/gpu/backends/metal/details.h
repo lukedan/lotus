@@ -181,6 +181,11 @@ namespace lotus::gpu::backends::metal::_details {
 		[[nodiscard]] acceleration_structure_build_sizes back_to_acceleration_structure_build_sizes(
 			MTL::AccelerationStructureSizes
 		);
+
+		/// Converts a \p D3D12_SHADER_INPUT_BIND_DESC to a \p IRDescriptorRange1.
+		[[nodiscard]] IRDescriptorRange1 d3d12_shader_input_bind_desc_to_ir_descriptor_range(
+			D3D12_SHADER_INPUT_BIND_DESC
+		);
 	}
 
 	/// Creates a new \p MTL::TextureDescriptor based on the given settings.
@@ -236,6 +241,8 @@ namespace lotus::gpu::backends::metal::_details {
 			dispatch_data_t data = nullptr; ///< Raw IR bytes.
 		};
 
+		/// Creates a \p IRRootSignature matching the given list of \p IRRootParameter1 objects.
+		[[nodiscard]] ir_unique_ptr<IRRootSignature> create_root_signature_for_bindings(std::span<IRRootParameter1>);
 		/// Creates a \p IRRootSignature matching the given \p ID3D12ShaderReflection.
 		[[nodiscard]] ir_unique_ptr<IRRootSignature> create_root_signature_for_shader_reflection(
 			ID3D12ShaderReflection*

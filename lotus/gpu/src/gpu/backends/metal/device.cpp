@@ -176,11 +176,20 @@ namespace lotus::gpu::backends::metal {
 		common::_details::com_ptr<IUnknown> raw_refl;
 		compiler.load_shader_reflection(data, IID_PPV_ARGS(&raw_refl));
 
+		_details::shader::ir_conversion_result result_ir = nullptr;
+
 		common::_details::com_ptr<ID3D12ShaderReflection> refl_shader;
 		const HRESULT shader_res = raw_refl->QueryInterface(IID_PPV_ARGS(&refl_shader));
 		if (shader_res != E_NOINTERFACE) { // regular shader
 			common::_details::assert_dx(shader_res);
-			_details::shader::ir_conversion_result result_ir = _details::shader::convert_to_metal_ir(
+
+			// load compute shader reflection data
+			UINT x, y, z;
+			refl_shader->GetThreadGroupSize(&x, &y, &z);
+			result._thread_group_size = cvec3u32(x, y, z);
+
+			// convert
+			result_ir = _details::shader::convert_to_metal_ir(
 				data, _details::shader::create_root_signature_for_shader_reflection(refl_shader).get()
 			);
 
@@ -204,30 +213,110 @@ namespace lotus::gpu::backends::metal {
 				}
 				IRShaderReflectionReleaseVertexInfo(&vsinfo);
 			}
-
-			// load compute shader reflection data
-			UINT x, y, z;
-			refl_shader->GetThreadGroupSize(&x, &y, &z);
-			result._thread_group_size = cvec3u32(x, y, z);
-
-			// create shader library
-			NS::Error *err = nullptr;
-			result._lib = NS::TransferPtr(_dev->newLibrary(result_ir.data, &err));
-			if (err) {
-				log().error("{}", err->localizedDescription()->utf8String());
-				std::abort();
-			}
 		} else { // shader library
 			common::_details::com_ptr<ID3D12LibraryReflection> refl_lib;
 			common::_details::assert_dx(raw_refl->QueryInterface(IID_PPV_ARGS(&refl_lib)));
+			D3D12_LIBRARY_DESC lib_desc = {};
+			common::_details::assert_dx(refl_lib->GetDesc(&lib_desc));
 
-			D3D12_LIBRARY_DESC desc = {};
-			common::_details::assert_dx(refl_lib->GetDesc(&desc));
-			for (UINT i = 0; i < desc.FunctionCount; ++i) {
-				ID3D12FunctionReflection *refl_func = refl_lib->GetFunctionByIndex(i);
-				// TODO
+			_details::ir_unique_ptr<IRRootSignature> root_signature;
+
+			{ // create root signature for all combined shaders
+				std::vector<D3D12_SHADER_INPUT_BIND_DESC> all_bindings;
+				for (UINT func_i = 0; func_i < lib_desc.FunctionCount; ++func_i) {
+					ID3D12FunctionReflection *refl_func = refl_lib->GetFunctionByIndex(func_i);
+					D3D12_FUNCTION_DESC func_desc = {};
+					common::_details::assert_dx(refl_func->GetDesc(&func_desc));
+					for (UINT binding_i = 0; binding_i < func_desc.BoundResources; ++binding_i) {
+						common::_details::assert_dx(
+							refl_func->GetResourceBindingDesc(binding_i, &all_bindings.emplace_back())
+						);
+					}
+				}
+
+				// sort and merge/deduplicate all resource bindings
+				if (!all_bindings.empty()) {
+					std::sort(
+						all_bindings.begin(),
+						all_bindings.end(),
+						[](const D3D12_SHADER_INPUT_BIND_DESC &lhs, const D3D12_SHADER_INPUT_BIND_DESC &rhs) {
+							return
+								lhs.Space == rhs.Space ?
+								lhs.BindPoint < rhs.BindPoint :
+								lhs.Space < rhs.Space;
+						}
+					);
+					auto num_final_bindings = 1;
+					for (std::size_t i = 1; i < all_bindings.size(); ++i) {
+						D3D12_SHADER_INPUT_BIND_DESC &prev_binding = all_bindings[num_final_bindings - 1];
+						const D3D12_SHADER_INPUT_BIND_DESC &cur_binding = all_bindings[i];
+						// check if this binding will be merged with the previous one
+						if (
+							cur_binding.Space == prev_binding.Space &&
+							cur_binding.BindPoint < prev_binding.BindPoint + prev_binding.BindCount
+						) {
+							crash_if(cur_binding.Type != prev_binding.Type);
+							// TODO check other fields?
+							if (cur_binding.BindCount == 0 || prev_binding.BindCount == 0) {
+								prev_binding.BindCount = 0;
+							} else {
+								prev_binding.BindCount = std::max(
+									prev_binding.BindCount,
+									cur_binding.BindPoint + cur_binding.BindCount - prev_binding.BindPoint
+								);
+							}
+							continue;
+						}
+						// otherwise, add this binding to the end of the list
+						all_bindings[num_final_bindings] = cur_binding;
+						++num_final_bindings;
+					}
+					all_bindings.erase(all_bindings.begin() + num_final_bindings, all_bindings.end());
+				}
+
+				std::vector<IRDescriptorRange1> all_ranges;
+				std::vector<IRRootParameter1> root_params;
+				if (!all_bindings.empty()) { // create root signature
+					all_ranges.reserve(all_bindings.size());
+					{ // reserve space for all descriptor tables upfront
+						IRRootParameter1 empty_root_param = {};
+						empty_root_param.ParameterType                       = IRRootParameterTypeDescriptorTable;
+						empty_root_param.DescriptorTable.pDescriptorRanges   = nullptr;
+						empty_root_param.DescriptorTable.NumDescriptorRanges = 0;
+						empty_root_param.ShaderVisibility                    = IRShaderVisibilityAll;
+						root_params.resize(all_bindings.back().Space + 1, empty_root_param);
+					}
+					auto add_root_table = [&](std::size_t start, std::size_t past_end) {
+						const std::uint32_t space = all_ranges[start].RegisterSpace;
+						root_params[space].DescriptorTable.pDescriptorRanges   = &all_ranges[start];
+						root_params[space].DescriptorTable.NumDescriptorRanges = past_end - start;
+					};
+					std::size_t start_of_space = 0;
+					for (std::size_t i = 0; i < all_bindings.size(); ++i) {
+						all_ranges.emplace_back(
+							_details::conversions::d3d12_shader_input_bind_desc_to_ir_descriptor_range(
+								all_bindings[i]
+							)
+						);
+						if (all_ranges[i].RegisterSpace != all_ranges[start_of_space].RegisterSpace) {
+							add_root_table(start_of_space, i);
+							start_of_space = i;
+						}
+					}
+					add_root_table(start_of_space, all_bindings.size()); // fill in the last range
+				}
+
+				root_signature = _details::shader::create_root_signature_for_bindings(root_params);
 			}
-			// TODO
+
+			result_ir = _details::shader::convert_to_metal_ir(data, root_signature.get());
+		}
+
+		// create shader library
+		NS::Error *err = nullptr;
+		result._lib = NS::TransferPtr(_dev->newLibrary(result_ir.data, &err));
+		if (err) {
+			log().error("{}", err->localizedDescription()->utf8String());
 			std::abort();
 		}
 

@@ -556,6 +556,24 @@ namespace lotus::gpu::backends::metal::_details {
 	}
 
 
+	bool does_pixel_format_have_depth(MTL::PixelFormat fmt) {
+		return
+			fmt == MTL::PixelFormatDepth16Unorm ||
+			fmt == MTL::PixelFormatDepth32Float ||
+			fmt == MTL::PixelFormatDepth24Unorm_Stencil8 ||
+			fmt == MTL::PixelFormatDepth32Float_Stencil8;
+	}
+
+	bool does_pixel_format_have_stencil(MTL::PixelFormat fmt) {
+		return
+			fmt == MTL::PixelFormatDepth24Unorm_Stencil8 ||
+			fmt == MTL::PixelFormatDepth32Float_Stencil8 ||
+			fmt == MTL::PixelFormatStencil8 ||
+			fmt == MTL::PixelFormatX24_Stencil8 ||
+			fmt == MTL::PixelFormatX32_Stencil8;
+	}
+
+
 	namespace shader {
 		ir_unique_ptr<IRRootSignature> create_root_signature_for_bindings(std::span<IRRootParameter1> params) {
 			IRVersionedRootSignatureDescriptor root_sig_desc = {};

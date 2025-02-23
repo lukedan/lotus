@@ -43,10 +43,10 @@ namespace lotus::gpu::backends::metal {
 		if (fb._depth_stencil_rt) {
 			const depth_render_target_access &depth_access = access.depth_render_target;
 			const stencil_render_target_access &stencil_access = access.stencil_render_target;
-			if (
-				depth_access.load_operation != pass_load_operation::discard ||
-				depth_access.store_operation != pass_store_operation::discard
-			) {
+			const MTL::PixelFormat ds_fmt = fb._depth_stencil_rt->pixelFormat();
+			// these conditions are matched to the ones in create_graphics_pipeline_state() exactly,
+			// or we get validation warnings
+			if (_details::does_pixel_format_have_depth(ds_fmt)) {
 				MTL::RenderPassDepthAttachmentDescriptor *desc = descriptor->depthAttachment();
 				desc->setTexture(fb._depth_stencil_rt);
 				desc->setClearDepth(depth_access.clear_value);
@@ -55,10 +55,7 @@ namespace lotus::gpu::backends::metal {
 				desc->setLoadAction(_details::conversions::to_load_action(depth_access.load_operation));
 				desc->setStoreAction(_details::conversions::to_store_action(depth_access.store_operation));
 			}
-			if (
-				stencil_access.load_operation != pass_load_operation::discard ||
-				stencil_access.store_operation != pass_store_operation::discard
-			) {
+			if (_details::does_pixel_format_have_stencil(ds_fmt)) {
 				MTL::RenderPassStencilAttachmentDescriptor *desc = descriptor->stencilAttachment();
 				desc->setTexture(fb._depth_stencil_rt);
 				desc->setClearStencil(stencil_access.clear_value);

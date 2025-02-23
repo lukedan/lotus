@@ -199,6 +199,12 @@ namespace lotus::gpu::backends::metal::_details {
 	);
 
 
+	/// Checks whether the pixel format has a depth component.
+	[[nodiscard]] bool does_pixel_format_have_depth(MTL::PixelFormat);
+	/// Checks whether the pixel format has a stencil component.
+	[[nodiscard]] bool does_pixel_format_have_stencil(MTL::PixelFormat);
+
+
 	/// Declaration of deleter types for various IR converter library types.
 	template <typename T> struct ir_object_deleter;
 	/// Shorthand for declaring a deleter with a function.

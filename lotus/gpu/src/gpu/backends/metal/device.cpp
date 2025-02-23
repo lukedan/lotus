@@ -207,7 +207,7 @@ namespace lotus::gpu::backends::metal {
 
 			// load compute shader reflection data
 			UINT x, y, z;
-			common::_details::assert_dx(refl_shader->GetThreadGroupSize(&x, &y, &z));
+			refl_shader->GetThreadGroupSize(&x, &y, &z);
 			result._thread_group_size = cvec3u32(x, y, z);
 
 			// create shader library

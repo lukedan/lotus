@@ -251,10 +251,12 @@ namespace lotus::gpu::backends::metal {
 						D3D12_SHADER_INPUT_BIND_DESC &prev_binding = all_bindings[num_final_bindings - 1];
 						const D3D12_SHADER_INPUT_BIND_DESC &cur_binding = all_bindings[i];
 						// check if this binding will be merged with the previous one
-						if (
-							cur_binding.Space == prev_binding.Space &&
-							cur_binding.BindPoint < prev_binding.BindPoint + prev_binding.BindCount
-						) {
+						const bool overlaps_with_prev =
+							cur_binding.Space == prev_binding.Space && (
+								prev_binding.BindCount == 0 ||
+								cur_binding.BindPoint < prev_binding.BindPoint + prev_binding.BindCount
+							);
+						if (overlaps_with_prev) {
 							crash_if(cur_binding.Type != prev_binding.Type);
 							// TODO check other fields?
 							if (cur_binding.BindCount == 0 || prev_binding.BindCount == 0) {

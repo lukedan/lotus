@@ -348,7 +348,42 @@ namespace lotus::gpu::backends::metal {
 		std::size_t height,
 		std::size_t depth
 	) {
+		IRDispatchRaysArgument argument = {};
+
+		auto to_virtual_address_range = [](constant_buffer_view view) {
+			IRVirtualAddressRange result;
+			result.StartAddress = view.data->_buf->gpuAddress() + view.offset;
+			result.SizeInBytes  = view.size;
+			return result;
+		};
+		auto to_virtual_address_range_and_stride = [](shader_record_view view) {
+			IRVirtualAddressRangeAndStride result;
+			result.StartAddress  = view.data->_buf->gpuAddress() + view.offset;
+			result.SizeInBytes   = view.stride * view.count;
+			result.StrideInBytes = view.stride;
+			return result;
+		};
+
+		IRDispatchRaysDescriptor &desc = argument.DispatchRaysDesc;
+		desc.RayGenerationShaderRecord = to_virtual_address_range(ray_generation);
+		desc.MissShaderTable           = to_virtual_address_range_and_stride(miss_shaders);
+		desc.HitGroupTable             = to_virtual_address_range_and_stride(hit_groups);
+		desc.Width                     = width;
+		desc.Height                    = height;
+		desc.Depth                     = depth;
+
+		// TODO GRS
+		// TODO ResDescHeap
+		// TODO SmpDescHeap
 		// TODO
+
+		// compute thread group size
+		const NS::UInteger exec_width = _compute_pipeline->threadExecutionWidth();
+		MTL::Size thread_group_size; // TODO
+
+		auto encoder = NS::RetainPtr(_buf->computeCommandEncoder());
+		encoder->setBytes(&argument, sizeof(argument), kIRRayDispatchArgumentsBindPoint);
+		encoder->dispatchThreads(MTL::Size(width, height, depth), thread_group_size);
 	}
 
 	void command_list::_update_descriptor_set_bindings(

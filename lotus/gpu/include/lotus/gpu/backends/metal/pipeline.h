@@ -104,9 +104,6 @@ namespace lotus::gpu::backends::metal {
 		NS::SharedPtr<MTL::Library> _lib; ///< The Metal library.
 		std::vector<_vertex_input_attribute> _vs_input_attributes; ///< Vertex shader input attributes.
 		cvec3u32 _thread_group_size = zero; ///< Compute shader thread group size.
-
-		/// Checks that \ref _lib contains only one function, and returns it.
-		[[nodiscard]] NS::SharedPtr<MTL::Function> _get_single_function() const;
 	};
 
 	// TODO

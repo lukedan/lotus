@@ -204,6 +204,9 @@ namespace lotus::gpu::backends::metal::_details {
 	/// Checks whether the pixel format has a stencil component.
 	[[nodiscard]] bool does_pixel_format_have_stencil(MTL::PixelFormat);
 
+	/// Retrieves the single shader function inside the shader library.
+	[[nodiscard]] NS::SharedPtr<MTL::Function> get_single_shader_function(MTL::Library*);
+
 
 	/// Declaration of deleter types for various IR converter library types.
 	template <typename T> struct ir_object_deleter;

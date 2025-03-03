@@ -9,6 +9,7 @@
 #include <Metal/Metal.hpp>
 
 #include "lotus/gpu/acceleration_structure.h"
+#include "lotus/gpu/pipeline.h"
 #include "lotus/gpu/resources.h"
 #include "lotus/gpu/backends/common/dxc.h"
 #include "metal_irconverter_include.h"
@@ -428,8 +429,8 @@ namespace lotus::gpu::backends::metal {
 		}
 
 		auto descriptor = NS::TransferPtr(MTL::RenderPipelineDescriptor::alloc()->init());
-		descriptor->setVertexFunction(vs->_get_single_function().get());
-		descriptor->setFragmentFunction(ps->_get_single_function().get());
+		descriptor->setVertexFunction(_details::get_single_shader_function(vs->_lib.get()).get());
+		descriptor->setFragmentFunction(_details::get_single_shader_function(ps->_lib.get()).get());
 		// TODO tessellation shaders?
 		descriptor->setVertexDescriptor(vert_descriptor.get());
 		for (std::size_t i = 0; i < fb_layout.color_render_target_formats.size(); ++i) {
@@ -509,7 +510,9 @@ namespace lotus::gpu::backends::metal {
 		const pipeline_resources&, const shader_binary &shader
 	) {
 		NS::Error *error = nullptr;
-		auto pipeline = NS::TransferPtr(_dev->newComputePipelineState(shader._get_single_function().get(), &error));
+		auto pipeline = NS::TransferPtr(_dev->newComputePipelineState(
+			_details::get_single_shader_function(shader._lib.get()).get(), &error
+		));
 		if (error) {
 			log().error("{}", error->localizedDescription()->utf8String());
 			std::abort();
@@ -842,9 +845,8 @@ namespace lotus::gpu::backends::metal {
 			static_cast<CFIndex>(descs.size()),
 			&kCFTypeArrayCallBacks
 		);
-		auto *array = reinterpret_cast<const NS::Array*>(cfarray);
 		auto as_desc = NS::TransferPtr(MTL::PrimitiveAccelerationStructureDescriptor::alloc()->init());
-		as_desc->setGeometryDescriptors(array);
+		as_desc->setGeometryDescriptors(reinterpret_cast<const NS::Array*>(cfarray));
 		CFRelease(cfarray);
 		return bottom_level_acceleration_structure_geometry(std::move(as_desc));
 	}
@@ -949,6 +951,33 @@ namespace lotus::gpu::backends::metal {
 		std::size_t max_attribute_size,
 		const pipeline_resources&
 	) {
+		// collect the list of linked functions
+		auto linked_funcs = NS::TransferPtr(MTL::LinkedFunctions::alloc()->init());
+		{
+			auto bookmark = get_scratch_bookmark();
+			auto shader_funcs = bookmark.create_vector_array<MTL::Function*>();
+			for (const shader_function &group_func : hit_group_shaders) {
+				MTL::Function *func = group_func.code->_lib->newFunction(NS::String::string(
+					reinterpret_cast<const char*>(group_func.entry_point), NS::UTF8StringEncoding
+				));
+				crash_if(!func);
+				shader_funcs.emplace_back(func);
+			}
+			CFArrayRef functions = CFArrayCreate(
+				kCFAllocatorDefault,
+				const_cast<const void**>(reinterpret_cast<void**>(shader_funcs.data())),
+				static_cast<CFIndex>(shader_funcs.size()),
+				&kCFTypeArrayCallBacks
+			);
+			linked_funcs->setFunctions(reinterpret_cast<const NS::Array*>(functions));
+			CFRelease(functions);
+		}
+
+		auto compute_pipeline = NS::TransferPtr(MTL::ComputePipelineDescriptor::alloc()->init());
+		compute_pipeline->setComputeFunction(_maybe_create_raygen_shader());
+		compute_pipeline->setMaxCallStackDepth(max_recursion_depth); // TODO is this correct?
+		compute_pipeline->setLabel(NS::String::string("Raytracing Pipeline", NS::UTF8StringEncoding));
+		compute_pipeline->setLinkedFunctions(linked_funcs.get());
 		// TODO
 	}
 
@@ -1008,6 +1037,27 @@ namespace lotus::gpu::backends::metal {
 			}
 			buf->setLabel(_details::conversions::to_string(reinterpret_cast<const char8_t*>(name.c_str())).get());
 		}
+	}
+
+	MTL::Function *device::_maybe_create_raygen_shader() {
+		if (_raygen_shader) {
+			return _raygen_shader.get();
+		}
+
+		const auto compiler = _details::ir_make_unique(IRCompilerCreate());
+		auto metal_lib = _details::ir_make_unique(IRMetalLibBinaryCreate());
+		crash_if(!IRMetalLibSynthesizeIndirectRayDispatchFunction(compiler.get(), metal_lib.get()));
+		const dispatch_data_t data = IRMetalLibGetBytecodeData(metal_lib.get());
+
+		NS::Error *err = nullptr;
+		auto library = NS::TransferPtr(_dev->newLibrary(data, &err));
+		if (err) {
+			log().error("{}", err->localizedDescription()->utf8String());
+			std::abort();
+		}
+		_raygen_shader = _details::get_single_shader_function(library.get());
+
+		return _raygen_shader.get();
 	}
 
 

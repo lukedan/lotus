@@ -574,6 +574,12 @@ namespace lotus::gpu::backends::metal::_details {
 	}
 
 
+	NS::SharedPtr<MTL::Function> get_single_shader_function(MTL::Library *lib) {
+		crash_if(lib->functionNames()->count() != 1);
+		return NS::TransferPtr(lib->newFunction(lib->functionNames()->object<NS::String>(0)));
+	}
+
+
 	namespace shader {
 		ir_unique_ptr<IRRootSignature> create_root_signature_for_bindings(std::span<IRRootParameter1> params) {
 			IRVersionedRootSignatureDescriptor root_sig_desc = {};

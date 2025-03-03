@@ -287,6 +287,8 @@ namespace lotus::gpu::backends::metal {
 		MTL::CounterSet *_timestamp_counter_set = nullptr; ///< The counter set for timestamps.
 		context_options _context_opts = context_options::none; ///< Context options.
 
+		NS::SharedPtr<MTL::Function> _raygen_shader; ///< The stub for calling the ray generation shader.
+
 		/// Initializes all fields of this class.
 		device(NS::SharedPtr<MTL::Device>, NS::SharedPtr<MTL::ResidencySet>, context_options);
 
@@ -296,6 +298,8 @@ namespace lotus::gpu::backends::metal {
 		);
 		/// Sets the debug name of the given descriptor set.
 		void _maybe_set_descriptor_set_name(MTL::Buffer *buf, const descriptor_set_layout &layout);
+		/// Creates the ray generation shader stub if necessary.
+		[[nodiscard]] MTL::Function *_maybe_create_raygen_shader();
 	};
 
 	/// Holds a \p MTL::Device.

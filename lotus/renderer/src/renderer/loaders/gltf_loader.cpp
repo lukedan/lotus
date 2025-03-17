@@ -13,7 +13,7 @@ namespace lotus::renderer::gltf {
 	/// Loads a data buffer with the given properties.
 	template <typename T> static assets::handle<assets::buffer> _load_data_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::int32_t expected_components, gpu::buffer_usage_mask usage_mask, const pool &p
+		int accessor_index, i32 expected_components, gpu::buffer_usage_mask usage_mask, const pool &p
 	) {
 		auto id = assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 			"buffer{}|{}|{}({})", accessor_index, expected_components, typeid(T).hash_code(), typeid(T).name()
@@ -22,15 +22,15 @@ namespace lotus::renderer::gltf {
 			return res;
 		}
 
-		const auto &accessor = model.accessors[static_cast<std::size_t>(accessor_index)];
+		const auto &accessor = model.accessors[static_cast<usize>(accessor_index)];
 		if (accessor.count == 0) {
 			return nullptr;
 		}
-		const auto &buffer_view = model.bufferViews[static_cast<std::size_t>(accessor.bufferView)];
-		const auto stride = static_cast<std::size_t>(accessor.ByteStride(buffer_view));
+		const auto &buffer_view = model.bufferViews[static_cast<usize>(accessor.bufferView)];
+		const auto stride = static_cast<usize>(accessor.ByteStride(buffer_view));
 		const int component_type = accessor.componentType;
-		const std::int32_t num_components = tinygltf::GetNumComponentsInType(static_cast<std::uint32_t>(accessor.type));
-		const std::size_t buffer_elements = accessor.count * static_cast<std::size_t>(expected_components);
+		const i32 num_components = tinygltf::GetNumComponentsInType(static_cast<u32>(accessor.type));
+		const usize buffer_elements = accessor.count * static_cast<usize>(expected_components);
 
 		if (num_components != expected_components) {
 			log().warn("Expected {} components but getting {}", expected_components, num_components);
@@ -39,17 +39,17 @@ namespace lotus::renderer::gltf {
 		std::vector<T> data(buffer_elements);
 
 		auto *data_raw = reinterpret_cast<const std::byte*>(
-			model.buffers[static_cast<std::size_t>(buffer_view.buffer)].data.data() +
+			model.buffers[static_cast<usize>(buffer_view.buffer)].data.data() +
 				buffer_view.byteOffset + accessor.byteOffset
 		);
-		for (std::size_t i = 0; i < accessor.count; ++i) {
+		for (usize i = 0; i < accessor.count; ++i) {
 			const std::byte *current_raw = data_raw + stride * i;
-			T *target = data.data() + i * static_cast<std::size_t>(expected_components);
-			for (std::int32_t j = 0; j < std::min(num_components, expected_components); ++j) {
+			T *target = data.data() + i * static_cast<usize>(expected_components);
+			for (i32 j = 0; j < std::min(num_components, expected_components); ++j) {
 				switch (component_type) {
 				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
 					{
-						auto *current = reinterpret_cast<const std::uint8_t*>(current_raw);
+						auto *current = reinterpret_cast<const u8*>(current_raw);
 						if constexpr (std::is_integral_v<T>) {
 							target[j] = static_cast<T>(current[j]);
 						} else if constexpr (std::is_floating_point_v<T>) {
@@ -61,7 +61,7 @@ namespace lotus::renderer::gltf {
 					break;
 				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
 					{
-						auto *current = reinterpret_cast<const std::uint16_t*>(current_raw);
+						auto *current = reinterpret_cast<const u16*>(current_raw);
 						if constexpr (std::is_integral_v<T>) {
 							target[j] = static_cast<T>(current[j]);
 						} else if constexpr (std::is_floating_point_v<T>) {
@@ -74,7 +74,7 @@ namespace lotus::renderer::gltf {
 				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
 					{
 						assert(std::is_integral_v<T>);
-						auto *current = reinterpret_cast<const std::uint32_t*>(current_raw);
+						auto *current = reinterpret_cast<const u32*>(current_raw);
 						target[j] = static_cast<T>(current[j]);
 					}
 					break;
@@ -109,21 +109,21 @@ namespace lotus::renderer::gltf {
 	/// Wrapper around \ref _load_data_buffer() that loads an \ref assets::geometry::input_buffer.
 	template <typename T> static assets::geometry::input_buffer _load_input_buffer(
 		assets::manager &man, const std::filesystem::path &path, const tinygltf::Model &model,
-		int accessor_index, std::int32_t expected_components, gpu::buffer_usage_mask usage_mask, const pool &p
+		int accessor_index, i32 expected_components, gpu::buffer_usage_mask usage_mask, const pool &p
 	) {
 		assets::geometry::input_buffer result = nullptr;
 		result.data = _load_data_buffer<T>(man, path, model, accessor_index, expected_components, usage_mask, p);
 		result.offset = 0;
-		result.stride = static_cast<std::uint32_t>(sizeof(T) * static_cast<std::size_t>(expected_components));
+		result.stride = static_cast<u32>(sizeof(T) * static_cast<usize>(expected_components));
 
-		std::uint8_t count[4] = { 0, 0, 0, 0 };
-		for (std::int32_t i = 0; i < expected_components; ++i) {
+		u8 count[4] = { 0, 0, 0, 0 };
+		for (i32 i = 0; i < expected_components; ++i) {
 			count[i] = sizeof(T) * 8;
 		}
 		auto ty = gpu::format_properties::data_type::unknown;
 		if constexpr (std::is_same_v<T, float>) {
 			ty = gpu::format_properties::data_type::floating_point;
-		} else if constexpr (std::is_same_v<T, std::uint32_t>) {
+		} else if constexpr (std::is_same_v<T, u32>) {
 			ty = gpu::format_properties::data_type::unsigned_int;
 		} else {
 			static_assert(sizeof(T*) == 0, "Unhandled data type");
@@ -166,7 +166,7 @@ namespace lotus::renderer::gltf {
 
 		// load images
 		auto images = bookmark.create_vector_array<assets::handle<assets::image2d>>(model.images.size(), nullptr);
-		for (std::size_t i = 0; i < images.size(); ++i) {
+		for (usize i = 0; i < images.size(); ++i) {
 			constexpr bool _debug_disable_images = false;
 			if constexpr (_debug_disable_images) {
 				images[i] = _asset_manager.get_invalid_image();
@@ -184,18 +184,18 @@ namespace lotus::renderer::gltf {
 		auto geometries = bookmark.create_reserved_vector_array<
 			memory::stack_allocator::vector_type<assets::handle<assets::geometry>>
 		>(model.meshes.size());
-		for (std::size_t i = 0; i < model.meshes.size(); ++i) {
+		for (usize i = 0; i < model.meshes.size(); ++i) {
 			const auto &mesh = model.meshes[i];
 			auto &geom_primitives = geometries.emplace_back(
 				bookmark.create_vector_array<assets::handle<assets::geometry>>(mesh.primitives.size(), nullptr)
 			);
-			for (std::size_t j = 0; j < mesh.primitives.size(); ++j) {
+			for (usize j = 0; j < mesh.primitives.size(); ++j) {
 				const auto &prim = mesh.primitives[j];
 
 				assets::geometry geom = nullptr;
 				if (auto it = prim.attributes.find("POSITION"); it != prim.attributes.end()) {
 					geom.num_vertices  =
-						static_cast<std::uint32_t>(model.accessors[static_cast<std::size_t>(it->second)].count);
+						static_cast<u32>(model.accessors[static_cast<usize>(it->second)].count);
 					geom.vertex_buffer = _load_input_buffer<float>(
 						_asset_manager, path, model, it->second, 3,
 						gpu::buffer_usage_mask::vertex_buffer |
@@ -226,7 +226,7 @@ namespace lotus::renderer::gltf {
 					);
 				}
 				if (prim.indices >= 0) {
-					geom.index_buffer = _load_data_buffer<std::uint32_t>(
+					geom.index_buffer = _load_data_buffer<u32>(
 						_asset_manager, path, model, prim.indices, 1,
 						gpu::buffer_usage_mask::index_buffer |
 						gpu::buffer_usage_mask::shader_read |
@@ -236,7 +236,7 @@ namespace lotus::renderer::gltf {
 					geom.index_format = gpu::index_format::uint32;
 					geom.index_offset = 0;
 					geom.num_indices  =
-						static_cast<std::uint32_t>(model.accessors[static_cast<std::size_t>(prim.indices)].count);
+						static_cast<u32>(model.accessors[static_cast<usize>(prim.indices)].count);
 				}
 
 				switch (prim.mode) {
@@ -286,7 +286,7 @@ namespace lotus::renderer::gltf {
 		auto materials = bookmark.create_vector_array<assets::handle<assets::material>>(
 			model.materials.size(), nullptr
 		);
-		for (std::size_t i = 0; i < materials.size(); ++i) {
+		for (usize i = 0; i < materials.size(); ++i) {
 			const auto &mat = model.materials[i];
 
 			// TODO allocator
@@ -312,7 +312,7 @@ namespace lotus::renderer::gltf {
 				if (index < 0) {
 					return default_img;
 				}
-				return images[static_cast<std::size_t>(model.textures[static_cast<std::size_t>(index)].source)];
+				return images[static_cast<usize>(model.textures[static_cast<usize>(index)].source)];
 			};
 			mat_data->albedo_texture     = get_tex(mat.pbrMetallicRoughness.baseColorTexture.index);
 			mat_data->normal_texture     =
@@ -335,13 +335,13 @@ namespace lotus::renderer::gltf {
 		// load nodes
 		if (instance_loaded_callback) {
 			std::vector<std::pair<int, mat44f>> stack;
-			for (const auto &node : model.scenes[static_cast<std::size_t>(model.defaultScene)].nodes) {
+			for (const auto &node : model.scenes[static_cast<usize>(model.defaultScene)].nodes) {
 				stack.emplace_back(node, mat44f::identity());
 			}
 			while (!stack.empty()) {
 				const auto [node_id, transform] = stack.back();
 				stack.pop_back();
-				const auto &node = model.nodes[static_cast<std::size_t>(node_id)];
+				const auto &node = model.nodes[static_cast<usize>(node_id)];
 
 				mat44f trans = uninitialized;
 				if (node.matrix.empty()) {
@@ -369,9 +369,9 @@ namespace lotus::renderer::gltf {
 							"Transformation matrix for node {} has {} elements", node.name, node.matrix.size()
 						);
 					}
-					for (std::size_t row = 0; row < 4; ++row) {
-						for (std::size_t col = 0; col < 4; ++col) {
-							std::size_t index = row * 4 + col;
+					for (usize row = 0; row < 4; ++row) {
+						for (usize col = 0; col < 4; ++col) {
+							usize index = row * 4 + col;
 							if (index >= node.matrix.size()) {
 								break;
 							}
@@ -382,14 +382,14 @@ namespace lotus::renderer::gltf {
 				trans = transform * trans;
 
 				if (node.mesh >= 0) {
-					const auto mesh_idx = static_cast<std::size_t>(node.mesh);
+					const auto mesh_idx = static_cast<usize>(node.mesh);
 					const auto &geom_vec = geometries[mesh_idx];
-					for (std::size_t j = 0; j < geom_vec.size(); ++j) {
+					for (usize j = 0; j < geom_vec.size(); ++j) {
 						const assets::handle<assets::geometry> &prim_handle = geom_vec[j];
 						const tinygltf::Primitive &prim = model.meshes[mesh_idx].primitives[j];
 
 						instance inst = nullptr;
-						inst.material  = materials[static_cast<std::size_t>(prim.material)];
+						inst.material  = materials[static_cast<usize>(prim.material)];
 						inst.geometry  = prim_handle;
 						inst.transform = inst.prev_transform = trans;
 						instance_loaded_callback(inst);
@@ -401,10 +401,10 @@ namespace lotus::renderer::gltf {
 					if (light != node.extensions.end() && light->second.IsObject()) {
 						if (const auto &index_val = light->second.Get("light"); index_val.IsInt()) {
 							const tinygltf::Light &light_def =
-								model.lights[static_cast<std::size_t>(index_val.GetNumberAsInt())];
+								model.lights[static_cast<usize>(index_val.GetNumberAsInt())];
 
 							cvec3d light_color(1.0f, 1.0f, 1.0f);
-							for (std::size_t i = 0; i < std::min<std::size_t>(light_def.color.size(), 3); ++i) {
+							for (usize i = 0; i < std::min<usize>(light_def.color.size(), 3); ++i) {
 								light_color[i] = light_def.color[i];
 							}
 

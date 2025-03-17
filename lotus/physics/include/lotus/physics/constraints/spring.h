@@ -40,8 +40,8 @@ namespace lotus::physics::constraints {
 		}
 
 		spring_constraint_properties properties = uninitialized; ///< Properties of this constraint.
-		std::size_t particle1; ///< The first particle affected by this constraint.
-		std::size_t particle2; ///< The second particle affected by this constraint.
+		usize particle1; ///< The first particle affected by this constraint.
+		usize particle2; ///< The second particle affected by this constraint.
 	};
 
 	/// A constraint between two bodies that follows the Hooke's law.

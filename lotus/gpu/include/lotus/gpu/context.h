@@ -62,7 +62,7 @@ namespace lotus::gpu {
 		/// \param formats List of desired formats for the swap chain, ordered from most favorable to least
 		///                favorable. If none of them is available, a random format will be chosen.
 		[[nodiscard]] std::pair<swap_chain, format> create_swap_chain_for_window(
-			system::window &wnd, device &dev, command_queue &q, std::size_t frame_count,
+			system::window &wnd, device &dev, command_queue &q, usize frame_count,
 			std::span<const format> formats
 		) {
 			auto [swapchain, f] = backend::context::create_swap_chain_for_window(wnd, dev, q, frame_count, formats);
@@ -70,7 +70,7 @@ namespace lotus::gpu {
 		}
 		/// \overload
 		[[nodiscard]] std::pair<swap_chain, format> create_swap_chain_for_window(
-			system::window &wnd, device &dev, command_queue &q, std::size_t frame_count,
+			system::window &wnd, device &dev, command_queue &q, usize frame_count,
 			std::initializer_list<format> formats
 		) {
 			return create_swap_chain_for_window(wnd, dev, q, frame_count, { formats.begin(), formats.end() });

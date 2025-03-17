@@ -33,16 +33,16 @@ namespace lotus::gpu::backends::directx12 {
 			return dxil_reflection::find_resource_binding_by_name(name);
 		}
 		/// Calls the method in the base class.
-		[[nodiscard]] std::uint32_t get_resource_binding_count() const {
+		[[nodiscard]] u32 get_resource_binding_count() const {
 			return dxil_reflection::get_resource_binding_count();
 		}
 		/// Calls the method in the base class.
-		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t i) const {
+		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(u32 i) const {
 			return dxil_reflection::get_resource_binding_at_index(i);
 		}
 
 		/// Calls the method in the base class.
-		[[nodiscard]] std::uint32_t get_render_target_count() const {
+		[[nodiscard]] u32 get_render_target_count() const {
 			return dxil_reflection::get_render_target_count();
 		}
 
@@ -70,11 +70,11 @@ namespace lotus::gpu::backends::directx12 {
 		}
 
 		/// Returns the number of shaders.
-		[[nodiscard]] std::uint32_t get_num_shaders() const {
+		[[nodiscard]] u32 get_num_shaders() const {
 			return dxil_library_reflection::get_num_shaders();
 		}
 		/// Returns the shader at the given index.
-		[[nodiscard]] shader_reflection get_shader_at(std::uint32_t i) const {
+		[[nodiscard]] shader_reflection get_shader_at(u32 i) const {
 			return shader_reflection(dxil_library_reflection::get_shader_at(i));
 		}
 		[[nodiscard]] shader_reflection find_shader(std::u8string_view entry, shader_stage stage) const {
@@ -113,7 +113,7 @@ namespace lotus::gpu::backends::directx12 {
 		pipeline_resources(std::nullptr_t) {
 		}
 	private:
-		using _root_param_index = std::uint8_t; ///< Root parameter index.
+		using _root_param_index = u8; ///< Root parameter index.
 		/// Indicates that there's no root parameter corresponding to this descriptor table.
 		constexpr static _root_param_index _invalid_root_param = std::numeric_limits<_root_param_index>::max();
 		/// Indices of descriptor table bindings.
@@ -126,8 +126,8 @@ namespace lotus::gpu::backends::directx12 {
 				resource_index(_invalid_root_param), sampler_index(_invalid_root_param) {
 			}
 
-			std::uint8_t resource_index; ///< Index of the shader resource root parameter.
-			std::uint8_t sampler_index; ///< Index of the sampler root parameter.
+			u8 resource_index; ///< Index of the shader resource root parameter.
+			u8 sampler_index; ///< Index of the sampler root parameter.
 		};
 
 		_details::com_ptr<ID3D12RootSignature> _signature; ///< The \p ID3D12RootSignature object.

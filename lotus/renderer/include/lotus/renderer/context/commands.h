@@ -13,7 +13,7 @@
 
 namespace lotus::renderer::commands {
 	/// Static properties of a command type.
-	enum class flags : std::uint32_t {
+	enum class flags : u32 {
 		none = 0, ///< No flags.
 
 		advances_timer               = 1 << 0, ///< The command advances device timers.
@@ -32,7 +32,7 @@ namespace lotus::enums {
 namespace lotus::renderer {
 	namespace commands {
 		/// Opaque index type for timers.
-		enum class timer_index : std::uint32_t {
+		enum class timer_index : u32 {
 			invalid = std::numeric_limits<std::underlying_type_t<timer_index>>::max() ///< Invalid timer index.
 		};
 
@@ -59,15 +59,15 @@ namespace lotus::renderer {
 			/// Initializes all fields of this struct.
 			copy_buffer(
 				recorded_resources::buffer src, recorded_resources::buffer dst,
-				std::size_t src_off, std::size_t dst_off, std::size_t sz
+				usize src_off, usize dst_off, usize sz
 			) : source(src), destination(dst), source_offset(src_off), destination_offset(dst_off), size(sz) {
 			}
 
 			recorded_resources::buffer source;      ///< The source buffer.
 			recorded_resources::buffer destination; ///< The destination buffer.
-			std::size_t source_offset      = 0; ///< Offset in the source buffer in bytes.
-			std::size_t destination_offset = 0; ///< Offset in the destination buffer in bytes.
-			std::size_t size               = 0; ///< Number of bytes to copy.
+			usize source_offset      = 0; ///< Offset in the source buffer in bytes.
+			usize destination_offset = 0; ///< Offset in the destination buffer in bytes.
+			usize size               = 0; ///< Number of bytes to copy.
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
@@ -80,7 +80,7 @@ namespace lotus::renderer {
 			/// Initializes all fields of this struct.
 			copy_buffer_to_image(
 				recorded_resources::buffer src, recorded_resources::image2d_view dst,
-				gpu::staging_buffer::metadata meta, std::size_t src_off, cvec2u32 dst_off
+				gpu::staging_buffer::metadata meta, usize src_off, cvec2u32 dst_off
 			) :
 				source(src),
 				destination(dst),
@@ -92,8 +92,8 @@ namespace lotus::renderer {
 			recorded_resources::buffer       source;      ///< The source buffer.
 			recorded_resources::image2d_view destination; ///< The destination image.
 			gpu::staging_buffer::metadata staging_buffer_meta; ///< Metadata of the staging buffer.
-			std::size_t source_offset      = 0;    ///< Offset in the source buffer in bytes.
-			cvec2u32    destination_offset = zero; ///< Offset in the destination image in pixels.
+			usize    source_offset      = 0;    ///< Offset in the source buffer in bytes.
+			cvec2u32 destination_offset = zero; ///< Offset in the destination image in pixels.
 
 			/// Returns the properties of this command.
 			[[nodiscard]] constexpr inline static flags get_flags() {
@@ -156,9 +156,9 @@ namespace lotus::renderer {
 		struct draw_instanced {
 			/// Initializes all fields of this struct.
 			draw_instanced(
-				std::uint32_t num_instances,
-				std::vector<input_buffer_binding> in, std::uint32_t num_verts,
-				index_buffer_binding indices, std::uint32_t num_indices,
+				u32 num_instances,
+				std::vector<input_buffer_binding> in, u32 num_verts,
+				index_buffer_binding indices, u32 num_indices,
 				gpu::primitive_topology t,
 				_details::numbered_bindings resources,
 				assets::handle<assets::shader> vs,
@@ -179,9 +179,9 @@ namespace lotus::renderer {
 			assets::handle<assets::shader> pixel_shader;  ///< Pixel shader.
 			graphics_pipeline_state state; ///< Render pipeline state.
 
-			std::uint32_t instance_count = 0; ///< Number of instances to draw.
-			std::uint32_t vertex_count   = 0; ///< Number of vertices.
-			std::uint32_t index_count    = 0; ///< Number of indices.
+			u32 instance_count = 0; ///< Number of instances to draw.
+			u32 vertex_count   = 0; ///< Number of vertices.
+			u32 index_count    = 0; ///< Number of indices.
 			/// Primitive topology.
 			gpu::primitive_topology topology = gpu::primitive_topology::point_list;
 
@@ -230,12 +230,12 @@ namespace lotus::renderer {
 				std::vector<shader_function> hg_shaders,
 				std::vector<gpu::hit_shader_group> groups,
 				std::vector<shader_function> gen_shaders,
-				std::uint32_t rg_group_idx,
-				std::vector<std::uint32_t> miss_group_idx,
-				std::vector<std::uint32_t> hit_group_idx,
-				std::uint32_t rec_depth,
-				std::uint32_t payload_size,
-				std::uint32_t attr_size,
+				u32 rg_group_idx,
+				std::vector<u32> miss_group_idx,
+				std::vector<u32> hit_group_idx,
+				u32 rec_depth,
+				u32 payload_size,
+				u32 attr_size,
 				cvec3u32 threads
 			) :
 				resource_bindings(std::move(b)),
@@ -252,18 +252,18 @@ namespace lotus::renderer {
 			}
 
 			_details::numbered_bindings resource_bindings; ///< All resource bindings.
-			
+
 			std::vector<shader_function> hit_group_shaders; ///< Ray tracing shaders.
 			std::vector<gpu::hit_shader_group> hit_groups;  ///< Hit groups.
 			std::vector<shader_function> general_shaders;   ///< General callable shaders.
 
-			std::uint32_t raygen_shader_group_index = 0; ///< Index of the ray generation shader group.
-			std::vector<std::uint32_t> miss_group_indices; ///< Indices of the miss shader groups.
-			std::vector<std::uint32_t> hit_group_indices;  ///< Indices of the hit shader groups.
+			u32 raygen_shader_group_index = 0; ///< Index of the ray generation shader group.
+			std::vector<u32> miss_group_indices; ///< Indices of the miss shader groups.
+			std::vector<u32> hit_group_indices;  ///< Indices of the hit shader groups.
 
-			std::uint32_t max_recursion_depth = 0; ///< Maximum recursion depth for the rays.
-			std::uint32_t max_payload_size = 0;    ///< Maximum payload size.
-			std::uint32_t max_attribute_size = 0;  ///< Maximum attribute size.
+			u32 max_recursion_depth = 0; ///< Maximum recursion depth for the rays.
+			u32 max_payload_size = 0;    ///< Maximum payload size.
+			u32 max_attribute_size = 0;  ///< Maximum attribute size.
 
 			cvec3u32 num_threads; ///< Number of threads to spawn.
 

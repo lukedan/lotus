@@ -31,15 +31,15 @@ namespace lotus {
 	/// A short vector where no allocation is necessary if the number of elements is small. Note that unlike standard
 	/// vectors, there's no guarantee that objects will not be moved when the vector itself is moved. This is
 	/// violated when the vector is in `short' mode.
-	template <typename T, std::size_t ShortSize, typename Allocator = memory::raw::allocator> class short_vector {
-		template <typename, std::size_t, typename> friend class short_vector;
+	template <typename T, usize ShortSize, typename Allocator = memory::raw::allocator> class short_vector {
+		template <typename, usize, typename> friend class short_vector;
 	public:
 		constexpr static bool pedantic_internal_checks = false; ///< Whether to perform pedantic internal checks.
 		constexpr static bool pedantic_usage_checks = true; ///< Whether to perform pedantic usage checks.
 		using value_type     = T;           ///< Value type.
 		using iterator       = T*;          ///< Iterator type.
 		using const_iterator = const T*;    ///< Const iterator type.
-		using size_type      = std::size_t; ///< Type for representing sizes.
+		using size_type      = usize; ///< Type for representing sizes.
 	private:
 		/// Performs a pedantic internal check.
 		static void _pedantic_internal_crash_if([[maybe_unused]] bool x) {
@@ -108,13 +108,13 @@ namespace lotus {
 		};
 	public:
 		/// Type used for storing the number of elements stored internally.
-		using short_size_type = minimum_unsigned_type_t<static_cast<std::uint64_t>(ShortSize + 1)>;
+		using short_size_type = minimum_unsigned_type_t<static_cast<u64>(ShortSize + 1)>;
 		/// The actual length of the short vector.
 		constexpr static size_type actual_short_size = std::max<size_type>(
 			sizeof(_external_array) / sizeof(T), static_cast<size_type>(ShortSize)
 		);
 	private:
-		constexpr static std::uint32_t _growth_factor = 2; ///< Factor used when growing the vector.
+		constexpr static u32 _growth_factor = 2; ///< Factor used when growing the vector.
 		/// Value of \ref _short_count that indicates this vector is using an external array.
 		constexpr static short_size_type _external_array_marker = std::numeric_limits<short_size_type>::max();
 
@@ -314,7 +314,7 @@ namespace lotus {
 			}
 			std::destroy(dst, arr_end);
 
-			_set_size(sz - static_cast<std::size_t>(range_end - range_beg));
+			_set_size(sz - static_cast<usize>(range_end - range_beg));
 		}
 
 		/// Resizes this array.
@@ -616,7 +616,7 @@ namespace lotus {
 
 	/// Equality comparison for short vectors.
 	template <
-		typename T, std::size_t Size1, std::size_t Size2, typename Alloc1, typename Alloc2
+		typename T, usize Size1, usize Size2, typename Alloc1, typename Alloc2
 	> [[nodiscard]] constexpr bool operator==(
 		const short_vector<T, Size1, Alloc1> &lhs, const short_vector<T, Size2, Alloc2> &rhs
 	) {
@@ -624,7 +624,7 @@ namespace lotus {
 	}
 	/// Comparison function for short vectors.
 	template <
-		typename T, std::size_t Size1, std::size_t Size2, typename Alloc1, typename Alloc2
+		typename T, usize Size1, usize Size2, typename Alloc1, typename Alloc2
 	> [[nodiscard]] constexpr auto operator<=>(
 		const short_vector<T, Size1, Alloc1> &lhs, const short_vector<T, Size2, Alloc2> &rhs
 	) {

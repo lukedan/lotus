@@ -5,7 +5,7 @@
 
 namespace lotus::renderer {
 	constant_uploader::constant_uploader(
-		context &ctx, context::queue q, pool upload_pool, pool constant_pool, std::uint32_t chunk_sz
+		context &ctx, context::queue q, pool upload_pool, pool constant_pool, u32 chunk_sz
 	) :
 		_ctx(ctx), _upload_queue(q), _upload_pool(upload_pool), _constant_pool(constant_pool), _chunk_size(chunk_sz),
 		_current_upload_buffer(nullptr), _current_constant_buffer(nullptr) {

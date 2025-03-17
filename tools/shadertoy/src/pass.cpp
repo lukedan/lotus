@@ -97,7 +97,7 @@ std::optional<pass> pass::load(const nlohmann::json &val) {
 				}
 			}
 		} else if (outputs_it->is_number_unsigned()) {
-			result.targets.resize(outputs_it->get<std::size_t>(), nullptr);
+			result.targets.resize(outputs_it->get<usize>(), nullptr);
 		} else {
 			log().error("Pass outputs must be a list of strings or a single integer");
 		}
@@ -171,14 +171,14 @@ void pass::load_shader(lren::assets::manager &man, const std::filesystem::path &
 	// find binding register for all inputs
 	for (auto &in : inputs) {
 		if (auto binding = reflection.find_resource_binding_by_name(in.binding_name)) {
-			in.register_index = static_cast<std::uint32_t>(binding->first_register);
+			in.register_index = static_cast<u32>(binding->first_register);
 		} else {
 			log().error("Input {} not found", lotus::string::to_generic(in.binding_name));
 		}
 	}
 
 	// find the number of outputs
-	const std::size_t num_outputs = reflection.get_render_target_count();
+	const usize num_outputs = reflection.get_render_target_count();
 	if (!targets.empty() && targets.size() < num_outputs) {
 		log().error("Only {} output names specified, while the shader has {} outputs", targets.size(), num_outputs);
 	} else if (targets.size() > num_outputs) {
@@ -191,8 +191,8 @@ void pass::load_shader(lren::assets::manager &man, const std::filesystem::path &
 	targets.resize(num_outputs, nullptr);
 
 	// check that all resources are bound in space 0
-	const std::uint32_t num_bindings = reflection.get_resource_binding_count();
-	for (std::uint32_t i = 0; i < num_bindings; ++i) {
+	const u32 num_bindings = reflection.get_resource_binding_count();
+	for (u32 i = 0; i < num_bindings; ++i) {
 		const lgpu::shader_resource_binding b = reflection.get_resource_binding_at_index(i);
 		if (b.register_space != 0) {
 			if (b.name != u8"globals" && b.name != u8"nearest_sampler" && b.name != u8"linear_sampler") {

@@ -41,9 +41,9 @@ namespace lotus::gpu::backends::metal {
 		MTL::ResourceHazardTrackingModeUntracked;
 
 	descriptor_pool device::create_descriptor_pool(
-		std::span<const descriptor_range> capacity, std::size_t // max_num_sets is not important
+		std::span<const descriptor_range> capacity, usize // max_num_sets is not important
 	) {
-		std::size_t total_resources = 0;
+		usize total_resources = 0;
 		for (const descriptor_range &range : capacity) {
 			total_resources += range.count;
 		}
@@ -56,7 +56,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	descriptor_set device::create_descriptor_set(descriptor_pool &pool, const descriptor_set_layout &layout) {
-		std::uint32_t max_slot_index = 0;
+		u32 max_slot_index = 0;
 		for (const descriptor_range_binding &range : layout._bindings) {
 			max_slot_index = std::max(max_slot_index, range.get_last_register_index());
 		}
@@ -68,9 +68,9 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	descriptor_set device::create_descriptor_set(
-		descriptor_pool &pool, const descriptor_set_layout &layout, std::size_t dynamic_size
+		descriptor_pool &pool, const descriptor_set_layout &layout, usize dynamic_size
 	) {
-		std::uint32_t max_slot_index = 0;
+		u32 max_slot_index = 0;
 		for (const descriptor_range_binding &range : layout._bindings) {
 			if (range.range.count == descriptor_range::unbounded_count) {
 				max_slot_index = range.register_index + dynamic_size - 1;
@@ -88,12 +88,12 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_read_only_images(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		std::size_t first_register,
+		usize first_register,
 		std::span<const image_view_base *const> images
 	) {
 		// TODO validate that we're writing to a range of the correct type
 		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
-		for (std::size_t i = 0; i < images.size(); ++i) {
+		for (usize i = 0; i < images.size(); ++i) {
 			const auto *const img = static_cast<const _details::basic_image_view_base*>(images[i]);
 			IRDescriptorTableSetTexture(&arr[first_register + i], img->_tex.get(), 0.0f, 0);
 		}
@@ -102,7 +102,7 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_read_write_images(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		std::size_t first_register,
+		usize first_register,
 		std::span<const image_view_base *const> images
 	) {
 		// Metal does not distinguish between read-only and read-write bindings
@@ -112,12 +112,12 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_read_only_structured_buffers(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		std::size_t first_regsiter,
+		usize first_regsiter,
 		std::span<const structured_buffer_view> buffers
 	) {
 		// TODO validate that we're writing to a range of the correct type
 		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
-		for (std::size_t i = 0; i < buffers.size(); ++i) {
+		for (usize i = 0; i < buffers.size(); ++i) {
 			// TODO metal does not support custom strides?
 			IRBufferView view = {};
 			view.buffer       = buffers[i].data->_buf.get();
@@ -131,7 +131,7 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_read_write_structured_buffers(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		std::size_t first_regsiter,
+		usize first_regsiter,
 		std::span<const structured_buffer_view> buffers
 	) {
 		// Metal does not distinguish between read-only and read-write bindings
@@ -141,13 +141,13 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_constant_buffers(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		std::size_t first_register,
+		usize first_register,
 		std::span<const constant_buffer_view> buffers
 	) {
 		// TODO validate that we're writing to a range of the correct type
 		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
-		for (std::size_t i = 0; i < buffers.size(); ++i) {
-			const std::uint64_t base_addr = buffers[i].data->_buf->gpuAddress();
+		for (usize i = 0; i < buffers.size(); ++i) {
+			const u64 base_addr = buffers[i].data->_buf->gpuAddress();
 			IRDescriptorTableSetBuffer(&arr[first_register + i], base_addr + buffers[i].offset, 0);
 		}
 	}
@@ -155,12 +155,12 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_samplers(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		std::size_t first_register,
+		usize first_register,
 		std::span<const gpu::sampler *const> samplers
 	) {
 		// TODO validate that we're writing to a range of the correct type
 		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
-		for (std::size_t i = 0; i < samplers.size(); ++i) {
+		for (usize i = 0; i < samplers.size(); ++i) {
 			IRDescriptorTableSetSampler(
 				&arr[first_register + i],
 				samplers[i]->_smp.get(),
@@ -205,7 +205,7 @@ namespace lotus::gpu::backends::metal {
 				IRVersionedVSInfo vsinfo;
 				IRShaderReflectionCopyVertexInfo(shader_refl.get(), IRReflectionVersion_1_0, &vsinfo)
 			) {
-				for (std::size_t i = 0; i < vsinfo.info_1_0.num_vertex_inputs; ++i) {
+				for (usize i = 0; i < vsinfo.info_1_0.num_vertex_inputs; ++i) {
 					const IRVertexInputInfo_1_0 &input = vsinfo.info_1_0.vertex_inputs[i];
 					result._vs_input_attributes.emplace_back(
 						std::u8string(string::assume_utf8(input.name)),
@@ -248,7 +248,7 @@ namespace lotus::gpu::backends::metal {
 						}
 					);
 					auto num_final_bindings = 1;
-					for (std::size_t i = 1; i < all_bindings.size(); ++i) {
+					for (usize i = 1; i < all_bindings.size(); ++i) {
 						D3D12_SHADER_INPUT_BIND_DESC &prev_binding = all_bindings[num_final_bindings - 1];
 						const D3D12_SHADER_INPUT_BIND_DESC &cur_binding = all_bindings[i];
 						// check if this binding will be merged with the previous one
@@ -289,13 +289,13 @@ namespace lotus::gpu::backends::metal {
 						empty_root_param.ShaderVisibility                    = IRShaderVisibilityAll;
 						root_params.resize(all_bindings.back().Space + 1, empty_root_param);
 					}
-					auto add_root_table = [&](std::size_t start, std::size_t past_end) {
-						const std::uint32_t space = all_ranges[start].RegisterSpace;
+					auto add_root_table = [&](usize start, usize past_end) {
+						const u32 space = all_ranges[start].RegisterSpace;
 						root_params[space].DescriptorTable.pDescriptorRanges   = &all_ranges[start];
 						root_params[space].DescriptorTable.NumDescriptorRanges = past_end - start;
 					};
-					std::size_t start_of_space = 0;
-					for (std::size_t i = 0; i < all_bindings.size(); ++i) {
+					usize start_of_space = 0;
+					for (usize i = 0; i < all_bindings.size(); ++i) {
 						all_ranges.emplace_back(
 							_details::conversions::d3d12_shader_input_bind_desc_to_ir_descriptor_range(
 								all_bindings[i]
@@ -370,7 +370,7 @@ namespace lotus::gpu::backends::metal {
 			}
 		);
 		// verify that there are no overlapping ranges
-		for (std::size_t i = 1; i < result._bindings.size(); ++i) {
+		for (usize i = 1; i < result._bindings.size(); ++i) {
 			crash_if(result._bindings[i].register_index <= result._bindings[i - 1].get_last_register_index());
 		}
 		return result;
@@ -394,7 +394,7 @@ namespace lotus::gpu::backends::metal {
 		std::span<const input_buffer_layout> input_buffers,
 		primitive_topology topology,
 		const frame_buffer_layout &fb_layout,
-		std::size_t num_viewports
+		usize num_viewports
 	) {
 		auto vert_descriptor = NS::TransferPtr(MTL::VertexDescriptor::alloc()->init());
 		for (const input_buffer_layout &input_layout : input_buffers) {
@@ -411,7 +411,7 @@ namespace lotus::gpu::backends::metal {
 					c = static_cast<char>(std::tolower(c));
 				}
 				NS::UInteger elem_index = std::numeric_limits<NS::UInteger>::max();
-				for (std::size_t i = 0; i < vs->_vs_input_attributes.size(); ++i) {
+				for (usize i = 0; i < vs->_vs_input_attributes.size(); ++i) {
 					if (vs->_vs_input_attributes[i].name == string::assume_utf8(semantic)) {
 						crash_if(elem_index != std::numeric_limits<NS::UInteger>::max()); // duplicate semantic
 						elem_index = i;
@@ -433,7 +433,7 @@ namespace lotus::gpu::backends::metal {
 		descriptor->setFragmentFunction(_details::get_single_shader_function(ps->_lib.get()).get());
 		// TODO tessellation shaders?
 		descriptor->setVertexDescriptor(vert_descriptor.get());
-		for (std::size_t i = 0; i < fb_layout.color_render_target_formats.size(); ++i) {
+		for (usize i = 0; i < fb_layout.color_render_target_formats.size(); ++i) {
 			const render_target_blend_options &blend_opts = blend[i];
 			MTL::RenderPipelineColorAttachmentDescriptor *attachment = descriptor->colorAttachments()->object(i);
 			attachment->setPixelFormat(_details::conversions::to_pixel_format(
@@ -533,7 +533,7 @@ namespace lotus::gpu::backends::metal {
 		return _memory_types;
 	}
 
-	memory_block device::allocate_memory(std::size_t size, memory_type_index type) {
+	memory_block device::allocate_memory(usize size, memory_type_index type) {
 		auto heap_descriptor = NS::TransferPtr(MTL::HeapDescriptor::alloc()->init());
 		heap_descriptor->setType(MTL::HeapTypePlacement);
 		heap_descriptor->setResourceOptions(_details::conversions::to_resource_options(type));
@@ -543,14 +543,14 @@ namespace lotus::gpu::backends::metal {
 		return memory_block({ std::move(heap), _residency_set.get() });
 	}
 
-	buffer device::create_committed_buffer(std::size_t size, memory_type_index type, buffer_usage_mask usages) {
+	buffer device::create_committed_buffer(usize size, memory_type_index type, buffer_usage_mask usages) {
 		auto buf = NS::TransferPtr(_dev->newBuffer(size, _details::conversions::to_resource_options(type)));
 		return buffer({ std::move(buf), _residency_set.get() });
 	}
 
 	image2d device::create_committed_image2d(
 		cvec2u32 size,
-		std::uint32_t mip_levels,
+		u32 mip_levels,
 		format fmt,
 		image_tiling, // no support
 		image_usage_mask usages
@@ -569,7 +569,7 @@ namespace lotus::gpu::backends::metal {
 
 	image3d device::create_committed_image3d(
 		cvec3u32 size,
-		std::uint32_t mip_levels,
+		u32 mip_levels,
 		format fmt,
 		image_tiling, // no support
 		image_usage_mask usages
@@ -586,24 +586,24 @@ namespace lotus::gpu::backends::metal {
 		return image3d({ std::move(img), _residency_set.get() });
 	}
 
-	std::tuple<buffer, staging_buffer_metadata, std::size_t> device::create_committed_staging_buffer(
+	std::tuple<buffer, staging_buffer_metadata, usize> device::create_committed_staging_buffer(
 		cvec2u32 size, format fmt, memory_type_index mem_type, buffer_usage_mask usages
 	) {
 		// the buffer is tightly packed
 		const auto &format_props = format_properties::get(fmt);
-		const std::size_t bytes_per_row = size[0] * format_props.bytes_per_fragment;
-		const std::size_t buf_size = bytes_per_row * size[1];
+		const usize bytes_per_row = size[0] * format_props.bytes_per_fragment;
+		const usize buf_size = bytes_per_row * size[1];
 		buffer buf = create_committed_buffer(buf_size, mem_type, usages);
 		staging_buffer_metadata result = uninitialized;
 		result.image_size         = size;
-		result.row_pitch_in_bytes = static_cast<std::uint32_t>(bytes_per_row);
+		result.row_pitch_in_bytes = static_cast<u32>(bytes_per_row);
 		result.pixel_format       = fmt;
 		return { std::move(buf), result, buf_size };
 	}
 
 	memory::size_alignment device::get_image2d_memory_requirements(
 		cvec2u32 size,
-		std::uint32_t mip_levels,
+		u32 mip_levels,
 		format fmt,
 		image_tiling, // no support
 		image_usage_mask usages
@@ -621,7 +621,7 @@ namespace lotus::gpu::backends::metal {
 
 	memory::size_alignment device::get_image3d_memory_requirements(
 		cvec3u32 size,
-		std::uint32_t mip_levels,
+		u32 mip_levels,
 		format fmt,
 		image_tiling, // no support
 		image_usage_mask usages
@@ -637,7 +637,7 @@ namespace lotus::gpu::backends::metal {
 		return _details::conversions::back_to_size_alignment(_dev->heapTextureSizeAndAlign(descriptor.get()));
 	}
 
-	memory::size_alignment device::get_buffer_memory_requirements(std::size_t size, buffer_usage_mask usages) {
+	memory::size_alignment device::get_buffer_memory_requirements(usize size, buffer_usage_mask usages) {
 		if (bit_mask::contains<buffer_usage_mask::acceleration_structure>(usages)) {
 			return _details::conversions::back_to_size_alignment(_dev->heapAccelerationStructureSizeAndAlign(size));
 		}
@@ -645,19 +645,19 @@ namespace lotus::gpu::backends::metal {
 		return _details::conversions::back_to_size_alignment(_dev->heapBufferSizeAndAlign(size, 0));
 	}
 
-	buffer device::create_placed_buffer(std::size_t size, buffer_usage_mask usages, const memory_block &mem, std::size_t offset) {
+	buffer device::create_placed_buffer(usize size, buffer_usage_mask usages, const memory_block &mem, usize offset) {
 		auto ptr = NS::TransferPtr(mem._heap->newBuffer(size, mem._heap->resourceOptions(), offset));
 		return buffer({ std::move(ptr), nullptr });
 	}
 
 	image2d device::create_placed_image2d(
 		cvec2u32 size,
-		std::uint32_t mip_levels,
+		u32 mip_levels,
 		format fmt,
 		image_tiling, // no support
 		image_usage_mask usages,
 		const memory_block &mem,
-		std::size_t offset
+		usize offset
 	) {
 		auto descriptor = _details::create_texture_descriptor(
 			MTL::TextureType2DArray,
@@ -673,12 +673,12 @@ namespace lotus::gpu::backends::metal {
 
 	image3d device::create_placed_image3d(
 		cvec3u32 size,
-		std::uint32_t mip_levels,
+		u32 mip_levels,
 		format fmt,
 		image_tiling, // no support
 		image_usage_mask usages,
 		const memory_block &mem,
-		std::size_t offset
+		usize offset
 	) {
 		auto descriptor = _details::create_texture_descriptor(
 			MTL::TextureType3D,
@@ -699,10 +699,10 @@ namespace lotus::gpu::backends::metal {
 	void device::unmap_buffer(buffer&) {
 	}
 
-	void device::flush_mapped_buffer_to_host(buffer&, std::size_t, std::size_t) {
+	void device::flush_mapped_buffer_to_host(buffer&, usize, usize) {
 	}
 
-	void device::flush_mapped_buffer_to_device(buffer&, std::size_t, std::size_t) {
+	void device::flush_mapped_buffer_to_device(buffer&, usize, usize) {
 	}
 
 	image2d_view device::create_image2d_view_from(const image2d &img, format fmt, mip_levels mips) {
@@ -762,7 +762,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void device::wait_for_fence(fence &f) {
-		f._event->waitUntilSignaledValue(1, std::numeric_limits<std::uint64_t>::max());
+		f._event->waitUntilSignaledValue(1, std::numeric_limits<u64>::max());
 	}
 
 	void device::signal_timeline_semaphore(
@@ -778,10 +778,10 @@ namespace lotus::gpu::backends::metal {
 	void device::wait_for_timeline_semaphore(
 		timeline_semaphore &sem, gpu::_details::timeline_semaphore_value_type val
 	) {
-		sem._event->waitUntilSignaledValue(val, std::numeric_limits<std::uint64_t>::max());
+		sem._event->waitUntilSignaledValue(val, std::numeric_limits<u64>::max());
 	}
 
-	timestamp_query_heap device::create_timestamp_query_heap(std::uint32_t size) {
+	timestamp_query_heap device::create_timestamp_query_heap(u32 size) {
 		auto descriptor = NS::TransferPtr(MTL::CounterSampleBufferDescriptor::alloc()->init());
 		descriptor->setCounterSet(_timestamp_counter_set);
 		descriptor->setStorageMode(MTL::StorageModeShared);
@@ -796,7 +796,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void device::fetch_query_results(
-		timestamp_query_heap&, std::uint32_t first, std::span<std::uint64_t> timestamps
+		timestamp_query_heap&, u32 first, std::span<u64> timestamps
 	) {
 		// TODO
 	}
@@ -821,7 +821,7 @@ namespace lotus::gpu::backends::metal {
 		std::vector<NS::SharedPtr<MTL::AccelerationStructureTriangleGeometryDescriptor>> descs_ptrs;
 		std::vector<MTL::AccelerationStructureGeometryDescriptor*> descs;
 		descs.reserve(geoms.size());
-		for (std::size_t i = 0; i < geoms.size(); ++i) {
+		for (usize i = 0; i < geoms.size(); ++i) {
 			const raytracing_geometry_view &geom = geoms[i];
 			auto desc = NS::TransferPtr(MTL::AccelerationStructureTriangleGeometryDescriptor::alloc()->init());
 			desc->setOpaque(bit_mask::contains<raytracing_geometry_flags::opaque>(geom.flags));
@@ -854,9 +854,9 @@ namespace lotus::gpu::backends::metal {
 	instance_description device::get_bottom_level_acceleration_structure_description(
 		bottom_level_acceleration_structure &blas,
 		mat44f trans,
-		std::uint32_t id,
-		std::uint8_t mask,
-		std::uint32_t hit_group_offset,
+		u32 id,
+		u8 mask,
+		u32 hit_group_offset,
 		raytracing_instance_flags flags
 	) const {
 		instance_description result = uninitialized;
@@ -880,7 +880,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	acceleration_structure_build_sizes device::get_top_level_acceleration_structure_build_sizes(
-		std::size_t instance_count
+		usize instance_count
 	) {
 		auto desc = NS::TransferPtr(MTL::IndirectInstanceAccelerationStructureDescriptor::alloc()->init());
 		desc->setInstanceDescriptorType(MTL::AccelerationStructureInstanceDescriptorTypeIndirect);
@@ -891,30 +891,30 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	bottom_level_acceleration_structure device::create_bottom_level_acceleration_structure(
-		buffer &buf, std::size_t offset, std::size_t size
+		buffer &buf, usize offset, usize size
 	) {
 		auto blas = _create_acceleration_structure(buf, offset, size);
 		return bottom_level_acceleration_structure(std::move(blas));
 	}
 
 	top_level_acceleration_structure device::create_top_level_acceleration_structure(
-		buffer &buf, std::size_t offset, std::size_t size
+		buffer &buf, usize offset, usize size
 	) {
 		// a conservative estimate of how many instances there are in the acceleration structure
-		const std::size_t instance_count = (size / sizeof(MTL::IndirectAccelerationStructureInstanceDescriptor)) + 1;
+		const usize instance_count = (size / sizeof(MTL::IndirectAccelerationStructureInstanceDescriptor)) + 1;
 
 		// create acceleration structure
 		auto as = _create_acceleration_structure(buf, offset, size);
 
 		// header buffer
 		auto header = NS::TransferPtr(_dev->newBuffer(
-			sizeof(IRRaytracingAccelerationStructureGPUHeader) + sizeof(std::uint32_t) * instance_count,
+			sizeof(IRRaytracingAccelerationStructureGPUHeader) + sizeof(u32) * instance_count,
 			MTL::ResourceCPUCacheModeWriteCombined |
 				MTL::ResourceStorageModeShared            |
 				MTL::ResourceHazardTrackingModeUntracked
 		));
-		auto *const header_data = static_cast<std::uint8_t*>(header->contents());
-		std::vector<std::uint32_t> instance_offsets(instance_count, 0);
+		auto *const header_data = static_cast<u8*>(header->contents());
+		std::vector<u32> instance_offsets(instance_count, 0);
 		IRRaytracingSetAccelerationStructure(
 			header_data,
 			as->gpuResourceID(),
@@ -928,17 +928,17 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_acceleration_structures(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		std::size_t first_register,
+		usize first_register,
 		std::span<gpu::top_level_acceleration_structure *const> as
 	) {
 		// TODO validate that we're writing to a range of the correct type
 		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
-		for (std::size_t i = 0; i < as.size(); ++i) {
+		for (usize i = 0; i < as.size(); ++i) {
 			IRDescriptorTableSetAccelerationStructure(&arr[first_register + i], as[i]->_header->gpuAddress());
 		}
 	}
 
-	shader_group_handle device::get_shader_group_handle(const raytracing_pipeline_state&, std::size_t index) {
+	shader_group_handle device::get_shader_group_handle(const raytracing_pipeline_state&, usize index) {
 		// TODO
 	}
 
@@ -946,9 +946,9 @@ namespace lotus::gpu::backends::metal {
 		std::span<const shader_function> hit_group_shaders,
 		std::span<const hit_shader_group> hit_groups,
 		std::span<const shader_function> general_shaders,
-		std::size_t max_recursion_depth,
-		std::size_t max_payload_size,
-		std::size_t max_attribute_size,
+		usize max_recursion_depth,
+		usize max_payload_size,
+		usize max_attribute_size,
 		const pipeline_resources&
 	) {
 		// collect the list of linked functions
@@ -996,7 +996,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	_details::residency_ptr<MTL::AccelerationStructure> device::_create_acceleration_structure(
-		buffer &buf, std::size_t offset, std::size_t size
+		buffer &buf, usize offset, usize size
 	) {
 		NS::SharedPtr<MTL::AccelerationStructure> result;
 		MTL::ResidencySet *set = nullptr;
@@ -1079,7 +1079,7 @@ namespace lotus::gpu::backends::metal {
 		// create command queues
 		std::vector<command_queue> queues;
 		queues.reserve(families.size());
-		for (std::size_t i = 0; i < families.size(); ++i) {
+		for (usize i = 0; i < families.size(); ++i) {
 			// Metal does not distinguish between different types of queues
 			auto ptr = NS::TransferPtr(_dev->newCommandQueue());
 			ptr->addResidencySet(residency_set.get());

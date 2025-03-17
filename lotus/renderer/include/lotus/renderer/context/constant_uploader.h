@@ -12,7 +12,7 @@ namespace lotus::renderer {
 	public:
 		/// Initializes this uploader.
 		constant_uploader(
-			context&, context::queue q, pool upload_pool, pool constant_pool, std::uint32_t chunk_sz = 4096 * 1024
+			context&, context::queue q, pool upload_pool, pool constant_pool, u32 chunk_sz = 4096 * 1024
 		);
 		/// No copy construction.
 		constant_uploader(const constant_uploader&) = delete;
@@ -36,11 +36,11 @@ namespace lotus::renderer {
 		context::queue _upload_queue; ///< The queue used to upload constants.
 		pool _upload_pool; ///< The pool to allocate upload buffers out of.
 		pool _constant_pool; ///< The pool to allocate constant buffers out of.
-		std::uint32_t _chunk_size = 4096 * 1024; ///< The size of a single chunk.
+		u32 _chunk_size = 4096 * 1024; ///< The size of a single chunk.
 
 		buffer _current_upload_buffer; ///< The current buffer used for uploading.
 		buffer _current_constant_buffer; ///< The current constant buffer.
-		std::size_t _watermark = 0; ///< Number of bytes allocated from the current buffers.
+		usize _watermark = 0; ///< Number of bytes allocated from the current buffers.
 		std::byte *_ptr = nullptr; ///< Mapped pointer for \ref _current_upload_buffer.
 
 		/// Flushes the current upload buffer and resets the buffers.

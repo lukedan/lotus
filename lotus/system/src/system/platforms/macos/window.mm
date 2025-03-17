@@ -44,7 +44,7 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 	if (_ptr->on_resize) {
 		auto *wnd = (__bridge NSWindow*)_ptr->get_native_handle();
 		const NSSize size = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
-		lotus::system::window_events::resize event(lotus::cvec2d(size.width, size.height).into<std::uint32_t>());
+		lotus::system::window_events::resize event(lotus::cvec2d(size.width, size.height).into<lotus::u32>());
 		_ptr->on_resize(event);
 	}
 }
@@ -189,7 +189,7 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 				if (wnd->on_resize) {
 					const NSSize size = [self.contentView convertSizeToBacking: self.contentView.frame.size];
 					lotus::system::window_events::resize event(
-						lotus::cvec2d(size.width, size.height).into<std::uint32_t>()
+						lotus::cvec2d(size.width, size.height).into<lotus::u32>()
 					);
 					wnd->on_resize(event);
 				}
@@ -254,7 +254,7 @@ namespace lotus::system::platforms::macos {
 	cvec2s window::get_size() const {
 		auto *wnd = (__bridge NSWindow*)_handle;
 		const NSSize size = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
-		return cvec2d(size.width, size.height).into<std::size_t>();
+		return cvec2d(size.width, size.height).into<usize>();
 	}
 
 	void window::set_title(std::u8string_view title) {

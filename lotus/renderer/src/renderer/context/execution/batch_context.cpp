@@ -16,9 +16,9 @@ namespace lotus::renderer::execution {
 	}
 
 	void batch_context::request_dependency_from_this_batch(
-		std::uint32_t from_queue,
+		u32 from_queue,
 		queue_submission_index from_release_after,
-		std::uint32_t to_queue,
+		u32 to_queue,
 		queue_submission_index to_acquire_before
 	) {
 		crash_if(std::to_underlying(from_release_after) >= _rctx._queues[from_queue].batch_commands.size());
@@ -33,9 +33,9 @@ namespace lotus::renderer::execution {
 	}
 
 	void batch_context::request_dependency_explicit(
-		std::uint32_t from_queue,
+		u32 from_queue,
 		gpu::timeline_semaphore::value_type from_value,
-		std::uint32_t to_queue,
+		u32 to_queue,
 		queue_submission_index to_acquire_before
 	) {
 		crash_if(std::to_underlying(to_acquire_before) >= _rctx._queues[to_queue].batch_commands.size());
@@ -47,8 +47,8 @@ namespace lotus::renderer::execution {
 	}
 
 	void batch_context::request_dependency_from_previous_batches(
-		std::uint32_t from_queue,
-		std::uint32_t to_queue,
+		u32 from_queue,
+		u32 to_queue,
 		queue_submission_index to_acquire_before
 	) {
 		const gpu::timeline_semaphore::value_type value = get_batch_resolve_data().queues[from_queue].begin_of_batch;

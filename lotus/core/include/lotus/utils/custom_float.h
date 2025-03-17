@@ -14,7 +14,7 @@
 namespace lotus {
 	namespace _details {
 		/// Safely shifts the given number to the left, returning 0 when the number of bits is too large.
-		template <std::uint64_t Bits, typename T> [[nodiscard]] inline constexpr T shl_safe(T x) {
+		template <u64 Bits, typename T> [[nodiscard]] inline constexpr T shl_safe(T x) {
 			if constexpr (Bits >= sizeof(T) * 8) {
 				return static_cast<T>(0);
 			} else {
@@ -22,7 +22,7 @@ namespace lotus {
 			}
 		}
 		/// Safely shifts the given number to the left, returning 0 when the number of bits is too large.
-		template <std::uint64_t Bits, typename T> [[nodiscard]] inline constexpr T shr_safe(T x) {
+		template <u64 Bits, typename T> [[nodiscard]] inline constexpr T shr_safe(T x) {
 			if constexpr (Bits >= sizeof(T) * 8) {
 				return static_cast<T>(0);
 			} else {
@@ -32,7 +32,7 @@ namespace lotus {
 
 		/// Adjusts the position of bit \p From to bit \p To in the given value by shifting the value.
 		template <
-			std::uint64_t From, std::uint64_t To, typename ToType, typename T
+			u64 From, u64 To, typename ToType, typename T
 		> [[nodiscard]] inline constexpr ToType adjust_position(T value) {
 			static_assert(
 				std::is_signed_v<ToType> == std::is_signed_v<T>,
@@ -89,18 +89,18 @@ namespace lotus {
 	}
 	/// A custom IEEE 754 floating-point number.
 	template <
-		std::uint32_t ExponentBits,
-		std::uint32_t MantissaBits,
+		u32 ExponentBits,
+		u32 MantissaBits,
 		typename Storage
 	> struct basic_custom_float {
-		template <std::uint32_t, std::uint32_t, typename> friend struct basic_custom_float;
+		template <u32, u32, typename> friend struct basic_custom_float;
 		static_assert(
 			std::is_unsigned_v<Storage> && ExponentBits + MantissaBits + 1 <= sizeof(Storage) * 8,
 			"Not enough storage space"
 		);
 	public:
-		constexpr static std::uint32_t exponent_bits = ExponentBits; ///< Number of bits used to store the exponent.
-		constexpr static std::uint32_t mantissa_bits = MantissaBits; ///< Number of bits used to store the mantissa.
+		constexpr static u32 exponent_bits = ExponentBits; ///< Number of bits used to store the exponent.
+		constexpr static u32 mantissa_bits = MantissaBits; ///< Number of bits used to store the mantissa.
 		using storage_type = Storage; ///< Type for storing the binary representation of this number.
 
 		/// Initializes this value to zero. This is for compatibility with matrix types.
@@ -142,8 +142,8 @@ namespace lotus {
 		> [[nodiscard]] constexpr F into() const {
 			using _ufrom = Storage;
 			using _uto = typename F::storage_type;
-			constexpr std::uint32_t _mant_to = F::mantissa_bits;
-			constexpr std::uint32_t _exp_to = F::exponent_bits;
+			constexpr u32 _mant_to = F::mantissa_bits;
+			constexpr u32 _exp_to = F::exponent_bits;
 
 			bool sign = _binary & _sign_mask;
 			_ufrom signless = _binary & ~_sign_mask;
@@ -342,8 +342,8 @@ namespace lotus {
 	};
 
 	inline namespace custom_float_types {
-		using float16 = basic_custom_float<5, 10, std::uint16_t>; ///< IEEE 754 16-bit floating point numbers.
-		using float32 = basic_custom_float<8, 23, std::uint32_t>; ///< IEEE 754 32-bit floating point numbers.
-		using float64 = basic_custom_float<11, 52, std::uint64_t>; ///< IEEE 754 64-bit floating point numbers.
+		using float16 = basic_custom_float<5, 10, u16>; ///< IEEE 754 16-bit floating point numbers.
+		using float32 = basic_custom_float<8, 23, u32>; ///< IEEE 754 32-bit floating point numbers.
+		using float64 = basic_custom_float<11, 52, u64>; ///< IEEE 754 64-bit floating point numbers.
 	}
 }

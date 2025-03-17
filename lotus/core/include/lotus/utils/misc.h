@@ -14,14 +14,14 @@ namespace lotus {
 	///
 	/// \return Whether the file was successfully loaded.
 	[[nodiscard]] bool load_binary_file(
-		const std::filesystem::path&, std::span<std::byte>(*allocate)(std::size_t, void*), void *user_data
+		const std::filesystem::path&, std::span<std::byte>(*allocate)(usize, void*), void *user_data
 	);
 	/// \overload
 	template <typename Callback> [[nodiscard]] bool load_binary_file(
 		const std::filesystem::path &path, Callback &&allocate
 	) {
 		return load_binary_file(path,
-			[](std::size_t sz, void *user_data) {
+			[](usize sz, void *user_data) {
 				return (*static_cast<std::remove_reference_t<Callback&&>*>(user_data))(sz);
 			},
 			&allocate
@@ -30,13 +30,13 @@ namespace lotus {
 	/// \overload
 	template <
 		typename Allocator = memory::raw::allocator
-	> [[nodiscard]] std::pair<memory::block<Allocator>, std::size_t> load_binary_file(
-		const std::filesystem::path &path, const Allocator &alloc = Allocator{}, std::size_t alignment = 1
+	> [[nodiscard]] std::pair<memory::block<Allocator>, usize> load_binary_file(
+		const std::filesystem::path &path, const Allocator &alloc = Allocator{}, usize alignment = 1
 	) {
 		memory::block<Allocator> result(nullptr, alloc);
-		std::size_t result_size;
+		usize result_size;
 		const bool success = load_binary_file(path,
-			[&](std::size_t sz) -> std::span<std::byte> {
+			[&](usize sz) -> std::span<std::byte> {
 				result = memory::allocate_block(memory::size_alignment(sz, alignment), alloc);
 				result_size = sz;
 				return { result.get(), result_size };
@@ -51,12 +51,12 @@ namespace lotus {
 
 
 	/// Converts the given four-character literal to its 32-bit binary representation.
-	constexpr inline static std::uint32_t make_four_character_code(std::u8string_view s) {
+	constexpr inline static u32 make_four_character_code(std::u8string_view s) {
 		return
-			static_cast<std::uint32_t>(s[0]) |
-			(static_cast<std::uint32_t>(s[1]) << 8) |
-			(static_cast<std::uint32_t>(s[2]) << 16) |
-			(static_cast<std::uint32_t>(s[3]) << 24);
+			static_cast<u32>(s[0]) |
+			(static_cast<u32>(s[1]) << 8) |
+			(static_cast<u32>(s[2]) << 16) |
+			(static_cast<u32>(s[3]) << 24);
 	}
 
 	/// Helper class that enables overloading of lambdas and function objects.

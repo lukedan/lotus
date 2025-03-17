@@ -42,7 +42,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Calls \p vk::UniqueDevice::createDescriptorPoolUnique().
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
-			std::span<const descriptor_range> capacity, std::size_t max_num_sets
+			std::span<const descriptor_range> capacity, usize max_num_sets
 		);
 		/// Calls \p vk::UniqueDevice::allocateDescriptorSetsUnique().
 		[[nodiscard]] descriptor_set create_descriptor_set(
@@ -50,38 +50,38 @@ namespace lotus::gpu::backends::vulkan {
 		);
 		/// Calls \p vk::UniqueDevice::allocateDescriptorSetsUnique().
 		[[nodiscard]] descriptor_set create_descriptor_set(
-			descriptor_pool&, const descriptor_set_layout&, std::size_t dynamic_size
+			descriptor_pool&, const descriptor_set_layout&, usize dynamic_size
 		);
 
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_only_images(
 			descriptor_set&, const descriptor_set_layout&,
-			std::size_t first_register, std::span<const image_view_base *const>
+			usize first_register, std::span<const image_view_base *const>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_write_images(
 			descriptor_set&, const descriptor_set_layout&,
-			std::size_t first_register, std::span<const image_view_base *const>
+			usize first_register, std::span<const image_view_base *const>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_only_structured_buffers(
 			descriptor_set&, const descriptor_set_layout&,
-			std::size_t first_register, std::span<const structured_buffer_view>
+			usize first_register, std::span<const structured_buffer_view>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_write_structured_buffers(
 			descriptor_set&, const descriptor_set_layout&,
-			std::size_t first_register, std::span<const structured_buffer_view>
+			usize first_register, std::span<const structured_buffer_view>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_constant_buffers(
 			descriptor_set&, const descriptor_set_layout&,
-			std::size_t first_register, std::span<const constant_buffer_view>
+			usize first_register, std::span<const constant_buffer_view>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_samplers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::span<const gpu::sampler *const> samplers
+			usize first_register, std::span<const gpu::sampler *const> samplers
 		);
 
 		/// Calls \p vk::UniqueDevice::createShaderModuleUnique().
@@ -118,7 +118,7 @@ namespace lotus::gpu::backends::vulkan {
 			std::span<const input_buffer_layout>,
 			primitive_topology,
 			const frame_buffer_layout&,
-			std::size_t num_viewports = 1
+			usize num_viewports = 1
 		);
 		/// Calls \p vk::UniqueDevice::createComputePipelineUnique().
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(
@@ -132,52 +132,52 @@ namespace lotus::gpu::backends::vulkan {
 			return _memory_properties_list;
 		}
 		/// Calls \p vk::UniqueDevice::allocateMemoryUnique().
-		[[nodiscard]] memory_block allocate_memory(std::size_t size, memory_type_index);
+		[[nodiscard]] memory_block allocate_memory(usize size, memory_type_index);
 
 		/// Calls \p vk::UniqueDevice::createBufferUnique() to create the buffer, then calls
 		/// \p vk::UniqueDevice::allocateMemoryUnique() to allocate memory for it.
 		[[nodiscard]] buffer create_committed_buffer(
-			std::size_t size, memory_type_index, buffer_usage_mask allowed_usage
+			usize size, memory_type_index, buffer_usage_mask allowed_usage
 		);
 		/// Creates a new 2D image using \ref _create_committed_image().
 		[[nodiscard]] image2d create_committed_image2d(
-			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask allowed_usage
+			cvec2u32 size, u32 mip_levels, format, image_tiling, image_usage_mask allowed_usage
 		);
 		/// Creates a new 3D image using \ref _create_committed_image().
 		[[nodiscard]] image3d create_committed_image3d(
-			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask allowed_usage
+			cvec3u32 size, u32 mip_levels, format, image_tiling, image_usage_mask allowed_usage
 		);
 		/// Obtains the layout of the buffer by creating a dummy image object, then calls
 		/// \ref create_committed_buffer() to create the buffer.
-		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, std::size_t> create_committed_staging_buffer(
+		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, usize> create_committed_staging_buffer(
 			cvec2u32 size, format, memory_type_index, buffer_usage_mask allowed_usage
 		);
 
 		/// Retrieves the memory requirements of the 2D image using \ref _get_image_memory_requirements().
 		[[nodiscard]] memory::size_alignment get_image2d_memory_requirements(
-			cvec2u32, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec2u32, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Retrieves the memory requirements of the 3D image using \ref _get_image_memory_requirements().
 		[[nodiscard]] memory::size_alignment get_image3d_memory_requirements(
-			cvec3u32, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec3u32, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Creates a temporary \p vk::UniqueBuffer, then calls \p vk::UniqueDevice::getBufferMemoryRequirements2()
 		/// to obtain the memory requirements.
-		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(std::size_t size, buffer_usage_mask);
+		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(usize size, buffer_usage_mask);
 		/// Calls \p vk::UniqueDevice::createBuffer() to create the buffer, then calls
 		/// \p vk::UniqueDevice::bindBufferMemory2() to bind it to the given \ref memory_block.
 		[[nodiscard]] buffer create_placed_buffer(
-			std::size_t size, buffer_usage_mask allowed_usage, const memory_block &mem, std::size_t offset
+			usize size, buffer_usage_mask allowed_usage, const memory_block &mem, usize offset
 		);
 		/// Creates a new 2D image using \ref _create_placed_image().
 		[[nodiscard]] image2d create_placed_image2d(
-			cvec2u32 size, std::uint32_t mip_levels,
-			format, image_tiling, image_usage_mask allowed_usages, const memory_block &mem, std::size_t offset
+			cvec2u32 size, u32 mip_levels,
+			format, image_tiling, image_usage_mask allowed_usages, const memory_block &mem, usize offset
 		);
 		/// Creates a new 3D image using \ref _create_placed_image().
 		[[nodiscard]] image3d create_placed_image3d(
-			cvec3u32 size, std::uint32_t mip_levels,
-			format, image_tiling, image_usage_mask allowed_usages, const memory_block &mem, std::size_t offset
+			cvec3u32 size, u32 mip_levels,
+			format, image_tiling, image_usage_mask allowed_usages, const memory_block &mem, usize offset
 		);
 
 		/// Calls \ref _details::memory_block::map().
@@ -185,9 +185,9 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \ref _details::memory_block::unmap().
 		void unmap_buffer(buffer&);
 		/// Calls \p vk::UniqueDevice::invalidateMappedMemoryRanges().
-		void flush_mapped_buffer_to_host(buffer&, std::size_t begin, std::size_t length);
+		void flush_mapped_buffer_to_host(buffer&, usize begin, usize length);
 		/// Calls \p vk::UniqueDevice::flushMappedMemoryRanges().
-		void flush_mapped_buffer_to_device(buffer&, std::size_t begin, std::size_t length);
+		void flush_mapped_buffer_to_device(buffer&, usize begin, usize length);
 
 		/// Calls \p vk::UniqueDevice::createImageViewUnique().
 		[[nodiscard]] image2d_view create_image2d_view_from(const image2d&, format, mip_levels);
@@ -216,9 +216,9 @@ namespace lotus::gpu::backends::vulkan {
 		void wait_for_timeline_semaphore(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 
 		/// Calls \p vk::UniqueDevice::createQueryPoolUnique().
-		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(std::uint32_t size);
+		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(u32 size);
 		/// Calls \p vk::UniqueDevice::getQueryPoolResults().
-		void fetch_query_results(timestamp_query_heap&, std::uint32_t first, std::span<std::uint64_t>);
+		void fetch_query_results(timestamp_query_heap&, u32 first, std::span<u64>);
 
 		/// Calls \ref _set_debug_name().
 		void set_debug_name(buffer&, const char8_t*);
@@ -235,7 +235,7 @@ namespace lotus::gpu::backends::vulkan {
 		/// Fills in the \p vk::AccelerationStructureInstanceKHR.
 		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
 			bottom_level_acceleration_structure&,
-			mat44f, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
+			mat44f, u32 id, u8 mask, u32 hit_group_offset,
 			raytracing_instance_flags
 		) const;
 
@@ -245,33 +245,33 @@ namespace lotus::gpu::backends::vulkan {
 		);
 		/// Returns the result of \p vk::UniqueDevice::getAccelerationStructureBuildSizesKHR().
 		[[nodiscard]] acceleration_structure_build_sizes get_top_level_acceleration_structure_build_sizes(
-			std::size_t instance_count
+			usize instance_count
 		);
 		/// Returns the result of \p vk::UniqueDevice::createAccelerationStructureKHRUnique().
 		[[nodiscard]] bottom_level_acceleration_structure create_bottom_level_acceleration_structure(
-			buffer &buf, std::size_t offset, std::size_t size
+			buffer &buf, usize offset, usize size
 		);
 		/// Returns the result of \p vk::UniqueDevice::createAccelerationStructureKHRUnique().
 		[[nodiscard]] top_level_acceleration_structure create_top_level_acceleration_structure(
-			buffer &buf, std::size_t offset, std::size_t size
+			buffer &buf, usize offset, usize size
 		);
 
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_acceleration_structures(
-			descriptor_set&, const descriptor_set_layout&, std::size_t first_register,
+			descriptor_set&, const descriptor_set_layout&, usize first_register,
 			std::span<gpu::top_level_acceleration_structure *const> acceleration_structures
 		);
 
 		/// Returns the result of \p vk::UniqueDevice::getRayTracingShaderGroupHandlesKHR().
 		[[nodiscard]] shader_group_handle get_shader_group_handle(
-			const raytracing_pipeline_state &pipeline, std::size_t index
+			const raytracing_pipeline_state &pipeline, usize index
 		);
 
 		/// Returns the result of \p vk::UniqueDevice::createRayTracingPipelineKHRUnique().
 		[[nodiscard]] raytracing_pipeline_state create_raytracing_pipeline_state(
 			std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
 			std::span<const shader_function> general_shaders,
-			std::size_t max_recursion_depth, std::size_t max_payload_size, std::size_t max_attribute_size,
+			usize max_recursion_depth, usize max_payload_size, usize max_attribute_size,
 			const pipeline_resources &rsrc
 		);
 	private:
@@ -281,11 +281,11 @@ namespace lotus::gpu::backends::vulkan {
 			_queue_family_properties() {
 			}
 			/// Initializes all fields of this struct.
-			_queue_family_properties(std::uint32_t i, queue_capabilities cap) : index(i), capabilities(cap) {
+			_queue_family_properties(u32 i, queue_capabilities cap) : index(i), capabilities(cap) {
 			}
 
 			/// The index of this queue familly.
-			std::uint32_t index = std::numeric_limits<std::uint32_t>::max();
+			u32 index = std::numeric_limits<u32>::max();
 			/// The capabilities of this queue family.
 			queue_capabilities capabilities = queue_capabilities::none;
 		};
@@ -312,23 +312,23 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::UniqueDevice::createImage() to create the image, then calls
 		/// \p vk::UniqueDevice::bindImageMemory2() to bind it to the given \ref memory_block.
 		[[nodiscard]] vk::Image _create_placed_image(
-			const vk::ImageCreateInfo&, vk::DeviceMemory, std::size_t offset
+			const vk::ImageCreateInfo&, vk::DeviceMemory, usize offset
 		);
 		/// Creates a temporary \p vk::UniqueImage, then calls \p vk::UniqueDevice::getImageMemoryRequirements2() to
 		/// obtain the memory requirements.
 		[[nodiscard]] memory::size_alignment _get_image_memory_requirements(const vk::ImageCreateInfo&);
 
 		/// Finds the best memory type fit for the given requirements and \ref heap_type.
-		[[nodiscard]] std::uint32_t _find_memory_type_index(std::uint32_t requirements, memory_properties) const;
+		[[nodiscard]] u32 _find_memory_type_index(u32 requirements, memory_properties) const;
 		/// Finds the best memory type fit for the given requirements and memory flags.
-		[[nodiscard]] std::uint32_t _find_memory_type_index(
-			std::uint32_t requirements,
+		[[nodiscard]] u32 _find_memory_type_index(
+			u32 requirements,
 			vk::MemoryPropertyFlags required_on, vk::MemoryPropertyFlags required_off,
 			vk::MemoryPropertyFlags optional_on, vk::MemoryPropertyFlags optional_off
 		) const;
 
 		/// Calls \p vk::UniqueDevice::debugMarkerSetObjectNameEXT() to set the debug name of an object.
-		void _set_debug_name(vk::DebugReportObjectTypeEXT, std::uint64_t, const char8_t*);
+		void _set_debug_name(vk::DebugReportObjectTypeEXT, u64, const char8_t*);
 	};
 
 	/// Contains a \p vk::PhysicalDevice.

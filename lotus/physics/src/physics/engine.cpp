@@ -6,7 +6,7 @@
 #include "lotus/collision/algorithms/gjk_epa.h"
 
 namespace lotus::physics {
-	void engine::timestep(scalar dt, std::uint32_t iters) {
+	void engine::timestep(scalar dt, u32 iters) {
 		scalar dt2 = dt * dt;
 		scalar inv_dt2 = 1.0f / dt2;
 
@@ -58,9 +58,9 @@ namespace lotus::physics {
 		bend_lambdas.resize(bend_constraints.size());
 		std::fill(bend_lambdas.begin(), bend_lambdas.end(), 0.0f);
 
-		for (std::size_t i = 0; i < iters; ++i) {
+		for (usize i = 0; i < iters; ++i) {
 			// project body contact constraints
-			for (std::size_t j = 0; j < contact_constraints.size(); ++j) {
+			for (usize j = 0; j < contact_constraints.size(); ++j) {
 				contact_constraints[j].project(contact_lambdas[j].first, contact_lambdas[j].second);
 			}
 
@@ -79,7 +79,7 @@ namespace lotus::physics {
 			}
 
 			// project spring constraints
-			for (std::size_t j = 0; j < particle_spring_constraints.size(); ++j) {
+			for (usize j = 0; j < particle_spring_constraints.size(); ++j) {
 				const auto &s = particle_spring_constraints[j];
 				particle &p1 = particles[s.particle1];
 				particle &p2 = particles[s.particle2];
@@ -91,7 +91,7 @@ namespace lotus::physics {
 			}
 
 			// project face constraints
-			for (std::size_t j = 0; j < face_constraints.size(); ++j) {
+			for (usize j = 0; j < face_constraints.size(); ++j) {
 				constraints::face &f = face_constraints[j];
 				particle &p1 = particles[f.particle1];
 				particle &p2 = particles[f.particle2];
@@ -104,7 +104,7 @@ namespace lotus::physics {
 			}
 
 			// project bend constraints
-			for (std::size_t j = 0; j < bend_constraints.size(); ++j) {
+			for (usize j = 0; j < bend_constraints.size(); ++j) {
 				constraints::bend &b = bend_constraints[j];
 				particle &p1 = particles[b.particle_edge1];
 				particle &p2 = particles[b.particle_edge2];
@@ -135,7 +135,7 @@ namespace lotus::physics {
 		}
 
 		// velocity solve
-		for (std::size_t i = 0; i < contact_constraints.size(); ++i) {
+		for (usize i = 0; i < contact_constraints.size(); ++i) {
 			const auto &contact = contact_constraints[i];
 			auto &b1 = *contact.body1;
 			auto &b2 = *contact.body2;

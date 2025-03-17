@@ -37,24 +37,24 @@ namespace lotus::renderer::execution {
 		/// belong to the current batch. This can be a result of either an explicit dependency command, or an
 		/// implicit dependency caused by resource usage on different queues.
 		void request_dependency_from_this_batch(
-			std::uint32_t from_queue,
+			u32 from_queue,
 			queue_submission_index from_release_after,
-			std::uint32_t to_queue,
+			u32 to_queue,
 			queue_submission_index to_acquire_before
 		);
 		/// Inserts a dependency from the given semaphore value to before the given command. This is only used by
 		/// explicit dependencies.
 		void request_dependency_explicit(
-			std::uint32_t from_queue,
+			u32 from_queue,
 			gpu::timeline_semaphore::value_type from_value,
-			std::uint32_t to_queue,
+			u32 to_queue,
 			queue_submission_index to_acquire_before
 		);
 		/// Inserts a dependency from a command in a previous batch on the specific queue to before the given
 		/// command. This is only used when requesting an implicit dependency.
 		void request_dependency_from_previous_batches(
-			std::uint32_t from_queue,
-			std::uint32_t to_queue,
+			u32 from_queue,
+			u32 to_queue,
 			queue_submission_index to_acquire_before
 		);
 
@@ -79,11 +79,11 @@ namespace lotus::renderer::execution {
 
 
 		/// Retrieves a \ref queue_context.
-		[[nodiscard]] queue_context &get_queue_context(std::uint32_t index) {
+		[[nodiscard]] queue_context &get_queue_context(u32 index) {
 			return _queue_ctxs[index];
 		}
 		/// Retrieves a \ref queue_pseudo_context.
-		[[nodiscard]] queue_pseudo_context &get_queue_pseudo_context(std::uint32_t index) {
+		[[nodiscard]] queue_pseudo_context &get_queue_pseudo_context(u32 index) {
 			return _queue_pseudo_ctxs[index];
 		}
 

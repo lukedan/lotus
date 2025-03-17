@@ -23,7 +23,7 @@ namespace shader_types {
 #include <imgui_tables.cpp>
 
 template <typename T> struct ImGuiAutoDataType;
-template <> struct ImGuiAutoDataType<std::uint32_t> {
+template <> struct ImGuiAutoDataType<u32> {
 	constexpr static ImGuiDataType value = ImGuiDataType_U32;
 };
 template <typename T> constexpr static ImGuiDataType ImGuiAutoDataType_v = ImGuiAutoDataType<T>::value;
@@ -41,7 +41,7 @@ public:
 
 	std::unique_ptr<scene_representation> scene;
 
-	std::uint32_t frame_index = 0;
+	u32 frame_index = 0;
 
 	lren::pool runtime_tex_pool = nullptr;
 	lren::pool runtime_buf_pool = nullptr;
@@ -79,11 +79,11 @@ public:
 	char sky_hdri_path[1024] = { 0 };
 	float sky_scale = 1.0f;
 	cvec3u32 probe_density = cvec3u32(50u, 50u, 50u);
-	std::uint32_t direct_reservoirs_per_probe = 2;
-	std::uint32_t indirect_reservoirs_per_probe = 4;
-	std::uint32_t direct_sample_count_cap = 10;
-	std::uint32_t indirect_sample_count_cap = 10;
-	std::uint32_t indirect_spatial_reuse_passes = 3;
+	u32 direct_reservoirs_per_probe = 2;
+	u32 indirect_reservoirs_per_probe = 4;
+	u32 direct_sample_count_cap = 10;
+	u32 indirect_sample_count_cap = 10;
+	u32 indirect_spatial_reuse_passes = 3;
 	lotus::aab3f probe_bounds = lotus::aab3f::create_from_min_max({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f });
 	float visualize_probe_size = 0.1f;
 	int visualize_probes_mode = 0;
@@ -111,15 +111,15 @@ public:
 	float taa_ra_factor = 0.1f;
 	int taa_sequence_x = 1;
 	int taa_sequence_y = 1;
-	std::uint32_t taa_sample_count = 8;
-	std::uint32_t taa_sample_offset = 17;
-	std::uint32_t taa_sample_param_x = 2;
-	std::uint32_t taa_sample_param_y = 3;
+	u32 taa_sample_count = 8;
+	u32 taa_sample_offset = 17;
+	u32 taa_sample_param_x = 2;
+	u32 taa_sample_param_y = 3;
 
 	std::vector<cvec2f> taa_samples;
-	std::uint32_t taa_phase = 0;
+	u32 taa_phase = 0;
 
-	std::uint32_t num_accumulated_frames = 0;
+	u32 num_accumulated_frames = 0;
 
 	shader_types::probe_constants probe_constants;
 
@@ -161,7 +161,7 @@ public:
 	};
 	void update_taa_samples() {
 		taa_samples.resize(taa_sample_count, zero);
-		for (std::uint32_t i = 0; i < taa_sample_count; ++i) {
+		for (u32 i = 0; i < taa_sample_count; ++i) {
 			taa_samples[i] = cvec2f(
 				get_taa_sample(taa_sequence_x, i + taa_sample_offset, taa_sample_param_x),
 				get_taa_sample(taa_sequence_y, i + taa_sample_offset, taa_sample_param_y)
@@ -169,8 +169,8 @@ public:
 		}
 	};
 
-	void fill_buffer(lren::structured_buffer_view buf, std::uint32_t value, lren::constant_uploader &uploader, std::u8string_view description) {
-		buf = buf.view_as<std::uint32_t>();
+	void fill_buffer(lren::structured_buffer_view buf, u32 value, lren::constant_uploader &uploader, std::u8string_view description) {
+		buf = buf.view_as<u32>();
 		shader_types::fill_buffer_constants data;
 		data.size = buf.get_num_elements();
 		data.value = value;
@@ -208,15 +208,15 @@ public:
 	};
 
 	void resize_probe_buffers() {
-		std::uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
+		u32 num_probes = probe_density[0] * probe_density[1] * probe_density[2];
 
-		std::uint32_t num_direct_reservoirs = num_probes * direct_reservoirs_per_probe;
+		u32 num_direct_reservoirs = num_probes * direct_reservoirs_per_probe;
 		direct_reservoirs = _context->request_structured_buffer<shader_types::direct_lighting_reservoir>(
 			u8"Direct Lighting Reservoirs", num_direct_reservoirs,
 			lgpu::buffer_usage_mask::shader_read | lgpu::buffer_usage_mask::shader_write,
 			runtime_buf_pool
 		);
-		std::uint32_t num_indirect_reservoirs = num_probes * indirect_reservoirs_per_probe;
+		u32 num_indirect_reservoirs = num_probes * indirect_reservoirs_per_probe;
 		indirect_reservoirs = _context->request_structured_buffer<shader_types::indirect_lighting_reservoir>(
 			u8"Indirect Lighting Reservoirs", num_indirect_reservoirs,
 			lgpu::buffer_usage_mask::shader_read | lgpu::buffer_usage_mask::shader_write,
@@ -269,16 +269,16 @@ protected:
 	std::span<const lgpu::queue_family> _get_desired_queues() const override {
 		return _queues;
 	}
-	std::uint32_t _get_asset_loading_queue_index() const override {
+	u32 _get_asset_loading_queue_index() const override {
 		return 1;
 	}
-	std::uint32_t _get_constant_upload_queue_index() const override {
+	u32 _get_constant_upload_queue_index() const override {
 		return 1;
 	}
-	std::uint32_t _get_debug_drawing_queue_index() const override {
+	u32 _get_debug_drawing_queue_index() const override {
 		return 0;
 	}
-	std::uint32_t _get_present_queue_index() const override {
+	u32 _get_present_queue_index() const override {
 		return 0;
 	}
 	std::filesystem::path _get_asset_library_path() const override {
@@ -386,7 +386,7 @@ protected:
 
 			const cvec2u32 window_size = _get_window_size();
 
-			cvec2f taa_jitter = taa_samples[std::min<std::uint32_t>(taa_phase, taa_samples.size())] - cvec2f::filled(0.5f);
+			cvec2f taa_jitter = taa_samples[std::min<u32>(taa_phase, taa_samples.size())] - cvec2f::filled(0.5f);
 			auto cam = cam_params.into_camera(lotus::vec::memberwise_divide(taa_jitter, (2 * window_size).into<float>()));
 
 			auto g_buf = lren::g_buffer::view::create(*_context, window_size, runtime_tex_pool);
@@ -426,7 +426,7 @@ protected:
 			lighting_constants.inverse_jittered_projection_view = cam.inverse_jittered_projection_view_matrix;
 			lighting_constants.camera                           = cvec4f(cam_params.position, 1.0f);
 			lighting_constants.depth_linearization_constants    = cam.depth_linearization_constants;
-			lighting_constants.screen_size                      = window_size.into<std::uint32_t>();
+			lighting_constants.screen_size                      = window_size.into<u32>();
 			lighting_constants.num_lights                       = scene->lights.size();
 			lighting_constants.trace_shadow_rays_for_naive      = trace_shadow_rays_naive;
 			lighting_constants.trace_shadow_rays_for_reservoir  = trace_shadow_rays_reservoir;
@@ -442,8 +442,8 @@ protected:
 				lighting_constants.envmaplut_uvbias  = lotus::vec::memberwise_multiply(cvec2f::filled(0.5f), rcp_size);
 			}
 
-			std::uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
-			std::uint32_t num_indirect_reservoirs = num_probes * indirect_reservoirs_per_probe;
+			u32 num_probes = probe_density[0] * probe_density[1] * probe_density[2];
+			u32 num_indirect_reservoirs = num_probes * indirect_reservoirs_per_probe;
 			auto spatial_indirect_reservoirs1 = _context->request_structured_buffer<shader_types::indirect_lighting_reservoir>(
 				u8"Indirect Lighting Reservoirs", num_indirect_reservoirs,
 				lgpu::buffer_usage_mask::shader_read | lgpu::buffer_usage_mask::shader_write,
@@ -536,7 +536,7 @@ protected:
 						{  0,  0, -1 },
 					};
 
-					for (std::uint32_t i = 0; i < 3; ++i) {
+					for (u32 i = 0; i < 3; ++i) {
 						shader_types::indirect_spatial_reuse_constants reuse_constants;
 						reuse_constants.offset               = offsets[i * 2 + rng() % 2];
 						reuse_constants.frame_index          = frame_index;
@@ -610,7 +610,7 @@ protected:
 					}
 				);
 				_graphics_queue.run_compute_shader_with_thread_dimensions(
-					lighting_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
+					lighting_cs, cvec3u32(window_size.into<u32>(), 1),
 					std::move(resources), u8"Lighting"
 				);
 			}
@@ -710,7 +710,7 @@ protected:
 
 				_graphics_queue.run_compute_shader_with_thread_dimensions(
 					indirect_specular_use_visible_normals ? indirect_specular_vndf_cs : indirect_specular_cs,
-					cvec3u32(window_size.into<std::uint32_t>(), 1),
+					cvec3u32(window_size.into<u32>(), 1),
 					std::move(resources), u8"Indirect Specular"
 				);
 			}
@@ -727,7 +727,7 @@ protected:
 				constants.x           = cvec4f(pixel_x, 0.0f);
 				constants.y           = cvec4f(pixel_y, 0.0f);
 				constants.top_left    = cvec4f(cam.unit_forward - half_right - half_down, 0.0f);
-				constants.window_size = window_size.into<std::uint32_t>();
+				constants.window_size = window_size.into<u32>();
 				constants.num_lights  = scene->lights.size();
 				constants.mode        = shade_point_debug_mode;
 				constants.num_frames  = ++num_accumulated_frames;
@@ -762,7 +762,7 @@ protected:
 					}
 				);
 				_graphics_queue.run_compute_shader_with_thread_dimensions(
-					shade_point_debug_cs, cvec3u32(window_size.into<std::uint32_t>(), 1),
+					shade_point_debug_cs, cvec3u32(window_size.into<u32>(), 1),
 					std::move(resources), u8"Shade Point Debug"
 				);
 			}
@@ -778,7 +778,7 @@ protected:
 					nullptr
 				);
 				shader_types::taa_constants constants;
-				constants.viewport_size         = window_size.into<std::uint32_t>();
+				constants.viewport_size         = window_size.into<u32>();
 				constants.rcp_viewport_size     = lotus::vec::memberwise_reciprocal(window_size.into<float>());
 				constants.use_indirect_specular = use_indirect_specular;
 				constants.ra_factor             = taa_ra_factor;
@@ -799,7 +799,7 @@ protected:
 				);
 
 				_graphics_queue.run_compute_shader_with_thread_dimensions(
-					taa_cs, cvec3u32(window_size.into<std::uint32_t>(), 1), std::move(resources), u8"TAA"
+					taa_cs, cvec3u32(window_size.into<u32>(), 1), std::move(resources), u8"TAA"
 				);
 
 				prev_irradiance = irradiance;
@@ -895,7 +895,7 @@ protected:
 						}
 					);
 
-					std::uint32_t num_probes = probe_density[0] * probe_density[1] * probe_density[2];
+					u32 num_probes = probe_density[0] * probe_density[1] * probe_density[2];
 
 					auto pass = _graphics_queue.begin_pass(
 						{ lren::image2d_color(_swap_chain, lgpu::color_render_target_access::create_preserve_and_write()) },
@@ -965,10 +965,10 @@ protected:
 				const char *taa_sample_modes = "None\0Halton\0Hammersley X\0Hammersley Y\0";
 				regen_sequence = ImGui::Combo("TAA Sequence X", &taa_sequence_x, taa_sample_modes) || regen_sequence;
 				regen_sequence = ImGui::Combo("TAA Sequence Y", &taa_sequence_y, taa_sample_modes) || regen_sequence;
-				regen_sequence = ImGui_SliderT<std::uint32_t>("TAA Sequence Offset", &taa_sample_offset, 1, 512) || regen_sequence;
-				regen_sequence = ImGui_SliderT<std::uint32_t>("TAA Sequence X Param", &taa_sample_param_x, 1, 32) || regen_sequence;
-				regen_sequence = ImGui_SliderT<std::uint32_t>("TAA Sequence Y Param", &taa_sample_param_y, 1, 32) || regen_sequence;
-				regen_sequence = ImGui_SliderT<std::uint32_t>("TAA Sequence Length", &taa_sample_count, 1, 512, nullptr, ImGuiSliderFlags_Logarithmic) || regen_sequence;
+				regen_sequence = ImGui_SliderT<u32>("TAA Sequence Offset", &taa_sample_offset, 1, 512) || regen_sequence;
+				regen_sequence = ImGui_SliderT<u32>("TAA Sequence X Param", &taa_sample_param_x, 1, 32) || regen_sequence;
+				regen_sequence = ImGui_SliderT<u32>("TAA Sequence Y Param", &taa_sample_param_y, 1, 32) || regen_sequence;
+				regen_sequence = ImGui_SliderT<u32>("TAA Sequence Length", &taa_sample_count, 1, 512, nullptr, ImGuiSliderFlags_Logarithmic) || regen_sequence;
 				if (regen_sequence) {
 					update_taa_samples();
 				}
@@ -988,7 +988,7 @@ protected:
 				auto pos = to_cvec2f(ImGui::GetCursorScreenPos());
 				list->AddRectFilled(to_imvec2(pos), to_imvec2(pos + canvas_size), ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
 
-				for (std::size_t i = 0; i < taa_samples.size(); ++i) {
+				for (usize i = 0; i < taa_samples.size(); ++i) {
 					cvec2f smp = taa_samples[i];
 					cvec2f dot_pos = pos + lotus::vec::memberwise_multiply(smp, canvas_size);
 					float seq_pos = i / static_cast<float>(taa_samples.size() - 1);
@@ -1007,8 +1007,8 @@ protected:
 				needs_resizing = ImGui::SliderInt3("Num Probes", probes, 2, 100) || needs_resizing;
 				probe_density = cvec3u32(probes[0], probes[1], probes[2]);
 			}
-			needs_resizing = ImGui_SliderT<std::uint32_t>("Direct Reservoirs Per Probe", &direct_reservoirs_per_probe, 1, 20) || needs_resizing;
-			needs_resizing = ImGui_SliderT<std::uint32_t>("Indirect Reservoirs Per Probe", &indirect_reservoirs_per_probe, 1, 20) || needs_resizing;
+			needs_resizing = ImGui_SliderT<u32>("Direct Reservoirs Per Probe", &direct_reservoirs_per_probe, 1, 20) || needs_resizing;
+			needs_resizing = ImGui_SliderT<u32>("Indirect Reservoirs Per Probe", &indirect_reservoirs_per_probe, 1, 20) || needs_resizing;
 			{
 				float rx[2] = { probe_bounds.min[0], probe_bounds.max[0] };
 				float ry[2] = { probe_bounds.min[1], probe_bounds.max[1] };
@@ -1036,11 +1036,11 @@ protected:
 			ImGui::Checkbox("Debug Use Approximation For All Indirect Specular", &debug_approx_for_indirect);
 			ImGui::Checkbox("Indirect Temporal Reuse", &indirect_temporal_reuse);
 			ImGui::Checkbox("Indirect Spatial Reuse", &indirect_spatial_reuse);
-			ImGui_SliderT<std::uint32_t>("Indirect Spatial Reuse Passes", &indirect_spatial_reuse_passes, 1, 3);
+			ImGui_SliderT<u32>("Indirect Spatial Reuse Passes", &indirect_spatial_reuse_passes, 1, 3);
 			ImGui::Combo("Indirect Spatial Reuse Visibility Test Mode", &indirect_spatial_reuse_visibility_test_mode, "None\0Simple\0Full\0");
 			ImGui::SliderFloat("SH RA Factor", &sh_ra_factor, 0.0f, 1.0f);
-			ImGui_SliderT<std::uint32_t>("Direct Sample Count Cap", &direct_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
-			ImGui_SliderT<std::uint32_t>("Indirect Sample Count Cap", &indirect_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
+			ImGui_SliderT<u32>("Direct Sample Count Cap", &direct_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
+			ImGui_SliderT<u32>("Indirect Sample Count Cap", &indirect_sample_count_cap, 1, 10000, "%d", ImGuiSliderFlags_Logarithmic);
 		}
 		ImGui::End();
 		if (needs_resizing) {

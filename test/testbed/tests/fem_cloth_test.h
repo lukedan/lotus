@@ -28,9 +28,9 @@ public:
 
 		auto &surface = _render.surfaces.emplace_back();
 		surface.color = lotus::linear_rgba_f(1.0f, 0.4f, 0.2f, 0.5f);
-		std::vector<std::vector<std::uint32_t>> pid(
-			static_cast<std::size_t>(_side_segments),
-			std::vector<std::uint32_t>(static_cast<std::size_t>(_side_segments))
+		std::vector<std::vector<u32>> pid(
+			static_cast<usize>(_side_segments),
+			std::vector<u32>(static_cast<usize>(_side_segments))
 		);
 		for (int y = 0; y < _side_segments; ++y) {
 			for (int x = 0; x < _side_segments; ++x) {
@@ -41,7 +41,7 @@ public:
 				auto state = lotus::physics::particle_state::stationary_at(
 					{ x * segment_length, _cloth_size, y * segment_length - 0.5 * _cloth_size }
 				);
-				pid[x][y] = static_cast<std::uint32_t>(_engine.particles.size());
+				pid[x][y] = static_cast<u32>(_engine.particles.size());
 				_engine.particles.emplace_back(lotus::physics::particle::create(prop, state));
 			}
 		}
@@ -84,7 +84,7 @@ public:
 		));
 	}
 
-	void timestep(double dt, std::size_t iterations) override {
+	void timestep(double dt, usize iterations) override {
 		_world_time += dt;
 		_sphere->state.position = {
 			_sphere_travel * std::cos((2.0 * lotus::physics::pi / _sphere_period) * _world_time),
@@ -152,7 +152,7 @@ protected:
 	float _sphere_yz[2]{ 0.5f, 0.0f };
 
 
-	void _add_face(std::size_t i1, std::size_t i2, std::size_t i3) {
+	void _add_face(usize i1, usize i2, usize i3) {
 		auto &face = _engine.face_constraints.emplace_back(lotus::uninitialized);
 		face.particle1 = i1;
 		face.particle2 = i2;
@@ -168,7 +168,7 @@ protected:
 		);
 	}
 
-	void _add_bend(std::size_t e1, std::size_t e2, std::size_t x3, std::size_t x4) {
+	void _add_bend(usize e1, usize e2, usize x3, usize x4) {
 		auto &bend = _engine.bend_constraints.emplace_back(lotus::uninitialized);
 		bend.particle_edge1 = e1;
 		bend.particle_edge2 = e2;

@@ -60,23 +60,23 @@ namespace lotus::gpu::backends::metal {
 		/// Records the given pipeline state object to be bound during dispatches.
 		void bind_pipeline_state(const compute_pipeline_state&);
 		/// Calls \p MTL::RenderCommandEncoder::setVertexBuffers().
-		void bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer>);
+		void bind_vertex_buffers(usize start, std::span<const vertex_buffer>);
 		/// Updates \ref _index_buffer, \ref _index_offset_bytes, and \ref _index_format.
-		void bind_index_buffer(const buffer&, std::size_t offset_bytes, index_format);
+		void bind_index_buffer(const buffer&, usize offset_bytes, index_format);
 		/// Binds descriptor sets to \ref _pass_encoder.
 		void bind_graphics_descriptor_sets(
-			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
 		);
 		/// Records the given descriptor sets to be bound during dispatches.
 		void bind_compute_descriptor_sets(
-			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
 		);
 
 		void set_viewports(std::span<const viewport>); // TODO
 		void set_scissor_rectangles(std::span<const aab2i>); // TODO
 
 		/// Creates a \p MTL::BlitCommandEncoder to encode a copy command.
-		void copy_buffer(const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size);
+		void copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size);
 		/// Creates a \p MTL::BlitCommandEncoder to encode a copy command.
 		void copy_image2d(
 			image2d &from, subresource_index sub1, aab2u32 region, image2d &to, subresource_index sub2, cvec2u32 off
@@ -84,7 +84,7 @@ namespace lotus::gpu::backends::metal {
 		/// Creates a \p MTL::BlitCommandEncoder to encode a copy command.
 		void copy_buffer_to_image(
 			const buffer &from,
-			std::size_t byte_offset,
+			usize byte_offset,
 			staging_buffer_metadata,
 			image2d &to,
 			subresource_index subresource,
@@ -93,29 +93,29 @@ namespace lotus::gpu::backends::metal {
 
 		/// Calls \p MTL::RenderCommandEncoder::drawPrimitives().
 		void draw_instanced(
-			std::size_t first_vertex,
-			std::size_t vertex_count,
-			std::size_t first_instance,
-			std::size_t instance_count
+			usize first_vertex,
+			usize vertex_count,
+			usize first_instance,
+			usize instance_count
 		);
 		/// Calls \p MTL::RenderCommandEncoder::drawIndexedPrimitives().
 		void draw_indexed_instanced(
-			std::size_t first_index,
-			std::size_t index_count,
-			std::size_t first_vertex,
-			std::size_t first_instance,
-			std::size_t instance_count
+			usize first_index,
+			usize index_count,
+			usize first_vertex,
+			usize first_instance,
+			usize instance_count
 		);
 		/// Creates a new \p MTL::ComputeCommandEncoder, binds resources, and calls \p dispatchThreadgroups().
-		void run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z);
+		void run_compute_shader(u32 x, u32 y, u32 z);
 
 		void resource_barrier(std::span<const image_barrier>, std::span<const buffer_barrier>); // TODO
 
 		/// Calls \p MTL::RenderCommandEncoder::endEncoding() and releases the encoder.
 		void end_pass();
 
-		void query_timestamp(timestamp_query_heap&, std::uint32_t index); // TODO
-		void resolve_queries(timestamp_query_heap&, std::uint32_t first, std::uint32_t count); // TODO
+		void query_timestamp(timestamp_query_heap&, u32 index); // TODO
+		void resolve_queries(timestamp_query_heap&, u32 first, u32 count); // TODO
 
 		void insert_marker(const char8_t*, linear_rgba_u8 color); // TODO
 		void begin_marker_scope(const char8_t*, linear_rgba_u8 color); // TODO
@@ -131,22 +131,22 @@ namespace lotus::gpu::backends::metal {
 			const bottom_level_acceleration_structure_geometry&,
 			bottom_level_acceleration_structure &output,
 			buffer &scratch,
-			std::size_t scratch_offset
+			usize scratch_offset
 		);
 		/// Creates a \p MTL::IndirectAccelerationStructureInstanceDescriptor and builds an acceleration structure
 		/// with it.
 		void build_acceleration_structure(
 			const buffer &instances,
-			std::size_t offset,
-			std::size_t count,
+			usize offset,
+			usize count,
 			top_level_acceleration_structure &output,
 			buffer &scratch,
-			std::size_t scratch_offset
+			usize scratch_offset
 		);
 
 		void bind_pipeline_state(const raytracing_pipeline_state&); // TODO
-		void bind_ray_tracing_descriptor_sets(const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>); // TODO
-		void trace_rays(constant_buffer_view ray_generation, shader_record_view miss_shaders, shader_record_view hit_groups, std::size_t width, std::size_t height, std::size_t depth); // TODO
+		void bind_ray_tracing_descriptor_sets(const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>); // TODO
+		void trace_rays(constant_buffer_view ray_generation, shader_record_view miss_shaders, shader_record_view hit_groups, usize width, usize height, usize depth); // TODO
 
 
 		/// Checks whether this object is valid.
@@ -158,22 +158,22 @@ namespace lotus::gpu::backends::metal {
 
 		NS::SharedPtr<MTL::RenderCommandEncoder> _pass_encoder; ///< Encoder for the render pass.
 		MTL::Buffer *_index_buffer = nullptr; ///< Currently bound index buffer.
-		std::size_t _index_offset_bytes = 0; ///< Currently bound index buffer offset.
+		usize _index_offset_bytes = 0; ///< Currently bound index buffer offset.
 		index_format _index_format = index_format::num_enumerators; ///< Currently bound index buffer format.
 		/// Primitive topology of the last bound graphics pipeline.
 		primitive_topology _topology = primitive_topology::num_enumerators;
-		std::vector<std::uint64_t> _graphics_sets; ///< Currently bound graphics descriptor sets.
+		std::vector<u64> _graphics_sets; ///< Currently bound graphics descriptor sets.
 		/// Whether the latest version of \ref _graphics_sets is bound to the active command encoder.
 		bool _graphics_sets_bound = false;
 
 		NS::SharedPtr<MTL::ComputePipelineState> _compute_pipeline; ///< Currently bound compute pipeline state.
 		cvec3u32 _compute_thread_group_size = zero; ///< Thread group size of the currently bound compute pipeline.
-		std::vector<std::uint64_t> _compute_sets; ///< Currently bound compute descriptor sets.
+		std::vector<u64> _compute_sets; ///< Currently bound compute descriptor sets.
 
 		/// Creates an argument buffer for the given set of descriptor tables.
 		void _update_descriptor_set_bindings(
-			std::vector<std::uint64_t> &bindings,
-			std::uint32_t first,
+			std::vector<u64> &bindings,
+			u32 first,
 			std::span<const gpu::descriptor_set *const> sets
 		);
 		/// Refreshes graphics descriptor bindings to \ref _pass_encoder if necessary.

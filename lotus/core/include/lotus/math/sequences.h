@@ -10,17 +10,17 @@
 /// Mathematical sequences.
 namespace lotus::sequences {
 	/// The Halton sequence.
-	template <typename F = float, std::uint32_t NumBits = 32> struct halton {
+	template <typename F = float, u32 NumBits = 32> struct halton {
 	public:
 		/// Initializes a new Halton sequence.
-		[[nodiscard]] static constexpr halton create(std::uint32_t base) {
+		[[nodiscard]] static constexpr halton create(u32 base) {
 			return halton(base);
 		}
 
 		/// Evaluates the specified element in the sequence.
-		[[nodiscard]] constexpr F operator()(std::uint32_t index) const {
+		[[nodiscard]] constexpr F operator()(u32 index) const {
 			F result = 0;
-			std::uint32_t i = 0;
+			u32 i = 0;
 			while (index > 0) {
 				result += _coefficients[i] * (index % _base);
 				index /= _base;
@@ -30,20 +30,20 @@ namespace lotus::sequences {
 		}
 	private:
 		/// Initializes \ref _coefficients.
-		constexpr explicit halton(std::uint32_t base) : _base(base) {
+		constexpr explicit halton(u32 base) : _base(base) {
 			F rcp = F(1) / _base;
 			F cur = rcp;
-			for (std::uint32_t i = 0; i < NumBits; ++i, cur *= rcp) {
+			for (u32 i = 0; i < NumBits; ++i, cur *= rcp) {
 				_coefficients[i] = cur;
 			}
 		}
 
 		std::array<F, NumBits> _coefficients; ///< One over \ref _base to the power of <cc>i + 1</cc>.
-		std::uint32_t _base = 0; ///< The base of this sequence.
+		u32 _base = 0; ///< The base of this sequence.
 	};
 
 	/// The Hammersley sequence.
-	template <typename F, std::uint32_t NumBits = 32> struct hammersley {
+	template <typename F, u32 NumBits = 32> struct hammersley {
 	public:
 		/// Creates a new Hammersley sequence.
 		[[nodiscard]] static constexpr hammersley create() {
@@ -52,11 +52,11 @@ namespace lotus::sequences {
 
 		/// Evaluates the specified element in the sequence.
 		[[nodiscard]] constexpr cvec2<F> operator()(
-			std::uint32_t num_bits, std::uint32_t index, std::uint32_t t = 32
+			u32 num_bits, u32 index, u32 t = 32
 		) const {
 			cvec2<F> result = zero;
 			crash_if((index & ~((1u << num_bits) - 1u)) != 0);
-			for (std::uint32_t i = 0; i < std::min(t, num_bits); ++i) {
+			for (u32 i = 0; i < std::min(t, num_bits); ++i) {
 				if (index & (1 << i)) {
 					result[0] += _coefficients[i];
 				}
@@ -69,7 +69,7 @@ namespace lotus::sequences {
 	private:
 		/// Initializes \ref _coefficients.
 		constexpr hammersley() {
-			for (std::uint32_t i = 0; i < NumBits; ++i) {
+			for (u32 i = 0; i < NumBits; ++i) {
 				_coefficients[i] = static_cast<F>(1) / (2u << i);
 			}
 		}

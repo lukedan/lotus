@@ -367,7 +367,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		D3D12_FILTER to_filter(
 			filtering minification, filtering magnification, filtering mipmapping, bool anisotropic, bool comparison
 		) {
-			constexpr auto _num_filtering_types = static_cast<std::size_t>(filtering::num_enumerators);
+			constexpr auto _num_filtering_types = static_cast<usize>(filtering::num_enumerators);
 			//                                     minification          magnification         mipmapping
 			using _table_type = const D3D12_FILTER[_num_filtering_types][_num_filtering_types][_num_filtering_types];
 			static _table_type non_comparison_table{
@@ -389,7 +389,7 @@ namespace lotus::gpu::backends::directx12::_details {
 				}
 			};
 			static_assert(
-				static_cast<std::size_t>(filtering::num_enumerators) == 2,
+				static_cast<usize>(filtering::num_enumerators) == 2,
 				"Table for filtering type conversion needs updating"
 			);
 			if (anisotropic) {
@@ -397,9 +397,9 @@ namespace lotus::gpu::backends::directx12::_details {
 			}
 			_table_type &table = comparison ? comparison_table : non_comparison_table;
 			return table
-				[static_cast<std::size_t>(minification)]
-				[static_cast<std::size_t>(magnification)]
-				[static_cast<std::size_t>(mipmapping)];
+				[static_cast<usize>(minification)]
+				[static_cast<usize>(magnification)]
+				[static_cast<usize>(mipmapping)];
 		}
 
 
@@ -445,7 +445,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			D3D12_BLEND_DESC result = {};
 			// TODO handle logic operations
 			result.IndependentBlendEnable = true;
-			for (std::size_t i = 0; i < targets.size(); ++i) {
+			for (usize i = 0; i < targets.size(); ++i) {
 				result.RenderTarget[i] = to_render_target_blend_description(targets[i]);
 			}
 			return result;
@@ -552,7 +552,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		debug_message_severity back_to_debug_message_severity(D3D12_MESSAGE_SEVERITY severity) {
 			constexpr static enums::sequential_mapping<
 				D3D12_MESSAGE_SEVERITY, debug_message_severity,
-				static_cast<std::size_t>(D3D12_MESSAGE_SEVERITY_MESSAGE) + 1
+				static_cast<usize>(D3D12_MESSAGE_SEVERITY_MESSAGE) + 1
 			> table{
 				std::pair(D3D12_MESSAGE_SEVERITY_CORRUPTION, debug_message_severity::error),
 				std::pair(D3D12_MESSAGE_SEVERITY_ERROR,      debug_message_severity::error),
@@ -577,16 +577,16 @@ namespace lotus::gpu::backends::directx12::_details {
 	}
 
 
-	LPCWSTR shader_name(std::size_t index) {
+	LPCWSTR shader_name(usize index) {
 		static std::deque<std::basic_string<WCHAR>> _names;
 		static std::mutex _mutex;
 
 		// TODO this is really bad
 		std::lock_guard<std::mutex> lock(_mutex);
 		if (_names.size() <= index) {
-			for (std::size_t i = 0; i < std::max<std::size_t>(1024, index + 1); ++i) {
+			for (usize i = 0; i < std::max<usize>(1024, index + 1); ++i) {
 				auto &str = _names.emplace_back(L"_");
-				for (std::size_t id = _names.size(); id > 0; id /= 10) {
+				for (usize id = _names.size(); id > 0; id /= 10) {
 					str.push_back(L'0' + id % 10);
 				}
 			}
@@ -594,16 +594,16 @@ namespace lotus::gpu::backends::directx12::_details {
 		return _names[index].c_str();
 	}
 
-	LPCWSTR shader_record_name(std::size_t index) {
+	LPCWSTR shader_record_name(usize index) {
 		static std::deque<std::basic_string<WCHAR>> _names;
 		static std::mutex _mutex;
 
 		// TODO this is really bad
 		std::lock_guard<std::mutex> lock(_mutex);
 		if (_names.size() <= index) {
-			for (std::size_t i = 0; i < std::max<std::size_t>(1024, index + 1); ++i) {
+			for (usize i = 0; i < std::max<usize>(1024, index + 1); ++i) {
 				auto &str = _names.emplace_back(L"_R");
-				for (std::size_t id = _names.size(); id > 0; id /= 10) {
+				for (usize id = _names.size(); id > 0; id /= 10) {
 					str.push_back(L'0' + (id % 10));
 				}
 			}
@@ -613,7 +613,7 @@ namespace lotus::gpu::backends::directx12::_details {
 
 
 	namespace resource_desc {
-		D3D12_RESOURCE_DESC1 for_buffer(std::size_t size, buffer_usage_mask usages) {
+		D3D12_RESOURCE_DESC1 for_buffer(usize size, buffer_usage_mask usages) {
 			D3D12_RESOURCE_DESC1 desc = {};
 			desc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
 			desc.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
@@ -640,7 +640,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_RESOURCE_DESC1 for_image2d(
-			cvec2u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask all_usages
+			cvec2u32 size, u32 mip_levels, format fmt, image_tiling tiling, image_usage_mask all_usages
 		) {
 			D3D12_RESOURCE_DESC1 desc = {};
 			desc.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -658,7 +658,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 
 		D3D12_RESOURCE_DESC1 for_image3d(
-			cvec3u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask all_usages
+			cvec3u32 size, u32 mip_levels, format fmt, image_tiling tiling, image_usage_mask all_usages
 		) {
 			D3D12_RESOURCE_DESC1 desc = {};
 			desc.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE3D;

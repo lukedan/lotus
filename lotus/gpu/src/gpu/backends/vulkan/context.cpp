@@ -80,7 +80,7 @@ namespace lotus::gpu::backends::vulkan {
 					VkDebugReportObjectTypeEXT,
 					uint64_t /*object*/,
 					size_t location,
-					int32_t /*message_code*/,
+					i32 /*message_code*/,
 					const char */*layer_prefix*/,
 					const char *message,
 					void *user_data
@@ -118,7 +118,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	std::pair<swap_chain, format> context::create_swap_chain_for_window(
-		system::window &wnd, device &dev, command_queue&, std::size_t frame_count, std::span<const format> formats
+		system::window &wnd, device &dev, command_queue&, usize frame_count, std::span<const format> formats
 	) {
 		swap_chain result = nullptr;
 
@@ -188,10 +188,10 @@ namespace lotus::gpu::backends::vulkan {
 		cvec2s size = wnd.get_size();
 		info
 			.setSurface(result._surface.get())
-			.setMinImageCount(static_cast<std::uint32_t>(frame_count))
+			.setMinImageCount(static_cast<u32>(frame_count))
 			.setImageFormat(result._format.format)
 			.setImageColorSpace(result._format.colorSpace)
-			.setImageExtent(vk::Extent2D(static_cast<std::uint32_t>(size[0]), static_cast<std::uint32_t>(size[1])))
+			.setImageExtent(vk::Extent2D(static_cast<u32>(size[0]), static_cast<u32>(size[1])))
 			.setImageArrayLayers(1)
 			.setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
 			.setImageSharingMode(vk::SharingMode::eExclusive)

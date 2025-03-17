@@ -48,7 +48,7 @@ namespace lotus::gpu::backends::vulkan {
 		auto color_attachments = bookmark.create_reserved_vector_array<vk::RenderingAttachmentInfo>(
 			access.color_render_targets.size()
 		);
-		for (std::size_t i = 0; i < access.color_render_targets.size(); ++i) {
+		for (usize i = 0; i < access.color_render_targets.size(); ++i) {
 			const auto &rt_access = access.color_render_targets[i];
 			color_attachments.emplace_back()
 				.setImageView(buf._color_views[i])
@@ -114,7 +114,7 @@ namespace lotus::gpu::backends::vulkan {
 		_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, state._pipeline.get());
 	}
 
-	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
+	void command_list::bind_vertex_buffers(usize start, std::span<const vertex_buffer> buffers) {
 		if (buffers.empty()) {
 			return;
 		}
@@ -125,17 +125,17 @@ namespace lotus::gpu::backends::vulkan {
 			buffer_ptrs.emplace_back(static_cast<const buffer*>(buf.data)->_buffer.get());
 			offsets.emplace_back(static_cast<vk::DeviceSize>(buf.offset));
 		}
-		_buffer.bindVertexBuffers(static_cast<std::uint32_t>(start), buffer_ptrs, offsets);
+		_buffer.bindVertexBuffers(static_cast<u32>(start), buffer_ptrs, offsets);
 	}
 
-	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset_bytes, index_format fmt) {
+	void command_list::bind_index_buffer(const buffer &buf, usize offset_bytes, index_format fmt) {
 		_buffer.bindIndexBuffer(
 			buf._buffer.get(), static_cast<vk::DeviceSize>(offset_bytes), _details::conversions::to_index_type(fmt)
 		);
 	}
 
 	void command_list::bind_graphics_descriptor_sets(
-		const pipeline_resources &rsrc, std::size_t first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		if (sets.empty()) {
 			return;
@@ -146,12 +146,12 @@ namespace lotus::gpu::backends::vulkan {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
 		}
 		_buffer.bindDescriptorSets(
-			vk::PipelineBindPoint::eGraphics, rsrc._layout.get(), static_cast<std::uint32_t>(first), vk_sets, {}
+			vk::PipelineBindPoint::eGraphics, rsrc._layout.get(), static_cast<u32>(first), vk_sets, {}
 		);
 	}
 
 	void command_list::bind_compute_descriptor_sets(
-		const pipeline_resources &rsrc, std::size_t first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		if (sets.empty()) {
 			return;
@@ -162,7 +162,7 @@ namespace lotus::gpu::backends::vulkan {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
 		}
 		_buffer.bindDescriptorSets(
-			vk::PipelineBindPoint::eCompute, rsrc._layout.get(), static_cast<std::uint32_t>(first), vk_sets, {}
+			vk::PipelineBindPoint::eCompute, rsrc._layout.get(), static_cast<u32>(first), vk_sets, {}
 		);
 	}
 
@@ -187,7 +187,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::copy_buffer(
-		const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size
+		const buffer &from, usize off1, buffer &to, usize off2, usize size
 	) {
 		vk::BufferCopy copy;
 		copy
@@ -214,7 +214,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::copy_buffer_to_image(
-		const buffer &from, std::size_t byte_offset, staging_buffer_metadata meta,
+		const buffer &from, usize byte_offset, staging_buffer_metadata meta,
 		image2d &to, subresource_index subresource, cvec2u32 offset
 	) {
 		const auto &props = format_properties::get(meta.pixel_format);
@@ -222,7 +222,7 @@ namespace lotus::gpu::backends::vulkan {
 		const auto aligned_size = cvec2s(
 			memory::align_up(meta.image_size[0], props.fragment_size[0]),
 			memory::align_up(meta.image_size[1], props.fragment_size[1])
-		).into<std::uint32_t>();
+		).into<u32>();
 		vk::BufferImageCopy copy;
 		copy
 			.setBufferOffset(byte_offset)
@@ -235,28 +235,28 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::draw_instanced(
-		std::size_t first_vertex, std::size_t vertex_count,
-		std::size_t first_instance, std::size_t instance_count
+		usize first_vertex, usize vertex_count,
+		usize first_instance, usize instance_count
 	) {
 		_buffer.draw(
-			static_cast<std::uint32_t>(vertex_count), static_cast<std::uint32_t>(instance_count),
-			static_cast<std::uint32_t>(first_vertex), static_cast<std::uint32_t>(first_instance)
+			static_cast<u32>(vertex_count), static_cast<u32>(instance_count),
+			static_cast<u32>(first_vertex), static_cast<u32>(first_instance)
 		);
 	}
 
 	void command_list::draw_indexed_instanced(
-		std::size_t first_index, std::size_t index_count,
-		std::size_t first_vertex,
-		std::size_t first_instance, std::size_t instance_count
+		usize first_index, usize index_count,
+		usize first_vertex,
+		usize first_instance, usize instance_count
 	) {
 		_buffer.drawIndexed(
-			static_cast<std::uint32_t>(index_count), static_cast<std::uint32_t>(instance_count),
-			static_cast<std::uint32_t>(first_index), static_cast<std::int32_t>(first_vertex),
-			static_cast<std::uint32_t>(first_instance)
+			static_cast<u32>(index_count), static_cast<u32>(instance_count),
+			static_cast<u32>(first_index), static_cast<i32>(first_vertex),
+			static_cast<u32>(first_instance)
 		);
 	}
 
-	void command_list::run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z) {
+	void command_list::run_compute_shader(u32 x, u32 y, u32 z) {
 		_buffer.dispatch(x, y, z);
 	}
 
@@ -310,7 +310,7 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	}
 
-	void command_list::query_timestamp(timestamp_query_heap &h, std::uint32_t index) {
+	void command_list::query_timestamp(timestamp_query_heap &h, u32 index) {
 		_buffer.writeTimestamp(vk::PipelineStageFlagBits::eAllCommands, h._pool.get(), index);
 	}
 
@@ -348,13 +348,13 @@ namespace lotus::gpu::backends::vulkan {
 
 	void command_list::build_acceleration_structure(
 		const bottom_level_acceleration_structure_geometry &geom,
-		bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+		bottom_level_acceleration_structure &output, buffer &scratch, usize scratch_offset
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto build_ranges = bookmark.create_reserved_vector_array<vk::AccelerationStructureBuildRangeInfoKHR>(
 			geom._geometries.size()
 		);
-		for (std::size_t i = 0; i < geom._geometries.size(); ++i) {
+		for (usize i = 0; i < geom._geometries.size(); ++i) {
 			build_ranges.emplace_back()
 				.setPrimitiveCount(geom._pimitive_counts[i])
 				.setPrimitiveOffset(0)
@@ -369,8 +369,8 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::build_acceleration_structure(
-		const buffer &instances, std::size_t offset, std::size_t count,
-		top_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+		const buffer &instances, usize offset, usize count,
+		top_level_acceleration_structure &output, buffer &scratch, usize scratch_offset
 	) {
 		vk::AccelerationStructureGeometryInstancesDataKHR instance_data;
 		instance_data
@@ -392,7 +392,7 @@ namespace lotus::gpu::backends::vulkan {
 			.setScratchData(_device->_device->getBufferAddress(scratch._buffer.get()) + scratch_offset);
 		vk::AccelerationStructureBuildRangeInfoKHR build_range;
 		build_range
-			.setPrimitiveCount(static_cast<std::uint32_t>(count))
+			.setPrimitiveCount(static_cast<u32>(count))
 			.setPrimitiveOffset(0)
 			.setFirstVertex(0)
 			.setTransformOffset(0);
@@ -404,7 +404,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::bind_ray_tracing_descriptor_sets(
-		const pipeline_resources &rsrc, std::size_t first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto vk_sets = bookmark.create_reserved_vector_array<vk::DescriptorSet>(sets.size());
@@ -412,14 +412,14 @@ namespace lotus::gpu::backends::vulkan {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
 		}
 		_buffer.bindDescriptorSets(
-			vk::PipelineBindPoint::eRayTracingKHR, rsrc._layout.get(), static_cast<std::uint32_t>(first), vk_sets, {}
+			vk::PipelineBindPoint::eRayTracingKHR, rsrc._layout.get(), static_cast<u32>(first), vk_sets, {}
 		);
 	}
 
 	void command_list::trace_rays(
 		constant_buffer_view ray_generation,
 		shader_record_view miss_shaders, shader_record_view hit_groups,
-		std::size_t width, std::size_t height, std::size_t depth
+		usize width, usize height, usize depth
 	) {
 		_buffer.traceRaysKHR(
 			vk::StridedDeviceAddressRegionKHR(
@@ -435,9 +435,9 @@ namespace lotus::gpu::backends::vulkan {
 				hit_groups.stride, hit_groups.stride * hit_groups.count
 			),
 			vk::StridedDeviceAddressRegionKHR(),
-			static_cast<std::uint32_t>(width),
-			static_cast<std::uint32_t>(height),
-			static_cast<std::uint32_t>(depth),
+			static_cast<u32>(width),
+			static_cast<u32>(height),
+			static_cast<u32>(depth),
 			*_device->_dispatch_loader
 		);
 	}
@@ -487,7 +487,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	swap_chain_status command_queue::present(swap_chain &target) {
 		vk::PresentInfoKHR info;
-		std::uint32_t index = target._frame_index;
+		u32 index = target._frame_index;
 		info
 			.setSwapchains(target._swapchain.get())
 			.setImageIndices(index);

@@ -54,7 +54,7 @@ namespace lotus::renderer::assets {
 				jobs = std::exchange(_inputs, {});
 			}
 
-			std::size_t i = 0;
+			usize i = 0;
 			for (; i < jobs.size(); ++i) {
 				auto result = _process_job(std::move(jobs[i]));
 				{
@@ -87,19 +87,19 @@ namespace lotus::renderer::assets {
 				std::vector<job_result::subresource> mips;
 
 				const auto &format_props = gpu::format_properties::get(loaded->get_format());
-				const auto frag_size = format_props.fragment_size.into<std::uint32_t>();
+				const auto frag_size = format_props.fragment_size.into<u32>();
 				const cvec2u32 one(1u, 1u);
 				const auto raw_data = loaded->get_raw_data();
 				auto current = raw_data.data();
-				for (std::uint32_t i = 0; i < loaded->get_num_mips(); ++i) {
+				for (u32 i = 0; i < loaded->get_num_mips(); ++i) {
 					const cvec2u32 pixel_size = vec::memberwise_max(
 						cvec2u32(loaded->get_width() >> i, loaded->get_height() >> i), one
 					);
 					const cvec2u32 num_fragments = vec::memberwise_divide(pixel_size + frag_size - one, frag_size);
-					const std::size_t size_bytes =
+					const usize size_bytes =
 						num_fragments[0] * num_fragments[1] * format_props.bytes_per_fragment;
 
-					if (static_cast<std::size_t>(current - raw_data.data()) + size_bytes > raw_data.size()) {
+					if (static_cast<usize>(current - raw_data.data()) + size_bytes > raw_data.size()) {
 						log().error("{}: Not enough space for mip {} and below", j.path.string(), i);
 						break;
 					}
@@ -125,7 +125,7 @@ namespace lotus::renderer::assets {
 		} else {
 			// get image format and load
 			void *loaded = nullptr;
-			std::uint8_t bytes_per_channel = 1;
+			u8 bytes_per_channel = 1;
 			int width = 0;
 			int height = 0;
 			int original_channels = 0;
@@ -153,9 +153,8 @@ namespace lotus::renderer::assets {
 				original_channels = 4; // TODO support 1 and 2 channel images
 			}
 			image_mem.reset(); // we're done loading; free the loaded image file
-			const std::uint8_t num_channels =
-				original_channels == 3 ? 4 : static_cast<std::uint8_t>(original_channels);
-			std::uint8_t bits_per_channel_4[4] = { 0, 0, 0, 0 };
+			const u8 num_channels = original_channels == 3 ? 4 : static_cast<u8>(original_channels);
+			u8 bits_per_channel_4[4] = { 0, 0, 0, 0 };
 			for (int i = 0; i < num_channels; ++i) {
 				bits_per_channel_4[i] = bytes_per_channel * 8;
 			}
@@ -175,7 +174,7 @@ namespace lotus::renderer::assets {
 			return job_result(
 				std::move(j),
 				loader_type::stbi,
-				cvec2i(width, height).into<std::uint32_t>(),
+				cvec2i(width, height).into<u32>(),
 				pixel_format,
 				{ job_result::subresource(std::span(bytes, bytes + num_bytes), 0) },
 				[ptr = loaded]() {
@@ -207,7 +206,7 @@ namespace lotus::renderer::assets {
 		renderer::context::queue &q,
 		const renderer::buffer &buf,
 		std::span<const std::byte> data,
-		std::uint32_t offset
+		u32 offset
 	) {
 		auto upload_buf = _context.request_buffer(
 			u8"Upload buffer",
@@ -327,8 +326,8 @@ namespace lotus::renderer::assets {
 				}
 
 				// find out how many mips we've loaded
-				std::uint32_t highest_mip = j.results[0].mip;
-				std::uint32_t lowest_mip = j.results[0].mip;
+				u32 highest_mip = j.results[0].mip;
+				u32 lowest_mip = j.results[0].mip;
 				for (const auto &res : j.results) {
 					highest_mip = std::min(highest_mip, res.mip);
 					lowest_mip = std::max(lowest_mip, res.mip);
@@ -415,9 +414,9 @@ namespace lotus::renderer::assets {
 					staging_buf.data,
 					[&](std::byte *dst) {
 						std::byte *cur_dst = dst;
-						for (std::uint32_t y = 0; y < size[1]; ++y) {
+						for (u32 y = 0; y < size[1]; ++y) {
 							auto *row = reinterpret_cast<linear_rgba_u8*>(cur_dst);
-							for (std::uint32_t x = 0; x < size[0]; ++x) {
+							for (u32 x = 0; x < size[0]; ++x) {
 								row[x] =
 									(x ^ y) & 1 ?
 									linear_rgba_u8(255, 0, 255, 255) :

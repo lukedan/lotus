@@ -79,7 +79,7 @@ namespace lotus::gpu {
 
 		buffer data; ///< The actual buffer.
 		metadata meta; ///< Additional metadata.
-		std::size_t total_size; ///< Total size of \ref data.
+		usize total_size; ///< Total size of \ref data.
 	};
 
 

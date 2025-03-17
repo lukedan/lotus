@@ -12,7 +12,7 @@ namespace lotus::collision {
 	/// A generic shape.
 	struct shape {
 		/// The type of a shape. The order of entries in this \p enum must match that in \ref storage.
-		enum class type : std::uint8_t {
+		enum class type : u8 {
 			plane, ///< \ref shapes::plane.
 			sphere, ///< \ref shapes::sphere.
 			polyhedron, ///< \ref shapes::polyhedron.

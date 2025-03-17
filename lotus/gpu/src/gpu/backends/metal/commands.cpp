@@ -24,7 +24,7 @@ namespace lotus::gpu::backends::metal {
 
 		auto descriptor = NS::TransferPtr(MTL::RenderPassDescriptor::alloc()->init());
 		// color render targets
-		for (std::size_t i = 0; i < fb._color_rts.size(); ++i) {
+		for (usize i = 0; i < fb._color_rts.size(); ++i) {
 			const color_render_target_access &rt_access = access.color_render_targets[i];
 
 			MTL::RenderPassColorAttachmentDescriptor *desc = descriptor->colorAttachments()->object(i);
@@ -95,13 +95,13 @@ namespace lotus::gpu::backends::metal {
 		_compute_thread_group_size = s._thread_group_size;
 	}
 
-	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
+	void command_list::bind_vertex_buffers(usize start, std::span<const vertex_buffer> buffers) {
 		auto bookmark = get_scratch_bookmark();
 		auto ptrs    = bookmark.create_vector_array<const MTL::Buffer*>(buffers.size());
 		auto offsets = bookmark.create_vector_array<NS::UInteger>(buffers.size());
 		// TODO strides not supported for converted shaders?
 		auto strides = bookmark.create_vector_array<NS::UInteger>(buffers.size());
-		for (std::size_t i = 0; i < buffers.size(); ++i) {
+		for (usize i = 0; i < buffers.size(); ++i) {
 			ptrs[i]    = buffers[i].data->_buf.get();
 			offsets[i] = buffers[i].offset;
 			strides[i] = buffers[i].stride;
@@ -113,7 +113,7 @@ namespace lotus::gpu::backends::metal {
 		);
 	}
 
-	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset_bytes, index_format fmt) {
+	void command_list::bind_index_buffer(const buffer &buf, usize offset_bytes, index_format fmt) {
 		_index_buffer       = buf._buf.get();
 		_index_offset_bytes = offset_bytes;
 		_index_format       = fmt;
@@ -121,7 +121,7 @@ namespace lotus::gpu::backends::metal {
 
 	void command_list::bind_graphics_descriptor_sets(
 		const pipeline_resources&,
-		std::size_t first,
+		usize first,
 		std::span<const gpu::descriptor_set *const> sets
 	) {
 		_update_descriptor_set_bindings(_graphics_sets, first, sets);
@@ -129,7 +129,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::bind_compute_descriptor_sets(
-		const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		_update_descriptor_set_bindings(_compute_sets, first, sets);
 	}
@@ -142,9 +142,7 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	void command_list::copy_buffer(
-		const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size
-	) {
+	void command_list::copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size) {
 		auto encoder = NS::RetainPtr(_buf->blitCommandEncoder());
 		encoder->copyFromBuffer(from._buf.get(), off1, to._buf.get(), off2, size);
 		encoder->endEncoding();
@@ -170,7 +168,7 @@ namespace lotus::gpu::backends::metal {
 
 	void command_list::copy_buffer_to_image(
 		const buffer &from,
-		std::size_t byte_offset,
+		usize byte_offset,
 		staging_buffer_metadata metadata,
 		image2d &to,
 		subresource_index subresource,
@@ -192,7 +190,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::draw_instanced(
-		std::size_t first_vertex, std::size_t vertex_count, std::size_t first_instance, std::size_t instance_count
+		usize first_vertex, usize vertex_count, usize first_instance, usize instance_count
 	) {
 		_maybe_refresh_graphics_descriptor_set_bindings();
 		// this function is used instead of the member function to bind additional auxiliary buffers for HLSL
@@ -208,11 +206,11 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::draw_indexed_instanced(
-		std::size_t first_index,
-		std::size_t index_count,
-		std::size_t first_vertex,
-		std::size_t first_instance,
-		std::size_t instance_count
+		usize first_index,
+		usize index_count,
+		usize first_vertex,
+		usize first_instance,
+		usize instance_count
 	) {
 		crash_if(_index_offset_bytes % 4 != 0); // Metal does not support non-multiple-of-4 offsets
 		_maybe_refresh_graphics_descriptor_set_bindings();
@@ -229,8 +227,8 @@ namespace lotus::gpu::backends::metal {
 		);
 	}
 
-	void command_list::run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z) {
-		const std::size_t data_size = _compute_sets.size() * sizeof(std::uint64_t);
+	void command_list::run_compute_shader(u32 x, u32 y, u32 z) {
+		const usize data_size = _compute_sets.size() * sizeof(u64);
 
 		auto encoder = NS::RetainPtr(_buf->computeCommandEncoder());
 		encoder->setComputePipelineState(_compute_pipeline.get());
@@ -255,11 +253,11 @@ namespace lotus::gpu::backends::metal {
 		_pass_encoder = nullptr;
 	}
 
-	void command_list::query_timestamp(timestamp_query_heap&, std::uint32_t index) {
+	void command_list::query_timestamp(timestamp_query_heap&, u32 index) {
 		// TODO
 	}
 
-	void command_list::resolve_queries(timestamp_query_heap&, std::uint32_t first, std::uint32_t count) {
+	void command_list::resolve_queries(timestamp_query_heap&, u32 first, u32 count) {
 		// TODO
 	}
 
@@ -282,7 +280,7 @@ namespace lotus::gpu::backends::metal {
 		const bottom_level_acceleration_structure_geometry &geom,
 		bottom_level_acceleration_structure &output,
 		buffer &scratch,
-		std::size_t scratch_offset
+		usize scratch_offset
 	) {
 		auto encoder = NS::RetainPtr(_buf->accelerationStructureCommandEncoder());
 		encoder->buildAccelerationStructure(
@@ -293,11 +291,11 @@ namespace lotus::gpu::backends::metal {
 
 	void command_list::build_acceleration_structure(
 		const buffer &instances,
-		std::size_t offset,
-		std::size_t count,
+		usize offset,
+		usize count,
 		top_level_acceleration_structure &output,
 		buffer &scratch,
-		std::size_t scratch_offset
+		usize scratch_offset
 	) {
 		using _count_type = NS::UInteger;
 
@@ -318,9 +316,9 @@ namespace lotus::gpu::backends::metal {
 		// update the instance id buffer
 		// TODO this needs to be a compute dispatch
 		const auto *header = static_cast<IRRaytracingAccelerationStructureGPUHeader*>(output._header->contents());
-		auto *instance_ids = reinterpret_cast<std::uint32_t*>(header->addressOfInstanceContributions);
+		auto *instance_ids = reinterpret_cast<u32*>(header->addressOfInstanceContributions);
 		const auto *instance_descriptors = static_cast<instance_description*>(instances._buf->contents());
-		for (std::size_t i = 0; i < count; ++i) {
+		for (usize i = 0; i < count; ++i) {
 			instance_ids[i] = instance_descriptors[i]._descriptor.userID;
 		}
 
@@ -336,7 +334,7 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	void command_list::bind_ray_tracing_descriptor_sets(const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>) {
+	void command_list::bind_ray_tracing_descriptor_sets(const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>) {
 		// TODO
 	}
 
@@ -344,9 +342,9 @@ namespace lotus::gpu::backends::metal {
 		constant_buffer_view ray_generation,
 		shader_record_view miss_shaders,
 		shader_record_view hit_groups,
-		std::size_t width,
-		std::size_t height,
-		std::size_t depth
+		usize width,
+		usize height,
+		usize depth
 	) {
 		IRDispatchRaysArgument argument = {};
 
@@ -387,14 +385,14 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::_update_descriptor_set_bindings(
-		std::vector<std::uint64_t> &bindings,
-		std::uint32_t first,
+		std::vector<u64> &bindings,
+		u32 first,
 		std::span<const gpu::descriptor_set *const> sets
 	) {
 		if (first + sets.size() > bindings.size()) {
 			bindings.resize(first + sets.size(), 0);
 		}
-		for (std::size_t i = 0; i < sets.size(); ++i) {
+		for (usize i = 0; i < sets.size(); ++i) {
 			bindings[first + i] = sets[i]->_arg_buffer->gpuAddress();
 		}
 	}
@@ -403,7 +401,7 @@ namespace lotus::gpu::backends::metal {
 		if (_graphics_sets_bound) {
 			return;
 		}
-		const std::size_t bindings_bytes = _graphics_sets.size() * sizeof(std::uint64_t);
+		const usize bindings_bytes = _graphics_sets.size() * sizeof(u64);
 		_pass_encoder->setVertexBytes(_graphics_sets.data(), bindings_bytes, kIRArgumentBufferBindPoint);
 		_pass_encoder->setFragmentBytes(_graphics_sets.data(), bindings_bytes, kIRArgumentBufferBindPoint);
 		_graphics_sets_bound = true;

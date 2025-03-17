@@ -7,11 +7,11 @@
 
 namespace lotus::gpu::backends::directx12 {
 	std::vector<D3D12_DESCRIPTOR_RANGE1>::const_iterator descriptor_set_layout::_find_register_range(
-		D3D12_DESCRIPTOR_RANGE_TYPE type, std::size_t first_reg, std::size_t num_regs
+		D3D12_DESCRIPTOR_RANGE_TYPE type, usize first_reg, usize num_regs
 	) const {
 		auto range_it = std::lower_bound(
 			_ranges.begin(), _ranges.end(), first_reg,
-			[type](const D3D12_DESCRIPTOR_RANGE1 &range, std::size_t reg) {
+			[type](const D3D12_DESCRIPTOR_RANGE1 &range, usize reg) {
 				if (range.RangeType == type) {
 					return range.BaseShaderRegister + range.NumDescriptors < reg + 1;
 				}

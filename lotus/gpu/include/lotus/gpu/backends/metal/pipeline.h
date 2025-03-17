@@ -33,16 +33,16 @@ namespace lotus::gpu::backends::metal {
 			return dxil_reflection::find_resource_binding_by_name(name);
 		}
 		/// Calls the method in the base class.
-		[[nodiscard]] std::uint32_t get_resource_binding_count() const {
+		[[nodiscard]] u32 get_resource_binding_count() const {
 			return dxil_reflection::get_resource_binding_count();
 		}
 		/// Calls the method in the base class.
-		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t i) const {
+		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(u32 i) const {
 			return dxil_reflection::get_resource_binding_at_index(i);
 		}
 
 		/// Calls the method in the base class.
-		[[nodiscard]] std::uint32_t get_render_target_count() const {
+		[[nodiscard]] u32 get_render_target_count() const {
 			return dxil_reflection::get_render_target_count();
 		}
 
@@ -70,11 +70,11 @@ namespace lotus::gpu::backends::metal {
 		}
 
 		/// Calls the method in the base class.
-		[[nodiscard]] std::uint32_t get_num_shaders() const {
+		[[nodiscard]] u32 get_num_shaders() const {
 			return dxil_library_reflection::get_num_shaders();
 		}
 		/// Calls the method in the base class.
-		[[nodiscard]] shader_reflection get_shader_at(std::uint32_t i) const {
+		[[nodiscard]] shader_reflection get_shader_at(u32 i) const {
 			return shader_reflection(dxil_library_reflection::get_shader_at(i));
 		}
 		/// Calls the method in the base class.
@@ -98,7 +98,7 @@ namespace lotus::gpu::backends::metal {
 		/// Describes a vertex input attribute.
 		struct _vertex_input_attribute {
 			std::u8string name; ///< The semantic of this attribute.
-			std::uint8_t attribute_index; ///< The index of this attribute.
+			u8 attribute_index; ///< The index of this attribute.
 		};
 
 		NS::SharedPtr<MTL::Library> _lib; ///< The Metal library.

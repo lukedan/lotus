@@ -443,7 +443,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 			result
 				.setAspectMask(to_image_aspect_flags(id.aspects))
 				.setBaseMipLevel(id.mips.first_level)
-				.setLevelCount(id.mips.get_num_levels_as<std::uint32_t>().value_or(VK_REMAINING_MIP_LEVELS))
+				.setLevelCount(id.mips.get_num_levels_as<u32>().value_or(VK_REMAINING_MIP_LEVELS))
 				.setBaseArrayLayer(id.first_array_slice)
 				.setLayerCount(id.num_array_slices);
 			return result;
@@ -454,7 +454,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 			result
 				.setAspectMask(aspects)
 				.setBaseMipLevel(mips.first_level)
-				.setLevelCount(mips.get_num_levels_as<std::uint32_t>().value_or(VK_REMAINING_MIP_LEVELS))
+				.setLevelCount(mips.get_num_levels_as<u32>().value_or(VK_REMAINING_MIP_LEVELS))
 				.setBaseArrayLayer(0)
 				.setLayerCount(1);
 			return result;
@@ -470,7 +470,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::StencilOpState to_stencil_op_state(
-			const stencil_options &op, std::uint32_t cmp_mask, std::uint32_t write_mask
+			const stencil_options &op, u32 cmp_mask, u32 write_mask
 		) {
 			vk::StencilOpState result;
 			result
@@ -494,14 +494,14 @@ namespace lotus::gpu::backends::vulkan::_details {
 			});
 			return result;
 		}
-		/// Implementation for \ref to_clear_value() for \ref cvec4<std::uint64_t>.
-		[[nodiscard]] static vk::ClearValue _to_clear_value_impl(const cvec4<std::uint64_t> &vec) {
+		/// Implementation for \ref to_clear_value() for \ref cvec4<u64>.
+		[[nodiscard]] static vk::ClearValue _to_clear_value_impl(const cvec4<u64> &vec) {
 			vk::ClearValue result;
-			result.setColor(std::array<std::uint32_t, 4>{
-				static_cast<std::uint32_t>(vec[0]),
-				static_cast<std::uint32_t>(vec[1]),
-				static_cast<std::uint32_t>(vec[2]),
-				static_cast<std::uint32_t>(vec[3]),
+			result.setColor(std::array<u32, 4>{
+				static_cast<u32>(vec[0]),
+				static_cast<u32>(vec[1]),
+				static_cast<u32>(vec[2]),
+				static_cast<u32>(vec[3]),
 			});
 			return result;
 		}
@@ -513,7 +513,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 
 
 		[[nodiscard]] constexpr static std::array<
-			std::pair<format, vk::Format>, static_cast<std::size_t>(format::num_enumerators)
+			std::pair<format, vk::Format>, static_cast<usize>(format::num_enumerators)
 		> _get_sorted_format_table() {
 			std::array result = _format_table.get_raw_table();
 			std::sort(result.begin(), result.end(), [](const auto &lhs, const auto &rhs) constexpr {
@@ -605,7 +605,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 
 	namespace create_info {
 		vk::ImageCreateInfo for_image2d(
-			cvec2u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
+			cvec2u32 size, u32 mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
 		) {
 			vk::ImageCreateInfo img_info;
 			img_info
@@ -623,7 +623,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		}
 
 		vk::ImageCreateInfo for_image3d(
-			cvec3u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
+			cvec3u32 size, u32 mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
 		) {
 			vk::ImageCreateInfo img_info;
 			img_info

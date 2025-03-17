@@ -67,7 +67,7 @@ namespace lotus::system::platforms::windows::_details {
 	/// Mapping from virtual key codes to \ref key enums.
 	static constexpr _key_mapping_table_t _key_mapping_table = _get_key_mapping_table();
 	key virtual_keycode_to_key(int k) {
-		if (k >= 0 && static_cast<std::size_t>(k) < _key_mapping_table.size()) {
+		if (k >= 0 && static_cast<usize>(k) < _key_mapping_table.size()) {
 			return _key_mapping_table[k];
 		}
 		return key::unknown;

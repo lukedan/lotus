@@ -23,7 +23,7 @@ namespace lotus::gpu::backends::vulkan {
 		// TODO allocator
 		std::vector<vk::AccelerationStructureGeometryKHR> _geometries; ///< The list of geometries.
 		// TODO allocator
-		std::vector<std::uint32_t> _pimitive_counts; ///< Primitive counts.
+		std::vector<u32> _pimitive_counts; ///< Primitive counts.
 		vk::AccelerationStructureBuildGeometryInfoKHR _build_info; ///< Acceleration structure build info.
 	};
 

@@ -88,7 +88,7 @@ namespace lotus::system::dear_imgui {
 		context() {
 		}
 
-		std::uint32_t _mouse_buttons = 0; ///< Bit mask of all mouse buttons that are being held.
+		u32 _mouse_buttons = 0; ///< Bit mask of all mouse buttons that are being held.
 
 		/// Mapping from \ref key enum values to \p ImGuiKey enum values.
 		constexpr static enums::sequential_mapping<key, ImGuiKey> _key_mapping{

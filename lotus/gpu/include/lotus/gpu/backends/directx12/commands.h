@@ -57,16 +57,16 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p ID3D12GraphicsCommandList::SetPipelineState().
 		void bind_pipeline_state(const compute_pipeline_state&);
 		/// Calls \p ID3D12GraphicsCommandList::IASetVertexBuffers().
-		void bind_vertex_buffers(std::size_t, std::span<const vertex_buffer>);
+		void bind_vertex_buffers(usize, std::span<const vertex_buffer>);
 		/// Calls \p ID3D12GraphicsCommandList::IASetIndexBuffer().
-		void bind_index_buffer(const buffer&, std::size_t offset_bytes, index_format);
+		void bind_index_buffer(const buffer&, usize offset_bytes, index_format);
 		/// Calls \p ID3D12GraphicsCommandList::SetGraphicsRootDescriptorTable() for all given descriptor sets.
 		void bind_graphics_descriptor_sets(
-			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
 		);
 		/// Calls \p ID3D12GraphicsCommandList::SetComputeRootDescriptorTable() for all given descriptor sets.
 		void bind_compute_descriptor_sets(
-			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
 		);
 		/// Calls \p ID3D12GraphicsCommandList::RSSetViewports().
 		void set_viewports(std::span<const viewport>);
@@ -74,30 +74,30 @@ namespace lotus::gpu::backends::directx12 {
 		void set_scissor_rectangles(std::span<const aab2i>);
 
 		/// Calls \p ID3D12GraphicsCommandList::CopyBufferRegion().
-		void copy_buffer(const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size);
+		void copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size);
 		/// Calls \p ID3D12GraphicsCommandList::CopyTextureRegion().
 		void copy_image2d(
 			image2d &from, subresource_index sub1, aab2u32 region, image2d &to, subresource_index sub2, cvec2u32 off
 		);
 		/// Calls \p ID3D12GraphicsCommandList::CopyTextureRegion().
 		void copy_buffer_to_image(
-			const buffer &from, std::size_t byte_offset, staging_buffer_metadata,
+			const buffer &from, usize byte_offset, staging_buffer_metadata,
 			image2d &to, subresource_index subresource, cvec2u32 off
 		);
 
 		/// Calls \p ID3D12GraphicsCommandList::DrawInstanced().
 		void draw_instanced(
-			std::size_t first_vertex, std::size_t vertex_count,
-			std::size_t first_instance, std::size_t instance_count
+			usize first_vertex, usize vertex_count,
+			usize first_instance, usize instance_count
 		);
 		/// Calls \p ID3D12GraphicsCommandList::DrawIndexedInstanced().
 		void draw_indexed_instanced(
-			std::size_t first_index, std::size_t index_count,
-			std::size_t first_vertex,
-			std::size_t first_instance, std::size_t instance_count
+			usize first_index, usize index_count,
+			usize first_vertex,
+			usize first_instance, usize instance_count
 		);
 		/// Calls \p ID3D12GraphicsCommandList::Dispatch().
-		void run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z);
+		void run_compute_shader(u32 x, u32 y, u32 z);
 
 		/// Calls \p ID3D12GraphicsCommandList::ResourceBarrier() to insert a resource barrier.
 		void resource_barrier(std::span<const image_barrier>, std::span<const buffer_barrier>);
@@ -106,10 +106,10 @@ namespace lotus::gpu::backends::directx12 {
 		void end_pass();
 
 		/// Calls \p ID3D12GraphicsCommandList::EndQuery().
-		void query_timestamp(timestamp_query_heap&, std::uint32_t index);
+		void query_timestamp(timestamp_query_heap&, u32 index);
 		/// Transitions the barrier to the \p COPY_DEST state, calls
 		/// \ref ID3D12GraphicsCommandList::ResolveQueryData(), then transitions it back to the \p COMMON state.
-		void resolve_queries(timestamp_query_heap&, std::uint32_t first, std::uint32_t count);
+		void resolve_queries(timestamp_query_heap&, u32 first, u32 count);
 
 		/// Calls \p PIXSetMarker().
 		void insert_marker(const char8_t*, linear_rgba_u8);
@@ -125,19 +125,19 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p ID3D12GraphicsCommandList4::BuildRaytracingAccelerationStructure().
 		void build_acceleration_structure(
 			const bottom_level_acceleration_structure_geometry&,
-			bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+			bottom_level_acceleration_structure &output, buffer &scratch, usize scratch_offset
 		);
 		/// Calls \p ID3D12GraphicsCommandList4::BuildRaytracingAccelerationStructure().
 		void build_acceleration_structure(
-			const buffer &instances, std::size_t offset, std::size_t count,
-			top_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+			const buffer &instances, usize offset, usize count,
+			top_level_acceleration_structure &output, buffer &scratch, usize scratch_offset
 		);
 
 		/// Calls \p ID3D12GraphicsCommandList4::SetPipelineState1().
 		void bind_pipeline_state(const raytracing_pipeline_state&);
 		/// This is the same as \ref bind_compute_descriptor_sets().
 		void bind_ray_tracing_descriptor_sets(
-			const pipeline_resources &rsrc, std::size_t first, std::span<const gpu::descriptor_set *const> sets
+			const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
 		) {
 			bind_compute_descriptor_sets(rsrc, first, sets);
 		}
@@ -145,7 +145,7 @@ namespace lotus::gpu::backends::directx12 {
 		void trace_rays(
 			constant_buffer_view ray_geneneration,
 			shader_record_view miss_shaders, shader_record_view hit_groups,
-			std::size_t width, std::size_t height, std::size_t depth
+			usize width, usize height, usize depth
 		);
 
 		/// Returns whether this object holds a valid command list.

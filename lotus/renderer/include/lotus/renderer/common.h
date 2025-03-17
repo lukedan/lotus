@@ -170,7 +170,7 @@ namespace lotus::renderer {
 	};
 
 	/// Used to uniquely identify a resource.
-	enum class unique_resource_id : std::uint64_t {
+	enum class unique_resource_id : u64 {
 		invalid = 0 ///< An invalid ID.
 	};
 }
@@ -182,7 +182,7 @@ namespace lotus::index {
 
 namespace lotus::renderer {
 	/// Used to mark the order of commands globally (i.e., between batches).
-	enum class global_submission_index : std::uint32_t {
+	enum class global_submission_index : u32 {
 		zero = 0, ///< Zero.
 		max = std::numeric_limits<std::underlying_type_t<global_submission_index>>::max(), ///< Maximum value.
 	};
@@ -195,7 +195,7 @@ namespace lotus::index {
 
 namespace lotus::renderer {
 	/// Used to mark the order of comands on a single queue within a batch.
-	enum class queue_submission_index : std::uint32_t {
+	enum class queue_submission_index : u32 {
 		zero = 0, ///< Zero.
 		invalid = std::numeric_limits<std::underlying_type_t<queue_submission_index>>::max() ///< Invalid index.
 	};
@@ -208,7 +208,7 @@ namespace lotus::index {
 
 namespace lotus::renderer {
 	/// The index of a batch.
-	enum class batch_index : std::uint32_t {
+	enum class batch_index : u32 {
 		zero = 0, ///< Zero. This index will never be used by batches, since their indices start with 1.
 	};
 }
@@ -311,12 +311,12 @@ namespace lotus::renderer {
 				queue_command_index(queue_submission_index::invalid) {
 			}
 			/// Initializes all fields of this struct.
-			constexpr basic_access_event(Access acc, std::uint32_t qi, batch_index b, queue_submission_index qsi) :
+			constexpr basic_access_event(Access acc, u32 qi, batch_index b, queue_submission_index qsi) :
 				access(acc), queue_index(qi), batch(b), queue_command_index(qsi) {
 			}
 
 			Access access; ///< How the resource is accessed.
-			std::uint32_t queue_index; ///< The queue on which this access happened.
+			u32 queue_index; ///< The queue on which this access happened.
 			batch_index batch; ///< Batch index associated with the event.
 			queue_submission_index queue_command_index; ///< Queue submission index associated with the event.
 		};

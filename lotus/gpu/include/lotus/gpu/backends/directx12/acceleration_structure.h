@@ -57,7 +57,7 @@ namespace lotus::gpu::backends::directx12 {
 		}
 	private:
 		_details::com_ptr<ID3D12Resource> _buffer; ///< The buffer.
-		std::size_t _offset; ///< Offset in bytes from the beginning of the buffer.
+		usize _offset; ///< Offset in bytes from the beginning of the buffer.
 	};
 
 	/// Contains a buffer and an offset in the buffer to the acceleration structure.
@@ -75,6 +75,6 @@ namespace lotus::gpu::backends::directx12 {
 		}
 	private:
 		_details::com_ptr<ID3D12Resource> _buffer; ///< The buffer.
-		std::size_t _offset; ///< Offset in bytes from the beginning of the buffer.
+		usize _offset; ///< Offset in bytes from the beginning of the buffer.
 	};
 }

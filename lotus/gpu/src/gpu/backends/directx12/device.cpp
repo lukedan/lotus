@@ -16,7 +16,7 @@
 namespace lotus::gpu::backends::directx12 {
 	back_buffer_info device::acquire_back_buffer(swap_chain &s) {
 		back_buffer_info result = uninitialized;
-		result.index        = static_cast<std::uint32_t>(s._swap_chain->GetCurrentBackBufferIndex());
+		result.index        = static_cast<u32>(s._swap_chain->GetCurrentBackBufferIndex());
 		result.on_presented = s._synchronization[result.index].notify_fence;
 		result.status       = swap_chain_status::ok;
 		return result;
@@ -64,7 +64,7 @@ namespace lotus::gpu::backends::directx12 {
 	) {
 		descriptor_set_layout result = nullptr;
 		result._ranges.resize(ranges.size());
-		for (std::size_t i = 0; i < ranges.size(); ++i) {
+		for (usize i = 0; i < ranges.size(); ++i) {
 			auto &dst = result._ranges[i];
 			const auto &src = ranges[i];
 			dst = {};
@@ -85,7 +85,7 @@ namespace lotus::gpu::backends::directx12 {
 			}
 		);
 		{ // assign descriptor indices
-			std::size_t unbounded_index = result._ranges.size(); // index of the range with unbounded size
+			usize unbounded_index = result._ranges.size(); // index of the range with unbounded size
 			UINT total_count = 0;
 			auto it = result._ranges.begin();
 			for (; it != result._ranges.end() && it->RangeType != D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER; ++it) {
@@ -141,7 +141,7 @@ namespace lotus::gpu::backends::directx12 {
 				memory::stack_allocator::vector_type<D3D12_DESCRIPTOR_RANGE1>
 			>(sets.size() * 2);
 
-			for (std::size_t i = 0; i < sets.size(); ++i) {
+			for (usize i = 0; i < sets.size(); ++i) {
 				// here we're emulating Vulkan style - the i-th register space points to two tables, one for shader
 				// resources and one for samplers
 				auto &set = *static_cast<const descriptor_set_layout*>(sets[i]);
@@ -155,7 +155,7 @@ namespace lotus::gpu::backends::directx12 {
 					for (auto &range : shader_resource_table) {
 						range.RegisterSpace = static_cast<UINT>(i);
 					}
-					indices[i].resource_index = static_cast<std::uint8_t>(root_params.size());
+					indices[i].resource_index = static_cast<u8>(root_params.size());
 					auto &root_param = root_params.emplace_back();
 					root_param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 					root_param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(shader_resource_table.size());
@@ -172,7 +172,7 @@ namespace lotus::gpu::backends::directx12 {
 					for (auto &range : sampler_table) {
 						range.RegisterSpace = static_cast<UINT>(i);
 					}
-					indices[i].sampler_index = static_cast<std::uint8_t>(root_params.size());
+					indices[i].sampler_index = static_cast<u8>(root_params.size());
 					auto &root_param = root_params.emplace_back();
 					root_param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 					root_param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(sampler_table.size());
@@ -221,7 +221,7 @@ namespace lotus::gpu::backends::directx12 {
 		std::span<const input_buffer_layout> input_buffers,
 		primitive_topology topology,
 		const frame_buffer_layout &fb_layout,
-		[[maybe_unused]] std::size_t num_viewports
+		[[maybe_unused]] usize num_viewports
 	) {
 		auto bookmark = get_scratch_bookmark();
 
@@ -251,7 +251,7 @@ namespace lotus::gpu::backends::directx12 {
 		desc.DepthStencilState = _details::conversions::to_depth_stencil_description(depth_stencil);
 
 		// gather & convert input buffer
-		std::size_t total_elements = 0;
+		usize total_elements = 0;
 		for (auto &buf : input_buffers) {
 			total_elements += buf.elements.size();
 		}
@@ -275,7 +275,7 @@ namespace lotus::gpu::backends::directx12 {
 		desc.PrimitiveTopologyType          = _details::conversions::to_primitive_topology_type(topology);
 
 		desc.NumRenderTargets = static_cast<UINT>(fb_layout.color_render_target_formats.size());
-		for (std::size_t i = 0; i < fb_layout.color_render_target_formats.size(); ++i) {
+		for (usize i = 0; i < fb_layout.color_render_target_formats.size(); ++i) {
 			desc.RTVFormats[i] = _details::conversions::to_format(fb_layout.color_render_target_formats[i]);
 		}
 		desc.DSVFormat                       =
@@ -315,7 +315,7 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
-	descriptor_pool device::create_descriptor_pool(std::span<const descriptor_range> /*ranges*/, std::size_t) {
+	descriptor_pool device::create_descriptor_pool(std::span<const descriptor_range> /*ranges*/, usize) {
 		descriptor_pool result = nullptr;
 		// TODO set max values
 		return result;
@@ -350,7 +350,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	descriptor_set device::create_descriptor_set(
-		descriptor_pool&, const descriptor_set_layout &layout, std::size_t dynamic_count
+		descriptor_pool&, const descriptor_set_layout &layout, usize dynamic_count
 	) {
 		// check that we do have unbounded ranges
 		if constexpr (is_debugging) {
@@ -390,7 +390,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_read_only_images(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		std::size_t first_register, std::span<const image_view_base *const> images
+		usize first_register, std::span<const image_view_base *const> images
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, images.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -423,7 +423,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_read_write_images(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		std::size_t first_register, std::span<const image_view_base *const> images
+		usize first_register, std::span<const image_view_base *const> images
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, first_register, images.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -453,7 +453,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_read_only_structured_buffers(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		std::size_t first_register, std::span<const structured_buffer_view> buffers
+		usize first_register, std::span<const structured_buffer_view> buffers
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, buffers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -482,7 +482,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_read_write_structured_buffers(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		std::size_t first_register, std::span<const structured_buffer_view> buffers
+		usize first_register, std::span<const structured_buffer_view> buffers
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, first_register, buffers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -511,7 +511,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_constant_buffers(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		std::size_t first_register, std::span<const constant_buffer_view> buffers
+		usize first_register, std::span<const constant_buffer_view> buffers
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, first_register, buffers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -536,7 +536,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_samplers(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		std::size_t first_register, std::span<const gpu::sampler *const> samplers
+		usize first_register, std::span<const gpu::sampler *const> samplers
 	) {
 		auto range_it = layout._find_register_range(
 			D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, first_register, samplers.size()
@@ -570,7 +570,7 @@ namespace lotus::gpu::backends::directx12 {
 		return _default_memory_types;
 	}
 
-	memory_block device::allocate_memory(std::size_t size, memory_type_index memid) {
+	memory_block device::allocate_memory(usize size, memory_type_index memid) {
 		memory_block result;
 		D3D12_HEAP_DESC desc = {};
 		desc.SizeInBytes     = size;
@@ -585,7 +585,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	buffer device::create_committed_buffer(
-		std::size_t size, memory_type_index mem_id, buffer_usage_mask all_usages
+		usize size, memory_type_index mem_id, buffer_usage_mask all_usages
 	) {
 		buffer result = nullptr;
 		auto heap_type = static_cast<D3D12_HEAP_TYPE>(mem_id);
@@ -601,7 +601,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	image2d device::create_committed_image2d(
-		cvec2u32 size, std::uint32_t mip_levels,
+		cvec2u32 size, u32 mip_levels,
 		format fmt, image_tiling tiling, image_usage_mask all_usages
 	) {
 		image2d result = nullptr;
@@ -617,7 +617,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	image3d device::create_committed_image3d(
-		cvec3u32 size, std::uint32_t mip_levels,
+		cvec3u32 size, u32 mip_levels,
 		format fmt, image_tiling tiling, image_usage_mask all_usages
 	) {
 		image3d result = nullptr;
@@ -632,7 +632,7 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
-	std::tuple<buffer, staging_buffer_metadata, std::size_t> device::create_committed_staging_buffer(
+	std::tuple<buffer, staging_buffer_metadata, usize> device::create_committed_staging_buffer(
 		cvec2u32 size, format fmt, memory_type_index mem_id, buffer_usage_mask all_usages
 	) {
 		// TODO will different usages affect size calculation?
@@ -644,7 +644,7 @@ namespace lotus::gpu::backends::directx12 {
 		_device->GetCopyableFootprints1(&image_desc, 0, 1, 0, &footprint, nullptr, nullptr, &total_bytes);
 		assert(footprint.Offset == 0); // assume we always start immediatly - no reason not to
 
-		buffer result = create_committed_buffer(static_cast<std::size_t>(total_bytes), mem_id, all_usages);
+		buffer result = create_committed_buffer(static_cast<usize>(total_bytes), mem_id, all_usages);
 		staging_buffer_metadata result_meta = uninitialized;
 		result_meta.image_size         = size;
 		result_meta.row_pitch_in_bytes = footprint.Footprint.RowPitch;
@@ -653,7 +653,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	memory::size_alignment device::get_image2d_memory_requirements(
-		cvec2u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
+		cvec2u32 size, u32 mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
 	) {
 		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image2d(size, mip_levels, fmt, tiling, usages);
 		D3D12_RESOURCE_ALLOCATION_INFO1 info = {};
@@ -662,7 +662,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	memory::size_alignment device::get_image3d_memory_requirements(
-		cvec3u32 size, std::uint32_t mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
+		cvec3u32 size, u32 mip_levels, format fmt, image_tiling tiling, image_usage_mask usages
 	) {
 		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image3d(size, mip_levels, fmt, tiling, usages);
 		D3D12_RESOURCE_ALLOCATION_INFO1 info = {};
@@ -670,7 +670,7 @@ namespace lotus::gpu::backends::directx12 {
 		return memory::size_alignment(info.SizeInBytes, info.Alignment);
 	}
 
-	memory::size_alignment device::get_buffer_memory_requirements(std::size_t size, buffer_usage_mask usages) {
+	memory::size_alignment device::get_buffer_memory_requirements(usize size, buffer_usage_mask usages) {
 		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_buffer(size, usages);
 		D3D12_RESOURCE_ALLOCATION_INFO1 info = {};
 		_device->GetResourceAllocationInfo2(0, 1, &desc, &info);
@@ -678,7 +678,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	buffer device::create_placed_buffer(
-		std::size_t size, buffer_usage_mask usages, const memory_block &mem, std::size_t offset
+		usize size, buffer_usage_mask usages, const memory_block &mem, usize offset
 	) {
 		buffer result = nullptr;
 		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_buffer(size, usages);
@@ -690,8 +690,8 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	image2d device::create_placed_image2d(
-		cvec2u32 size, std::uint32_t mip_levels,
-		format fmt, image_tiling tiling, image_usage_mask usages, const memory_block &mem, std::size_t offset
+		cvec2u32 size, u32 mip_levels,
+		format fmt, image_tiling tiling, image_usage_mask usages, const memory_block &mem, usize offset
 	) {
 		image2d result = nullptr;
 		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image2d(size, mip_levels, fmt, tiling, usages);
@@ -703,8 +703,8 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	image3d device::create_placed_image3d(
-		cvec3u32 size, std::uint32_t mip_levels,
-		format fmt, image_tiling tiling, image_usage_mask usages, const memory_block &mem, std::size_t offset
+		cvec3u32 size, u32 mip_levels,
+		format fmt, image_tiling tiling, image_usage_mask usages, const memory_block &mem, usize offset
 	) {
 		image3d result = nullptr;
 		D3D12_RESOURCE_DESC1 desc = _details::resource_desc::for_image3d(size, mip_levels, fmt, tiling, usages);
@@ -730,7 +730,7 @@ namespace lotus::gpu::backends::directx12 {
 		buf._buffer->Unmap(0, nullptr);
 	}
 
-	void device::flush_mapped_buffer_to_host(buffer &buf, std::size_t begin, std::size_t length) {
+	void device::flush_mapped_buffer_to_host(buffer &buf, usize begin, usize length) {
 		D3D12_RANGE range;
 		range.Begin = static_cast<SIZE_T>(begin);
 		range.End   = static_cast<SIZE_T>(begin + length);
@@ -738,7 +738,7 @@ namespace lotus::gpu::backends::directx12 {
 		++buf._flush_maps;
 	}
 
-	void device::flush_mapped_buffer_to_device(buffer &buf, std::size_t begin, std::size_t length) {
+	void device::flush_mapped_buffer_to_device(buffer &buf, usize begin, usize length) {
 		if (buf._flush_maps > 0) { // consume a map operation if possible
 			--buf._flush_maps;
 		} else {
@@ -845,7 +845,7 @@ namespace lotus::gpu::backends::directx12 {
 		frame_buffer result(*this);
 		result._color_formats.resize(color.size());
 		result._color = _rtv_descriptors.allocate(static_cast<_details::descriptor_range::index_t>(color.size()));
-		for (std::size_t i = 0; i < color.size(); ++i) {
+		for (usize i = 0; i < color.size(); ++i) {
 			crash_if(!_is_single_srv_subresource(*color[i]));
 			D3D12_RENDER_TARGET_VIEW_DESC desc = {};
 			desc.Format               = color[i]->_srv_desc.Format;
@@ -908,7 +908,7 @@ namespace lotus::gpu::backends::directx12 {
 		_details::assert_dx(sem._semaphore->SetEventOnCompletion(val, nullptr));
 	}
 
-	timestamp_query_heap device::create_timestamp_query_heap(std::uint32_t size) {
+	timestamp_query_heap device::create_timestamp_query_heap(u32 size) {
 		timestamp_query_heap result = nullptr;
 
 		D3D12_QUERY_HEAP_DESC desc = {};
@@ -929,16 +929,16 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void device::fetch_query_results(
-		timestamp_query_heap &h, std::uint32_t first, std::span<std::uint64_t> results
+		timestamp_query_heap &h, u32 first, std::span<u64> results
 	) {
 		D3D12_RANGE read_range;
-		read_range.Begin = sizeof(std::uint64_t) * first;
-		read_range.End   = sizeof(std::uint64_t) * (first + results.size());
+		read_range.Begin = sizeof(u64) * first;
+		read_range.End   = sizeof(u64) * (first + results.size());
 		void *data = nullptr;
 		_details::assert_dx(h._resource->Map(0, &read_range, &data), _device.Get());
 
-		for (std::size_t i = 0; i < results.size(); ++i) {
-			results[i] = static_cast<const std::uint64_t*>(data)[i + first];
+		for (usize i = 0; i < results.size(); ++i) {
+			results[i] = static_cast<const u64*>(data)[i + first];
 		}
 
 		h._resource->Unmap(0, nullptr);
@@ -987,12 +987,12 @@ namespace lotus::gpu::backends::directx12 {
 
 	instance_description device::get_bottom_level_acceleration_structure_description(
 		bottom_level_acceleration_structure &as,
-		mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
+		mat44f trans, u32 id, u8 mask, u32 hit_group_offset,
 		raytracing_instance_flags flags
 	) const {
 		instance_description result = uninitialized;
-		for (std::size_t row = 0; row < 3; ++row) {
-			for (std::size_t col = 0; col < 4; ++col) {
+		for (usize row = 0; row < 3; ++row) {
+			for (usize col = 0; col < 4; ++col) {
 				result._desc.Transform[row][col] = trans(row, col);
 			}
 		}
@@ -1019,7 +1019,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	acceleration_structure_build_sizes device::get_top_level_acceleration_structure_build_sizes(
-		std::size_t instance_count
+		usize instance_count
 	) {
 		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
 		inputs.Type          = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
@@ -1040,7 +1040,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	bottom_level_acceleration_structure device::create_bottom_level_acceleration_structure(
-		buffer &buf, std::size_t off, std::size_t // size doesn't matter
+		buffer &buf, usize off, usize // size doesn't matter
 	) {
 		bottom_level_acceleration_structure res = nullptr;
 		res._buffer = buf._buffer;
@@ -1049,7 +1049,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	top_level_acceleration_structure device::create_top_level_acceleration_structure(
-		buffer &buf, std::size_t off, std::size_t // size doesn't matter
+		buffer &buf, usize off, usize // size doesn't matter
 	) {
 		top_level_acceleration_structure res = nullptr;
 		res._buffer = buf._buffer;
@@ -1058,7 +1058,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void device::write_descriptor_set_acceleration_structures(
-		descriptor_set &set, const descriptor_set_layout &layout, std::size_t first_register,
+		descriptor_set &set, const descriptor_set_layout &layout, usize first_register,
 		std::span<gpu::top_level_acceleration_structure *const> as
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, as.size());
@@ -1079,7 +1079,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	shader_group_handle device::get_shader_group_handle(
-		const raytracing_pipeline_state &pipeline, std::size_t index
+		const raytracing_pipeline_state &pipeline, usize index
 	) {
 		shader_group_handle result = uninitialized;
 		void *ptr = pipeline._properties->GetShaderIdentifier(_details::shader_record_name(index));
@@ -1091,7 +1091,7 @@ namespace lotus::gpu::backends::directx12 {
 	raytracing_pipeline_state device::create_raytracing_pipeline_state(
 		std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group> hit_groups,
 		std::span<const shader_function> general_shaders,
-		std::size_t max_recursion, std::size_t max_payload_size, std::size_t max_attribute_size,
+		usize max_recursion, usize max_payload_size, usize max_attribute_size,
 		const pipeline_resources &rsrc
 	) {
 		raytracing_pipeline_state result = nullptr;
@@ -1099,7 +1099,7 @@ namespace lotus::gpu::backends::directx12 {
 		result._descriptor_table_binding = rsrc._descriptor_table_binding;
 		result._root_signature = rsrc._signature;
 
-		std::size_t num_subobjects = hit_group_shaders.size() + hit_groups.size() + general_shaders.size() + 3;
+		usize num_subobjects = hit_group_shaders.size() + hit_groups.size() + general_shaders.size() + 3;
 
 		auto bookmark = get_scratch_bookmark();
 		auto subobjects = bookmark.create_reserved_vector_array<D3D12_STATE_SUBOBJECT>(num_subobjects);
@@ -1132,7 +1132,7 @@ namespace lotus::gpu::backends::directx12 {
 
 		// shaders
 		// these arrays must be reserved or the objects may be moved and cause pointers to be invalidated
-		std::size_t num_shaders = hit_group_shaders.size() + general_shaders.size();
+		usize num_shaders = hit_group_shaders.size() + general_shaders.size();
 		auto shader_libs = bookmark.create_reserved_vector_array<D3D12_DXIL_LIBRARY_DESC>(num_shaders);
 		auto shader_exports = bookmark.create_reserved_vector_array<D3D12_EXPORT_DESC>(num_shaders);
 		auto shader_names = bookmark.create_reserved_vector_array<
@@ -1159,13 +1159,13 @@ namespace lotus::gpu::backends::directx12 {
 			obj.pDesc = &lib;
 		};
 		// hit group shaders
-		for (std::size_t i = 0; i < hit_group_shaders.size(); ++i) {
+		for (usize i = 0; i < hit_group_shaders.size(); ++i) {
 			add_shader(hit_group_shaders[i], _details::shader_name(i));
 		}
 
 		// hit groups
 		auto hit_shader_groups = bookmark.create_reserved_vector_array<D3D12_HIT_GROUP_DESC>(hit_groups.size());
-		for (std::size_t i = 0; i < hit_groups.size(); ++i) {
+		for (usize i = 0; i < hit_groups.size(); ++i) {
 			const auto &group = hit_groups[i];
 
 			auto &gp = hit_shader_groups.emplace_back();
@@ -1185,7 +1185,7 @@ namespace lotus::gpu::backends::directx12 {
 		}
 
 		// general shaders
-		for (std::size_t i = 0; i < general_shaders.size(); ++i) {
+		for (usize i = 0; i < general_shaders.size(); ++i) {
 			add_shader(general_shaders[i], _details::shader_record_name(i + hit_groups.size()));
 		}
 
@@ -1251,7 +1251,7 @@ namespace lotus::gpu::backends::directx12 {
 
 		// create queues
 		std::vector<command_queue> qs(queues.size(), nullptr);
-		for (std::size_t i = 0; i < queues.size(); ++i) {
+		for (usize i = 0; i < queues.size(); ++i) {
 			D3D12_COMMAND_QUEUE_DESC desc = {};
 			desc.Type     = _details::conversions::to_command_list_type(queues[i]);
 			desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;

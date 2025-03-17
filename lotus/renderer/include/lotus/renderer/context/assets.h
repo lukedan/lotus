@@ -24,7 +24,7 @@ namespace lotus::renderer {
 			[[nodiscard]] friend bool operator==(const identifier&, const identifier&) = default;
 
 			/// Computes a hash for this identifier.
-			[[nodiscard]] std::size_t hash() const {
+			[[nodiscard]] usize hash() const {
 				return hash_combine(std::filesystem::hash_value(path), std::hash<std::u8string>()(subpath));
 			}
 
@@ -34,7 +34,7 @@ namespace lotus::renderer {
 
 		/// Type of the ID used to uniquely identify assets. Two assets may have the same identifier due to reloading
 		/// etc. but will not have the same unique ID. Valid unique ID's are nonzero.
-		enum class unique_id : std::uint32_t {
+		enum class unique_id : u32 {
 			invalid = 0 ///< Indicates an invalid asset.
 		};
 	}
@@ -62,7 +62,7 @@ namespace lotus::renderer {
 
 		/// ID of this asset. This will point to the key stored in the \p std::unordered_map.
 		const assets::identifier *_id = nullptr;
-		assets::unique_id _uid = assets::unique_id::invalid; ///< Unique ID to each asset. 
+		assets::unique_id _uid = assets::unique_id::invalid; ///< Unique ID to each asset.
 	};
 
 
@@ -129,7 +129,7 @@ namespace std {
 	/// Hash function for \ref lotus::renderer::assets::handle.
 	template <typename T> struct hash<lotus::renderer::assets::handle<T>> {
 		/// Hashes the given object.
-		[[nodiscard]] std::size_t operator()(const lotus::renderer::assets::handle<T> &h) const {
+		[[nodiscard]] size_t operator()(const lotus::renderer::assets::handle<T> &h) const {
 			return lotus::compute_hash(h.get().get_unique_id());
 		}
 	};
@@ -143,8 +143,8 @@ namespace lotus::renderer::assets {
 		}
 
 		image2d_view image; ///< The image.
-		std::uint32_t highest_mip_loaded = 0; ///< The highest mip that has been loaded.
-		std::uint32_t descriptor_index = 0; ///< Index of this texture in the global bindless descriptor table.
+		u32 highest_mip_loaded = 0; ///< The highest mip that has been loaded.
+		u32 descriptor_index = 0; ///< Index of this texture in the global bindless descriptor table.
 	};
 	/// A generic data buffer.
 	struct buffer {
@@ -212,23 +212,23 @@ namespace lotus::renderer::assets {
 			}
 			/// Creates a simple input buffer description, with the stide inferred from the pixel format.
 			[[nodiscard]] inline static input_buffer create_simple(
-				gpu::format f, std::uint32_t off, handle<buffer> d
+				gpu::format f, u32 off, handle<buffer> d
 			) {
 				return input_buffer(std::move(d), off, gpu::format_properties::get(f).bytes_per_fragment, f);
 			}
 
 			/// Creates a \ref input_buffer_binding from this buffer.
 			[[nodiscard]] input_buffer_binding into_input_buffer_binding(
-				const char8_t *semantic, std::uint32_t semantic_index, std::uint32_t binding_index
+				const char8_t *semantic, u32 semantic_index, u32 binding_index
 			) const;
 
 			handle<buffer> data; ///< Data of this input buffer.
-			std::uint32_t offset = 0; ///< Offset of the first element in bytes.
-			std::uint32_t stride = 0; ///< Stride between consecutive buffer elements in bytes.
+			u32 offset = 0; ///< Offset of the first element in bytes.
+			u32 stride = 0; ///< Stride between consecutive buffer elements in bytes.
 			gpu::format format = gpu::format::none; ///< Format of an element.
 		private:
 			/// Initializes all fields of this struct.
-			input_buffer(handle<buffer> d, std::uint32_t off, std::uint32_t str, gpu::format f) :
+			input_buffer(handle<buffer> d, u32 off, u32 str, gpu::format f) :
 				data(std::move(d)), offset(off), stride(str), format(f) {
 			}
 		};
@@ -266,11 +266,11 @@ namespace lotus::renderer::assets {
 		input_buffer uv_buffer;      ///< UV buffer.
 		input_buffer normal_buffer;  ///< Normal buffer.
 		input_buffer tangent_buffer; ///< Tangent buffer.
-		std::uint32_t num_vertices = 0; ///< Total number of vertices.
+		u32 num_vertices = 0; ///< Total number of vertices.
 
 		handle<buffer> index_buffer; ///< The index buffer.
-		std::uint32_t index_offset = 0; ///< Offset to the first index.
-		std::uint32_t num_indices  = 0; ///< Total number of indices.
+		u32 index_offset = 0; ///< Offset to the first index.
+		u32 num_indices  = 0; ///< Total number of indices.
 		gpu::index_format index_format = gpu::index_format::num_enumerators; ///< Format of indices.
 
 		/// Primitive topology.

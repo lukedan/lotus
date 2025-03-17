@@ -12,7 +12,7 @@
 namespace lotus::renderer::assimp {
 	/// Loads an input buffer.
 	template <
-		typename Desired, std::size_t NumChannels, typename Real, typename Cb
+		typename Desired, usize NumChannels, typename Real, typename Cb
 	> [[nodiscard]] static assets::geometry::input_buffer _load_input_buffer(
 		assets::manager &man,
 		assets::identifier id,
@@ -41,9 +41,9 @@ namespace lotus::renderer::assimp {
 			auto *d = reinterpret_cast<const std::byte*>(in_data.data());
 			buf = man.create_buffer(std::move(id), { d, d + sizeof(_vec_t) * in_data.size() }, usages, p);
 		}
-		std::uint8_t bits = sizeof(Desired) * 8;
-		std::uint8_t bits_per_channel[4] = { 0, 0, 0, 0 };
-		for (std::size_t i = 0; i < NumChannels; ++i) {
+		u8 bits = sizeof(Desired) * 8;
+		u8 bits_per_channel[4] = { 0, 0, 0, 0 };
+		for (usize i = 0; i < NumChannels; ++i) {
 			bits_per_channel[i] = bits;
 		}
 		auto fmt = gpu::format_properties::find_exact_rgba(
@@ -108,7 +108,7 @@ namespace lotus::renderer::assimp {
 			assets::geometry geom = nullptr;
 			geom.topology = gpu::primitive_topology::triangle_list;
 
-			geom.num_vertices = static_cast<std::uint32_t>(mesh->mNumVertices);
+			geom.num_vertices = static_cast<u32>(mesh->mNumVertices);
 			geom.vertex_buffer = _load_input_buffer<float, 3>(
 				_asset_manager,
 				assets::identifier(path, std::u8string(string::assume_utf8(std::format(
@@ -166,7 +166,7 @@ namespace lotus::renderer::assimp {
 			}
 
 			// load indices
-			std::vector<std::uint32_t> indices;
+			std::vector<u32> indices;
 			for (unsigned i_face = 0; i_face < mesh->mNumFaces; ++i_face) {
 				const aiFace &face = mesh->mFaces[i_face];
 				for (unsigned i_pt = 2; i_pt < face.mNumIndices; ++i_pt) {
@@ -176,12 +176,12 @@ namespace lotus::renderer::assimp {
 				}
 			}
 			const auto *indices_data = reinterpret_cast<const std::byte*>(indices.data());
-			geom.num_indices = static_cast<std::uint32_t>(indices.size());
+			geom.num_indices = static_cast<u32>(indices.size());
 			geom.index_buffer = _asset_manager.create_buffer(
 				assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 					"{}({}).indices", mesh->mName.C_Str(), i_geom
 				)))),
-				{ indices_data, indices_data + sizeof(std::uint32_t) * indices.size() },
+				{ indices_data, indices_data + sizeof(u32) * indices.size() },
 				gpu::buffer_usage_mask::index_buffer |
 				gpu::buffer_usage_mask::shader_read |
 				gpu::buffer_usage_mask::acceleration_structure_build_input,
@@ -279,7 +279,7 @@ namespace lotus::renderer::assimp {
 
 		// load lights
 		std::vector<shader_types::light> lights;
-		std::unordered_map<std::string, std::size_t> lights_mapping;
+		std::unordered_map<std::string, usize> lights_mapping;
 		if (light_loaded_callback) {
 			for (unsigned i = 0; i < scene->mNumLights; ++i) {
 				const aiLight *light = scene->mLights[i];

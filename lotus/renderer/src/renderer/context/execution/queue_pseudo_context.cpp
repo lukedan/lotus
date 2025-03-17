@@ -63,7 +63,7 @@ namespace lotus::renderer::execution {
 		short_vector<queue_submission_index, 4> dep_acquired_batch(_get_num_queues(), queue_submission_index::invalid);
 		short_vector<gpu::timeline_semaphore::value_type, 4> dep_acquired_prev(_get_num_queues(), 0);
 
-		for (std::size_t i = 0; i < _q.batch_commands.size(); ++i) {
+		for (usize i = 0; i < _q.batch_commands.size(); ++i) {
 			auto &actions = _cmd_ops[i].acquire_dependencies;
 			actions.resize(_get_num_queues(), std::nullopt);
 
@@ -110,7 +110,7 @@ namespace lotus::renderer::execution {
 			}
 
 			// mark all commands that need to release a dependency
-			for (std::uint32_t qi = 0; qi < _get_num_queues(); ++qi) {
+			for (u32 qi = 0; qi < _get_num_queues(); ++qi) {
 				std::visit(overloaded{
 					[&](queue_submission_index qsi) {
 						auto &cmd = _batch_ctx.get_queue_pseudo_context(qi)._cmd_ops[std::to_underlying(qsi)];
@@ -127,7 +127,7 @@ namespace lotus::renderer::execution {
 	void queue_pseudo_context::gather_semaphore_values() {
 		gpu::timeline_semaphore::value_type &value = _q.semaphore_value;
 		queue_context &qctx = _batch_ctx.get_queue_context(_get_queue_index());
-		for (std::size_t i = 0; i < _q.batch_commands.size(); ++i) {
+		for (usize i = 0; i < _q.batch_commands.size(); ++i) {
 			if (_cmd_ops[i].release_dependency) {
 				qctx._cmd_ops[i].release_dependency = ++value;
 			}
@@ -135,10 +135,10 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_pseudo_context::finalize_dependency_processing() {
-		for (std::size_t i = 0; i < _q.batch_commands.size(); ++i) {
+		for (usize i = 0; i < _q.batch_commands.size(); ++i) {
 			auto &batch_cmd_op = _batch_ctx.get_queue_context(_get_queue_index())._cmd_ops[i];
 			batch_cmd_op.acquire_dependencies.resize(_get_num_queues(), 0);
-			for (std::uint32_t qi = 0; qi < _get_num_queues(); ++qi) {
+			for (u32 qi = 0; qi < _get_num_queues(); ++qi) {
 				std::visit(overloaded{
 					[&](gpu::timeline_semaphore::value_type val) {
 						batch_cmd_op.acquire_dependencies[qi] = val;
@@ -474,7 +474,7 @@ namespace lotus::renderer::execution {
 	) {
 		constexpr bool _validate_descriptor_array = false;
 		if constexpr (_validate_descriptor_array) {
-			for (std::size_t i = 0; i < arr.resources.size(); ++i) {
+			for (usize i = 0; i < arr.resources.size(); ++i) {
 				const auto &rsrc = arr.resources[i];
 				if (rsrc.resource) {
 					crash_if(rsrc.resource._ptr->array_references.size() <= rsrc.reference_index);
@@ -737,8 +737,8 @@ namespace lotus::renderer::execution {
 		);
 
 		// update each mip and array slice individually
-		for (std::uint32_t array_slice = 0; array_slice < 1; ++array_slice) { // TODO: array slices
-			for (std::uint32_t mip = 0; mip < img.num_mips; ++mip) {
+		for (u32 array_slice = 0; array_slice < 1; ++array_slice) { // TODO: array slices
+			for (u32 mip = 0; mip < img.num_mips; ++mip) {
 				_details::image_access_event &prev_access = img.previous_access[array_slice][mip];
 
 				// check if this barrier can be safely skipped
@@ -869,22 +869,22 @@ namespace lotus::renderer::execution {
 		/*std::abort();*/
 	}
 
-	std::uint32_t queue_pseudo_context::_maybe_insert_timestamp() {
+	u32 queue_pseudo_context::_maybe_insert_timestamp() {
 		/*
 		if (!_valid_timestamp) {
 			_queue_ctx._timestamp_command_indices.emplace_back(_pseudo_cmd_index);
 			_valid_timestamp = true;
 		}
-		return static_cast<std::uint32_t>(_queue_ctx._timestamp_command_indices.size() - 1);
+		return static_cast<u32>(_queue_ctx._timestamp_command_indices.size() - 1);
 		*/
 		return 0;
 	}
 
-	std::uint32_t queue_pseudo_context::_get_num_queues() const {
+	u32 queue_pseudo_context::_get_num_queues() const {
 		return _q.ctx.get_num_queues();
 	}
 
-	std::uint32_t queue_pseudo_context::_get_queue_index() const {
+	u32 queue_pseudo_context::_get_queue_index() const {
 		return _q.queue.get_index();
 	}
 

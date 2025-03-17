@@ -56,7 +56,7 @@ namespace lotus::renderer {
 				renderer::context::queue&,
 				const renderer::buffer&,
 				std::span<const std::byte> data,
-				std::uint32_t offset = 0
+				u32 offset = 0
 			);
 			/// Wrapper for \ref upload_buffer() with typed contents.
 			template <
@@ -65,7 +65,7 @@ namespace lotus::renderer {
 				renderer::context::queue &q,
 				const renderer::buffer &buf,
 				std::span<const T> contents,
-				std::uint32_t offset_bytes = 0
+				u32 offset_bytes = 0
 			) {
 				auto *ptr = reinterpret_cast<const std::byte*>(contents.data());
 				return upload_buffer(q, buf, { ptr, ptr + contents.size_bytes() }, offset_bytes);
@@ -218,7 +218,7 @@ namespace lotus::renderer {
 			/// Hashes an \ref identifier.
 			struct _id_hash {
 				/// Calls \ref identifier::hash().
-				[[nodiscard]] std::size_t operator()(const identifier &id) const {
+				[[nodiscard]] usize operator()(const identifier &id) const {
 					return id.hash();
 				}
 			};
@@ -272,11 +272,11 @@ namespace lotus::renderer {
 						subresource(std::nullptr_t) {
 						}
 						/// Initializes all fields of this struct.
-						subresource(std::span<const std::byte> d, std::uint32_t m) : data(d), mip(m) {
+						subresource(std::span<const std::byte> d, u32 m) : data(d), mip(m) {
 						}
 
 						std::span<const std::byte> data; ///< Loaded data.
-						std::uint32_t mip = 0; ///< Mipmap index.
+						u32 mip = 0; ///< Mipmap index.
 					};
 
 					/// Initializes all fields of this struct.
@@ -368,16 +368,16 @@ namespace lotus::renderer {
 			);
 
 			/// Allocates a descriptor index.
-			[[nodiscard]] std::uint32_t _allocate_descriptor_index() {
+			[[nodiscard]] u32 _allocate_descriptor_index() {
 				if (_image2d_descriptor_index_alloc.size() == 1) {
 					return _image2d_descriptor_index_alloc[0]++;
 				}
-				std::uint32_t result = _image2d_descriptor_index_alloc.back();
+				u32 result = _image2d_descriptor_index_alloc.back();
 				_image2d_descriptor_index_alloc.pop_back();
 				return result;
 			}
 			/// Frees a descriptor index.
-			void _free_descriptor_index(std::uint32_t id) {
+			void _free_descriptor_index(u32 id) {
 				_image2d_descriptor_index_alloc.emplace_back(id);
 			}
 
@@ -401,7 +401,7 @@ namespace lotus::renderer {
 
 			image_descriptor_array _image2d_descriptors; ///< Bindless descriptor array of all images.
 			cached_descriptor_set _sampler_descriptors; ///< Descriptors of all samplers.
-			std::vector<std::uint32_t> _image2d_descriptor_index_alloc; ///< Used to allocate descriptor indices.
+			std::vector<u32> _image2d_descriptor_index_alloc; ///< Used to allocate descriptor indices.
 
 			handle<image2d> _invalid_image; ///< Handle of an image indicating "invalid image".
 			handle<image2d> _null_image; ///< Handle of an image indicating "null image".

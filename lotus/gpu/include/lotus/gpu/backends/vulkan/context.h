@@ -35,7 +35,7 @@ namespace lotus::gpu::backends::vulkan {
 		/// Creates a platform-specific surface for the window, then creates a swapchain using
 		/// \p createSwapchainKHRUnique().
 		[[nodiscard]] std::pair<swap_chain, format> create_swap_chain_for_window(
-			system::window&, device&, command_queue&, std::size_t frame_count, std::span<const format>
+			system::window&, device&, command_queue&, usize frame_count, std::span<const format>
 		);
 	private:
 		/// Initializes the context.

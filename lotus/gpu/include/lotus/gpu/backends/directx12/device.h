@@ -32,8 +32,8 @@ namespace lotus::gpu::backends::directx12 {
 		friend void descriptor_set::_free();
 	protected:
 		/// The capacity of \ref _rtv_descriptors and \ref _dsv_descriptors.
-		constexpr static std::size_t descriptor_heap_size = 524288;
-		constexpr static std::size_t sampler_heap_size = 2048;
+		constexpr static usize descriptor_heap_size = 524288;
+		constexpr static usize sampler_heap_size = 2048;
 
 		/// Does not create a device.
 		device(std::nullptr_t) {
@@ -73,46 +73,46 @@ namespace lotus::gpu::backends::directx12 {
 			std::span<const input_buffer_layout>,
 			primitive_topology,
 			const frame_buffer_layout&,
-			std::size_t num_viewports
+			usize num_viewports
 		);
 		/// Calls \p ID3D12Device::CreateComputePipelineState().
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(const pipeline_resources&, const shader_binary&);
 
 		/// Calls \p ID3D12Device::CreateDescriptorHeap().
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
-			std::span<const descriptor_range>, std::size_t max_num_sets
+			std::span<const descriptor_range>, usize max_num_sets
 		);
 		/// Allocates descriptors from the given descriptor pool.
 		[[nodiscard]] descriptor_set create_descriptor_set(descriptor_pool&, const descriptor_set_layout&);
 		/// Allocates descriptors from the given descriptor pool, for a descriptor set where one descriptor range has
 		/// a dynamically determined (unbounded) size.
 		[[nodiscard]] descriptor_set create_descriptor_set(
-			descriptor_pool&, const descriptor_set_layout&, std::size_t dynamic_count
+			descriptor_pool&, const descriptor_set_layout&, usize dynamic_count
 		);
 
 		/// Calls \p ID3D12Device::CreateShaderResourceView().
 		void write_descriptor_set_read_only_images(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view_base *const>
+			descriptor_set&, const descriptor_set_layout&, usize, std::span<const image_view_base *const>
 		);
 		/// Calls \p ID3D12Device::CreateUnorderedAccessView().
 		void write_descriptor_set_read_write_images(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view_base *const>
+			descriptor_set&, const descriptor_set_layout&, usize, std::span<const image_view_base *const>
 		);
 		/// Calls \p ID3D12Device::CreateShaderResourceView().
 		void write_descriptor_set_read_only_structured_buffers(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const structured_buffer_view>
+			descriptor_set&, const descriptor_set_layout&, usize, std::span<const structured_buffer_view>
 		);
 		/// Calls \p ID3D12Device::CreateUnorderedAccessView().
 		void write_descriptor_set_read_write_structured_buffers(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const structured_buffer_view>
+			descriptor_set&, const descriptor_set_layout&, usize, std::span<const structured_buffer_view>
 		);
 		/// Calls \p ID3D12Device::CreateConstantBufferView().
 		void write_descriptor_set_constant_buffers(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const constant_buffer_view>
+			descriptor_set&, const descriptor_set_layout&, usize, std::span<const constant_buffer_view>
 		);
 		/// Calls \p ID3D12Device::CreateSampler().
 		void write_descriptor_set_samplers(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const gpu::sampler *const>
+			descriptor_set&, const descriptor_set_layout&, usize, std::span<const gpu::sampler *const>
 		);
 
 		/// Fills out a \ref shader_binary object.
@@ -123,47 +123,47 @@ namespace lotus::gpu::backends::directx12 {
 			const std::pair<memory_type_index, memory_properties>
 		> enumerate_memory_types() const;
 		/// Calls \p ID3D12Device::CreateHeap().
-		[[nodiscard]] memory_block allocate_memory(std::size_t size, memory_type_index);
+		[[nodiscard]] memory_block allocate_memory(usize size, memory_type_index);
 
 		/// Calls \p ID3D12Device::CreateCommittedResource3().
-		[[nodiscard]] buffer create_committed_buffer(std::size_t size, memory_type_index, buffer_usage_mask);
+		[[nodiscard]] buffer create_committed_buffer(usize size, memory_type_index, buffer_usage_mask);
 		/// Calls \p ID3D12Device::CreateCommittedResource3().
 		[[nodiscard]] image2d create_committed_image2d(
-			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec2u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Calls \p ID3D12Device::CreateCommittedResource3().
 		[[nodiscard]] image3d create_committed_image3d(
-			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec3u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Computes the layout of the image using \p ID3D12Device::GetCopyableFootprints(), then creates a buffer
 		/// that can hold it.
-		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, std::size_t> create_committed_staging_buffer(
+		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, usize> create_committed_staging_buffer(
 			cvec2u32 size, format, memory_type_index, buffer_usage_mask
 		);
 
 		/// Calls \p ID3D12Device::GetResourceAllocationInfo2().
 		[[nodiscard]] memory::size_alignment get_image2d_memory_requirements(
-			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec2u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Calls \p ID3D12Device::GetResourceAllocationInfo2().
 		[[nodiscard]] memory::size_alignment get_image3d_memory_requirements(
-			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec3u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Calls \p ID3D12Device::GetResourceAllocationInfo2().
-		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(std::size_t size, buffer_usage_mask);
+		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(usize size, buffer_usage_mask);
 		/// Calls \p ID3D12Device::CreatePlacedResource2().
 		[[nodiscard]] buffer create_placed_buffer(
-			std::size_t size, buffer_usage_mask, const memory_block&, std::size_t offset
+			usize size, buffer_usage_mask, const memory_block&, usize offset
 		);
 		/// Calls \p ID3D12Device::CreatePlacedResource2().
 		[[nodiscard]] image2d create_placed_image2d(
-			cvec2u32 size, std::uint32_t mip_levels,
-			format, image_tiling, image_usage_mask, const memory_block&, std::size_t offset
+			cvec2u32 size, u32 mip_levels,
+			format, image_tiling, image_usage_mask, const memory_block&, usize offset
 		);
 		/// Calls \p ID3D12Device::CreatePlacedResource2().
 		[[nodiscard]] image3d create_placed_image3d(
-			cvec3u32 size, std::uint32_t mip_levels,
-			format, image_tiling, image_usage_mask, const memory_block&, std::size_t offset
+			cvec3u32 size, u32 mip_levels,
+			format, image_tiling, image_usage_mask, const memory_block&, usize offset
 		);
 
 		/// Calls \p ID3D12Resource::Map().
@@ -171,10 +171,10 @@ namespace lotus::gpu::backends::directx12 {
 		/// Cleans up any outstanding unmap calls due to flushes, then calls \p ID3D12Resource::Unmap().
 		void unmap_buffer(buffer&);
 		/// Calls \p ID3D12Resource::Map() and records an outstanding unmap operation.
-		void flush_mapped_buffer_to_host(buffer&, std::size_t begin, std::size_t length);
+		void flush_mapped_buffer_to_host(buffer&, usize begin, usize length);
 		/// Consumes an unmap operation if possible or calls \p ID3D12Resource::Map(), then calls
 		/// \p ID3D12Resource::Unmap().
-		void flush_mapped_buffer_to_device(buffer&, std::size_t begin, std::size_t length);
+		void flush_mapped_buffer_to_device(buffer&, usize begin, usize length);
 
 		/// Fills out all fields in an \ref image2d_view.
 		[[nodiscard]] image2d_view create_image2d_view_from(const image2d&, format, mip_levels);
@@ -214,9 +214,9 @@ namespace lotus::gpu::backends::directx12 {
 
 		/// Calls \p ID3D12Device::CreateQueryHeap() to create the heap, then creates a buffer for receiving query
 		/// results.
-		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(std::uint32_t size);
+		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(u32 size);
 		/// Maps the buffer and copies over the results of the queries.
-		void fetch_query_results(timestamp_query_heap&, std::uint32_t first, std::span<std::uint64_t>);
+		void fetch_query_results(timestamp_query_heap&, u32 first, std::span<u64>);
 
 
 		/// Calls \ref _set_debug_name().
@@ -241,7 +241,7 @@ namespace lotus::gpu::backends::directx12 {
 		/// Fills out the \p D3D12_RAYTRACING_INSTANCE_DESC structure.
 		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
 			bottom_level_acceleration_structure&,
-			mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
+			mat44f trans, u32 id, u8 mask, u32 hit_group_offset,
 			raytracing_instance_flags
 		) const;
 
@@ -251,33 +251,33 @@ namespace lotus::gpu::backends::directx12 {
 		);
 		/// Calls \p ID3D12Device5::GetRaytracingAccelerationStructurePrebuildInfo().
 		[[nodiscard]] acceleration_structure_build_sizes get_top_level_acceleration_structure_build_sizes(
-			std::size_t instance_count
+			usize instance_count
 		);
 		/// Fills in the \ref bottom_level_acceleration_structure.
 		[[nodiscard]] bottom_level_acceleration_structure create_bottom_level_acceleration_structure(
-			buffer&, std::size_t off, std::size_t size
+			buffer&, usize off, usize size
 		);
 		/// Fills in the \ref top_level_acceleration_structure.
 		[[nodiscard]] top_level_acceleration_structure create_top_level_acceleration_structure(
-			buffer&, std::size_t off, std::size_t size
+			buffer&, usize off, usize size
 		);
 
 		/// Calls \p ID3D12Device::CreateShaderResourceView().
 		void write_descriptor_set_acceleration_structures(
-			descriptor_set&, const descriptor_set_layout&, std::size_t,
+			descriptor_set&, const descriptor_set_layout&, usize,
 			std::span<gpu::top_level_acceleration_structure *const>
 		);
 
 		/// Calls \p ID3D12StateObjectProperties::GetShaderIdentifier().
 		[[nodiscard]] shader_group_handle get_shader_group_handle(
-			const raytracing_pipeline_state&, std::size_t index
+			const raytracing_pipeline_state&, usize index
 		);
 
 		/// Calls \p ID3D12Device5::CreateStateObject().
 		[[nodiscard]] raytracing_pipeline_state create_raytracing_pipeline_state(
 			std::span<const shader_function> hit_group_shaders, std::span<const hit_shader_group>,
 			std::span<const shader_function> general_shaders,
-			std::size_t max_recursion, std::size_t max_payload_size, std::size_t max_attribute_size,
+			usize max_recursion, usize max_payload_size, usize max_attribute_size,
 			const pipeline_resources&
 		);
 	private:

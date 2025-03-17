@@ -22,15 +22,15 @@ namespace lotus::renderer {
 
 	void context::pass::draw_instanced(
 		std::vector<input_buffer_binding> inputs,
-		std::uint32_t num_verts,
+		u32 num_verts,
 		index_buffer_binding indices,
-		std::uint32_t num_indices,
+		u32 num_indices,
 		gpu::primitive_topology topology,
 		all_resource_bindings resources,
 		assets::handle<assets::shader> vs,
 		assets::handle<assets::shader> ps,
 		graphics_pipeline_state state,
-		std::uint32_t num_insts,
+		u32 num_insts,
 		std::u8string_view description
 	) {
 		_details::bindings_builder builder;
@@ -55,7 +55,7 @@ namespace lotus::renderer {
 		std::span<const input_buffer_binding> additional_inputs,
 		all_resource_bindings additional_resources,
 		constant_uploader &uploader,
-		std::uint32_t num_insts,
+		u32 num_insts,
 		std::u8string_view description
 	) {
 		instance_render_details details = pass_ctx.get_render_details(_q->ctx, *mat->data, geom.get().value);
@@ -79,7 +79,7 @@ namespace lotus::renderer {
 		std::span<const input_buffer_binding> additional_inputs,
 		all_resource_bindings additional_resources,
 		constant_uploader &uploader,
-		std::uint32_t num_insts,
+		u32 num_insts,
 		std::u8string_view description
 	) {
 		std::vector<input_buffer_binding> inputs;
@@ -115,7 +115,7 @@ namespace lotus::renderer {
 
 	void context::queue::copy_buffer(
 		const buffer &source, const buffer &target,
-		std::size_t src_offset, std::size_t dst_offset, std::size_t sz,
+		usize src_offset, usize dst_offset, usize sz,
 		std::u8string_view description
 	) {
 		_q->add_command<commands::copy_buffer>(
@@ -125,7 +125,7 @@ namespace lotus::renderer {
 
 	void context::queue::copy_buffer_to_image(
 		const buffer &source, const image2d_view &target,
-		gpu::staging_buffer::metadata meta, std::size_t src_offset, cvec2u32 dst_offset,
+		gpu::staging_buffer::metadata meta, usize src_offset, cvec2u32 dst_offset,
 		std::u8string_view description
 	) {
 		_q->add_command<commands::copy_buffer_to_image>(
@@ -135,7 +135,7 @@ namespace lotus::renderer {
 
 	void context::queue::copy_buffer_to_image(
 		const staging_buffer &source, const image2d_view &target,
-		std::size_t src_offset, cvec2u32 dst_offset,
+		usize src_offset, cvec2u32 dst_offset,
 		std::u8string_view description
 	) {
 		copy_buffer_to_image(source.data, target, source.meta, src_offset, dst_offset, description);
@@ -157,12 +157,12 @@ namespace lotus::renderer {
 		std::span<const shader_function> hit_group_shaders,
 		std::span<const gpu::hit_shader_group> hit_groups,
 		std::span<const shader_function> general_shaders,
-		std::uint32_t raygen_shader_index,
-		std::span<const std::uint32_t> miss_shader_indices,
-		std::span<const std::uint32_t> shader_groups,
-		std::uint32_t max_recursion_depth,
-		std::uint32_t max_payload_size,
-		std::uint32_t max_attribute_size,
+		u32 raygen_shader_index,
+		std::span<const u32> miss_shader_indices,
+		std::span<const u32> shader_groups,
+		u32 max_recursion_depth,
+		u32 max_payload_size,
+		u32 max_attribute_size,
 		cvec3u32 num_threads,
 		all_resource_bindings resources,
 		std::u8string_view description
@@ -207,7 +207,7 @@ namespace lotus::renderer {
 	}
 
 	void context::queue::run_compute_shader(
-		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_thread_groups,
+		assets::handle<assets::shader> shader, cvec3<u32> num_thread_groups,
 		all_resource_bindings resources, std::u8string_view description
 	) {
 		_details::bindings_builder builder;
@@ -219,7 +219,7 @@ namespace lotus::renderer {
 	}
 
 	void context::queue::run_compute_shader_with_thread_dimensions(
-		assets::handle<assets::shader> shader, cvec3<std::uint32_t> num_threads, all_resource_bindings resources,
+		assets::handle<assets::shader> shader, cvec3<u32> num_threads, all_resource_bindings resources,
 		std::u8string_view description
 	) {
 		auto thread_group_size = shader->reflection.get_thread_group_size();
@@ -267,14 +267,14 @@ namespace lotus::renderer {
 	}
 
 	pool context::request_pool(
-		std::u8string_view name, gpu::memory_type_index memory_type, std::uint32_t chunk_size
+		std::u8string_view name, gpu::memory_type_index memory_type, u32 chunk_size
 	) {
 		if (memory_type == gpu::memory_type_index::invalid) {
 			memory_type = _device_memory_index;
 		}
 
 		auto *p = new _details::pool(
-			[dev = &_device, memory_type](std::size_t sz) {
+			[dev = &_device, memory_type](usize sz) {
 				return dev->allocate_memory(sz, memory_type);
 			},
 			chunk_size, _allocate_resource_id(), name
@@ -285,7 +285,7 @@ namespace lotus::renderer {
 
 	image2d_view context::request_image2d(
 		std::u8string_view name,
-		cvec2u32 size, std::uint32_t num_mips, gpu::format fmt, gpu::image_usage_mask usages, const pool &p
+		cvec2u32 size, u32 num_mips, gpu::format fmt, gpu::image_usage_mask usages, const pool &p
 	) {
 		gpu::image_tiling tiling = gpu::image_tiling::optimal;
 		auto *surf = new _details::image2d(
@@ -298,7 +298,7 @@ namespace lotus::renderer {
 
 	image3d_view context::request_image3d(
 		std::u8string_view name,
-		cvec3u32 size, std::uint32_t num_mips, gpu::format fmt, gpu::image_usage_mask usages, const pool &p
+		cvec3u32 size, u32 num_mips, gpu::format fmt, gpu::image_usage_mask usages, const pool &p
 	) {
 		gpu::image_tiling tiling = gpu::image_tiling::optimal;
 		auto *surf = new _details::image3d(
@@ -310,7 +310,7 @@ namespace lotus::renderer {
 	}
 
 	buffer context::request_buffer(
-		std::u8string_view name, std::size_t size_bytes, gpu::buffer_usage_mask usages, const pool &p
+		std::u8string_view name, usize size_bytes, gpu::buffer_usage_mask usages, const pool &p
 	) {
 		return buffer(_request_buffer_raw(name, size_bytes, usages, p._ptr));
 	}
@@ -343,7 +343,7 @@ namespace lotus::renderer {
 
 	swap_chain context::request_swap_chain(
 		std::u8string_view name, system::window &wnd, queue &q,
-		std::uint32_t num_images, std::span<const gpu::format> formats
+		u32 num_images, std::span<const gpu::format> formats
 	) {
 		auto *chain = new _details::swap_chain(
 			wnd, q._q->queue.get_index(),
@@ -354,7 +354,7 @@ namespace lotus::renderer {
 	}
 
 	image_descriptor_array context::request_image_descriptor_array(
-		std::u8string_view name, gpu::descriptor_type type, std::uint32_t capacity
+		std::u8string_view name, gpu::descriptor_type type, u32 capacity
 	) {
 		auto *arr = new _details::image_descriptor_array(type, capacity, _allocate_resource_id(), name);
 		auto arr_ptr = std::shared_ptr<_details::image_descriptor_array>(
@@ -364,7 +364,7 @@ namespace lotus::renderer {
 	}
 
 	buffer_descriptor_array context::request_buffer_descriptor_array(
-		std::u8string_view name, gpu::descriptor_type type, std::uint32_t capacity
+		std::u8string_view name, gpu::descriptor_type type, u32 capacity
 	) {
 		auto *arr = new _details::buffer_descriptor_array(type, capacity, _allocate_resource_id(), name);
 		auto arr_ptr = std::shared_ptr<_details::buffer_descriptor_array>(
@@ -416,20 +416,20 @@ namespace lotus::renderer {
 		batch_data.resources = std::exchange(_deferred_delete_resources, execution::batch_resources());
 		batch_data.resolve_data.first_command = _first_batch_command_index;
 		batch_data.resolve_data.queues.resize(_queues.size());
-		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+		for (u32 i = 0; i < get_num_queues(); ++i) {
 			batch_data.resolve_data.queues[i].begin_of_batch = _queues[i].semaphore_value;
 		}
 
 		execution::batch_context bctx(*this);
 
 		// step 1: pseudo-execute all commands, gather resource transitions and barriers
-		std::vector<std::uint32_t> command_order;
+		std::vector<u32> command_order;
 		while (true) {
-			std::uint32_t next_queue_index = get_num_queues();
+			u32 next_queue_index = get_num_queues();
 			{ // find a queue that can be executed
 				bool has_commands = false;
 				auto next_global_sub_index = global_submission_index::max;
-				for (std::uint32_t queue_i = 0; queue_i < get_num_queues(); ++queue_i) {
+				for (u32 queue_i = 0; queue_i < get_num_queues(); ++queue_i) {
 					auto &qctx = bctx.get_queue_pseudo_context(queue_i);
 					if (qctx.is_pseudo_execution_finished()) {
 						continue;
@@ -454,28 +454,28 @@ namespace lotus::renderer {
 		}
 
 		// step 2: process all dependencies
-		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+		for (u32 i = 0; i < get_num_queues(); ++i) {
 			bctx.get_queue_pseudo_context(i).process_dependency_acquisitions();
 		}
-		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+		for (u32 i = 0; i < get_num_queues(); ++i) {
 			bctx.get_queue_pseudo_context(i).gather_semaphore_values();
 		}
-		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+		for (u32 i = 0; i < get_num_queues(); ++i) {
 			bctx.get_queue_pseudo_context(i).finalize_dependency_processing();
 		}
 
 		// step 3: execute all commands, respecting previously gathered dependencies and transitions
-		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+		for (u32 i = 0; i < get_num_queues(); ++i) {
 			bctx.get_queue_context(i).start_execution();
 		}
 		// execute commands in the same order as they're logically executed
 		// TODO: this is just to make the Vulkan validation layer happy - is this absolutely necessary?
-		for (std::uint32_t qi : command_order) {
+		for (u32 qi : command_order) {
 			execution::queue_context &qctx = bctx.get_queue_context(qi);
 			crash_if(qctx.is_finished());
 			qctx.execute_next_command();
 		}
-		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+		for (u32 i = 0; i < get_num_queues(); ++i) {
 			execution::queue_context &qctx = bctx.get_queue_context(i);
 			crash_if(!qctx.is_finished());
 			qctx.finish_execution();
@@ -484,7 +484,7 @@ namespace lotus::renderer {
 		// finalize & clean up
 		bctx.finish_batch();
 		_first_batch_command_index = _sub_index;
-		for (std::size_t i = 0; i < _queues.size(); ++i) {
+		for (usize i = 0; i < _queues.size(); ++i) {
 			_queues[i].reset_batch();
 			// insert "start of batch" marker - the first batch doesn't need these commands
 			_queues[i].add_command<commands::start_of_batch>(u8"Start of batch");
@@ -495,7 +495,7 @@ namespace lotus::renderer {
 		_cleanup(0);
 
 		std::vector<batch_statistics_early> stats;
-		for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+		for (u32 i = 0; i < get_num_queues(); ++i) {
 			stats.emplace_back(std::move(bctx.get_queue_context(i).early_statistics));
 		}
 		return stats;
@@ -517,7 +517,7 @@ namespace lotus::renderer {
 		_device.unmap_buffer(buf._ptr->data);
 	}
 
-	void context::flush_mapped_buffer_to_device(buffer &buf, std::size_t begin, std::size_t length) {
+	void context::flush_mapped_buffer_to_device(buffer &buf, usize begin, usize length) {
 		// TODO check that this buffer is not being used by the device?
 		_device.flush_mapped_buffer_to_device(buf._ptr->data, begin, length);
 		// mark this buffer as CPU written
@@ -532,7 +532,7 @@ namespace lotus::renderer {
 		);
 	}
 
-	void context::flush_mapped_buffer_to_host(buffer &buf, std::size_t begin, std::size_t length) {
+	void context::flush_mapped_buffer_to_host(buffer &buf, usize begin, usize length) {
 		// TODO check that this buffer is not being written to from the device?
 		_device.flush_mapped_buffer_to_host(buf._ptr->data, begin, length);
 	}
@@ -554,7 +554,7 @@ namespace lotus::renderer {
 			buf,
 			[&](std::byte *dst) {
 				const auto &format_props = gpu::format_properties::get(meta.pixel_format);
-				const auto frag_size = format_props.fragment_size.into<std::uint32_t>();
+				const auto frag_size = format_props.fragment_size.into<u32>();
 				const auto num_frags = vec::memberwise_divide(
 					meta.image_size + frag_size - cvec2u32(1u, 1u), frag_size
 				);
@@ -564,7 +564,7 @@ namespace lotus::renderer {
 
 				const std::byte *cur_src = data.data();
 				std::byte *cur_dst = dst;
-				for (std::uint32_t y = 0; y < num_frags[1]; ++y) {
+				for (u32 y = 0; y < num_frags[1]; ++y) {
 					std::memcpy(cur_dst, cur_src, row_bytes);
 					cur_dst += meta.row_pitch_in_bytes;
 					cur_src += row_bytes;
@@ -574,25 +574,25 @@ namespace lotus::renderer {
 	}
 
 	void context::write_image_descriptors(
-		image_descriptor_array &arr_handle, std::uint32_t first_index, std::span<const image2d_view> imgs
+		image_descriptor_array &arr_handle, u32 first_index, std::span<const image2d_view> imgs
 	) {
-		for (std::size_t i = 0; i < imgs.size(); ++i) {
+		for (usize i = 0; i < imgs.size(); ++i) {
 			_write_one_descriptor_array_element(
 				*arr_handle._ptr,
 				recorded_resources::image2d_view(imgs[i]),
-				static_cast<std::uint32_t>(i + first_index)
+				static_cast<u32>(i + first_index)
 			);
 		}
 	}
 
 	void context::write_buffer_descriptors(
-		buffer_descriptor_array &arr_handle, std::uint32_t first_index, std::span<const structured_buffer_view> bufs
+		buffer_descriptor_array &arr_handle, u32 first_index, std::span<const structured_buffer_view> bufs
 	) {
-		for (std::size_t i = 0; i < bufs.size(); ++i) {
+		for (usize i = 0; i < bufs.size(); ++i) {
 			_write_one_descriptor_array_element(
 				*arr_handle._ptr,
 				recorded_resources::structured_buffer_view(bufs[i]),
-				static_cast<std::uint32_t>(i + first_index)
+				static_cast<u32>(i + first_index)
 			);
 		}
 	}
@@ -650,7 +650,7 @@ namespace lotus::renderer {
 
 	std::shared_ptr<_details::buffer> context::_request_buffer_raw(
 		std::u8string_view name,
-		std::size_t size_bytes,
+		usize size_bytes,
 		gpu::buffer_usage_mask usages,
 		const std::shared_ptr<_details::pool> &pool
 	) {
@@ -762,7 +762,7 @@ namespace lotus::renderer {
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set &set, const descriptor_resource::image2d &img, std::uint32_t idx
+		_details::cached_descriptor_set &set, const descriptor_resource::image2d &img, u32 idx
 	) {
 		set.used_image2ds.emplace_back(
 			std::static_pointer_cast<_details::image2d>(img.view._ptr->shared_from_this()),
@@ -774,7 +774,7 @@ namespace lotus::renderer {
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set &set, const descriptor_resource::image3d &img, std::uint32_t idx
+		_details::cached_descriptor_set &set, const descriptor_resource::image3d &img, u32 idx
 	) {
 		set.used_image3ds.emplace_back(
 			std::static_pointer_cast<_details::image3d>(img.view._ptr->shared_from_this()),
@@ -786,35 +786,35 @@ namespace lotus::renderer {
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set&, const descriptor_resource::swap_chain&, std::uint32_t /*idx*/
+		_details::cached_descriptor_set&, const descriptor_resource::swap_chain&, u32 /*idx*/
 	) {
 		// TODO
 		std::abort();
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set&, const descriptor_resource::constant_buffer&, std::uint32_t /*idx*/
+		_details::cached_descriptor_set&, const descriptor_resource::constant_buffer&, u32 /*idx*/
 	) {
 		// TODO
 		std::abort();
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set&, const descriptor_resource::structured_buffer&, std::uint32_t /*idx*/
+		_details::cached_descriptor_set&, const descriptor_resource::structured_buffer&, u32 /*idx*/
 	) {
 		// TODO
 		std::abort();
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set&, const recorded_resources::tlas&, std::uint32_t /*idx*/
+		_details::cached_descriptor_set&, const recorded_resources::tlas&, u32 /*idx*/
 	) {
 		// TODO
 		std::abort();
 	}
 
 	void context::_add_cached_descriptor_binding(
-		_details::cached_descriptor_set &set, const sampler_state &smp, std::uint32_t index
+		_details::cached_descriptor_set &set, const sampler_state &smp, u32 index
 	) {
 		set.used_samplers.emplace_back(
 			_device.create_sampler(
@@ -938,7 +938,7 @@ namespace lotus::renderer {
 				back_buffer.status == gpu::swap_chain_status::unavailable
 			) {
 				// wait for all queues to finish executing
-				for (std::uint32_t i = 0; i < get_num_queues(); ++i) {
+				for (u32 i = 0; i < get_num_queues(); ++i) {
 					auto fence = _device.create_fence(gpu::synchronization_state::unset);
 					_queues[i].queue.signal(fence);
 					_device.wait_for_fence(fence);
@@ -969,7 +969,7 @@ namespace lotus::renderer {
 				}
 				chain.current_size = chain.desired_size;
 
-				for (std::uint32_t i = 0; i < chain.num_images; ++i) {
+				for (u32 i = 0; i < chain.num_images; ++i) {
 					// update chain images
 					chain.back_buffers.emplace_back(nullptr);
 					// create new fences
@@ -992,7 +992,7 @@ namespace lotus::renderer {
 		}
 	}
 
-	void context::_cleanup(std::size_t keep_batches) {
+	void context::_cleanup(usize keep_batches) {
 		std::vector<gpu::timeline_semaphore::value_type> semaphore_values;
 		for (auto &q : _queues) {
 			semaphore_values.emplace_back(_device.query_timeline_semaphore(q.semaphore));
@@ -1001,7 +1001,7 @@ namespace lotus::renderer {
 		while (_batch_data.size() > keep_batches) {
 			auto &batch = _batch_data.front();
 			bool batch_ongoing = false;
-			for (std::size_t i = 0; i < _queues.size(); ++i) {
+			for (usize i = 0; i < _queues.size(); ++i) {
 				if (semaphore_values[i] < batch.resolve_data.queues[i].end_of_batch) {
 					batch_ongoing = true;
 					break;
@@ -1068,7 +1068,7 @@ namespace lotus::renderer {
 			if (on_batch_statistics_available) {
 				batch_statistics_late result = zero;
 
-				for (std::size_t iq = 0; iq < _queues.size(); ++iq) { // read back timer information
+				for (usize iq = 0; iq < _queues.size(); ++iq) { // read back timer information
 					auto &queue_data = batch.resolve_data.queues[iq];
 					double frequency = _queues[iq].queue.get_timestamp_frequency();
 
@@ -1076,11 +1076,11 @@ namespace lotus::renderer {
 					queue_res.reserve(queue_data.timers.size());
 
 					if (queue_data.timestamp_heap) {
-						std::vector<std::uint64_t> raw_results(static_cast<std::size_t>(queue_data.num_timestamps));
+						std::vector<u64> raw_results(static_cast<usize>(queue_data.num_timestamps));
 						_device.fetch_query_results(*queue_data.timestamp_heap, 0, raw_results);
 
 						for (auto &tmr : queue_data.timers) {
-							std::uint64_t ticks = raw_results[tmr.second_timestamp] - raw_results[tmr.first_timestamp];
+							u64 ticks = raw_results[tmr.second_timestamp] - raw_results[tmr.first_timestamp];
 							auto &res = queue_res.emplace_back(nullptr);
 							/*res.name = std::move(tmr.name);*/
 							res.duration_ms = static_cast<float>((ticks * 1000) / frequency);
@@ -1089,7 +1089,7 @@ namespace lotus::renderer {
 				}
 
 				const auto cur_batch_index = static_cast<batch_index>(
-					std::to_underlying(_batch_index) - static_cast<std::uint32_t>(_batch_data.size())
+					std::to_underlying(_batch_index) - static_cast<u32>(_batch_data.size())
 				);
 				on_batch_statistics_available(cur_batch_index, std::move(result));
 			}

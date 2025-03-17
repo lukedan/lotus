@@ -19,8 +19,8 @@ namespace lotus::memory {
 	namespace raw {
 		std::byte *allocate(size_alignment s) {
 			// we may need to massage the size and alignment to satisfy the allocator's requirements
-			[[maybe_unused]] const std::size_t align = std::max(s.alignment, sizeof(void*));
-			[[maybe_unused]] const std::size_t aligned_size = memory::align_up(s.size, align);
+			[[maybe_unused]] const usize align = std::max(s.alignment, sizeof(void*));
+			[[maybe_unused]] const usize aligned_size = memory::align_up(s.size, align);
 			return static_cast<std::byte*>(
 #ifdef LOTUS_USE_MIMALLOC
 				mi_aligned_alloc(s.alignment, s.size)
@@ -47,14 +47,14 @@ namespace lotus::memory {
 		}
 	}
 
-	void poison(std::byte *memory, std::size_t size) {
+	void poison(std::byte *memory, usize size) {
 #ifdef __SANITIZE_ADDRESS__
 		__asan_poison_memory_region(memory, size);
 #else
 		std::memset(memory, 0xCD, size);
 #endif
 	}
-	void unpoison([[maybe_unused]] std::byte *memory, [[maybe_unused]] std::size_t size) {
+	void unpoison([[maybe_unused]] std::byte *memory, [[maybe_unused]] usize size) {
 #ifdef __SANITIZE_ADDRESS__
 		__asan_unpoison_memory_region(memory, size);
 #endif

@@ -19,14 +19,14 @@ namespace lotus::collision {
 			simplex_vertex(uninitialized_t) {
 			}
 			/// Creates a vertex from the given indices.
-			simplex_vertex(std::uint32_t i1, std::uint32_t i2) : index1(i1), index2(i2) {
+			simplex_vertex(u32 i1, u32 i2) : index1(i1), index2(i2) {
 			}
 
 			/// Equality.
 			friend bool operator==(simplex_vertex, simplex_vertex) = default;
 
-			std::uint32_t index1; ///< Vertex index in the first polyhedron.
-			std::uint32_t index2; ///< Vertex index in the second polyhedron.
+			u32 index1; ///< Vertex index in the first polyhedron.
+			u32 index2; ///< Vertex index in the second polyhedron.
 		};
 		/// State of the GJK algorithm used by the EPA algorithm. This should not be kept between timesteps and is
 		/// invalidated when the bodies move.
@@ -98,7 +98,7 @@ namespace lotus::collision {
 			uquats orient, vec3 center, const shapes::polyhedron &poly
 		) {
 			std::vector<vec3, Allocator<vec3>> result(poly.vertices.size(), uninitialized);
-			for (std::size_t i = 0; i < poly.vertices.size(); ++i) {
+			for (usize i = 0; i < poly.vertices.size(); ++i) {
 				result[i] = center + orient.rotate(poly.vertices[i]);
 			}
 			return result;
@@ -106,7 +106,7 @@ namespace lotus::collision {
 
 		/// Vertices of the simplex.
 		std::array<simplex_vertex, 4> simplex{ uninitialized, uninitialized, uninitialized, uninitialized };
-		std::size_t simplex_vertices; ///< The number of valid vertices in \ref simplex.
+		usize simplex_vertices; ///< The number of valid vertices in \ref simplex.
 
 		uquats orient1 = uninitialized; ///< Orientation of \ref polyhedron1.
 		uquats orient2 = uninitialized; ///< Orientation of \ref polyhedron2.

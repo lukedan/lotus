@@ -22,6 +22,8 @@
 #	define no_unique_address msvc::no_unique_address
 #endif
 
+#include "types.h"
+
 namespace lotus {
 #ifndef NDEBUG
 	constexpr bool is_debugging = true;
@@ -81,21 +83,21 @@ namespace lotus {
 
 
 	/// The minimum-sized type that is able to hold the given value.
-	template <std::uint64_t Value> struct minimum_unsigned_type {
+	template <u64 Value> struct minimum_unsigned_type {
 		/// The type.
 		using type = std::conditional_t<
-			(Value < std::numeric_limits<std::uint8_t>::max()), std::uint8_t,
+			(Value < std::numeric_limits<u8>::max()), u8,
 			std::conditional_t<
-				(Value < std::numeric_limits<std::uint16_t>::max()), std::uint16_t,
+				(Value < std::numeric_limits<u16>::max()), u16,
 				std::conditional_t<
-					(Value < std::numeric_limits<std::uint32_t>::max()), std::uint32_t,
-					std::uint64_t
+					(Value < std::numeric_limits<u32>::max()), u32,
+					u64
 				>
 			>
 		>;
 	};
 	/// Shorthand for \ref minimum_unsigned_type::type.
-	template <std::uint64_t Value> using minimum_unsigned_type_t = minimum_unsigned_type<Value>::type;
+	template <u64 Value> using minimum_unsigned_type_t = minimum_unsigned_type<Value>::type;
 
 
 	/// Used to obtain certain attributes of member pointers.
@@ -112,7 +114,7 @@ namespace lotus {
 	template <typename T> struct parameter_pack {
 	public:
 		/// Dynamically retrieves the i-th element.
-		template <T First, T ...Others> [[nodiscard]] constexpr inline static T get(std::size_t i) {
+		template <T First, T ...Others> [[nodiscard]] constexpr inline static T get(usize i) {
 			if constexpr (sizeof...(Others) == 0) {
 				crash_if(i != 0);
 				return First;
@@ -124,13 +126,13 @@ namespace lotus {
 	namespace _details {
 		/// Implementation of \ref filled_array().
 		template <
-			std::size_t Size, typename T, std::size_t ...Is
+			usize Size, typename T, usize ...Is
 		> [[nodiscard]] constexpr std::array<T, Size> filled_array_impl(const T &val, std::index_sequence<Is...>) {
 			return { { (static_cast<void>(Is), val)... } };
 		}
 	}
 	/// Creates an array filled with the given element.
-	template <std::size_t Size, typename T> [[nodiscard]] constexpr std::array<T, Size> filled_array(const T &val) {
+	template <usize Size, typename T> [[nodiscard]] constexpr std::array<T, Size> filled_array(const T &val) {
 		return _details::filled_array_impl<Size, T>(val, std::make_index_sequence<Size>());
 	}
 
@@ -150,35 +152,35 @@ namespace lotus {
 
 
 	/// Shorthand for creating a hash object and then hashing the given object.
-	template <typename T, typename Hash = std::hash<T>> [[nodiscard]] inline constexpr std::size_t compute_hash(
+	template <typename T, typename Hash = std::hash<T>> [[nodiscard]] inline constexpr usize compute_hash(
 		const T &obj, const Hash &hash = Hash()
 	) {
 		return hash(obj);
 	}
 
 	/// Combines the result of two hash functions.
-	[[nodiscard]] constexpr inline std::size_t hash_combine(std::size_t hash1, std::size_t hash2) {
+	[[nodiscard]] constexpr inline usize hash_combine(usize hash1, usize hash2) {
 		return hash1 ^ (hash2 + 0x9e3779b9 + (hash1 << 6) + (hash1 >> 2));
 	}
 	/// Shorthand for combining a sequence of hashes, with each hash being combined with the result of all previous
 	/// hashes with \ref hash_combine().
-	[[nodiscard]] constexpr inline std::size_t hash_combine(std::span<const std::size_t> hashes) {
+	[[nodiscard]] constexpr inline usize hash_combine(std::span<const usize> hashes) {
 		if (hashes.empty()) {
 			return 0;
 		}
-		std::size_t result = hashes[0];
+		usize result = hashes[0];
 		for (auto it = hashes.begin() + 1; it != hashes.end(); ++it) {
 			result = hash_combine(result, *it);
 		}
 		return result;
 	}
 	/// \overload
-	[[nodiscard]] constexpr inline std::size_t hash_combine(std::initializer_list<std::size_t> hashes) {
+	[[nodiscard]] constexpr inline usize hash_combine(std::initializer_list<usize> hashes) {
 		return hash_combine({ hashes.begin(), hashes.end() });
 	}
 
 	/// Hashes a \p std::source_location.
-	[[nodiscard]] inline std::size_t hash_source_location(const std::source_location &loc) {
+	[[nodiscard]] inline usize hash_source_location(const std::source_location &loc) {
 		return hash_combine({
 			compute_hash(loc.file_name()),
 			compute_hash(loc.line()),
@@ -191,18 +193,18 @@ namespace lotus {
 		/// Constants for different hash sizes.
 		template <typename T> struct constants;
 		/// Constants for 32-bit FNV-1a hash.
-		template <> struct constants<std::uint32_t> {
-			constexpr static std::uint32_t prime  = 16777619u;   ///< The multiplier.
-			constexpr static std::uint32_t offset = 2166136261u; ///< The initial offset.
+		template <> struct constants<u32> {
+			constexpr static u32 prime  = 16777619u;   ///< The multiplier.
+			constexpr static u32 offset = 2166136261u; ///< The initial offset.
 		};
 		/// Constants for 64-bit FNV-1a hash.
-		template <> struct constants<std::uint64_t> {
-			constexpr static std::uint64_t prime  = 1099511628211ULL;        ///< The multiplier.
-			constexpr static std::uint64_t offset = 14695981039346656037ULL; ///< The initial offset.
+		template <> struct constants<u64> {
+			constexpr static u64 prime  = 1099511628211ULL;        ///< The multiplier.
+			constexpr static u64 offset = 14695981039346656037ULL; ///< The initial offset.
 		};
 
 		/// Hashes the given range of bytes using FNV-1a.
-		template <typename T = std::uint32_t> [[nodiscard]] inline constexpr T hash_bytes(
+		template <typename T = u32> [[nodiscard]] inline constexpr T hash_bytes(
 			std::span<const std::byte> data
 		) {
 			T hash = constants<T>::offset;
@@ -252,8 +254,8 @@ namespace lotus {
 		T begin = zero; ///< The beginning of the range.
 		T end = zero; ///< The end of the range.
 	};
-	using linear_float_range  = linear_range<float>;       ///< Shorthand for linear ranges for \p float.
-	using linear_size_t_range = linear_range<std::size_t>; ///< Shorthand for linear range for \p std::size_t.
+	using linear_float_range = linear_range<float>; ///< Shorthand for linear ranges for \p float.
+	using linear_usize_range = linear_range<usize>; ///< Shorthand for linear range for \ref usize.
 
 
 	/// Console output utilities.

@@ -15,7 +15,7 @@ namespace lotus::collision {
 		gjk_result_state state = uninitialized;
 
 		// compute simplex positions, which may have changed due to the bodies moving
-		for (std::size_t i = 0; i < simplex_vertices; ++i) {
+		for (usize i = 0; i < simplex_vertices; ++i) {
 			state.simplex_positions[i] = simplex_vertex_position(simplex[i]);
 		}
 
@@ -28,7 +28,7 @@ namespace lotus::collision {
 		auto check_vert = [&](simplex_vertex v) {
 			return vertex_looked_at[v.index1 * polyhedron2->vertices.size() + v.index2];
 		};
-		for (std::size_t i = 0; i < simplex_vertices; ++i) {
+		for (usize i = 0; i < simplex_vertices; ++i) {
 			mark_vert(simplex[i]);
 		}
 
@@ -109,7 +109,7 @@ namespace lotus::collision {
 
 		while (true) {
 			bool facing_origin = false;
-			for (std::size_t i = 0; i < 4; ++i) {
+			for (usize i = 0; i < 4; ++i) {
 				vec3 normal = vec::cross(
 					state.simplex_positions[(i + 1) % 4] - state.simplex_positions[i],
 					state.simplex_positions[(i + 2) % 4] - state.simplex_positions[i]
@@ -127,7 +127,7 @@ namespace lotus::collision {
 					}
 					mark_vert(new_vertex);
 					// replace the vertex
-					const std::size_t replace_index = (i + 3) % 4;
+					const usize replace_index = (i + 3) % 4;
 					simplex[replace_index] = new_vertex;
 					state.simplex_positions[replace_index] = simplex_vertex_position(new_vertex);
 
@@ -155,7 +155,7 @@ namespace lotus::collision {
 		auto bookmark = get_scratch_bookmark();
 
 		auto hull_storage = convex_hull::create_storage_for_num_vertices(
-			static_cast<std::uint32_t>(polyhedron1->vertices.size() * polyhedron2->vertices.size()),
+			static_cast<u32>(polyhedron1->vertices.size() * polyhedron2->vertices.size()),
 			bookmark.create_std_allocator<convex_hull::vec3>(),
 			bookmark.create_std_allocator<convex_hull::face_entry>()
 		);
@@ -179,7 +179,7 @@ namespace lotus::collision {
 				);
 			}
 		);
-		for (std::uint32_t i = 0; i < 4; ++i) {
+		for (u32 i = 0; i < 4; ++i) {
 			hull_data.get(static_cast<convex_hull::vertex_id>(i)) = simplex[i];
 		}
 

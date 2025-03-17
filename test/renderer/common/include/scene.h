@@ -52,13 +52,13 @@ public:
 			rctx.write_buffer_descriptors(index_buffers, inst.index_buffer, {
 				geom->index_buffer->data.get_view(
 					geom->index_format == lgpu::index_format::uint16 ?
-						sizeof(std::uint16_t) : sizeof(std::uint32_t),
+						sizeof(u16) : sizeof(u32),
 					geom->index_offset,
 					geom->num_indices
 				)
 			});
 		} else {
-			inst.index_buffer = std::numeric_limits<std::uint32_t>::max();
+			inst.index_buffer = std::numeric_limits<u32>::max();
 		}
 		inst.vertex_buffer = inst.normal_buffer = inst.tangent_buffer = inst.uv_buffer = _buffer_alloc++;
 		rctx.write_buffer_descriptors(vertex_buffers, inst.vertex_buffer, {
@@ -80,7 +80,7 @@ public:
 				)
 			});
 		} else {
-			inst.tangent_buffer = std::numeric_limits<std::uint32_t>::max();
+			inst.tangent_buffer = std::numeric_limits<u32>::max();
 		}
 		if (geom->uv_buffer.data) {
 			rctx.write_buffer_descriptors(uv_buffers, inst.uv_buffer, {
@@ -94,7 +94,7 @@ public:
 		mat.user_data() = reinterpret_cast<void*>(static_cast<std::uintptr_t>(materials.size()));
 		auto &mat_data = materials.emplace_back();
 		if (auto *data = dynamic_cast<lren::generic_pbr_material_data*>(mat->data.get())) {
-			std::uint32_t invalid_tex = _assets.get_invalid_image()->descriptor_index;
+			u32 invalid_tex = _assets.get_invalid_image()->descriptor_index;
 			mat_data.assets.albedo_texture = data->albedo_texture ? data->albedo_texture->descriptor_index : invalid_tex;
 			mat_data.assets.normal_texture = data->normal_texture ? data->normal_texture->descriptor_index : invalid_tex;
 			mat_data.assets.properties_texture = data->properties_texture ? data->properties_texture->descriptor_index : invalid_tex;
@@ -122,7 +122,7 @@ public:
 			tlas_instances.emplace_back(
 				blases[geom_index],
 				inst.transform,
-				static_cast<std::uint32_t>(inst_index),
+				static_cast<u32>(inst_index),
 				0xFFu,
 				inst.geometry->index_buffer ? 0u : 1u,
 				lgpu::raytracing_instance_flags::none
@@ -246,6 +246,6 @@ public:
 private:
 	lren::assets::manager &_assets;
 
-	std::uint32_t _buffer_alloc = 0;
-	std::uint32_t _index_alloc = 0;
+	u32 _buffer_alloc = 0;
+	u32 _index_alloc = 0;
 };

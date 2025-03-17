@@ -73,13 +73,13 @@ namespace lotus::memory {
 			}
 
 			/// Allocates an array.
-			[[nodiscard]] T *allocate(std::size_t n) const {
+			[[nodiscard]] T *allocate(usize n) const {
 				return static_cast<T*>(static_cast<void*>(
 					_alloc->_allocate(memory::size_alignment::of_array<T>(n))
 				));
 			}
 			/// Does nothing. De-allocation only happens when popping bookmarks.
-			void deallocate(T*, std::size_t) const {
+			void deallocate(T*, usize) const {
 			}
 
 			/// Tests that two allocators refer to the same \ref stack_allocator.
@@ -123,7 +123,7 @@ namespace lotus::memory {
 				return _alloc->_allocate(s);
 			}
 			/// Allocates memory for an object or an array of objects.
-			template <typename T> [[nodiscard]] T *allocate(std::size_t count = 1) {
+			template <typename T> [[nodiscard]] T *allocate(usize count = 1) {
 				return static_cast<T*>(allocate(memory::size_alignment::of_array<T>(count)));
 			}
 
@@ -143,7 +143,7 @@ namespace lotus::memory {
 			}
 			/// Convenience function for creating a \p std::vector with the specified reserved space using the given
 			/// parameters and this allocator.
-			template <typename T> [[nodiscard]] vector_type<T> create_reserved_vector_array(std::size_t capacity) {
+			template <typename T> [[nodiscard]] vector_type<T> create_reserved_vector_array(usize capacity) {
 				vector_type<T> result(create_std_allocator<T>());
 				result.reserve(capacity);
 				return result;
@@ -201,7 +201,7 @@ namespace lotus::memory {
 		/// Returns the \ref stack_allocator for this thread.
 		static stack_allocator &for_this_thread();
 
-		std::size_t page_size = 8 * 1024 * 1024; /// Size of a page.
+		usize page_size = 8 * 1024 * 1024; /// Size of a page.
 		std::byte *(*allocate_page)(memory::size_alignment) = memory::raw::allocate; ///< Used to allocate the pages.
 		void (*free_page)(std::byte*) = memory::raw::free; ///< Used to free a page.
 	protected:
@@ -214,7 +214,7 @@ namespace lotus::memory {
 			_page_ref(std::nullptr_t) : memory(nullptr), header(nullptr), current(nullptr), end(nullptr) {
 			}
 			/// Creates a new reference to the given newly allocated page. \ref header is not initialized.
-			[[nodiscard]] static _page_ref to_new_page(std::byte*, std::size_t sz);
+			[[nodiscard]] static _page_ref to_new_page(std::byte*, usize sz);
 
 			/// Allocates a block of memory from this page. If there's not enough space within this page, this
 			/// function returns \p nullptr. The returned memory block is not initialized.
@@ -249,7 +249,7 @@ namespace lotus::memory {
 					custom_end = end;
 				}
 				if constexpr (should_poison_freed_memory) {
-					memory::poison(ptr, static_cast<std::size_t>(custom_end - ptr));
+					memory::poison(ptr, static_cast<usize>(custom_end - ptr));
 				}
 			}
 
@@ -288,7 +288,7 @@ namespace lotus::memory {
 		};
 
 		/// Creates a new page and allocates a \ref _page_ref at the front to the current top page.
-		[[nodiscard]] _page_ref _allocate_new_page(_page_ref prev, std::size_t size) const {
+		[[nodiscard]] _page_ref _allocate_new_page(_page_ref prev, usize size) const {
 			auto result = _page_ref::to_new_page(allocate_page(memory::size_alignment(size, alignof(_page_header))), size);
 			result.header = new (result.allocate<_page_header>()) _page_header(_page_header::create(prev, free_page));
 			return result;

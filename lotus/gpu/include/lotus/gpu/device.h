@@ -62,13 +62,13 @@ namespace lotus::gpu {
 
 		/// Creates a new empty \ref descriptor_pool.
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
-			std::span<const descriptor_range> capacity, std::size_t max_num_sets
+			std::span<const descriptor_range> capacity, usize max_num_sets
 		) {
 			return backend::device::create_descriptor_pool(capacity, max_num_sets);
 		}
 		/// \overload
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
-			std::initializer_list<descriptor_range> capacity, std::size_t max_num_sets
+			std::initializer_list<descriptor_range> capacity, usize max_num_sets
 		) {
 			return create_descriptor_pool({ capacity.begin(), capacity.end() }, max_num_sets);
 		}
@@ -81,7 +81,7 @@ namespace lotus::gpu {
 		/// Allocates a new \ref descriptor_set from the given \ref descriptor_pool, where one descriptor range in
 		/// the set has dynamic (unbounded) size that is specified using the additional parameter.
 		[[nodiscard]] descriptor_set create_descriptor_set(
-			descriptor_pool &pool, const descriptor_set_layout &layout, std::size_t dynamic_size
+			descriptor_pool &pool, const descriptor_set_layout &layout, usize dynamic_size
 		) {
 			return backend::device::create_descriptor_set(pool, layout, dynamic_size);
 		}
@@ -89,34 +89,34 @@ namespace lotus::gpu {
 		/// Updates the descriptors in the set with the given read-only images.
 		void write_descriptor_set_read_only_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::span<const image_view_base *const> images
+			usize first_register, std::span<const image_view_base *const> images
 		) {
 			backend::device::write_descriptor_set_read_only_images(set, layout, first_register, images);
 		}
 		/// \overload
 		void write_descriptor_set_read_only_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::initializer_list<const image_view_base*> images
+			usize first_register, std::initializer_list<const image_view_base*> images
 		) {
 			write_descriptor_set_read_only_images(set, layout, first_register, { images.begin(), images.end() });
 		}
 		/// Updates the descriptors in the set with the given read-write images.
 		void write_descriptor_set_read_write_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::span<const image_view_base *const> images
+			usize first_register, std::span<const image_view_base *const> images
 		) {
 			backend::device::write_descriptor_set_read_write_images(set, layout, first_register, images);
 		}
 		/// \overload
 		void write_descriptor_set_read_write_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::initializer_list<const image_view_base*> images
+			usize first_register, std::initializer_list<const image_view_base*> images
 		) {
 			write_descriptor_set_read_write_images(set, layout, first_register, { images.begin(), images.end() });
 		}
 		/// Retrieves a member function pointer to the function that writes image descriptors of the specified type.
 		inline static void (device::*get_write_image_descriptor_function(descriptor_type type))(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const image_view_base *const>
+			descriptor_set&, const descriptor_set_layout&, usize, std::span<const image_view_base *const>
 		) {
 			switch (type) {
 			case descriptor_type::read_only_image:
@@ -130,7 +130,7 @@ namespace lotus::gpu {
 		/// Retrieves a member function pointer to the function that writes structured buffer descriptors of the
 		/// specified type.
 		inline static void (device::*get_write_structured_buffer_descriptor_function(descriptor_type type))(
-			descriptor_set&, const descriptor_set_layout&, std::size_t, std::span<const structured_buffer_view>
+			descriptor_set&, const descriptor_set_layout&, usize, std::span<const structured_buffer_view>
 		) {
 			switch (type) {
 			case descriptor_type::read_only_buffer:
@@ -145,14 +145,14 @@ namespace lotus::gpu {
 		/// Updates the descriptors in the set with the given read-only structured buffers.
 		void write_descriptor_set_read_only_structured_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::span<const structured_buffer_view> buffers
+			usize first_register, std::span<const structured_buffer_view> buffers
 		) {
 			backend::device::write_descriptor_set_read_only_structured_buffers(set, layout, first_register, buffers);
 		}
 		/// \overload
 		void write_descriptor_set_read_only_structured_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::initializer_list<structured_buffer_view> buffers
+			usize first_register, std::initializer_list<structured_buffer_view> buffers
 		) {
 			write_descriptor_set_read_only_structured_buffers(
 				set, layout, first_register, { buffers.begin(), buffers.end() }
@@ -161,7 +161,7 @@ namespace lotus::gpu {
 		/// Updates the descriptors in the set with the given read-write structured buffers.
 		void write_descriptor_set_read_write_structured_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::span<const structured_buffer_view> buffers
+			usize first_register, std::span<const structured_buffer_view> buffers
 		) {
 			backend::device::write_descriptor_set_read_write_structured_buffers(
 				set, layout, first_register, buffers
@@ -170,7 +170,7 @@ namespace lotus::gpu {
 		/// \overload
 		void write_descriptor_set_read_write_structured_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::initializer_list<structured_buffer_view> buffers
+			usize first_register, std::initializer_list<structured_buffer_view> buffers
 		) {
 			write_descriptor_set_read_write_structured_buffers(
 				set, layout, first_register, { buffers.begin(), buffers.end() }
@@ -179,28 +179,28 @@ namespace lotus::gpu {
 		/// Updates the descriptors in the set with the given constant buffers.
 		void write_descriptor_set_constant_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::span<const constant_buffer_view> buffers
+			usize first_register, std::span<const constant_buffer_view> buffers
 		) {
 			backend::device::write_descriptor_set_constant_buffers(set, layout, first_register, buffers);
 		}
 		/// \overload
 		void write_descriptor_set_constant_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::initializer_list<constant_buffer_view> buffers
+			usize first_register, std::initializer_list<constant_buffer_view> buffers
 		) {
 			write_descriptor_set_constant_buffers(set, layout, first_register, { buffers.begin(), buffers.end() });
 		}
 		/// Updates the descriptors in the set with the given samplers.
 		void write_descriptor_set_samplers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::span<const sampler *const> samplers
+			usize first_register, std::span<const sampler *const> samplers
 		) {
 			backend::device::write_descriptor_set_samplers(set, layout, first_register, samplers);
 		}
 		/// \overload
 		void write_descriptor_set_samplers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			std::size_t first_register, std::initializer_list<const sampler*> samplers
+			usize first_register, std::initializer_list<const sampler*> samplers
 		) {
 			write_descriptor_set_samplers(set, layout, first_register, { samplers.begin(), samplers.end() });
 		}
@@ -259,7 +259,7 @@ namespace lotus::gpu {
 			std::span<const input_buffer_layout> input_buffers,
 			primitive_topology topology,
 			const frame_buffer_layout &fb_layout,
-			std::size_t num_viewports = 1
+			usize num_viewports = 1
 		) {
 			return backend::device::create_graphics_pipeline_state(
 				resources,
@@ -287,7 +287,7 @@ namespace lotus::gpu {
 			std::initializer_list<input_buffer_layout> input_buffers,
 			primitive_topology topology,
 			const frame_buffer_layout &fb_layout,
-			std::size_t num_viewports = 1
+			usize num_viewports = 1
 		) {
 			return create_graphics_pipeline_state(
 				resources, shaders,
@@ -314,19 +314,19 @@ namespace lotus::gpu {
 			return backend::device::enumerate_memory_types();
 		}
 		/// Creates a \ref device_heap.
-		[[nodiscard]] memory_block allocate_memory(std::size_t size, memory_type_index mem_type) {
+		[[nodiscard]] memory_block allocate_memory(usize size, memory_type_index mem_type) {
 			return backend::device::allocate_memory(size, mem_type);
 		}
 
 		/// Creates a \ref buffer with a dedicated memory allocation.
 		[[nodiscard]] buffer create_committed_buffer(
-			std::size_t size, memory_type_index mem_type, buffer_usage_mask allowed_usages
+			usize size, memory_type_index mem_type, buffer_usage_mask allowed_usages
 		) {
 			return backend::device::create_committed_buffer(size, mem_type, allowed_usages);
 		}
 		/// Creates a \ref image2d with a dedicated memory allocation. This image can only be created on the GPU.
 		[[nodiscard]] image2d create_committed_image2d(
-			cvec2u32 size, std::uint32_t mip_levels,
+			cvec2u32 size, u32 mip_levels,
 			format fmt, image_tiling tiling, image_usage_mask allowed_usages
 		) {
 			return backend::device::create_committed_image2d(
@@ -335,7 +335,7 @@ namespace lotus::gpu {
 		}
 		/// Creates a \ref image3d with a dedicated memory allocation. This image can only be created on the GPU.
 		[[nodiscard]] image3d create_committed_image3d(
-			cvec3u32 size, std::uint32_t mip_levels,
+			cvec3u32 size, u32 mip_levels,
 			format fmt, image_tiling tiling, image_usage_mask allowed_usages
 		) {
 			return backend::device::create_committed_image3d(
@@ -362,35 +362,35 @@ namespace lotus::gpu {
 
 		/// Queries the memory requirements of the given 2D image.
 		[[nodiscard]] memory::size_alignment get_image2d_memory_requirements(
-			cvec2u32 size, std::uint32_t mip_levels,
+			cvec2u32 size, u32 mip_levels,
 			format fmt, image_tiling tiling, image_usage_mask usages
 		) {
 			return backend::device::get_image2d_memory_requirements(size, mip_levels, fmt, tiling, usages);
 		}
 		/// Queries the memory requirements of the given 3D image.
 		[[nodiscard]] memory::size_alignment get_image3d_memory_requirements(
-			cvec3u32 size, std::uint32_t mip_levels,
+			cvec3u32 size, u32 mip_levels,
 			format fmt, image_tiling tiling, image_usage_mask usages
 		) {
 			return backend::device::get_image3d_memory_requirements(size, mip_levels, fmt, tiling, usages);
 		}
 		/// Queries the memory requirements of the given buffer.
 		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(
-			std::size_t size, buffer_usage_mask usages
+			usize size, buffer_usage_mask usages
 		) {
 			return backend::device::get_buffer_memory_requirements(size, usages);
 		}
 		/// Creates a buffer placed at the given memory location.
 		[[nodiscard]] buffer create_placed_buffer(
-			std::size_t size, buffer_usage_mask allowed_usages, const memory_block &mem, std::size_t offset
+			usize size, buffer_usage_mask allowed_usages, const memory_block &mem, usize offset
 		) {
 			return backend::device::create_placed_buffer(size, allowed_usages, mem, offset);
 		}
 		/// Creates a 2D image placed at the given memory location.
 		[[nodiscard]] image2d create_placed_image2d(
-			cvec2u32 size, std::uint32_t mip_levels,
+			cvec2u32 size, u32 mip_levels,
 			format fmt, image_tiling tiling, image_usage_mask allowed_usages,
-			const memory_block &mem, std::size_t offset
+			const memory_block &mem, usize offset
 		) {
 			return backend::device::create_placed_image2d(
 				size, mip_levels, fmt, tiling, allowed_usages, mem, offset
@@ -398,9 +398,9 @@ namespace lotus::gpu {
 		}
 		/// Creates a 3D image placed at the given memory location.
 		[[nodiscard]] image3d create_placed_image3d(
-			cvec3u32 size, std::uint32_t mip_levels,
+			cvec3u32 size, u32 mip_levels,
 			format fmt, image_tiling tiling, image_usage_mask allowed_usages,
-			const memory_block &mem, std::size_t offset
+			const memory_block &mem, usize offset
 		) {
 			return backend::device::create_placed_image3d(
 				size, mip_levels, fmt, tiling, allowed_usages, mem, offset
@@ -418,11 +418,11 @@ namespace lotus::gpu {
 			return backend::device::unmap_buffer(buf);
 		}
 		/// Flushes the given memory range in the buffer so that the CPU is able to read the latest data.
-		void flush_mapped_buffer_to_host(buffer &buf, std::size_t begin, std::size_t length) {
+		void flush_mapped_buffer_to_host(buffer &buf, usize begin, usize length) {
 			return backend::device::flush_mapped_buffer_to_host(buf, begin, length);
 		}
 		/// Flushes the given memory range in the buffer so that the GPU is able to read the latest data.
-		void flush_mapped_buffer_to_device(buffer &buf, std::size_t begin, std::size_t length) {
+		void flush_mapped_buffer_to_device(buffer &buf, usize begin, usize length) {
 			return backend::device::flush_mapped_buffer_to_device(buf, begin, length);
 		}
 
@@ -486,12 +486,12 @@ namespace lotus::gpu {
 
 
 		/// Creates a timestamp query heap with the specified size.
-		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(std::uint32_t size) {
+		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(u32 size) {
 			return backend::device::create_timestamp_query_heap(size);
 		}
 		/// Reads all timestamp results back to the given buffer. \ref command_list::resolve_timestamp_queries() must
 		/// have been called for the results to be valid.
-		void fetch_query_results(timestamp_query_heap &h, std::uint32_t first, std::span<std::uint64_t> timestamps) {
+		void fetch_query_results(timestamp_query_heap &h, u32 first, std::span<u64> timestamps) {
 			return backend::device::fetch_query_results(h, first, timestamps);
 		}
 
@@ -539,7 +539,7 @@ namespace lotus::gpu {
 		/// Returns an \ref instance_description for a bottom-level acceleration structure.
 		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
 			bottom_level_acceleration_structure &as,
-			mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
+			mat44f trans, u32 id, u8 mask, u32 hit_group_offset,
 			raytracing_instance_flags flags
 		) const {
 			return backend::device::get_bottom_level_acceleration_structure_description(
@@ -556,26 +556,26 @@ namespace lotus::gpu {
 		/// Queries size information for the given top level acceleration structure. This function will *not* inspect
 		/// any GPU-side data, so it's safe to use uninitialized buffers.
 		[[nodiscard]] acceleration_structure_build_sizes get_top_level_acceleration_structure_build_sizes(
-			std::size_t instance_count
+			usize instance_count
 		) {
 			return backend::device::get_top_level_acceleration_structure_build_sizes(instance_count);
 		}
 		/// Creates an uninitialized bottom-level acceleration structure object.
 		[[nodiscard]] bottom_level_acceleration_structure create_bottom_level_acceleration_structure(
-			buffer &buf, std::size_t offset, std::size_t size
+			buffer &buf, usize offset, usize size
 		) {
 			return backend::device::create_bottom_level_acceleration_structure(buf, offset, size);
 		}
 		/// Creates an uninitialized top-level acceleration structure object.
 		[[nodiscard]] top_level_acceleration_structure create_top_level_acceleration_structure(
-			buffer &buf, std::size_t offset, std::size_t size
+			buffer &buf, usize offset, usize size
 		) {
 			return backend::device::create_top_level_acceleration_structure(buf, offset, size);
 		}
 
 		/// Updates the descriptors in the set with the given acceleration structures.
 		void write_descriptor_set_acceleration_structures(
-			descriptor_set &set, const descriptor_set_layout &layout, std::size_t first_register,
+			descriptor_set &set, const descriptor_set_layout &layout, usize first_register,
 			std::span<top_level_acceleration_structure *const> acceleration_structures
 		) {
 			backend::device::write_descriptor_set_acceleration_structures(
@@ -584,7 +584,7 @@ namespace lotus::gpu {
 		}
 		/// \overload
 		void write_descriptor_set_acceleration_structures(
-			descriptor_set &set, const descriptor_set_layout &layout, std::size_t first_register,
+			descriptor_set &set, const descriptor_set_layout &layout, usize first_register,
 			std::initializer_list<top_level_acceleration_structure*> acceleration_structures
 		) {
 			write_descriptor_set_acceleration_structures(
@@ -594,7 +594,7 @@ namespace lotus::gpu {
 
 		/// Returns a handle to the shader group at the given index.
 		[[nodiscard]] shader_group_handle get_shader_group_handle(
-			const raytracing_pipeline_state &pipeline, std::size_t index
+			const raytracing_pipeline_state &pipeline, usize index
 		) {
 			return backend::device::get_shader_group_handle(pipeline, index);
 		}
@@ -604,7 +604,7 @@ namespace lotus::gpu {
 			std::span<const shader_function> hit_group_shaders,
 			std::span<const hit_shader_group> hit_groups,
 			std::span<const shader_function> general_shaders,
-			std::size_t max_recursion_depth, std::size_t max_payload_size, std::size_t max_attribute_size,
+			usize max_recursion_depth, usize max_payload_size, usize max_attribute_size,
 			const pipeline_resources &rsrc
 		) {
 			return backend::device::create_raytracing_pipeline_state(
@@ -617,7 +617,7 @@ namespace lotus::gpu {
 			std::initializer_list<shader_function> hit_group_shaders,
 			std::initializer_list<hit_shader_group> hit_groups,
 			std::initializer_list<shader_function> general_shaders,
-			std::size_t max_recursion_depth, std::size_t max_payload_size, std::size_t max_attribute_size,
+			usize max_recursion_depth, usize max_payload_size, usize max_attribute_size,
 			const pipeline_resources &rsrc
 		) {
 			return create_raytracing_pipeline_state(
@@ -663,8 +663,8 @@ namespace lotus::gpu {
 			// TODO allocator
 			auto &&[dev, backend_qs] = backend::adapter::create_device(queue_families);
 			std::vector<command_queue> qs(backend_qs.size(), nullptr);
-			for (std::size_t i = 0; i < backend_qs.size(); ++i) {
-				qs[i] = command_queue(std::move(backend_qs[i]), static_cast<std::uint32_t>(i), queue_families[i]);
+			for (usize i = 0; i < backend_qs.size(); ++i) {
+				qs[i] = command_queue(std::move(backend_qs[i]), static_cast<u32>(i), queue_families[i]);
 			}
 			return { device(std::move(dev)), std::move(qs) };
 		}

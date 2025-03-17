@@ -27,10 +27,10 @@ namespace lotus::gpu::backends::directx12 {
 
 	void command_list::begin_pass(const frame_buffer &fb, const frame_buffer_access &access) {
 		assert(fb._color.get_count() == access.color_render_targets.size());
-		std::size_t num_rts = fb._color.get_count();
+		usize num_rts = fb._color.get_count();
 		auto bookmark = get_scratch_bookmark();
 		auto color_rts = bookmark.create_vector_array<D3D12_RENDER_PASS_RENDER_TARGET_DESC>(num_rts);
-		for (std::size_t i = 0; i < num_rts; ++i) {
+		for (usize i = 0; i < num_rts; ++i) {
 			auto &desc = color_rts[i];
 			desc = {};
 			const auto &rt_access = access.color_render_targets[i];
@@ -40,7 +40,7 @@ namespace lotus::gpu::backends::directx12 {
 				_details::conversions::to_render_pass_beginning_access_type(rt_access.load_operation);
 			desc.BeginningAccess.Clear.ClearValue.Format = fb._color_formats[i];
 			std::visit([&](const auto &color4) {
-				for (std::size_t i = 0; i < color4.dimensionality; ++i) {
+				for (usize i = 0; i < color4.dimensionality; ++i) {
 					desc.BeginningAccess.Clear.ClearValue.Color[i] = static_cast<FLOAT>(color4[i]);
 				}
 			}, rt_access.clear_value.value);
@@ -170,10 +170,10 @@ namespace lotus::gpu::backends::directx12 {
 		_list->SetPipelineState(state._pipeline.Get());
 	}
 
-	void command_list::bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer> buffers) {
+	void command_list::bind_vertex_buffers(usize start, std::span<const vertex_buffer> buffers) {
 		auto bookmark = get_scratch_bookmark();
 		auto bindings = bookmark.create_vector_array<D3D12_VERTEX_BUFFER_VIEW>(buffers.size());
-		for (std::size_t i = 0; i < buffers.size(); ++i) {
+		for (usize i = 0; i < buffers.size(); ++i) {
 			auto &vert_buf = buffers[i];
 			const auto *buf = static_cast<const buffer*>(vert_buf.data);
 			bindings[i] = {};
@@ -186,7 +186,7 @@ namespace lotus::gpu::backends::directx12 {
 		);
 	}
 
-	void command_list::bind_index_buffer(const buffer &buf, std::size_t offset_bytes, index_format fmt) {
+	void command_list::bind_index_buffer(const buffer &buf, usize offset_bytes, index_format fmt) {
 		D3D12_INDEX_BUFFER_VIEW buf_view = {};
 		buf_view.BufferLocation = buf._buffer->GetGPUVirtualAddress() + offset_bytes;
 		buf_view.SizeInBytes    = static_cast<UINT>(buf._buffer->GetDesc().Width - offset_bytes);
@@ -195,10 +195,10 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void command_list::bind_graphics_descriptor_sets(
-		const pipeline_resources &rsrc, std::size_t first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
 	) {
-		for (std::size_t i = 0; i < sets.size(); ++i) {
-			std::size_t set_index = first + i;
+		for (usize i = 0; i < sets.size(); ++i) {
+			usize set_index = first + i;
 			auto *set = static_cast<const descriptor_set*>(sets[i]);
 			const auto &indices = rsrc._descriptor_table_binding[set_index];
 			/*assert(
@@ -223,10 +223,10 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void command_list::bind_compute_descriptor_sets(
-		const pipeline_resources &rsrc, std::size_t first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
 	) {
-		for (std::size_t i = 0; i < sets.size(); ++i) {
-			std::size_t set_index = first + i;
+		for (usize i = 0; i < sets.size(); ++i) {
+			usize set_index = first + i;
 			auto *set = static_cast<const descriptor_set*>(sets[i]);
 			const auto &indices = rsrc._descriptor_table_binding[set_index];
 			assert(
@@ -253,7 +253,7 @@ namespace lotus::gpu::backends::directx12 {
 	void command_list::set_viewports(std::span<const viewport> vps) {
 		auto bookmark = get_scratch_bookmark();
 		auto vec = bookmark.create_vector_array<D3D12_VIEWPORT>(vps.size());
-		for (std::size_t i = 0; i < vps.size(); ++i) {
+		for (usize i = 0; i < vps.size(); ++i) {
 			vec[i] = _details::conversions::to_viewport(vps[i]);
 		}
 		_list->RSSetViewports(static_cast<UINT>(vec.size()), vec.data());
@@ -262,14 +262,14 @@ namespace lotus::gpu::backends::directx12 {
 	void command_list::set_scissor_rectangles(std::span<const aab2i> rects) {
 		auto bookmark = get_scratch_bookmark();
 		auto vec = bookmark.create_vector_array<D3D12_RECT>(rects.size());
-		for (std::size_t i = 0; i < rects.size(); ++i) {
+		for (usize i = 0; i < rects.size(); ++i) {
 			vec[i] = _details::conversions::to_rect(rects[i]);
 		}
 		_list->RSSetScissorRects(static_cast<UINT>(vec.size()), vec.data());
 	}
 
 	void command_list::copy_buffer(
-		const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size
+		const buffer &from, usize off1, buffer &to, usize off2, usize size
 	) {
 		_list->CopyBufferRegion(
 			to._buffer.Get(), static_cast<UINT64>(off2),
@@ -302,7 +302,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void command_list::copy_buffer_to_image(
-		const buffer &from, std::size_t byte_offset, staging_buffer_metadata meta,
+		const buffer &from, usize byte_offset, staging_buffer_metadata meta,
 		image2d &to, subresource_index subresource, cvec2u32 off
 	) {
 		D3D12_TEXTURE_COPY_LOCATION dest = {};
@@ -335,8 +335,8 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void command_list::draw_instanced(
-		std::size_t first_vertex, std::size_t vertex_count,
-		std::size_t first_instance, std::size_t instance_count
+		usize first_vertex, usize vertex_count,
+		usize first_instance, usize instance_count
 	) {
 		_list->DrawInstanced(
 			static_cast<UINT>(vertex_count), static_cast<UINT>(instance_count),
@@ -345,9 +345,9 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void command_list::draw_indexed_instanced(
-		std::size_t first_index, std::size_t index_count,
-		std::size_t first_vertex,
-		std::size_t first_instance, std::size_t instance_count
+		usize first_index, usize index_count,
+		usize first_vertex,
+		usize first_instance, usize instance_count
 	) {
 		_list->DrawIndexedInstanced(
 			static_cast<UINT>(index_count), static_cast<UINT>(instance_count),
@@ -355,7 +355,7 @@ namespace lotus::gpu::backends::directx12 {
 		);
 	}
 
-	void command_list::run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z) {
+	void command_list::run_compute_shader(u32 x, u32 y, u32 z) {
 		_list->Dispatch(x, y, z);
 	}
 
@@ -363,11 +363,11 @@ namespace lotus::gpu::backends::directx12 {
 		_list->EndRenderPass();
 	}
 
-	void command_list::query_timestamp(timestamp_query_heap &h, std::uint32_t index) {
+	void command_list::query_timestamp(timestamp_query_heap &h, u32 index) {
 		_list->EndQuery(h._heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, index);
 	}
 
-	void command_list::resolve_queries(timestamp_query_heap &h, std::uint32_t first, std::uint32_t count) {
+	void command_list::resolve_queries(timestamp_query_heap &h, u32 first, u32 count) {
 		D3D12_BUFFER_BARRIER barrier;
 		barrier.SyncBefore   = D3D12_BARRIER_SYNC_ALL;
 		barrier.SyncAfter    = D3D12_BARRIER_SYNC_COPY;
@@ -383,7 +383,7 @@ namespace lotus::gpu::backends::directx12 {
 		_list->Barrier(1, &group);
 
 		_list->ResolveQueryData(
-			h._heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, first, count, h._resource.Get(), sizeof(std::uint64_t) * first
+			h._heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, first, count, h._resource.Get(), sizeof(u64) * first
 		);
 
 		barrier.SyncBefore   = D3D12_BARRIER_SYNC_COPY;
@@ -417,7 +417,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void command_list::build_acceleration_structure(
 		const bottom_level_acceleration_structure_geometry &geom,
-		bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+		bottom_level_acceleration_structure &output, buffer &scratch, usize scratch_offset
 	) {
 		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
 		desc.DestAccelerationStructureData    = output._buffer->GetGPUVirtualAddress() + output._offset;
@@ -428,8 +428,8 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void command_list::build_acceleration_structure(
-		const buffer &instances, std::size_t offset, std::size_t count,
-		top_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+		const buffer &instances, usize offset, usize count,
+		top_level_acceleration_structure &output, buffer &scratch, usize scratch_offset
 	) {
 		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
 		desc.DestAccelerationStructureData    = output._buffer->GetGPUVirtualAddress() + output._offset;
@@ -451,7 +451,7 @@ namespace lotus::gpu::backends::directx12 {
 	void command_list::trace_rays(
 		constant_buffer_view ray_generation,
 		shader_record_view miss_shaders, shader_record_view hit_groups,
-		std::size_t width, std::size_t height, std::size_t depth
+		usize width, usize height, usize depth
 	) {
 		D3D12_DISPATCH_RAYS_DESC desc = {};
 		desc.RayGenerationShaderRecord.StartAddress =
@@ -490,7 +490,7 @@ namespace lotus::gpu::backends::directx12 {
 
 		auto bookmark = get_scratch_bookmark();
 		auto dx_lists = bookmark.create_vector_array<ID3D12CommandList*>(lists.size(), nullptr);
-		for (std::size_t i = 0; i < lists.size(); ++i) {
+		for (usize i = 0; i < lists.size(); ++i) {
 			dx_lists[i] = lists[i]->_list.Get();
 		}
 		_queue->ExecuteCommandLists(static_cast<UINT>(lists.size()), dx_lists.data());

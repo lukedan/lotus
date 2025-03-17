@@ -55,20 +55,20 @@ namespace lotus::renderer::execution {
 			_dependency_acquisition(uninitialized_t) {
 			}
 			/// Initializes this event from another command.
-			static _dependency_acquisition from_command_index(std::uint32_t q, queue_submission_index qi) {
+			static _dependency_acquisition from_command_index(u32 q, queue_submission_index qi) {
 				return _dependency_acquisition(q, qi);
 			}
 			/// Initializes this event from an explicit semaphore value.
-			static _dependency_acquisition from_timestamp(std::uint32_t q, gpu::timeline_semaphore::value_type v) {
+			static _dependency_acquisition from_timestamp(u32 q, gpu::timeline_semaphore::value_type v) {
 				return _dependency_acquisition(q, v);
 			}
 
-			std::uint32_t queue_index; ///< The queue to wait for.
+			u32 queue_index; ///< The queue to wait for.
 			/// A dependency can either be from an explicit semaphore value, or from a command in the same batch.
 			std::variant<queue_submission_index, gpu::timeline_semaphore::value_type> target;
 		private:
 			/// Initializes all fields of this struct.
-			template <typename T> _dependency_acquisition(std::uint32_t q, T target) :
+			template <typename T> _dependency_acquisition(u32 q, T target) :
 				queue_index(q),
 				target(std::in_place_type<T>, target) {
 			}
@@ -90,7 +90,7 @@ namespace lotus::renderer::execution {
 		batch_context &_batch_ctx; ///< The associated \ref batch_context.
 		queue_context &_queue_ctx; ///< \ref queue_context associated with the same queue.
 		_details::queue_data &_q; ///< The associated command queue.
-		
+
 		/// Index of the current command that is being pseudo-executed.
 		queue_submission_index _pseudo_cmd_index = zero;
 
@@ -226,12 +226,12 @@ namespace lotus::renderer::execution {
 		void _pseudo_use_swap_chain(_details::swap_chain&, _details::image_access, _queue_submission_range scope);
 
 		/// Ensures that a fresh timestamp is present, and returns its index within \ref timestamp_command_indices.
-		std::uint32_t _maybe_insert_timestamp();
+		u32 _maybe_insert_timestamp();
 
 		/// Returns the total number of queues.
-		[[nodiscard]] std::uint32_t _get_num_queues() const;
+		[[nodiscard]] u32 _get_num_queues() const;
 		/// Returns the index of the associated queue.
-		[[nodiscard]] std::uint32_t _get_queue_index() const;
+		[[nodiscard]] u32 _get_queue_index() const;
 		/// Returns the queue resolve data associated with this queue.
 		[[nodiscard]] batch_resolve_data::queue_data &_get_queue_resolve_data();
 	};

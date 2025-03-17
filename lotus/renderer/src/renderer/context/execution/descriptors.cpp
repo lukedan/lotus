@@ -13,19 +13,19 @@ namespace lotus::renderer::execution {
 	) : _ctx(ctx), _layout(layout), _result(_ctx._device.create_descriptor_set(pool, layout)) {
 	}
 
-	void descriptor_set_builder::create_binding(std::uint32_t reg, const descriptor_resource::image2d &img) {
+	void descriptor_set_builder::create_binding(u32 reg, const descriptor_resource::image2d &img) {
 		const auto func = gpu::device::get_write_image_descriptor_function(to_descriptor_type(img.binding_type));
 		std::initializer_list<const gpu::image_view_base*> img_views = { &_ctx._request_image_view(img.view) };
 		(_ctx._device.*func)(_result, _layout, reg, img_views);
 	}
 
-	void descriptor_set_builder::create_binding(std::uint32_t reg, const descriptor_resource::image3d &img) {
+	void descriptor_set_builder::create_binding(u32 reg, const descriptor_resource::image3d &img) {
 		const auto func = gpu::device::get_write_image_descriptor_function(to_descriptor_type(img.binding_type));
 		std::initializer_list<const gpu::image_view_base*> img_view = { &_ctx._request_image_view(img.view) };
 		(_ctx._device.*func)(_result, _layout, reg, img_view);
 	}
 
-	void descriptor_set_builder::create_binding(std::uint32_t reg, const descriptor_resource::swap_chain &chain) {
+	void descriptor_set_builder::create_binding(u32 reg, const descriptor_resource::swap_chain &chain) {
 		const auto func = gpu::device::get_write_image_descriptor_function(to_descriptor_type(chain.binding_type));
 		std::initializer_list<const gpu::image_view_base*> img_view =
 			{ &_ctx._request_swap_chain_view(chain.chain) };
@@ -33,7 +33,7 @@ namespace lotus::renderer::execution {
 	}
 
 	void descriptor_set_builder::create_binding(
-		std::uint32_t reg, const descriptor_resource::constant_buffer &buf
+		u32 reg, const descriptor_resource::constant_buffer &buf
 	) {
 		_ctx._device.write_descriptor_set_constant_buffers(_result, _layout, reg, {
 			gpu::constant_buffer_view(buf.data._ptr->data, buf.offset, buf.size)
@@ -41,7 +41,7 @@ namespace lotus::renderer::execution {
 	}
 
 	void descriptor_set_builder::create_binding(
-		std::uint32_t reg, const descriptor_resource::structured_buffer &buf
+		u32 reg, const descriptor_resource::structured_buffer &buf
 	) {
 		const gpu::structured_buffer_view buf_view(
 			buf.data._ptr->data, buf.data._first, buf.data._count, buf.data._stride
@@ -59,13 +59,13 @@ namespace lotus::renderer::execution {
 	}
 
 	void descriptor_set_builder::create_binding(
-		std::uint32_t reg, const recorded_resources::tlas &as
+		u32 reg, const recorded_resources::tlas &as
 	) {
 		_ctx._device.write_descriptor_set_acceleration_structures(_result, _layout, reg, { &as._ptr->handle });
 	}
 
 	void descriptor_set_builder::create_binding(
-		std::uint32_t reg, const sampler_state &samp
+		u32 reg, const sampler_state &samp
 	) {
 		_ctx._device.write_descriptor_set_samplers(_result, _layout, reg, { &_ctx._cache.get_sampler(samp) });
 	}

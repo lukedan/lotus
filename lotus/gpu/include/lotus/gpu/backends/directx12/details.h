@@ -135,9 +135,9 @@ namespace lotus::gpu::backends::directx12::_details {
 
 	/// Wrapper around a \p D3D12_CPU_DESCRIPTOR_HANDLE.
 	struct descriptor_range {
-		template <std::size_t, std::size_t> friend class descriptor_heap;
+		template <usize, usize> friend class descriptor_heap;
 	public:
-		using index_t = std::uint32_t; ///< Index of a descriptor.
+		using index_t = u32; ///< Index of a descriptor.
 
 		/// Initializes this descriptor to empty.
 		descriptor_range(std::nullptr_t) {
@@ -209,7 +209,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		}
 	};
 	/// Manages a series of descriptors.
-	template <std::size_t Gap, std::size_t Levels> class descriptor_heap {
+	template <usize Gap, usize Levels> class descriptor_heap {
 	public:
 		/// No initialization.
 		descriptor_heap(std::nullptr_t) {
@@ -261,7 +261,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			);
 			_sized_free.add_range(entry.first);
 
-			_capacity = debug_value<std::size_t>(capacity);
+			_capacity = debug_value<usize>(capacity);
 		}
 
 		/// Allocates a range of descritors.
@@ -340,19 +340,19 @@ namespace lotus::gpu::backends::directx12::_details {
 
 			/// Adds a range to this list.
 			void add_range(entry_t r) {
-				std::size_t level = get_list_level(r->second.count);
+				usize level = get_list_level(r->second.count);
 				r->second.size_list_index = static_cast<descriptor_range::index_t>(_lists[level].size());
 				_lists[level].emplace_back(r);
 			}
 			/// Removes the given range.
 			void remove_range(entry_t it) {
-				std::size_t level = get_list_level(it->second.count);
+				usize level = get_list_level(it->second.count);
 				_remove_range(level, it->second.size_list_index);
 			}
 			/// Allocates a range and removes it from the list.
 			[[nodiscard]] entry_t allocate_range(descriptor_range::index_t count) {
-				std::size_t level = get_allocate_level(count);
-				std::size_t allocate_index = 0;
+				usize level = get_allocate_level(count);
+				usize allocate_index = 0;
 				// if the current level is empty, look in higher levels
 				for (; level < Levels && _lists[level].empty(); ++level) {
 				}
@@ -373,15 +373,15 @@ namespace lotus::gpu::backends::directx12::_details {
 
 			/// Computes the minimum size for the given level. First level has a minimum of 1, and then each level
 			/// has \p Gap more.
-			[[nodiscard]] constexpr static std::size_t get_level_min_bound(std::size_t level) {
+			[[nodiscard]] constexpr static usize get_level_min_bound(usize level) {
 				return 1 + level * Gap;
 			}
 			/// Computes a level to allocate from based on the given size.
-			[[nodiscard]] constexpr static std::size_t get_allocate_level(descriptor_range::index_t count) {
+			[[nodiscard]] constexpr static usize get_allocate_level(descriptor_range::index_t count) {
 				return std::min((count + Gap - 2) / Gap, Levels - 1);
 			}
 			/// Computes the level that the given range is in.
-			[[nodiscard]] constexpr static std::size_t get_list_level(descriptor_range::index_t count) {
+			[[nodiscard]] constexpr static usize get_list_level(descriptor_range::index_t count) {
 				return std::min((count - 1) / Gap, Levels - 1);
 			}
 		protected:
@@ -389,7 +389,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			std::deque<entry_t> _lists[Levels]; ///< Lists of descriptor ranges.
 
 			/// Removes the specified range.
-			void _remove_range(std::size_t level, std::size_t index) {
+			void _remove_range(usize level, usize index) {
 				std::swap(_lists[level][index], _lists[level].back());
 				_lists[level][index]->second.size_list_index = static_cast<descriptor_range::index_t>(index);
 				_lists[level].pop_back();
@@ -400,7 +400,7 @@ namespace lotus::gpu::backends::directx12::_details {
 		_free_list _free; ///< An array containing descriptors that are not in use.
 		_size_list _sized_free; ///< Free descriptor lists categorized by size.
 		UINT _increment; ///< Size of a single descriptor.
-		[[no_unique_address]] debug_value<std::size_t> _capacity; ///< Capacity.
+		[[no_unique_address]] debug_value<usize> _capacity; ///< Capacity.
 
 		/// Safely disposes of the given range.
 		void _dispose(descriptor_range range) {
@@ -417,24 +417,24 @@ namespace lotus::gpu::backends::directx12::_details {
 	[[nodiscard]] UINT compute_subresource_index(const subresource_index&, ID3D12Resource*);
 
 	/// Returns a unique shader name corresponding to the given index.
-	[[nodiscard]] LPCWSTR shader_name(std::size_t index);
+	[[nodiscard]] LPCWSTR shader_name(usize index);
 	/// Returns a unique shader record name corresponding to the given index.
-	[[nodiscard]] LPCWSTR shader_record_name(std::size_t index);
+	[[nodiscard]] LPCWSTR shader_record_name(usize index);
 
 	/// Used to create \p D3D12_RESOURCE_DESC objects for various types of resources.
 	namespace resource_desc {
 		/// Description for a buffer with the specified size.
-		[[nodiscard]] D3D12_RESOURCE_DESC1 for_buffer(std::size_t size, buffer_usage_mask);
+		[[nodiscard]] D3D12_RESOURCE_DESC1 for_buffer(usize size, buffer_usage_mask);
 		/// Adjusts various flags of buffer properties.
 		void adjust_resource_flags_for_buffer(D3D12_HEAP_TYPE, buffer_usage_mask, D3D12_HEAP_FLAGS* = nullptr);
 
 		/// Description for a 2D image.
 		[[nodiscard]] D3D12_RESOURCE_DESC1 for_image2d(
-			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec2u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Description for a 3D image.
 		[[nodiscard]] D3D12_RESOURCE_DESC1 for_image3d(
-			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec3u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Adjusts various flags of image properties.
 		void adjust_resource_flags_for_image(format, image_usage_mask, D3D12_HEAP_FLAGS* = nullptr);

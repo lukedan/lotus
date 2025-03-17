@@ -44,11 +44,11 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		/// Returns the size of \ref _images.
-		[[nodiscard]] std::uint32_t get_image_count() const {
-			return static_cast<std::uint32_t>(_images.size());
+		[[nodiscard]] u32 get_image_count() const {
+			return static_cast<u32>(_images.size());
 		}
 		/// Returns the corresponding entry in \ref _images.
-		[[nodiscard]] image2d get_image(std::uint32_t index);
+		[[nodiscard]] image2d get_image(u32 index);
 		/// Updates \ref _synchronization.
 		void update_synchronization_primitives(std::span<const back_buffer_synchronization>);
 
@@ -78,8 +78,8 @@ namespace lotus::gpu::backends::vulkan {
 		std::vector<vk::Image> _images; ///< Images associated with this \ref swap_chain.
 		/// Synchronization primitives for all back buffers.
 		std::vector<_cached_back_buffer_synchronization> _synchronization;
-		std::uint16_t _frame_counter = 0; ///< Frame counter module number of buffers.
-		std::uint16_t _frame_index = 0; ///< Index of frame to present next.
+		u16 _frame_counter = 0; ///< Frame counter module number of buffers.
+		u16 _frame_index = 0; ///< Index of frame to present next.
 	};
 
 	/// Contains a \p vk::UniqueFramebuffer.

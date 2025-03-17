@@ -10,12 +10,12 @@
 namespace lotus {
 	/// An axis-aligned box.
 	template <
-		std::size_t Dim, typename T, template <std::size_t, typename> typename Vec = column_vector
+		usize Dim, typename T, template <usize, typename> typename Vec = column_vector
 	> struct aab {
 	public:
 		using vector_type = Vec<Dim, T>; ///< Vector type.
 		using value_type = T; ///< Scalar value type.
-		constexpr static std::size_t dimensionality = Dim; ///< The dimensionality of this box.
+		constexpr static usize dimensionality = Dim; ///< The dimensionality of this box.
 
 		/// No initialization.
 		aab(uninitialized_t) {
@@ -40,7 +40,7 @@ namespace lotus {
 		[[nodiscard]] constexpr value_type signed_volume() const {
 			vector_type size = signed_size();
 			value_type result = size[0];
-			for (std::size_t i = 1; i < Dim; ++i) {
+			for (usize i = 1; i < Dim; ++i) {
 				result *= size[i];
 			}
 			return result;
@@ -56,15 +56,15 @@ namespace lotus {
 
 
 	template <typename T> using aab2 = aab<2, T>; ///< Two-dimensional axis-aligned boxes.
-	using aab2f   = aab2<float>;         ///< Two-dimensional axis-aligned boxes of \p float.
-	using aab2d   = aab2<double>;        ///< Two-dimensional axis-aligned boxes of \p double.
-	using aab2i   = aab2<int>;           ///< Two-dimensional axis-aligned boxes of \p int.
-	using aab2s   = aab2<std::size_t>;   ///< Two-dimensional axis-aligned boxes of \p std::size_t.
-	using aab2u32 = aab2<std::uint32_t>; ///< Two-dimensional axis-aligned boxes of \p std::uint32_t.
+	using aab2f   = aab2<float>;  ///< Two-dimensional axis-aligned boxes of \p float.
+	using aab2d   = aab2<double>; ///< Two-dimensional axis-aligned boxes of \p double.
+	using aab2i   = aab2<int>;    ///< Two-dimensional axis-aligned boxes of \p int.
+	using aab2s   = aab2<usize>;  ///< Two-dimensional axis-aligned boxes of \ref usize.
+	using aab2u32 = aab2<u32>;    ///< Two-dimensional axis-aligned boxes of \ref u32.
 
 	template <typename T> using aab3 = aab<3, T>; ///< Three-dimensional axis-aligned boxes.
-	using aab3f = aab3<float>;       ///< Three-dimensional axis-aligned boxes of \p float.
-	using aab3d = aab3<double>;      ///< Three-dimensional axis-aligned boxes of \p double.
-	using aab3i = aab3<int>;         ///< Three-dimensional axis-aligned boxes of \p int.
-	using aab3s = aab3<std::size_t>; ///< Three-dimensional axis-aligned boxes of \p std::size_t.
+	using aab3f = aab3<float>;  ///< Three-dimensional axis-aligned boxes of \p float.
+	using aab3d = aab3<double>; ///< Three-dimensional axis-aligned boxes of \p double.
+	using aab3i = aab3<int>;    ///< Three-dimensional axis-aligned boxes of \p int.
+	using aab3s = aab3<usize>;  ///< Three-dimensional axis-aligned boxes of \ref usize.
 }

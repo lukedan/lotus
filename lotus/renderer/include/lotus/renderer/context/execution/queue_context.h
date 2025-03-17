@@ -98,10 +98,10 @@ namespace lotus::renderer::execution {
 		gpu::command_allocator *_cmd_alloc = nullptr; ///< Command allocator used by this queue.
 		gpu::command_list *_list = nullptr; ///< Current command list.
 		gpu::timestamp_query_heap *_timestamps = nullptr; ///< Timestamp query heap for this batch on this queue.
-		std::uint32_t _timestamp_count = 0; ///< Total timestamp count in this batch.
+		u32 _timestamp_count = 0; ///< Total timestamp count in this batch.
 
 		queue_submission_index _command_index = zero; ///< Index of the next command.
-		std::uint32_t _timestamp_index = 0; ///< Index of the next timestamp to be inserted.
+		u32 _timestamp_index = 0; ///< Index of the next timestamp to be inserted.
 
 		// pass-related execution state
 		bool _within_pass = false; ///< Whether we're inside a render pass.

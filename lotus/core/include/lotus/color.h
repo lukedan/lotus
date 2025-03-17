@@ -95,8 +95,8 @@ namespace std {
 
 namespace lotus {
 	inline namespace linear_colors {
-		using linear_rgba_f = linear_rgba<float>; ///< Linear RGBA colors of \p float.
-		using linear_rgba_d = linear_rgba<double>; ///< Linear RGBA colors of \p double.
-		using linear_rgba_u8 = linear_rgba<std::uint8_t>; ///< Linear RGBA colors of \p std::uint8_t.
+		using linear_rgba_f  = linear_rgba<float>;  ///< Linear RGBA colors of \p float.
+		using linear_rgba_d  = linear_rgba<double>; ///< Linear RGBA colors of \p double.
+		using linear_rgba_u8 = linear_rgba<u8>;     ///< Linear RGBA colors of \ref u8.
 	}
 }

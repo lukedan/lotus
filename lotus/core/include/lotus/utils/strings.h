@@ -6,6 +6,8 @@
 #include <array>
 #include <string_view>
 
+#include "lotus/types.h"
+
 /// String utilities.
 namespace lotus::string {
 	/// Assumes that the given \p string_view contains UTF-8 text and converts it into a \p std::u8string_view.
@@ -29,7 +31,7 @@ namespace lotus::string {
 					return;
 				}
 				if (
-					static_cast<std::size_t>(full.end() - end) >= patt.size() &&
+					static_cast<usize>(full.end() - end) >= patt.size() &&
 					std::basic_string_view<Char>(end, end + patt.size()) == patt
 				) {
 					callback(std::basic_string_view<Char>(beg, end));
@@ -41,7 +43,7 @@ namespace lotus::string {
 	}
 
 	/// A compile-time string.
-	template <typename Char, std::size_t N> struct constexpr_string {
+	template <typename Char, usize N> struct constexpr_string {
 		std::array<Char, N> contents; ///< The contents of this string, including the final terminating zero.
 
 		/// Default-initializes \ref contents.
@@ -60,7 +62,7 @@ namespace lotus::string {
 		/// Converts this string element-wise into another type.
 		template <typename ToChar> [[nodiscard]] inline consteval constexpr_string<ToChar, N> as() const {
 			constexpr_string<ToChar, N> result(nullptr);
-			for (std::size_t i = 0; i < N; ++i) {
+			for (usize i = 0; i < N; ++i) {
 				result.contents[i] = static_cast<ToChar>(contents[i]);
 			}
 			return result;

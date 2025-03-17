@@ -22,18 +22,18 @@ public:
 			std::fill(_storage.begin(), _storage.end(), val);
 		}
 
-		[[nodiscard]] T &at(std::uint32_t x, std::uint32_t y) {
+		[[nodiscard]] T &at(u32 x, u32 y) {
 			lotus::crash_if(x >= get_size()[0] || y >= get_size()[1]);
 			return _storage[_size[0] * y + x];
 		}
-		[[nodiscard]] const T &at(std::uint32_t x, std::uint32_t y) const {
+		[[nodiscard]] const T &at(u32 x, u32 y) const {
 			lotus::crash_if(x >= get_size()[0] || y >= get_size()[1]);
 			return _storage[_size[0] * y + x];
 		}
-		[[nodiscard]] T &operator()(std::uint32_t x, std::uint32_t y) {
+		[[nodiscard]] T &operator()(u32 x, u32 y) {
 			return at(x, y);
 		}
-		[[nodiscard]] const T &operator()(std::uint32_t x, std::uint32_t y) const {
+		[[nodiscard]] const T &operator()(u32 x, u32 y) const {
 			return at(x, y);
 		}
 
@@ -91,7 +91,7 @@ public:
 		virtual void impulse(vec2 pos, float strength, float dt) = 0;
 
 		virtual void timestep(float) = 0;
-		[[nodiscard]] virtual float height(std::uint32_t x, std::uint32_t y) const = 0;
+		[[nodiscard]] virtual float height(u32 x, u32 y) const = 0;
 
 		virtual void on_terrain_changed() {
 		}
@@ -134,7 +134,7 @@ public:
 			const auto [new_vol, new_cells] = _volume();
 			_distribute_volume((vol - new_vol) / new_cells);
 		}
-		[[nodiscard]] float height(std::uint32_t x, std::uint32_t y) const override {
+		[[nodiscard]] float height(u32 x, u32 y) const override {
 			return _h(x, y);
 		}
 	private:
@@ -143,12 +143,12 @@ public:
 		grid2<float> _ux;
 		grid2<float> _uy;
 
-		[[nodiscard]] float _d(std::uint32_t x, std::uint32_t y) const {
+		[[nodiscard]] float _d(u32 x, u32 y) const {
 			return std::max(0.0f, _h(x, y) - _get_test()._terrain(x, y)); // this clamp is crucial for stability
 		}
 		void _solve_horizontal(float dt) {
-			const std::uint32_t w = _h.get_size()[0];
-			const std::uint32_t h = _h.get_size()[1];
+			const u32 w = _h.get_size()[0];
+			const u32 h = _h.get_size()[1];
 			const float cell_size = _get_test()._grid_size[0] / (w - 1);
 			const float constant = _get_test()._gravity * (dt * dt) / (cell_size * cell_size);
 
@@ -157,9 +157,9 @@ public:
 			std::vector<float> rhs(w);
 			std::vector<float> hi(w);
 
-			for (std::uint32_t y = 0; y < h; ++y) {
+			for (u32 y = 0; y < h; ++y) {
 				// compute system
-				for (std::uint32_t x = 0; x < w; ++x) {
+				for (u32 x = 0; x < w; ++x) {
 					const float h1 = _h(x, y);
 					const float h2 = _h_prev(x, y);
 					const float dprev = x > 0 ? _d(x - 1, y) + _d(x, y) : 0.0f;
@@ -173,7 +173,7 @@ public:
 
 				_thomas_symmetric(e, f, rhs, hi);
 
-				for (std::uint32_t x = 0; x < w; ++x) {
+				for (u32 x = 0; x < w; ++x) {
 					_h_prev(x, y) = hi[x];
 				}
 			}
@@ -181,8 +181,8 @@ public:
 			std::swap(_h, _h_prev);
 		}
 		void _solve_vertical(float dt) {
-			const std::uint32_t w = _h.get_size()[0];
-			const std::uint32_t h = _h.get_size()[1];
+			const u32 w = _h.get_size()[0];
+			const u32 h = _h.get_size()[1];
 			const float cell_size = _get_test()._grid_size[1] / (h - 1);
 			const float constant = _get_test()._gravity * (dt * dt) / (cell_size * cell_size);
 
@@ -191,9 +191,9 @@ public:
 			std::vector<float> rhs(h);
 			std::vector<float> hi(h);
 
-			for (std::uint32_t x = 0; x < w; ++x) {
+			for (u32 x = 0; x < w; ++x) {
 				// compute system
-				for (std::uint32_t y = 0; y < h; ++y) {
+				for (u32 y = 0; y < h; ++y) {
 					const float h1 = _h(x, y);
 					const float h2 = _h_prev(x, y);
 					const float dprev = y > 0 ? _d(x, y - 1) + _d(x, y) : 0.0f;
@@ -207,7 +207,7 @@ public:
 
 				_thomas_symmetric(e, f, rhs, hi);
 
-				for (std::uint32_t y = 0; y < h; ++y) {
+				for (u32 y = 0; y < h; ++y) {
 					_h_prev(x, y) = hi[y];
 				}
 			}
@@ -215,11 +215,11 @@ public:
 			std::swap(_h, _h_prev);
 		}
 
-		[[nodiscard]] std::pair<float, std::uint32_t> _volume() const {
+		[[nodiscard]] std::pair<float, u32> _volume() const {
 			float volume = 0.0f;
-			std::uint32_t liquid_cells = 0;
-			for (std::uint32_t y = 0; y < _h.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < _h.get_size()[0]; ++x) {
+			u32 liquid_cells = 0;
+			for (u32 y = 0; y < _h.get_size()[1]; ++y) {
+				for (u32 x = 0; x < _h.get_size()[0]; ++x) {
 					const float hv = _h(x, y);
 					const float bv = _get_test()._terrain(x, y);
 					if (hv > bv) {
@@ -232,8 +232,8 @@ public:
 		}
 
 		void _distribute_volume(float per_cell) {
-			for (std::uint32_t y = 0; y < _h.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < _h.get_size()[0]; ++x) {
+			for (u32 y = 0; y < _h.get_size()[1]; ++y) {
+				for (u32 x = 0; x < _h.get_size()[0]; ++x) {
 					float &hv = _h(x, y);
 					if (hv > _get_test()._terrain(x, y)) {
 						hv += per_cell;
@@ -257,8 +257,8 @@ public:
 			_ux.fill(0.0f);
 			_uy.fill(0.0f);
 			const float water_height = _get_test()._water_height;
-			for (std::uint32_t y = 0; y < _h.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < _h.get_size()[0]; ++x) {
+			for (u32 y = 0; y < _h.get_size()[1]; ++y) {
+				for (u32 x = 0; x < _h.get_size()[0]; ++x) {
 					_h(x, y) = std::max(0.0f, std::lerp(water_height - _get_test()._terrain(x, y), water_height, 1.0f));
 				}
 			}
@@ -274,7 +274,7 @@ public:
 			_integrate_height(dt);
 			_integrate_velocity(dt);
 		}
-		[[nodiscard]] float height(std::uint32_t x, std::uint32_t y) const override {
+		[[nodiscard]] float height(u32 x, u32 y) const override {
 			const float h = _h(x, y);
 			const float t = _get_test()._terrain(x, y);
 			if (h < 0.0001f) {
@@ -302,8 +302,8 @@ public:
 			grid2<vec2> *min_max = nullptr
 		) {
 			grid2<float> rx(ux.get_size());
-			for (std::uint32_t y = 0; y < ux.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < ux.get_size()[0]; ++x) {
+			for (u32 y = 0; y < ux.get_size()[1]; ++y) {
+				for (u32 x = 0; x < ux.get_size()[0]; ++x) {
 					const vec2 p(x, y);
 					const float vx = ux(x, y);
 					const float vy = uy.sample_zero(p + offy).first;
@@ -329,8 +329,8 @@ public:
 			const grid2<float> uy0 = _advect_velocity_x(uy1, ux1, vec2(0.5f, -0.5f), -dt);
 
 			// resolve
-			for (std::uint32_t y = 0; y < ux1.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < ux1.get_size()[0]; ++x) {
+			for (u32 y = 0; y < ux1.get_size()[1]; ++y) {
+				for (u32 x = 0; x < ux1.get_size()[0]; ++x) {
 					float &uxo = _ux(x, y);
 					const float uxr = ux1(x, y);
 					const float ux = uxr - 0.5f * (ux0(x, y) - uxo);
@@ -338,8 +338,8 @@ public:
 					uxo = ux > minmax[0] && ux < minmax[1] ? ux : uxr;
 				}
 			}
-			for (std::uint32_t y = 0; y < uy1.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < uy1.get_size()[0]; ++x) {
+			for (u32 y = 0; y < uy1.get_size()[1]; ++y) {
+				for (u32 x = 0; x < uy1.get_size()[0]; ++x) {
 					float &uyo = _uy(x, y);
 					const float uyr = uy1(x, y);
 					const float uy = uyr - 0.5f * (uy0(x, y) - uyo);
@@ -354,8 +354,8 @@ public:
 			const float alpha = 0.5f;
 
 			const vec2 clamp = _cell_size() * alpha / dt;
-			for (std::uint32_t y = 0; y < _ux.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < _ux.get_size()[0]; ++x) {
+			for (u32 y = 0; y < _ux.get_size()[1]; ++y) {
+				for (u32 x = 0; x < _ux.get_size()[0]; ++x) {
 					const float hn = _h(x, y);
 					const float hp = _h(x + 1, y);
 					const float tn = _get_test()._terrain(x, y);
@@ -370,8 +370,8 @@ public:
 					_ux(x, y) = std::clamp(_ux(x, y), -clamp[0], clamp[0]);
 				}
 			}
-			for (std::uint32_t y = 0; y < _uy.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < _uy.get_size()[0]; ++x) {
+			for (u32 y = 0; y < _uy.get_size()[1]; ++y) {
+				for (u32 x = 0; x < _uy.get_size()[0]; ++x) {
 					const float hn = _h(x, y);
 					const float hp = _h(x, y + 1);
 					const float tn = _get_test()._terrain(x, y);
@@ -395,8 +395,8 @@ public:
 			const vec2 f = lotus::vec::memberwise_reciprocal(cell_size) * dt;
 			const float havgmax = beta * 0.5f * (cell_size[0] + cell_size[1]) / (_get_test()._gravity * dt);
 			grid2<float> nh(_h.get_size());
-			for (std::uint32_t y = 0; y < _h.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < _h.get_size()[0]; ++x) {
+			for (u32 y = 0; y < _h.get_size()[1]; ++y) {
+				for (u32 x = 0; x < _h.get_size()[0]; ++x) {
 					const float h = _h(x, y);
 
 					const float uxn = x > 0 ? _ux(x - 1, y) : 0.0f;
@@ -423,19 +423,19 @@ public:
 			_h = std::move(nh);
 		}
 
-		[[nodiscard]] float _eta(std::uint32_t x, std::uint32_t y) const {
+		[[nodiscard]] float _eta(u32 x, u32 y) const {
 			return _get_test()._terrain(x, y) + _h(x, y);
 		}
 		void _integrate_velocity(float dt) {
 			// TODO no external acceleration
 			const vec2 f = lotus::vec::memberwise_reciprocal(_cell_size()) * _get_test()._gravity * dt;
-			for (std::uint32_t y = 0; y < _ux.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < _ux.get_size()[0]; ++x) {
+			for (u32 y = 0; y < _ux.get_size()[1]; ++y) {
+				for (u32 x = 0; x < _ux.get_size()[0]; ++x) {
 					_ux(x, y) -= f[0] * (_eta(x + 1, y) - _eta(x, y));
 				}
 			}
-			for (std::uint32_t y = 0; y < _uy.get_size()[1]; ++y) {
-				for (std::uint32_t x = 0; x < _uy.get_size()[0]; ++x) {
+			for (u32 y = 0; y < _uy.get_size()[1]; ++y) {
+				for (u32 x = 0; x < _uy.get_size()[0]; ++x) {
 					_uy(x, y) -= f[1] * (_eta(x, y + 1) - _eta(x, y));
 				}
 			}
@@ -459,7 +459,7 @@ public:
 		}
 	}
 
-	void timestep(double dt, std::size_t iterations) override {
+	void timestep(double dt, usize iterations) override {
 		if (!_method) {
 			return;
 		}
@@ -468,7 +468,7 @@ public:
 			_impulse = false;
 			_method->impulse(vec2(_impulse_pos[0], _impulse_pos[1]), _impulse_vel, dt);
 		}
-		for (std::size_t i = 0; i < iterations; ++i) {
+		for (usize i = 0; i < iterations; ++i) {
 			_method->timestep(dt / iterations);
 		}
 	}
@@ -490,7 +490,7 @@ public:
 		const vec2 cell_size = lotus::vec::memberwise_divide(vec2(_grid_size[0], _grid_size[1]), (_terrain.get_size() - lotus::cvec2u32(1, 1)).into<scalar>());
 		if (_method) {
 			_draw_heightfield(
-				[this](std::uint32_t x, std::uint32_t y) {
+				[this](u32 x, u32 y) {
 					return _method->height(x, y);
 				},
 				_terrain.get_size(), _render, cell_size, lotus::linear_rgba_f(0.3f, 0.3f, 1.0f, 1.0f), transform, _get_test_context().wireframe_surfaces
@@ -604,9 +604,9 @@ protected:
 
 		const auto w = _terrain.get_size()[0];
 		const auto h = _terrain.get_size()[1];
-		for (std::uint32_t y = 0; y < h; ++y) {
+		for (u32 y = 0; y < h; ++y) {
 			const float yp = _terrain_freq * (_grid_size[1] * y / (h - 1) + _terrain_phase[1]);
-			for (std::uint32_t x = 0; x < w; ++x) {
+			for (u32 x = 0; x < w; ++x) {
 				const float xp = _terrain_freq * (_grid_size[0] * x / (w - 1) + _terrain_phase[0]);
 				_terrain(x, y) = _terrain_offset + _terrain_amp * noise(vec2(xp, yp));
 			}
@@ -628,13 +628,13 @@ protected:
 	) {
 		std::vector<vec3> pos;
 		std::vector<vec3> norm;
-		std::vector<std::uint32_t> indices;
-		for (std::uint32_t y = 0; y < sz[1]; ++y) {
-			for (std::uint32_t x = 0; x < sz[0]; ++x) {
-				const std::uint32_t x1y1 = pos.size();
-				const std::uint32_t x0y1 = x1y1 - 1;
-				const std::uint32_t x1y0 = x1y1 - sz[0];
-				const std::uint32_t x0y0 = x0y1 - sz[0];
+		std::vector<u32> indices;
+		for (u32 y = 0; y < sz[1]; ++y) {
+			for (u32 x = 0; x < sz[0]; ++x) {
+				const u32 x1y1 = pos.size();
+				const u32 x0y1 = x1y1 - 1;
+				const u32 x1y0 = x1y1 - sz[0];
+				const u32 x0y0 = x0y1 - sz[0];
 				pos.emplace_back(x * cell_size[0], height(x, y), y * cell_size[1]);
 				if (x > 0 && y > 0) {
 					indices.emplace_back(x0y0);
@@ -646,9 +646,9 @@ protected:
 				}
 			}
 		}
-		for (std::uint32_t y = 0; y < sz[1]; ++y) {
-			for (std::uint32_t x = 0; x < sz[0]; ++x) {
-				const auto get_pos = [&](std::uint32_t xp, std::uint32_t yp) {
+		for (u32 y = 0; y < sz[1]; ++y) {
+			for (u32 x = 0; x < sz[0]; ++x) {
+				const auto get_pos = [&](u32 xp, u32 yp) {
 					return pos[yp * sz[0] + xp];
 				};
 				const vec3 xn = get_pos(x > 0 ? x - 1 : x, y);
@@ -682,7 +682,7 @@ protected:
 		// downward sweep
 		out_x[0] = diag1[0] / diag[0];
 		rhs[0] = rhs[0] / diag[0];
-		for (std::size_t i = 1; i < diag.size(); ++i) {
+		for (usize i = 1; i < diag.size(); ++i) {
 			if (i + 1 < diag.size()) {
 				out_x[i] = diag1[i] / (diag[i] - diag1[i - 1] * out_x[i - 1]);
 			}
@@ -691,7 +691,7 @@ protected:
 
 		// back substitution
 		out_x[diag.size() - 1] = rhs[diag.size() - 1];
-		for (std::size_t i = diag.size() - 1; i > 0; ) {
+		for (usize i = diag.size() - 1; i > 0; ) {
 			--i;
 			out_x[i] = rhs[i] - out_x[i] * out_x[i + 1];
 		}

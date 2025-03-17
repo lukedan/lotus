@@ -52,7 +52,7 @@ namespace lotus {
 			{ // choose adapter
 				int best_adapter_score = std::numeric_limits<int>::min();
 				std::vector<gpu::adapter> adapters = _gpu_context.get_all_adapters();
-				for (std::size_t i = 0; i < adapters.size(); ++i) {
+				for (usize i = 0; i < adapters.size(); ++i) {
 					const int score = _score_device(adapters[i]);
 					if (score > best_adapter_score) {
 						best_adapter_score = score;
@@ -210,16 +210,16 @@ namespace lotus {
 		/// Returns the queue types for GPU queues that should be created.
 		[[nodiscard]] virtual std::span<const gpu::queue_family> _get_desired_queues() const = 0;
 		/// Derived classes should override this to return the desired GPU queue index used for loading assets.
-		[[nodiscard]] virtual std::uint32_t _get_asset_loading_queue_index() const = 0;
+		[[nodiscard]] virtual u32 _get_asset_loading_queue_index() const = 0;
 		/// Derived classes should override this to return the desired GPU queue index used for uploading constant
 		/// buffers.
-		[[nodiscard]] virtual std::uint32_t _get_constant_upload_queue_index() const = 0;
+		[[nodiscard]] virtual u32 _get_constant_upload_queue_index() const = 0;
 		/// Derived classes should override this to return the desired GPU queue index used for ImGUI and debug
 		/// drawing.
-		[[nodiscard]] virtual std::uint32_t _get_debug_drawing_queue_index() const = 0;
+		[[nodiscard]] virtual u32 _get_debug_drawing_queue_index() const = 0;
 		/// Derived classes should override this to return the desired GPU queue index used for presenting to swap
 		/// chains.
-		[[nodiscard]] virtual std::uint32_t _get_present_queue_index() const = 0;
+		[[nodiscard]] virtual u32 _get_present_queue_index() const = 0;
 		/// Derived classes should override this and return the asset library path.
 		[[nodiscard]] virtual std::filesystem::path _get_asset_library_path() const = 0;
 		/// Derived classes should override this and return additional shader include paths.
@@ -371,7 +371,7 @@ namespace lotus {
 					ImGui::TableSetupColumn("Size");
 					ImGui::TableHeadersRow();
 
-					std::size_t keep_count = 5;
+					usize keep_count = 5;
 					std::vector<_constant_buffer_info> heap;
 					std::greater<_constant_buffer_info> pred;
 					for (const auto &queue_stats : batch_stats_early) {
@@ -440,7 +440,7 @@ namespace lotus {
 		/// Information about constant buffers and how many times they're used.
 		struct _constant_buffer_info {
 			/// Initializes all fields of this struct.
-			_constant_buffer_info(renderer::statistics::constant_buffer_signature sig, std::uint32_t c) :
+			_constant_buffer_info(renderer::statistics::constant_buffer_signature sig, u32 c) :
 				signature(sig), count(c) {
 			}
 
@@ -453,7 +453,7 @@ namespace lotus {
 
 			/// The signature of the constant buffer.
 			renderer::statistics::constant_buffer_signature signature = zero;
-			std::uint32_t count = 0; ///< The number of times it's used.
+			u32 count = 0; ///< The number of times it's used.
 		};
 		*/
 

@@ -28,7 +28,7 @@ public:
 		_convex_hull = nullptr;
 	}
 
-	void timestep(double, std::size_t) override {
+	void timestep(double, usize) override {
 		if (_cur_vertex < _vertices.size()) {
 			_convex_hull.add_vertex(_vertices[_cur_vertex]);
 			++_cur_vertex;
@@ -72,8 +72,8 @@ public:
 		std::vector<bool> poly_vert_used(poly_verts.size(), false);
 		std::vector<vec3> verts;
 		std::vector<vec3> normals;
-		std::vector<std::uint32_t> indices;
-		for (const std::array<std::uint32_t, 3> &tri : poly_tris) {
+		std::vector<u32> indices;
+		for (const std::array<u32, 3> &tri : poly_tris) {
 			const vec3 p0 = poly_verts[tri[0]];
 			const vec3 p1 = poly_verts[tri[1]];
 			const vec3 p2 = poly_verts[tri[2]];
@@ -104,7 +104,7 @@ public:
 			_get_test_context().wireframe_bodies
 		);
 
-		for (std::size_t i = 0; i < poly_verts.size(); ++i) {
+		for (usize i = 0; i < poly_verts.size(); ++i) {
 			const vec3 p = poly_verts[i];
 			const float size = 0.1f;
 			const mat44s trans({
@@ -124,7 +124,7 @@ public:
 		/*glPointSize(10.0f);
 		glDisable(GL_LIGHTING);
 		glBegin(GL_POINTS);
-		for (std::size_t i = 0; i < _vertices.size(); ++i) {
+		for (usize i = 0; i < _vertices.size(); ++i) {
 			std::array<float, 3> color{ 0.5f, 0.5f, 0.5f };
 			if (i == _cur_vertex) {
 				color = { 1.0f, 1.0f, 0.0f };
@@ -208,12 +208,12 @@ protected:
 	hull::storage<> _convex_hull_storage;
 	int _seed = 0;
 	int _num_vertices = 100;
-	std::size_t _cur_vertex = 0;
+	usize _cur_vertex = 0;
 
-	[[nodiscard]] std::pair<std::vector<vec3>, std::vector<std::array<std::uint32_t, 3>>> _get_polyhedron() const {
+	[[nodiscard]] std::pair<std::vector<vec3>, std::vector<std::array<u32, 3>>> _get_polyhedron() const {
 		std::vector<vec3> verts;
-		std::vector<std::array<std::uint32_t, 3>> tris;
-		for (std::size_t vi = 0; vi < _convex_hull.get_vertex_count(); ++vi) {
+		std::vector<std::array<u32, 3>> tris;
+		for (usize vi = 0; vi < _convex_hull.get_vertex_count(); ++vi) {
 			verts.emplace_back(_convex_hull.get_vertex(static_cast<hull::vertex_id>(vi)));
 		}
 		const hull::face_id any_face = _convex_hull.get_any_face();

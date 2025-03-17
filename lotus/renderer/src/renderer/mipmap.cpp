@@ -20,7 +20,7 @@ namespace lotus::renderer::mipmap {
 
 	void generator::generate_all(image2d_view img) {
 		const auto mips = img.get_viewed_mip_levels().into_range_with_count(img.get_num_mip_levels());
-		for (std::uint32_t i = mips.begin + 1; i < mips.end; ++i) {
+		for (u32 i = mips.begin + 1; i < mips.end; ++i) {
 			all_resource_bindings rsrc(
 				{
 					{ 0, {
@@ -31,7 +31,7 @@ namespace lotus::renderer::mipmap {
 				{}
 			);
 
-			auto size = (img.get_size() / 2u).into<std::uint32_t>();
+			auto size = (img.get_size() / 2u).into<u32>();
 			// TODO better description
 			_q.run_compute_shader_with_thread_dimensions(
 				_shader, cvec3u32(size[0], size[1], 1u), std::move(rsrc), u8"Generate mip"

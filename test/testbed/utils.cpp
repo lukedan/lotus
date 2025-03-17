@@ -19,7 +19,7 @@ void debug_render::draw_point(vec3 p, lotus::linear_rgba_f color) {
 }
 
 void debug_render::draw_line(vec3 a, vec3 b, lotus::linear_rgba_f color) {
-	auto first_index = static_cast<std::uint32_t>(line_vertices.size());
+	auto first_index = static_cast<u32>(line_vertices.size());
 	auto &v1 = line_vertices.emplace_back();
 	v1.position = a.into<float>();
 	v1.normal   = lotus::zero;
@@ -35,7 +35,7 @@ void debug_render::draw_line(vec3 a, vec3 b, lotus::linear_rgba_f color) {
 void debug_render::draw_body(
 	std::span<const vec3> positions,
 	std::span<const vec3> normals,
-	std::span<const std::uint32_t> indices,
+	std::span<const u32> indices,
 	mat44s transform,
 	lotus::linear_rgba_f color,
 	bool wireframe
@@ -43,7 +43,7 @@ void debug_render::draw_body(
 	std::vector<vec3> generated_normals;
 	if (normals.empty()) {
 		generated_normals.resize(positions.size(), lotus::zero);
-		for (std::size_t i = 0; i < indices.size(); i += 3) {
+		for (usize i = 0; i < indices.size(); i += 3) {
 			auto i1 = indices[i + 0];
 			auto i2 = indices[i + 1];
 			auto i3 = indices[i + 2];
@@ -59,17 +59,17 @@ void debug_render::draw_body(
 	}
 
 	auto &verts = wireframe ? line_vertices : mesh_vertices;
-	auto first_vert = static_cast<std::uint32_t>(verts.size());
+	auto first_vert = static_cast<u32>(verts.size());
 	auto normal_transform = transform.block<3, 3>(0, 0).inverse().transposed();
-	for (std::size_t i = 0; i < positions.size(); ++i) {
+	for (usize i = 0; i < positions.size(); ++i) {
 		auto &vert = verts.emplace_back();
 		vert.position = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0);
 		vert.color    = color;
 		vert.normal   = lotus::vec::unsafe_normalize(normal_transform * normals[i]);
 	}
-	for (std::size_t i = 0; i < indices.size(); i += 3) {
+	for (usize i = 0; i < indices.size(); i += 3) {
 		if (wireframe) {
-			for (std::size_t j = 0; j < 3; ++j) {
+			for (usize j = 0; j < 3; ++j) {
 				auto cur = indices[i + j];
 				auto next = indices[i + (j + 1) % 3];
 				if (cur < next) {
@@ -78,7 +78,7 @@ void debug_render::draw_body(
 				}
 			}
 		} else {
-			for (std::size_t j = 0; j < 3; ++j) {
+			for (usize j = 0; j < 3; ++j) {
 				mesh_indices.emplace_back(indices[i + j] + first_vert);
 			}
 		}
@@ -86,22 +86,22 @@ void debug_render::draw_body(
 }
 
 void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, bool wireframe) {
-	constexpr std::uint32_t _z_slices = 10;
-	constexpr std::uint32_t _xy_slices = 30;
+	constexpr u32 _z_slices = 10;
+	constexpr u32 _xy_slices = 30;
 	constexpr double _z_slice_angle = lotus::physics::pi / _z_slices;
 	constexpr double _xy_slice_angle = 2.0 * lotus::physics::pi / _xy_slices;
 
 	static std::vector<vec3> _vertices;
-	static std::vector<std::uint32_t> _indices;
+	static std::vector<u32> _indices;
 
 	if (_vertices.empty()) {
 		// http://www.songho.ca/opengl/gl_sphere.html
-		for (std::uint32_t i = 0; i <= _z_slices; ++i) {
+		for (u32 i = 0; i <= _z_slices; ++i) {
 			double z_angle = lotus::physics::pi / 2 - static_cast<double>(i) * _z_slice_angle;
 			double xy = 0.5 * std::cos(z_angle);
 			double z = 0.5 * std::sin(z_angle);
 
-			for (std::uint32_t j = 0; j <= _xy_slices; ++j) {
+			for (u32 j = 0; j <= _xy_slices; ++j) {
 				double xy_angle = static_cast<double>(j) * _xy_slice_angle;
 
 				double x = xy * std::cos(xy_angle);
@@ -110,11 +110,11 @@ void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, boo
 			}
 		}
 
-		for (std::uint32_t i = 0; i < _z_slices; ++i) {
-			std::uint32_t k1 = i * (_xy_slices + 1);
-			std::uint32_t k2 = k1 + _xy_slices + 1;
+		for (u32 i = 0; i < _z_slices; ++i) {
+			u32 k1 = i * (_xy_slices + 1);
+			u32 k2 = k1 + _xy_slices + 1;
 
-			for (std::uint32_t j = 0; j < _xy_slices; ++j, ++k1, ++k2) {
+			for (u32 j = 0; j < _xy_slices; ++j, ++k1, ++k2) {
 				if (i != 0) {
 					_indices.emplace_back(k1);
 					_indices.emplace_back(k2);
@@ -149,7 +149,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, mat
 			v0 + vx *  100.0f + vy * -100.0f,
 			v0 + vx * -100.0f + vy * -100.0f,
 		};
-		std::uint32_t indices[] = {
+		u32 indices[] = {
 			0, 1, 3, 0, 3, 2
 		};
 		draw_body(positions, {}, indices, mat44s::identity(), color, wireframe);
@@ -168,13 +168,13 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron 
 		draw_body(poly.vertices, {}, visual->triangles, transform, visual->color, wireframe);
 	} else {
 		std::vector<vec3> verts;
-		std::vector<std::uint32_t> indices;
+		std::vector<u32> indices;
 
 		using convex_hull = lotus::incremental_convex_hull;
 
 		auto storage = convex_hull::create_storage_for_num_vertices(poly.vertices.size());
 		auto hull = storage.create_state_for_tetrahedron({ poly.vertices[0], poly.vertices[1], poly.vertices[2], poly.vertices[3] });
-		for (std::size_t i = 4; i < poly.vertices.size(); ++i) {
+		for (usize i = 4; i < poly.vertices.size(); ++i) {
 			hull.add_vertex(poly.vertices[i]);
 		}
 
@@ -182,7 +182,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron 
 			convex_hull::face_id fi = hull.get_any_face();
 			do {
 				const convex_hull::face &face = hull.get_face(fi);
-				const auto i0 = static_cast<std::uint32_t>(verts.size());
+				const auto i0 = static_cast<u32>(verts.size());
 				const vec3 v1 = hull.get_vertex(face.vertex_indices[0]);
 				const vec3 v2 = hull.get_vertex(face.vertex_indices[1]);
 				const vec3 v3 = hull.get_vertex(face.vertex_indices[2]);
@@ -229,7 +229,7 @@ void debug_render::draw_system(lotus::physics::engine &engine) {
 	}
 	for (const auto &surface : surfaces) {
 		if (ctx->wireframe_surfaces) {
-			for (std::size_t i = 0; i < surface.triangles.size(); i += 3) {
+			for (usize i = 0; i < surface.triangles.size(); i += 3) {
 				auto p1 = engine.particles[surface.triangles[i]].state.position;
 				auto p2 = engine.particles[surface.triangles[i + 1]].state.position;
 				auto p3 = engine.particles[surface.triangles[i + 2]].state.position;
@@ -276,10 +276,10 @@ void debug_render::flush(
 	};
 
 	auto mesh_vert_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(mesh_vertices.data()), sizeof(vertex) * mesh_vertices.size() }, u8"Mesh Vertices");
-	auto mesh_idx_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(mesh_indices.data()), sizeof(std::uint32_t) * mesh_indices.size() }, u8"Mesh Indices");
+	auto mesh_idx_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(mesh_indices.data()), sizeof(u32) * mesh_indices.size() }, u8"Mesh Indices");
 
 	auto line_vert_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(line_vertices.data()), sizeof(vertex) * line_vertices.size() }, u8"Line Vertices");
-	auto line_idx_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(line_indices.data()), sizeof(std::uint32_t) * line_indices.size() }, u8"Line Indices");
+	auto line_idx_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(line_indices.data()), sizeof(u32) * line_indices.size() }, u8"Line Indices");
 
 	auto point_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(point_vertices.data()), sizeof(vertex) * point_vertices.size() }, u8"Point Vertices");
 

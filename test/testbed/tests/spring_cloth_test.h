@@ -27,9 +27,9 @@ public:
 
 		auto &surface = _render.surfaces.emplace_back();
 		surface.color = lotus::linear_rgba_f(1.0f, 0.4f, 0.2f, 0.5f);
-		std::vector<std::vector<std::uint32_t>> pid(
-			static_cast<std::size_t>(_side_segments),
-			std::vector<std::uint32_t>(static_cast<std::size_t>(_side_segments)));
+		std::vector<std::vector<u32>> pid(
+			static_cast<usize>(_side_segments),
+			std::vector<u32>(static_cast<usize>(_side_segments)));
 		for (int y = 0; y < _side_segments; ++y) {
 			for (int x = 0; x < _side_segments; ++x) {
 				auto prop = lotus::physics::particle_properties::from_mass(node_mass);
@@ -39,7 +39,7 @@ public:
 				auto state = lotus::physics::particle_state::stationary_at(
 					{ x * segment_length, _cloth_size, y * segment_length - 0.5 * _cloth_size }
 				);
-				pid[x][y] = static_cast<std::uint32_t>(_engine.particles.size());
+				pid[x][y] = static_cast<u32>(_engine.particles.size());
 				_engine.particles.emplace_back(lotus::physics::particle::create(prop, state));
 			}
 		}
@@ -84,7 +84,7 @@ public:
 		_sphere = _engine.bodies.begin();
 	}
 
-	void timestep(double dt, std::size_t iterations) override {
+	void timestep(double dt, usize iterations) override {
 		_world_time += dt;
 		_sphere->state.position = {
 			_sphere_travel * std::cos((2.0 * lotus::physics::pi / _sphere_period) * _world_time),
@@ -151,7 +151,7 @@ protected:
 	float _sphere_yz[2]{ 0.5f, 0.0f };
 
 
-	void _add_spring(std::size_t i1, std::size_t i2, double y) {
+	void _add_spring(usize i1, usize i2, double y) {
 		auto &spring = _engine.particle_spring_constraints.emplace_back(lotus::uninitialized);
 		spring.particle1 = i1;
 		spring.particle2 = i2;

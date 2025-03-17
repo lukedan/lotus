@@ -8,7 +8,7 @@
 #include "lotus/gpu/backends/common/dxgi_format.h"
 
 namespace lotus::dds {
-	gpu::format loader::four_cc_to_format(std::uint32_t four_cc) {
+	gpu::format loader::four_cc_to_format(u32 four_cc) {
 		switch (four_cc) {
 		case 36:  return gpu::format::r16g16b16a16_unorm;
 		case 110: return gpu::format::r16g16b16a16_snorm;
@@ -136,7 +136,7 @@ namespace lotus::dds {
 	}
 
 	std::optional<loader> loader::create(std::span<const std::byte> data) {
-		if (data.size() < sizeof(std::uint32_t) + sizeof(header)) {
+		if (data.size() < sizeof(u32) + sizeof(header)) {
 			log().debug("DDS file too small");
 			return std::nullopt;
 		}
@@ -144,7 +144,7 @@ namespace lotus::dds {
 		loader result = nullptr;
 		result._data = data.data();
 		result._size = data.size();
-		if (auto file_magic = *result._data_at_offset<std::uint32_t>(0); file_magic != magic) {
+		if (auto file_magic = *result._data_at_offset<u32>(0); file_magic != magic) {
 			log().debug("Incorrect DDS magic number: {}", file_magic);
 			return std::nullopt;
 		}
@@ -163,7 +163,7 @@ namespace lotus::dds {
 		result._height     = dds_header.height;
 		result._depth      = dds_header.depth;
 		result._array_size = 1;
-		result._num_mips   = std::max<std::uint32_t>(1, dds_header.mipmap_count);
+		result._num_mips   = std::max<u32>(1, dds_header.mipmap_count);
 
 		result._has_dx10_header =
 			bit_mask::contains<pixel_format_flags::four_cc>(dds_header.pixel_format.flags) &&

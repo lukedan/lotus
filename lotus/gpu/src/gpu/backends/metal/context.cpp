@@ -16,10 +16,10 @@ namespace lotus::gpu::backends::metal {
 	std::vector<adapter> context::get_all_adapters() const {
 		NS::SharedPtr<NS::Array> arr = NS::TransferPtr(MTL::CopyAllDevices());
 
-		const auto count = static_cast<std::size_t>(arr->count());
+		const auto count = static_cast<usize>(arr->count());
 		std::vector<adapter> result;
 		result.reserve(count);
-		for (std::size_t i = 0; i < count; ++i) {
+		for (usize i = 0; i < count; ++i) {
 			result.emplace_back(adapter(NS::RetainPtr(arr->object<MTL::Device>(i)), _context_options));
 		}
 		return result;

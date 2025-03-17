@@ -33,12 +33,12 @@ namespace lotus::gpu::backends::common {
 		/// \p ID3D12FunctionReflection::GetResourceBindingDescByName().
 		[[nodiscard]] std::optional<shader_resource_binding> find_resource_binding_by_name(const char8_t*) const;
 		/// Returns the number of resource bindings.
-		[[nodiscard]] std::uint32_t get_resource_binding_count() const;
+		[[nodiscard]] u32 get_resource_binding_count() const;
 		/// Returns the result of \p ID3D12ShaderReflection::GetResourceBindingDesc().
-		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t) const;
+		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(u32) const;
 
 		/// Returns the number of render targets.
-		[[nodiscard]] std::uint32_t get_render_target_count() const;
+		[[nodiscard]] u32 get_render_target_count() const;
 
 		/// Returns the result of \p ID3D12ShaderReflection::GetThreadGroupSize().
 		[[nodiscard]] cvec3u32 get_thread_group_size() const;
@@ -83,9 +83,9 @@ namespace lotus::gpu::backends::common {
 		}
 
 		/// Retrieves the number of shaders from the \p D3D12_LIBRARY_DESC.
-		[[nodiscard]] std::uint32_t get_num_shaders() const;
+		[[nodiscard]] u32 get_num_shaders() const;
 		/// Retrieves the corresponding shader using \p ID3D12LibraryReflection::GetFunctionByIndex().
-		[[nodiscard]] dxil_reflection get_shader_at(std::uint32_t) const;
+		[[nodiscard]] dxil_reflection get_shader_at(u32) const;
 		/// Finds the shader that matches the given entry point and stage using \ref enumerate_shaders().
 		[[nodiscard]] dxil_reflection find_shader(std::u8string_view, shader_stage) const;
 	private:

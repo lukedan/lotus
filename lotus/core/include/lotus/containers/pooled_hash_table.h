@@ -11,7 +11,7 @@
 namespace lotus {
 	// TODO allocator
 	/// A hash table where the nodes are stored in a pool.
-	template <typename Value, typename Hash, typename Index = std::uint32_t> class pooled_hash_table {
+	template <typename Value, typename Hash, typename Index = u32> class pooled_hash_table {
 	private:
 		struct _node;
 		using _pool_type = pool<_node, Index>; ///< Type of the node pool.

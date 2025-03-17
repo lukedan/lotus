@@ -21,7 +21,7 @@ namespace lotus::collision::shapes {
 
 			/// Computes the polyhedron properties for the given set of vertices and triangle faces.
 			[[nodiscard]] static properties compute_for(
-				std::span<const vec3>, std::span<const std::array<std::uint32_t, 3>>
+				std::span<const vec3>, std::span<const std::array<u32, 3>>
 			);
 
 			/// The covariance matrix, computed with respect to the origin instead of the center of mass.
@@ -59,6 +59,6 @@ namespace lotus::collision::shapes {
 		[[nodiscard]] physics::body_properties bake(scalar density);
 
 		/// Returns the index of the support vertex in the given direction, and its dot product with the direction.
-		[[nodiscard]] std::pair<std::uint32_t, scalar> get_support_vertex(vec3 dir) const;
+		[[nodiscard]] std::pair<u32, scalar> get_support_vertex(vec3 dir) const;
 	};
 }

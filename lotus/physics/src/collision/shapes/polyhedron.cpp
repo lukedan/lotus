@@ -5,7 +5,7 @@
 
 namespace lotus::collision::shapes {
 	polyhedron::properties polyhedron::properties::compute_for(
-		std::span<const vec3> verts, std::span<const std::array<std::uint32_t, 3>> faces
+		std::span<const vec3> verts, std::span<const std::array<u32, 3>> faces
 	) {
 		constexpr mat33s _canonical{
 			{ 1.0f / 60.0f,  1.0f / 120.0f, 1.0f / 120.0f },
@@ -38,7 +38,7 @@ namespace lotus::collision::shapes {
 
 		// compute convex hull
 		auto hull_storage = incremental_convex_hull::create_storage_for_num_vertices(
-			static_cast<std::uint32_t>(vertices.size()),
+			static_cast<u32>(vertices.size()),
 			bookmark.create_std_allocator<incremental_convex_hull::vec3>(),
 			bookmark.create_std_allocator<incremental_convex_hull::face_entry>()
 		);
@@ -48,14 +48,14 @@ namespace lotus::collision::shapes {
 			vertices[2].into<float>(),
 			vertices[3].into<float>()
 		});
-		for (std::size_t i = 4; i < vertices.size(); ++i) {
+		for (usize i = 4; i < vertices.size(); ++i) {
 			hull_state.add_vertex(vertices[i].into<float>());
 		}
 
 		// gather faces
-		auto faces = bookmark.create_reserved_vector_array<std::array<std::uint32_t, 3>>(
+		auto faces = bookmark.create_reserved_vector_array<std::array<u32, 3>>(
 			incremental_convex_hull::get_max_num_triangles_for_vertex_count(
-				static_cast<std::uint32_t>(vertices.size())
+				static_cast<u32>(vertices.size())
 			)
 		);
 		{ // enumerate all faces
@@ -78,16 +78,16 @@ namespace lotus::collision::shapes {
 		return prop.translated(-prop.center_of_mass).get_body_properties(density);
 	}
 
-	std::pair<std::uint32_t, scalar> polyhedron::get_support_vertex(vec3 dir) const {
-		std::size_t result = 0;
+	std::pair<u32, scalar> polyhedron::get_support_vertex(vec3 dir) const {
+		usize result = 0;
 		scalar dot1max = vec::dot(vertices[result], dir);
-		for (std::size_t i = 1; i < vertices.size(); ++i) {
+		for (usize i = 1; i < vertices.size(); ++i) {
 			const scalar dv = vec::dot(vertices[i], dir);
 			if (dv > dot1max) {
 				dot1max = dv;
 				result = i;
 			}
 		}
-		return { static_cast<std::uint32_t>(result), dot1max };
+		return { static_cast<u32>(result), dot1max };
 	}
 }

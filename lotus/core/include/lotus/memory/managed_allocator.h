@@ -27,7 +27,7 @@ namespace lotus::memory {
 		constexpr static bool _has_ghost_data = !std::is_same_v<GhostData, std::nullopt_t>;
 	public:
 		/// Creates a new allocator object.
-		[[nodiscard]] inline static managed_allocator create(std::size_t size) {
+		[[nodiscard]] inline static managed_allocator create(usize size) {
 			managed_allocator result;
 			result._total_size = size;
 			result._free_ranges.emplace(_range(0, result._total_size), _free_range_data());
@@ -40,7 +40,7 @@ namespace lotus::memory {
 		template <typename GhostCallback> [[nodiscard]] std::enable_if_t<
 			// the callback is only available if we actually have data to call it with
 			std::is_same_v<std::decay_t<GhostCallback>, std::nullopt_t> || _has_ghost_data,
-			std::optional<std::pair<std::size_t, Data&>>
+			std::optional<std::pair<usize, Data&>>
 		> allocate(
 			size_alignment size_align, Data &&data, GhostCallback &&callback
 		) {
@@ -99,7 +99,7 @@ namespace lotus::memory {
 		/// \overload
 		template <typename Dummy = int> [[nodiscard]] std::enable_if_t<
 			std::is_same_v<Dummy, Dummy> && !_has_ghost_data,
-			std::optional<std::pair<std::size_t, Data&>>
+			std::optional<std::pair<usize, Data&>>
 		> allocate(
 			size_alignment size_align, Data &&data
 		) {
@@ -107,7 +107,7 @@ namespace lotus::memory {
 		}
 
 		/// Frees the range starting from the given location.
-		template <typename ConvertGhost> void free(std::size_t addr, ConvertGhost &&convert) {
+		template <typename ConvertGhost> void free(usize addr, ConvertGhost &&convert) {
 			auto it = _allocated_ranges.lower_bound(_range(addr, 0));
 			crash_if(it == _allocated_ranges.end());
 			crash_if(it->first.begin != addr);
@@ -159,7 +159,7 @@ namespace lotus::memory {
 		/// \overload
 		template <
 			typename Dummy = void
-		> std::enable_if_t<!_has_ghost_data && std::is_same_v<Dummy, Dummy>, void> free(std::size_t addr) {
+		> std::enable_if_t<!_has_ghost_data && std::is_same_v<Dummy, Dummy>, void> free(usize addr) {
 			free(addr, std::nullopt);
 		}
 
@@ -167,10 +167,10 @@ namespace lotus::memory {
 		[[nodiscard]] bool check_integrity() const {
 			auto alloc_it = _allocated_ranges.begin();
 			auto free_it = _free_ranges.begin();
-			std::size_t prev = 0;
+			usize prev = 0;
 			while (true) {
-				std::size_t alloc_beg = _total_size;
-				std::size_t free_beg = _total_size;
+				usize alloc_beg = _total_size;
+				usize free_beg = _total_size;
 				if (alloc_it != _allocated_ranges.end()) {
 					alloc_beg = alloc_it->first.begin;
 					if (alloc_it->first.begin >= alloc_it->first.end) {
@@ -185,7 +185,7 @@ namespace lotus::memory {
 						return false;
 					}
 				}
-				std::size_t current = std::min(alloc_beg, free_beg);
+				usize current = std::min(alloc_beg, free_beg);
 				if (prev != current) {
 					log().error("Missing range [{}, {})", prev, current);
 					return false;
@@ -218,7 +218,7 @@ namespace lotus::memory {
 			return true;
 		}
 	private:
-		using _range = linear_size_t_range; ///< A memory range.
+		using _range = linear_usize_range; ///< A memory range.
 		/// An allocation made previously that has been freed.
 		struct _ghost {
 			/// Initializes all fields of this struct.
@@ -248,7 +248,7 @@ namespace lotus::memory {
 
 		std::map<_range, Data, _compare> _allocated_ranges; ///< All allocated ranges.
 		std::map<_range, _free_range_data, _compare> _free_ranges; ///< Available free ranges.
-		std::size_t _total_size = 0; ///< Total size of the managed block.
+		usize _total_size = 0; ///< Total size of the managed block.
 
 		/// Does not invoke a \p std::nullopt_t object.
 		template <typename ...Args> void _maybe_invoke(std::nullopt_t, Args&&...) {

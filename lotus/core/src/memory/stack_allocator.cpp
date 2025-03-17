@@ -4,7 +4,7 @@
 /// Implementation of the stack allocator.
 
 namespace lotus::memory {
-	stack_allocator::_page_ref stack_allocator::_page_ref::to_new_page(std::byte *ptr, std::size_t sz) {
+	stack_allocator::_page_ref stack_allocator::_page_ref::to_new_page(std::byte *ptr, usize sz) {
 		_page_ref result = uninitialized;
 		result.memory = ptr;
 		result.current = ptr;
@@ -16,7 +16,7 @@ namespace lotus::memory {
 	}
 
 	std::byte *stack_allocator::_page_ref::allocate(memory::size_alignment s) {
-		auto sz = static_cast<std::size_t>(end - current);
+		auto sz = static_cast<usize>(end - current);
 		void *v_current = current;
 		if (void *result = std::align(s.alignment, s.size, v_current, sz)) {
 			current = static_cast<std::byte*>(v_current) + s.size;

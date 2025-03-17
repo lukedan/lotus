@@ -30,3 +30,4 @@ using lotus::uninitialized;
 using lotus::zero_t;
 using lotus::zero;
 using lotus::log;
+using namespace lotus::types;

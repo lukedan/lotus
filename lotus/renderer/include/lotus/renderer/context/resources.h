@@ -32,7 +32,7 @@ namespace lotus::renderer {
 
 			/// The descriptor array.
 			descriptor_array<RecordedResource, View> *array = nullptr;
-			std::uint32_t index = 0; ///< The index of this image in the array.
+			u32 index = 0; ///< The index of this image in the array.
 		};
 
 
@@ -74,21 +74,21 @@ namespace lotus::renderer {
 				}
 			private:
 				/// Index indicating an invalid token.
-				constexpr static std::size_t invalid_chunk_index = std::numeric_limits<std::size_t>::max();
+				constexpr static usize invalid_chunk_index = std::numeric_limits<usize>::max();
 
-				std::size_t _chunk_index = invalid_chunk_index; ///< The index of the chunk.
-				std::size_t _address = 0; ///< Address of the memory block within the chunk.
+				usize _chunk_index = invalid_chunk_index; ///< The index of the chunk.
+				usize _address = 0; ///< Address of the memory block within the chunk.
 
 				/// Initializes all fields of this struct.
-				token(std::size_t ch, std::size_t addr) : _chunk_index(ch), _address(addr) {
+				token(usize ch, usize addr) : _chunk_index(ch), _address(addr) {
 				}
 			};
 			/// Callback function used to allocate memory chunks.
-			using allocation_function = static_function<gpu::memory_block(std::size_t)>;
+			using allocation_function = static_function<gpu::memory_block(usize)>;
 
 			/// Initializes the pool.
 			explicit pool(
-				allocation_function alloc, std::size_t chunk_sz, unique_resource_id i, std::u8string_view n
+				allocation_function alloc, usize chunk_sz, unique_resource_id i, std::u8string_view n
 			) : resource(i, n), allocate_memory(std::move(alloc)), chunk_size(chunk_sz) {
 			}
 
@@ -103,13 +103,13 @@ namespace lotus::renderer {
 			void free(token);
 
 			/// Given a \ref token, returns the corresponding memory block and its offset within it.
-			[[nodiscard]] std::pair<const gpu::memory_block&, std::size_t> get_memory_and_offset(token tk) const {
+			[[nodiscard]] std::pair<const gpu::memory_block&, usize> get_memory_and_offset(token tk) const {
 				return { _chunks[tk._chunk_index].memory, tk._address };
 			}
 
 			/// Callback for allocating memory blocks.
-			static_function<gpu::memory_block(std::size_t)> allocate_memory;
-			std::size_t chunk_size = 0; ///< Chunk size.
+			static_function<gpu::memory_block(usize)> allocate_memory;
+			usize chunk_size = 0; ///< Chunk size.
 			bool debug_log_allocations = false;
 		private:
 			/// A chunk of GPU memory managed by this pool.
@@ -135,7 +135,7 @@ namespace lotus::renderer {
 			/// Initializes this image to empty with the specified number of queues.
 			image_base(
 				std::shared_ptr<pool> p,
-				std::uint32_t mips,
+				u32 mips,
 				gpu::format fmt,
 				gpu::image_tiling t,
 				gpu::image_usage_mask u,
@@ -158,7 +158,7 @@ namespace lotus::renderer {
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this image out of.
 			pool::token memory; ///< Allocated memory for this image.
 
-			std::uint32_t num_mips = 0; ///< Number of allocated mips.
+			u32 num_mips = 0; ///< Number of allocated mips.
 			gpu::format format = gpu::format::none; ///< Original pixel format.
 			// TODO are these necessary?
 			gpu::image_tiling tiling = gpu::image_tiling::optimal; ///< Tiling of this image.
@@ -173,7 +173,7 @@ namespace lotus::renderer {
 			/// Initializes this image to empty.
 			typed_image_base(
 				std::shared_ptr<pool> p,
-				std::uint32_t mips,
+				u32 mips,
 				gpu::format fmt,
 				gpu::image_tiling t,
 				gpu::image_usage_mask u,
@@ -196,7 +196,7 @@ namespace lotus::renderer {
 			/// Initializes this image to empty.
 			image2d(
 				cvec2u32 sz,
-				std::uint32_t mips,
+				u32 mips,
 				gpu::format fmt,
 				gpu::image_tiling t,
 				gpu::image_usage_mask u,
@@ -225,7 +225,7 @@ namespace lotus::renderer {
 			/// Initializes this image to empty.
 			image3d(
 				cvec3u32 sz,
-				std::uint32_t mips,
+				u32 mips,
 				gpu::format fmt,
 				gpu::image_tiling t,
 				gpu::image_usage_mask u,
@@ -247,7 +247,7 @@ namespace lotus::renderer {
 		struct buffer : public resource {
 			/// Initializes this buffer to empty.
 			buffer(
-				std::size_t sz,
+				usize sz,
 				gpu::buffer_usage_mask usg,
 				std::shared_ptr<pool> p,
 				unique_resource_id i,
@@ -271,7 +271,7 @@ namespace lotus::renderer {
 			std::shared_ptr<pool> memory_pool; ///< Memory pool to allocate this buffer out of.
 			pool::token memory; ///< Allocated memory for this image.
 
-			std::size_t size; ///< The size of this buffer.
+			usize size; ///< The size of this buffer.
 			gpu::buffer_usage_mask usages = gpu::buffer_usage_mask::none; ///< Possible usages.
 
 			/// References in descriptor arrays.
@@ -288,7 +288,7 @@ namespace lotus::renderer {
 		struct swap_chain : public resource {
 		public:
 			/// Index indicating that a new back buffer needs to be acquired.
-			constexpr static std::uint32_t invalid_image_index = std::numeric_limits<std::uint32_t>::max();
+			constexpr static u32 invalid_image_index = std::numeric_limits<u32>::max();
 
 			/// Data associated with a single back buffer within this chain.
 			struct back_buffer {
@@ -301,7 +301,7 @@ namespace lotus::renderer {
 
 			/// Initializes all fields of this structure without creating a swap chain.
 			swap_chain(
-				system::window &wnd, std::uint32_t qi, std::uint32_t imgs, std::vector<gpu::format> fmts,
+				system::window &wnd, u32 qi, u32 imgs, std::vector<gpu::format> fmts,
 				unique_resource_id i, std::u8string_view n
 			) :
 				resource(i, n),
@@ -323,7 +323,7 @@ namespace lotus::renderer {
 			gpu::format current_format = gpu::format::none; ///< Format of the swap chain images.
 
 			/// Index of the next image that would be presented in this swap chain.
-			std::uint32_t next_image_index = invalid_image_index;
+			u32 next_image_index = invalid_image_index;
 			/// Holds the current image to be written to and presented in the swap chain. This is initialized during
 			/// the pseudo execution phase when the swap chain is used, and cleared when it is finally presented
 			/// during execution.
@@ -333,8 +333,8 @@ namespace lotus::renderer {
 
 			system::window &window; ///< The window that owns this swap chain.
 			/// The queue that this swap chain is allowed to present on.
-			std::uint32_t queue_index = std::numeric_limits<std::uint32_t>::max();
-			std::uint32_t num_images = 0; ///< Number of images in the swap chain.
+			u32 queue_index = std::numeric_limits<u32>::max();
+			u32 num_images = 0; ///< Number of images in the swap chain.
 			std::vector<gpu::format> expected_formats; ///< Expected swap chain formats.
 		};
 
@@ -359,17 +359,17 @@ namespace lotus::renderer {
 				RecordedResource resource; ///< The referenced resource.
 				/// View object of the resource.
 				[[no_unique_address]] static_optional<View, !std::is_same_v<View, std::nullopt_t>> view;
-				std::uint32_t reference_index = 0; ///< Index of this reference in \p Descriptor::array_references.
+				u32 reference_index = 0; ///< Index of this reference in \p Descriptor::array_references.
 				bool written = false; ///< Whether this slot has been updated to the device.
 			};
 
 			/// Initializes all fields of this structure without creating a descriptor set.
 			descriptor_array(
-				gpu::descriptor_type ty, std::uint32_t capacity, unique_resource_id i, std::u8string_view n
+				gpu::descriptor_type ty, u32 capacity, unique_resource_id i, std::u8string_view n
 			) : resource(i, n), set(nullptr), type(ty) {
 				// we have to do this manually because the copy constructor may be deleted
 				slots.reserve(capacity);
-				for (std::uint32_t di = 0; di < capacity; ++di) {
+				for (u32 di = 0; di < capacity; ++di) {
 					slots.emplace_back(nullptr);
 				}
 			}
@@ -393,10 +393,10 @@ namespace lotus::renderer {
 			std::vector<slot> slots; ///< Contents of this descriptor array.
 
 			/// Indices of all resources that have been used externally and may need transitions.
-			std::vector<std::uint32_t> altered_resources;
+			std::vector<u32> altered_resources;
 			/// Indices of all resources that have been modified in \ref resources but have not been written into
 			/// \ref set.
-			std::vector<std::uint32_t> staged_writes;
+			std::vector<u32> staged_writes;
 		};
 
 		/// A bottom-level acceleration structure.
@@ -444,11 +444,11 @@ namespace lotus::renderer {
 			/// Information about the command that releases this dependency.
 			struct release_info {
 				/// Initializes all fields of this struct.
-				release_info(std::uint32_t q, batch_index bi, queue_submission_index qsi) :
+				release_info(u32 q, batch_index bi, queue_submission_index qsi) :
 					queue(q), batch(bi), command_index(qsi) {
 				}
 
-				std::uint32_t queue; ///< Index of the queue this was released on.
+				u32 queue; ///< Index of the queue this was released on.
 				batch_index batch; ///< Batch index of the command that released this dependency.
 				queue_submission_index command_index; ///< Queue index of the command that released this dependency.
 			};
@@ -477,7 +477,7 @@ namespace lotus::renderer {
 					gpu::format fmt,
 					gpu::subresource_range sub,
 					image_binding_type bt,
-					std::uint32_t i
+					u32 i
 				) :
 					image(std::move(img)), view(nullptr), view_format(fmt),
 					subresource_range(sub), binding_type(bt), register_index(i) {
@@ -488,7 +488,7 @@ namespace lotus::renderer {
 				gpu::format view_format; ///< Format that this image is viewed as.
 				gpu::subresource_range subresource_range; ///< The subresource range.
 				image_binding_type binding_type; ///< The type of this image binding.
-				std::uint32_t register_index; ///< Register index of the descriptor.
+				u32 register_index; ///< Register index of the descriptor.
 
 				/// Returns a \ref _details::image_access object that corresponds to this access with the given sync
 				/// point.
@@ -500,16 +500,16 @@ namespace lotus::renderer {
 			struct buffer_access {
 				std::shared_ptr<_details::buffer> buffer; ///< The buffer.
 				gpu::buffer_access_mask access; ///< How the buffer is accessed.
-				std::uint32_t register_index; ///< Register index of the descriptor.
+				u32 register_index; ///< Register index of the descriptor.
 			};
 			/// Records how this descriptor set uses a sampler.
 			struct sampler_access {
 				/// Initializes all fields of this struct.
-				sampler_access(gpu::sampler s, std::uint32_t r) : sampler(std::move(s)), register_index(r) {
+				sampler_access(gpu::sampler s, u32 r) : sampler(std::move(s)), register_index(r) {
 				}
 
 				gpu::sampler sampler; ///< The sampler.
-				std::uint32_t register_index; ///< Register index of the descriptor.
+				u32 register_index; ///< Register index of the descriptor.
 			};
 
 			/// Initializes all fields of this struct.
@@ -621,7 +621,7 @@ namespace lotus::renderer {
 	struct pool : public basic_resource_handle<_details::pool> {
 		friend context;
 	public:
-		constexpr static std::uint32_t default_chunk_size = 100 * 1024 * 1024; ///< Default chunk size is 100 MiB.
+		constexpr static u32 default_chunk_size = 100 * 1024 * 1024; ///< Default chunk size is 100 MiB.
 
 		/// Initializes this handle to empty.
 		pool(std::nullptr_t) : basic_resource_handle(nullptr) {
@@ -653,7 +653,7 @@ namespace lotus::renderer {
 		}
 
 		/// Returns the number of mip levels allocated for this texture.
-		[[nodiscard]] std::uint32_t get_num_mip_levels() const {
+		[[nodiscard]] u32 get_num_mip_levels() const {
 			return this->_ptr->num_mips;
 		}
 		/// Returns the mip levels that are visible for this image view.
@@ -764,18 +764,14 @@ namespace lotus::renderer {
 		}
 
 		/// Returns the size of this buffer.
-		[[nodiscard]] std::size_t get_size_in_bytes() const {
+		[[nodiscard]] usize get_size_in_bytes() const {
 			return _ptr->size;
 		}
 
 		/// Returns a view of this buffer as a structured buffer.
-		[[nodiscard]] structured_buffer_view get_view(
-			std::uint32_t stride, std::uint32_t first, std::uint32_t count
-		) const;
+		[[nodiscard]] structured_buffer_view get_view(u32 stride, u32 first, u32 count) const;
 		/// \overload
-		template <typename T> [[nodiscard]] structured_buffer_view get_view(
-			std::uint32_t first, std::uint32_t count
-		) const;
+		template <typename T> [[nodiscard]] structured_buffer_view get_view(u32 first, u32 count) const;
 
 		/// Binds the whole buffer as a constant buffer.
 		[[nodiscard]] descriptor_resource::constant_buffer bind_as_constant_buffer() const {
@@ -798,15 +794,15 @@ namespace lotus::renderer {
 		}
 
 		/// Returns the stride of an element in bytes.
-		[[nodiscard]] std::uint32_t get_stride() const {
+		[[nodiscard]] u32 get_stride() const {
 			return _stride;
 		}
 		/// Returns the first element visible to this view.
-		[[nodiscard]] std::uint32_t get_first_element_index() const {
+		[[nodiscard]] u32 get_first_element_index() const {
 			return _first;
 		}
 		/// Returns the number of elements visible to this view.
-		[[nodiscard]] std::uint32_t get_num_elements() const {
+		[[nodiscard]] u32 get_num_elements() const {
 			return _count;
 		}
 
@@ -816,15 +812,15 @@ namespace lotus::renderer {
 		}
 		/// Returns the buffer viewed as another type. This function preseves the current viewed region.
 		template <typename T> [[nodiscard]] structured_buffer_view view_as() const {
-			std::uint32_t first_byte = _first * _stride;
-			std::uint32_t size_bytes = _count * _stride;
+			u32 first_byte = _first * _stride;
+			u32 size_bytes = _count * _stride;
 			crash_if(first_byte % sizeof(T) != 0);
 			crash_if(size_bytes % sizeof(T) != 0);
 			return structured_buffer_view(_ptr, sizeof(T), first_byte / sizeof(T), size_bytes / sizeof(T));
 		}
 
 		/// Moves the range of visible elements and returns the new view.
-		[[nodiscard]] structured_buffer_view move_view(std::uint32_t first, std::uint32_t count) const {
+		[[nodiscard]] structured_buffer_view move_view(u32 first, u32 count) const {
 			crash_if((first + count) * _stride > _ptr->size);
 			return structured_buffer_view(_ptr, _stride, first, count);
 		}
@@ -844,13 +840,13 @@ namespace lotus::renderer {
 	private:
 		/// Initializes all fields of this struct.
 		structured_buffer_view(
-			std::shared_ptr<_details::buffer> b, std::uint32_t s, std::uint32_t f, std::uint32_t c
+			std::shared_ptr<_details::buffer> b, u32 s, u32 f, u32 c
 		) : basic_resource_handle(std::move(b)), _stride(s), _first(f), _count(c) {
 		}
 
-		std::uint32_t _stride = 0; ///< Stride between buffer elements in bytes.
-		std::uint32_t _first = 0; ///< Index of the first visible buffer element.
-		std::uint32_t _count = 0; ///< Index of the number of visible buffer elements.
+		u32 _stride = 0; ///< Stride between buffer elements in bytes.
+		u32 _first = 0; ///< Index of the first visible buffer element.
+		u32 _count = 0; ///< Index of the number of visible buffer elements.
 	};
 
 	/// A reference of a swap chain.
@@ -951,7 +947,7 @@ namespace lotus::renderer {
 		}
 		/// Initializes all fields of this struct.
 		blas_instance(
-			blas as, mat44f trans, std::uint32_t as_id, std::uint8_t as_mask, std::uint32_t hg_offset,
+			blas as, mat44f trans, u32 as_id, u8 as_mask, u32 hg_offset,
 			gpu::raytracing_instance_flags f
 		) :
 			acceleration_structure(std::move(as)), transform(trans),
@@ -960,9 +956,9 @@ namespace lotus::renderer {
 
 		recorded_resources::blas acceleration_structure; ///< The acceleration structure.
 		mat44f transform = uninitialized; ///< Transform of this instance.
-		std::uint32_t id = 0; ///< ID of this instance.
-		std::uint8_t mask = 0; ///< Ray mask.
-		std::uint32_t hit_group_offset = 0; ///< Offset in the hit group.
+		u32 id = 0; ///< ID of this instance.
+		u8 mask = 0; ///< Ray mask.
+		u32 hit_group_offset = 0; ///< Offset in the hit group.
 		gpu::raytracing_instance_flags flags = gpu::raytracing_instance_flags::none; ///< Instance flags.
 	};
 
@@ -1004,7 +1000,7 @@ namespace lotus::renderer {
 	}
 
 
-	template <typename T> structured_buffer_view buffer::get_view(std::uint32_t first, std::uint32_t count) const {
+	template <typename T> structured_buffer_view buffer::get_view(u32 first, u32 count) const {
 		return get_view(sizeof(T), first, count);
 	}
 }

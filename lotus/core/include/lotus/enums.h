@@ -25,13 +25,13 @@ namespace lotus::enums {
 			_mapping{ { std::forward<Args>(args)... } } {
 			static_assert(sizeof...(args) == NumEnumerators, "Incorrect number of entries for enum mapping.");
 			for (std::underlying_type_t<Enum> i = 0; i < NumEnumerators; ++i) {
-				crash_if(std::to_underlying(_mapping[static_cast<std::size_t>(i)].first) != i);
+				crash_if(std::to_underlying(_mapping[static_cast<usize>(i)].first) != i);
 			}
 		}
 
 		/// Retrieves the mapping for the given value.
 		[[nodiscard]] constexpr const Value &operator[](Enum v) const {
-			return _mapping[static_cast<std::size_t>(v)].second;
+			return _mapping[static_cast<usize>(v)].second;
 		}
 		/// Returns the entire table.
 		[[nodiscard]] constexpr const storage &get_raw_table() const {
@@ -43,7 +43,7 @@ namespace lotus::enums {
 
 	/// Stores a mapping from consecutive zero-based enum values to dynamic values.
 	template <
-		typename Enum, typename Value, std::size_t NumEnumerators = static_cast<std::size_t>(Enum::num_enumerators)
+		typename Enum, typename Value, usize NumEnumerators = static_cast<usize>(Enum::num_enumerators)
 	> class dynamic_sequential_mapping {
 	public:
 		using storage = std::array<Value, NumEnumerators>; ///< Storage type.
@@ -62,11 +62,11 @@ namespace lotus::enums {
 
 		/// Returns the value that corresponds to the given enumerator.
 		[[nodiscard]] constexpr Value &operator[](Enum v) {
-			return _data[static_cast<std::size_t>(v)];
+			return _data[static_cast<usize>(v)];
 		}
 		/// \overload
 		[[nodiscard]] constexpr const Value &operator[](Enum v) const {
-			return _data[static_cast<std::size_t>(v)];
+			return _data[static_cast<usize>(v)];
 		}
 
 		/// Returns the array of values.
@@ -212,7 +212,7 @@ namespace lotus::enums::bit_mask {
 				const int bit_index = std::countr_zero(value);
 				crash_if(static_cast<_src_ty>(bit_index) >= NumEnumerators);
 				const auto bit = static_cast<_src_ty>(1ull << bit_index);
-				cb(bit_index, static_cast<BitMask>(bit), _mapping[static_cast<std::size_t>(bit_index)].second);
+				cb(bit_index, static_cast<BitMask>(bit), _mapping[static_cast<usize>(bit_index)].second);
 				value ^= bit;
 			}
 		}

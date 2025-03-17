@@ -40,7 +40,7 @@ namespace lotus::physics {
 		};
 
 		/// Executes one time step with the given delta time in seconds and the given number of iterations.
-		void timestep(scalar dt, std::uint32_t iters);
+		void timestep(scalar dt, u32 iters);
 
 
 		/// Detects collision between two generic shapes.

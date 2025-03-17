@@ -12,7 +12,7 @@ namespace lotus::renderer::shader_types {
 	namespace _details {
 		/// A primitive shader type.
 		template <
-			typename T, typename RealType = T, std::size_t Alignment = sizeof(T)
+			typename T, typename RealType = T, usize Alignment = sizeof(T)
 		> struct alignas(Alignment) primitive {
 		public:
 			/// Correponding C++ type that this type provides implicit conversions from and to.
@@ -38,14 +38,14 @@ namespace lotus::renderer::shader_types {
 		};
 		/// Specialization for wrapped types.
 		template <
-			typename U, typename T, std::size_t Alignment
+			typename U, typename T, usize Alignment
 		> struct scalar_type_properties<primitive<U, T, Alignment>> {
 			using storage_type = T; ///< The type used for storage.
 			using real_type = U; ///< The actual type.
 		};
 
 		/// Vector type used in shaders.
-		template <typename T, std::size_t Dim> struct alignas(T) vector {
+		template <typename T, usize Dim> struct alignas(T) vector {
 		public:
 			/// Correponding C++ type that this type provides implicit conversions from and to.
 			using cpp_type = column_vector<Dim, typename scalar_type_properties<T>::real_type>;
@@ -54,14 +54,14 @@ namespace lotus::renderer::shader_types {
 			vector() = default;
 			/// Implicit conversion from \ref column_vector.
 			constexpr vector(const cpp_type &v) {
-				for (std::size_t i = 0; i < Dim; ++i) {
+				for (usize i = 0; i < Dim; ++i) {
 					_value[i] = v[i];
 				}
 			}
 			/// Implicit conversion to \ref column_vector.
 			[[nodiscard]] operator cpp_type() const {
 				cpp_type result = uninitialized;
-				for (std::size_t i = 0; i < Dim; ++i) {
+				for (usize i = 0; i < Dim; ++i) {
 					result[i] = _value[i];
 				}
 				return result;
@@ -71,7 +71,7 @@ namespace lotus::renderer::shader_types {
 		};
 
 		/// Matrix type used in shaders.
-		template <typename T, std::size_t Rows, std::size_t Cols> struct alignas(T) row_major_matrix {
+		template <typename T, usize Rows, usize Cols> struct alignas(T) row_major_matrix {
 		public:
 			/// Correponding C++ type that this type provides implicit conversions from and to.
 			using cpp_type = matrix<Rows, Cols, typename scalar_type_properties<T>::real_type>;
@@ -80,8 +80,8 @@ namespace lotus::renderer::shader_types {
 			row_major_matrix() = default;
 			/// Implicit conversion from \ref matrix.
 			constexpr row_major_matrix(const cpp_type &m) {
-				for (std::size_t r = 0; r < Rows; ++r) {
-					for (std::size_t c = 0; c < Cols; ++c) {
+				for (usize r = 0; r < Rows; ++r) {
+					for (usize c = 0; c < Cols; ++c) {
 						_value[r][c] = m(r, c);
 					}
 				}
@@ -89,8 +89,8 @@ namespace lotus::renderer::shader_types {
 			/// Implicit conversion to \ref matrix.
 			[[nodiscard]] operator cpp_type() const {
 				cpp_type result = uninitialized;
-				for (std::size_t r = 0; r < Rows; ++r) {
-					for (std::size_t c = 0; c < Cols; ++c) {
+				for (usize r = 0; r < Rows; ++r) {
+					for (usize c = 0; c < Cols; ++c) {
 						result(r, c) = _value[r][c];
 					}
 				}
@@ -102,25 +102,25 @@ namespace lotus::renderer::shader_types {
 	}
 
 	/// Vector type.
-	template <typename T, std::size_t Dim> using vector = _details::vector<T, Dim>;
+	template <typename T, usize Dim> using vector = _details::vector<T, Dim>;
 	/// Assumes matrices are row-major.
-	template <typename T, std::size_t Rows, std::size_t Cols> using matrix =
+	template <typename T, usize Rows, usize Cols> using matrix =
 		_details::row_major_matrix<T, Rows, Cols>;
 
 
-	using bool_    = _details::primitive<std::uint32_t, bool>;
+	using bool_    = _details::primitive<u32, bool>;
 
-	using int_     = std::int32_t;
-	using int64_t  = std::int64_t;
-	using uint     = std::uint32_t;
-	using uint64_t = std::uint64_t;
+	using int_     = i32;
+	using int64_t  = i64;
+	using uint     = u32;
+	using uint64_t = u64;
 	using dword    = uint;
 
-	using half     = std::uint16_t; // TODO float16 type
+	using half     = u16; // TODO float16 type
 	using float_   = float;
 	using double_  = double;
-	static_assert(sizeof(float) == sizeof(std::uint32_t), "Expecting float to be 32 bits");
-	static_assert(sizeof(double) == sizeof(std::uint64_t), "Expecting double to be 64 bits");
+	static_assert(sizeof(float) == sizeof(u32), "Expecting float to be 32 bits");
+	static_assert(sizeof(double) == sizeof(u64), "Expecting double to be 64 bits");
 
 
 	using int2     = vector<int_, 2>;

@@ -65,16 +65,16 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::CommandBuffer::bindPipeline() with \p vk::PipelineBindPoint::eCompute.
 		void bind_pipeline_state(const compute_pipeline_state&);
 		/// Calls \p vk::CommandBuffer::bindVertexBuffers().
-		void bind_vertex_buffers(std::size_t start, std::span<const vertex_buffer>);
+		void bind_vertex_buffers(usize start, std::span<const vertex_buffer>);
 		/// Calls \p vk::CommandBuffer::bindIndexBuffer().
-		void bind_index_buffer(const buffer&, std::size_t offset_bytes, index_format);
+		void bind_index_buffer(const buffer&, usize offset_bytes, index_format);
 		/// Calls \p vk::CommandBuffer::bindDescriptorSets().
 		void bind_graphics_descriptor_sets(
-			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
 		);
 		/// Calls \p vk::CommandBuffer::bindDescriptorSets().
 		void bind_compute_descriptor_sets(
-			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
 		);
 
 		/// Calls \p vk::CommandBuffer::setViewport().
@@ -83,30 +83,30 @@ namespace lotus::gpu::backends::vulkan {
 		void set_scissor_rectangles(std::span<const aab2i>);
 
 		/// Calls \p vk::CommandBuffer::copyBuffer().
-		void copy_buffer(const buffer &from, std::size_t off1, buffer &to, std::size_t off2, std::size_t size);
+		void copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size);
 		/// Calls \p vk::CommandBuffer::copyImage().
 		void copy_image2d(
 			image2d &from, subresource_index sub1, aab2u32 region, image2d &to, subresource_index sub2, cvec2u32 off
 		);
 		/// Calls \p vk::CommandBuffer::copyBufferToImage().
 		void copy_buffer_to_image(
-			const buffer &from, std::size_t byte_offset, staging_buffer_metadata,
+			const buffer &from, usize byte_offset, staging_buffer_metadata,
 			image2d &to, subresource_index subresource, cvec2u32 off
 		);
 
 		/// Calls \p vk::CommandBuffer::draw().
 		void draw_instanced(
-			std::size_t first_vertex, std::size_t vertex_count,
-			std::size_t first_instance, std::size_t instance_count
+			usize first_vertex, usize vertex_count,
+			usize first_instance, usize instance_count
 		);
 		/// Calls \p vk::CommandBuffer::drawIndexed().
 		void draw_indexed_instanced(
-			std::size_t first_index, std::size_t index_count,
-			std::size_t first_vertex,
-			std::size_t first_instance, std::size_t instance_count
+			usize first_index, usize index_count,
+			usize first_vertex,
+			usize first_instance, usize instance_count
 		);
 		/// Calls \p vk::CommandBuffer::dispatch().
-		void run_compute_shader(std::uint32_t x, std::uint32_t y, std::uint32_t z);
+		void run_compute_shader(u32 x, u32 y, u32 z);
 
 		/// Calls \p vk::CommandBuffer::pipelineBarrier().
 		void resource_barrier(std::span<const image_barrier>, std::span<const buffer_barrier>);
@@ -115,9 +115,9 @@ namespace lotus::gpu::backends::vulkan {
 		void end_pass();
 
 		/// Calls \p vk::CommandBuffer::writeTimestamp().
-		void query_timestamp(timestamp_query_heap&, std::uint32_t index);
+		void query_timestamp(timestamp_query_heap&, u32 index);
 		/// No-op.
-		void resolve_queries(timestamp_query_heap&, std::uint32_t, std::uint32_t) {
+		void resolve_queries(timestamp_query_heap&, u32, u32) {
 		}
 
 		/// Calls \p vk::CommandBuffer::debugMarkerInsertEXT().
@@ -135,25 +135,25 @@ namespace lotus::gpu::backends::vulkan {
 		/// Calls \p vk::CommandBuffer::buildAccelerationStructuresKHR().
 		void build_acceleration_structure(
 			const bottom_level_acceleration_structure_geometry &geom,
-			bottom_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+			bottom_level_acceleration_structure &output, buffer &scratch, usize scratch_offset
 		);
 		/// Calls \p vk::CommandBuffer::buildAccelerationStructuresKHR().
 		void build_acceleration_structure(
-			const buffer &instances, std::size_t offset, std::size_t count,
-			top_level_acceleration_structure &output, buffer &scratch, std::size_t scratch_offset
+			const buffer &instances, usize offset, usize count,
+			top_level_acceleration_structure &output, buffer &scratch, usize scratch_offset
 		);
 
 		/// Calls \p vk::CommandBuffer::bindPipeline().
 		void bind_pipeline_state(const raytracing_pipeline_state&);
 		/// Calls \p vk::CommandBuffer::bindDescriptorSets().
 		void bind_ray_tracing_descriptor_sets(
-			const pipeline_resources&, std::size_t first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
 		);
 		/// Calls \p vk::CommandBuffer::traceRaysKHR().
 		void trace_rays(
 			constant_buffer_view ray_generation,
 			shader_record_view miss_shaders, shader_record_view hit_groups,
-			std::size_t width, std::size_t height, std::size_t depth
+			usize width, usize height, usize depth
 		);
 
 		/// Checks that this object holds a valid command list.
@@ -201,7 +201,7 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	private:
 		vk::Queue _queue; ///< The queue.
-		std::uint32_t _family_index = std::numeric_limits<std::uint32_t>::max(); ///< Queue family index.
+		u32 _family_index = std::numeric_limits<u32>::max(); ///< Queue family index.
 		double _timestamp_frequency = 0.0f; ///< Timestamp frequency.
 		queue_capabilities _capabilities = queue_capabilities::none; ///< The capabilities of this queue.
 	};

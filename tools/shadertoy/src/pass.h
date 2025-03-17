@@ -55,7 +55,7 @@ public:
 		lotus::cvec2f mouse = uninitialized; ///< Mouse position in pixels.
 		lotus::cvec2f mouse_down = uninitialized; ///< Mouse position in pixels.
 		lotus::cvec2f mouse_drag = uninitialized; ///< Mouse position in pixels.
-		lotus::cvec2<std::int32_t> resolution = uninitialized; ///< Screen resolution.
+		lotus::cvec2<i32> resolution = uninitialized; ///< Screen resolution.
 		float time; ///< Total run time.
 	};
 
@@ -88,7 +88,7 @@ public:
 
 		std::u8string binding_name; ///< Name of the texture that this is bound to.
 		value_type value; ///< The value of this input.
-		std::optional<std::uint32_t> register_index; ///< Register index of the binding.
+		std::optional<u32> register_index; ///< Register index of the binding.
 	};
 	/// A set of pass output resources.
 	struct target {

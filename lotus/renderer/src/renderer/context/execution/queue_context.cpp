@@ -57,7 +57,7 @@ namespace lotus::renderer::execution {
 			// acquire dependencies
 			{
 				short_vector<gpu::timeline_semaphore_synchronization, 4> dependencies;
-				for (std::uint32_t queue_index = 0; queue_index < _q.ctx.get_num_queues(); ++queue_index) {
+				for (u32 queue_index = 0; queue_index < _q.ctx.get_num_queues(); ++queue_index) {
 					const gpu::timeline_semaphore::value_type val = cmd_ops.acquire_dependencies[queue_index];
 					if (val > 0) {
 						dependencies.emplace_back(_batch_ctx.get_queue_context(queue_index)._q.semaphore, val);
@@ -168,8 +168,8 @@ namespace lotus::renderer::execution {
 			set_ptrs.emplace_back(s.set);
 		}
 
-		for (std::size_t i = 0; i < sets.size(); ) {
-			std::size_t end = i + 1;
+		for (usize i = 0; i < sets.size(); ) {
+			usize end = i + 1;
 			while (end < sets.size() && sets[end].space == sets[i].space + (end - i)) {
 				++end;
 			}
@@ -243,7 +243,7 @@ namespace lotus::renderer::execution {
 			_get_device().get_top_level_acceleration_structure_build_sizes(cmd.instances.size());
 		// create input and scratch buffers
 		// TODO allocate these from a pool?
-		const std::size_t input_buffer_size = cmd.instances.size() * sizeof(gpu::instance_description);
+		const usize input_buffer_size = cmd.instances.size() * sizeof(gpu::instance_description);
 		auto &input_buffer = _batch_ctx.record_batch_resource(_get_device().create_committed_buffer(
 			input_buffer_size,
 			_q.ctx.get_upload_memory_type_index(),
@@ -256,7 +256,7 @@ namespace lotus::renderer::execution {
 		));
 		{ // copy data to input buffer
 			auto *input_data = reinterpret_cast<gpu::instance_description*>(_get_device().map_buffer(input_buffer));
-			for (std::size_t i = 0; i < cmd.instances.size(); ++i) {
+			for (usize i = 0; i < cmd.instances.size(); ++i) {
 				const auto &instance = cmd.instances[i];
 				input_data[i] = _get_device().get_bottom_level_acceleration_structure_description(
 					instance.acceleration_structure._ptr->handle,

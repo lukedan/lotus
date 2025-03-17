@@ -60,7 +60,7 @@ pass::target *project::find_target(std::u8string_view name) {
 		return &it->second.targets[0];
 	}
 	// second attempt: dot-separated
-	std::size_t dot = 0;
+	usize dot = 0;
 	for (; dot < name.size(); ++dot) {
 		if (name[dot] == u8'.') {
 			break;
@@ -74,7 +74,7 @@ pass::target *project::find_target(std::u8string_view name) {
 			}
 			// named
 			std::u8string_view member(name.begin() + dot + 1, name.end());
-			for (std::size_t i = 0; i < it->second.targets.size(); ++i) {
+			for (usize i = 0; i < it->second.targets.size(); ++i) {
 				if (!it->second.targets[i].name.empty() && it->second.targets[i].name == member) {
 					return &it->second.targets[i];
 				}
@@ -82,7 +82,7 @@ pass::target *project::find_target(std::u8string_view name) {
 			// indexed
 			auto *beg = reinterpret_cast<const char*>(member.data());
 			auto *end = beg + member.size();
-			std::size_t out_index = 0;
+			usize out_index = 0;
 			auto result = std::from_chars(beg, end, out_index);
 			if (result.ec == std::errc() && result.ptr == end) {
 				if (out_index >= it->second.targets.size()) {
@@ -105,10 +105,10 @@ std::vector<std::map<std::u8string, pass>::iterator> project::get_pass_order() {
 	using _iter = std::map<std::u8string, pass>::iterator;
 
 	std::vector<_iter> result;
-	std::vector<std::pair<_iter, std::size_t>> nodes;
+	std::vector<std::pair<_iter, usize>> nodes;
 
 	for (auto it = passes.begin(); it != passes.end(); ++it) {
-		std::size_t count = 0;
+		usize count = 0;
 		for (const auto &in : it->second.inputs) {
 			if (std::holds_alternative<pass::input::pass_output>(in.value)) {
 				const auto &out = std::get<pass::input::pass_output>(in.value);
@@ -122,7 +122,7 @@ std::vector<std::map<std::u8string, pass>::iterator> project::get_pass_order() {
 
 	while (!nodes.empty()) {
 		_iter current = passes.end();
-		for (std::size_t i = 0; i < nodes.size(); ++i) {
+		for (usize i = 0; i < nodes.size(); ++i) {
 			if (nodes[i].second == 0) {
 				current = nodes[i].first;
 				std::swap(nodes[i], nodes.back());

@@ -34,15 +34,15 @@ namespace lotus::renderer {
 			transitions(zero_t) {
 			}
 
-			std::uint32_t requested_image2d_transitions    = 0; ///< Number of 2D image transitions requested.
-			std::uint32_t requested_image3d_transitions    = 0; ///< Number of 3D image transitions requested.
-			std::uint32_t requested_buffer_transitions     = 0; ///< Number of buffer transitions requested.
-			std::uint32_t requested_raw_buffer_transitions = 0; ///< Number of raw buffer transitions requested.
+			u32 requested_image2d_transitions    = 0; ///< Number of 2D image transitions requested.
+			u32 requested_image3d_transitions    = 0; ///< Number of 3D image transitions requested.
+			u32 requested_buffer_transitions     = 0; ///< Number of buffer transitions requested.
+			u32 requested_raw_buffer_transitions = 0; ///< Number of raw buffer transitions requested.
 
-			std::uint32_t submitted_image2d_transitions    = 0; ///< Number of 2D image transitions submitted.
-			std::uint32_t submitted_image3d_transitions    = 0; ///< Number of 3D image transitions submitted.
-			std::uint32_t submitted_buffer_transitions     = 0; ///< Number of buffer transitions submitted.
-			std::uint32_t submitted_raw_buffer_transitions = 0; ///< Number of raw buffer transitions submitted.
+			u32 submitted_image2d_transitions    = 0; ///< Number of 2D image transitions submitted.
+			u32 submitted_image3d_transitions    = 0; ///< Number of 3D image transitions submitted.
+			u32 submitted_buffer_transitions     = 0; ///< Number of buffer transitions submitted.
+			u32 submitted_raw_buffer_transitions = 0; ///< Number of raw buffer transitions submitted.
 		};
 	}
 

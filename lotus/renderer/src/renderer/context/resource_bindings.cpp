@@ -101,13 +101,13 @@ namespace lotus::renderer::_details {
 		std::span<const gpu::shader_reflection *const> shaders
 	) {
 		// index in the `bindings' array, and then the binding that has been found
-		using _binding_info = std::pair<std::size_t, gpu::shader_resource_binding>;
+		using _binding_info = std::pair<usize, gpu::shader_resource_binding>;
 
 		numbered_bindings result;
 
 		// first pass - find all bindings in shader reflection
 		std::vector<_binding_info> found_bindings;
-		for (std::size_t i = 0; i < bindings.size(); ++i) {
+		for (usize i = 0; i < bindings.size(); ++i) {
 			std::u8string name(bindings[i].name);
 			bool found_binding = false;
 			for (const auto *refl : shaders) {
@@ -201,7 +201,7 @@ namespace lotus::renderer::_details {
 					}
 				);
 				// check for any duplicate bindings
-				for (std::size_t i = 1; i < descriptors.size(); ++i) {
+				for (usize i = 1; i < descriptors.size(); ++i) {
 					if (descriptors[i].register_index == descriptors[i - 1].register_index) {
 						log().error(
 							"Duplicate bindings for set {} register {}",

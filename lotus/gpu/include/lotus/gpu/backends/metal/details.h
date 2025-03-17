@@ -166,7 +166,7 @@ namespace lotus::gpu::backends::metal::_details {
 		[[nodiscard]] NS::SharedPtr<NS::String> to_string(const char8_t*);
 		/// Converts a \ref stencil_options to a \p MTL::StencilDescriptor.
 		[[nodiscard]] NS::SharedPtr<MTL::StencilDescriptor> to_stencil_descriptor(
-			stencil_options, std::uint8_t stencil_read, std::uint8_t stencil_write
+			stencil_options, u8 stencil_read, u8 stencil_write
 		);
 		/// Converts a \ref cvec3 to a \p MTL::Size.
 		[[nodiscard]] MTL::Size to_size(cvec3<NS::UInteger>);
@@ -193,7 +193,7 @@ namespace lotus::gpu::backends::metal::_details {
 		MTL::TextureType,
 		format,
 		cvec3u32 size,
-		std::uint32_t mip_levels,
+		u32 mip_levels,
 		MTL::ResourceOptions,
 		image_usage_mask
 	);

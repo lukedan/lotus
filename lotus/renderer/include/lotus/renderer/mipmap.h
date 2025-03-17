@@ -7,14 +7,14 @@
 
 namespace lotus::renderer::mipmap {
 	/// Returns the maximum number of mip levels possible for an image of the given size.
-	[[nodiscard]] inline constexpr std::uint32_t get_levels(cvec2u32 size) {
-		return static_cast<std::uint32_t>(std::bit_width(std::max(size[0], size[1])));
+	[[nodiscard]] inline constexpr u32 get_levels(cvec2u32 size) {
+		return static_cast<u32>(std::bit_width(std::max(size[0], size[1])));
 	}
 	/// Returns the size of a specified mip level.
-	[[nodiscard]] inline constexpr cvec2u32 get_size(cvec2u32 top_mip_size, std::uint32_t mip_level) {
+	[[nodiscard]] inline constexpr cvec2u32 get_size(cvec2u32 top_mip_size, u32 mip_level) {
 		return vec::memberwise_operation(
-			[&](std::uint32_t s) {
-				return std::max<std::uint32_t>(1, s >> mip_level);
+			[&](u32 s) {
+				return std::max<u32>(1, s >> mip_level);
 			},
 			top_mip_size
 		);

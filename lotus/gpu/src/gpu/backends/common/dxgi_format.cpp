@@ -81,7 +81,7 @@ namespace lotus::gpu::backends::common::_details::conversions {
 	}
 
 	[[nodiscard]] constexpr static std::array<
-		std::pair<format, DXGI_FORMAT>, static_cast<std::size_t>(format::num_enumerators)
+		std::pair<format, DXGI_FORMAT>, static_cast<usize>(format::num_enumerators)
 	> _get_sorted_format_table() {
 		std::array table = _lookup_table.get_raw_table();
 		std::sort(table.begin(), table.end(), [](const auto &lhs, const auto &rhs) {

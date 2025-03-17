@@ -30,7 +30,7 @@ namespace lotus {
 
 	/// An entry in a pool. This entry is created without a valid object, and must be destroyed when the object has
 	/// been freed.
-	template <typename T, typename Index = std::uint32_t> struct pool_entry {
+	template <typename T, typename Index = u32> struct pool_entry {
 		friend pool_manager<pool_entry>;
 	public:
 		using value_type = T; ///< Value type.
@@ -63,11 +63,11 @@ namespace lotus {
 
 		/// Creates storage for a pool containing the given number of slots.
 		template <typename Allocator> [[nodiscard]] inline static std::vector<pool_entry, Allocator> make_storage(
-			std::size_t capacity, const Allocator &allocator
+			usize capacity, const Allocator &allocator
 		) {
 			std::vector<pool_entry, Allocator> result(allocator);
 			result.reserve(capacity);
-			for (std::size_t i = 0; i < capacity; ++i) {
+			for (usize i = 0; i < capacity; ++i) {
 				result.emplace_back(uninitialized);
 			}
 			return result;
@@ -111,7 +111,7 @@ namespace lotus {
 		/// Initializes this pool, and checks that all entries are free if possible.
 		explicit pool_manager(std::span<entry_type> st) : _storage(st) {
 			if constexpr (_has_markers) {
-				for (std::size_t i = 0; i < _storage.size(); ++i) {
+				for (usize i = 0; i < _storage.size(); ++i) {
 					crash_if(_storage[i]._allocated.value);
 				}
 			}
@@ -181,7 +181,7 @@ namespace lotus {
 		}
 
 		/// Returns the capacity of this pool.
-		[[nodiscard]] constexpr std::size_t get_capacity() const {
+		[[nodiscard]] constexpr usize get_capacity() const {
 			return _storage.size();
 		}
 		/// Returns whether this pool is full, i.e., no more entries can be allocated from the pool.
@@ -193,7 +193,7 @@ namespace lotus {
 		constexpr static bool _has_markers = decltype(entry_type::_allocated)::is_enabled;
 
 		std::span<entry_type> _storage; ///< The storage of this pool.
-		std::size_t _allocated = 0; ///< Number of entries that have been allocated.
+		usize _allocated = 0; ///< Number of entries that have been allocated.
 		index_type _head = index_type::invalid; ///< The first element in the free list.
 	};
 }

@@ -10,7 +10,7 @@ public:
 		soft_reset();
 	}
 
-	void timestep(double dt, std::size_t iters) override {
+	void timestep(double dt, usize iters) override {
 		_engine.timestep(dt, iters);
 	}
 

@@ -11,7 +11,7 @@
 #include "lotus/memory/stack_allocator.h"
 
 extern "C" {
-	_declspec(dllexport) extern const uint32_t D3D12SDKVersion = 715;
+	_declspec(dllexport) extern const lotus::u32 D3D12SDKVersion = 715;
 	_declspec(dllexport) extern LPCSTR D3D12SDKPath = ".\\";
 }
 
@@ -48,7 +48,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	std::pair<swap_chain, format> context::create_swap_chain_for_window(
 		system::platforms::windows::window &wnd, device&, command_queue &q,
-		std::size_t num_frames, std::span<const format> formats
+		usize num_frames, std::span<const format> formats
 	) {
 		swap_chain result = nullptr;
 

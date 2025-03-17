@@ -24,19 +24,19 @@ namespace lotus::renderer::execution {
 		descriptor_set_builder(renderer::context&, const gpu::descriptor_set_layout&, gpu::descriptor_pool&);
 
 		/// Creates a descriptor binding for an 2D image.
-		void create_binding(std::uint32_t reg, const descriptor_resource::image2d&);
+		void create_binding(u32 reg, const descriptor_resource::image2d&);
 		/// Creates a descriptor binding from a 3D image.
-		void create_binding(std::uint32_t reg, const descriptor_resource::image3d&);
+		void create_binding(u32 reg, const descriptor_resource::image3d&);
 		/// Creates a descriptor binding for a swap chain image.
-		void create_binding(std::uint32_t reg, const descriptor_resource::swap_chain&);
+		void create_binding(u32 reg, const descriptor_resource::swap_chain&);
 		/// Creates a descriptor binding for a constant buffer.
-		void create_binding(std::uint32_t reg, const descriptor_resource::constant_buffer&);
+		void create_binding(u32 reg, const descriptor_resource::constant_buffer&);
 		/// Creates a descriptor binding for a structured buffer.
-		void create_binding(std::uint32_t reg, const descriptor_resource::structured_buffer&);
+		void create_binding(u32 reg, const descriptor_resource::structured_buffer&);
 		/// Creates a descriptor binding for an acceleration structure.
-		void create_binding(std::uint32_t reg, const recorded_resources::tlas&);
+		void create_binding(u32 reg, const recorded_resources::tlas&);
 		/// Creates a descriptor binding for a sampler.
-		void create_binding(std::uint32_t reg, const sampler_state&);
+		void create_binding(u32 reg, const sampler_state&);
 
 		/// Creates an array of descriptor bindings.
 		void create_bindings(std::span<const all_resource_bindings::numbered_binding>);

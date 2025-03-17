@@ -48,7 +48,7 @@ public:
 
 	std::unique_ptr<scene_representation> scene;
 
-	std::uint32_t frame_index = 0;
+	u32 frame_index = 0;
 
 	lren::pool runtime_buf_pool = nullptr;
 	lren::pool runtime_tex_pool = nullptr;
@@ -70,16 +70,16 @@ private:
 	std::span<const lgpu::queue_family> _get_desired_queues() const override {
 		return _queues;
 	}
-	std::uint32_t _get_asset_loading_queue_index() const override {
+	u32 _get_asset_loading_queue_index() const override {
 		return 1;
 	}
-	std::uint32_t _get_constant_upload_queue_index() const override {
+	u32 _get_constant_upload_queue_index() const override {
 		return 1;
 	}
-	std::uint32_t _get_debug_drawing_queue_index() const override {
+	u32 _get_debug_drawing_queue_index() const override {
 		return 0;
 	}
-	std::uint32_t _get_present_queue_index() const override {
+	u32 _get_present_queue_index() const override {
 		return 0;
 	}
 	std::filesystem::path _get_asset_library_path() const override {

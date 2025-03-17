@@ -32,7 +32,7 @@ namespace lotus::gpu::backends::vulkan {
 			}
 		private:
 			vk::UniqueDeviceMemory _memory; ///< The vulkan memory block.
-			std::uint32_t _num_maps = 0; ///< The number of users that have mapped a resource in this memory block.
+			u32 _num_maps = 0; ///< The number of users that have mapped a resource in this memory block.
 			std::byte *_mapped_addr = nullptr; ///< Mapped address.
 		};
 	}
@@ -64,7 +64,7 @@ namespace lotus::gpu::backends::vulkan {
 		/// The memory block owned by this buffer. This is valid if this is a committed buffer, and will be the same
 		/// as \ref _memory.
 		std::unique_ptr<_details::memory_block> _committed_memory;
-		std::size_t _base_offset = 0; ///< Offset of this buffer within the memory block.
+		usize _base_offset = 0; ///< Offset of this buffer within the memory block.
 		vk::UniqueBuffer _buffer; ///< The buffer.
 	};
 

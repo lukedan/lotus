@@ -16,11 +16,11 @@ namespace lotus::renderer::execution {
 		descriptor_set_binding(std::nullptr_t) {
 		}
 		/// Initializes all fields of this struct.
-		descriptor_set_binding(const gpu::descriptor_set &se, std::uint32_t s) : set(&se), space(s) {
+		descriptor_set_binding(const gpu::descriptor_set &se, u32 s) : set(&se), space(s) {
 		}
 
 		const gpu::descriptor_set *set = nullptr; ///< The descriptor set.
-		std::uint32_t space = 0; ///< Register space of this descriptor set.
+		u32 space = 0; ///< Register space of this descriptor set.
 	};
 
 	/// Cached data used by a single pass command.
@@ -38,12 +38,12 @@ namespace lotus::renderer::execution {
 	struct timer_data {
 		/// Initializes all values to invalid.
 		timer_data(std::nullptr_t) :
-			first_timestamp(std::numeric_limits<std::uint32_t>::max()),
-			second_timestamp(std::numeric_limits<std::uint32_t>::max()) {
+			first_timestamp(std::numeric_limits<u32>::max()),
+			second_timestamp(std::numeric_limits<u32>::max()) {
 		}
 
-		std::uint32_t first_timestamp; ///< Index of the first timestamp.
-		std::uint32_t second_timestamp; ///< Index of the second timestamp.
+		u32 first_timestamp; ///< Index of the first timestamp.
+		u32 second_timestamp; ///< Index of the second timestamp.
 	};
 
 	/// A batch of resources.
@@ -140,7 +140,7 @@ namespace lotus::renderer::execution {
 		struct queue_data {
 			gpu::timestamp_query_heap *timestamp_heap = nullptr; ///< Timestamps.
 			std::vector<timer_data> timers; ///< Data associated with all timers.
-			std::uint32_t num_timestamps = 0; ///< Total number of timestamps.
+			u32 num_timestamps = 0; ///< Total number of timestamps.
 
 			/// The value of the time stamp inserted at the very end of the previous batch on this queue.
 			gpu::timeline_semaphore::value_type begin_of_batch = 0;

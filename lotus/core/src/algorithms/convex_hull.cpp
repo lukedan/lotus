@@ -16,20 +16,20 @@ namespace lotus {
 			vec::dot(vec::cross(verts[1] - verts[0], verts[2] - verts[0]), verts[3] - verts[0]) > 0.0f;
 
 		std::array<vertex_id, 4> vert_ids;
-		for (std::size_t i = 0; i < 4; ++i) {
+		for (usize i = 0; i < 4; ++i) {
 			vert_ids[i] = result._add_vertex(verts[i]);
 		}
 
 		// create faces
 		std::array<face_id, 4> faces;
 		{
-			std::array<std::array<std::uint32_t, 3>, 4> vertex_indices;
+			std::array<std::array<u32, 3>, 4> vertex_indices;
 			if (invert_even_normals) {
 				vertex_indices = { { { 0, 2, 1 }, { 1, 2, 3 }, { 2, 0, 3 }, { 3, 0, 1 } } };
 			} else {
 				vertex_indices = { { { 0, 1, 2 }, { 1, 3, 2 }, { 2, 3, 0 }, { 3, 1, 0 } } };
 			}
-			for (std::size_t i = 0; i < 4; ++i) {
+			for (usize i = 0; i < 4; ++i) {
 				faces[i] = result._add_face({
 					vert_ids[vertex_indices[i][0]],
 					vert_ids[vertex_indices[i][1]],
@@ -39,7 +39,7 @@ namespace lotus {
 		}
 
 		{ // initialize references
-			std::array<std::array<std::pair<std::uint32_t, std::uint32_t>, 3>, 4> neighbor_indices;
+			std::array<std::array<std::pair<u32, u32>, 3>, 4> neighbor_indices;
 			if (invert_even_normals) {
 				// { { 0, 2, 1 }, { 1, 2, 3 }, { 2, 0, 3 }, { 3, 0, 1 } }
 				neighbor_indices = { {
@@ -57,8 +57,8 @@ namespace lotus {
 					{ { { 1, 0 }, { 0, 0 }, { 2, 1 } } }
 				} };
 			}
-			for (std::size_t i = 0; i < 4; ++i) {
-				for (std::size_t j = 0; j < 3; ++j) {
+			for (usize i = 0; i < 4; ++i) {
+				for (usize j = 0; j < 3; ++j) {
 					const auto [other_face_id, face_vert_id] = neighbor_indices[i][j];
 					result._faces_pool[static_cast<face_id>(i)].edges[j] =
 						half_edge_ref(faces[other_face_id], static_cast<face_vertex_ref>(face_vert_id));
@@ -121,7 +121,7 @@ namespace lotus {
 				const face_id cur = stk.top();
 				const face &cur_face = _faces_pool[cur];
 				stk.pop();
-				for (std::size_t i = 0; i < 3; ++i) {
+				for (usize i = 0; i < 3; ++i) {
 					const half_edge_ref half_edge = cur_face.edges[i];
 					if (!half_edge) {
 						continue;

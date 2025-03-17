@@ -8,6 +8,7 @@
 #include <lotus/utils/dds.h>
 #include <lotus/logging.h>
 
+using namespace lotus::types;
 using namespace lotus::matrix_types;
 using namespace lotus::vector_types;
 using lotus::vec;
@@ -39,9 +40,9 @@ namespace trowbridge_reitz {
 	}
 }
 
-cvec2d integrate_brdf(double roughness, double n_dot_v, std::uint32_t seq_bits) {
+cvec2d integrate_brdf(double roughness, double n_dot_v, u32 seq_bits) {
 	n_dot_v = std::max(0.0001, n_dot_v);
-	std::uint32_t num_samples = 1 << seq_bits;
+	u32 num_samples = 1 << seq_bits;
 	double alpha = squared(roughness);
 	cvec3d v(std::sqrt(1.0 - squared(n_dot_v)), 0.0, n_dot_v);
 
@@ -49,7 +50,7 @@ cvec2d integrate_brdf(double roughness, double n_dot_v, std::uint32_t seq_bits) 
 	double b = 0.0;
 
 	auto seq = lotus::sequences::hammersley<double>::create();
-	for (std::uint32_t i = 0; i < num_samples; ++i) {
+	for (u32 i = 0; i < num_samples; ++i) {
 		cvec2d xi = seq(seq_bits, i);
 		double n_dot_h = trowbridge_reitz::importance_sample_d(xi[0], alpha)[0];
 		double phi = xi[1] * 2.0 * lotus::constants::pi;
@@ -71,9 +72,9 @@ cvec2d integrate_brdf(double roughness, double n_dot_v, std::uint32_t seq_bits) 
 }
 
 int main() {
-	std::uint32_t samples_n_dot_v = 256;
-	std::uint32_t samples_roughness = 256;
-	std::uint32_t seq_bits = 10;
+	u32 samples_n_dot_v = 256;
+	u32 samples_roughness = 256;
+	u32 seq_bits = 10;
 
 	std::ofstream fout("envmap_lut.dds", std::ios::binary);
 	auto write_binary = [&fout]<typename T>(const T &x) {
@@ -86,7 +87,7 @@ int main() {
 		header.flags                      = lotus::dds::header_flags::required_flags;
 		header.height                     = samples_n_dot_v;
 		header.width                      = samples_roughness;
-		header.pitch_or_linear_size       = sizeof(std::uint16_t) * header.width;
+		header.pitch_or_linear_size       = sizeof(u16) * header.width;
 		header.depth                      = 1;
 		header.mipmap_count               = 1;
 		header.pixel_format.size          = sizeof(header.pixel_format);
@@ -113,18 +114,18 @@ int main() {
 		write_binary(header_dx10);
 	}
 
-	for (std::uint32_t i_n_dot_v = 0; i_n_dot_v < samples_n_dot_v; ++i_n_dot_v) {
+	for (u32 i_n_dot_v = 0; i_n_dot_v < samples_n_dot_v; ++i_n_dot_v) {
 		float n_dot_v = i_n_dot_v / static_cast<float>(samples_n_dot_v - 1);
-		for (std::uint32_t i_roughness = 0; i_roughness < samples_roughness; ++i_roughness) {
+		for (u32 i_roughness = 0; i_roughness < samples_roughness; ++i_roughness) {
 			float roughness = i_roughness / static_cast<float>(samples_roughness);
 
 			cvec2d values = integrate_brdf(roughness, n_dot_v, seq_bits);
-			cvec2<std::uint16_t> values_f16 = lotus::vec::memberwise_operation([](double x) {
+			cvec2<u16> values_f16 = lotus::vec::memberwise_operation([](double x) {
 				lotus::crash_if(!std::isfinite(x));
-				return static_cast<std::uint16_t>(std::clamp<double>(
-					std::round(x * std::numeric_limits<std::uint16_t>::max()),
+				return static_cast<u16>(std::clamp<double>(
+					std::round(x * std::numeric_limits<u16>::max()),
 					0.0,
-					std::numeric_limits<std::uint16_t>::max()
+					std::numeric_limits<u16>::max()
 				));
 			}, values);
 			write_binary(values_f16);

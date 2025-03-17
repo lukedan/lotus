@@ -31,7 +31,7 @@ namespace lotus::gpu::backends::metal {
 			system::window&,
 			device&,
 			command_queue&,
-			std::size_t frame_count,
+			usize frame_count,
 			std::span<const format> formats
 		);
 	private:

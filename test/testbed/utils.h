@@ -9,6 +9,7 @@
 #include <lotus/physics/engine.h>
 #include <lotus/renderer/context/asset_manager.h>
 
+using namespace lotus::types;
 using namespace lotus::physics::types;
 
 using vec2 = lotus::cvec2<scalar>;
@@ -37,11 +38,11 @@ struct test_context {
 class debug_render {
 public:
 	struct surface_visual {
-		std::vector<std::uint32_t> triangles;
+		std::vector<u32> triangles;
 		lotus::linear_rgba_f color{ 1.0f, 1.0f, 1.0f, 1.0f };
 	};
 	struct body_visual {
-		std::vector<std::uint32_t> triangles;
+		std::vector<u32> triangles;
 		lotus::linear_rgba_f color{ 1.0f, 1.0f, 1.0f, 1.0f };
 	};
 
@@ -57,7 +58,7 @@ public:
 	void draw_body(
 		std::span<const vec3> positions,
 		std::span<const vec3> normals,
-		std::span<const std::uint32_t> indices,
+		std::span<const u32> indices,
 		mat44s transform,
 		lotus::linear_rgba_f color,
 		bool wireframe
@@ -79,10 +80,10 @@ public:
 	const test_context *ctx;
 
 	std::vector<vertex> mesh_vertices;
-	std::vector<std::uint32_t> mesh_indices;
+	std::vector<u32> mesh_indices;
 
 	std::vector<vertex> line_vertices;
-	std::vector<std::uint32_t> line_indices;
+	std::vector<u32> line_indices;
 
 	std::vector<vertex> point_vertices;
 

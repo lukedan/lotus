@@ -63,7 +63,7 @@ namespace lotus::system::platforms::windows::_details {
 			CP_UTF8, 0, view.data(), static_cast<int>(view.size()), nullptr, 0, nullptr, nullptr
 		);
 		assert_win32(len != 0);
-		std::u8string res(static_cast<std::size_t>(len), static_cast<char8_t>(0), allocator);
+		std::u8string res(static_cast<usize>(len), static_cast<char8_t>(0), allocator);
 		assert_win32(WideCharToMultiByte(
 			CP_UTF8, 0, view.data(), static_cast<int>(view.size()),
 			reinterpret_cast<LPSTR>(res.data()), len, nullptr, nullptr
@@ -76,7 +76,7 @@ namespace lotus::system::platforms::windows::_details {
 	> wstring_to_u8string(const WCHAR *str, const Allocator &allocator = Allocator()) {
 		int len = WideCharToMultiByte(CP_UTF8, 0, str, -1, nullptr, 0, nullptr, nullptr);
 		assert_win32(len != 0);
-		std::u8string res(static_cast<std::size_t>(len), static_cast<char8_t>(0), allocator);
+		std::u8string res(static_cast<usize>(len), static_cast<char8_t>(0), allocator);
 		assert_win32(WideCharToMultiByte(
 			CP_UTF8, 0, str, -1, reinterpret_cast<LPSTR>(res.data()), len, nullptr, nullptr
 		) == len);

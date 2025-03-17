@@ -44,13 +44,13 @@ namespace lotus::renderer {
 	/// Contains data about a staging buffer.
 	struct staging_buffer {
 		/// Initializes all fields of this struct.
-		staging_buffer(buffer d, gpu::staging_buffer::metadata m, std::size_t s) :
+		staging_buffer(buffer d, gpu::staging_buffer::metadata m, usize s) :
 			data(std::move(d)), meta(m), total_size(s) {
 		}
 
 		buffer data; ///< The buffer.
 		gpu::staging_buffer::metadata meta; ///< Metadata.
-		std::size_t total_size; ///< Total size of \ref data.
+		usize total_size; ///< Total size of \ref data.
 	};
 
 
@@ -70,7 +70,7 @@ namespace lotus::renderer {
 
 			// per-batch data
 			std::vector<command> batch_commands; ///< Recorded commands.
-			std::uint32_t num_timers = 0; ///< Number of registered timers so far.
+			u32 num_timers = 0; ///< Number of registered timers so far.
 			bool within_pass = false; ///< Whether this queue is currently recording pass commands.
 
 
@@ -179,15 +179,15 @@ namespace lotus::renderer {
 			/// Draws a number of instances with the given inputs.
 			void draw_instanced(
 				std::vector<input_buffer_binding>,
-				std::uint32_t num_verts,
+				u32 num_verts,
 				index_buffer_binding,
-				std::uint32_t num_indices,
+				u32 num_indices,
 				gpu::primitive_topology,
 				all_resource_bindings,
 				assets::handle<assets::shader> vs,
 				assets::handle<assets::shader> ps,
 				graphics_pipeline_state,
-				std::uint32_t num_insts,
+				u32 num_insts,
 				std::u8string_view description
 			);
 			/// \overload
@@ -198,7 +198,7 @@ namespace lotus::renderer {
 				std::span<const input_buffer_binding> additional_inputs,
 				all_resource_bindings additional_resources,
 				constant_uploader&,
-				std::uint32_t num_insts,
+				u32 num_insts,
 				std::u8string_view description
 			);
 			/// \overload
@@ -209,7 +209,7 @@ namespace lotus::renderer {
 				std::span<const input_buffer_binding> additional_inputs,
 				all_resource_bindings additional_resources,
 				constant_uploader&,
-				std::uint32_t num_insts,
+				u32 num_insts,
 				std::u8string_view description
 			);
 
@@ -233,19 +233,19 @@ namespace lotus::renderer {
 			/// Copies data from the first buffer to the second.
 			void copy_buffer(
 				const buffer &source, const buffer &target,
-				std::size_t src_offset, std::size_t dst_offset, std::size_t sz,
+				usize src_offset, usize dst_offset, usize sz,
 				std::u8string_view description
 			);
 			/// Copies data from the buffer to the image.
 			void copy_buffer_to_image(
 				const buffer &source, const image2d_view &target,
-				gpu::staging_buffer::metadata, std::size_t src_offset, cvec2u32 dst_offset,
+				gpu::staging_buffer::metadata, usize src_offset, cvec2u32 dst_offset,
 				std::u8string_view description
 			);
 			/// \overload
 			void copy_buffer_to_image(
 				const staging_buffer &source, const image2d_view &target,
-				std::size_t src_offset, cvec2u32 dst_offset,
+				usize src_offset, cvec2u32 dst_offset,
 				std::u8string_view description
 			);
 
@@ -271,12 +271,12 @@ namespace lotus::renderer {
 				std::span<const shader_function> hit_group_shaders,
 				std::span<const gpu::hit_shader_group>,
 				std::span<const shader_function> general_shaders,
-				std::uint32_t raygen_shader_index,
-				std::span<const std::uint32_t> miss_shader_indices,
-				std::span<const std::uint32_t> shader_groups,
-				std::uint32_t max_recursion_depth,
-				std::uint32_t max_payload_size,
-				std::uint32_t max_attribute_size,
+				u32 raygen_shader_index,
+				std::span<const u32> miss_shader_indices,
+				std::span<const u32> shader_groups,
+				u32 max_recursion_depth,
+				u32 max_payload_size,
+				u32 max_attribute_size,
 				cvec3u32 num_threads,
 				all_resource_bindings,
 				std::u8string_view description
@@ -286,12 +286,12 @@ namespace lotus::renderer {
 				std::initializer_list<const shader_function> hit_group_shaders,
 				std::initializer_list<const gpu::hit_shader_group> hit_groups,
 				std::initializer_list<const shader_function> general_shaders,
-				std::uint32_t raygen_shader_index,
-				std::initializer_list<const std::uint32_t> miss_shader_indices,
-				std::initializer_list<const std::uint32_t> shader_groups,
-				std::uint32_t max_recursion_depth,
-				std::uint32_t max_payload_size,
-				std::uint32_t max_attribute_size,
+				u32 raygen_shader_index,
+				std::initializer_list<const u32> miss_shader_indices,
+				std::initializer_list<const u32> shader_groups,
+				u32 max_recursion_depth,
+				u32 max_payload_size,
+				u32 max_attribute_size,
 				cvec3u32 num_threads,
 				all_resource_bindings resources,
 				std::u8string_view description
@@ -319,13 +319,13 @@ namespace lotus::renderer {
 
 			/// Runs a compute shader.
 			void run_compute_shader(
-				assets::handle<assets::shader>, cvec3<std::uint32_t> num_thread_groups, all_resource_bindings,
+				assets::handle<assets::shader>, cvec3<u32> num_thread_groups, all_resource_bindings,
 				std::u8string_view description
 			);
 			/// Runs a compute shader with the given number of threads. Asserts if the number of threads is not
 			/// divisible by the shader's thread group size.
 			void run_compute_shader_with_thread_dimensions(
-				assets::handle<assets::shader>, cvec3<std::uint32_t> num_threads, all_resource_bindings,
+				assets::handle<assets::shader>, cvec3<u32> num_threads, all_resource_bindings,
 				std::u8string_view description
 			);
 
@@ -371,11 +371,11 @@ namespace lotus::renderer {
 		~context();
 
 		/// Returns the number of queues.
-		[[nodiscard]] std::uint32_t get_num_queues() const {
-			return static_cast<std::uint32_t>(_queues.size());
+		[[nodiscard]] u32 get_num_queues() const {
+			return static_cast<u32>(_queues.size());
 		}
 		/// Returns the command queue at the given index.
-		[[nodiscard]] queue get_queue(std::uint32_t index) {
+		[[nodiscard]] queue get_queue(u32 index) {
 			return queue(_queues[index]);
 		}
 
@@ -384,25 +384,25 @@ namespace lotus::renderer {
 		[[nodiscard]] pool request_pool(
 			std::u8string_view name,
 			gpu::memory_type_index = gpu::memory_type_index::invalid,
-			std::uint32_t chunk_size = pool::default_chunk_size
+			u32 chunk_size = pool::default_chunk_size
 		);
 		/// Creates a 2D image with the given properties.
 		[[nodiscard]] image2d_view request_image2d(
-			std::u8string_view name, cvec2u32 size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask,
+			std::u8string_view name, cvec2u32 size, u32 num_mips, gpu::format, gpu::image_usage_mask,
 			const pool&
 		);
 		/// Creates a 3D image with the given properties.
 		[[nodiscard]] image3d_view request_image3d(
-			std::u8string_view name, cvec3u32 size, std::uint32_t num_mips, gpu::format, gpu::image_usage_mask,
+			std::u8string_view name, cvec3u32 size, u32 num_mips, gpu::format, gpu::image_usage_mask,
 			const pool&
 		);
 		/// Creates a buffer with the given size.
 		[[nodiscard]] buffer request_buffer(
-			std::u8string_view name, std::size_t size_bytes, gpu::buffer_usage_mask, const pool&
+			std::u8string_view name, usize size_bytes, gpu::buffer_usage_mask, const pool&
 		);
 		/// Shorthand for \ref request_buffer() and then viewing it as a structured buffer of the given type.
 		template <typename T> [[nodiscard]] structured_buffer_view request_structured_buffer(
-			std::u8string_view name, std::uint32_t num_elements, gpu::buffer_usage_mask usages, const pool &p
+			std::u8string_view name, u32 num_elements, gpu::buffer_usage_mask usages, const pool &p
 		) {
 			return request_buffer(name, num_elements * sizeof(T), usages, p).get_view<T>(0, num_elements);
 		}
@@ -413,22 +413,22 @@ namespace lotus::renderer {
 		/// Creates a swap chain with the given properties.
 		[[nodiscard]] swap_chain request_swap_chain(
 			std::u8string_view name, system::window&, queue&,
-			std::uint32_t num_images, std::span<const gpu::format> formats
+			u32 num_images, std::span<const gpu::format> formats
 		);
 		/// \overload
 		[[nodiscard]] swap_chain request_swap_chain(
 			std::u8string_view name, system::window &wnd, queue &q,
-			std::uint32_t num_images, std::initializer_list<gpu::format> formats
+			u32 num_images, std::initializer_list<gpu::format> formats
 		) {
 			return request_swap_chain(name, wnd, q, num_images, std::span{ formats.begin(), formats.end() });
 		}
 		/// Creates a descriptor array with the given properties.
 		[[nodiscard]] image_descriptor_array request_image_descriptor_array(
-			std::u8string_view name, gpu::descriptor_type, std::uint32_t capacity
+			std::u8string_view name, gpu::descriptor_type, u32 capacity
 		);
 		/// Creates a descriptor array with the given properties.
 		[[nodiscard]] buffer_descriptor_array request_buffer_descriptor_array(
-			std::u8string_view name, gpu::descriptor_type, std::uint32_t capacity
+			std::u8string_view name, gpu::descriptor_type, u32 capacity
 		);
 		/// Creates a bottom-level acceleration structure for the given input geometry.
 		[[nodiscard]] blas request_blas(
@@ -462,9 +462,9 @@ namespace lotus::renderer {
 		/// Unmaps the given buffer. Nested \ref map_buffer() and \ref unmap_buffer() calls are supported.
 		void unmap_buffer(buffer&);
 		/// Flushes the given memory range that has been written to on the host so that it is visible to the device.
-		void flush_mapped_buffer_to_device(buffer&, std::size_t begin, std::size_t length);
+		void flush_mapped_buffer_to_device(buffer&, usize begin, usize length);
 		/// Flushes the given memory range that has been written to on the device so that it is visible on the host.
-		void flush_mapped_buffer_to_host(buffer&, std::size_t beg, std::size_t length);
+		void flush_mapped_buffer_to_host(buffer&, usize beg, usize length);
 		/// Convenience function for mapping the buffer, writing to the buffer, flushing the buffer, and unmapping
 		/// it.
 		template <typename Cb> void write_data_to_buffer_custom(buffer &buf, Cb &&write_data) {
@@ -484,21 +484,21 @@ namespace lotus::renderer {
 
 		/// Writes the given images into the given descriptor array.
 		void write_image_descriptors(
-			image_descriptor_array&, std::uint32_t first_index, std::span<const image2d_view>
+			image_descriptor_array&, u32 first_index, std::span<const image2d_view>
 		);
 		/// \overload
 		void write_image_descriptors(
-			image_descriptor_array &arr, std::uint32_t first_index, std::initializer_list<image2d_view> imgs
+			image_descriptor_array &arr, u32 first_index, std::initializer_list<image2d_view> imgs
 		) {
 			write_image_descriptors(arr, first_index, { imgs.begin(), imgs.end() });
 		}
 		/// Writes the given buffers into the given descriptor array.
 		void write_buffer_descriptors(
-			buffer_descriptor_array&, std::uint32_t first_index, std::span<const structured_buffer_view>
+			buffer_descriptor_array&, u32 first_index, std::span<const structured_buffer_view>
 		);
 		/// \overload
 		void write_buffer_descriptors(
-			buffer_descriptor_array &arr, std::uint32_t first_index,
+			buffer_descriptor_array &arr, u32 first_index,
 			std::initializer_list<structured_buffer_view> bufs
 		) {
 			write_buffer_descriptors(arr, first_index, { bufs.begin(), bufs.end() });
@@ -588,7 +588,7 @@ namespace lotus::renderer {
 		/// Requests a buffer.
 		[[nodiscard]] std::shared_ptr<_details::buffer> _request_buffer_raw(
 			std::u8string_view name,
-			std::size_t size_bytes,
+			usize size_bytes,
 			gpu::buffer_usage_mask,
 			const std::shared_ptr<_details::pool>&
 		);
@@ -616,31 +616,31 @@ namespace lotus::renderer {
 
 		/// Adds a 2D image to the given cached descriptor binding.
 		void _add_cached_descriptor_binding(
-			_details::cached_descriptor_set&, const descriptor_resource::image2d&, std::uint32_t idx
+			_details::cached_descriptor_set&, const descriptor_resource::image2d&, u32 idx
 		);
 		/// Adds a 3D image to the given cached descriptor binding.
 		void _add_cached_descriptor_binding(
-			_details::cached_descriptor_set&, const descriptor_resource::image3d&, std::uint32_t idx
+			_details::cached_descriptor_set&, const descriptor_resource::image3d&, u32 idx
 		);
 		/// Adds a swap chain to the given cached descriptor binding.
 		void _add_cached_descriptor_binding(
-			_details::cached_descriptor_set&, const descriptor_resource::swap_chain&, std::uint32_t idx
+			_details::cached_descriptor_set&, const descriptor_resource::swap_chain&, u32 idx
 		);
 		/// Adds a constant buffer to the given cached descriptor binding.
 		void _add_cached_descriptor_binding(
-			_details::cached_descriptor_set&, const descriptor_resource::constant_buffer&, std::uint32_t idx
+			_details::cached_descriptor_set&, const descriptor_resource::constant_buffer&, u32 idx
 		);
 		/// Adds a structured buffer to the given cached descriptor binding.
 		void _add_cached_descriptor_binding(
-			_details::cached_descriptor_set&, const descriptor_resource::structured_buffer&, std::uint32_t idx
+			_details::cached_descriptor_set&, const descriptor_resource::structured_buffer&, u32 idx
 		);
 		/// Adds a TLAS to the given cached descriptor binding.
 		void _add_cached_descriptor_binding(
-			_details::cached_descriptor_set&, const recorded_resources::tlas&, std::uint32_t idx
+			_details::cached_descriptor_set&, const recorded_resources::tlas&, u32 idx
 		);
 		/// Adds a sampler to the given cached descriptor binding.
 		void _add_cached_descriptor_binding(
-			_details::cached_descriptor_set&, const sampler_state&, std::uint32_t idx
+			_details::cached_descriptor_set&, const sampler_state&, u32 idx
 		);
 
 		/// Flushes all writes to the given image descriptor array.
@@ -681,7 +681,7 @@ namespace lotus::renderer {
 
 		/// Writes one descriptor array element into the given array.
 		template <typename RecordedResource, typename View> void _write_one_descriptor_array_element(
-			_details::descriptor_array<RecordedResource, View> &arr, RecordedResource rsrc, std::uint32_t index
+			_details::descriptor_array<RecordedResource, View> &arr, RecordedResource rsrc, u32 index
 		) {
 			auto &cur_ref = arr.slots[index];
 			// unlink current reference
@@ -709,7 +709,7 @@ namespace lotus::renderer {
 			cur_ref.resource = rsrc;
 			if (cur_ref.resource._ptr) {
 				auto &new_surf = *cur_ref.resource._ptr;
-				cur_ref.reference_index = static_cast<std::uint32_t>(new_surf.array_references.size());
+				cur_ref.reference_index = static_cast<u32>(new_surf.array_references.size());
 				auto &new_ref = new_surf.array_references.emplace_back(nullptr);
 				new_ref.array = &arr;
 				new_ref.index = index;
@@ -721,7 +721,7 @@ namespace lotus::renderer {
 
 
 		/// Cleans up all unused resources, and updates timestamp information to latest.
-		void _cleanup(std::size_t keep_batches);
+		void _cleanup(usize keep_batches);
 
 
 		// resource deletion handlers

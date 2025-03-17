@@ -65,7 +65,7 @@ namespace lotus::physics::constraints {
 
 			/// The square root of the sum of inverse areas of the two triangle faces.
 			scalar sqrt_sum_inverse_areas;
-			scalar rest_angle; ///< The angle between the two faces 
+			scalar rest_angle; ///< The angle between the two faces
 			scalar edge_length; ///< The length of this edge.
 		protected:
 			/// Initializes all fields of this struct.
@@ -163,9 +163,9 @@ namespace lotus::physics::constraints {
 
 		constraint_properties properties = uninitialized; ///< The properties of this constraint.
 		constraint_state state = uninitialized; ///< The state of this constraint.
-		std::size_t particle_edge1; ///< Index of the first particle on the shared edge.
-		std::size_t particle_edge2; ///< Index of the second particle on the shared edge.
-		std::size_t particle3; ///< Index of the third particle. This particle is not on the shared edge.
-		std::size_t particle4; ///< Index of the fourth particle. This particle is not on the shared edge.
+		usize particle_edge1; ///< Index of the first particle on the shared edge.
+		usize particle_edge2; ///< Index of the second particle on the shared edge.
+		usize particle3; ///< Index of the third particle. This particle is not on the shared edge.
+		usize particle4; ///< Index of the fourth particle. This particle is not on the shared edge.
 	};
 }

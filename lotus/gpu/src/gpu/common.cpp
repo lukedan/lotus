@@ -15,8 +15,8 @@ namespace lotus::gpu {
 		return _backend_name_table[ty];
 	}
 
-	constexpr static std::uint8_t o = 0; // zero for visibility
-	constexpr static cvec2u8 _bc7_block_size = cvec2i(4, 4).into<std::uint8_t>();
+	constexpr static u8 o = 0; // zero for visibility
+	constexpr static cvec2u8 _bc7_block_size = cvec2i(4, 4).into<u8>();
 	constexpr static enums::sequential_mapping<format, format_properties> _format_property_table{
 		std::pair(format::none,               zero),
 		std::pair(format::d32_float_s8,       format_properties::create_depth_stencil(32, 8, format_properties::data_type::floating_point)),
@@ -86,7 +86,7 @@ namespace lotus::gpu {
 	}
 
 	format format_properties::find_exact_rgba(
-		std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type type
+		u8 r, u8 g, u8 b, u8 a, data_type type
 	) {
 		format result = format::none;
 		for (const auto &[value, key] : _format_property_table.get_raw_table()) {

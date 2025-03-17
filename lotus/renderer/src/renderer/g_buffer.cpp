@@ -49,24 +49,24 @@ namespace lotus::renderer::g_buffer {
 
 		if (geom.vertex_buffer.data) {
 			details.input_buffers.emplace_back(geom.vertex_buffer.into_input_buffer_binding(
-				u8"POSITION", 0, static_cast<std::uint32_t>(details.input_buffers.size())
+				u8"POSITION", 0, static_cast<u32>(details.input_buffers.size())
 			));
 		}
 		if (geom.uv_buffer.data) {
 			details.input_buffers.emplace_back(geom.uv_buffer.into_input_buffer_binding(
-				u8"TEXCOORD", 0, static_cast<std::uint32_t>(details.input_buffers.size())
+				u8"TEXCOORD", 0, static_cast<u32>(details.input_buffers.size())
 			));
 			vs_defines.emplace_back(u8"VERTEX_INPUT_HAS_UV", u8"");
 		}
 		if (geom.normal_buffer.data) {
 			details.input_buffers.emplace_back(geom.normal_buffer.into_input_buffer_binding(
-				u8"NORMAL", 0, static_cast<std::uint32_t>(details.input_buffers.size())
+				u8"NORMAL", 0, static_cast<u32>(details.input_buffers.size())
 			));
 			vs_defines.emplace_back(u8"VERTEX_INPUT_HAS_NORMAL", u8"");
 		}
 		if (geom.tangent_buffer.data) {
 			details.input_buffers.emplace_back(geom.tangent_buffer.into_input_buffer_binding(
-				u8"TANGENT", 0, static_cast<std::uint32_t>(details.input_buffers.size())
+				u8"TANGENT", 0, static_cast<u32>(details.input_buffers.size())
 			));
 			vs_defines.emplace_back(u8"VERTEX_INPUT_HAS_TANGENT", u8"");
 		}
@@ -116,7 +116,7 @@ namespace lotus::renderer::g_buffer {
 	) {
 		crash_if(instances.size() != details.size());
 
-		for (std::size_t i = 0; i < instances.size(); ++i) {
+		for (usize i = 0; i < instances.size(); ++i) {
 			const auto &inst = instances[i];
 			const auto &dets = details[i];
 

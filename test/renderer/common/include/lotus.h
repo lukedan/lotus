@@ -6,6 +6,7 @@
 using lotus::zero;
 using lotus::uninitialized;
 using lotus::log;
+using namespace lotus::types;
 using namespace lotus::vector_types;
 using namespace lotus::matrix_types;
 namespace lstr = lotus::string;

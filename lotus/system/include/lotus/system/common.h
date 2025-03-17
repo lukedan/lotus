@@ -29,7 +29,7 @@ namespace lotus::system {
 		num_enumerators ///< Total number of supported mouse buttons.
 	};
 	/// Bit mask for modifier keys.
-	enum class modifier_key_mask : std::uint8_t {
+	enum class modifier_key_mask : u8 {
 		none    = 0,      ///< No modifier keys.
 		control = 1 << 0, ///< "Control".
 		shift   = 1 << 1, ///< "Shift".

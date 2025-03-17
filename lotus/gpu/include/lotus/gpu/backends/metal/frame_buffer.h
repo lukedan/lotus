@@ -27,9 +27,9 @@ namespace lotus::gpu::backends::metal {
 		}
 
 		/// Returns \p CAMetalLayer.maximumDrawableCount.
-		[[nodiscard]] std::uint32_t get_image_count() const;
+		[[nodiscard]] u32 get_image_count() const;
 		/// Checks that the index corresponds to \ref _drawable, and returns it.
-		[[nodiscard]] image2d get_image(std::uint32_t index) const;
+		[[nodiscard]] image2d get_image(u32 index) const;
 		/// Does nothing.
 		void update_synchronization_primitives(std::span<const back_buffer_synchronization>);
 

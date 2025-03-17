@@ -190,7 +190,7 @@ namespace lotus::renderer::fbx {
 			std::vector<std::vector<cvec3f>> mesh_positions = { { } };
 			std::vector<std::vector<cvec3f>> mesh_normals = { { } };
 			std::vector<std::vector<cvec2f>> mesh_uvs = { { } };
-			std::vector<std::vector<std::uint32_t>> mesh_indices;
+			std::vector<std::vector<u32>> mesh_indices;
 
 			int vert_count = mesh->GetControlPointsCount();
 			if (can_use_indices) {
@@ -223,11 +223,11 @@ namespace lotus::renderer::fbx {
 					}
 
 					int material_index = polygon_materials ? polygon_materials->GetAt(i_poly) : 0;
-					if (static_cast<std::size_t>(material_index) >= mesh_indices.size()) {
+					if (static_cast<usize>(material_index) >= mesh_indices.size()) {
 						mesh_indices.resize(material_index + 1);
 					}
 
-					auto get_index = [mesh, i_poly, vert_count](int i_pt) -> std::uint32_t {
+					auto get_index = [mesh, i_poly, vert_count](int i_pt) -> u32 {
 						int i_vert = mesh->GetPolygonVertex(i_poly, i_pt);
 						if (i_vert < 0 || i_vert >= vert_count) {
 							log().error(
@@ -236,13 +236,13 @@ namespace lotus::renderer::fbx {
 							);
 							return 0;
 						}
-						return static_cast<std::uint32_t>(i_vert);
+						return static_cast<u32>(i_vert);
 					};
 
-					std::uint32_t i0 = get_index(0);
-					std::uint32_t i_prev = get_index(1);
+					u32 i0 = get_index(0);
+					u32 i_prev = get_index(1);
 					for (int i_pt = 2; i_pt < poly_size; ++i_pt) {
-						std::uint32_t i_current = get_index(i_pt);
+						u32 i_current = get_index(i_pt);
 						mesh_indices[material_index].emplace_back(i0);
 						mesh_indices[material_index].emplace_back(i_prev);
 						mesh_indices[material_index].emplace_back(i_current);
@@ -259,7 +259,7 @@ namespace lotus::renderer::fbx {
 					}
 
 					int material_index = polygon_materials ? polygon_materials->GetAt(i_poly) : 0;
-					if (static_cast<std::size_t>(material_index) >= mesh_positions.size()) {
+					if (static_cast<usize>(material_index) >= mesh_positions.size()) {
 						mesh_positions.resize(material_index + 1);
 						mesh_normals.resize(material_index + 1);
 						mesh_uvs.resize(material_index + 1);
@@ -295,7 +295,7 @@ namespace lotus::renderer::fbx {
 									"Failed to get UV for mesh {}, polygon {}, vertex {}",
 									mesh->GetName(), i_poly, i_pt
 								);
-							}  
+							}
 							mesh_uvs[material_index].emplace_back(cvec2d(uv[0], 1.0 - uv[1]).into<float>());
 						}
 					};
@@ -392,10 +392,10 @@ namespace lotus::renderer::fbx {
 			crash_if(!inserted);
 			if (can_use_indices) {
 				assert(position_inputs.size() == 1 && normal_inputs.size() == 1 && uv_inputs.size() == 1);
-				for (std::size_t i = 0; i < index_inputs.size(); ++i) {
+				for (usize i = 0; i < index_inputs.size(); ++i) {
 					assets::geometry loaded_geom = nullptr;
-					loaded_geom.num_vertices = static_cast<std::uint32_t>(mesh_positions[i].size());
-					loaded_geom.num_indices  = static_cast<std::uint32_t>(mesh_indices[i].size());
+					loaded_geom.num_vertices = static_cast<u32>(mesh_positions[i].size());
+					loaded_geom.num_indices  = static_cast<u32>(mesh_indices[i].size());
 					loaded_geom.topology     = gpu::primitive_topology::triangle_list;
 
 					loaded_geom.vertex_buffer = position_inputs[0];
@@ -421,9 +421,9 @@ namespace lotus::renderer::fbx {
 					position_inputs.size() == uv_inputs.size() &&
 					index_inputs.empty()
 				);
-				for (std::size_t i = 0; i < position_inputs.size(); ++i) {
+				for (usize i = 0; i < position_inputs.size(); ++i) {
 					assets::geometry loaded_geom = nullptr;
-					loaded_geom.num_vertices = static_cast<std::uint32_t>(mesh_positions[i].size());
+					loaded_geom.num_vertices = static_cast<u32>(mesh_positions[i].size());
 					loaded_geom.num_indices  = 0;
 					loaded_geom.topology     = gpu::primitive_topology::triangle_list;
 
@@ -528,7 +528,7 @@ namespace lotus::renderer::fbx {
 			}
 			// TODO
 
-			
+
 			mat_data->properties.albedo_multiplier    = cvec4f(1.0f, 1.0f, 1.0f, 1.0f);
 			mat_data->properties.normal_scale         = 1.0f;
 			mat_data->properties.metalness_multiplier = 1.0f;
@@ -558,7 +558,7 @@ namespace lotus::renderer::fbx {
 			while (!stack.empty()) {
 				auto [node, parent_trans] = stack.back();
 				stack.pop_back();
-				 
+
 				fbxsdk::FbxAMatrix geom_matrix;
 				geom_matrix.SetIdentity();
 				if (node->GetNodeAttribute()) {
@@ -568,8 +568,8 @@ namespace lotus::renderer::fbx {
 				}
 				auto matrix = node->EvaluateLocalTransform() * geom_matrix;
 				mat44f local_trans = uninitialized;
-				for (std::size_t y = 0; y < 4; ++y) {
-					for (std::size_t x = 0; x < 4; ++x) {
+				for (usize y = 0; y < 4; ++y) {
+					for (usize x = 0; x < 4; ++x) {
 						// transposed
 						local_trans(y, x) = static_cast<float>(matrix[static_cast<int>(x)][static_cast<int>(y)]);
 					}

@@ -25,7 +25,7 @@ namespace lotus::renderer {
 
 
 		pool::token pool::allocate(memory::size_alignment size_align) {
-			for (std::size_t i = 0; i < _chunks.size(); ++i) {
+			for (usize i = 0; i < _chunks.size(); ++i) {
 				if (auto res = _chunks[i].allocator.allocate(size_align, 0)) {
 					if (debug_log_allocations) {
 						log().debug(
@@ -33,11 +33,11 @@ namespace lotus::renderer {
 							string::to_generic(name), i, res->first, size_align.size
 						);
 					}
-					return token(static_cast<std::uint32_t>(i), static_cast<std::uint32_t>(res->first));
+					return token(static_cast<u32>(i), static_cast<u32>(res->first));
 				}
 			}
-			std::size_t index = _chunks.size();
-			std::size_t new_chunk_size = chunk_size;
+			usize index = _chunks.size();
+			usize new_chunk_size = chunk_size;
 			while (new_chunk_size < size_align.size) {
 				new_chunk_size *= 2;
 			}
@@ -51,7 +51,7 @@ namespace lotus::renderer {
 						string::to_generic(name), index, res->first, size_align.size
 					);
 				}
-				return token(static_cast<std::uint32_t>(index), static_cast<std::uint32_t>(res->first));
+				return token(static_cast<u32>(index), static_cast<u32>(res->first));
 			}
 			crash_if(true); // don't know how this could happen
 			return nullptr;
@@ -72,7 +72,7 @@ namespace lotus::renderer {
 
 	namespace assets {
 		input_buffer_binding geometry::input_buffer::into_input_buffer_binding(
-			const char8_t *semantic, std::uint32_t semantic_index, std::uint32_t binding_index
+			const char8_t *semantic, u32 semantic_index, u32 binding_index
 		) const {
 			return input_buffer_binding(
 				binding_index, data->data, offset, stride, gpu::input_buffer_rate::per_vertex,
@@ -82,9 +82,7 @@ namespace lotus::renderer {
 	}
 
 
-	structured_buffer_view buffer::get_view(
-		std::uint32_t stride, std::uint32_t first, std::uint32_t count
-	) const {
+	structured_buffer_view buffer::get_view(u32 stride, u32 first, u32 count) const {
 		crash_if((first + count) * stride > _ptr->size);
 		return structured_buffer_view(_ptr, stride, first, count);
 	}

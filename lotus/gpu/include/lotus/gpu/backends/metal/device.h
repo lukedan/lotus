@@ -40,27 +40,27 @@ namespace lotus::gpu::backends::metal {
 
 		/// Creates a new \p MTL::Heap that is used to allocate descriptor sets out of.
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
-			std::span<const descriptor_range> capacity, std::size_t max_num_sets
+			std::span<const descriptor_range> capacity, usize max_num_sets
 		);
 		/// Creates a new \p MTL::Buffer allocated out of the given \p MTL::Heap to be used as an argument buffer.
 		[[nodiscard]] descriptor_set create_descriptor_set(descriptor_pool&, const descriptor_set_layout&);
 		/// Creates an argument buffer for the given bindless descriptor layout.
 		[[nodiscard]] descriptor_set create_descriptor_set(
-			descriptor_pool&, const descriptor_set_layout&, std::size_t dynamic_size
+			descriptor_pool&, const descriptor_set_layout&, usize dynamic_size
 		);
 
 		/// Writes the given images into the descriptor table.
 		void write_descriptor_set_read_only_images(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			std::size_t first_register,
+			usize first_register,
 			std::span<const image_view_base *const>
 		);
 		/// Writes the given images into the descriptor table.
 		void write_descriptor_set_read_write_images(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			std::size_t first_register,
+			usize first_register,
 			std::span<const image_view_base *const>
 		);
 
@@ -68,14 +68,14 @@ namespace lotus::gpu::backends::metal {
 		void write_descriptor_set_read_only_structured_buffers(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			std::size_t first_register,
+			usize first_register,
 			std::span<const structured_buffer_view>
 		);
 		/// Writes the given buffers into the descriptor table.
 		void write_descriptor_set_read_write_structured_buffers(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			std::size_t first_register,
+			usize first_register,
 			std::span<const structured_buffer_view>
 		);
 
@@ -83,14 +83,14 @@ namespace lotus::gpu::backends::metal {
 		void write_descriptor_set_constant_buffers(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			std::size_t first_register,
+			usize first_register,
 			std::span<const constant_buffer_view>
 		);
 		/// Writes the given sampler into the descriptor table.
 		void write_descriptor_set_samplers(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			std::size_t first_register,
+			usize first_register,
 			std::span<const gpu::sampler *const>
 		);
 
@@ -126,7 +126,7 @@ namespace lotus::gpu::backends::metal {
 			std::span<const input_buffer_layout>,
 			primitive_topology,
 			const frame_buffer_layout&,
-			std::size_t num_viewports
+			usize num_viewports
 		);
 		/// Creates a new \p MTL::ComputePipelineState.
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(
@@ -136,55 +136,55 @@ namespace lotus::gpu::backends::metal {
 		/// Returns predefined memory types supported by Metal.
 		[[nodiscard]] std::span<const std::pair<memory_type_index, memory_properties>> enumerate_memory_types() const;
 		/// Calls \p MTL::Device::newHeap().
-		[[nodiscard]] memory_block allocate_memory(std::size_t size, memory_type_index);
+		[[nodiscard]] memory_block allocate_memory(usize size, memory_type_index);
 		/// Calls \p MTL::Device::newBuffer().
-		[[nodiscard]] buffer create_committed_buffer(std::size_t size, memory_type_index, buffer_usage_mask);
+		[[nodiscard]] buffer create_committed_buffer(usize size, memory_type_index, buffer_usage_mask);
 		/// Calls \p MTL::Device::newTexture().
 		[[nodiscard]] image2d create_committed_image2d(
-			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec2u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Calls \p MTL::Device::newTexture().
 		[[nodiscard]] image3d create_committed_image3d(
-			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec3u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Staging buffers are tightly packed.
-		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, std::size_t> create_committed_staging_buffer(
+		[[nodiscard]] std::tuple<buffer, staging_buffer_metadata, usize> create_committed_staging_buffer(
 			cvec2u32 size, format, memory_type_index, buffer_usage_mask
 		);
 
 		/// Calls \p MTL::Device::heapTextureSizeAndAlign().
 		[[nodiscard]] memory::size_alignment get_image2d_memory_requirements(
-			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec2u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Calls \p MTL::Device::heapTextureSizeAndAlign().
 		[[nodiscard]] memory::size_alignment get_image3d_memory_requirements(
-			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec3u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Calls \p MTL::Device::heapBufferSizeAndAlign().
-		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(std::size_t size, buffer_usage_mask);
+		[[nodiscard]] memory::size_alignment get_buffer_memory_requirements(usize size, buffer_usage_mask);
 		/// Calls \p MTL::Heap::newBuffer().
 		[[nodiscard]] buffer create_placed_buffer(
-			std::size_t size, buffer_usage_mask, const memory_block&, std::size_t offset
+			usize size, buffer_usage_mask, const memory_block&, usize offset
 		);
 		/// Calls \p MTL::Heap::newTexture().
 		[[nodiscard]] image2d create_placed_image2d(
 			cvec2u32 size,
-			std::uint32_t mip_levels,
+			u32 mip_levels,
 			format,
 			image_tiling,
 			image_usage_mask,
 			const memory_block&,
-			std::size_t offset
+			usize offset
 		);
 		/// Calls \p MTL::Heap::newTexture().
 		[[nodiscard]] image3d create_placed_image3d(
 			cvec3u32 size,
-			std::uint32_t mip_levels,
+			u32 mip_levels,
 			format,
 			image_tiling,
 			image_usage_mask,
 			const memory_block&,
-			std::size_t offset
+			usize offset
 		);
 
 		/// \return \p MTL::Buffer::contents().
@@ -192,9 +192,9 @@ namespace lotus::gpu::backends::metal {
 		/// Does nothing.
 		void unmap_buffer(buffer&);
 		/// Does nothing.
-		void flush_mapped_buffer_to_host(buffer&, std::size_t begin, std::size_t length);
+		void flush_mapped_buffer_to_host(buffer&, usize begin, usize length);
 		/// Does nothing - MTL::Buffer::didModifyRange() is only needed for managed buffers.
-		void flush_mapped_buffer_to_device(buffer&, std::size_t begin, std::size_t length);
+		void flush_mapped_buffer_to_device(buffer&, usize begin, usize length);
 
 		/// Creates a \ref image2d_view using \p MTL::Texture::newTextureView().
 		[[nodiscard]] image2d_view create_image2d_view_from(const image2d&, format, mip_levels);
@@ -223,8 +223,8 @@ namespace lotus::gpu::backends::metal {
 		/// Calls \p MTL::SharedEvent::waitUntilSignaledValue().
 		void wait_for_timeline_semaphore(timeline_semaphore&, gpu::_details::timeline_semaphore_value_type);
 
-		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(std::uint32_t size); // TODO
-		void fetch_query_results(timestamp_query_heap&, std::uint32_t first, std::span<std::uint64_t> timestamps); // TODO
+		[[nodiscard]] timestamp_query_heap create_timestamp_query_heap(u32 size); // TODO
+		void fetch_query_results(timestamp_query_heap&, u32 first, std::span<u64> timestamps); // TODO
 
 
 		/// Calls \p MTL::Buffer::setLabel().
@@ -243,7 +243,7 @@ namespace lotus::gpu::backends::metal {
 		/// Fills out a \p MTL::IndirectAccelerationStructureInstanceDescriptor.
 		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
 			bottom_level_acceleration_structure&,
-			mat44f trans, std::uint32_t id, std::uint8_t mask, std::uint32_t hit_group_offset,
+			mat44f trans, u32 id, u8 mask, u32 hit_group_offset,
 			raytracing_instance_flags
 		) const;
 
@@ -253,32 +253,32 @@ namespace lotus::gpu::backends::metal {
 		);
 		/// Calls \p MTL::Device::accelerationStructureSizes().
 		[[nodiscard]] acceleration_structure_build_sizes get_top_level_acceleration_structure_build_sizes(
-			std::size_t instance_count
+			usize instance_count
 		);
 		/// Calls \ref _create_acceleration_structure().
 		[[nodiscard]] bottom_level_acceleration_structure create_bottom_level_acceleration_structure(
-			buffer&, std::size_t offset, std::size_t size
+			buffer&, usize offset, usize size
 		);
 		/// Calls \ref _create_acceleration_structure().
 		[[nodiscard]] top_level_acceleration_structure create_top_level_acceleration_structure(
-			buffer&, std::size_t offset, std::size_t size
+			buffer&, usize offset, usize size
 		);
 
 		/// Writes the given acceleration structure into the given descriptor table.
 		void write_descriptor_set_acceleration_structures(
-			descriptor_set&, const descriptor_set_layout&, std::size_t first_register,
+			descriptor_set&, const descriptor_set_layout&, usize first_register,
 			std::span<gpu::top_level_acceleration_structure *const>
 		);
 
-		[[nodiscard]] shader_group_handle get_shader_group_handle(const raytracing_pipeline_state&, std::size_t index); // TODO
+		[[nodiscard]] shader_group_handle get_shader_group_handle(const raytracing_pipeline_state&, usize index); // TODO
 
 		[[nodiscard]] raytracing_pipeline_state create_raytracing_pipeline_state(
 			std::span<const shader_function> hit_group_shaders,
 			std::span<const hit_shader_group> hit_groups,
 			std::span<const shader_function> general_shaders,
-			std::size_t max_recursion_depth,
-			std::size_t max_payload_size,
-			std::size_t max_attribute_size,
+			usize max_recursion_depth,
+			usize max_payload_size,
+			usize max_attribute_size,
 			const pipeline_resources&
 		); // TODO
 	private:
@@ -294,7 +294,7 @@ namespace lotus::gpu::backends::metal {
 
 		/// Creates a new acceleration structure.
 		[[nodiscard]] _details::residency_ptr<MTL::AccelerationStructure> _create_acceleration_structure(
-			buffer&, std::size_t offset, std::size_t size
+			buffer&, usize offset, usize size
 		);
 		/// Sets the debug name of the given descriptor set.
 		void _maybe_set_descriptor_set_name(MTL::Buffer *buf, const descriptor_set_layout &layout);

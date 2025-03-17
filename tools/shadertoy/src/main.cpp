@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
 
 	std::chrono::high_resolution_clock::time_point last_frame = std::chrono::high_resolution_clock::now();
 	float time = 0.0f;
-	std::size_t frame_index = 0;
+	usize frame_index = 0;
 
 	wnd.show_and_activate();
 	while (app.process_message_nonblocking() != lsys::message_type::quit) {
@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
 		}
 
 		for (auto &p : proj.passes) {
-			for (std::size_t out_i = 0; out_i < p.second.targets.size(); ++out_i) {
+			for (usize out_i = 0; out_i < p.second.targets.size(); ++out_i) {
 				auto &out = p.second.targets[out_i];
 				out.previous_frame = std::move(out.current_frame);
 				auto output_name = std::format(
@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
 		globals_buf_data.mouse = mouse_pos.into<float>();
 		globals_buf_data.mouse_down = mouse_down_pos.into<float>();
 		globals_buf_data.mouse_drag = mouse_drag_pos.into<float>();
-		globals_buf_data.resolution = window_size.into<std::int32_t>();
+		globals_buf_data.resolution = window_size.into<i32>();
 		globals_buf_data.time = time;
 
 		// render all passes

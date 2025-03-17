@@ -49,16 +49,16 @@ namespace lotus::gpu {
 			return find_resource_binding_by_name(name.c_str());
 		}
 		/// Returns the number of shader resource bindings.
-		[[nodiscard]] std::uint32_t get_resource_binding_count() const {
+		[[nodiscard]] u32 get_resource_binding_count() const {
 			return backend::shader_reflection::get_resource_binding_count();
 		}
 		/// Returns the shader resource binding at the given index.
-		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(std::uint32_t i) const {
+		[[nodiscard]] shader_resource_binding get_resource_binding_at_index(u32 i) const {
 			return backend::shader_reflection::get_resource_binding_at_index(i);
 		}
 
 		/// Returns the number of render targets for a pixel shader.
-		[[nodiscard]] std::uint32_t get_render_target_count() const {
+		[[nodiscard]] u32 get_render_target_count() const {
 			return backend::shader_reflection::get_render_target_count();
 		}
 
@@ -99,11 +99,11 @@ namespace lotus::gpu {
 		}
 
 		/// Returns the number of shaders contained by this shader library.
-		[[nodiscard]] std::uint32_t get_num_shaders() const {
+		[[nodiscard]] u32 get_num_shaders() const {
 			return backend::shader_library_reflection::get_num_shaders();
 		}
 		/// Returns the i-th shader in this shader library.
-		[[nodiscard]] shader_reflection get_shader_at(std::uint32_t i) const {
+		[[nodiscard]] shader_reflection get_shader_at(u32 i) const {
 			return backend::shader_library_reflection::get_shader_at(i);
 		}
 		/// Finds a shader that matches the given entry name and stage. If none is found, returns an empty object.

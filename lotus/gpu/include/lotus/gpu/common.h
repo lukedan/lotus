@@ -36,7 +36,7 @@ namespace lotus::gpu {
 	// anything that ends up in the _details namespace is because we'd like to make them class members rather than
 	// direct members of the namespace, but we'd also like to make them consistent between backends
 	namespace _details {
-		using timeline_semaphore_value_type = std::uint64_t; ///< Value type for timeline semaphores.
+		using timeline_semaphore_value_type = u64; ///< Value type for timeline semaphores.
 	}
 
 
@@ -66,7 +66,7 @@ namespace lotus::gpu {
 	[[nodiscard]] std::u8string_view get_backend_name(backend_type);
 
 	/// Options for context creation.
-	enum class context_options : std::uint8_t {
+	enum class context_options : u8 {
 		none = 0, ///< None.
 		enable_validation = 1 << 0, ///< Enables command list validation.
 		enable_debug_info = 1 << 1, ///< Enable additional debug information such as debug names.
@@ -217,21 +217,21 @@ namespace lotus::gpu {
 		}
 		/// Creates an object for a color format.
 		[[nodiscard]] constexpr inline static format_properties create_uncompressed_color(
-			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type ty, fragment_contents c
+			u8 r, u8 g, u8 b, u8 a, data_type ty, fragment_contents c
 		) {
-			return format_properties(r, g, b, a, 0, 0, 0, cvec2i(1, 1).into<std::uint8_t>(), ty, c);
+			return format_properties(r, g, b, a, 0, 0, 0, cvec2i(1, 1).into<u8>(), ty, c);
 		}
 		/// Creates an object for a depth-stencil format.
 		[[nodiscard]] constexpr inline static format_properties create_depth_stencil(
-			std::uint8_t d, std::uint8_t s, data_type ty
+			u8 d, u8 s, data_type ty
 		) {
 			return format_properties(
-				0, 0, 0, 0, d, s, 0, cvec2i(1, 1).into<std::uint8_t>(), ty, fragment_contents::depth_stencil
+				0, 0, 0, 0, d, s, 0, cvec2i(1, 1).into<u8>(), ty, fragment_contents::depth_stencil
 			);
 		}
 		/// Creates an object for a compressed format.
 		[[nodiscard]] constexpr inline static format_properties create_compressed(
-			std::uint8_t bytes_per_frag, cvec2u8 frag_size, data_type ty, fragment_contents c
+			u8 bytes_per_frag, cvec2u8 frag_size, data_type ty, fragment_contents c
 		) {
 			return format_properties(0, 0, 0, 0, 0, 0, bytes_per_frag, frag_size, ty, c);
 		}
@@ -241,7 +241,7 @@ namespace lotus::gpu {
 
 		/// Finds the pixel format that has the exact parameters.
 		[[nodiscard]] static format find_exact_rgba(
-			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a, data_type type
+			u8 r, u8 g, u8 b, u8 a, data_type type
 		);
 
 		/// Returns whether this format has any uncompressed color components.
@@ -271,16 +271,16 @@ namespace lotus::gpu {
 			return depth_bits > 0 || stencil_bits > 0;
 		}
 
-		std::uint8_t red_bits;     ///< Number of bits for the red channel. Zero for compressed formats.
-		std::uint8_t green_bits;   ///< Number of bits for the green channel. Zero for compressed formats.
-		std::uint8_t blue_bits;    ///< Number of bits for the blue channel. Zero for compressed formats.
-		std::uint8_t alpha_bits;   ///< Number of bits for the alpha channel. Zero for compressed formats.
+		u8 red_bits;     ///< Number of bits for the red channel. Zero for compressed formats.
+		u8 green_bits;   ///< Number of bits for the green channel. Zero for compressed formats.
+		u8 blue_bits;    ///< Number of bits for the blue channel. Zero for compressed formats.
+		u8 alpha_bits;   ///< Number of bits for the alpha channel. Zero for compressed formats.
 
-		std::uint8_t depth_bits;   ///< Number of bits for the depth channel.
-		std::uint8_t stencil_bits; ///< Number of bits for the stencil channel.
+		u8 depth_bits;   ///< Number of bits for the depth channel.
+		u8 stencil_bits; ///< Number of bits for the stencil channel.
 
-		std::uint8_t bits_per_fragment;  ///< Number of bits per fragment.
-		std::uint8_t bytes_per_fragment; ///< Number of bytes per fragment.
+		u8 bits_per_fragment;  ///< Number of bits per fragment.
+		u8 bytes_per_fragment; ///< Number of bytes per fragment.
 		cvec2u8 fragment_size = uninitialized;  ///< The size of a fragment in pixels.
 
 		data_type type; ///< Data type for all the channels except for stencil, after decoding.
@@ -288,8 +288,8 @@ namespace lotus::gpu {
 	protected:
 		/// Initializes all fields.
 		constexpr format_properties(
-			std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a,
-			std::uint8_t d, std::uint8_t s, std::uint8_t bytes_per_frag, cvec2u8 frag_size,
+			u8 r, u8 g, u8 b, u8 a,
+			u8 d, u8 s, u8 bytes_per_frag, cvec2u8 frag_size,
 			data_type ty, fragment_contents c
 		) :
 			red_bits(r), green_bits(g), blue_bits(b), alpha_bits(a),
@@ -334,7 +334,7 @@ namespace lotus::gpu {
 
 
 	/// A bitmask for the four color channels.
-	enum class channel_mask : std::uint8_t {
+	enum class channel_mask : u8 {
 		none  = 0,       ///< Empty value.
 		red   = 1u << 0, ///< The red channel.
 		green = 1u << 1, ///< The green channel.
@@ -353,7 +353,7 @@ namespace lotus::enums {
 
 namespace lotus::gpu {
 	/// Aspects of an image such as color, depth, or stencil.
-	enum class image_aspect_mask : std::uint8_t {
+	enum class image_aspect_mask : u8 {
 		none    = 0,       ///< None.
 		color   = 1u << 0, ///< Color aspect.
 		depth   = 1u << 1, ///< Depth aspect.
@@ -405,7 +405,7 @@ namespace lotus::gpu {
 		num_enumerators ///< The number of available queue types.
 	};
 	/// The capabilities of a queue.
-	enum class queue_capabilities : std::uint8_t {
+	enum class queue_capabilities : u8 {
 		none = 0, ///< No capabilities.
 		timestamp_query = 1u << 0, ///< The queue supports timestamp queries.
 
@@ -512,7 +512,7 @@ namespace lotus::gpu {
 
 
 	/// Determines what kind of filtering is applied when sampling an image.
-	enum class filtering : std::uint8_t {
+	enum class filtering : u8 {
 		nearest, ///< The nearest texel or mip level is used.
 		linear,  ///< Linearly interpolates neighboring texels or mip levels.
 
@@ -520,7 +520,7 @@ namespace lotus::gpu {
 	};
 
 	/// Determines how the sampling coordinates are transformed before fetching texels and filtering.
-	enum class sampler_address_mode : std::uint8_t {
+	enum class sampler_address_mode : u8 {
 		repeat, ///< The texture repeats beyond its borders.
 		mirror, ///< The texture mirrors beyond its borders.
 		/// The coordinate is clamped to the border, meaning that the border texel will be used for all values out of
@@ -533,7 +533,7 @@ namespace lotus::gpu {
 	};
 
 	/// Determines when a comparison returns \p true.
-	enum class comparison_function : std::uint8_t {
+	enum class comparison_function : u8 {
 		none,             ///< Not applicable.
 
 		never,            ///< Comparison result is always \p false.
@@ -550,7 +550,7 @@ namespace lotus::gpu {
 
 
 	/// Enum indicating how values are loaded from a resource during a render pass.
-	enum class pass_load_operation : std::uint8_t {
+	enum class pass_load_operation : u8 {
 		discard, ///< Indicates that a render pass does not depend on the previous value of a resource.
 		preserve, ///< Indicates that a render pass reads values from a resource that has been previously written to.
 		clear, ///< Indicates that the resource will be cleared using a value specified when starting a render pass.
@@ -559,7 +559,7 @@ namespace lotus::gpu {
 	};
 
 	/// Enum indicating how values are stored into a resource during a render pass.
-	enum class pass_store_operation : std::uint8_t {
+	enum class pass_store_operation : u8 {
 		discard, ///< Indicates that the written values will not be needed in the future.
 		preserve, ///< Indicates that the written values will be read in the future.
 
@@ -567,7 +567,7 @@ namespace lotus::gpu {
 	};
 
 	/// The state of a synchronization object.
-	enum class synchronization_state : std::uint8_t {
+	enum class synchronization_state : u8 {
 		unset = 0, ///< The synchronization object has not been set.
 		set = 1    ///< The synchronization object has been set.
 	};
@@ -577,7 +577,7 @@ namespace lotus::gpu {
 	}
 
 	/// The type of a descriptor.
-	enum class descriptor_type : std::uint8_t {
+	enum class descriptor_type : u8 {
 		sampler,                ///< A sampler.
 		read_only_image,        ///< An image that can only be read.
 		read_write_image,       ///< An image that can be read from or written to.
@@ -615,7 +615,7 @@ namespace lotus::enums {
 
 namespace lotus::gpu {
 	/// Points in the GPU pipeline where synchronization would happen.
-	enum class synchronization_point_mask : std::uint32_t {
+	enum class synchronization_point_mask : u32 {
 		none                         = 0,       ///< No synchronization.
 		all                          = 1 << 0,  ///< Any operation.
 		all_graphics                 = 1 << 1,  ///< Any graphics-related operation.
@@ -651,7 +651,7 @@ namespace lotus::enums {
 
 namespace lotus::gpu {
 	/// Mask of all potential image usages.
-	enum class image_usage_mask : std::uint32_t {
+	enum class image_usage_mask : u32 {
 		none                        = 0,      ///< No usage.
 		copy_source                 = 1 << 0, ///< The image can be used as a source of copy operations.
 		copy_destination            = 1 << 1, ///< The image can be used as a destination of copy operations.
@@ -671,7 +671,7 @@ namespace lotus::enums {
 
 namespace lotus::gpu {
 	/// Mask of all potential buffer usages.
-	enum class buffer_usage_mask : std::uint32_t {
+	enum class buffer_usage_mask : u32 {
 		none                               = 0,      ///< No usage.
 		copy_source                        = 1 << 0, ///< The buffer can be used as the source of copy operations.
 		copy_destination                   = 1 << 1, ///< The buffer can be used as the target of copy operations.
@@ -695,7 +695,7 @@ namespace lotus::enums {
 
 namespace lotus::gpu {
 	/// Specifies how an image is accessed.
-	enum class image_access_mask : std::uint16_t {
+	enum class image_access_mask : u16 {
 		none                     = 0,      ///< No access.
 		copy_source              = 1 << 0, ///< The image is used as a source of a copy operation.
 		copy_destination         = 1 << 1, ///< The image is used as a destination of a copy operation.
@@ -726,7 +726,7 @@ namespace lotus::enums {
 
 namespace lotus::gpu {
 	/// Specifies how a buffer is accessed.
-	enum class buffer_access_mask : std::uint32_t {
+	enum class buffer_access_mask : u32 {
 		none                               = 0,       ///< No access.
 		copy_source                        = 1 << 0,  ///< The buffer is used as a source of a copy operation.
 		copy_destination                   = 1 << 1,  ///< The buffer is used as a target of a copy operation.
@@ -763,12 +763,12 @@ namespace lotus::enums {
 namespace lotus::gpu {
 	/// Opaque type that holds the index of a type of memory. This can hold backend-specific, potentially
 	/// runtime-generated values.
-	enum class memory_type_index : std::uint8_t {
+	enum class memory_type_index : u8 {
 		invalid = 0xFF, ///< Invalid value.
 	};
 
 	/// Properties of a memory block.
-	enum class memory_properties : std::uint8_t {
+	enum class memory_properties : u8 {
 		none = 0, ///< Empty properties.
 
 		device_local = 1 << 0, ///< The memory is located near the graphics device.
@@ -793,7 +793,7 @@ namespace lotus::gpu {
 	};
 
 	/// Raytracing instance flags.
-	enum class raytracing_instance_flags : std::uint8_t {
+	enum class raytracing_instance_flags : u8 {
 		none = 0, ///< No flags.
 
 		disable_triangle_culling        = 1 << 0, ///< Disable front/back face culling.
@@ -814,7 +814,7 @@ namespace lotus::enums {
 
 namespace lotus::gpu {
 	/// Raytracing geometry flags.
-	enum class raytracing_geometry_flags : std::uint8_t {
+	enum class raytracing_geometry_flags : u8 {
 		none = 0, ///< No flags.
 
 		opaque                          = 1 << 0, ///< Marks the geometry as opaque.
@@ -886,17 +886,17 @@ namespace lotus::gpu {
 	struct color_clear_value {
 	public:
 		/// Initializes the value to integer zero.
-		constexpr color_clear_value(zero_t) : value(std::in_place_type<cvec4<std::uint64_t>>, zero) {
+		constexpr color_clear_value(zero_t) : value(std::in_place_type<cvec4<u64>>, zero) {
 		}
 		/// Initializes this struct with the given integral value.
-		constexpr color_clear_value(cvec4<std::uint64_t> v) : value(v) {
+		constexpr color_clear_value(cvec4<u64> v) : value(v) {
 		}
 		/// Initializes this struct with the given floating-point value.
 		constexpr color_clear_value(cvec4d v) : value(v) {
 		}
 
 		/// The clear color value that can be either floating-point or integral.
-		std::variant<cvec4<std::uint64_t>, cvec4d> value;
+		std::variant<cvec4<u64>, cvec4d> value;
 	};
 
 
@@ -911,11 +911,11 @@ namespace lotus::gpu {
 		bool is_software; ///< Whether this is a software adapter.
 		bool is_discrete; ///< Whether this is a discrete adapter.
 
-		std::size_t constant_buffer_alignment;           ///< Alignment required for constant buffers.
-		std::size_t acceleration_structure_alignment;    ///< Alignment required for acceleration structures.
-		std::size_t shader_group_handle_size;            ///< Size of a shader record.
-		std::size_t shader_group_handle_alignment;       ///< Alignment required for a single shader record.
-		std::size_t shader_group_handle_table_alignment; ///< Alignment required for a table of shader records.
+		usize constant_buffer_alignment;           ///< Alignment required for constant buffers.
+		usize acceleration_structure_alignment;    ///< Alignment required for acceleration structures.
+		usize shader_group_handle_size;            ///< Size of a shader record.
+		usize shader_group_handle_alignment;       ///< Alignment required for a single shader record.
+		usize shader_group_handle_table_alignment; ///< Alignment required for a table of shader records.
 	};
 
 	/// Describes how color blending is carried out for a single render target.
@@ -1159,7 +1159,7 @@ namespace lotus::gpu {
 		/// Initializes all fields of this struct.
 		constexpr depth_stencil_options(
 			bool depth_test, bool depth_write, comparison_function depth_comp,
-			bool stencil_test, std::uint8_t sread_mask, std::uint8_t swrite_mask,
+			bool stencil_test, u8 sread_mask, u8 swrite_mask,
 			stencil_options front_op, stencil_options back_op
 		) :
 			enable_depth_testing(depth_test), write_depth(depth_write), depth_comparison(depth_comp),
@@ -1183,8 +1183,8 @@ namespace lotus::gpu {
 		comparison_function depth_comparison = comparison_function::always;
 
 		bool enable_stencil_testing = false; ///< Whether stencil testing is enabled.
-		std::uint8_t stencil_read_mask  = 0; ///< Stencil read mask.
-		std::uint8_t stencil_write_mask = 0; ///< Stencil write mask.
+		u8 stencil_read_mask  = 0; ///< Stencil read mask.
+		u8 stencil_write_mask = 0; ///< Stencil write mask.
 		stencil_options stencil_front_face; ///< Stencil operation for front-facing triangles.
 		stencil_options stencil_back_face;  ///< Stencil operation for back-facing triangles.
 	};
@@ -1215,7 +1215,7 @@ namespace lotus::gpu {
 		input_buffer_element(std::nullptr_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr input_buffer_element(const char8_t *sname, std::uint32_t sindex, format fmt, std::size_t off) :
+		constexpr input_buffer_element(const char8_t *sname, u32 sindex, format fmt, usize off) :
 			semantic_name(sname), semantic_index(sindex), element_format(fmt), byte_offset(off) {
 		}
 
@@ -1223,10 +1223,10 @@ namespace lotus::gpu {
 		[[nodiscard]] friend bool operator==(const input_buffer_element&, const input_buffer_element&) = default;
 
 		const char8_t *semantic_name = nullptr;
-		std::uint32_t semantic_index = 0;
+		u32 semantic_index = 0;
 
 		format element_format = format::none; ///< The format of this element.
-		std::size_t byte_offset = 0; ///< Byte offset of this element in a vertex.
+		usize byte_offset = 0; ///< Byte offset of this element in a vertex.
 	};
 }
 namespace std {
@@ -1253,24 +1253,24 @@ namespace lotus::gpu {
 		/// Initializes all fields of this struct.
 		constexpr input_buffer_layout(
 			std::span<const input_buffer_element> elems,
-			std::size_t s, input_buffer_rate rate, std::size_t buf_id
+			usize s, input_buffer_rate rate, usize buf_id
 		) : elements(elems), stride(s), buffer_index(buf_id), input_rate(rate) {
 		}
 		/// Creates a new layout for vertex buffers with the given arguments.
 		[[nodiscard]] constexpr inline static input_buffer_layout create_vertex_buffer(
-			std::span<const input_buffer_element> elems, std::size_t s, std::size_t buf_id
+			std::span<const input_buffer_element> elems, usize s, usize buf_id
 		) {
 			return input_buffer_layout(elems, s, input_buffer_rate::per_vertex, buf_id);
 		}
 		/// \overload
 		[[nodiscard]] constexpr inline static input_buffer_layout create_vertex_buffer(
-			std::initializer_list<input_buffer_element> elems, std::size_t s, std::size_t buf_id
+			std::initializer_list<input_buffer_element> elems, usize s, usize buf_id
 		) {
 			return input_buffer_layout({ elems.begin(), elems.end() }, s, input_buffer_rate::per_vertex, buf_id);
 		}
 		/// Creates a new layout for instance buffers with the given arguments.
 		[[nodiscard]] constexpr inline static input_buffer_layout create_instance_buffer(
-			std::span<const input_buffer_element> elems, std::size_t s, std::size_t buf_id
+			std::span<const input_buffer_element> elems, usize s, usize buf_id
 		) {
 			return input_buffer_layout(elems, s, input_buffer_rate::per_instance, buf_id);
 		}
@@ -1279,7 +1279,7 @@ namespace lotus::gpu {
 		template <
 			typename Vertex
 		> [[nodiscard]] constexpr inline static input_buffer_layout create_vertex_buffer(
-			std::span<const input_buffer_element> elems, std::size_t buf_id
+			std::span<const input_buffer_element> elems, usize buf_id
 		) {
 			return create_vertex_buffer(elems, sizeof(Vertex), buf_id);
 		}
@@ -1287,7 +1287,7 @@ namespace lotus::gpu {
 		template <
 			typename Vertex
 		> [[nodiscard]] constexpr inline static input_buffer_layout create_vertex_buffer(
-			std::initializer_list<input_buffer_element> elems, std::size_t buf_id
+			std::initializer_list<input_buffer_element> elems, usize buf_id
 		) {
 			return create_vertex_buffer<Vertex>({ elems.begin(), elems.end() }, buf_id);
 		}
@@ -1296,14 +1296,14 @@ namespace lotus::gpu {
 		template <
 			typename Inst
 		> [[nodiscard]] constexpr inline static input_buffer_layout create_instance_buffer(
-			std::span<const input_buffer_element> elems, std::size_t buf_id
+			std::span<const input_buffer_element> elems, usize buf_id
 		) {
 			return create_instance_buffer(elems, sizeof(Inst), buf_id);
 		}
 
 		std::span<const input_buffer_element> elements; ///< Elements in this vertex buffer.
-		std::size_t stride = 0; ///< The size of one vertex.
-		std::size_t buffer_index = 0; ///< Index of the vertex buffer.
+		usize stride = 0; ///< The size of one vertex.
+		usize buffer_index = 0; ///< Index of the vertex buffer.
 		input_buffer_rate input_rate = input_buffer_rate::per_vertex; ///< Specifies how the buffer data is used.
 	};
 
@@ -1402,7 +1402,7 @@ namespace lotus::gpu {
 		subresource_index(uninitialized_t) {
 		}
 		/// Initializes all members of this struct.
-		constexpr subresource_index(std::uint32_t mip, std::uint32_t arr, image_aspect_mask asp) :
+		constexpr subresource_index(u32 mip, u32 arr, image_aspect_mask asp) :
 			mip_level(mip), array_slice(arr), aspects(asp) {
 		}
 		/// Creates an index pointing to the color aspect of the first subresource.
@@ -1418,22 +1418,20 @@ namespace lotus::gpu {
 			return subresource_index(0, 0, image_aspect_mask::depth | image_aspect_mask::stencil);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
-		[[nodiscard]] constexpr inline static subresource_index create_color(std::uint32_t mip, std::uint32_t arr) {
+		[[nodiscard]] constexpr inline static subresource_index create_color(u32 mip, u32 arr) {
 			return subresource_index(mip, arr, image_aspect_mask::color);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
-		[[nodiscard]] constexpr inline static subresource_index create_depth(std::uint32_t mip, std::uint32_t arr) {
+		[[nodiscard]] constexpr inline static subresource_index create_depth(u32 mip, u32 arr) {
 			return subresource_index(mip, arr, image_aspect_mask::depth);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
-		[[nodiscard]] constexpr inline static subresource_index create_stencil(
-			std::uint32_t mip, std::uint32_t arr
-		) {
+		[[nodiscard]] constexpr inline static subresource_index create_stencil(u32 mip, u32 arr) {
 			return subresource_index(mip, arr, image_aspect_mask::stencil);
 		}
 
-		std::uint32_t mip_level; ///< Mip level.
-		std::uint32_t array_slice; ///< Array slice.
+		u32 mip_level; ///< Mip level.
+		u32 array_slice; ///< Array slice.
 		image_aspect_mask aspects; ///< The aspects of the subresource.
 
 		/// Default equality and inequality comparison.
@@ -1442,7 +1440,7 @@ namespace lotus::gpu {
 	/// Describes a range of mip levels.
 	struct mip_levels {
 	public:
-		using index_type = std::uint32_t; ///< Type used as mip level indices.
+		using index_type = u32; ///< Type used as mip level indices.
 		using range_type = linear_range<index_type>; ///< \ref linear_range type that corresponds to mip ranages.
 
 		/// Use this for \ref maximum to indicate that all levels below \ref minimum can be used.
@@ -1542,7 +1540,7 @@ namespace lotus::gpu {
 		}
 		/// Initializes all fields of this struct.
 		constexpr subresource_range(
-			mip_levels ms, std::uint32_t first_arr, std::uint32_t num_arrs, image_aspect_mask asp
+			mip_levels ms, u32 first_arr, u32 num_arrs, image_aspect_mask asp
 		) : mips(ms), first_array_slice(first_arr), num_array_slices(num_arrs), aspects(asp) {
 		}
 
@@ -1590,26 +1588,26 @@ namespace lotus::gpu {
 
 		/// Creates an index pointing to the color aspect of the specified subresource.
 		[[nodiscard]] constexpr inline static subresource_range create_color(
-			mip_levels mips, std::uint32_t first_arr, std::uint32_t num_arrs
+			mip_levels mips, u32 first_arr, u32 num_arrs
 		) {
 			return subresource_range(mips, first_arr, num_arrs, image_aspect_mask::color);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
 		[[nodiscard]] constexpr inline static subresource_range create_depth(
-			mip_levels mips, std::uint32_t first_arr, std::uint32_t num_arrs
+			mip_levels mips, u32 first_arr, u32 num_arrs
 		) {
 			return subresource_range(mips, first_arr, num_arrs, image_aspect_mask::depth);
 		}
 		/// Creates an index pointing to the color aspect of the specified subresource.
 		[[nodiscard]] constexpr inline static subresource_range create_stencil(
-			mip_levels mips, std::uint32_t first_arr, std::uint32_t num_arrs
+			mip_levels mips, u32 first_arr, u32 num_arrs
 		) {
 			return subresource_range(mips, first_arr, num_arrs, image_aspect_mask::stencil);
 		}
 
 		mip_levels mips; ///< Mip levels.
-		std::uint32_t first_array_slice; ///< First array slice.
-		std::uint32_t num_array_slices;  ///< Number of array slices.
+		u32 first_array_slice; ///< First array slice.
+		u32 num_array_slices;  ///< Number of array slices.
 		image_aspect_mask aspects; ///< The aspects of the subresource.
 
 		/// Default equality and inequality comparison.
@@ -1682,7 +1680,7 @@ namespace lotus::gpu {
 		back_buffer_info(std::nullptr_t) : index(0), on_presented(nullptr), status(swap_chain_status::unavailable) {
 		}
 
-		std::uint32_t index; ///< Index of the back buffer.
+		u32 index; ///< Index of the back buffer.
 		/// Fence that will be triggered when this has finished presenting the previous frame. This can be empty.
 		fence *on_presented;
 		swap_chain_status status; ///< The status of this swapchain.
@@ -1695,7 +1693,7 @@ namespace lotus::gpu {
 		}
 
 		cvec2u32 image_size = uninitialized; ///< The size of the image.
-		std::uint32_t row_pitch_in_bytes; ///< The number of bytes in a row.
+		u32 row_pitch_in_bytes; ///< The number of bytes in a row.
 		format pixel_format; ///< The pixel format of the image.
 	};
 
@@ -1704,13 +1702,13 @@ namespace lotus::gpu {
 	struct descriptor_range {
 	public:
 		/// Indicates that the number of descriptors is unbounded.
-		constexpr static std::uint32_t unbounded_count = std::numeric_limits<std::uint32_t>::max();
+		constexpr static u32 unbounded_count = std::numeric_limits<u32>::max();
 
 		/// No initialization.
 		descriptor_range(uninitialized_t) {
 		}
 		/// Creates a new \ref descriptor_range object.
-		[[nodiscard]] constexpr inline static descriptor_range create(descriptor_type ty, std::uint32_t c) {
+		[[nodiscard]] constexpr inline static descriptor_range create(descriptor_type ty, u32 c) {
 			return descriptor_range(ty, c);
 		}
 		/// Creates a \ref descriptor_range with unbounded descriptor count.
@@ -1722,10 +1720,10 @@ namespace lotus::gpu {
 		[[nodiscard]] friend bool operator==(const descriptor_range&, const descriptor_range&) = default;
 
 		descriptor_type type; ///< The type of the descriptors.
-		std::uint32_t count; ///< The number of descriptors.
+		u32 count; ///< The number of descriptors.
 	protected:
 		/// Initializes all fields.
-		constexpr descriptor_range(descriptor_type ty, std::uint32_t c) : type(ty), count(c) {
+		constexpr descriptor_range(descriptor_type ty, u32 c) : type(ty), count(c) {
 		}
 	};
 	/// A range of descriptors and its register binding.
@@ -1735,18 +1733,18 @@ namespace lotus::gpu {
 		descriptor_range_binding(uninitialized_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr descriptor_range_binding(descriptor_range rng, std::uint32_t reg) :
+		constexpr descriptor_range_binding(descriptor_range rng, u32 reg) :
 			range(rng), register_index(reg) {
 		}
 		/// \overload
 		[[nodiscard]] constexpr inline static descriptor_range_binding create(
-			descriptor_type ty, std::uint32_t count, std::uint32_t reg
+			descriptor_type ty, u32 count, u32 reg
 		) {
 			return descriptor_range_binding(descriptor_range::create(ty, count), reg);
 		}
 		/// Creates a new \ref descriptor_range_binding object with unbounded size.
 		[[nodiscard]] constexpr inline static descriptor_range_binding create_unbounded(
-			descriptor_type ty, std::uint32_t reg
+			descriptor_type ty, u32 reg
 		) {
 			return descriptor_range_binding(descriptor_range::create_unbounded(ty), reg);
 		}
@@ -1757,7 +1755,7 @@ namespace lotus::gpu {
 		) = default;
 
 		/// Returns the register index of the last binding in this range.
-		[[nodiscard]] constexpr std::uint32_t get_last_register_index() const {
+		[[nodiscard]] constexpr u32 get_last_register_index() const {
 			return register_index + range.count - 1;
 		}
 
@@ -1775,7 +1773,7 @@ namespace lotus::gpu {
 			for (It cur = begin; cur != end; ++cur) {
 				if (last != begin) {
 					It prev = last - 1;
-					std::size_t last_index = prev->get_last_register_index();
+					usize last_index = prev->get_last_register_index();
 					if constexpr (!std::is_same_v<std::decay_t<OverlapCallback>, std::nullptr_t>) {
 						if (last_index >= cur->register_index) {
 							callback(prev, cur);
@@ -1795,7 +1793,7 @@ namespace lotus::gpu {
 		}
 
 		descriptor_range range = uninitialized; ///< The type and number of descriptors.
-		std::uint32_t register_index; ///< Register index corresponding to the first descriptor.
+		u32 register_index; ///< Register index corresponding to the first descriptor.
 	};
 
 	/// An image resource barrier.
@@ -1858,12 +1856,12 @@ namespace lotus::gpu {
 		constexpr vertex_buffer(std::nullptr_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr vertex_buffer(const buffer &b, std::size_t off, std::size_t s) : data(&b), offset(off), stride(s) {
+		constexpr vertex_buffer(const buffer &b, usize off, usize s) : data(&b), offset(off), stride(s) {
 		}
 
 		const buffer *data = nullptr; ///< Data for the vertex buffer.
-		std::size_t offset = 0; ///< Offset from the start of the buffer.
-		std::size_t stride = 0; ///< The stride of a single vertex.
+		usize offset = 0; ///< Offset from the start of the buffer.
+		usize stride = 0; ///< The stride of a single vertex.
 	};
 	/// A view into a structured buffer.
 	struct structured_buffer_view {
@@ -1872,14 +1870,14 @@ namespace lotus::gpu {
 		structured_buffer_view(std::nullptr_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr structured_buffer_view(buffer &b, std::size_t f, std::size_t c, std::size_t str) :
+		constexpr structured_buffer_view(buffer &b, usize f, usize c, usize str) :
 			data(&b), first(f), count(c), stride(str) {
 		}
 
 		const buffer *data = nullptr; ///< Data for the buffer.
-		std::size_t first = 0; ///< Index of the first buffer element.
-		std::size_t count = 0; ///< Size of the buffer in elements.
-		std::size_t stride = 0; ///< Stride between two consecutive buffer elements.
+		usize first = 0; ///< Index of the first buffer element.
+		usize count = 0; ///< Size of the buffer in elements.
+		usize stride = 0; ///< Stride between two consecutive buffer elements.
 	};
 	/// A view into a constant buffer.
 	struct constant_buffer_view {
@@ -1887,13 +1885,13 @@ namespace lotus::gpu {
 		constant_buffer_view(uninitialized_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr constant_buffer_view(const buffer &b, std::size_t off, std::size_t sz) :
+		constexpr constant_buffer_view(const buffer &b, usize off, usize sz) :
 			data(&b), offset(off), size(sz) {
 		}
 
 		const buffer *data; ///< Data for the buffer.
-		std::size_t offset; ///< Offset to the range to be used as constants.
-		std::size_t size; ///< Size of the range in bytes.
+		usize offset; ///< Offset to the range to be used as constants.
+		usize size; ///< Size of the range in bytes.
 	};
 
 
@@ -1961,7 +1959,7 @@ namespace lotus::gpu {
 	/// Access of a depth render target by a pass.
 	using depth_render_target_access = render_target_access<double>;
 	/// Access of a stencil render target by a pass.
-	using stencil_render_target_access = render_target_access<std::uint32_t>;
+	using stencil_render_target_access = render_target_access<u32>;
 
 	/// Describes how a frame buffer is accessed during a render pass.
 	struct frame_buffer_access {
@@ -2021,9 +2019,9 @@ namespace lotus::gpu {
 		shader_resource_binding(uninitialized_t) {
 		}
 
-		std::uint32_t first_register; ///< Index of the first register.
-		std::uint32_t register_count; ///< The number of registers.
-		std::uint32_t register_space; ///< Register space.
+		u32 first_register; ///< Index of the first register.
+		u32 register_count; ///< The number of registers.
+		u32 register_space; ///< Register space.
 		descriptor_type type; ///< The type of this descriptor binding.
 		// TODO allocator
 		std::u8string name; ///< Variable name of this binding.
@@ -2038,11 +2036,11 @@ namespace lotus::gpu {
 		acceleration_structure_build_sizes(uninitialized_t) {
 		}
 
-		std::size_t acceleration_structure_size; ///< Size of the acceleration structure itself.
+		usize acceleration_structure_size; ///< Size of the acceleration structure itself.
 		/// Required size of the scratch buffer when building the acceleration structure.
-		std::size_t build_scratch_size;
+		usize build_scratch_size;
 		/// Required size of the scratch buffer when updating the acceleration structure.
-		std::size_t update_scratch_size;
+		usize update_scratch_size;
 	};
 
 	/// A view into a vertex buffer with a specific offset and stride.
@@ -2052,15 +2050,15 @@ namespace lotus::gpu {
 		constexpr vertex_buffer_view(std::nullptr_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr vertex_buffer_view(const buffer &d, format f, std::size_t off, std::size_t s, std::size_t c) :
+		constexpr vertex_buffer_view(const buffer &d, format f, usize off, usize s, usize c) :
 			data(&d), vertex_format(f), offset(off), stride(s), count(c) {
 		}
 
 		const buffer *data = nullptr; ///< Data of the vertex buffer.
 		format vertex_format = format::none; ///< Format used for a single element.
-		std::size_t offset = 0; ///< Offset in bytes to the first element.
-		std::size_t stride = 0; ///< Stride between two consecutive elements.
-		std::size_t count  = 0; ///< Total number of elements.
+		usize offset = 0; ///< Offset in bytes to the first element.
+		usize stride = 0; ///< Stride between two consecutive elements.
+		usize count  = 0; ///< Total number of elements.
 	};
 	/// A view into an index buffer.
 	struct index_buffer_view {
@@ -2069,14 +2067,14 @@ namespace lotus::gpu {
 		constexpr index_buffer_view(std::nullptr_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr index_buffer_view(const buffer &d, index_format f, std::size_t off, std::size_t c) :
+		constexpr index_buffer_view(const buffer &d, index_format f, usize off, usize c) :
 			data(&d), element_format(f), offset(off), count(c) {
 		}
 
 		const buffer *data = nullptr; ///< Data of the index buffer.
 		index_format element_format = index_format::num_enumerators; ///< Index format.
-		std::size_t offset = 0; ///< Offset in bytes to the first index.
-		std::size_t count  = 0; ///< The number of indices.
+		usize offset = 0; ///< Offset in bytes to the first index.
+		usize count  = 0; ///< The number of indices.
 	};
 	/// A view into a piece of geometry for raytracing.
 	struct raytracing_geometry_view {
@@ -2101,21 +2099,21 @@ namespace lotus::gpu {
 		constexpr shader_record_view(std::nullptr_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr shader_record_view(const buffer &d, std::size_t off, std::size_t c, std::size_t str) :
+		constexpr shader_record_view(const buffer &d, usize off, usize c, usize str) :
 			data(&d), offset(off), count(c), stride(str) {
 		}
 
 		const buffer *data = nullptr; ///< Data of the shader records.
-		std::size_t offset = 0; ///< Offset of the first entry in bytes.
-		std::size_t count  = 0; ///< Size of the buffer in elements.
-		std::size_t stride = 0; ///< Stride of an element.
+		usize offset = 0; ///< Offset of the first entry in bytes.
+		usize count  = 0; ///< Size of the buffer in elements.
+		usize stride = 0; ///< Stride of an element.
 	};
 
 	/// A group of shaders responsible for handling ray intersections.
 	struct hit_shader_group {
 	public:
 		/// Index indicating that no shader is associated and that the default behavior should be used.
-		constexpr static std::size_t no_shader = std::numeric_limits<std::size_t>::max();
+		constexpr static usize no_shader = std::numeric_limits<usize>::max();
 
 		/// No initialization.
 		hit_shader_group(uninitialized_t) {
@@ -2124,19 +2122,19 @@ namespace lotus::gpu {
 		constexpr hit_shader_group(std::nullptr_t) : closest_hit_shader_index(no_shader), any_hit_shader_index(no_shader) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr hit_shader_group(std::size_t closest_hit, std::size_t any_hit) :
+		constexpr hit_shader_group(usize closest_hit, usize any_hit) :
 			closest_hit_shader_index(closest_hit), any_hit_shader_index(any_hit) {
 		}
 		/// Creates a shader group with only a closest hit shader.
-		[[nodiscard]] inline static constexpr hit_shader_group create_closest_hit(std::size_t closest_hit) {
+		[[nodiscard]] inline static constexpr hit_shader_group create_closest_hit(usize closest_hit) {
 			return hit_shader_group(closest_hit, no_shader);
 		}
 
 		/// Default equality and inequality comparisons.
 		[[nodiscard]] friend bool operator==(const hit_shader_group&, const hit_shader_group&) = default;
 
-		std::size_t closest_hit_shader_index = 0; ///< Index of the closest hit shader.
-		std::size_t any_hit_shader_index     = 0; ///< Index of the any hit shader.
+		usize closest_hit_shader_index = 0; ///< Index of the closest hit shader.
+		usize any_hit_shader_index     = 0; ///< Index of the any hit shader.
 	};
 }
 namespace std {

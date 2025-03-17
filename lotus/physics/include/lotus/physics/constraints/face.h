@@ -27,7 +27,7 @@ namespace lotus::physics::constraints {
 			) {
 				constraint_properties result = uninitialized;
 				result.inverse_stiffness = zero;
-				for (std::size_t i = 0; i < 3; ++i) {
+				for (usize i = 0; i < 3; ++i) {
 					result.inverse_stiffness(i, i) = lambda + 2.0f * shear_modulus;
 					result.inverse_stiffness(i + 3, i + 3) = shear_modulus;
 				}
@@ -74,7 +74,7 @@ namespace lotus::physics::constraints {
 				result.inverse_configuration = configuration.inverse();
 				result.thickness = thickness;
 				result.area = 0.5f * area2;
-				
+
 				return result;
 			}
 
@@ -149,8 +149,8 @@ namespace lotus::physics::constraints {
 				mat::kronecker_product(df_dx.row(2), f2_t_half.row(1))
 			);
 			matrix<9, 6, scalar> dep_dx_t_over_m = dep_dx.transposed();
-			for (std::size_t y = 0; y < 3; ++y) {
-				for (std::size_t x = 0; x < 6; ++x) {
+			for (usize y = 0; y < 3; ++y) {
+				for (usize x = 0; x < 6; ++x) {
 					dep_dx_t_over_m(y, x) *= inv_m1;
 					dep_dx_t_over_m(y + 3, x) *= inv_m2;
 					dep_dx_t_over_m(y + 6, x) *= inv_m3;
@@ -179,8 +179,8 @@ namespace lotus::physics::constraints {
 
 		constraint_properties properties = uninitialized; ///< The properties of this constraint.
 		constraint_state state = uninitialized; ///< The state of this constraint.
-		std::size_t particle1; ///< Index of the first particle.
-		std::size_t particle2; ///< Index of the second particle.
-		std::size_t particle3; ///< Index of the third particle.
+		usize particle1; ///< Index of the first particle.
+		usize particle2; ///< Index of the second particle.
+		usize particle3; ///< Index of the third particle.
 	};
 }

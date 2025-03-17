@@ -82,9 +82,9 @@ namespace lotus::renderer {
 			/// Conversion from a non-recorded \ref renderer::structured_buffer_view.
 			structured_buffer_view(const renderer::structured_buffer_view&);
 		private:
-			std::uint32_t _stride = 0; ///< Byte stride between elements.
-			std::uint32_t _first = 0; ///< The first buffer element.
-			std::uint32_t _count = 0; ///< Number of visible buffer elements.
+			u32 _stride = 0; ///< Byte stride between elements.
+			u32 _first = 0; ///< The first buffer element.
+			u32 _count = 0; ///< Number of visible buffer elements.
 		};
 
 		/// \ref renderer::swap_chain.
@@ -138,8 +138,8 @@ namespace lotus::renderer {
 		}
 		/// Initializes all fields of this struct.
 		input_buffer_binding(
-			std::uint32_t index,
-			recorded_resources::buffer d, std::uint32_t off, std::uint32_t str,
+			u32 index,
+			recorded_resources::buffer d, u32 off, u32 str,
 			gpu::input_buffer_rate rate, short_vector<gpu::input_buffer_element, 4> elems
 		) :
 			elements(std::move(elems)), data(d), stride(str), offset(off),
@@ -147,20 +147,20 @@ namespace lotus::renderer {
 		}
 		/// Creates a buffer corresponding to the given input.
 		[[nodiscard]] inline static input_buffer_binding create(
-			recorded_resources::buffer buf, std::uint32_t off, gpu::input_buffer_layout layout
+			recorded_resources::buffer buf, u32 off, gpu::input_buffer_layout layout
 		) {
 			return input_buffer_binding(
-				static_cast<std::uint32_t>(layout.buffer_index),
-				buf, off, static_cast<std::uint32_t>(layout.stride),
+				static_cast<u32>(layout.buffer_index),
+				buf, off, static_cast<u32>(layout.stride),
 				layout.input_rate, { layout.elements.begin(), layout.elements.end() }
 			);
 		}
 
 		short_vector<gpu::input_buffer_element, 4> elements; ///< Elements in this vertex buffer.
 		recorded_resources::buffer data; ///< The buffer.
-		std::uint32_t stride = 0; ///< The size of one vertex.
-		std::uint32_t offset = 0; ///< Offset from the beginning of the buffer in bytes.
-		std::uint32_t buffer_index = 0; ///< Binding index for this input buffer.
+		u32 stride = 0; ///< The size of one vertex.
+		u32 offset = 0; ///< Offset from the beginning of the buffer in bytes.
+		u32 buffer_index = 0; ///< Binding index for this input buffer.
 		/// Specifies how the buffer data is used.
 		gpu::input_buffer_rate input_rate = gpu::input_buffer_rate::per_vertex;
 	};
@@ -171,12 +171,12 @@ namespace lotus::renderer {
 		}
 		/// Initializes all fields of this struct.
 		index_buffer_binding(
-			recorded_resources::buffer buf, std::uint32_t off, gpu::index_format fmt
+			recorded_resources::buffer buf, u32 off, gpu::index_format fmt
 		) : data(buf), offset(off), format(fmt) {
 		}
 
 		recorded_resources::buffer data; ///< The index buffer.
-		std::uint32_t offset = 0; ///< Offset in bytes from the beginning of the buffer where indices start in bytes.
+		u32 offset = 0; ///< Offset in bytes from the beginning of the buffer where indices start in bytes.
 		gpu::index_format format = gpu::index_format::uint32; ///< Format of indices.
 	};
 	/// A view into buffers related to a geometry used for ray tracing.
@@ -188,13 +188,13 @@ namespace lotus::renderer {
 		geometry_buffers_view(
 			recorded_resources::buffer verts,
 			gpu::format vert_fmt,
-			std::uint32_t vert_off,
-			std::uint32_t vert_stride,
-			std::uint32_t vert_count,
+			u32 vert_off,
+			u32 vert_stride,
+			u32 vert_count,
 			recorded_resources::buffer indices,
 			gpu::index_format idx_fmt,
-			std::uint32_t idx_off,
-			std::uint32_t idx_count,
+			u32 idx_off,
+			u32 idx_count,
 			gpu::raytracing_geometry_flags f
 		) :
 			vertex_data(verts),
@@ -211,14 +211,14 @@ namespace lotus::renderer {
 
 		recorded_resources::buffer vertex_data; ///< Vertex position buffer.
 		gpu::format vertex_format = gpu::format::none; ///< Vertex format.
-		std::uint32_t vertex_offset = 0; ///< Offset to the first vertex in bytes.
-		std::uint32_t vertex_stride = 0; ///< Stride of a vertex in bytes.
-		std::uint32_t vertex_count  = 0; ///< Number of vertices.
+		u32 vertex_offset = 0; ///< Offset to the first vertex in bytes.
+		u32 vertex_stride = 0; ///< Stride of a vertex in bytes.
+		u32 vertex_count  = 0; ///< Number of vertices.
 
 		recorded_resources::buffer index_data; ///< Index buffer.
 		gpu::index_format index_format = gpu::index_format::uint16; ///< Index format.
-		std::uint32_t index_offset = 0; ///< Offset to the first index in bytes.
-		std::uint32_t index_count  = 0; ///< Number of indices in the buffer.
+		u32 index_offset = 0; ///< Offset to the first index in bytes.
+		u32 index_count  = 0; ///< Number of indices in the buffer.
 
 		gpu::raytracing_geometry_flags flags = gpu::raytracing_geometry_flags::none; ///< Flags.
 	};
@@ -286,13 +286,13 @@ namespace lotus::renderer {
 		/// A constant buffer.
 		struct constant_buffer {
 			/// Initializes all fields of this struct.
-			constant_buffer(recorded_resources::buffer d, std::size_t off, std::size_t sz) :
+			constant_buffer(recorded_resources::buffer d, usize off, usize sz) :
 				data(d), offset(off), size(sz) {
 			}
 
 			recorded_resources::buffer data; ///< Buffer data.
-			std::size_t offset = 0; ///< Byte offset of the constant buffer.
-			std::size_t size = 0; ///< Size of the constant buffer in bytes.
+			usize offset = 0; ///< Byte offset of the constant buffer.
+			usize size = 0; ///< Size of the constant buffer in bytes.
 		};
 		/// A structured buffer.
 		struct structured_buffer {
@@ -322,13 +322,13 @@ namespace lotus::renderer {
 			>; ///< Contents of the binding.
 
 			/// Initializes this binding.
-			template <typename T> numbered_binding(std::uint32_t v, T &&val) :
+			template <typename T> numbered_binding(u32 v, T &&val) :
 				value(std::in_place_type<recorded_resources::mapped_type_t<std::decay_t<T>>>, std::forward<T>(val)),
 				register_index(v) {
 			}
 
 			value_type value; ///< The binding.
-			std::uint32_t register_index = 0; ///< Register index of this binding.
+			u32 register_index = 0; ///< Register index of this binding.
 		};
 		/// An array of numbered descriptor bindings that belong to the same register space.
 		using numbered_descriptor_bindings = std::vector<numbered_binding>;
@@ -342,17 +342,17 @@ namespace lotus::renderer {
 			>; ///< Contents of the binding.
 
 			/// Initializes this set binding with the given list of descriptor bindings.
-			numbered_set_binding(std::uint32_t s, numbered_descriptor_bindings bindings) :
+			numbered_set_binding(u32 s, numbered_descriptor_bindings bindings) :
 				value(std::move(bindings)), register_space(s) {
 			}
 			/// Initializes this set binding.
-			template <typename T> numbered_set_binding(std::uint32_t s, T &&val) :
+			template <typename T> numbered_set_binding(u32 s, T &&val) :
 				value(std::in_place_type<recorded_resources::mapped_type_t<std::decay_t<T>>>, std::forward<T>(val)),
 				register_space(s) {
 			}
 
 			value_type value; ///< Bindings.
-			std::uint32_t register_space = 0; ///< Register space of all the bindings.
+			u32 register_space = 0; ///< Register space of all the bindings.
 		};
 
 		/// A named descriptor binding.

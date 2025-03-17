@@ -20,13 +20,13 @@ namespace lotus::gpu::backends::common {
 		return _details::conversions::back_to_shader_resource_binding(desc);
 	}
 
-	std::uint32_t dxil_reflection::get_resource_binding_count() const {
+	u32 dxil_reflection::get_resource_binding_count() const {
 		return _visit_desc([](const auto &desc) {
 			return desc.BoundResources;
 		});
 	}
 
-	shader_resource_binding dxil_reflection::get_resource_binding_at_index(std::uint32_t i) const {
+	shader_resource_binding dxil_reflection::get_resource_binding_at_index(u32 i) const {
 		D3D12_SHADER_INPUT_BIND_DESC desc = {};
 		std::visit(
 			[&](const auto &refl) {
@@ -37,7 +37,7 @@ namespace lotus::gpu::backends::common {
 		return _details::conversions::back_to_shader_resource_binding(desc);
 	}
 
-	std::uint32_t dxil_reflection::get_render_target_count() const {
+	u32 dxil_reflection::get_render_target_count() const {
 		if (std::holds_alternative<shader_reflection_ptr>(_reflection)) {
 			D3D12_SHADER_DESC desc = {};
 			_details::assert_dx(std::get<shader_reflection_ptr>(_reflection)->GetDesc(&desc));
@@ -56,13 +56,13 @@ namespace lotus::gpu::backends::common {
 	}
 
 
-	std::uint32_t dxil_library_reflection::get_num_shaders() const {
+	u32 dxil_library_reflection::get_num_shaders() const {
 		D3D12_LIBRARY_DESC desc = {};
 		_details::assert_dx(_reflection->GetDesc(&desc));
 		return desc.FunctionCount;
 	}
 
-	dxil_reflection dxil_library_reflection::get_shader_at(std::uint32_t i) const {
+	dxil_reflection dxil_library_reflection::get_shader_at(u32 i) const {
 		return dxil_reflection(_reflection->GetFunctionByIndex(static_cast<INT>(i)));
 	}
 

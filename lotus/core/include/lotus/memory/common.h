@@ -12,19 +12,19 @@ namespace lotus::memory {
 	struct size_alignment {
 	public:
 		/// Initializes all fields of this struct.
-		constexpr size_alignment(std::size_t sz, std::size_t align) : size(sz), alignment(align) {
+		constexpr size_alignment(usize sz, usize align) : size(sz), alignment(align) {
 		}
 		/// Returns the size and alignment of the given type.
 		template <typename T> [[nodiscard]] constexpr inline static size_alignment of() {
 			return size_alignment(sizeof(T), alignof(T));
 		}
 		/// Returns the size and alignment of an array of the given type and size.
-		template <typename T> [[nodiscard]] constexpr inline static size_alignment of_array(std::size_t count) {
+		template <typename T> [[nodiscard]] constexpr inline static size_alignment of_array(usize count) {
 			return size_alignment(sizeof(T) * count, alignof(T));
 		}
 
-		std::size_t size; ///< Size.
-		std::size_t alignment; ///< Alignment.
+		usize size; ///< Size.
+		usize alignment; ///< Alignment.
 	};
 
 
@@ -58,20 +58,20 @@ namespace lotus::memory {
 	};
 
 	/// Finds the smallest value larger than or equal to the input that satifies the alignment.
-	[[nodiscard]] inline constexpr std::size_t align_up(std::size_t value, std::size_t align) {
+	[[nodiscard]] inline constexpr usize align_up(usize value, usize align) {
 		return align * ((value + align - 1) / align);
 	}
 	/// Finds the largest value smaller than or equal to the input that satifies the alignment.
-	[[nodiscard]] inline constexpr std::size_t align_down(std::size_t value, std::size_t align) {
+	[[nodiscard]] inline constexpr usize align_down(usize value, usize align) {
 		return value - (value % align);
 	}
 	/// Checks that the given pointer is aligned.
-	[[nodiscard]] inline bool is_aligned(std::byte *ptr, std::size_t align) {
+	[[nodiscard]] inline bool is_aligned(std::byte *ptr, usize align) {
 		return reinterpret_cast<std::uintptr_t>(ptr) % align == 0;
 	}
 
 	/// Poisons the given block of memory.
-	void poison(std::byte *memory, std::size_t size);
+	void poison(std::byte *memory, usize size);
 	/// Un-poisons the given block of memory.
-	void unpoison(std::byte *memory, std::size_t size);
+	void unpoison(std::byte *memory, usize size);
 }

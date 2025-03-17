@@ -12,7 +12,7 @@
 
 namespace lotus::gpu::backends::vulkan::_details {
 	/// ID type used to identify debug messages.
-	using debug_message_id = std::int32_t;
+	using debug_message_id = i32;
 	/// Debug message callback type.
 	using debug_message_callback =
 		static_function<void(debug_message_severity, debug_message_id, std::u8string_view)>;
@@ -107,11 +107,11 @@ namespace lotus::gpu::backends::vulkan::_details {
 
 		/// Converts a vector to a \p vk::Offset2D.
 		template <typename Int> [[nodiscard]] inline vk::Offset2D to_offset_2d(cvec2<Int> off) {
-			return vk::Offset2D(static_cast<std::int32_t>(off[0]), static_cast<std::int32_t>(off[1]));
+			return vk::Offset2D(static_cast<i32>(off[0]), static_cast<i32>(off[1]));
 		}
 		/// Converts a vector to a \p vk::Extent2D.
 		template <typename Int> [[nodiscard]] inline vk::Extent2D to_extent_2d(cvec2<Int> ext) {
-			return vk::Extent2D(static_cast<std::uint32_t>(ext[0]), static_cast<std::uint32_t>(ext[1]));
+			return vk::Extent2D(static_cast<u32>(ext[0]), static_cast<u32>(ext[1]));
 		}
 
 		/// Converts a \ref subresource_index to a \p vk::ImageSubresourceLayers.
@@ -124,7 +124,7 @@ namespace lotus::gpu::backends::vulkan::_details {
 		[[nodiscard]] vk::ImageSubresource to_image_subresource(const subresource_index&);
 		/// Converts a \ref stencil_options to a \p vk::StencilOpState.
 		[[nodiscard]] vk::StencilOpState to_stencil_op_state(
-			const stencil_options&, std::uint32_t cmp_mask, std::uint32_t write_mask
+			const stencil_options&, u32 cmp_mask, u32 write_mask
 		);
 		/// Converts a \ref color_clear_value to a \p vk::ClearValue.
 		[[nodiscard]] vk::ClearValue to_clear_value(const color_clear_value&);
@@ -144,11 +144,11 @@ namespace lotus::gpu::backends::vulkan::_details {
 	namespace create_info {
 		/// Creates a \p vk::ImageCreateInfo for a 2D image from the given parameters.
 		[[nodiscard]] vk::ImageCreateInfo for_image2d(
-			cvec2u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec2u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 		/// Creates a \p vk::ImageCreateInfo for a 3D image from the given parameters.
 		[[nodiscard]] vk::ImageCreateInfo for_image3d(
-			cvec3u32 size, std::uint32_t mip_levels, format, image_tiling, image_usage_mask
+			cvec3u32 size, u32 mip_levels, format, image_tiling, image_usage_mask
 		);
 	}
 }

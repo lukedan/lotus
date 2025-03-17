@@ -34,11 +34,11 @@ namespace lotus::gpu {
 		swap_chain &operator=(const swap_chain&) = delete;
 
 		/// Returns the actual number of images in this swapchain.
-		[[nodiscard]] std::uint32_t get_image_count() const {
+		[[nodiscard]] u32 get_image_count() const {
 			return backend::swap_chain::get_image_count();
 		}
 		/// Returns the backing image at the given index.
-		[[nodiscard]] image2d get_image(std::uint32_t index) {
+		[[nodiscard]] image2d get_image(u32 index) {
 			return backend::swap_chain::get_image(index);
 		}
 		/// Updates the synchronization primitives used internally. This will affect the next frame for which
@@ -56,7 +56,7 @@ namespace lotus::gpu {
 			auto bookmark = get_scratch_bookmark();
 			auto prims = bookmark.create_vector_array<back_buffer_synchronization>(get_image_count(), nullptr);
 			crash_if(fences.size() != prims.size());
-			for (std::size_t i = 0; i < fences.size(); ++i) {
+			for (usize i = 0; i < fences.size(); ++i) {
 				prims[i].notify_fence = &fences[i];
 			}
 			update_synchronization_primitives(prims);

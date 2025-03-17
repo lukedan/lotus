@@ -121,7 +121,7 @@ protected:
 	};
 
 	std::unique_ptr<test> _test; ///< The currently active test.
-	std::size_t _test_index = std::numeric_limits<std::size_t>::max(); ///< The test that's currently selected.
+	usize _test_index = std::numeric_limits<usize>::max(); ///< The test that's currently selected.
 	std::chrono::high_resolution_clock::time_point _last_update; ///< The time when the simulation was last updated.
 	double _time_accum = 0.0; ///< Accumulated time.
 
@@ -166,7 +166,7 @@ protected:
 				if (ImGui::BeginCombo(
 					"Test", _test_index < _tests.size() ? _tests[_test_index].name.c_str() : "Select Test"
 				)) {
-					for (std::size_t i = 0; i < _tests.size(); ++i) {
+					for (usize i = 0; i < _tests.size(); ++i) {
 						bool selected = _test_index == i;
 						if (ImGui::Selectable(_tests[i].name.c_str(), &selected)) {
 							_test_index = i;
@@ -254,16 +254,16 @@ protected:
 	std::span<const lotus::gpu::queue_family> _get_desired_queues() const override {
 		return _queues;
 	}
-	std::uint32_t _get_asset_loading_queue_index() const override {
+	u32 _get_asset_loading_queue_index() const override {
 		return 1;
 	}
-	std::uint32_t _get_constant_upload_queue_index() const override {
+	u32 _get_constant_upload_queue_index() const override {
 		return 1;
 	}
-	std::uint32_t _get_debug_drawing_queue_index() const override {
+	u32 _get_debug_drawing_queue_index() const override {
 		return 0;
 	}
-	std::uint32_t _get_present_queue_index() const override {
+	u32 _get_present_queue_index() const override {
 		return 0;
 	}
 	std::filesystem::path _get_asset_library_path() const override {

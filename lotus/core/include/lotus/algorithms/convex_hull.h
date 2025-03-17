@@ -28,15 +28,15 @@ namespace lotus {
 		using vec3 = cvec3<scalar>;
 
 		/// Opaque index type for vertex IDs.
-		enum class vertex_id : std::uint32_t {
+		enum class vertex_id : u32 {
 		};
 		/// Opaque index type for face IDs.
-		enum class face_id : std::uint32_t {
+		enum class face_id : u32 {
 			invalid = 0x3FFFFFFFu ///< Invalid value - not the maximum value to avoid generating warnings later.
 		};
 
 		/// Opaque index type for face vertex indices.
-		enum class face_vertex_ref : std::uint32_t {
+		enum class face_vertex_ref : u32 {
 			invalid = 3, ///< Invalid value.
 		};
 		/// Returns the next vertex in a face. The reference must be valid.
@@ -131,8 +131,8 @@ namespace lotus {
 
 			/// Initializes all fields of this struct.
 			user_data(
-				std::uint32_t vert_count,
-				std::uint32_t face_count,
+				u32 vert_count,
+				u32 face_count,
 				const VertexData &vert_data,
 				const FaceData &face_data,
 				const VertexAllocator &vert_alloc,
@@ -142,12 +142,12 @@ namespace lotus {
 			/// Initializes only vertex data.
 			template <
 				typename T = int, std::enable_if_t<has_vertex_data && !has_face_data, T> = 0
-			> explicit user_data(std::uint32_t vert_count, std::span<VertexData> v) : _verts(vert_count, v) {
+			> explicit user_data(u32 vert_count, std::span<VertexData> v) : _verts(vert_count, v) {
 			}
 			/// Initializes only face data.
 			template <
 				typename T = int, std::enable_if_t<has_face_data && !has_vertex_data, T> = 0
-			> explicit user_data(std::uint32_t face_count, std::span<FaceData> f) : _faces(face_count, f) {
+			> explicit user_data(u32 face_count, std::span<FaceData> f) : _faces(face_count, f) {
 			}
 
 			/// Returns the vertex data associated with the given ID.
@@ -184,8 +184,8 @@ namespace lotus {
 		> [[nodiscard]] inline static user_data<
 			VertexData, FaceData, VertexAllocator, FaceAllocator
 		> create_user_data_storage(
-			std::uint32_t vert_count,
-			std::uint32_t face_count,
+			u32 vert_count,
+			u32 face_count,
 			const VertexData &vert_data,
 			const FaceData &face_data,
 			const VertexAllocator &vert_alloc,
@@ -227,7 +227,7 @@ namespace lotus {
 			std::optional<vertex_id> add_vertex(vec3);
 
 			/// Returns the number of vertices that have been recorded.
-			[[nodiscard]] std::size_t get_vertex_count() const {
+			[[nodiscard]] usize get_vertex_count() const {
 				return _num_verts_added;
 			}
 			/// Returns a vertex in the polyhedra.
@@ -244,12 +244,12 @@ namespace lotus {
 				return _any_face;
 			}
 			/// Returns the maximum number of vertices.
-			[[nodiscard]] std::uint32_t get_vertex_capacity() const {
-				return static_cast<std::uint32_t>(_vertices.size());
+			[[nodiscard]] u32 get_vertex_capacity() const {
+				return static_cast<u32>(_vertices.size());
 			}
 			/// Returns the maximum number of faces.
-			[[nodiscard]] std::uint32_t get_face_capacity() const {
-				return static_cast<std::uint32_t>(_faces.size());
+			[[nodiscard]] u32 get_face_capacity() const {
+				return static_cast<u32>(_faces.size());
 			}
 
 			/// Callback that's invoked after a new face has been added.
@@ -258,7 +258,7 @@ namespace lotus {
 			face_callback on_face_removing = nullptr;
 		private:
 			std::span<vec3> _vertices; ///< Vertices.
-			std::size_t _num_verts_added = 0; ///< Number of vertices that have been added.
+			usize _num_verts_added = 0; ///< Number of vertices that have been added.
 			std::span<face_entry> _faces; ///< Storage for faces.
 			pool_manager<face_entry> _faces_pool = nullptr; ///< Pool of faces.
 			face_id _any_face = face_id::invalid; ///< Pointer to any face in the geometry.
@@ -290,7 +290,7 @@ namespace lotus {
 
 		/// Returns the maximum possible number of triangular faces in a polyhedra with \p n vertices.
 		/// https://math.stackexchange.com/questions/4579790/how-many-faces-can-a-polyhedron-with-n-vertices-have
-		[[nodiscard]] inline static constexpr std::uint32_t get_max_num_triangles_for_vertex_count(std::uint32_t n) {
+		[[nodiscard]] inline static constexpr u32 get_max_num_triangles_for_vertex_count(u32 n) {
 			return 2 * n - 4;
 		}
 
@@ -301,7 +301,7 @@ namespace lotus {
 		public:
 			/// Creates enough storage for creating a polyhedra with the given number of vertices.
 			[[nodiscard]] inline static storage create_for_num_vertices(
-				std::uint32_t n, const VertAllocator &vert_alloc, const FaceAllocator &face_alloc
+				u32 n, const VertAllocator &vert_alloc, const FaceAllocator &face_alloc
 			) {
 				return storage(n, vert_alloc, face_alloc);
 			}
@@ -316,8 +316,8 @@ namespace lotus {
 				const FaceDataAllocator &face_alloc
 			) {
 				return incremental_convex_hull::create_user_data_storage<VertexData, FaceData>(
-					static_cast<std::uint32_t>(_vertices.size()),
-					static_cast<std::uint32_t>(_faces.size()),
+					static_cast<u32>(_vertices.size()),
+					static_cast<u32>(_faces.size()),
 					vert_data,
 					face_data,
 					vert_alloc,
@@ -338,7 +338,7 @@ namespace lotus {
 			std::vector<face_entry, FaceAllocator> _faces; ///< Faces.
 
 			/// Initializes all vectors.
-			storage(std::uint32_t n, const VertAllocator &vert_alloc, const FaceAllocator &face_alloc) :
+			storage(u32 n, const VertAllocator &vert_alloc, const FaceAllocator &face_alloc) :
 				_vertices(n, zero, vert_alloc),
 				_faces(face_entry::make_storage(get_max_num_triangles_for_vertex_count(n), face_alloc)) {
 			}
@@ -347,7 +347,7 @@ namespace lotus {
 		template <
 			typename VertAllocator = std::allocator<vec3>, typename FaceAllocator = std::allocator<face_entry>
 		> [[nodiscard]] inline static storage<VertAllocator, FaceAllocator> create_storage_for_num_vertices(
-			std::uint32_t n,
+			u32 n,
 			const VertAllocator &vert_alloc = VertAllocator(),
 			const FaceAllocator &face_alloc = FaceAllocator()
 		) {

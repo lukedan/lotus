@@ -52,14 +52,14 @@ namespace lotus::renderer::execution {
 			/// The key of a single set.
 			struct set {
 				/// Initializes all fields of this struct.
-				set(descriptor_set_layout l, std::uint32_t s) : layout(std::move(l)), space(s) {
+				set(descriptor_set_layout l, u32 s) : layout(std::move(l)), space(s) {
 				}
 
 				/// Default equality and inequality.
 				[[nodiscard]] friend bool operator==(const set&, const set&) = default;
 
 				descriptor_set_layout layout; ///< Layout of the set.
-				std::uint32_t space = 0; ///< Space of the set.
+				u32 space = 0; ///< Space of the set.
 			};
 
 			/// Initializes this key to empty.
@@ -80,7 +80,7 @@ namespace lotus::renderer::execution {
 
 			std::vector<set> sets; ///< The vector of sets. These are sorted based on their register spaces.
 		};
-		
+
 		/// Key containing all pipeline parameters.
 		struct graphics_pipeline {
 			/// Version of \ref gpu::input_buffer_layout that owns the array of
@@ -90,8 +90,8 @@ namespace lotus::renderer::execution {
 				explicit input_buffer_layout(const gpu::input_buffer_layout&);
 				input_buffer_layout(
 					std::span<const gpu::input_buffer_element> elems,
-					std::uint32_t s,
-					std::uint32_t id,
+					u32 s,
+					u32 id,
 					gpu::input_buffer_rate rate
 				) : elements(elems.begin(), elems.end()), stride(s), buffer_index(id), input_rate(rate) {
 				}
@@ -102,8 +102,8 @@ namespace lotus::renderer::execution {
 				) = default;
 
 				std::vector<gpu::input_buffer_element> elements; ///< Input elements.
-				std::uint32_t stride = 0; ///< Stride of a vertex.
-				std::uint32_t buffer_index = 0; ///< Buffer index.
+				u32 stride = 0; ///< Stride of a vertex.
+				u32 buffer_index = 0; ///< Buffer index.
 				gpu::input_buffer_rate input_rate = gpu::input_buffer_rate::per_vertex; ///< Input rate.
 			};
 
@@ -151,9 +151,9 @@ namespace lotus::renderer::execution {
 			std::vector<gpu::hit_shader_group> hit_groups;  ///< Hit groups.
 			std::vector<shader_function> general_shaders;   ///< General shaders.
 
-			std::uint32_t max_recursion_depth = 0; ///< Maximum recursion depth.
-			std::uint32_t max_payload_size    = 0; ///< Maximum payload size.
-			std::uint32_t max_attribute_size  = 0; ///< Maximum attribute size.
+			u32 max_recursion_depth = 0; ///< Maximum recursion depth.
+			u32 max_payload_size    = 0; ///< Maximum payload size.
+			u32 max_attribute_size  = 0; ///< Maximum attribute size.
 		};
 	}
 }

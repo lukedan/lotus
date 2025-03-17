@@ -45,7 +45,7 @@ namespace lotus::system::platforms::windows {
 	cvec2s window::get_size() const {
 		RECT rect = {};
 		_details::assert_win32(GetClientRect(_hwnd, &rect));
-		return cvec2s(static_cast<std::size_t>(rect.right), static_cast<std::size_t>(rect.bottom));
+		return cvec2s(static_cast<usize>(rect.right), static_cast<usize>(rect.bottom));
 	}
 
 	void window::set_title(std::u8string_view title) {

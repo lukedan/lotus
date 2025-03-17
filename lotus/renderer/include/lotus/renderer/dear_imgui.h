@@ -27,7 +27,7 @@ namespace lotus::renderer::dear_imgui {
 			cvec2f uv       = uninitialized; ///< Vertex UV.
 			cvec4f color    = uninitialized; ///< Vertex color.
 		};
-		using index = std::uint32_t; ///< Index type.
+		using index = u32; ///< Index type.
 
 		/// Creates a new context.
 		[[nodiscard]] inline static context create(assets::manager &man, renderer::context::queue q) {
@@ -191,7 +191,7 @@ namespace lotus::renderer::dear_imgui {
 			io.Fonts->GetTexDataAsRGBA32(&tex_data, &width, &height);
 
 			image2d_view result = rctx.request_image2d(
-				u8"Dear ImGui Font Atlas", cvec2i(width, height).into<std::uint32_t>(), 1,
+				u8"Dear ImGui Font Atlas", cvec2i(width, height).into<u32>(), 1,
 				gpu::format::r8g8b8a8_unorm,
 				gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read, nullptr
 			);

@@ -11,12 +11,12 @@
 
 namespace lotus {
 	/// Default storage size for static functions.
-	constexpr std::size_t default_static_function_size = sizeof(void*[2]);
+	constexpr usize default_static_function_size = sizeof(void*[2]);
 	/// A function type with a predictable memory footprint.
-	template <typename FuncType, std::size_t StorageSize = default_static_function_size> struct static_function;
+	template <typename FuncType, usize StorageSize = default_static_function_size> struct static_function;
 	/// Specialization for concrete function types.
 	template <
-		typename Ret, typename ...Args, std::size_t StorageSize
+		typename Ret, typename ...Args, usize StorageSize
 	> struct static_function<Ret(Args...), StorageSize> {
 	public:
 		/// Whether to poison the function object storage when it's invalid.
@@ -31,13 +31,13 @@ namespace lotus {
 			_set(std::forward<Callable>(obj));
 		}
 		/// Move construction from another function object.
-		template <std::size_t OtherSize> static_function(static_function<Ret(Args...), OtherSize> &&src) {
+		template <usize OtherSize> static_function(static_function<Ret(Args...), OtherSize> &&src) {
 			_move_from(std::move(src));
 		}
 		/// No copy constructor.
 		static_function(const static_function&) = delete;
 		/// Move assignment from another function object.
-		template <std::size_t OtherSize> static_function &operator=(static_function<Ret(Args...), OtherSize> &&src) {
+		template <usize OtherSize> static_function &operator=(static_function<Ret(Args...), OtherSize> &&src) {
 			if (&src != this) {
 				_reset();
 				_move_from(std::move(src));
@@ -92,7 +92,7 @@ namespace lotus {
 			/// \p to is \p nullptr, the object is simply destroyed. If there's not enough space in the destination
 			/// buffer, this function does nothing (not even destroying the source object) and simply returns
 			/// \p false.
-			bool (*move)(void *from, void *to, std::size_t to_size) = nullptr;
+			bool (*move)(void *from, void *to, usize to_size) = nullptr;
 		};
 
 		/// Creates a new \ref _callable in \ref _storage, assuming this object does not currently contain a valid
@@ -106,7 +106,7 @@ namespace lotus {
 			_impl.invoke = [](void *p, Args &&...args) -> Ret {
 				return (*static_cast<callable_t*>(p))(std::forward<Args>(args)...);
 			};
-			_impl.move = [](void *from, void *to, std::size_t to_size) -> bool {
+			_impl.move = [](void *from, void *to, usize to_size) -> bool {
 				auto &from_obj = *static_cast<callable_t*>(from);
 				if (to) {
 					if (to_size < sizeof(callable_t)) {
@@ -120,7 +120,7 @@ namespace lotus {
 		}
 		/// Moves the callable from the given object to this object, assuming that this object does not currently
 		/// contain a valid function object.
-		template <std::size_t OtherSize> void _move_from(static_function<Ret(Args...), OtherSize> &&src) {
+		template <usize OtherSize> void _move_from(static_function<Ret(Args...), OtherSize> &&src) {
 			crash_if(_impl.is_valid());
 			if (src._impl.is_valid()) {
 				crash_if(!src._impl.move(src._storage.data(), _storage.data(), _storage.size()));

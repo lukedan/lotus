@@ -472,7 +472,7 @@ namespace lotus::gpu::backends::metal::_details {
 		}
 
 		NS::SharedPtr<MTL::StencilDescriptor> to_stencil_descriptor(
-			stencil_options s, std::uint8_t stencil_read, std::uint8_t stencil_write
+			stencil_options s, u8 stencil_read, u8 stencil_write
 		) {
 			auto desc = NS::TransferPtr(MTL::StencilDescriptor::alloc()->init());
 			desc->setStencilFailureOperation(to_stencil_operation(s.fail));
@@ -490,8 +490,8 @@ namespace lotus::gpu::backends::metal::_details {
 
 		MTL::PackedFloat4x3 to_packed_float4x3(mat34f m) {
 			MTL::PackedFloat4x3 result;
-			for (std::size_t r = 0; r < 3; ++r) {
-				for (std::size_t c = 0; c < 4; ++c) {
+			for (usize r = 0; r < 3; ++r) {
+				for (usize c = 0; c < 4; ++c) {
 					result[static_cast<int>(c)][static_cast<int>(r)] = m(r, c);
 				}
 			}
@@ -502,7 +502,7 @@ namespace lotus::gpu::backends::metal::_details {
 		std::u8string back_to_string(NS::String *str) {
 			return std::u8string(
 				reinterpret_cast<const char8_t*>(str->utf8String()),
-				static_cast<std::size_t>(str->lengthOfBytes(NS::UTF8StringEncoding))
+				static_cast<usize>(str->lengthOfBytes(NS::UTF8StringEncoding))
 			);
 		}
 
@@ -526,7 +526,7 @@ namespace lotus::gpu::backends::metal::_details {
 			IRDescriptorRange1 result;
 			result.RangeType                         = to_ir_descriptor_range_type(desc.Type);
 			result.NumDescriptors                    =
-				desc.BindCount == 0 ? std::numeric_limits<std::uint32_t>::max() : desc.BindCount;
+				desc.BindCount == 0 ? std::numeric_limits<u32>::max() : desc.BindCount;
 			result.BaseShaderRegister                = desc.BindPoint;
 			result.RegisterSpace                     = desc.Space;
 			result.Flags                             = IRDescriptorRangeFlagNone;
@@ -539,7 +539,7 @@ namespace lotus::gpu::backends::metal::_details {
 		MTL::TextureType type,
 		format fmt,
 		cvec3u32 size,
-		std::uint32_t mip_levels,
+		u32 mip_levels,
 		MTL::ResourceOptions opts,
 		image_usage_mask usages
 	) {
@@ -584,7 +584,7 @@ namespace lotus::gpu::backends::metal::_details {
 		ir_unique_ptr<IRRootSignature> create_root_signature_for_bindings(std::span<IRRootParameter1> params) {
 			IRVersionedRootSignatureDescriptor root_sig_desc = {};
 			root_sig_desc.version                = IRRootSignatureVersion_1_1;
-			root_sig_desc.desc_1_1.NumParameters = static_cast<std::uint32_t>(params.size());
+			root_sig_desc.desc_1_1.NumParameters = static_cast<u32>(params.size());
 			root_sig_desc.desc_1_1.pParameters   = params.data();
 			IRError *error = nullptr;
 			auto root_signature = ir_make_unique(
@@ -622,10 +622,10 @@ namespace lotus::gpu::backends::metal::_details {
 
 			// create descriptor binding array
 			auto descriptor_bindings = bookmark.create_vector_array<IRRootParameter1>(descriptor_spaces.size());
-			for (std::size_t i = 0; i < descriptor_spaces.size(); ++i) {
+			for (usize i = 0; i < descriptor_spaces.size(); ++i) {
 				descriptor_bindings[i].ParameterType                       = IRRootParameterTypeDescriptorTable;
 				descriptor_bindings[i].DescriptorTable.NumDescriptorRanges =
-					static_cast<std::uint32_t>(descriptor_spaces[i].size());
+					static_cast<u32>(descriptor_spaces[i].size());
 				descriptor_bindings[i].DescriptorTable.pDescriptorRanges   = descriptor_spaces[i].data();
 				descriptor_bindings[i].ShaderVisibility                    = IRShaderVisibilityAll;
 			}
@@ -640,7 +640,7 @@ namespace lotus::gpu::backends::metal::_details {
 
 			// convert
 			auto dxil = ir_make_unique(IRObjectCreateFromDXIL(
-				reinterpret_cast<const std::uint8_t*>(dxil_buf.data()), dxil_buf.size(), IRBytecodeOwnershipNone
+				reinterpret_cast<const u8*>(dxil_buf.data()), dxil_buf.size(), IRBytecodeOwnershipNone
 			));
 
 			auto compiler = ir_make_unique(IRCompilerCreate());

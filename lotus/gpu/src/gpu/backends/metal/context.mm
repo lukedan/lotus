@@ -15,7 +15,7 @@ namespace lotus::gpu::backends::metal {
 		system::window &sys_wnd,
 		device &dev,
 		command_queue&,
-		std::size_t frame_count,
+		usize frame_count,
 		std::span<const format> formats
 	) {
 		auto *wnd = (__bridge NSWindow*)sys_wnd.get_native_handle();
@@ -56,7 +56,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 
-	std::uint32_t swap_chain::get_image_count() const {
-		return static_cast<std::uint32_t>(((__bridge CAMetalLayer*)_layer).maximumDrawableCount);
+	u32 swap_chain::get_image_count() const {
+		return static_cast<u32>(((__bridge CAMetalLayer*)_layer).maximumDrawableCount);
 	}
 }

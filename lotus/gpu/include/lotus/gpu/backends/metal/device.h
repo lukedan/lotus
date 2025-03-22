@@ -300,6 +300,20 @@ namespace lotus::gpu::backends::metal {
 		void _maybe_set_descriptor_set_name(MTL::Buffer *buf, const descriptor_set_layout &layout);
 		/// Creates the ray generation shader stub if necessary.
 		[[nodiscard]] MTL::Function *_maybe_create_raygen_shader();
+
+		/// Checks that the given range of descriptors in a descriptor set layout are of the given type.
+		static void _validate_descriptor_set_bindings(
+			const descriptor_set_layout&, u32 first_register, u32 count, descriptor_type
+		);
+		/// Writes image descriptors. Metal does not distinguish between read-only and read-write descriptors.
+		static void _write_descriptor_set_images(
+			descriptor_set&, u32 first_register, std::span<const image_view_base *const>
+		);
+		/// Writes structured buffer descriptors. Metal does not distinguish between read-only and read-write
+		/// descriptors.
+		static void _write_descriptor_set_structured_buffers(
+			descriptor_set&, u32 first_register, std::span<const structured_buffer_view>
+		);
 	};
 
 	/// Holds a \p MTL::Device.

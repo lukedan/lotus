@@ -175,7 +175,7 @@ public:
 		data.size = buf.get_num_elements();
 		data.value = value;
 		_graphics_queue.run_compute_shader_with_thread_dimensions(
-			fill_buffer_cs, cvec3u32(data.size, 1, 1),
+			fill_buffer_cs, cvec3u32(data.size, 1u, 1u),
 			lren::all_resource_bindings(
 				{
 					{ 0, {
@@ -386,8 +386,8 @@ protected:
 
 			const cvec2u32 window_size = _get_window_size();
 
-			cvec2f taa_jitter = taa_samples[std::min<u32>(taa_phase, taa_samples.size())] - cvec2f::filled(0.5f);
-			auto cam = cam_params.into_camera(lotus::vec::memberwise_divide(taa_jitter, (2 * window_size).into<float>()));
+			cvec2f taa_jitter = taa_samples[std::min(taa_phase, static_cast<u32>(taa_samples.size()))] - cvec2f::filled(0.5f);
+			auto cam = cam_params.into_camera(lotus::vec::memberwise_divide(taa_jitter, (2u * window_size).into<float>()));
 
 			auto g_buf = lren::g_buffer::view::create(*_context, window_size, runtime_tex_pool);
 			{ // g-buffer
@@ -427,7 +427,7 @@ protected:
 			lighting_constants.camera                           = cvec4f(cam_params.position, 1.0f);
 			lighting_constants.depth_linearization_constants    = cam.depth_linearization_constants;
 			lighting_constants.screen_size                      = window_size.into<u32>();
-			lighting_constants.num_lights                       = scene->lights.size();
+			lighting_constants.num_lights                       = static_cast<u32>(scene->lights.size());
 			lighting_constants.trace_shadow_rays_for_naive      = trace_shadow_rays_naive;
 			lighting_constants.trace_shadow_rays_for_reservoir  = trace_shadow_rays_reservoir;
 			lighting_constants.lighting_mode                    = lighting_mode;
@@ -462,7 +462,7 @@ protected:
 					auto tmr = _graphics_queue.start_timer(u8"Update Direct Probes");
 
 					shader_types::direct_reservoir_update_constants direct_update_constants;
-					direct_update_constants.num_lights       = scene->lights.size();
+					direct_update_constants.num_lights       = static_cast<u32>(scene->lights.size());
 					direct_update_constants.sample_count_cap = direct_sample_count_cap;
 					direct_update_constants.frame_index      = frame_index;
 
@@ -610,7 +610,7 @@ protected:
 					}
 				);
 				_graphics_queue.run_compute_shader_with_thread_dimensions(
-					lighting_cs, cvec3u32(window_size.into<u32>(), 1),
+					lighting_cs, cvec3u32(window_size.into<u32>(), 1u),
 					std::move(resources), u8"Lighting"
 				);
 			}
@@ -710,7 +710,7 @@ protected:
 
 				_graphics_queue.run_compute_shader_with_thread_dimensions(
 					indirect_specular_use_visible_normals ? indirect_specular_vndf_cs : indirect_specular_cs,
-					cvec3u32(window_size.into<u32>(), 1),
+					cvec3u32(window_size.into<u32>(), 1u),
 					std::move(resources), u8"Indirect Specular"
 				);
 			}
@@ -728,7 +728,7 @@ protected:
 				constants.y           = cvec4f(pixel_y, 0.0f);
 				constants.top_left    = cvec4f(cam.unit_forward - half_right - half_down, 0.0f);
 				constants.window_size = window_size.into<u32>();
-				constants.num_lights  = scene->lights.size();
+				constants.num_lights  = static_cast<u32>(scene->lights.size());
 				constants.mode        = shade_point_debug_mode;
 				constants.num_frames  = ++num_accumulated_frames;
 
@@ -762,7 +762,7 @@ protected:
 					}
 				);
 				_graphics_queue.run_compute_shader_with_thread_dimensions(
-					shade_point_debug_cs, cvec3u32(window_size.into<u32>(), 1),
+					shade_point_debug_cs, cvec3u32(window_size.into<u32>(), 1u),
 					std::move(resources), u8"Shade Point Debug"
 				);
 			}
@@ -799,7 +799,7 @@ protected:
 				);
 
 				_graphics_queue.run_compute_shader_with_thread_dimensions(
-					taa_cs, cvec3u32(window_size.into<u32>(), 1), std::move(resources), u8"TAA"
+					taa_cs, cvec3u32(window_size.into<u32>(), 1u), std::move(resources), u8"TAA"
 				);
 
 				prev_irradiance = irradiance;
@@ -1005,7 +1005,7 @@ protected:
 				auto probes_int = probe_density.into<int>();
 				int probes[3] = { probes_int[0], probes_int[1], probes_int[2] };
 				needs_resizing = ImGui::SliderInt3("Num Probes", probes, 2, 100) || needs_resizing;
-				probe_density = cvec3u32(probes[0], probes[1], probes[2]);
+				probe_density = cvec3i(probes[0], probes[1], probes[2]).into<u32>();
 			}
 			needs_resizing = ImGui_SliderT<u32>("Direct Reservoirs Per Probe", &direct_reservoirs_per_probe, 1, 20) || needs_resizing;
 			needs_resizing = ImGui_SliderT<u32>("Indirect Reservoirs Per Probe", &indirect_reservoirs_per_probe, 1, 20) || needs_resizing;

@@ -10,6 +10,8 @@
 #include <Metal/Metal.hpp>
 
 #include <metal_irconverter/metal_irconverter.h>
+#define IR_RUNTIME_METALCPP
+#include <metal_irconverter_runtime/metal_irconverter_runtime.h>
 
 #include "lotus/utils/static_function.h"
 #include "lotus/gpu/common.h"

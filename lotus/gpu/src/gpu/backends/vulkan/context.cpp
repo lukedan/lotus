@@ -79,7 +79,7 @@ namespace lotus::gpu::backends::vulkan {
 					VkDebugReportFlagsEXT flags,
 					VkDebugReportObjectTypeEXT,
 					uint64_t /*object*/,
-					size_t location,
+					usize location,
 					i32 /*message_code*/,
 					const char */*layer_prefix*/,
 					const char *message,

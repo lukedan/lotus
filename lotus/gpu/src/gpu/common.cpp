@@ -107,6 +107,15 @@ namespace lotus::gpu {
 		}
 		return result;
 	}
+
+
+	usize get_index_format_size(index_format format) {
+		static constexpr enums::sequential_mapping<index_format, usize> _table{
+			std::pair(index_format::uint16, sizeof(u16)),
+			std::pair(index_format::uint32, sizeof(u32)),
+		};
+		return _table[format];
+	}
 }
 
 

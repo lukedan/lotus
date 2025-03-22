@@ -28,7 +28,7 @@ public:
 		_convex_hull = nullptr;
 	}
 
-	void timestep(double, usize) override {
+	void timestep(scalar, u32) override {
 		if (_cur_vertex < _vertices.size()) {
 			_convex_hull.add_vertex(_vertices[_cur_vertex]);
 			++_cur_vertex;
@@ -43,7 +43,7 @@ public:
 		_vertices.clear();
 		_vertex_states.clear();
 		std::normal_distribution dist(0.0f, 1.0f);
-		std::default_random_engine eng(_seed);
+		std::default_random_engine eng(static_cast<std::default_random_engine::result_type>(_seed));
 		for (int i = 0; i < _num_vertices; ++i) {
 			vec3 v = lotus::uninitialized;
 			v[0] = dist(eng);

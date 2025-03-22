@@ -9,4 +9,5 @@
 #include <QuartzCore/QuartzCore.hpp>
 
 #define IR_PRIVATE_IMPLEMENTATION
-#include "metal_irconverter_include.h"
+#define IR_RUNTIME_METALCPP
+#include <metal_irconverter_runtime/metal_irconverter_runtime.h>

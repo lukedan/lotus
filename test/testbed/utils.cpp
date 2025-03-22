@@ -88,8 +88,8 @@ void debug_render::draw_body(
 void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, bool wireframe) {
 	constexpr u32 _z_slices = 10;
 	constexpr u32 _xy_slices = 30;
-	constexpr double _z_slice_angle = lotus::physics::pi / _z_slices;
-	constexpr double _xy_slice_angle = 2.0 * lotus::physics::pi / _xy_slices;
+	constexpr scalar _z_slice_angle = lotus::physics::pi / _z_slices;
+	constexpr scalar _xy_slice_angle = 2.0 * lotus::physics::pi / _xy_slices;
 
 	static std::vector<vec3> _vertices;
 	static std::vector<u32> _indices;
@@ -97,15 +97,15 @@ void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, boo
 	if (_vertices.empty()) {
 		// http://www.songho.ca/opengl/gl_sphere.html
 		for (u32 i = 0; i <= _z_slices; ++i) {
-			double z_angle = lotus::physics::pi / 2 - static_cast<double>(i) * _z_slice_angle;
-			double xy = 0.5 * std::cos(z_angle);
-			double z = 0.5 * std::sin(z_angle);
+			const scalar z_angle = lotus::physics::pi / 2 - static_cast<scalar>(i) * _z_slice_angle;
+			const scalar xy = 0.5f * std::cos(z_angle);
+			const scalar z = 0.5f * std::sin(z_angle);
 
 			for (u32 j = 0; j <= _xy_slices; ++j) {
-				double xy_angle = static_cast<double>(j) * _xy_slice_angle;
+				const scalar xy_angle = static_cast<scalar>(j) * _xy_slice_angle;
 
-				double x = xy * std::cos(xy_angle);
-				double y = xy * std::sin(xy_angle);
+				const scalar x = xy * std::cos(xy_angle);
+				const scalar y = xy * std::sin(xy_angle);
 				_vertices.emplace_back(x, y, z);
 			}
 		}
@@ -158,7 +158,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, mat
 
 void debug_render::draw_physics_body(const lotus::collision::shapes::sphere &sphere, mat44s transform, const body_visual *visual, bool wireframe) {
 	auto mat = mat44s::identity();
-	mat.set_block(0, 0, mat33s::identity() * 2.0 * sphere.radius);
+	mat.set_block(0, 0, mat33s::identity() * 2.0f * sphere.radius);
 	mat.set_block(0, 3, sphere.offset);
 	draw_sphere(transform * mat, visual ? visual->color : lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f), wireframe);
 }
@@ -172,7 +172,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron 
 
 		using convex_hull = lotus::incremental_convex_hull;
 
-		auto storage = convex_hull::create_storage_for_num_vertices(poly.vertices.size());
+		auto storage = convex_hull::create_storage_for_num_vertices(static_cast<u32>(poly.vertices.size()));
 		auto hull = storage.create_state_for_tetrahedron({ poly.vertices[0], poly.vertices[1], poly.vertices[2], poly.vertices[3] });
 		for (usize i = 4; i < poly.vertices.size(); ++i) {
 			hull.add_vertex(poly.vertices[i]);
@@ -186,7 +186,6 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron 
 				const vec3 v1 = hull.get_vertex(face.vertex_indices[0]);
 				const vec3 v2 = hull.get_vertex(face.vertex_indices[1]);
 				const vec3 v3 = hull.get_vertex(face.vertex_indices[2]);
-				const vec3 normal = lotus::vec::unsafe_normalize(lotus::vec::cross(v2 - v1, v3 - v1));
 				verts.emplace_back(v1);
 				verts.emplace_back(v2);
 				verts.emplace_back(v3);
@@ -303,8 +302,10 @@ void debug_render::flush(
 		pass.draw_instanced(
 			{
 				lotus::renderer::input_buffer_binding(0, mesh_vert_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements),
-			}, mesh_vertices.size(),
-			lotus::renderer::index_buffer_binding(mesh_idx_buf, 0, lotus::gpu::index_format::uint32), mesh_indices.size(),
+			},
+			static_cast<u32>(mesh_vertices.size()),
+			lotus::renderer::index_buffer_binding(mesh_idx_buf, 0, lotus::gpu::index_format::uint32),
+			static_cast<u32>(mesh_indices.size()),
 			lotus::gpu::primitive_topology::triangle_list,
 			lotus::renderer::all_resource_bindings({}, {
 				{ u8"constants", uploader.upload(constants) },
@@ -321,7 +322,8 @@ void debug_render::flush(
 				lotus::renderer::input_buffer_binding(0, line_vert_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements),
 			},
 			static_cast<u32>(line_vertices.size()),
-			lotus::renderer::index_buffer_binding(line_idx_buf, 0, lotus::gpu::index_format::uint32), line_indices.size(),
+			lotus::renderer::index_buffer_binding(line_idx_buf, 0, lotus::gpu::index_format::uint32),
+			static_cast<u32>(line_indices.size()),
 			lotus::gpu::primitive_topology::line_list,
 			lotus::renderer::all_resource_bindings({}, {
 				{ u8"constants", uploader.upload(constants) },

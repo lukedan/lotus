@@ -45,7 +45,7 @@ public:
 				if (y < 0 || y >= static_cast<int>(get_size()[1])) {
 					return lotus::zero;
 				}
-				return at(x, y);
+				return at(static_cast<u32>(x), static_cast<u32>(y));
 			};
 			lotus::mat22<T> result = lotus::uninitialized;
 			result(0, 0) = value(pos[0] + 0, pos[1] + 0);
@@ -111,8 +111,8 @@ public:
 		void soft_reset() override {
 			const lotus::cvec2u32 sz = _get_test()._terrain.get_size();
 			_h.resize(sz);
-			_ux.resize(sz - lotus::cvec2u32(1, 0));
-			_uy.resize(sz - lotus::cvec2u32(0, 1));
+			_ux.resize(sz - lotus::cvec2u32(1u, 0u));
+			_uy.resize(sz - lotus::cvec2u32(0u, 1u));
 
 			_h.fill(_get_test()._water_height);
 			_ux.fill(0.0f);
@@ -122,8 +122,8 @@ public:
 		}
 
 		void impulse(vec2 pos, float strength, float dt) override {
-			const auto x = static_cast<int>(std::round(pos[0] * _h.get_size()[0]));
-			const auto y = static_cast<int>(std::round(pos[1] * _h.get_size()[1]));
+			const auto x = static_cast<u32>(std::round(pos[0] * _h.get_size()[0]));
+			const auto y = static_cast<u32>(std::round(pos[1] * _h.get_size()[1]));
 			_h(x, y) += strength * dt;
 		}
 
@@ -251,8 +251,8 @@ public:
 		void soft_reset() override {
 			const lotus::cvec2u32 size = _get_test()._terrain.get_size();
 			_h.resize(size);
-			_ux.resize(size - lotus::cvec2u32(1, 0));
-			_uy.resize(size - lotus::cvec2u32(0, 1));
+			_ux.resize(size - lotus::cvec2u32(1u, 0u));
+			_uy.resize(size - lotus::cvec2u32(0u, 1u));
 
 			_ux.fill(0.0f);
 			_uy.fill(0.0f);
@@ -290,7 +290,7 @@ public:
 		[[nodiscard]] vec2 _cell_size() const {
 			return lotus::vec::memberwise_divide(
 				vec2(_get_test()._grid_size[0], _get_test()._grid_size[1]),
-				(_h.get_size() - lotus::cvec2u32(1, 1)).into<scalar>()
+				(_h.get_size() - lotus::cvec2u32(1u, 1u)).into<scalar>()
 			);
 		}
 
@@ -450,7 +450,7 @@ public:
 		_render = debug_render();
 		_render.ctx = &_get_test_context();
 
-		_terrain.resize({ _size[0], _size[1] });
+		_terrain.resize(lotus::cvec2i(_size[0], _size[1]).into<u32>());
 		_generate_terrain();
 
 		// called last because it might depend on the terrain
@@ -459,7 +459,7 @@ public:
 		}
 	}
 
-	void timestep(double dt, usize iterations) override {
+	void timestep(scalar dt, u32 iterations) override {
 		if (!_method) {
 			return;
 		}
@@ -468,7 +468,7 @@ public:
 			_impulse = false;
 			_method->impulse(vec2(_impulse_pos[0], _impulse_pos[1]), _impulse_vel, dt);
 		}
-		for (usize i = 0; i < iterations; ++i) {
+		for (u32 i = 0; i < iterations; ++i) {
 			_method->timestep(dt / iterations);
 		}
 	}
@@ -487,7 +487,7 @@ public:
 			{ 0.0f, 0.0f, 1.0f, -0.5f * _grid_size[1] },
 			{ 0.0f, 0.0f, 0.0f, 0.0f },
 		});
-		const vec2 cell_size = lotus::vec::memberwise_divide(vec2(_grid_size[0], _grid_size[1]), (_terrain.get_size() - lotus::cvec2u32(1, 1)).into<scalar>());
+		const vec2 cell_size = lotus::vec::memberwise_divide(vec2(_grid_size[0], _grid_size[1]), (_terrain.get_size() - lotus::cvec2u32(1u, 1u)).into<scalar>());
 		if (_method) {
 			_draw_heightfield(
 				[this](u32 x, u32 y) {
@@ -582,19 +582,19 @@ protected:
 			return x - x.template into<int>().template into<float>();
 		};
 		const auto hash = [&mmul, &fract, &fractv](vec2 x) {
-			const vec2 k(0.3183099, 0.3678794);
+			const vec2 k(0.3183099f, 0.3678794f);
 			x = mmul(x, k) + vec2(k[1], k[0]);
 			return -vec2(1.0f, 1.0f) + 2.0f * fractv(16.0f * k * fract(x[0] * x[1] * (x[0] + x[1])));
 		};
 		// https://www.shadertoy.com/view/XdXBRH
 		const auto noise = [&mmul, &hash](vec2 p) {
-			const lotus::cvec2i i(std::floor(p[0]), std::floor(p[1]));
-			const vec2 f = p - i.into<float>();
+			const vec2 i = vec2(std::floor(p[0]), std::floor(p[1]));
+			const vec2 f = p - i;
 			const vec2 u = mmul(mmul(mmul(f, f), f), mmul(f, (f * 6.0f - vec2(15.0f, 15.0f))) + vec2(10.0f, 10.0f));
-			const vec2 ga = hash(i.into<float>() + vec2(0.0f, 0.0f));
-			const vec2 gb = hash(i.into<float>() + vec2(1.0f, 0.0f));
-			const vec2 gc = hash(i.into<float>() + vec2(0.0f, 1.0f));
-			const vec2 gd = hash(i.into<float>() + vec2(1.0f, 1.0f));
+			const vec2 ga = hash(i + vec2(0.0f, 0.0f));
+			const vec2 gb = hash(i + vec2(1.0f, 0.0f));
+			const vec2 gc = hash(i + vec2(0.0f, 1.0f));
+			const vec2 gd = hash(i + vec2(1.0f, 1.0f));
 			const float va = lotus::vec::dot(ga, f - vec2(0.0f, 0.0f));
 			const float vb = lotus::vec::dot(gb, f - vec2(1.0f, 0.0f));
 			const float vc = lotus::vec::dot(gc, f - vec2(0.0f, 1.0f));
@@ -631,7 +631,7 @@ protected:
 		std::vector<u32> indices;
 		for (u32 y = 0; y < sz[1]; ++y) {
 			for (u32 x = 0; x < sz[0]; ++x) {
-				const u32 x1y1 = pos.size();
+				const u32 x1y1 = static_cast<u32>(pos.size());
 				const u32 x0y1 = x1y1 - 1;
 				const u32 x1y0 = x1y1 - sz[0];
 				const u32 x0y0 = x0y1 - sz[0];

@@ -149,7 +149,10 @@ void erase_seq() {
 	std::uniform_int_distribution<usize> idx_dist(0, test_vec.size());
 	auto [beg, end] = std::minmax({ idx_dist(rng), idx_dist(rng) });
 	test_vec.erase(test_vec.begin() + beg, test_vec.begin() + end);
-	ref_vec.erase(ref_vec.begin() + beg, ref_vec.begin() + end);
+	ref_vec.erase(
+		ref_vec.begin() + static_cast<std::ptrdiff_t>(beg),
+		ref_vec.begin() + static_cast<std::ptrdiff_t>(end)
+	);
 }
 void shrink_to_fit() {
 	test_vec.shrink_to_fit();
@@ -176,7 +179,7 @@ void insert_random() {
 		ref_val.emplace_back(std::move(ref_val2));
 	}
 	std::uniform_int_distribution<usize> idx_dist(0, test_vec.size());
-	auto idx = idx_dist(rng);
+	const auto idx = static_cast<std::ptrdiff_t>(idx_dist(rng));
 	test_vec.insert(test_vec.begin() + idx, test_val.begin(), test_val.end());
 	ref_vec.insert(ref_vec.begin() + idx, ref_val.begin(), ref_val.end());
 }

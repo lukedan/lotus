@@ -21,7 +21,7 @@ public:
 
 
 	/// Updates the simulation.
-	virtual void timestep(double dt, usize iterations) = 0;
+	virtual void timestep(scalar dt, u32 iterations) = 0;
 	/// Resets the simulation without resetting the parameters. This function is also an opportunity to update any
 	/// parameters that cannot be easily updated mid-simulation.
 	virtual void soft_reset() = 0;
@@ -39,7 +39,7 @@ public:
 	}
 protected:
 	/// Retrieves the test context.
-	const test_context &_get_test_context() const {
+	[[nodiscard]] const test_context &_get_test_context() const {
 		return *_test_context;
 	}
 private:

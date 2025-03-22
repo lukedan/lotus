@@ -106,7 +106,9 @@ namespace lotus::gpu::backends::metal {
 		void end_pass();
 
 		void query_timestamp(timestamp_query_heap&, u32 index); // TODO
-		void resolve_queries(timestamp_query_heap&, u32 first, u32 count); // TODO
+		/// Does nothing. Metal supports resolving these queries either on the GPU timeline or on the CPU timeline;
+		/// we opt to do the latter.
+		void resolve_queries(timestamp_query_heap&, u32 first, u32 count);
 
 		void insert_marker(const char8_t*, linear_rgba_u8 color); // TODO
 		void begin_marker_scope(const char8_t*, linear_rgba_u8 color); // TODO
@@ -136,7 +138,10 @@ namespace lotus::gpu::backends::metal {
 		);
 
 		void bind_pipeline_state(const raytracing_pipeline_state&); // TODO
-		void bind_ray_tracing_descriptor_sets(const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const>); // TODO
+		/// Records the given descriptor sets to be bound during ray tracingdispatches.
+		void bind_ray_tracing_descriptor_sets(
+			const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const>
+		);
 		void trace_rays(constant_buffer_view ray_generation, shader_record_view miss_shaders, shader_record_view hit_groups, usize width, usize height, usize depth); // TODO
 
 

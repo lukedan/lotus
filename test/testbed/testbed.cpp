@@ -80,7 +80,8 @@ public:
 			scalar dt = std::chrono::duration<scalar>(now - _last_update).count();
 			if (_test) {
 				_update_truncated = false;
-				double target = dt * (_time_scale / 100.0), consumed = 0.0;
+				scalar target = dt * (_time_scale / 100.0f);
+				scalar consumed = 0.0f;
 				_time_accum += target;
 				auto timestep_beg = std::chrono::high_resolution_clock::now();
 				for (; _time_accum >= _time_step; _time_accum -= _time_step) {
@@ -89,11 +90,11 @@ public:
 
 					auto timestep_end = std::chrono::high_resolution_clock::now();
 
-					double this_cost = std::chrono::duration<double, std::milli>(timestep_end - timestep_beg).count();
+					scalar this_cost = std::chrono::duration<scalar, std::milli>(timestep_end - timestep_beg).count();
 					_timestep_cost = (1.0f - _timestep_cost_factor) * _timestep_cost + _timestep_cost_factor * this_cost;
 					timestep_beg = timestep_end;
 
-					auto frame = std::chrono::duration<double>(timestep_end - now).count();
+					auto frame = std::chrono::duration<scalar>(timestep_end - now).count();
 					if (frame > _max_frametime) {
 						_update_truncated = true;
 						_time_accum = 0.0;
@@ -123,7 +124,7 @@ protected:
 	std::unique_ptr<test> _test; ///< The currently active test.
 	usize _test_index = std::numeric_limits<usize>::max(); ///< The test that's currently selected.
 	std::chrono::high_resolution_clock::time_point _last_update; ///< The time when the simulation was last updated.
-	double _time_accum = 0.0; ///< Accumulated time.
+	scalar _time_accum = 0.0f; ///< Accumulated time.
 
 	bool _test_running = false; ///< Whether the test is currently running.
 	float _time_scale = 100.0f; ///< Time scaling.
@@ -208,17 +209,17 @@ protected:
 			}
 
 			if (ImGui::CollapsingHeader("Simulation Statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
-				ImGui::SliderFloat("Maximum Frame Time", &_max_frametime, 0.0, 1.0);
+				ImGui::SliderFloat("Maximum Frame Time", &_max_frametime, 0.0f, 1.0f);
 				if (_update_truncated) {
 					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
 				}
-				if (_time_scale < 100.0) {
+				if (_time_scale < 100.0f) {
 					ImGui::LabelText(
 						"Simulation Speed", "%5.1f%% x %.1f%% = %5.1f%%",
-						_simulation_speed * 100.0, _time_scale, _simulation_speed * _time_scale
+						_simulation_speed * 100.0f, _time_scale, _simulation_speed * _time_scale
 					);
 				} else {
-					ImGui::LabelText("Simulation Speed", "%5.1f%%", _simulation_speed * 100.0);
+					ImGui::LabelText("Simulation Speed", "%5.1f%%", _simulation_speed * 100.0f);
 				}
 				if (_update_truncated) {
 					ImGui::PopStyleColor();
@@ -245,7 +246,7 @@ protected:
 
 
 	void _reset_camera() {
-		_test_context.camera_params = lotus::camera_parameters<scalar>::create_look_at(lotus::zero, { 3.0, 4.0, 5.0 }, { 0.0, 1.0, 0.0 }, _get_window_size()[0] / std::max<scalar>(1.0f, static_cast<scalar>(_get_window_size()[1])));
+		_test_context.camera_params = lotus::camera_parameters<scalar>::create_look_at(lotus::zero, { 3.0f, 4.0f, 5.0f }, { 0.0f, 1.0f, 0.0f }, _get_window_size()[0] / std::max<scalar>(1.0f, static_cast<scalar>(_get_window_size()[1])));
 		_test_context.update_camera();
 	}
 
@@ -286,7 +287,7 @@ protected:
 		_camera_control = lotus::camera_control<scalar>(_test_context.camera_params);
 	}
 
-	void _on_resize(lotus::system::window_events::resize &size) override {
+	void _on_resize(lotus::system::window_events::resize&) override {
 		lotus::cvec2u32 sz = _get_window_size();
 		_test_context.camera_params.aspect_ratio = sz[0] / static_cast<scalar>(sz[1]);
 		_test_context.update_camera();

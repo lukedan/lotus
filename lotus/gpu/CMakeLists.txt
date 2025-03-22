@@ -245,8 +245,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND LOTUS_GPU_USE_METAL)
 			"src/gpu/backends/metal/device.cpp"
 			"src/gpu/backends/metal/device.mm"
 			"src/gpu/backends/metal/frame_buffer.cpp"
-			"src/gpu/backends/metal/metal_impl.cpp"
-			"src/gpu/backends/metal/metal_irconverter_include.h")
+			"src/gpu/backends/metal/metal_impl.cpp")
 	add_gpu_backend_include_definitions(lotus_gpu_metal "lotus/gpu/backends/metal/")
 	target_include_directories(lotus_gpu_metal PUBLIC "thirdparty/metal-cpp/")
 	find_library(QUARTZ_CORE_LIB QuartzCore)

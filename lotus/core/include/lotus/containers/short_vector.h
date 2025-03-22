@@ -246,9 +246,9 @@ namespace lotus {
 				return const_cast<iterator>(pos);
 			}
 
-			auto insert_count = static_cast<size_type>(std::distance(first, last));
+			const auto insert_count = static_cast<size_type>(std::distance(first, last));
 			auto [new_vec, old_ptr, old_size] = _begin_allocate_more(insert_count);
-			auto insert_index = pos - old_ptr;
+			const std::ptrdiff_t insert_index = pos - old_ptr;
 			T *result;
 			if (new_vec) {
 				std::uninitialized_move(old_ptr, old_ptr + insert_index, new_vec->data);
@@ -261,7 +261,7 @@ namespace lotus {
 				result = new_vec->data + insert_index;
 				std::uninitialized_copy(first, last, result);
 			} else {
-				auto move_count = old_size - insert_index;
+				const size_type move_count = old_size - static_cast<size_type>(insert_index);
 				if (move_count > insert_count) {
 					T *old_end = old_ptr + old_size;
 					T *src = old_end;

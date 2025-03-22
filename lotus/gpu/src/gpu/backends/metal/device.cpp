@@ -12,7 +12,6 @@
 #include "lotus/gpu/pipeline.h"
 #include "lotus/gpu/resources.h"
 #include "lotus/gpu/backends/common/dxc.h"
-#include "metal_irconverter_include.h"
 
 namespace lotus::gpu::backends::metal {
 	back_buffer_info device::acquire_back_buffer(swap_chain &chain) {
@@ -91,12 +90,10 @@ namespace lotus::gpu::backends::metal {
 		u32 first_register,
 		std::span<const image_view_base *const> images
 	) {
-		// TODO validate that we're writing to a range of the correct type
-		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
-		for (usize i = 0; i < images.size(); ++i) {
-			const auto *const img = static_cast<const _details::basic_image_view_base*>(images[i]);
-			IRDescriptorTableSetTexture(&arr[first_register + i], img->_tex.get(), 0.0f, 0);
-		}
+		_validate_descriptor_set_bindings(
+			layout, first_register, static_cast<u32>(images.size()), descriptor_type::read_only_image
+		);
+		_write_descriptor_set_images(set, first_register, images);
 	}
 
 	void device::write_descriptor_set_read_write_images(
@@ -105,8 +102,10 @@ namespace lotus::gpu::backends::metal {
 		u32 first_register,
 		std::span<const image_view_base *const> images
 	) {
-		// Metal does not distinguish between read-only and read-write bindings
-		write_descriptor_set_read_only_images(set, layout, first_register, images);
+		_validate_descriptor_set_bindings(
+			layout, first_register, static_cast<u32>(images.size()), descriptor_type::read_write_image
+		);
+		_write_descriptor_set_images(set, first_register, images);
 	}
 
 	void device::write_descriptor_set_read_only_structured_buffers(
@@ -115,17 +114,10 @@ namespace lotus::gpu::backends::metal {
 		u32 first_regsiter,
 		std::span<const structured_buffer_view> buffers
 	) {
-		// TODO validate that we're writing to a range of the correct type
-		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
-		for (usize i = 0; i < buffers.size(); ++i) {
-			// TODO metal does not support custom strides?
-			IRBufferView view = {};
-			view.buffer       = buffers[i].data->_buf.get();
-			view.bufferOffset = buffers[i].first * buffers[i].stride;
-			view.bufferSize   = buffers[i].count * buffers[i].stride;
-			view.typedBuffer  = true;
-			IRDescriptorTableSetBufferView(&arr[first_regsiter + i], &view);
-		}
+		_validate_descriptor_set_bindings(
+			layout, first_regsiter, static_cast<u32>(buffers.size()), descriptor_type::read_only_buffer
+		);
+		_write_descriptor_set_structured_buffers(set, first_regsiter, buffers);
 	}
 
 	void device::write_descriptor_set_read_write_structured_buffers(
@@ -134,8 +126,10 @@ namespace lotus::gpu::backends::metal {
 		u32 first_regsiter,
 		std::span<const structured_buffer_view> buffers
 	) {
-		// Metal does not distinguish between read-only and read-write bindings
-		write_descriptor_set_read_only_structured_buffers(set, layout, first_regsiter, buffers);
+		_validate_descriptor_set_bindings(
+			layout, first_regsiter, static_cast<u32>(buffers.size()), descriptor_type::read_write_buffer
+		);
+		_write_descriptor_set_structured_buffers(set, first_regsiter, buffers);
 	}
 
 	void device::write_descriptor_set_constant_buffers(
@@ -144,7 +138,10 @@ namespace lotus::gpu::backends::metal {
 		u32 first_register,
 		std::span<const constant_buffer_view> buffers
 	) {
-		// TODO validate that we're writing to a range of the correct type
+		_validate_descriptor_set_bindings(
+			layout, first_register, static_cast<u32>(buffers.size()), descriptor_type::constant_buffer
+		);
+
 		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
 		for (usize i = 0; i < buffers.size(); ++i) {
 			const u64 base_addr = buffers[i].data->_buf->gpuAddress();
@@ -158,7 +155,10 @@ namespace lotus::gpu::backends::metal {
 		u32 first_register,
 		std::span<const gpu::sampler *const> samplers
 	) {
-		// TODO validate that we're writing to a range of the correct type
+		_validate_descriptor_set_bindings(
+			layout, first_register, static_cast<u32>(samplers.size()), descriptor_type::sampler
+		);
+
 		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
 		for (usize i = 0; i < samplers.size(); ++i) {
 			IRDescriptorTableSetSampler(
@@ -247,7 +247,7 @@ namespace lotus::gpu::backends::metal {
 								lhs.Space < rhs.Space;
 						}
 					);
-					usize num_final_bindings = 1;
+					u32 num_final_bindings = 1;
 					for (usize i = 1; i < all_bindings.size(); ++i) {
 						D3D12_SHADER_INPUT_BIND_DESC &prev_binding = all_bindings[num_final_bindings - 1];
 						const D3D12_SHADER_INPUT_BIND_DESC &cur_binding = all_bindings[i];
@@ -274,7 +274,9 @@ namespace lotus::gpu::backends::metal {
 						all_bindings[num_final_bindings] = cur_binding;
 						++num_final_bindings;
 					}
-					all_bindings.erase(all_bindings.begin() + num_final_bindings, all_bindings.end());
+					all_bindings.erase(
+						all_bindings.begin() + static_cast<std::ptrdiff_t>(num_final_bindings), all_bindings.end()
+					);
 				}
 
 				std::vector<IRDescriptorRange1> all_ranges;
@@ -337,7 +339,7 @@ namespace lotus::gpu::backends::metal {
 		sampler_address_mode addressing_u,
 		sampler_address_mode addressing_v,
 		sampler_address_mode addressing_w,
-		linear_rgba_f border_color,
+		linear_rgba_f, // border color not supported
 		comparison_function comparison
 	) {
 		auto smp = NS::TransferPtr(MTL::SamplerDescriptor::alloc()->init());
@@ -382,7 +384,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	graphics_pipeline_state device::create_graphics_pipeline_state(
-		const pipeline_resources &rsrc,
+		const pipeline_resources&,
 		const shader_binary *vs,
 		const shader_binary *ps,
 		const shader_binary *ds,
@@ -499,7 +501,6 @@ namespace lotus::gpu::backends::metal {
 			std::abort();
 		}
 		auto depth_stencil_state = NS::TransferPtr(_dev->newDepthStencilState(ds_descriptor.get()));
-		// TODO pipeline resources?
 		// TODO num viewports?
 		return graphics_pipeline_state(
 			std::move(pipeline_state), std::move(depth_stencil_state), rasterizer, topology
@@ -796,9 +797,15 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void device::fetch_query_results(
-		timestamp_query_heap&, u32 first, std::span<u64> timestamps
+		timestamp_query_heap &heap, u32 first, std::span<u64> timestamps
 	) {
-		// TODO
+		NS::SharedPtr<NS::Data> data =
+			NS::RetainPtr(heap._buf->resolveCounterRange(NS::Range(first, timestamps.size())));
+		auto *result = static_cast<const MTL::CounterResultTimestamp*>(data->mutableBytes());
+		crash_if(data->length() < timestamps.size() * sizeof(MTL::CounterResultTimestamp));
+		for (usize i = 0; i < timestamps.size(); i++) {
+			timestamps[i] = result[i].timestamp;
+		}
 	}
 
 	void device::set_debug_name(buffer &buf, const char8_t *name) {
@@ -931,7 +938,10 @@ namespace lotus::gpu::backends::metal {
 		u32 first_register,
 		std::span<gpu::top_level_acceleration_structure *const> as
 	) {
-		// TODO validate that we're writing to a range of the correct type
+		_validate_descriptor_set_bindings(
+			layout, first_register, static_cast<u32>(as.size()), descriptor_type::acceleration_structure
+		);
+
 		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
 		for (usize i = 0; i < as.size(); ++i) {
 			IRDescriptorTableSetAccelerationStructure(&arr[first_register + i], as[i]->_header->gpuAddress());
@@ -1058,6 +1068,47 @@ namespace lotus::gpu::backends::metal {
 		_raygen_shader = _details::get_single_shader_function(library.get());
 
 		return _raygen_shader.get();
+	}
+
+	void device::_validate_descriptor_set_bindings(
+		const descriptor_set_layout &layout, u32 first_register, u32 count, descriptor_type type
+	) {
+		const u32 past_last_register = first_register + count;
+		for (const descriptor_range_binding &binding : layout._bindings) {
+			if (past_last_register <= binding.register_index) {
+				continue;
+			}
+			if (!binding.range.is_unbounded() && first_register > binding.get_last_register_index()) {
+				continue;
+			}
+			crash_if(binding.range.type != type);
+			// TODO check that the entire range is covered
+		}
+	}
+
+	void device::_write_descriptor_set_images(
+		descriptor_set &set, u32 first_register, std::span<const image_view_base *const> images
+	) {
+		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
+		for (usize i = 0; i < images.size(); ++i) {
+			const auto *const img = static_cast<const _details::basic_image_view_base*>(images[i]);
+			IRDescriptorTableSetTexture(&arr[first_register + i], img->_tex.get(), 0.0f, 0);
+		}
+	}
+
+	void device::_write_descriptor_set_structured_buffers(
+		descriptor_set &set, u32 first_register, std::span<const structured_buffer_view> buffers
+	) {
+		auto *arr = static_cast<IRDescriptorTableEntry*>(set._arg_buffer->contents());
+		for (usize i = 0; i < buffers.size(); ++i) {
+			// TODO metal does not support custom strides?
+			IRBufferView view = {};
+			view.buffer       = buffers[i].data->_buf.get();
+			view.bufferOffset = buffers[i].first * buffers[i].stride;
+			view.bufferSize   = buffers[i].count * buffers[i].stride;
+			view.typedBuffer  = true;
+			IRDescriptorTableSetBufferView(&arr[first_register + i], &view);
+		}
 	}
 
 

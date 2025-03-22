@@ -106,13 +106,12 @@ public:
 	}
 	void on_instance_loaded(lren::instance inst) {
 		if (inst.geometry && inst.material && inst.geometry->num_vertices > 0) {
-			auto geom_index = reinterpret_cast<std::uintptr_t>(inst.geometry.user_data());
-			auto mat_index = reinterpret_cast<std::uintptr_t>(inst.material.user_data());
+			auto geom_index = static_cast<u32>(reinterpret_cast<std::uintptr_t>(inst.geometry.user_data()));
+			auto mat_index = static_cast<u32>(reinterpret_cast<std::uintptr_t>(inst.material.user_data()));
 
 			auto &gpu_inst = instance_data.emplace_back();
 			gpu_inst.geometry_index = geom_index;
 			gpu_inst.material_index = mat_index;
-			auto tangent_trans = inst.transform.block<3, 3>(0, 0);
 			auto decomp = lotus::mat::lup_decompose(inst.transform.block<3, 3>(0, 0).into<double>());
 			mat44f normal_trans = zero;
 			normal_trans.set_block(0, 0, (decomp.invert().transposed() * std::pow(decomp.determinant(), 2.0f / 3.0f)).into<float>());
@@ -174,7 +173,7 @@ public:
 			geom_buffer_pool
 		);
 		_assets.upload_typed_buffer<shader_types::geometry_data>(q, geom_buf, geometries);
-		geometries_buffer = geom_buf.get_view<shader_types::geometry_data>(0, geometries.size());
+		geometries_buffer = geom_buf.get_view<shader_types::geometry_data>(0, static_cast<u32>(geometries.size()));
 
 		if (materials.empty()) {
 			materials.emplace_back();
@@ -186,7 +185,7 @@ public:
 			geom_buffer_pool
 		);
 		_assets.upload_typed_buffer<lren::shader_types::generic_pbr_material::material>(q, mat_buf, materials);
-		materials_buffer = mat_buf.get_view<lren::shader_types::generic_pbr_material::material>(0, materials.size());
+		materials_buffer = mat_buf.get_view<lren::shader_types::generic_pbr_material::material>(0, static_cast<u32>(materials.size()));
 
 		if (instance_data.empty()) {
 			instance_data.emplace_back();
@@ -198,7 +197,7 @@ public:
 			geom_buffer_pool
 		);
 		_assets.upload_typed_buffer<shader_types::rt_instance_data>(q, inst_buf, instance_data);
-		instances_buffer = inst_buf.get_view<shader_types::rt_instance_data>(0, instance_data.size());
+		instances_buffer = inst_buf.get_view<shader_types::rt_instance_data>(0, static_cast<u32>(instance_data.size()));
 
 		if (lights.empty()) {
 			lights.emplace_back();
@@ -210,7 +209,7 @@ public:
 			geom_buffer_pool
 		);
 		_assets.upload_typed_buffer<lren::shader_types::light>(q, light_buf, lights);
-		lights_buffer = light_buf.get_view<lren::shader_types::light>(0, lights.size());
+		lights_buffer = light_buf.get_view<lren::shader_types::light>(0, static_cast<u32>(lights.size()));
 
 		gbuffer_instance_render_details = lren::g_buffer::get_instance_render_details(_assets, instances);
 	}

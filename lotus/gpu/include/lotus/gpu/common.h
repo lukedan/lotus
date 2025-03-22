@@ -311,6 +311,8 @@ namespace lotus::gpu {
 
 		num_enumerators ///< The number of enumerators.
 	};
+	/// Returns the size of one index of the specified type.
+	[[nodiscard]] usize get_index_format_size(index_format);
 
 	/// Specifies the tiling of an image.
 	enum class image_tiling {
@@ -1714,6 +1716,11 @@ namespace lotus::gpu {
 		/// Creates a \ref descriptor_range with unbounded descriptor count.
 		[[nodiscard]] constexpr inline static descriptor_range create_unbounded(descriptor_type ty) {
 			return descriptor_range(ty, unbounded_count);
+		}
+
+		/// Checks whether this range has an unbounded number of descriptors.
+		[[nodiscard]] bool is_unbounded() const {
+			return count == unbounded_count;
 		}
 
 		/// Equality and inequality.

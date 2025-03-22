@@ -155,7 +155,7 @@ private:
 		const lotus::camera<float> cam = cam_params.into_camera();
 		const cvec2u32 window_size = _get_window_size();
 
-		float tan_half_fovy = tan(cam_params.fov_y_radians * 0.5);
+		float tan_half_fovy = tan(cam_params.fov_y_radians * 0.5f);
 		auto right_half = cam.unit_right * tan_half_fovy * cam_params.aspect_ratio;
 		auto up_half = cam.unit_up * tan_half_fovy;
 
@@ -208,7 +208,7 @@ private:
 				},
 				2, { 3 }, { 0, 1 },
 				20, 32, 32,
-				cvec3u32(window_size, 1),
+				cvec3u32(window_size, 1u),
 				std::move(resources),
 				u8"Trace rays"
 			);

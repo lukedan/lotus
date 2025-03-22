@@ -166,16 +166,24 @@ namespace lotus::gpu::backends::metal {
 		}
 	};
 
-	// TODO
+	/// Contains a \p IRShaderIdentifier.
 	class shader_group_handle {
+		friend device;
 	protected:
 		/// No initialization.
 		shader_group_handle(uninitialized_t) {
 		}
 
+		/// Returns the raw contents of the \p IRShaderIdentifier.
 		[[nodiscard]] std::span<const std::byte> data() const {
-			// TODO
+			static_assert(
+				std::is_standard_layout_v<IRShaderIdentifier>,
+				"IRShaderIdentifier should be a standard layout type"
+			);
+			return { reinterpret_cast<const std::byte*>(&_id), sizeof(_id) };
 		}
+
+		IRShaderIdentifier _id;
 	};
 
 	/// Contains a \p MTL::CounterSampleBuffer.

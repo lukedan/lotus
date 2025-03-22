@@ -3,12 +3,13 @@
 /// \file
 /// Implementation of Metal command buffers.
 
+#include <numeric>
+
 #include <Metal/Metal.hpp>
 
 #include "lotus/gpu/commands.h"
 #include "lotus/gpu/descriptors.h"
 #include "lotus/gpu/synchronization.h"
-#include "metal_irconverter_include.h"
 
 namespace lotus::gpu::backends::metal {
 	void command_allocator::reset(device&) {
@@ -204,7 +205,8 @@ namespace lotus::gpu::backends::metal {
 	void command_list::draw_indexed_instanced(
 		u32 first_index, u32 index_count, i32 first_vertex, u32 first_instance, u32 instance_count
 	) {
-		crash_if(_index_offset_bytes % 4 != 0); // Metal does not support non-multiple-of-4 offsets
+		const usize index_offset = _index_offset_bytes + first_index * get_index_format_size(_index_format);
+		crash_if(index_offset % 4 != 0); // Metal does not support non-multiple-of-4 offsets
 		_maybe_refresh_graphics_descriptor_set_bindings();
 		IRRuntimeDrawIndexedPrimitives(
 			_pass_encoder.get(),
@@ -212,7 +214,7 @@ namespace lotus::gpu::backends::metal {
 			index_count,
 			_details::conversions::to_index_type(_index_format),
 			_index_buffer,
-			_index_offset_bytes,
+			index_offset,
 			instance_count,
 			first_vertex,
 			first_instance
@@ -220,12 +222,14 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::run_compute_shader(u32 x, u32 y, u32 z) {
-		const usize data_size = _compute_sets.size() * sizeof(u64);
-
 		auto encoder = NS::RetainPtr(_buf->computeCommandEncoder());
 		encoder->setComputePipelineState(_compute_pipeline.get());
 		// bind resources
-		encoder->setBytes(_compute_sets.data(), data_size, kIRArgumentBufferBindPoint);
+		encoder->setBytes(
+			_compute_sets.data(),
+			_compute_sets.size() * sizeof(decltype(_compute_sets)::value_type),
+			kIRArgumentBufferBindPoint
+		);
 		encoder->dispatchThreadgroups(
 			MTL::Size(x, y, z),
 			_details::conversions::to_size(_compute_thread_group_size.into<NS::UInteger>())
@@ -249,8 +253,7 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	void command_list::resolve_queries(timestamp_query_heap&, u32 first, u32 count) {
-		// TODO
+	void command_list::resolve_queries(timestamp_query_heap&, u32, u32) {
 	}
 
 	void command_list::insert_marker(const char8_t*, linear_rgba_u8) {
@@ -326,8 +329,10 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	void command_list::bind_ray_tracing_descriptor_sets(const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const>) {
-		// TODO
+	void command_list::bind_ray_tracing_descriptor_sets(
+		const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const> sets
+	) {
+		_update_descriptor_set_bindings(_compute_sets, first, sets);
 	}
 
 	void command_list::trace_rays(
@@ -368,10 +373,41 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 
 		// compute thread group size
-		const NS::UInteger exec_width = _compute_pipeline->threadExecutionWidth();
-		MTL::Size thread_group_size; // TODO
+		const auto exec_width = static_cast<usize>(_compute_pipeline->threadExecutionWidth());
+		MTL::Size thread_group_size(
+			std::min(exec_width, width), std::min(exec_width, height), std::min(exec_width, depth)
+		);
+		// try to reduce the thread group size as much as possible
+		while (true) {
+			const usize num_threads = thread_group_size.width * thread_group_size.height * thread_group_size.depth;
+			if (num_threads % exec_width != 0) {
+				break; // cannot reduce further
+			}
+			// maximum factor by which thread group size can be reduced
+			const usize quotient = num_threads / exec_width;
+			// find a common denominator for any dimension
+			if (const usize gcd = std::gcd(thread_group_size.depth, quotient); gcd > 1) {
+				thread_group_size.depth /= gcd;
+				continue;
+			}
+			if (const usize gcd = std::gcd(thread_group_size.height, quotient); gcd > 1) {
+				thread_group_size.height /= gcd;
+				continue;
+			}
+			if (const usize gcd = std::gcd(thread_group_size.width, quotient); gcd > 1) {
+				thread_group_size.width /= gcd;
+				continue;
+			}
+			// if none is found, it cannot be reduced further
+			break;
+		}
 
 		auto encoder = NS::RetainPtr(_buf->computeCommandEncoder());
+		encoder->setBytes(
+			_compute_sets.data(),
+			_compute_sets.size() * sizeof(decltype(_compute_sets)::value_type),
+			kIRArgumentBufferBindPoint
+		);
 		encoder->setBytes(&argument, sizeof(argument), kIRRayDispatchArgumentsBindPoint);
 		encoder->dispatchThreads(MTL::Size(width, height, depth), thread_group_size);
 	}

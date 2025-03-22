@@ -135,7 +135,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::bind_graphics_descriptor_sets(
-		const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources &rsrc, u32 first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		if (sets.empty()) {
 			return;
@@ -151,7 +151,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::bind_compute_descriptor_sets(
-		const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources &rsrc, u32 first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		if (sets.empty()) {
 			return;
@@ -234,26 +234,14 @@ namespace lotus::gpu::backends::vulkan {
 		_buffer.copyBufferToImage(from._buffer.get(), to._image, vk::ImageLayout::eTransferDstOptimal, copy);
 	}
 
-	void command_list::draw_instanced(
-		usize first_vertex, usize vertex_count,
-		usize first_instance, usize instance_count
-	) {
-		_buffer.draw(
-			static_cast<u32>(vertex_count), static_cast<u32>(instance_count),
-			static_cast<u32>(first_vertex), static_cast<u32>(first_instance)
-		);
+	void command_list::draw_instanced(u32 first_vertex, u32 vertex_count, u32 first_instance, u32 instance_count) {
+		_buffer.draw(vertex_count, instance_count, first_vertex, first_instance);
 	}
 
 	void command_list::draw_indexed_instanced(
-		usize first_index, usize index_count,
-		usize first_vertex,
-		usize first_instance, usize instance_count
+		u32 first_index, u32 index_count, i32 first_vertex, u32 first_instance, u32 instance_count
 	) {
-		_buffer.drawIndexed(
-			static_cast<u32>(index_count), static_cast<u32>(instance_count),
-			static_cast<u32>(first_index), static_cast<i32>(first_vertex),
-			static_cast<u32>(first_instance)
-		);
+		_buffer.drawIndexed(index_count, instance_count, first_index, first_vertex, first_instance);
 	}
 
 	void command_list::run_compute_shader(u32 x, u32 y, u32 z) {
@@ -404,16 +392,14 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void command_list::bind_ray_tracing_descriptor_sets(
-		const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources &rsrc, u32 first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto vk_sets = bookmark.create_reserved_vector_array<vk::DescriptorSet>(sets.size());
 		for (auto *set : sets) {
 			vk_sets.emplace_back(static_cast<const descriptor_set*>(set)->_set.get());
 		}
-		_buffer.bindDescriptorSets(
-			vk::PipelineBindPoint::eRayTracingKHR, rsrc._layout.get(), static_cast<u32>(first), vk_sets, {}
-		);
+		_buffer.bindDescriptorSets(vk::PipelineBindPoint::eRayTracingKHR, rsrc._layout.get(), first, vk_sets, {});
 	}
 
 	void command_list::trace_rays(

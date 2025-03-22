@@ -120,16 +120,14 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::bind_graphics_descriptor_sets(
-		const pipeline_resources&,
-		usize first,
-		std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		_update_descriptor_set_bindings(_graphics_sets, first, sets);
 		_graphics_sets_bound = false;
 	}
 
 	void command_list::bind_compute_descriptor_sets(
-		const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		_update_descriptor_set_bindings(_compute_sets, first, sets);
 	}
@@ -189,9 +187,7 @@ namespace lotus::gpu::backends::metal {
 		encoder->endEncoding();
 	}
 
-	void command_list::draw_instanced(
-		usize first_vertex, usize vertex_count, usize first_instance, usize instance_count
-	) {
+	void command_list::draw_instanced(u32 first_vertex, u32 vertex_count, u32 first_instance, u32 instance_count) {
 		_maybe_refresh_graphics_descriptor_set_bindings();
 		// this function is used instead of the member function to bind additional auxiliary buffers for HLSL
 		// interoperability; same for draw_indexed_instanced()
@@ -206,11 +202,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::draw_indexed_instanced(
-		usize first_index,
-		usize index_count,
-		usize first_vertex,
-		usize first_instance,
-		usize instance_count
+		u32 first_index, u32 index_count, i32 first_vertex, u32 first_instance, u32 instance_count
 	) {
 		crash_if(_index_offset_bytes % 4 != 0); // Metal does not support non-multiple-of-4 offsets
 		_maybe_refresh_graphics_descriptor_set_bindings();
@@ -334,7 +326,7 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	void command_list::bind_ray_tracing_descriptor_sets(const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>) {
+	void command_list::bind_ray_tracing_descriptor_sets(const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const>) {
 		// TODO
 	}
 
@@ -366,9 +358,9 @@ namespace lotus::gpu::backends::metal {
 		desc.RayGenerationShaderRecord = to_virtual_address_range(ray_generation);
 		desc.MissShaderTable           = to_virtual_address_range_and_stride(miss_shaders);
 		desc.HitGroupTable             = to_virtual_address_range_and_stride(hit_groups);
-		desc.Width                     = width;
-		desc.Height                    = height;
-		desc.Depth                     = depth;
+		desc.Width                     = static_cast<uint>(width);
+		desc.Height                    = static_cast<uint>(height);
+		desc.Depth                     = static_cast<uint>(depth);
 
 		// TODO GRS
 		// TODO ResDescHeap

@@ -62,13 +62,13 @@ namespace lotus::gpu {
 
 		/// Creates a new empty \ref descriptor_pool.
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
-			std::span<const descriptor_range> capacity, usize max_num_sets
+			std::span<const descriptor_range> capacity, u32 max_num_sets
 		) {
 			return backend::device::create_descriptor_pool(capacity, max_num_sets);
 		}
 		/// \overload
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
-			std::initializer_list<descriptor_range> capacity, usize max_num_sets
+			std::initializer_list<descriptor_range> capacity, u32 max_num_sets
 		) {
 			return create_descriptor_pool({ capacity.begin(), capacity.end() }, max_num_sets);
 		}
@@ -81,7 +81,7 @@ namespace lotus::gpu {
 		/// Allocates a new \ref descriptor_set from the given \ref descriptor_pool, where one descriptor range in
 		/// the set has dynamic (unbounded) size that is specified using the additional parameter.
 		[[nodiscard]] descriptor_set create_descriptor_set(
-			descriptor_pool &pool, const descriptor_set_layout &layout, usize dynamic_size
+			descriptor_pool &pool, const descriptor_set_layout &layout, u32 dynamic_size
 		) {
 			return backend::device::create_descriptor_set(pool, layout, dynamic_size);
 		}
@@ -89,34 +89,34 @@ namespace lotus::gpu {
 		/// Updates the descriptors in the set with the given read-only images.
 		void write_descriptor_set_read_only_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::span<const image_view_base *const> images
+			u32 first_register, std::span<const image_view_base *const> images
 		) {
 			backend::device::write_descriptor_set_read_only_images(set, layout, first_register, images);
 		}
 		/// \overload
 		void write_descriptor_set_read_only_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::initializer_list<const image_view_base*> images
+			u32 first_register, std::initializer_list<const image_view_base*> images
 		) {
 			write_descriptor_set_read_only_images(set, layout, first_register, { images.begin(), images.end() });
 		}
 		/// Updates the descriptors in the set with the given read-write images.
 		void write_descriptor_set_read_write_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::span<const image_view_base *const> images
+			u32 first_register, std::span<const image_view_base *const> images
 		) {
 			backend::device::write_descriptor_set_read_write_images(set, layout, first_register, images);
 		}
 		/// \overload
 		void write_descriptor_set_read_write_images(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::initializer_list<const image_view_base*> images
+			u32 first_register, std::initializer_list<const image_view_base*> images
 		) {
 			write_descriptor_set_read_write_images(set, layout, first_register, { images.begin(), images.end() });
 		}
 		/// Retrieves a member function pointer to the function that writes image descriptors of the specified type.
 		inline static void (device::*get_write_image_descriptor_function(descriptor_type type))(
-			descriptor_set&, const descriptor_set_layout&, usize, std::span<const image_view_base *const>
+			descriptor_set&, const descriptor_set_layout&, u32, std::span<const image_view_base *const>
 		) {
 			switch (type) {
 			case descriptor_type::read_only_image:
@@ -130,7 +130,7 @@ namespace lotus::gpu {
 		/// Retrieves a member function pointer to the function that writes structured buffer descriptors of the
 		/// specified type.
 		inline static void (device::*get_write_structured_buffer_descriptor_function(descriptor_type type))(
-			descriptor_set&, const descriptor_set_layout&, usize, std::span<const structured_buffer_view>
+			descriptor_set&, const descriptor_set_layout&, u32, std::span<const structured_buffer_view>
 		) {
 			switch (type) {
 			case descriptor_type::read_only_buffer:
@@ -145,14 +145,14 @@ namespace lotus::gpu {
 		/// Updates the descriptors in the set with the given read-only structured buffers.
 		void write_descriptor_set_read_only_structured_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::span<const structured_buffer_view> buffers
+			u32 first_register, std::span<const structured_buffer_view> buffers
 		) {
 			backend::device::write_descriptor_set_read_only_structured_buffers(set, layout, first_register, buffers);
 		}
 		/// \overload
 		void write_descriptor_set_read_only_structured_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::initializer_list<structured_buffer_view> buffers
+			u32 first_register, std::initializer_list<structured_buffer_view> buffers
 		) {
 			write_descriptor_set_read_only_structured_buffers(
 				set, layout, first_register, { buffers.begin(), buffers.end() }
@@ -161,7 +161,7 @@ namespace lotus::gpu {
 		/// Updates the descriptors in the set with the given read-write structured buffers.
 		void write_descriptor_set_read_write_structured_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::span<const structured_buffer_view> buffers
+			u32 first_register, std::span<const structured_buffer_view> buffers
 		) {
 			backend::device::write_descriptor_set_read_write_structured_buffers(
 				set, layout, first_register, buffers
@@ -170,7 +170,7 @@ namespace lotus::gpu {
 		/// \overload
 		void write_descriptor_set_read_write_structured_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::initializer_list<structured_buffer_view> buffers
+			u32 first_register, std::initializer_list<structured_buffer_view> buffers
 		) {
 			write_descriptor_set_read_write_structured_buffers(
 				set, layout, first_register, { buffers.begin(), buffers.end() }
@@ -179,28 +179,28 @@ namespace lotus::gpu {
 		/// Updates the descriptors in the set with the given constant buffers.
 		void write_descriptor_set_constant_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::span<const constant_buffer_view> buffers
+			u32 first_register, std::span<const constant_buffer_view> buffers
 		) {
 			backend::device::write_descriptor_set_constant_buffers(set, layout, first_register, buffers);
 		}
 		/// \overload
 		void write_descriptor_set_constant_buffers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::initializer_list<constant_buffer_view> buffers
+			u32 first_register, std::initializer_list<constant_buffer_view> buffers
 		) {
 			write_descriptor_set_constant_buffers(set, layout, first_register, { buffers.begin(), buffers.end() });
 		}
 		/// Updates the descriptors in the set with the given samplers.
 		void write_descriptor_set_samplers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::span<const sampler *const> samplers
+			u32 first_register, std::span<const sampler *const> samplers
 		) {
 			backend::device::write_descriptor_set_samplers(set, layout, first_register, samplers);
 		}
 		/// \overload
 		void write_descriptor_set_samplers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::initializer_list<const sampler*> samplers
+			u32 first_register, std::initializer_list<const sampler*> samplers
 		) {
 			write_descriptor_set_samplers(set, layout, first_register, { samplers.begin(), samplers.end() });
 		}
@@ -575,7 +575,7 @@ namespace lotus::gpu {
 
 		/// Updates the descriptors in the set with the given acceleration structures.
 		void write_descriptor_set_acceleration_structures(
-			descriptor_set &set, const descriptor_set_layout &layout, usize first_register,
+			descriptor_set &set, const descriptor_set_layout &layout, u32 first_register,
 			std::span<top_level_acceleration_structure *const> acceleration_structures
 		) {
 			backend::device::write_descriptor_set_acceleration_structures(
@@ -584,7 +584,7 @@ namespace lotus::gpu {
 		}
 		/// \overload
 		void write_descriptor_set_acceleration_structures(
-			descriptor_set &set, const descriptor_set_layout &layout, usize first_register,
+			descriptor_set &set, const descriptor_set_layout &layout, u32 first_register,
 			std::initializer_list<top_level_acceleration_structure*> acceleration_structures
 		) {
 			write_descriptor_set_acceleration_structures(

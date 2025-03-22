@@ -104,25 +104,25 @@ namespace lotus::gpu {
 		}
 		/// Binds descriptor sets for rendering.
 		void bind_graphics_descriptor_sets(
-			const pipeline_resources &rsrc, usize first, std::span<const descriptor_set *const> sets
+			const pipeline_resources &rsrc, u32 first, std::span<const descriptor_set *const> sets
 		) {
 			backend::command_list::bind_graphics_descriptor_sets(rsrc, first, sets);
 		}
 		/// \overload
 		void bind_graphics_descriptor_sets(
-			const pipeline_resources &rsrc, usize first, std::initializer_list<const descriptor_set*> sets
+			const pipeline_resources &rsrc, u32 first, std::initializer_list<const descriptor_set*> sets
 		) {
 			bind_graphics_descriptor_sets(rsrc, first, { sets.begin(), sets.end() });
 		}
 		/// Binds descriptor sets for compute.
 		void bind_compute_descriptor_sets(
-			const pipeline_resources &rsrc, usize first, std::span<const descriptor_set *const> sets
+			const pipeline_resources &rsrc, u32 first, std::span<const descriptor_set *const> sets
 		) {
 			backend::command_list::bind_compute_descriptor_sets(rsrc, first, sets);
 		}
 		/// \overload
 		void bind_compute_descriptor_sets(
-			const pipeline_resources &rsrc, usize first, std::initializer_list<const descriptor_set*> sets
+			const pipeline_resources &rsrc, u32 first, std::initializer_list<const descriptor_set*> sets
 		) {
 			bind_compute_descriptor_sets(rsrc, first, { sets.begin(), sets.end() });
 		}
@@ -163,12 +163,12 @@ namespace lotus::gpu {
 		}
 
 		/// Instanced draw operation.
-		void draw_instanced(usize first_vertex, usize vertex_count, usize first_instance, usize instance_count) {
+		void draw_instanced(u32 first_vertex, u32 vertex_count, u32 first_instance, u32 instance_count) {
 			backend::command_list::draw_instanced(first_vertex, vertex_count, first_instance, instance_count);
 		}
 		/// Indexed instanced draw operation.
 		void draw_indexed_instanced(
-			usize first_index, usize index_count, usize first_vertex, usize first_instance, usize instance_count
+			u32 first_index, u32 index_count, i32 first_vertex, u32 first_instance, u32 instance_count
 		) {
 			backend::command_list::draw_indexed_instanced(
 				first_index, index_count, first_vertex, first_instance, instance_count
@@ -255,13 +255,13 @@ namespace lotus::gpu {
 		}
 		/// Binds descriptor sets for ray tracing.
 		void bind_ray_tracing_descriptor_sets(
-			const pipeline_resources &rsrc, usize first, std::span<const descriptor_set *const> sets
+			const pipeline_resources &rsrc, u32 first, std::span<const descriptor_set *const> sets
 		) {
 			backend::command_list::bind_ray_tracing_descriptor_sets(rsrc, first, sets);
 		}
 		/// \overload
 		void bind_ray_tracing_descriptor_sets(
-			const pipeline_resources &rsrc, usize first, std::initializer_list<const descriptor_set*> sets
+			const pipeline_resources &rsrc, u32 first, std::initializer_list<const descriptor_set*> sets
 		) {
 			bind_ray_tracing_descriptor_sets(rsrc, first, { sets.begin(), sets.end() });
 		}

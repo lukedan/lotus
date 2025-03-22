@@ -319,7 +319,8 @@ void debug_render::flush(
 		pass.draw_instanced(
 			{
 				lotus::renderer::input_buffer_binding(0, line_vert_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements),
-			}, line_vertices.size(),
+			},
+			static_cast<u32>(line_vertices.size()),
 			lotus::renderer::index_buffer_binding(line_idx_buf, 0, lotus::gpu::index_format::uint32), line_indices.size(),
 			lotus::gpu::primitive_topology::line_list,
 			lotus::renderer::all_resource_bindings({}, {
@@ -335,7 +336,8 @@ void debug_render::flush(
 		pass.draw_instanced(
 			{
 				lotus::renderer::input_buffer_binding(0, point_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements),
-			}, point_vertices.size(),
+			},
+			static_cast<u32>(point_vertices.size()),
 			nullptr, 0,
 			lotus::gpu::primitive_topology::point_list,
 			lotus::renderer::all_resource_bindings({}, {

@@ -108,7 +108,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	descriptor_pool device::create_descriptor_pool(
-		std::span<const descriptor_range> capacity, usize max_num_sets
+		std::span<const descriptor_range> capacity, u32 max_num_sets
 	) {
 		descriptor_pool result = nullptr;
 
@@ -117,7 +117,7 @@ namespace lotus::gpu::backends::vulkan {
 		for (const auto &range : capacity) {
 			ranges.emplace_back()
 				.setType(_details::conversions::to_descriptor_type(range.type))
-				.setDescriptorCount(static_cast<u32>(range.count));
+				.setDescriptorCount(range.count);
 		}
 
 		vk::DescriptorPoolCreateInfo info;
@@ -126,7 +126,7 @@ namespace lotus::gpu::backends::vulkan {
 				vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet |
 				vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind
 			)
-			.setMaxSets(static_cast<u32>(max_num_sets))
+			.setMaxSets(max_num_sets)
 			.setPoolSizeCount(static_cast<u32>(capacity.size()))
 			.setPoolSizes(ranges);
 		// TODO allocator
@@ -151,13 +151,12 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	descriptor_set device::create_descriptor_set(
-		descriptor_pool &pool, const descriptor_set_layout &layout, usize dynamic_size
+		descriptor_pool &pool, const descriptor_set_layout &layout, u32 dynamic_size
 	) {
 		descriptor_set result = nullptr;
-		auto count = static_cast<u32>(dynamic_size);
 		vk::DescriptorSetVariableDescriptorCountAllocateInfo variable_count_info;
 		variable_count_info
-			.setDescriptorCounts(count);
+			.setDescriptorCounts(dynamic_size);
 		vk::DescriptorSetAllocateInfo info;
 		info
 			.setPNext(&variable_count_info)
@@ -175,21 +174,21 @@ namespace lotus::gpu::backends::vulkan {
 	/// Handles both when we're trying to write to a normal descriptor range and when we want to write to a variable
 	/// count descriptor range.
 	static void _set_write_descriptor_binding(
-		vk::WriteDescriptorSet &info, usize first_register, usize variable_index
+		vk::WriteDescriptorSet &info, u32 first_register, u32 variable_index
 	) {
 		if (first_register >= variable_index) {
 			info
-				.setDstBinding(static_cast<u32>(variable_index))
-				.setDstArrayElement(static_cast<u32>(first_register - variable_index));
+				.setDstBinding(variable_index)
+				.setDstArrayElement(first_register - variable_index);
 		} else {
 			info
-				.setDstBinding(static_cast<u32>(first_register));
+				.setDstBinding(first_register);
 		}
 	}
 
 	void device::write_descriptor_set_read_only_images(
 		descriptor_set &set, const descriptor_set_layout&,
-		usize first_register, std::span<const gpu::image_view_base *const> images
+		u32 first_register, std::span<const gpu::image_view_base *const> images
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto imgs = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
@@ -210,7 +209,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	void device::write_descriptor_set_read_write_images(
 		descriptor_set &set, const descriptor_set_layout&,
-		usize first_register, std::span<const image_view_base *const> images
+		u32 first_register, std::span<const image_view_base *const> images
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto imgs = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(images.size());
@@ -231,7 +230,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	void device::write_descriptor_set_read_only_structured_buffers(
 		descriptor_set &set, const descriptor_set_layout&,
-		usize first_register, std::span<const structured_buffer_view> buffers
+		u32 first_register, std::span<const structured_buffer_view> buffers
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
@@ -253,7 +252,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	void device::write_descriptor_set_read_write_structured_buffers(
 		descriptor_set &set, const descriptor_set_layout&,
-		usize first_register, std::span<const structured_buffer_view> buffers
+		u32 first_register, std::span<const structured_buffer_view> buffers
 	) {
 		// this is literally the same as read-only structured buffers
 		auto bookmark = get_scratch_bookmark();
@@ -276,7 +275,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	void device::write_descriptor_set_constant_buffers(
 		descriptor_set &set, const descriptor_set_layout&,
-		usize first_register, std::span<const constant_buffer_view> buffers
+		u32 first_register, std::span<const constant_buffer_view> buffers
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto bufs = bookmark.create_reserved_vector_array<vk::DescriptorBufferInfo>(buffers.size());
@@ -298,7 +297,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	void device::write_descriptor_set_samplers(
 		descriptor_set &set, const descriptor_set_layout&,
-		usize first_register, std::span<const gpu::sampler *const> samplers
+		u32 first_register, std::span<const gpu::sampler *const> samplers
 	) {
 		auto bookmark = get_scratch_bookmark();
 		auto smps = bookmark.create_reserved_vector_array<vk::DescriptorImageInfo>(samplers.size());
@@ -1209,7 +1208,7 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	void device::write_descriptor_set_acceleration_structures(
-		descriptor_set &set, const descriptor_set_layout&, usize first_register,
+		descriptor_set &set, const descriptor_set_layout&, u32 first_register,
 		std::span<gpu::top_level_acceleration_structure *const> acceleration_structures
 	) {
 		auto bookmark = get_scratch_bookmark();

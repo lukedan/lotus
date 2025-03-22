@@ -62,11 +62,11 @@ namespace lotus::gpu::backends::directx12 {
 		void bind_index_buffer(const buffer&, usize offset_bytes, index_format);
 		/// Calls \p ID3D12GraphicsCommandList::SetGraphicsRootDescriptorTable() for all given descriptor sets.
 		void bind_graphics_descriptor_sets(
-			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const>
 		);
 		/// Calls \p ID3D12GraphicsCommandList::SetComputeRootDescriptorTable() for all given descriptor sets.
 		void bind_compute_descriptor_sets(
-			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const>
 		);
 		/// Calls \p ID3D12GraphicsCommandList::RSSetViewports().
 		void set_viewports(std::span<const viewport>);
@@ -86,15 +86,10 @@ namespace lotus::gpu::backends::directx12 {
 		);
 
 		/// Calls \p ID3D12GraphicsCommandList::DrawInstanced().
-		void draw_instanced(
-			usize first_vertex, usize vertex_count,
-			usize first_instance, usize instance_count
-		);
+		void draw_instanced(u32 first_vertex, u32 vertex_count, u32 first_instance, u32 instance_count);
 		/// Calls \p ID3D12GraphicsCommandList::DrawIndexedInstanced().
 		void draw_indexed_instanced(
-			usize first_index, usize index_count,
-			usize first_vertex,
-			usize first_instance, usize instance_count
+			u32 first_index, u32 index_count, i32 first_vertex, u32 first_instance, u32 instance_count
 		);
 		/// Calls \p ID3D12GraphicsCommandList::Dispatch().
 		void run_compute_shader(u32 x, u32 y, u32 z);
@@ -137,7 +132,7 @@ namespace lotus::gpu::backends::directx12 {
 		void bind_pipeline_state(const raytracing_pipeline_state&);
 		/// This is the same as \ref bind_compute_descriptor_sets().
 		void bind_ray_tracing_descriptor_sets(
-			const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
+			const pipeline_resources &rsrc, u32 first, std::span<const gpu::descriptor_set *const> sets
 		) {
 			bind_compute_descriptor_sets(rsrc, first, sets);
 		}

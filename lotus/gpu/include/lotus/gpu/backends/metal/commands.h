@@ -65,11 +65,11 @@ namespace lotus::gpu::backends::metal {
 		void bind_index_buffer(const buffer&, usize offset_bytes, index_format);
 		/// Binds descriptor sets to \ref _pass_encoder.
 		void bind_graphics_descriptor_sets(
-			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const>
 		);
 		/// Records the given descriptor sets to be bound during dispatches.
 		void bind_compute_descriptor_sets(
-			const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>
+			const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const>
 		);
 
 		void set_viewports(std::span<const viewport>); // TODO
@@ -92,19 +92,10 @@ namespace lotus::gpu::backends::metal {
 		);
 
 		/// Calls \p MTL::RenderCommandEncoder::drawPrimitives().
-		void draw_instanced(
-			usize first_vertex,
-			usize vertex_count,
-			usize first_instance,
-			usize instance_count
-		);
+		void draw_instanced(u32 first_vertex, u32 vertex_count, u32 first_instance, u32 instance_count);
 		/// Calls \p MTL::RenderCommandEncoder::drawIndexedPrimitives().
 		void draw_indexed_instanced(
-			usize first_index,
-			usize index_count,
-			usize first_vertex,
-			usize first_instance,
-			usize instance_count
+			u32 first_index, u32 index_count, i32 first_vertex, u32 first_instance, u32 instance_count
 		);
 		/// Creates a new \p MTL::ComputeCommandEncoder, binds resources, and calls \p dispatchThreadgroups().
 		void run_compute_shader(u32 x, u32 y, u32 z);
@@ -145,7 +136,7 @@ namespace lotus::gpu::backends::metal {
 		);
 
 		void bind_pipeline_state(const raytracing_pipeline_state&); // TODO
-		void bind_ray_tracing_descriptor_sets(const pipeline_resources&, usize first, std::span<const gpu::descriptor_set *const>); // TODO
+		void bind_ray_tracing_descriptor_sets(const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const>); // TODO
 		void trace_rays(constant_buffer_view ray_generation, shader_record_view miss_shaders, shader_record_view hit_groups, usize width, usize height, usize depth); // TODO
 
 

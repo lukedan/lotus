@@ -315,7 +315,7 @@ namespace lotus::gpu::backends::directx12 {
 		return result;
 	}
 
-	descriptor_pool device::create_descriptor_pool(std::span<const descriptor_range> /*ranges*/, usize) {
+	descriptor_pool device::create_descriptor_pool(std::span<const descriptor_range> /*ranges*/, u32) {
 		descriptor_pool result = nullptr;
 		// TODO set max values
 		return result;
@@ -350,7 +350,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	descriptor_set device::create_descriptor_set(
-		descriptor_pool&, const descriptor_set_layout &layout, usize dynamic_count
+		descriptor_pool&, const descriptor_set_layout &layout, u32 dynamic_count
 	) {
 		// check that we do have unbounded ranges
 		if constexpr (is_debugging) {
@@ -369,16 +369,14 @@ namespace lotus::gpu::backends::directx12 {
 
 		// allocate descriptors
 		// shader resources
-		const auto srv_count = static_cast<_details::descriptor_range::index_t>(
-			layout._num_shader_resource_descriptors + (layout._unbounded_range_is_sampler ? 0 : dynamic_count)
-		);
+		const u32 srv_count =
+			layout._num_shader_resource_descriptors + (layout._unbounded_range_is_sampler ? 0 : dynamic_count);
 		if (srv_count > 0) {
 			result._shader_resource_descriptors = _srv_descriptors.allocate(srv_count);
 		}
 		// samplers
-		const auto sampler_count = static_cast<_details::descriptor_range::index_t>(
-			layout._num_sampler_descriptors + (layout._unbounded_range_is_sampler ? dynamic_count : 0)
-		);
+		const u32 sampler_count =
+			layout._num_sampler_descriptors + (layout._unbounded_range_is_sampler ? dynamic_count : 0);
 		if (sampler_count > 0) {
 			result._sampler_descriptors = _sampler_descriptors.allocate(sampler_count);
 		}
@@ -390,7 +388,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_read_only_images(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		usize first_register, std::span<const image_view_base *const> images
+		u32 first_register, std::span<const image_view_base *const> images
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, images.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -423,7 +421,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_read_write_images(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		usize first_register, std::span<const image_view_base *const> images
+		u32 first_register, std::span<const image_view_base *const> images
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, first_register, images.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -453,7 +451,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_read_only_structured_buffers(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		usize first_register, std::span<const structured_buffer_view> buffers
+		u32 first_register, std::span<const structured_buffer_view> buffers
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, buffers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -482,7 +480,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_read_write_structured_buffers(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		usize first_register, std::span<const structured_buffer_view> buffers
+		u32 first_register, std::span<const structured_buffer_view> buffers
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, first_register, buffers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -511,7 +509,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_constant_buffers(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		usize first_register, std::span<const constant_buffer_view> buffers
+		u32 first_register, std::span<const constant_buffer_view> buffers
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, first_register, buffers.size());
 		UINT increment = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -536,7 +534,7 @@ namespace lotus::gpu::backends::directx12 {
 
 	void device::write_descriptor_set_samplers(
 		descriptor_set &set, const descriptor_set_layout &layout,
-		usize first_register, std::span<const gpu::sampler *const> samplers
+		u32 first_register, std::span<const gpu::sampler *const> samplers
 	) {
 		auto range_it = layout._find_register_range(
 			D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, first_register, samplers.size()
@@ -1058,7 +1056,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void device::write_descriptor_set_acceleration_structures(
-		descriptor_set &set, const descriptor_set_layout &layout, usize first_register,
+		descriptor_set &set, const descriptor_set_layout &layout, u32 first_register,
 		std::span<gpu::top_level_acceleration_structure *const> as
 	) {
 		auto range_it = layout._find_register_range(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, first_register, as.size());

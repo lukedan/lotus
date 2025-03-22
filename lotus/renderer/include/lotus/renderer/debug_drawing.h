@@ -234,7 +234,7 @@ namespace lotus::renderer {
 			auto pass = _q.begin_pass({ target }, depth_stencil, size, description);
 			pass.draw_instanced(
 				{ std::move(input_bindings) },
-				vertices.size(), nullptr, 0, topology,
+				static_cast<u32>(vertices.size()), nullptr, 0, topology,
 				std::move(resource_bindings), std::move(vs), std::move(ps), std::move(pipeline_state), 1,
 				description
 			);

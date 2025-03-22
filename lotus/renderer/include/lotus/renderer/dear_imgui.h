@@ -144,12 +144,19 @@ namespace lotus::renderer::dear_imgui {
 									{ u8"COLOR",    0, gpu::format::r32g32b32a32_float, offsetof(vertex, color)    },
 								}, 0)
 							)
-						}, vertices.size(),
+						},
+						static_cast<u32>(vertices.size()),
 						index_buffer_binding(
 							idx_buffer, cmd.IdxOffset * sizeof(index), gpu::index_format::uint32
-						), cmd.ElemCount,
-						gpu::primitive_topology::triangle_list, std::move(resources),
-						_vertex_shader, _pixel_shader, pipeline, 1, u8"Dear ImGui Draw Call"
+						),
+						cmd.ElemCount,
+						gpu::primitive_topology::triangle_list,
+						std::move(resources),
+						_vertex_shader,
+						_pixel_shader,
+						pipeline,
+						1,
+						u8"Dear ImGui Draw Call"
 					);
 				}
 				pass.end();

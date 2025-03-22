@@ -42,7 +42,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Calls \p vk::UniqueDevice::createDescriptorPoolUnique().
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
-			std::span<const descriptor_range> capacity, usize max_num_sets
+			std::span<const descriptor_range> capacity, u32 max_num_sets
 		);
 		/// Calls \p vk::UniqueDevice::allocateDescriptorSetsUnique().
 		[[nodiscard]] descriptor_set create_descriptor_set(
@@ -50,38 +50,38 @@ namespace lotus::gpu::backends::vulkan {
 		);
 		/// Calls \p vk::UniqueDevice::allocateDescriptorSetsUnique().
 		[[nodiscard]] descriptor_set create_descriptor_set(
-			descriptor_pool&, const descriptor_set_layout&, usize dynamic_size
+			descriptor_pool&, const descriptor_set_layout&, u32 dynamic_size
 		);
 
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_only_images(
 			descriptor_set&, const descriptor_set_layout&,
-			usize first_register, std::span<const image_view_base *const>
+			u32 first_register, std::span<const image_view_base *const>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_write_images(
 			descriptor_set&, const descriptor_set_layout&,
-			usize first_register, std::span<const image_view_base *const>
+			u32 first_register, std::span<const image_view_base *const>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_only_structured_buffers(
 			descriptor_set&, const descriptor_set_layout&,
-			usize first_register, std::span<const structured_buffer_view>
+			u32 first_register, std::span<const structured_buffer_view>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_read_write_structured_buffers(
 			descriptor_set&, const descriptor_set_layout&,
-			usize first_register, std::span<const structured_buffer_view>
+			u32 first_register, std::span<const structured_buffer_view>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_constant_buffers(
 			descriptor_set&, const descriptor_set_layout&,
-			usize first_register, std::span<const constant_buffer_view>
+			u32 first_register, std::span<const constant_buffer_view>
 		);
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_samplers(
 			descriptor_set &set, const descriptor_set_layout &layout,
-			usize first_register, std::span<const gpu::sampler *const> samplers
+			u32 first_register, std::span<const gpu::sampler *const> samplers
 		);
 
 		/// Calls \p vk::UniqueDevice::createShaderModuleUnique().
@@ -258,7 +258,7 @@ namespace lotus::gpu::backends::vulkan {
 
 		/// Calls \p vk::UniqueDevice::updateDescriptorSets().
 		void write_descriptor_set_acceleration_structures(
-			descriptor_set&, const descriptor_set_layout&, usize first_register,
+			descriptor_set&, const descriptor_set_layout&, u32 first_register,
 			std::span<gpu::top_level_acceleration_structure *const> acceleration_structures
 		);
 

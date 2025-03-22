@@ -195,7 +195,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void command_list::bind_graphics_descriptor_sets(
-		const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources &rsrc, u32 first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		for (usize i = 0; i < sets.size(); ++i) {
 			usize set_index = first + i;
@@ -223,7 +223,7 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 	void command_list::bind_compute_descriptor_sets(
-		const pipeline_resources &rsrc, usize first, std::span<const gpu::descriptor_set *const> sets
+		const pipeline_resources &rsrc, u32 first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		for (usize i = 0; i < sets.size(); ++i) {
 			usize set_index = first + i;
@@ -334,25 +334,14 @@ namespace lotus::gpu::backends::directx12 {
 		);
 	}
 
-	void command_list::draw_instanced(
-		usize first_vertex, usize vertex_count,
-		usize first_instance, usize instance_count
-	) {
-		_list->DrawInstanced(
-			static_cast<UINT>(vertex_count), static_cast<UINT>(instance_count),
-			static_cast<UINT>(first_vertex), static_cast<UINT>(first_instance)
-		);
+	void command_list::draw_instanced(u32 first_vertex, u32 vertex_count, u32 first_instance, u32 instance_count) {
+		_list->DrawInstanced(vertex_count, instance_count, first_vertex, first_instance);
 	}
 
 	void command_list::draw_indexed_instanced(
-		usize first_index, usize index_count,
-		usize first_vertex,
-		usize first_instance, usize instance_count
+		u32 first_index, u32 index_count, i32 first_vertex, u32 first_instance, u32 instance_count
 	) {
-		_list->DrawIndexedInstanced(
-			static_cast<UINT>(index_count), static_cast<UINT>(instance_count),
-			static_cast<UINT>(first_index), static_cast<UINT>(first_vertex), static_cast<UINT>(first_instance)
-		);
+		_list->DrawIndexedInstanced(index_count, instance_count, first_index, first_vertex, first_instance);
 	}
 
 	void command_list::run_compute_shader(u32 x, u32 y, u32 z) {

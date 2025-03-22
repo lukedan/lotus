@@ -76,43 +76,45 @@ namespace lotus::gpu::backends::directx12 {
 			usize num_viewports
 		);
 		/// Calls \p ID3D12Device::CreateComputePipelineState().
-		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(const pipeline_resources&, const shader_binary&);
+		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(
+			const pipeline_resources&, const shader_binary&
+		);
 
 		/// Calls \p ID3D12Device::CreateDescriptorHeap().
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
-			std::span<const descriptor_range>, usize max_num_sets
+			std::span<const descriptor_range> capacity, u32 max_num_sets
 		);
 		/// Allocates descriptors from the given descriptor pool.
 		[[nodiscard]] descriptor_set create_descriptor_set(descriptor_pool&, const descriptor_set_layout&);
 		/// Allocates descriptors from the given descriptor pool, for a descriptor set where one descriptor range has
 		/// a dynamically determined (unbounded) size.
 		[[nodiscard]] descriptor_set create_descriptor_set(
-			descriptor_pool&, const descriptor_set_layout&, usize dynamic_count
+			descriptor_pool&, const descriptor_set_layout&, u32 dynamic_count
 		);
 
 		/// Calls \p ID3D12Device::CreateShaderResourceView().
 		void write_descriptor_set_read_only_images(
-			descriptor_set&, const descriptor_set_layout&, usize, std::span<const image_view_base *const>
+			descriptor_set&, const descriptor_set_layout&, u32, std::span<const image_view_base *const>
 		);
 		/// Calls \p ID3D12Device::CreateUnorderedAccessView().
 		void write_descriptor_set_read_write_images(
-			descriptor_set&, const descriptor_set_layout&, usize, std::span<const image_view_base *const>
+			descriptor_set&, const descriptor_set_layout&, u32, std::span<const image_view_base *const>
 		);
 		/// Calls \p ID3D12Device::CreateShaderResourceView().
 		void write_descriptor_set_read_only_structured_buffers(
-			descriptor_set&, const descriptor_set_layout&, usize, std::span<const structured_buffer_view>
+			descriptor_set&, const descriptor_set_layout&, u32, std::span<const structured_buffer_view>
 		);
 		/// Calls \p ID3D12Device::CreateUnorderedAccessView().
 		void write_descriptor_set_read_write_structured_buffers(
-			descriptor_set&, const descriptor_set_layout&, usize, std::span<const structured_buffer_view>
+			descriptor_set&, const descriptor_set_layout&, u32, std::span<const structured_buffer_view>
 		);
 		/// Calls \p ID3D12Device::CreateConstantBufferView().
 		void write_descriptor_set_constant_buffers(
-			descriptor_set&, const descriptor_set_layout&, usize, std::span<const constant_buffer_view>
+			descriptor_set&, const descriptor_set_layout&, u32, std::span<const constant_buffer_view>
 		);
 		/// Calls \p ID3D12Device::CreateSampler().
 		void write_descriptor_set_samplers(
-			descriptor_set&, const descriptor_set_layout&, usize, std::span<const gpu::sampler *const>
+			descriptor_set&, const descriptor_set_layout&, u32, std::span<const gpu::sampler *const>
 		);
 
 		/// Fills out a \ref shader_binary object.
@@ -264,7 +266,7 @@ namespace lotus::gpu::backends::directx12 {
 
 		/// Calls \p ID3D12Device::CreateShaderResourceView().
 		void write_descriptor_set_acceleration_structures(
-			descriptor_set&, const descriptor_set_layout&, usize,
+			descriptor_set&, const descriptor_set_layout&, u32,
 			std::span<gpu::top_level_acceleration_structure *const>
 		);
 

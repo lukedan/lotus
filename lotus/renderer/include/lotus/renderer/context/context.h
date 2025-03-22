@@ -608,7 +608,9 @@ namespace lotus::renderer {
 				arr.layout = &_cache.get_descriptor_set_layout(
 					execution::cache_keys::descriptor_set_layout::for_descriptor_array(arr.type)
 				);
-				arr.set = _device.create_descriptor_set(_descriptor_pool, *arr.layout, arr.slots.size());
+				arr.set = _device.create_descriptor_set(
+					_descriptor_pool, *arr.layout, static_cast<u32>(arr.slots.size())
+				);
 			}
 		}
 		/// Initializes the given \ref _details::cached_descriptor_set if necessary.

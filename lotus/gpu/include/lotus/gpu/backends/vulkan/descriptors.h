@@ -39,7 +39,7 @@ namespace lotus::gpu::backends::vulkan {
 	private:
 		vk::UniqueDescriptorSetLayout _layout; ///< The descriptor set layout.
 		/// Index of the binding that has a varialbe number of descriptors.
-		usize _variable_binding_index = std::numeric_limits<usize>::max();
+		u32 _variable_binding_index = std::numeric_limits<u32>::max();
 	};
 
 	/// Contains a \p vk::UniqueDescriptorSet.
@@ -58,6 +58,6 @@ namespace lotus::gpu::backends::vulkan {
 	private:
 		vk::UniqueDescriptorSet _set; ///< The descriptor set.
 		/// Index of the binding that has a varialbe number of descriptors.
-		usize _variable_binding_index = std::numeric_limits<usize>::max();
+		u32 _variable_binding_index = std::numeric_limits<u32>::max();
 	};
 }

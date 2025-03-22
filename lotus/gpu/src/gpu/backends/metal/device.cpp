@@ -41,7 +41,7 @@ namespace lotus::gpu::backends::metal {
 		MTL::ResourceHazardTrackingModeUntracked;
 
 	descriptor_pool device::create_descriptor_pool(
-		std::span<const descriptor_range> capacity, usize // max_num_sets is not important
+		std::span<const descriptor_range> capacity, u32 // max_num_sets is not important
 	) {
 		usize total_resources = 0;
 		for (const descriptor_range &range : capacity) {
@@ -68,7 +68,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	descriptor_set device::create_descriptor_set(
-		descriptor_pool &pool, const descriptor_set_layout &layout, usize dynamic_size
+		descriptor_pool &pool, const descriptor_set_layout &layout, u32 dynamic_size
 	) {
 		u32 max_slot_index = 0;
 		for (const descriptor_range_binding &range : layout._bindings) {
@@ -88,7 +88,7 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_read_only_images(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		usize first_register,
+		u32 first_register,
 		std::span<const image_view_base *const> images
 	) {
 		// TODO validate that we're writing to a range of the correct type
@@ -102,7 +102,7 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_read_write_images(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		usize first_register,
+		u32 first_register,
 		std::span<const image_view_base *const> images
 	) {
 		// Metal does not distinguish between read-only and read-write bindings
@@ -112,7 +112,7 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_read_only_structured_buffers(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		usize first_regsiter,
+		u32 first_regsiter,
 		std::span<const structured_buffer_view> buffers
 	) {
 		// TODO validate that we're writing to a range of the correct type
@@ -131,7 +131,7 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_read_write_structured_buffers(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		usize first_regsiter,
+		u32 first_regsiter,
 		std::span<const structured_buffer_view> buffers
 	) {
 		// Metal does not distinguish between read-only and read-write bindings
@@ -141,7 +141,7 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_constant_buffers(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		usize first_register,
+		u32 first_register,
 		std::span<const constant_buffer_view> buffers
 	) {
 		// TODO validate that we're writing to a range of the correct type
@@ -155,7 +155,7 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_samplers(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		usize first_register,
+		u32 first_register,
 		std::span<const gpu::sampler *const> samplers
 	) {
 		// TODO validate that we're writing to a range of the correct type
@@ -225,7 +225,7 @@ namespace lotus::gpu::backends::metal {
 			{ // create root signature for all combined shaders
 				std::vector<D3D12_SHADER_INPUT_BIND_DESC> all_bindings;
 				for (UINT func_i = 0; func_i < lib_desc.FunctionCount; ++func_i) {
-					ID3D12FunctionReflection *refl_func = refl_lib->GetFunctionByIndex(func_i);
+					ID3D12FunctionReflection *refl_func = refl_lib->GetFunctionByIndex(static_cast<INT>(func_i));
 					D3D12_FUNCTION_DESC func_desc = {};
 					common::_details::assert_dx(refl_func->GetDesc(&func_desc));
 					for (UINT binding_i = 0; binding_i < func_desc.BoundResources; ++binding_i) {
@@ -247,7 +247,7 @@ namespace lotus::gpu::backends::metal {
 								lhs.Space < rhs.Space;
 						}
 					);
-					auto num_final_bindings = 1;
+					usize num_final_bindings = 1;
 					for (usize i = 1; i < all_bindings.size(); ++i) {
 						D3D12_SHADER_INPUT_BIND_DESC &prev_binding = all_bindings[num_final_bindings - 1];
 						const D3D12_SHADER_INPUT_BIND_DESC &cur_binding = all_bindings[i];
@@ -292,7 +292,7 @@ namespace lotus::gpu::backends::metal {
 					auto add_root_table = [&](usize start, usize past_end) {
 						const u32 space = all_ranges[start].RegisterSpace;
 						root_params[space].DescriptorTable.pDescriptorRanges   = &all_ranges[start];
-						root_params[space].DescriptorTable.NumDescriptorRanges = past_end - start;
+						root_params[space].DescriptorTable.NumDescriptorRanges = static_cast<u32>(past_end - start);
 					};
 					usize start_of_space = 0;
 					for (usize i = 0; i < all_bindings.size(); ++i) {
@@ -543,7 +543,7 @@ namespace lotus::gpu::backends::metal {
 		return memory_block({ std::move(heap), _residency_set.get() });
 	}
 
-	buffer device::create_committed_buffer(usize size, memory_type_index type, buffer_usage_mask usages) {
+	buffer device::create_committed_buffer(usize size, memory_type_index type, buffer_usage_mask) {
 		auto buf = NS::TransferPtr(_dev->newBuffer(size, _details::conversions::to_resource_options(type)));
 		return buffer({ std::move(buf), _residency_set.get() });
 	}
@@ -645,7 +645,7 @@ namespace lotus::gpu::backends::metal {
 		return _details::conversions::back_to_size_alignment(_dev->heapBufferSizeAndAlign(size, 0));
 	}
 
-	buffer device::create_placed_buffer(usize size, buffer_usage_mask usages, const memory_block &mem, usize offset) {
+	buffer device::create_placed_buffer(usize size, buffer_usage_mask, const memory_block &mem, usize offset) {
 		auto ptr = NS::TransferPtr(mem._heap->newBuffer(size, mem._heap->resourceOptions(), offset));
 		return buffer({ std::move(ptr), nullptr });
 	}
@@ -928,7 +928,7 @@ namespace lotus::gpu::backends::metal {
 	void device::write_descriptor_set_acceleration_structures(
 		descriptor_set &set,
 		const descriptor_set_layout &layout,
-		usize first_register,
+		u32 first_register,
 		std::span<gpu::top_level_acceleration_structure *const> as
 	) {
 		// TODO validate that we're writing to a range of the correct type

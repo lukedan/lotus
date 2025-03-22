@@ -40,27 +40,27 @@ namespace lotus::gpu::backends::metal {
 
 		/// Creates a new \p MTL::Heap that is used to allocate descriptor sets out of.
 		[[nodiscard]] descriptor_pool create_descriptor_pool(
-			std::span<const descriptor_range> capacity, usize max_num_sets
+			std::span<const descriptor_range> capacity, u32 max_num_sets
 		);
 		/// Creates a new \p MTL::Buffer allocated out of the given \p MTL::Heap to be used as an argument buffer.
 		[[nodiscard]] descriptor_set create_descriptor_set(descriptor_pool&, const descriptor_set_layout&);
 		/// Creates an argument buffer for the given bindless descriptor layout.
 		[[nodiscard]] descriptor_set create_descriptor_set(
-			descriptor_pool&, const descriptor_set_layout&, usize dynamic_size
+			descriptor_pool&, const descriptor_set_layout&, u32 dynamic_size
 		);
 
 		/// Writes the given images into the descriptor table.
 		void write_descriptor_set_read_only_images(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			usize first_register,
+			u32 first_register,
 			std::span<const image_view_base *const>
 		);
 		/// Writes the given images into the descriptor table.
 		void write_descriptor_set_read_write_images(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			usize first_register,
+			u32 first_register,
 			std::span<const image_view_base *const>
 		);
 
@@ -68,14 +68,14 @@ namespace lotus::gpu::backends::metal {
 		void write_descriptor_set_read_only_structured_buffers(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			usize first_register,
+			u32 first_register,
 			std::span<const structured_buffer_view>
 		);
 		/// Writes the given buffers into the descriptor table.
 		void write_descriptor_set_read_write_structured_buffers(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			usize first_register,
+			u32 first_register,
 			std::span<const structured_buffer_view>
 		);
 
@@ -83,14 +83,14 @@ namespace lotus::gpu::backends::metal {
 		void write_descriptor_set_constant_buffers(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			usize first_register,
+			u32 first_register,
 			std::span<const constant_buffer_view>
 		);
 		/// Writes the given sampler into the descriptor table.
 		void write_descriptor_set_samplers(
 			descriptor_set&,
 			const descriptor_set_layout&,
-			usize first_register,
+			u32 first_register,
 			std::span<const gpu::sampler *const>
 		);
 
@@ -266,7 +266,7 @@ namespace lotus::gpu::backends::metal {
 
 		/// Writes the given acceleration structure into the given descriptor table.
 		void write_descriptor_set_acceleration_structures(
-			descriptor_set&, const descriptor_set_layout&, usize first_register,
+			descriptor_set&, const descriptor_set_layout&, u32 first_register,
 			std::span<gpu::top_level_acceleration_structure *const>
 		);
 

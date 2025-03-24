@@ -18,8 +18,8 @@ namespace lotus::renderer::g_buffer {
 		constexpr static gpu::format metalness_format         = gpu::format::r8_unorm;
 		/// Format of \ref velocity.
 		constexpr static gpu::format velocity_format          = gpu::format::r16g16_float;
-		/// Format of \ref depth_stencil.
-		constexpr static gpu::format depth_stencil_format     = gpu::format::d24_unorm_s8;
+		/// Format of \ref depth_stencil. MacBook Pro M4 does not support d24s8.
+		constexpr static gpu::format depth_stencil_format     = gpu::format::d32_float_s8;
 
 		/// Initializes this storage to empty.
 		view(std::nullptr_t) :

@@ -17,11 +17,11 @@ public:
 
 		auto &rctx = _assets.get_context();
 
-		vertex_buffers = rctx.request_buffer_descriptor_array(u8"Vertex buffers", lgpu::descriptor_type::read_only_buffer, 16384);
-		normal_buffers = rctx.request_buffer_descriptor_array(u8"Normal buffers", lgpu::descriptor_type::read_only_buffer, 16384);
-		tangent_buffers = rctx.request_buffer_descriptor_array(u8"Tangent buffers", lgpu::descriptor_type::read_only_buffer, 16384);
-		uv_buffers = rctx.request_buffer_descriptor_array(u8"UV buffers", lgpu::descriptor_type::read_only_buffer, 16384);
-		index_buffers = rctx.request_buffer_descriptor_array(u8"Index buffers", lgpu::descriptor_type::read_only_buffer, 16384);
+		vertex_buffers = rctx.request_buffer_descriptor_array(u8"Vertex buffers", lgpu::descriptor_type::read_only_buffer, 4096);
+		normal_buffers = rctx.request_buffer_descriptor_array(u8"Normal buffers", lgpu::descriptor_type::read_only_buffer, 4096);
+		tangent_buffers = rctx.request_buffer_descriptor_array(u8"Tangent buffers", lgpu::descriptor_type::read_only_buffer, 4096);
+		uv_buffers = rctx.request_buffer_descriptor_array(u8"UV buffers", lgpu::descriptor_type::read_only_buffer, 4096);
+		index_buffers = rctx.request_buffer_descriptor_array(u8"Index buffers", lgpu::descriptor_type::read_only_buffer, 4096);
 
 		geom_buffer_pool = rctx.request_pool(u8"Geometry Buffers", lgpu::memory_type_index::invalid, 1024 * 1024 * 1024);
 		geom_texture_pool = rctx.request_pool(u8"Geometry Textures", lgpu::memory_type_index::invalid, 1024 * 1024 * 1024);

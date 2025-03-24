@@ -605,12 +605,12 @@ namespace lotus::renderer {
 	) :
 		_context(ctx), _device(dev),
 		_descriptor_pool(_device.create_descriptor_pool({
-			gpu::descriptor_range::create(gpu::descriptor_type::acceleration_structure, 10240),
-			gpu::descriptor_range::create(gpu::descriptor_type::constant_buffer, 10240),
-			gpu::descriptor_range::create(gpu::descriptor_type::read_only_buffer, 10240),
-			gpu::descriptor_range::create(gpu::descriptor_type::read_only_image, 10240),
-			gpu::descriptor_range::create(gpu::descriptor_type::read_write_buffer, 10240),
-			gpu::descriptor_range::create(gpu::descriptor_type::read_write_image, 10240),
+			gpu::descriptor_range::create(gpu::descriptor_type::acceleration_structure, 20480),
+			gpu::descriptor_range::create(gpu::descriptor_type::constant_buffer, 20480),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_only_buffer, 20480),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_only_image, 20480),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_write_buffer, 20480),
+			gpu::descriptor_range::create(gpu::descriptor_type::read_write_image, 20480),
 			gpu::descriptor_range::create(gpu::descriptor_type::sampler, 1024),
 		}, 10240)), // TODO proper numbers
 		_adapter_properties(adap_prop),

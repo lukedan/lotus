@@ -157,6 +157,11 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 	[self handle_mouse_move_event: e];
 }
 
+- (void)otherMouseDragged: (NSEvent*)e {
+	// TODO check mouse button number
+	[self handle_mouse_move_event: e];
+}
+
 - (void)mouseDown: (NSEvent*)e {
 	[self handle_mouse_down_event: e button: lotus::system::mouse_button::primary];
 }
@@ -173,10 +178,32 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 	[self handle_mouse_up_event: e button: lotus::system::mouse_button::secondary];
 }
 
+- (void)otherMouseDown: (NSEvent*)e {
+	// TODO check mouse button number
+	[self handle_mouse_down_event: e button: lotus::system::mouse_button::middle];
+}
+
+- (void)otherMouseUp: (NSEvent*)e {
+	// TODO check mouse button number
+	[self handle_mouse_up_event: e button: lotus::system::mouse_button::middle];
+}
+
 - (void)mouseExited: (NSEvent*)e {
 	const _window_ptr_t wnd = [self get_window_ptr];
 	if (wnd->on_mouse_leave) {
 		wnd->on_mouse_leave();
+	}
+}
+
+- (void)scrollWheel: (NSEvent*)e {
+	const _window_ptr_t wnd = [self get_window_ptr];
+	if (wnd->on_mouse_scroll) {
+		lotus::system::window_events::mouse::scroll event(
+			[self convert_mouse_position: e.locationInWindow],
+			lotus::cvec2d(e.scrollingDeltaX, e.scrollingDeltaY).into<float>(),
+			[self convert_modifier_keys: e.modifierFlags]
+		);
+		wnd->on_mouse_scroll(event);
 	}
 }
 

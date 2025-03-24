@@ -42,7 +42,7 @@ struct ray_payload {
 	float3 light;
 	uint bounces;
 #ifdef RT_USE_PCG32
-	pcg32::state rand;
+	pcg32 rand;
 #endif
 };
 
@@ -218,8 +218,8 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 
 #ifdef RT_SKYVIS_DEBUG
 #ifdef RT_USE_PCG32
-	float xi1 = pcg32::random_01(payload.rand);
-	float xi2 = pcg32::random_01(payload.rand) * 2.0f * pi;
+	float xi1 = payload.rand.next_01();
+	float xi2 = payload.rand.next_01() * 2.0f * pi;
 #else
 	float xi1 = rd(payload.bounces * 2 + 2, globals.frame_index);
 	float xi2 = rd(payload.bounces * 2 + 3, globals.frame_index) * 2.0f * pi;
@@ -302,8 +302,8 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 	if (payload.bounces == 1) {
 		{ // evaluate diffuse lobe
 #ifdef RT_USE_PCG32
-			float xi1 = pcg32::random_01(payload.rand);
-			float xi2 = pcg32::random_01(payload.rand);
+			float xi1 = payload.rand.next_01();
+			float xi2 = payload.rand.next_01();
 #else
 			float xi1 = rd(3, globals.frame_index);
 			float xi2 = rd(4, globals.frame_index);
@@ -325,8 +325,8 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 
 		{ // evaluate specular lobe
 #ifdef RT_USE_PCG32
-			float xi1 = pcg32::random_01(payload.rand);
-			float xi2 = pcg32::random_01(payload.rand);
+			float xi1 = payload.rand.next_01();
+			float xi2 = payload.rand.next_01();
 #else
 			float xi1 = rd(5, globals.frame_index);
 			float xi2 = rd(6, globals.frame_index);
@@ -385,8 +385,8 @@ void handle_closest_hit(inout ray_payload payload, float2 barycentrics, hit_tria
 		}
 	} else {
 #ifdef RT_USE_PCG32
-		float xi1 = pcg32::random_01(payload.rand);
-		float xi2 = pcg32::random_01(payload.rand);
+		float xi1 = payload.rand.next_01();
+		float xi2 = payload.rand.next_01();
 #else
 		float xi1 = rd(payload.bounces * 2 + 3, globals.frame_index);
 		float xi2 = rd(payload.bounces * 2 + 4, globals.frame_index);

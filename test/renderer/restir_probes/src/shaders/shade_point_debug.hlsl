@@ -95,7 +95,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		return;
 	}
 
-	pcg32::state rng = pcg32::seed(dispatch_thread_id.y * 3001 + dispatch_thread_id.x * 5, constants.num_frames);
+	pcg32 rng = pcg32::seed(dispatch_thread_id.y * 3001 + dispatch_thread_id.x * 5, constants.num_frames);
 
 	if (constants.mode == 4) {
 		float3 total_light = (float3)0.0f;
@@ -108,8 +108,8 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		{ // primary ray
 			direction = normalize((
 				constants.top_left +
-				(dispatch_thread_id.x + pcg32::random_01(rng)) * constants.x +
-				(dispatch_thread_id.y + pcg32::random_01(rng)) * constants.y
+				(dispatch_thread_id.x + rng.next_01()) * constants.x +
+				(dispatch_thread_id.y + rng.next_01()) * constants.y
 			).xyz);
 
 			if (!cast_ray(constants.camera.xyz, direction, fragment)) {
@@ -119,7 +119,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 
 		for (uint i = 0; i < 20 && !terminated; ++i) {
 			// random light sample
-			uint light_index = random_below_fast(constants.num_lights, rng);
+			uint light_index = rng.next_below_fast(constants.num_lights);
 			light cur_li = all_lights[light_index];
 			lights::derived_data li_data = lights::compute_derived_data(cur_li, fragment.position_ws);
 			if (test_visibility(fragment.position_ws, -li_data.direction, li_data.distance)) {
@@ -132,13 +132,13 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 			float3 new_dir;
 			float pdf;
 			float alpha = squared(1.0f - fragment.glossiness);
-			if (pcg32::random(rng) & 1) {
-				new_dir = normalize(fragment.normal_ws + distribution::unit_square_to_unit_sphere(float2(pcg32::random_01(rng), pcg32::random_01(rng))));
+			if (rng.next() & 1) {
+				new_dir = normalize(fragment.normal_ws + distribution::unit_square_to_unit_sphere(float2(rng.next_01(), rng.next_01())));
 			} else {
-				tangent_frame::tbn ts = tangent_frame::any(fragment.normal_ws);
-				float2 smp = trowbridge_reitz::importance_sample_d(pcg32::random_01(rng), alpha);
+				tangent_frame ts = tangent_frame::any(fragment.normal_ws);
+				float2 smp = trowbridge_reitz::importance_sample_d(rng.next_01(), alpha);
 				float n_h = smp.x;
-				float theta = 2.0f * pi * pcg32::random_01(rng);
+				float theta = 2.0f * pi * rng.next_01();
 				float3 h = ts.normal * n_h + sqrt(1.0f - n_h * n_h) * (cos(theta) * ts.tangent + sin(theta) * ts.bitangent);
 				new_dir = reflect(direction, h);
 			}

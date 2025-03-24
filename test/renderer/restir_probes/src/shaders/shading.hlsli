@@ -142,14 +142,14 @@ void evaluate_reservoir_direct_lighting(
 	StructuredBuffer<direct_lighting_reservoir> direct_probes,
 	StructuredBuffer<light> all_lights,
 	probe_constants probe_consts,
-	inout pcg32::state rng,
+	inout pcg32 rng,
 	out float3 diffuse,
 	out float3 specular
 ) {
 	// probe information
 	float3 cell_f = probes::coord_from_position(frag.position_ws, probe_consts);
 	uint3 cell_index = (uint3)clamp((int3)cell_f, 0, (int3)probe_consts.grid_size - 2);
-	uint3 use_probe = probes::get_random_coord(frag.position_ws, frag.normal_ws, cell_index, probe_consts, pcg32::random_01(rng));
+	uint3 use_probe = probes::get_random_coord(frag.position_ws, frag.normal_ws, cell_index, probe_consts, rng.next_01());
 	uint use_probe_index = probes::coord_to_index(use_probe, probe_consts);
 	uint direct_reservoir_index = use_probe_index * probe_consts.direct_reservoirs_per_probe;
 
@@ -184,7 +184,7 @@ float3 shade_point(
 	Texture2D<float2> envmap_lut,
 	float2 envlut_uvscale, float2 envlut_uvbias,
 	probe_constants probe_consts,
-	inout pcg32::state rng
+	inout pcg32 rng
 ) {
 	// direct
 	float3 direct_diffuse;

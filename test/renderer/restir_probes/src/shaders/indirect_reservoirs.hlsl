@@ -51,7 +51,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 	uint reservoir_offset = probes::coord_to_index(dispatch_thread_id, probe_consts) * indirect_reservoirs_per_probe;
 	float3 probe_position = probes::coord_to_position(dispatch_thread_id, probe_consts);
 
-	pcg32::state rng = pcg32::seed(dispatch_thread_id.z * 70000 + dispatch_thread_id.y * 500 + dispatch_thread_id.x * 3, constants.frame_index);
+	pcg32 rng = pcg32::seed(dispatch_thread_id.z * 70000 + dispatch_thread_id.y * 500 + dispatch_thread_id.x * 3, constants.frame_index);
 
 	for (uint i = 0; i < indirect_reservoirs_per_probe; ++i) {
 		indirect_lighting_reservoir reservoir = (indirect_lighting_reservoir)0;
@@ -60,7 +60,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		}
 		reservoir.data.num_samples = min(reservoir.data.num_samples, constants.sample_count_cap);
 
-		float3 direction = distribution::unit_square_to_unit_sphere(float2(pcg32::random_01(rng), pcg32::random_01(rng)));
+		float3 direction = distribution::unit_square_to_unit_sphere(float2(rng.next_01(), rng.next_01()));
 		float3 irradiance = (float3)0.0f;
 		float distance = max_float_v;
 		{
@@ -105,7 +105,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		}
 
 		float probability = max(irradiance.r, max(irradiance.g, irradiance.b));
-		if (reservoirs::add_sample(reservoir.data, 0.25f / pi, probability, pcg32::random_01(rng))) {
+		if (reservoirs::add_sample(reservoir.data, 0.25f / pi, probability, rng.next_01())) {
 			reservoir.irradiance           = irradiance;
 			reservoir.distance             = distance;
 			reservoir.direction_octahedral = octahedral_mapping::from_direction(direction);

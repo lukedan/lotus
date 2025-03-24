@@ -11,29 +11,27 @@ static const int   min_int_v   = -0x80000000;
 static const uint  max_uint_v  =  0xFFFFFFFFu;
 static const float max_float_v = 3.4028234664e+38f;
 
-float squared(float x) {
+template <typename T> T squared(T x) {
 	return x * x;
 }
 
-namespace tangent_frame {
-	struct tbn {
-		float3 tangent;
-		float3 bitangent;
-		float3 normal;
-	};
+struct tangent_frame {
+	float3 tangent;
+	float3 bitangent;
+	float3 normal;
 
 	// https://graphics.pixar.com/library/OrthonormalB/paper.pdf
-	tbn any(float3 n) {
+	static tangent_frame any(float3 n) {
 		float sign = n.z > 0.0f ? 1.0f : -1.0f;
 		float a = -rcp(sign + n.z);
 		float b = n.x * n.y * a;
-		tbn result;
+		tangent_frame result;
 		result.tangent   = float3(1.0f + sign * squared(n.x) * a, sign * b, -sign * n.x);
 		result.bitangent = float3(b, sign + squared(n.y) * a, -n.y);
 		result.normal    = n;
 		return result;
 	}
-}
+};
 
 // values are in [-1, 1]
 namespace octahedral_mapping {

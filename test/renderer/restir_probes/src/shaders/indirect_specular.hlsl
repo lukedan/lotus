@@ -75,21 +75,21 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		return;
 	}
 
-	pcg32::state rng = pcg32::seed(dispatch_thread_id.y * 5003 + dispatch_thread_id.x * 3, constants.frame_index);
+	pcg32 rng = pcg32::seed(dispatch_thread_id.y * 5003 + dispatch_thread_id.x * 3, constants.frame_index);
 
 	float3 out_dir;
 	float canonical_pdf;
 	float3 h;
 	{
-		tangent_frame::tbn ts = tangent_frame::any(gbuf.fragment.normal_ws);
+		tangent_frame ts = tangent_frame::any(gbuf.fragment.normal_ws);
 #ifdef SAMPLE_VISIBLE_NORMALS
 		float3 projected = float3(dot(view_vec, ts.tangent), dot(view_vec, ts.bitangent), dot(view_vec, ts.normal));
-		float3 h_projected = trowbridge_reitz::importance_sample_d_visible(float2(pcg32::random_01(rng), pcg32::random_01(rng)), projected, alpha);
+		float3 h_projected = trowbridge_reitz::importance_sample_d_visible(float2(rng.next_01(), rng.next_01()), projected, alpha);
 		h = h_projected.x * ts.tangent + h_projected.y * ts.bitangent + h_projected.z * ts.normal;
 		canonical_pdf = trowbridge_reitz::importance_sample_d_visible_pdf(dot(ts.normal, view_vec), h_projected.z, saturate(dot(view_vec, h)), alpha);
 #else
-		float2 smp = trowbridge_reitz::importance_sample_d(pcg32::random_01(rng), alpha);
-		float theta = pcg32::random_01(rng) * 2.0f * pi;
+		float2 smp = trowbridge_reitz::importance_sample_d(rng.next_01(), alpha);
+		float theta = rng.next_01() * 2.0f * pi;
 		h = ts.normal * smp.x + sqrt(1.0f - smp.x * smp.x) * (ts.tangent * cos(theta) + ts.bitangent * sin(theta));
 		canonical_pdf = smp.y;
 #endif
@@ -178,7 +178,7 @@ void main_cs(uint2 dispatch_thread_id : SV_DispatchThreadID) {
 		// probe information
 		float3 cell_f = probes::coord_from_position(gbuf.fragment.position_ws, probe_consts);
 		uint3 cell_index = (uint3)clamp((int3)cell_f, 0, (int3)probe_consts.grid_size - 2);
-		uint3 use_probe = probes::get_random_coord(gbuf.fragment.position_ws, gbuf.fragment.normal_ws, cell_index, probe_consts, pcg32::random_01(rng));
+		uint3 use_probe = probes::get_random_coord(gbuf.fragment.position_ws, gbuf.fragment.normal_ws, cell_index, probe_consts, rng.next_01());
 		float3 probe_pos = probes::coord_to_position(use_probe, probe_consts);
 		uint use_probe_index = probes::coord_to_index(use_probe, probe_consts);
 		uint indirect_reservoir_index = use_probe_index * probe_consts.indirect_reservoirs_per_probe;

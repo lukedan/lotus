@@ -30,7 +30,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 	float3 my_pos = probes::coord_to_position(dispatch_thread_id, probe_consts);
 	float3 their_pos = probes::coord_to_position(their_coord, probe_consts);
 
-	pcg32::state rng = pcg32::seed(dispatch_thread_id.x * 30001 + dispatch_thread_id.y * 503 + dispatch_thread_id.x * 7, constants.frame_index);
+	pcg32 rng = pcg32::seed(dispatch_thread_id.x * 30001 + dispatch_thread_id.y * 503 + dispatch_thread_id.x * 7, constants.frame_index);
 
 	bool visible = true;
 
@@ -79,7 +79,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 
 		if (cur_visible) {
 			float their_pdf = max(max(their_res.irradiance.r, their_res.irradiance.g), their_res.irradiance.b);
-			if (reservoirs::merge(my_res.data, their_res.data, their_pdf, pcg32::random_01(rng))) {
+			if (reservoirs::merge(my_res.data, their_res.data, their_pdf, rng.next_01())) {
 				my_res.irradiance = their_res.irradiance;
 				if (their_res.distance >= max_float_v) {
 					my_res.distance = their_res.distance;

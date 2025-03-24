@@ -20,13 +20,13 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 	uint first_reservoir = probes::coord_to_index(dispatch_thread_id, probe_consts) * probe_consts.direct_reservoirs_per_probe;
 	float3 probe_position = probes::coord_to_position(dispatch_thread_id, probe_consts);
 
-	pcg32::state rng = pcg32::seed(
+	pcg32 rng = pcg32::seed(
 		dispatch_thread_id.x * 7000000 + dispatch_thread_id.y * 5000 + dispatch_thread_id.z * 3,
 		constants.frame_index
 	);
 
 	for (uint i = 0; i < probe_consts.direct_reservoirs_per_probe; ++i) {
-		uint light_index = pcg32::random_below_fast(constants.num_lights, rng);
+		uint light_index = rng.next_below_fast(constants.num_lights);
 		light cur_light = all_lights[light_index];
 		lights::derived_data light_data = lights::compute_derived_data(cur_light, probe_position);
 
@@ -50,7 +50,7 @@ void main_cs(uint3 dispatch_thread_id : SV_DispatchThreadID) {
 		float pdf =
 			light_data.attenuation *
 			max(cur_light.irradiance.r, max(cur_light.irradiance.g, cur_light.irradiance.b));
-		if (reservoirs::add_sample(new_res_data, 1.0f / constants.num_lights, pdf, pcg32::random_01(rng))) {
+		if (reservoirs::add_sample(new_res_data, 1.0f / constants.num_lights, pdf, rng.next_01())) {
 			cur_res.light_index = light_index + 1;
 		}
 		cur_res.data = new_res_data;

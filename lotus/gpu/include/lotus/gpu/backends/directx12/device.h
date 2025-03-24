@@ -73,7 +73,7 @@ namespace lotus::gpu::backends::directx12 {
 			std::span<const input_buffer_layout>,
 			primitive_topology,
 			const frame_buffer_layout&,
-			usize num_viewports
+			u32 num_viewports
 		);
 		/// Calls \p ID3D12Device::CreateComputePipelineState().
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(

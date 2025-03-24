@@ -456,7 +456,7 @@ namespace lotus::gpu::backends::vulkan {
 		std::span<const input_buffer_layout> input_buffers,
 		primitive_topology topology,
 		const frame_buffer_layout &fb_layout,
-		usize num_viewports
+		u32 num_viewports
 	) {
 		graphics_pipeline_state result = nullptr;
 
@@ -535,8 +535,8 @@ namespace lotus::gpu::backends::vulkan {
 
 		vk::PipelineViewportStateCreateInfo viewport;
 		viewport
-			.setViewportCount(static_cast<u32>(num_viewports))
-			.setScissorCount(static_cast<u32>(num_viewports));
+			.setViewportCount(num_viewports)
+			.setScissorCount(num_viewports);
 
 		vk::PipelineRasterizationStateCreateInfo rasterization;
 		rasterization

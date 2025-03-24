@@ -126,7 +126,7 @@ namespace lotus::gpu::backends::metal {
 			std::span<const input_buffer_layout>,
 			primitive_topology,
 			const frame_buffer_layout&,
-			usize num_viewports
+			u32 num_viewports
 		);
 		/// Creates a new \p MTL::ComputePipelineState.
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(

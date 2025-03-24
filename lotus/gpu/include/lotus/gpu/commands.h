@@ -136,11 +136,11 @@ namespace lotus::gpu {
 			set_viewports({ vps.begin(), vps.end() });
 		}
 		/// Sets the list of scissor rectangles.
-		void set_scissor_rectangles(std::span<const aab2i> scissor) {
+		void set_scissor_rectangles(std::span<const aab2u32> scissor) {
 			backend::command_list::set_scissor_rectangles(scissor);
 		}
 		/// \overload
-		void set_scissor_rectangles(std::initializer_list<aab2i> scissor) {
+		void set_scissor_rectangles(std::initializer_list<aab2u32> scissor) {
 			set_scissor_rectangles({ scissor.begin(), scissor.end() });
 		}
 

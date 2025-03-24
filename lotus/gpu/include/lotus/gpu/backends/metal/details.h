@@ -174,6 +174,10 @@ namespace lotus::gpu::backends::metal::_details {
 		[[nodiscard]] MTL::Size to_size(cvec3<NS::UInteger>);
 		/// Converts a \ref mat34f to a \p MTL::PackedFloat4x3.
 		[[nodiscard]] MTL::PackedFloat4x3 to_packed_float4x3(mat34f);
+		/// Converts a \ref viewport to a \p MTL::Viewport.
+		[[nodiscard]] MTL::Viewport to_viewport(viewport);
+		/// Converts a \ref aab2u32 to a \p MTL::ScissorRect.
+		[[nodiscard]] MTL::ScissorRect to_scissor_rect(aab2u32);
 
 		/// Converts a \p NS::String back to a \p std::string.
 		[[nodiscard]] std::u8string back_to_string(NS::String*);

@@ -99,8 +99,8 @@ namespace lotus::gpu::backends::directx12::_details {
 		// struct conversions
 		/// Converts a \ref viewport to a \p D3D12_VIEWPORT.
 		[[nodiscard]] D3D12_VIEWPORT to_viewport(const viewport&);
-		/// Converts a \ref aab2i to a \p D3D12_RECT.
-		[[nodiscard]] D3D12_RECT to_rect(const aab2i&);
+		/// Converts a \ref aab2u32 to a \p D3D12_RECT.
+		[[nodiscard]] D3D12_RECT to_rect(const aab2u32&);
 
 		/// Converts a \ref render_target_blend_options to a \p D3D12_RENDER_TARGET_BLEND_DESC.
 		[[nodiscard]] D3D12_RENDER_TARGET_BLEND_DESC to_render_target_blend_description(

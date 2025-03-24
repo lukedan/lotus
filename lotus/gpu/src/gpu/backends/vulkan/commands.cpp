@@ -176,12 +176,14 @@ namespace lotus::gpu::backends::vulkan {
 		_buffer.setViewport(0, viewports);
 	}
 
-	void command_list::set_scissor_rectangles(std::span<const aab2i> rects) {
+	void command_list::set_scissor_rectangles(std::span<const aab2u32> rects) {
 		auto bookmark = get_scratch_bookmark();
 		auto scissors = bookmark.create_reserved_vector_array<vk::Rect2D>(rects.size());
 		for (const auto &r : rects) {
-			cvec2i size = r.signed_size();
-			scissors.emplace_back(vk::Offset2D(r.min[0], r.min[1]), _details::conversions::to_extent_2d(size));
+			scissors.emplace_back(
+				_details::conversions::to_offset_2d(r.min),
+				_details::conversions::to_extent_2d(r.signed_size())
+			);
 		}
 		_buffer.setScissor(0, scissors);
 	}

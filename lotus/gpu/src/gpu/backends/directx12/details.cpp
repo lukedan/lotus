@@ -415,7 +415,7 @@ namespace lotus::gpu::backends::directx12::_details {
 			return result;
 		}
 
-		D3D12_RECT to_rect(const aab2i &rect) {
+		D3D12_RECT to_rect(const aab2u32 &rect) {
 			D3D12_RECT result = {};
 			result.left   = static_cast<LONG>(rect.min[0]);
 			result.top    = static_cast<LONG>(rect.min[1]);

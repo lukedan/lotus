@@ -396,7 +396,7 @@ namespace lotus::gpu::backends::metal {
 		std::span<const input_buffer_layout> input_buffers,
 		primitive_topology topology,
 		const frame_buffer_layout &fb_layout,
-		usize num_viewports
+		[[maybe_unused]] u32 num_viewports
 	) {
 		auto vert_descriptor = NS::TransferPtr(MTL::VertexDescriptor::alloc()->init());
 		for (const input_buffer_layout &input_layout : input_buffers) {

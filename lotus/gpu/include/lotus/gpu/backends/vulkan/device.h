@@ -118,7 +118,7 @@ namespace lotus::gpu::backends::vulkan {
 			std::span<const input_buffer_layout>,
 			primitive_topology,
 			const frame_buffer_layout&,
-			usize num_viewports = 1
+			u32 num_viewports = 1
 		);
 		/// Calls \p vk::UniqueDevice::createComputePipelineUnique().
 		[[nodiscard]] compute_pipeline_state create_compute_pipeline_state(

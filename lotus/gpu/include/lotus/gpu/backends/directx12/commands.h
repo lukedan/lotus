@@ -71,7 +71,7 @@ namespace lotus::gpu::backends::directx12 {
 		/// Calls \p ID3D12GraphicsCommandList::RSSetViewports().
 		void set_viewports(std::span<const viewport>);
 		/// Calls \p ID3D12GraphicsCommandList::RSSetScissorRects().
-		void set_scissor_rectangles(std::span<const aab2i>);
+		void set_scissor_rectangles(std::span<const aab2u32>);
 
 		/// Calls \p ID3D12GraphicsCommandList::CopyBufferRegion().
 		void copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size);

@@ -72,8 +72,10 @@ namespace lotus::gpu::backends::metal {
 			const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const>
 		);
 
-		void set_viewports(std::span<const viewport>); // TODO
-		void set_scissor_rectangles(std::span<const aab2i>); // TODO
+		/// Calls \p MTL::RenderCommandEncoder::setViewports().
+		void set_viewports(std::span<const viewport>);
+		/// Calls \p MTL::RenderCommandEncoder::setScissorRects().
+		void set_scissor_rectangles(std::span<const aab2u32>);
 
 		/// Creates a \p MTL::BlitCommandEncoder to encode a copy command.
 		void copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size);

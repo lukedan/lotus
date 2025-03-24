@@ -221,7 +221,7 @@ namespace lotus::gpu::backends::directx12 {
 		std::span<const input_buffer_layout> input_buffers,
 		primitive_topology topology,
 		const frame_buffer_layout &fb_layout,
-		[[maybe_unused]] usize num_viewports
+		[[maybe_unused]] u32 num_viewports
 	) {
 		auto bookmark = get_scratch_bookmark();
 

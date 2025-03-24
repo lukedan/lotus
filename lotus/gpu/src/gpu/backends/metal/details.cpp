@@ -498,6 +498,16 @@ namespace lotus::gpu::backends::metal::_details {
 			return result;
 		}
 
+		MTL::Viewport to_viewport(viewport vp) {
+			const cvec2f size = vp.xy.signed_size();
+			return MTL::Viewport(vp.xy.min[0], vp.xy.min[1], size[0], size[1], vp.minimum_depth, vp.maximum_depth);
+		}
+
+		MTL::ScissorRect to_scissor_rect(aab2u32 rect) {
+			const cvec2u32 size = rect.signed_size();
+			return MTL::ScissorRect(rect.min[0], rect.min[1], size[0], size[1]);
+		}
+
 
 		std::u8string back_to_string(NS::String *str) {
 			return std::u8string(

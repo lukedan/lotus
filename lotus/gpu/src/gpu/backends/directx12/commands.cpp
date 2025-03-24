@@ -259,7 +259,7 @@ namespace lotus::gpu::backends::directx12 {
 		_list->RSSetViewports(static_cast<UINT>(vec.size()), vec.data());
 	}
 
-	void command_list::set_scissor_rectangles(std::span<const aab2i> rects) {
+	void command_list::set_scissor_rectangles(std::span<const aab2u32> rects) {
 		auto bookmark = get_scratch_bookmark();
 		auto vec = bookmark.create_vector_array<D3D12_RECT>(rects.size());
 		for (usize i = 0; i < rects.size(); ++i) {

@@ -133,12 +133,24 @@ namespace lotus::gpu::backends::metal {
 		_update_descriptor_set_bindings(_compute_sets, first, sets);
 	}
 
-	void command_list::set_viewports(std::span<const viewport>) {
-		// TODO
+	void command_list::set_viewports(std::span<const viewport> vps) {
+		auto bookmark = get_scratch_bookmark();
+
+		auto viewports = bookmark.create_reserved_vector_array<MTL::Viewport>(vps.size());
+		for (const viewport &vp : vps) {
+			viewports.emplace_back(_details::conversions::to_viewport(vp));
+		}
+		_pass_encoder->setViewports(viewports.data(), viewports.size());
 	}
 
-	void command_list::set_scissor_rectangles(std::span<const aab2i>) {
-		// TODO
+	void command_list::set_scissor_rectangles(std::span<const aab2u32> rects) {
+		auto bookmark = get_scratch_bookmark();
+
+		auto scissor_rects = bookmark.create_reserved_vector_array<MTL::ScissorRect>(rects.size());
+		for (const aab2u32 &r : rects) {
+			scissor_rects.emplace_back(_details::conversions::to_scissor_rect(r));
+		}
+		_pass_encoder->setScissorRects(scissor_rects.data(), scissor_rects.size());
 	}
 
 	void command_list::copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size) {

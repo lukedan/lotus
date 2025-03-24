@@ -259,7 +259,7 @@ namespace lotus::gpu {
 			std::span<const input_buffer_layout> input_buffers,
 			primitive_topology topology,
 			const frame_buffer_layout &fb_layout,
-			usize num_viewports = 1
+			u32 num_viewports = 1
 		) {
 			return backend::device::create_graphics_pipeline_state(
 				resources,
@@ -287,7 +287,7 @@ namespace lotus::gpu {
 			std::initializer_list<input_buffer_layout> input_buffers,
 			primitive_topology topology,
 			const frame_buffer_layout &fb_layout,
-			usize num_viewports = 1
+			u32 num_viewports = 1
 		) {
 			return create_graphics_pipeline_state(
 				resources, shaders,

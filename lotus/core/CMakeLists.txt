@@ -11,6 +11,7 @@ target_sources(lotus_core
 		"include/lotus/math/matrix.h"
 		"include/lotus/math/quaternion.h"
 		"include/lotus/math/sequences.h"
+		"include/lotus/math/tangent_frame.h"
 		"include/lotus/math/vector.h"
 
 		"include/lotus/containers/intrusive_linked_list.h"
@@ -46,7 +47,7 @@ target_sources(lotus_core
 
 		"src/memory/common.cpp"
 		"src/memory/stack_allocator.cpp"
-		
+
 		"src/utils/misc.cpp"
 
 		"src/logging.cpp")

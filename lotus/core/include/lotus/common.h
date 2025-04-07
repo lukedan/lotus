@@ -31,30 +31,32 @@ namespace lotus {
 	constexpr bool is_debugging = false;
 #endif
 
+	/// Pauses program execution for debugging.
+	inline void pause_for_debugger() {
+#if defined(_MSC_VER)
+		__debugbreak();
+#elif defined(__clang__)
+		__builtin_debugtrap();
+#else
+		std::abort(); // not implemented
+#endif
+	}
+
 	/// Calls \p std::abort() if \p value is \p true.
-	constexpr inline void crash_if(bool value) {
+	constexpr void crash_if(bool value) {
 		if (std::is_constant_evaluated()) {
 			assert(!value);
 		} else {
 			if (value) {
-				std::abort();
+				pause_for_debugger();
 			}
 		}
 	}
 	/// Calls \ref crash_if() in debug builds.
-	constexpr inline void crash_if_debug([[maybe_unused]] bool value) {
+	constexpr void crash_if_debug([[maybe_unused]] bool value) {
 		if constexpr (is_debugging) {
 			crash_if(value);
 		}
-	}
-
-	/// Pauses program execution for debugging.
-	inline void pause_for_debugger() {
-#ifdef _MSC_VER
-		__debugbreak();
-#else
-		std::abort(); // not implemented
-#endif
 	}
 
 
@@ -65,7 +67,11 @@ namespace lotus {
 			typename T,
 			std::enable_if_t<std::is_arithmetic_v<T> || std::is_pointer_v<T> || std::is_enum_v<T>, int> = 0
 		> operator T() const {
+#if defined(__clang__)
+			return __builtin_nondeterministic_value(T{});
+#else
 			return T{};
+#endif
 		}
 	};
 	/// A type indicating a specific object should be zero-initialized.
@@ -78,8 +84,8 @@ namespace lotus {
 			return static_cast<T>(0);
 		}
 	};
-	constexpr inline const uninitialized_t uninitialized; ///< An instance of \ref uninitialized_t.
-	constexpr inline const zero_t zero; ///< An instance of \ref zero_t.
+	constexpr inline uninitialized_t uninitialized; ///< An instance of \ref uninitialized_t.
+	constexpr inline zero_t zero; ///< An instance of \ref zero_t.
 
 
 	/// The minimum-sized type that is able to hold the given value.
@@ -114,7 +120,7 @@ namespace lotus {
 	template <typename T> struct parameter_pack {
 	public:
 		/// Dynamically retrieves the i-th element.
-		template <T First, T ...Others> [[nodiscard]] constexpr inline static T get(usize i) {
+		template <T First, T ...Others> [[nodiscard]] constexpr static T get(usize i) {
 			if constexpr (sizeof...(Others) == 0) {
 				crash_if(i != 0);
 				return First;
@@ -152,19 +158,19 @@ namespace lotus {
 
 
 	/// Shorthand for creating a hash object and then hashing the given object.
-	template <typename T, typename Hash = std::hash<T>> [[nodiscard]] inline constexpr usize compute_hash(
+	template <typename T, typename Hash = std::hash<T>> [[nodiscard]] constexpr usize compute_hash(
 		const T &obj, const Hash &hash = Hash()
 	) {
 		return hash(obj);
 	}
 
 	/// Combines the result of two hash functions.
-	[[nodiscard]] constexpr inline usize hash_combine(usize hash1, usize hash2) {
+	[[nodiscard]] constexpr usize hash_combine(usize hash1, usize hash2) {
 		return hash1 ^ (hash2 + 0x9e3779b9 + (hash1 << 6) + (hash1 >> 2));
 	}
 	/// Shorthand for combining a sequence of hashes, with each hash being combined with the result of all previous
 	/// hashes with \ref hash_combine().
-	[[nodiscard]] constexpr inline usize hash_combine(std::span<const usize> hashes) {
+	[[nodiscard]] constexpr usize hash_combine(std::span<const usize> hashes) {
 		if (hashes.empty()) {
 			return 0;
 		}
@@ -175,7 +181,7 @@ namespace lotus {
 		return result;
 	}
 	/// \overload
-	[[nodiscard]] constexpr inline usize hash_combine(std::initializer_list<usize> hashes) {
+	[[nodiscard]] constexpr usize hash_combine(std::initializer_list<usize> hashes) {
 		return hash_combine({ hashes.begin(), hashes.end() });
 	}
 
@@ -204,9 +210,7 @@ namespace lotus {
 		};
 
 		/// Hashes the given range of bytes using FNV-1a.
-		template <typename T = u32> [[nodiscard]] inline constexpr T hash_bytes(
-			std::span<const std::byte> data
-		) {
+		template <typename T = u32> [[nodiscard]] constexpr T hash_bytes(std::span<const std::byte> data) {
 			T hash = constants<T>::offset;
 			for (std::byte b : data) {
 				hash ^= static_cast<T>(b);

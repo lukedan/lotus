@@ -61,10 +61,8 @@ namespace lotus::physics {
 		material_properties material = uninitialized; ///< The material of this body.
 		body_properties properties = uninitialized; ///< The properties of this body.
 		body_state state = uninitialized; ///< The state of this body.
-		vec3 prev_position = uninitialized; ///< Position after the previous timestep.
-		uquats prev_rotation = uninitialized; ///< Rotation after the previous timestep.
-		vec3 prev_linear_velocity = uninitialized; ///< Linear velocity after the previous timestep.
-		vec3 prev_angular_velocity = uninitialized; ///< Angular velocity after the previous timestep.
+		body_position prev_position = uninitialized; ///< Position after the previous timestep.
+		body_velocity prev_velocity = uninitialized; ///< Velocity after the previous timestep.
 		void *user_data; ///< User data.
 	};
 	/// Data associated with a single particle.

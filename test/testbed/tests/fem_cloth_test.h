@@ -84,7 +84,7 @@ public:
 
 	void timestep(scalar dt, u32 iterations) override {
 		_world_time += dt;
-		_sphere->state.position = {
+		_sphere->state.position.position = {
 			_sphere_travel * std::cos((2.0f * lotus::physics::pi / _sphere_period) * _world_time),
 			_sphere_yz[0],
 			_sphere_yz[1]

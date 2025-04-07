@@ -157,10 +157,15 @@ public:
 				*_bullet_shape,
 				material,
 				_bullet_properties,
-				lotus::physics::body_state::at(
-					_get_test_context().camera_params.position,
-					uquats::identity(),
-					_get_test_context().camera.unit_forward * 50.0f, lotus::zero
+				lotus::physics::body_state::from_position_velocity(
+					lotus::physics::body_position::at(
+						_get_test_context().camera_params.position,
+						uquats::identity()
+					),
+					lotus::physics::body_velocity::from_linear_angular(
+						_get_test_context().camera.unit_forward * 50.0f,
+						lotus::zero
+					)
 				)
 			));
 		}

@@ -25,8 +25,8 @@ namespace lotus::physics::constraints {
 		/// Projects this constraint.
 		void project(scalar &lambda_n, scalar &lambda_t) {
 			{ // handle penetration
-				const vec3 global_contact1 = body1->state.position + body1->state.rotation.rotate(offset1);
-				const vec3 global_contact2 = body2->state.position + body2->state.rotation.rotate(offset2);
+				const vec3 global_contact1 = body1->state.position.local_to_global(offset1);
+				const vec3 global_contact2 = body2->state.position.local_to_global(offset2);
 				const scalar depth = vec::dot(global_contact1 - global_contact2, normal);
 				if (depth < 0.0f) {
 					return;
@@ -37,10 +37,10 @@ namespace lotus::physics::constraints {
 			}
 
 			{ // handle static friction
-				const vec3 global_contact1 = body1->state.position + body1->state.rotation.rotate(offset1);
-				const vec3 old_global_contact1 = body1->prev_position + body1->prev_rotation.rotate(offset1);
-				const vec3 global_contact2 = body2->state.position + body2->state.rotation.rotate(offset2);
-				const vec3 old_global_contact2 = body2->prev_position + body2->prev_rotation.rotate(offset2);
+				const vec3 global_contact1 = body1->state.position.local_to_global(offset1);
+				const vec3 old_global_contact1 = body1->prev_position.local_to_global(offset1);
+				const vec3 global_contact2 = body2->state.position.local_to_global(offset2);
+				const vec3 old_global_contact2 = body2->prev_position.local_to_global(offset2);
 
 				const vec3 delta_p = (global_contact1 - old_global_contact1) - (global_contact2 - old_global_contact2);
 				const vec3 delta_pt = delta_p - normal * vec::dot(normal, delta_p);

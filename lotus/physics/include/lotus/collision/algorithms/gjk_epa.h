@@ -7,27 +7,13 @@
 
 #include "lotus/memory/stack_allocator.h"
 #include "lotus/math/quaternion.h"
+#include "lotus/collision/algorithms/common.h"
 #include "lotus/collision/shapes/polyhedron.h"
 #include "lotus/physics/body.h"
 
 namespace lotus::collision {
 	/// Implementation of the Gilbert-Johnson-Keerthi algorithm and the expanding polytope algorithm.
 	struct gjk_epa {
-		/// A vertex in a simplex.
-		struct simplex_vertex {
-			/// No initialization.
-			simplex_vertex(uninitialized_t) {
-			}
-			/// Creates a vertex from the given indices.
-			simplex_vertex(u32 i1, u32 i2) : index1(i1), index2(i2) {
-			}
-
-			/// Equality.
-			friend bool operator==(simplex_vertex, simplex_vertex) = default;
-
-			u32 index1; ///< Vertex index in the first polyhedron.
-			u32 index2; ///< Vertex index in the second polyhedron.
-		};
 		/// State of the GJK algorithm used by the EPA algorithm. This should not be kept between timesteps and is
 		/// invalidated when the bodies move.
 		struct gjk_result_state {
@@ -67,17 +53,15 @@ namespace lotus::collision {
 		}
 		/// Creates a new object for the given pair of bodies.
 		[[nodiscard]] inline static gjk_epa for_bodies(
-			const physics::body_state &st1, const shapes::polyhedron &s1,
-			const physics::body_state &st2, const shapes::polyhedron &s2
+			physics::body_position pos1, const shapes::polyhedron &s1,
+			physics::body_position pos2, const shapes::polyhedron &s2
 		) {
 			gjk_epa result = uninitialized;
 			result.simplex_vertices = 0;
-			result.orient1 = st1.rotation;
-			result.orient2 = st2.rotation;
-			result.center1 = st1.position;
-			result.center2 = st2.position;
-			result.polyhedron1 = &s1;
-			result.polyhedron2 = &s2;
+			result.position1        = pos1;
+			result.position2        = pos2;
+			result.polyhedron1      = &s1;
+			result.polyhedron2      = &s2;
 			return result;
 		}
 
@@ -91,27 +75,12 @@ namespace lotus::collision {
 		/// Returns the position, in global coordinates, of the given \ref simplex_vertex.
 		[[nodiscard]] vec3 simplex_vertex_position(simplex_vertex) const;
 
-		/// Computes the transformed vertex positions of the given polyhedron.
-		template <
-			template <typename> typename Allocator = std::allocator
-		> [[nodiscard]] inline static std::vector<vec3, Allocator<vec3>> compute_vertices(
-			uquats orient, vec3 center, const shapes::polyhedron &poly
-		) {
-			std::vector<vec3, Allocator<vec3>> result(poly.vertices.size(), uninitialized);
-			for (usize i = 0; i < poly.vertices.size(); ++i) {
-				result[i] = center + orient.rotate(poly.vertices[i]);
-			}
-			return result;
-		}
-
 		/// Vertices of the simplex.
 		std::array<simplex_vertex, 4> simplex{ uninitialized, uninitialized, uninitialized, uninitialized };
 		usize simplex_vertices; ///< The number of valid vertices in \ref simplex.
 
-		uquats orient1 = uninitialized; ///< Orientation of \ref polyhedron1.
-		uquats orient2 = uninitialized; ///< Orientation of \ref polyhedron2.
-		vec3 center1 = uninitialized; ///< Offset of \ref polyhedron1.
-		vec3 center2 = uninitialized; ///< Offset of \ref polyhedron2.
+		physics::body_position position1 = uninitialized; ///< Position of \ref polyhedron1.
+		physics::body_position position2 = uninitialized; ///< Position of \ref polyhedron2.
 		const shapes::polyhedron *polyhedron1; ///< The first polyhedron.
 		const shapes::polyhedron *polyhedron2; ///< The second polyhedron.
 	};

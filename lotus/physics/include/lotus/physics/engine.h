@@ -45,37 +45,39 @@ namespace lotus::physics {
 
 		/// Detects collision between two generic shapes.
 		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shape&, const body_state&, const collision::shape&, const body_state&
+			const collision::shape&, const body_position&, const collision::shape&, const body_position&
 		);
 		/// Fallback case for collision detection between generic shapes - this always returns \p std::nullopt and
 		/// should only be used internally.
 		template <
 			typename Shape1, typename Shape2
-		> [[nodiscard]] static std::optional<engine::collision_detection_result> detect_collision(
-			const Shape1&, const body_state&, const Shape2&, const body_state&
+		> [[nodiscard]] static std::optional<collision_detection_result> detect_collision(
+			const Shape1&, const body_position&, const Shape2&, const body_position&
 		);
 		/// Detects collision between a sphere and a plane.
 		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::sphere&, const body_state&, const collision::shapes::plane&, const body_state&
+			const collision::shapes::sphere&, const body_position&,
+			const collision::shapes::plane&, const body_position&
 		);
 		/// Detects collision between two spheres.
 		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::sphere&, const body_state&, const collision::shapes::sphere&, const body_state&
+			const collision::shapes::sphere&, const body_position&,
+			const collision::shapes::sphere&, const body_position&
 		);
 		/// Detects collision between a plane and a polyhedron.
 		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::plane&, const body_state&,
-			const collision::shapes::polyhedron&, const body_state&
+			const collision::shapes::plane&, const body_position&,
+			const collision::shapes::polyhedron&, const body_position&
 		);
 		/// Detects collision between a sphere and a polyhedron.
 		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::sphere&, const body_state&,
-			const collision::shapes::polyhedron&, const body_state&
+			const collision::shapes::sphere&, const body_position&,
+			const collision::shapes::polyhedron&, const body_position&
 		);
 		/// Detects collision between two polyhedra.
 		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::polyhedron&, const body_state&,
-			const collision::shapes::polyhedron&, const body_state&
+			const collision::shapes::polyhedron&, const body_position&,
+			const collision::shapes::polyhedron&, const body_position&
 		);
 
 		/// Handles the collision between a plane and a particle.

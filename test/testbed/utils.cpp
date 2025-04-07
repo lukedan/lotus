@@ -208,8 +208,8 @@ void debug_render::draw_system(lotus::physics::engine &engine) {
 		}
 
 		auto mat = mat44s::identity();
-		mat.set_block(0, 0, b.state.rotation.into_matrix());
-		mat.set_block(0, 3, b.state.position);
+		mat.set_block(0, 0, b.state.position.orientation.into_matrix());
+		mat.set_block(0, 3, b.state.position.position);
 
 		std::visit(
 			[&](const auto &shape) {
@@ -244,15 +244,15 @@ void debug_render::draw_system(lotus::physics::engine &engine) {
 	// debug stuff
 	if (ctx->draw_body_velocities) {
 		for (const lotus::physics::body &b : engine.bodies) {
-			draw_line(b.state.position, b.state.position + b.state.linear_velocity, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
-			draw_line(b.state.position, b.state.position + b.state.angular_velocity, lotus::linear_rgba_f(0.0f, 1.0f, 0.0f, 1.0f));
+			draw_line(b.state.position.position, b.state.position.position + b.state.velocity.linear, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
+			draw_line(b.state.position.position, b.state.position.position + b.state.velocity.angular, lotus::linear_rgba_f(0.0f, 1.0f, 0.0f, 1.0f));
 		}
 	}
 
 	if (ctx->draw_contacts) {
 		for (const auto &c : engine.contact_constraints) {
-			auto p1 = c.body1->state.position + c.body1->state.rotation.rotate(c.offset1);
-			auto p2 = c.body2->state.position + c.body2->state.rotation.rotate(c.offset2);
+			auto p1 = c.body1->state.position.local_to_global(c.offset1);
+			auto p2 = c.body2->state.position.local_to_global(c.offset2);
 			draw_point(p1, lotus::linear_rgba_f(0.0f, 0.0f, 1.0f, 1.0f));
 			draw_point(p2, lotus::linear_rgba_f(0.0f, 0.0f, 1.0f, 1.0f));
 		}

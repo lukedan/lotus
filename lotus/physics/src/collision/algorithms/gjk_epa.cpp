@@ -37,7 +37,7 @@ namespace lotus::collision {
 		case 0:
 			{
 				// position is center1 - center2; support vector is its negation
-				const vec3 initial_support_vec = center2 - center1;
+				const vec3 initial_support_vec = position2.position - position1.position;
 				simplex[0] = support_vertex(initial_support_vec);
 				mark_vert(simplex[0]);
 				state.simplex_positions[0] = simplex_vertex_position(simplex[0]);
@@ -107,9 +107,16 @@ namespace lotus::collision {
 			)
 		) > 0.0f;
 
+		// the last face, whose normal is the direction that we last expanded in
+		u32 prev_face = 4;
+
 		while (true) {
 			bool facing_origin = false;
-			for (usize i = 0; i < 4; ++i) {
+			for (u32 i = 0; i < 4; ++i) {
+				if (i == prev_face) {
+					continue;
+				}
+
 				vec3 normal = vec::cross(
 					state.simplex_positions[(i + 1) % 4] - state.simplex_positions[i],
 					state.simplex_positions[(i + 2) % 4] - state.simplex_positions[i]
@@ -118,28 +125,33 @@ namespace lotus::collision {
 				if (invert_normal) {
 					normal = -normal;
 				}
-				const scalar dotv = vec::dot(normal, state.simplex_positions[i]);
-				if (dotv < 0.0f) {
-					// this face is facing the origin; use its normal as the support vector to find the next vertex
-					auto new_vertex = support_vertex(normal);
-					if (check_vert(new_vertex)) {
-						return { false, state }; // no more vertices to find; no collision
-					}
-					mark_vert(new_vertex);
-					// replace the vertex
-					const usize replace_index = (i + 3) % 4;
-					simplex[replace_index] = new_vertex;
-					state.simplex_positions[replace_index] = simplex_vertex_position(new_vertex);
 
-					// fast exit
-					if (vec::dot(normal, state.simplex_positions[replace_index]) <= 0.0f) {
-						return { false, state };
-					}
-
-					facing_origin = true;
-					break;
+				// if the face is not facing towards the origin, we won't be expanding in its direction
+				if (vec::dot(normal, state.simplex_positions[i]) >= 0.0f) {
+					continue;
 				}
+				// otherwise, use its normal as the support vector to find the next vertex
+				const simplex_vertex new_vertex = support_vertex(normal);
+				if (check_vert(new_vertex)) {
+					return { false, state }; // no more vertices to find; no collision
+				}
+				mark_vert(new_vertex);
+				prev_face = i;
+
+				// replace the vertex
+				const usize replace_index = (i + 3) % 4;
+				simplex[replace_index] = new_vertex;
+				state.simplex_positions[replace_index] = simplex_vertex_position(new_vertex);
+
+				// fast exit if the new vertex does not reach the origin
+				if (vec::dot(normal, state.simplex_positions[replace_index]) <= 0.0f) {
+					return { false, state };
+				}
+
+				facing_origin = true;
+				break;
 			}
+
 			if (facing_origin) { // directly to the next iteration
 				state.invert_even_normals = !state.invert_even_normals;
 			} else {
@@ -174,28 +186,37 @@ namespace lotus::collision {
 			},
 			[&hull_data](const convex_hull::state &hull, convex_hull::face_id fi) {
 				const auto& face = hull.get_face(fi);
-				hull_data.get(fi) = vec::dot(
-					vec::unsafe_normalize(face.normal), hull.get_vertex(face.vertex_indices[0])
-				);
+				hull_data.get(fi) =
+					vec::dot(vec::unsafe_normalize(face.normal), hull.get_vertex(face.vertex_indices[0]));
 			}
 		);
 		for (u32 i = 0; i < 4; ++i) {
 			hull_data.get(static_cast<convex_hull::vertex_id>(i)) = simplex[i];
 		}
 
-		while (true) {
+		convex_hull::face_id nearest_face_id = hull.get_any_face();
+		scalar nearest_face_dist = hull_data.get(nearest_face_id);
+		const usize num_verts = polyhedron1->vertices.size() * polyhedron2->vertices.size();
+		for (usize iter = 4; iter < num_verts; ++iter) {
 			// find the closest plane
-			convex_hull::face_id nearest_face_id = hull.get_any_face();
-			convex_hull::scalar nearest_face_dist = hull_data.get(nearest_face_id);
-			for (convex_hull::face_id fi = hull.get_face(hull.get_any_face()).next; fi != hull.get_any_face(); ) {
-				const float dist = hull_data.get(fi);
-				if (dist < nearest_face_dist) {
-					nearest_face_dist = dist;
+			nearest_face_id = hull.get_any_face();
+			nearest_face_dist = hull_data.get(nearest_face_id);
+			for (
+				convex_hull::face_id fi = hull.get_face(hull.get_any_face()).next;
+				fi != hull.get_any_face();
+				fi = hull.get_face(fi).next
+			) {
+				const scalar cur_dist = hull_data.get(fi);
+				if (cur_dist < nearest_face_dist) {
 					nearest_face_id = fi;
+					nearest_face_dist = cur_dist;
 				}
-				fi = hull.get_face(fi).next;
 			}
-			//crash_if(nearest_face_dist < 0.0f);
+
+			// numerical instability
+			if (nearest_face_dist < 0.0f) {
+				break;
+			}
 
 			// find new vertex
 			const convex_hull::face &nearest_face = hull.get_face(nearest_face_id);
@@ -203,32 +224,37 @@ namespace lotus::collision {
 			const vec3 new_vert_pos = simplex_vertex_position(new_vert_id);
 			const scalar new_dist = vec::dot(vec::unsafe_normalize(nearest_face.normal), new_vert_pos);
 			if (new_dist - nearest_face_dist < 1e-6f) { // TODO: threshold
-				const convex_hull::vertex_id v1 = nearest_face.vertex_indices[0];
-				const convex_hull::vertex_id v2 = nearest_face.vertex_indices[1];
-				const convex_hull::vertex_id v3 = nearest_face.vertex_indices[2];
-				return epa_result(
-					std::array{ hull.get_vertex(v1), hull.get_vertex(v2), hull.get_vertex(v3) },
-					std::array{ hull_data.get(v1), hull_data.get(v2), hull_data.get(v3) },
-					nearest_face.normal, nearest_face_dist
-				);
+				break;
 			}
 
 			// expand & remove faces
 			const convex_hull::vertex_id vi = hull.add_vertex_hint(new_vert_pos, nearest_face_id);
 			hull_data.get(vi) = new_vert_id;
 		}
+
+		// result
+		const convex_hull::face &result_face = hull.get_face(nearest_face_id);
+		const convex_hull::vertex_id v1 = result_face.vertex_indices[0];
+		const convex_hull::vertex_id v2 = result_face.vertex_indices[1];
+		const convex_hull::vertex_id v3 = result_face.vertex_indices[2];
+		return epa_result(
+			std::array{ hull.get_vertex(v1), hull.get_vertex(v2), hull.get_vertex(v3) },
+			std::array{ hull_data.get(v1), hull_data.get(v2), hull_data.get(v3) },
+			result_face.normal,
+			nearest_face_dist
+		);
 	}
 
-	gjk_epa::simplex_vertex gjk_epa::support_vertex(vec3 dir) const {
-		return gjk_epa::simplex_vertex(
-			polyhedron1->get_support_vertex(orient1.inverse().rotate(dir)).first,
-			polyhedron2->get_support_vertex(-orient2.inverse().rotate(dir)).first
+	simplex_vertex gjk_epa::support_vertex(vec3 dir) const {
+		return simplex_vertex(
+			polyhedron1->get_support_vertex(position1.orientation.inverse().rotate(dir)).first,
+			polyhedron2->get_support_vertex(-position2.orientation.inverse().rotate(dir)).first
 		);
 	}
 
 	vec3 gjk_epa::simplex_vertex_position(simplex_vertex v) const {
 		return
-			(center1 + orient1.rotate(polyhedron1->vertices[v.index1].into<scalar>())) -
-			(center2 + orient2.rotate(polyhedron2->vertices[v.index2].into<scalar>()));
+			position1.local_to_global(polyhedron1->vertices[v.index1].into<scalar>()) -
+			position2.local_to_global(polyhedron2->vertices[v.index2].into<scalar>());
 	}
 }

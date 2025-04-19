@@ -212,10 +212,10 @@ protected:
 
 	[[nodiscard]] std::pair<std::vector<vec3>, std::vector<std::array<u32, 3>>> _get_polyhedron() const {
 		std::vector<vec3> verts;
-		std::vector<std::array<u32, 3>> tris;
 		for (usize vi = 0; vi < _convex_hull.get_vertex_count(); ++vi) {
 			verts.emplace_back(_convex_hull.get_vertex(static_cast<hull::vertex_id>(vi)));
 		}
+		std::vector<std::array<u32, 3>> tris;
 		const hull::face_id any_face = _convex_hull.get_any_face();
 		if (any_face != hull::face_id::invalid) {
 			hull::face_id cur_face = any_face;
@@ -233,6 +233,9 @@ protected:
 	}
 	void _update_properties() {
 		const auto [verts, tris] = _get_polyhedron();
-		_props = lotus::collision::shapes::polyhedron::properties::compute_for(verts, tris);
+		_props = lotus::zero;
+		for (const std::array<u32, 3> &tri : tris) {
+			_props.add_face(verts[tri[0]], verts[tri[1]], verts[tri[2]]);
+		}
 	}
 };

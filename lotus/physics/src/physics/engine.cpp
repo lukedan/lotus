@@ -3,7 +3,8 @@
 /// \file
 /// Implementation of the physics engine.
 
-#include "lotus/collision/algorithms/gjk_epa.h"
+#include "lotus/collision/algorithms/gjk.h"
+#include "lotus/collision/algorithms/epa.h"
 
 namespace lotus::physics {
 	void engine::timestep(scalar dt, u32 iters) {
@@ -264,13 +265,13 @@ namespace lotus::physics {
 		const collision::shapes::polyhedron &p1, const body_position &s1,
 		const collision::shapes::polyhedron &p2, const body_position &s2
 	) {
-		auto alg = collision::gjk_epa::for_bodies(s1, p1, s2, p2);
+		const collision::polyhedron_pair pair(p1, s1, p2, s2);
 
-		auto [intersect, state] = alg.gjk();
-		if (!intersect) {
+		const collision::gjk_t::result gjk_res = collision::gjk(pair);
+		if (!gjk_res.has_intersection) {
 			return std::nullopt;
 		}
-		auto epa_res = alg.epa(state);
+		const collision::epa_t::result epa_res = collision::epa(pair, gjk_res);
 
 		collision_detection_result result = uninitialized;
 		result.normal = epa_res.normal;

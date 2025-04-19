@@ -33,32 +33,41 @@ public:
 		auto &plane = _engine.shapes.emplace_back(lotus::collision::shape::create(lotus::collision::shapes::plane()));
 
 		auto &box_shape = _engine.shapes.emplace_back();
-		auto &box = box_shape.value.emplace<lotus::collision::shapes::polyhedron>();
-		vec3 half_size(_box_size[0], _box_size[1], _box_size[2]);
-		half_size *= 0.5f;
-		box.vertices.emplace_back( half_size[0],  half_size[1],  half_size[2]);
-		box.vertices.emplace_back( half_size[0],  half_size[1], -half_size[2]);
-		box.vertices.emplace_back( half_size[0], -half_size[1],  half_size[2]);
-		box.vertices.emplace_back( half_size[0], -half_size[1], -half_size[2]);
-		box.vertices.emplace_back(-half_size[0],  half_size[1],  half_size[2]);
-		box.vertices.emplace_back(-half_size[0],  half_size[1], -half_size[2]);
-		box.vertices.emplace_back(-half_size[0], -half_size[1],  half_size[2]);
-		box.vertices.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
-		auto box_props = box.bake(1.0f);
+		lotus::physics::body_properties box_props = lotus::uninitialized;
+		{
+			std::vector<vec3> box_verts;
+			vec3 half_size(_box_size[0], _box_size[1], _box_size[2]);
+			half_size *= 0.5f;
+			box_verts.emplace_back( half_size[0],  half_size[1],  half_size[2]);
+			box_verts.emplace_back( half_size[0],  half_size[1], -half_size[2]);
+			box_verts.emplace_back( half_size[0], -half_size[1],  half_size[2]);
+			box_verts.emplace_back( half_size[0], -half_size[1], -half_size[2]);
+			box_verts.emplace_back(-half_size[0],  half_size[1],  half_size[2]);
+			box_verts.emplace_back(-half_size[0],  half_size[1], -half_size[2]);
+			box_verts.emplace_back(-half_size[0], -half_size[1],  half_size[2]);
+			box_verts.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
+			auto [box_poly, box_poly_props] = lotus::collision::shapes::polyhedron::bake(box_verts);
+			box_shape.value.emplace<lotus::collision::shapes::polyhedron>(std::move(box_poly));
+			box_props = box_poly_props.get_body_properties(1.0f);
+		}
 
-		auto &bullet_shape = _engine.shapes.emplace_front();
-		_bullet_shape = _engine.shapes.begin();
-		auto &bullet = bullet_shape.value.emplace<lotus::collision::shapes::polyhedron>();
-		vec3 half_bullet_size(0.05f, 0.05f, 0.05f);
-		bullet.vertices.emplace_back(half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
-		bullet.vertices.emplace_back(half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
-		bullet.vertices.emplace_back(half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
-		bullet.vertices.emplace_back(half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
-		bullet.vertices.emplace_back(-half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
-		bullet.vertices.emplace_back(-half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
-		bullet.vertices.emplace_back(-half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
-		bullet.vertices.emplace_back(-half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
-		_bullet_properties = bullet.bake(10.0f);
+		{
+			std::vector<vec3> bullet_verts;
+			vec3 half_bullet_size(0.05f, 0.05f, 0.05f);
+			bullet_verts.emplace_back(half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
+			bullet_verts.emplace_back(half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
+			bullet_verts.emplace_back(half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
+			bullet_verts.emplace_back(half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
+			bullet_verts.emplace_back(-half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
+			bullet_verts.emplace_back(-half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
+			bullet_verts.emplace_back(-half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
+			bullet_verts.emplace_back(-half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
+			auto [bullet_poly, bullet_poly_props] = lotus::collision::shapes::polyhedron::bake(bullet_verts);
+
+			_bullet_shape = &_engine.shapes.emplace_front();
+			_bullet_shape->value.emplace<lotus::collision::shapes::polyhedron>(std::move(bullet_poly));
+			_bullet_properties = bullet_poly_props.get_body_properties(10.0f);
+		}
 
 		auto material = lotus::physics::material_properties(
 			_static_friction, _dynamic_friction, _restitution
@@ -192,6 +201,6 @@ protected:
 	float _gap[2]{ 0.02f, 0.02f };
 	int _box_count[2]{ 5, 3 };
 
-	std::deque<lotus::collision::shape>::iterator _bullet_shape;
+	lotus::collision::shape *_bullet_shape = nullptr;
 	lotus::physics::body_properties _bullet_properties = lotus::uninitialized;
 };

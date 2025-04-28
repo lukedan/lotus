@@ -5,7 +5,7 @@
 
 #include "lotus/physics/common.h"
 
-namespace lotus::physics::constraints {
+namespace lotus::physics::xpbd::constraints {
 	/// A contact constraint between two bodies.
 	struct body_contact {
 		/// No initialization.

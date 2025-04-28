@@ -6,7 +6,7 @@
 #include <lotus/color.h>
 #include <lotus/math/vector.h>
 #include <lotus/utils/camera.h>
-#include <lotus/physics/engine.h>
+#include <lotus/physics/xpbd/solver.h>
 #include <lotus/renderer/context/asset_manager.h>
 
 using namespace lotus::types;
@@ -68,7 +68,7 @@ public:
 	void draw_physics_body(const lotus::collision::shapes::plane&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_physics_body(const lotus::collision::shapes::sphere&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_physics_body(const lotus::collision::shapes::polyhedron&, mat44s transform, const body_visual*, bool wireframe);
-	void draw_system(lotus::physics::engine&);
+	void draw_system(lotus::physics::xpbd::solver&);
 
 
 	void flush(

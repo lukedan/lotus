@@ -1,13 +1,13 @@
-#include "lotus/physics/engine.h"
+#include "lotus/physics/xpbd/solver.h"
 
 /// \file
-/// Implementation of the physics engine.
+/// Implementation of the XPBD solver.
 
 #include "lotus/collision/algorithms/gjk.h"
 #include "lotus/collision/algorithms/epa.h"
 
-namespace lotus::physics {
-	void engine::timestep(scalar dt, u32 iters) {
+namespace lotus::physics::xpbd {
+	void solver::timestep(scalar dt, u32 iters) {
 		scalar dt2 = dt * dt;
 		scalar inv_dt2 = 1.0f / dt2;
 
@@ -186,13 +186,13 @@ namespace lotus::physics {
 
 	template <
 		typename Shape1, typename Shape2
-	> [[nodiscard]] std::optional<engine::collision_detection_result> engine::detect_collision(
+	> [[nodiscard]] std::optional<solver::collision_detection_result> solver::detect_collision(
 		const Shape1&, const body_position&, const Shape2&, const body_position&
 	) {
 		return std::nullopt;
 	}
 
-	std::optional<engine::collision_detection_result> engine::detect_collision(
+	std::optional<solver::collision_detection_result> solver::detect_collision(
 		const collision::shape &s1, const body_position &st1, const collision::shape &s2, const body_position &st2
 	) {
 		const collision::shape *sa = &s1;
@@ -215,20 +215,20 @@ namespace lotus::physics {
 		}
 	}
 
-	std::optional<engine::collision_detection_result> engine::detect_collision(
+	std::optional<solver::collision_detection_result> solver::detect_collision(
 		const collision::shapes::sphere&, const body_position&, const collision::shapes::plane&, const body_position&
 	) {
 		return std::nullopt; // TODO
 	}
 
-	std::optional<engine::collision_detection_result> engine::detect_collision(
+	std::optional<solver::collision_detection_result> solver::detect_collision(
 		const collision::shapes::sphere&, const body_position&,
 		const collision::shapes::sphere&, const body_position&
 	) {
 		return std::nullopt; // TODO
 	}
 
-	std::optional<engine::collision_detection_result> engine::detect_collision(
+	std::optional<solver::collision_detection_result> solver::detect_collision(
 		const collision::shapes::plane&, const body_position &s1,
 		const collision::shapes::polyhedron &p2, const body_position &s2
 	) {
@@ -254,14 +254,14 @@ namespace lotus::physics {
 		return std::nullopt;
 	}
 
-	std::optional<engine::collision_detection_result> engine::detect_collision(
+	std::optional<solver::collision_detection_result> solver::detect_collision(
 		const collision::shapes::sphere&, const body_position&,
 		const collision::shapes::polyhedron&, const body_position&
 	) {
 		return std::nullopt; // TODO
 	}
 
-	std::optional<engine::collision_detection_result> engine::detect_collision(
+	std::optional<solver::collision_detection_result> solver::detect_collision(
 		const collision::shapes::polyhedron &p1, const body_position &s1,
 		const collision::shapes::polyhedron &p2, const body_position &s2
 	) {
@@ -336,7 +336,7 @@ namespace lotus::physics {
 		return result;
 	}
 
-	bool engine::handle_shape_particle_collision(
+	bool solver::handle_shape_particle_collision(
 		const collision::shapes::plane&, const body_state &state, vec3 &pos
 	) {
 		vec3 plane_pos = state.position.orientation.inverse().rotate(pos - state.position.position);
@@ -348,7 +348,7 @@ namespace lotus::physics {
 		return false;
 	}
 
-	bool engine::handle_shape_particle_collision(
+	bool solver::handle_shape_particle_collision(
 		const collision::shapes::sphere &shape, const body_state &state, vec3 &pos
 	) {
 		const vec3 diff = pos - state.position.local_to_global(shape.offset);
@@ -360,7 +360,7 @@ namespace lotus::physics {
 		return false;
 	}
 
-	bool engine::handle_shape_particle_collision(
+	bool solver::handle_shape_particle_collision(
 		const collision::shapes::polyhedron&, const body_state&, vec3&
 	) {
 		// TODO

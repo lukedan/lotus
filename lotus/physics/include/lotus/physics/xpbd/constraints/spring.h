@@ -8,7 +8,7 @@
 #include "lotus/math/vector.h"
 #include "lotus/physics/body.h"
 
-namespace lotus::physics::constraints {
+namespace lotus::physics::xpbd::constraints {
 	/// Properties of a spring constraint.
 	struct spring_constraint_properties {
 		/// No initialization.

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <lotus/physics/engine.h>
+#include <lotus/physics/xpbd/solver.h>
 
 #include "test.h"
 #include "../utils.h"
@@ -12,7 +12,7 @@ public:
 	}
 
 	void soft_reset() override {
-		_engine = lotus::physics::engine();
+		_engine = lotus::physics::xpbd::solver();
 		_engine.gravity = { 0.0f, -10.0f, 0.0f };
 
 		_render = debug_render();
@@ -133,7 +133,7 @@ public:
 		return "Spring Cloth";
 	}
 protected:
-	lotus::physics::engine _engine;
+	lotus::physics::xpbd::solver _engine;
 	debug_render _render;
 	scalar _world_time = 0.0f;
 

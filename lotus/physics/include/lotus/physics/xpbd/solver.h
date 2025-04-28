@@ -1,7 +1,7 @@
 #pragma once
 
 /// \file
-/// The PBD simulation engine.
+/// The XPBD solver.
 
 #include <vector>
 #include <list>
@@ -9,15 +9,15 @@
 #include <optional>
 
 #include "lotus/collision/shape.h"
+#include "lotus/physics/body.h"
 #include "constraints/spring.h"
 #include "constraints/contact.h"
 #include "constraints/face.h"
 #include "constraints/bend.h"
-#include "body.h"
 
-namespace lotus::physics {
-	/// The PBD simulation engine.
-	class engine {
+namespace lotus::physics::xpbd {
+	/// The XPBD solver.
+	class solver {
 	public:
 		/// Result of collision detection.
 		struct collision_detection_result {

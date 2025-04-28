@@ -200,7 +200,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron 
 	}
 }
 
-void debug_render::draw_system(lotus::physics::engine &engine) {
+void debug_render::draw_system(lotus::physics::xpbd::solver &engine) {
 	for (const lotus::physics::body &b : engine.bodies) {
 		const body_visual *visual = nullptr;
 		if (b.user_data) {

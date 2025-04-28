@@ -1,6 +1,6 @@
 #pragma once
 
-#include <lotus/physics/engine.h>
+#include <lotus/physics/xpbd/solver.h>
 
 #include "test.h"
 
@@ -24,7 +24,7 @@ public:
 	}
 
 	void soft_reset() override {
-		_engine = lotus::physics::engine();
+		_engine = lotus::physics::xpbd::solver();
 		_engine.gravity = vec3(0.0f, -9.8f, 0.0f);
 
 		_render = debug_render();
@@ -185,7 +185,7 @@ public:
 		return "Box Stack Test";
 	}
 protected:
-	lotus::physics::engine _engine;
+	lotus::physics::xpbd::solver _engine;
 	debug_render _render;
 
 	bool _rotate_90 = false;

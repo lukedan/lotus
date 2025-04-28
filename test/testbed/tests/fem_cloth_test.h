@@ -1,6 +1,6 @@
 #pragma once
 
-#include <lotus/physics/engine.h>
+#include <lotus/physics/xpbd/solver.h>
 
 #include "test.h"
 #include "../utils.h"
@@ -12,10 +12,10 @@ public:
 	}
 
 	void soft_reset() override {
-		_engine = lotus::physics::engine();
+		_engine = lotus::physics::xpbd::solver();
 		_engine.gravity = { 0.0f, -10.0f, 0.0f };
 		_engine.face_constraint_projection_type =
-			static_cast<lotus::physics::constraints::face::projection_type>(_face_projection);
+			static_cast<lotus::physics::xpbd::constraints::face::projection_type>(_face_projection);
 
 		_render = debug_render();
 		_render.ctx = &_get_test_context();
@@ -104,7 +104,7 @@ public:
 	void gui() override {
 		if (ImGui::Combo("Face Constraint Projection", &_face_projection, "Exact\0Gauss-Seidel\0\0")) {
 			_engine.face_constraint_projection_type =
-				static_cast<lotus::physics::constraints::face::projection_type>(_face_projection);
+				static_cast<lotus::physics::xpbd::constraints::face::projection_type>(_face_projection);
 		}
 
 		ImGui::SliderInt("Cloth Partitions", &_side_segments, 2, 100);
@@ -130,11 +130,11 @@ public:
 		return "FEM Cloth";
 	}
 protected:
-	lotus::physics::engine _engine;
+	lotus::physics::xpbd::solver _engine;
 	debug_render _render;
 	scalar _world_time = 0.0f;
 
-	int _face_projection = static_cast<int>(lotus::physics::constraints::face::projection_type::gauss_seidel);
+	int _face_projection = static_cast<int>(lotus::physics::xpbd::constraints::face::projection_type::gauss_seidel);
 
 	int _side_segments = 10;
 	float _cloth_size = 1.0f;
@@ -155,13 +155,13 @@ protected:
 		face.particle1 = i1;
 		face.particle2 = i2;
 		face.particle3 = i3;
-		face.state = lotus::physics::constraints::face::constraint_state::from_rest_pose(
+		face.state = lotus::physics::xpbd::constraints::face::constraint_state::from_rest_pose(
 			_engine.particles[i1].state.position,
 			_engine.particles[i2].state.position,
 			_engine.particles[i3].state.position,
 			_thickness
 		);
-		face.properties = lotus::physics::constraints::face::constraint_properties::from_material_properties(
+		face.properties = lotus::physics::xpbd::constraints::face::constraint_properties::from_material_properties(
 			_youngs_modulus, _poisson_ratio
 		);
 	}
@@ -172,13 +172,13 @@ protected:
 		bend.particle_edge2 = e2;
 		bend.particle3 = x3;
 		bend.particle4 = x4;
-		bend.state = lotus::physics::constraints::bend::constraint_state::from_rest_pose(
+		bend.state = lotus::physics::xpbd::constraints::bend::constraint_state::from_rest_pose(
 			_engine.particles[e1].state.position,
 			_engine.particles[e2].state.position,
 			_engine.particles[x3].state.position,
 			_engine.particles[x4].state.position
 		);
-		bend.properties = lotus::physics::constraints::bend::constraint_properties::from_material_properties(
+		bend.properties = lotus::physics::xpbd::constraints::bend::constraint_properties::from_material_properties(
 			_youngs_modulus, _poisson_ratio, _thickness
 		);
 	}

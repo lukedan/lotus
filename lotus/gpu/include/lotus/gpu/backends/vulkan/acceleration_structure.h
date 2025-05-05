@@ -53,7 +53,7 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	private:
 		/// The acceleration structure.
-		vk::UniqueHandle<vk::AccelerationStructureKHR, vk::DispatchLoaderDynamic> _acceleration_structure;
+		vk::UniqueHandle<vk::AccelerationStructureKHR, vk::detail::DispatchLoaderDynamic> _acceleration_structure;
 	};
 
 	/// Contains a \p vk::UniqueAccelerationStructureKHR.
@@ -71,6 +71,6 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	private:
 		/// The acceleration structure.
-		vk::UniqueHandle<vk::AccelerationStructureKHR, vk::DispatchLoaderDynamic> _acceleration_structure;
+		vk::UniqueHandle<vk::AccelerationStructureKHR, vk::detail::DispatchLoaderDynamic> _acceleration_structure;
 	};
 }

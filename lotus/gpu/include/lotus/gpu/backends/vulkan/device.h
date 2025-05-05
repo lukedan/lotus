@@ -303,7 +303,7 @@ namespace lotus::gpu::backends::vulkan {
 		enums::dynamic_sequential_mapping<queue_family, _queue_family_properties> _queue_family_props;
 
 		context_options _options = context_options::none; ///< Context options.
-		const vk::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< The dispatch loader.
+		const vk::detail::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< The dispatch loader.
 
 
 		/// Calls \p vk::UniqueDevice::createImage() to create the image, then calls
@@ -351,11 +351,11 @@ namespace lotus::gpu::backends::vulkan {
 		}
 	private:
 		vk::PhysicalDevice _device = nullptr; ///< The physical device.
-		const vk::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< Dispatch loader.
+		const vk::detail::DispatchLoaderDynamic *_dispatch_loader = nullptr; ///< Dispatch loader.
 		context_options _options = context_options::none; ///< Context options.
 
 		/// Initializes all fields of the struct.
-		adapter(vk::PhysicalDevice dev, context_options opt, const vk::DispatchLoaderDynamic &dispatch) :
+		adapter(vk::PhysicalDevice dev, context_options opt, const vk::detail::DispatchLoaderDynamic &dispatch) :
 			_device(dev), _dispatch_loader(&dispatch), _options(opt) {
 		}
 	};

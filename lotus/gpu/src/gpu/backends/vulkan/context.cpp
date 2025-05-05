@@ -76,15 +76,15 @@ namespace lotus::gpu::backends::vulkan {
 			)
 			.setPfnCallback(
 				[](
-					VkDebugReportFlagsEXT flags,
-					VkDebugReportObjectTypeEXT,
+					vk::DebugReportFlagsEXT flags,
+					vk::DebugReportObjectTypeEXT,
 					uint64_t /*object*/,
 					usize location,
 					i32 /*message_code*/,
 					const char */*layer_prefix*/,
 					const char *message,
 					void *user_data
-				) -> VkBool32 {
+				) -> vk::Bool32 {
 					auto &cb = *static_cast<_details::debug_message_callback*>(user_data);
 					if (cb) {
 						const auto vkFlags = static_cast<vk::DebugReportFlagsEXT>(flags);

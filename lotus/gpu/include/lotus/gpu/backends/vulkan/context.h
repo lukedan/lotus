@@ -42,7 +42,7 @@ namespace lotus::gpu::backends::vulkan {
 		context(vk::UniqueInstance, context_options, _details::debug_message_callback);
 
 		vk::UniqueInstance _instance; ///< The vulkan instance.
-		vk::DispatchLoaderDynamic _dispatch_loader; ///< Function pointer for extensions.
+		vk::detail::DispatchLoaderDynamic _dispatch_loader; ///< Function pointer for extensions.
 		vk::DebugReportCallbackEXT _debug_callback; ///< The debug callback.
 		context_options _options = context_options::none; ///< Context options.
 		std::unique_ptr<_details::debug_message_callback> _debug_callback_func; ///< Debug callback.

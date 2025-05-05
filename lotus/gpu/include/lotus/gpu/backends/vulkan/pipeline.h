@@ -135,7 +135,7 @@ namespace lotus::gpu::backends::vulkan {
 		raytracing_pipeline_state(std::nullptr_t) {
 		}
 	private:
-		vk::UniqueHandle<vk::Pipeline, vk::DispatchLoaderDynamic> _pipeline; ///< The pipeline state.
+		vk::UniqueHandle<vk::Pipeline, vk::detail::DispatchLoaderDynamic> _pipeline; ///< The pipeline state.
 	};
 
 	/// Contains a Vulkan shader group handle.

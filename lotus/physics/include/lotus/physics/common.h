@@ -3,51 +3,15 @@
 /// \file
 /// Common physics engine definitions.
 
-#include "lotus/math/constants.h"
 #include "lotus/math/vector.h"
 #include "lotus/math/quaternion.h"
+#include "lotus/collision/common.h"
 
 namespace lotus::physics {
-	/// Type definitions for the physics engine.
-	inline namespace types {
-		using scalar = float; ///< Scalar type.
-		using vec3 = cvec3<scalar>; ///< Vector type.
-		using quats = quaternion<scalar>; ///< Quaternion type.
-		using uquats = unit_quaternion<scalar>; ///< Unit quaternion type.
-		using mat33s = mat33<scalar>; ///< 3x3 matrix type.
-	}
+	using namespace lotus::collision::types;
+	using namespace lotus::collision::constants;
 
-	inline namespace constants {
-		constexpr static scalar pi = static_cast<scalar>(lotus::constants::pi); ///< Pi.
-	}
-
-	/// The position of a rigid body.
-	struct body_position {
-	public:
-		/// No initialization.
-		body_position(uninitialized_t) {
-		}
-		/// Initializes the position with the given position and orientation.
-		[[nodiscard]] constexpr static body_position at(vec3 x, uquats q) {
-			return body_position(x, q);
-		}
-
-		/// Converts the given local space position to world space.
-		[[nodiscard]] constexpr vec3 local_to_global(vec3 local) const {
-			return position + orientation.rotate(local);
-		}
-		/// Converts the given world space position to local space.
-		[[nodiscard]] constexpr vec3 global_to_local(vec3 global) const {
-			return orientation.inverse().rotate(global - position);
-		}
-
-		vec3 position = uninitialized; ///< The position of the center of mass in world space.
-		uquats orientation = uninitialized; ///< The rotation/orientation of this body.
-	private:
-		/// Initializes all fields of this struct.
-		constexpr body_position(vec3 x, uquats q) : position(x), orientation(q) {
-		}
-	};
+	using body_position = collision::body_position;
 	/// The velocity of a rigid body; first order time derivative of a \ref body_position.
 	struct body_velocity {
 	public:

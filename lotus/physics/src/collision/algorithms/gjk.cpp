@@ -6,7 +6,7 @@
 #include <cassert>
 
 #include "lotus/memory/stack_allocator.h"
-#include "lotus/collision/shapes/polyhedron.h"
+#include "lotus/collision/shapes/convex_polyhedron.h"
 
 namespace lotus::collision {
 	gjk_t::result gjk_t::operator()(polyhedron_pair input, persistent_result pstate) {

@@ -64,28 +64,28 @@ namespace lotus::physics::xpbd {
 			const collision::shapes::sphere&, const body_position&,
 			const collision::shapes::sphere&, const body_position&
 		);
-		/// Detects collision between a plane and a polyhedron.
+		/// Detects collision between a plane and a convex polyhedron.
 		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
 			const collision::shapes::plane&, const body_position&,
-			const collision::shapes::polyhedron&, const body_position&
+			const collision::shapes::convex_polyhedron&, const body_position&
 		);
-		/// Detects collision between a sphere and a polyhedron.
+		/// Detects collision between a sphere and a convex polyhedron.
 		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
 			const collision::shapes::sphere&, const body_position&,
-			const collision::shapes::polyhedron&, const body_position&
+			const collision::shapes::convex_polyhedron&, const body_position&
 		);
 		/// Detects collision between two polyhedra.
 		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::polyhedron&, const body_position&,
-			const collision::shapes::polyhedron&, const body_position&
+			const collision::shapes::convex_polyhedron&, const body_position&,
+			const collision::shapes::convex_polyhedron&, const body_position&
 		);
 
 		/// Handles the collision between a plane and a particle.
 		static bool handle_shape_particle_collision(const collision::shapes::plane&, const body_state&, vec3&);
 		/// Handles the collision between a kinematic sphere and a particle.
 		static bool handle_shape_particle_collision(const collision::shapes::sphere&, const body_state&, vec3&);
-		/// Handles the collision between a kinematic polyhedron and a particle.
-		static bool handle_shape_particle_collision(const collision::shapes::polyhedron&, const body_state&, vec3&);
+		/// Handles the collision between a kinematic convex polyhedron and a particle.
+		static bool handle_shape_particle_collision(const collision::shapes::convex_polyhedron&, const body_state&, vec3&);
 
 
 		/// The list of shapes. This provides a convenient place to store shapes, but the user can store shapes

@@ -163,7 +163,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::sphere &sph
 	draw_sphere(transform * mat, visual ? visual->color : lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f), wireframe);
 }
 
-void debug_render::draw_physics_body(const lotus::collision::shapes::polyhedron &poly, mat44s transform, const body_visual *visual, bool wireframe) {
+void debug_render::draw_physics_body(const lotus::collision::shapes::convex_polyhedron &poly, mat44s transform, const body_visual *visual, bool wireframe) {
 	if (visual) {
 		draw_body(poly.vertices, {}, visual->triangles, transform, visual->color, wireframe);
 	} else {

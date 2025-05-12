@@ -177,7 +177,7 @@ namespace lotus::physics::xpbd {
 			vec3 delta_v = delta_vt + delta_vn;
 			scalar delta_v_norm = delta_v.norm();
 			vec3 delta_v_unit = delta_v / delta_v_norm;
-			auto correction = body::correction::compute(
+			auto correction = constraints::body_contact::correction::compute(
 				b1, b2, contact.offset1, contact.offset2, delta_v_unit, 1.0f
 			);
 			correction.apply_velocity(delta_v_norm);
@@ -230,7 +230,7 @@ namespace lotus::physics::xpbd {
 
 	std::optional<solver::collision_detection_result> solver::detect_collision(
 		const collision::shapes::plane&, const body_position &s1,
-		const collision::shapes::polyhedron &p2, const body_position &s2
+		const collision::shapes::convex_polyhedron &p2, const body_position &s2
 	) {
 		const vec3 norm_world = s1.orientation.rotate(vec3(0.0f, 0.0f, 1.0f));
 		const vec3 norm_local2 = s2.orientation.inverse().rotate(norm_world);
@@ -256,14 +256,14 @@ namespace lotus::physics::xpbd {
 
 	std::optional<solver::collision_detection_result> solver::detect_collision(
 		const collision::shapes::sphere&, const body_position&,
-		const collision::shapes::polyhedron&, const body_position&
+		const collision::shapes::convex_polyhedron&, const body_position&
 	) {
 		return std::nullopt; // TODO
 	}
 
 	std::optional<solver::collision_detection_result> solver::detect_collision(
-		const collision::shapes::polyhedron &p1, const body_position &s1,
-		const collision::shapes::polyhedron &p2, const body_position &s2
+		const collision::shapes::convex_polyhedron &p1, const body_position &s1,
+		const collision::shapes::convex_polyhedron &p2, const body_position &s2
 	) {
 		const collision::polyhedron_pair pair(p1, s1, p2, s2);
 
@@ -361,7 +361,7 @@ namespace lotus::physics::xpbd {
 	}
 
 	bool solver::handle_shape_particle_collision(
-		const collision::shapes::polyhedron&, const body_state&, vec3&
+		const collision::shapes::convex_polyhedron&, const body_state&, vec3&
 	) {
 		// TODO
 		return false;

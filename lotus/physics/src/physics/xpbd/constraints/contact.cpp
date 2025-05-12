@@ -1,13 +1,13 @@
-#include "lotus/physics/body.h"
+#include "lotus/physics/xpbd/constraints/contact.h"
 
 /// \file
-/// Implementation of body-related functions.
+/// Implementation of contact constraints.
 
 #include "lotus/math/vector.h"
 #include "lotus/math/quaternion.h"
 
-namespace lotus::physics {
-	body::correction body::correction::compute(
+namespace lotus::physics::xpbd::constraints {
+	body_contact::correction body_contact::correction::compute(
 		body &b1, body &b2, vec3 r1, vec3 r2, vec3 dir, scalar c
 	) {
 		correction result = uninitialized;
@@ -26,7 +26,7 @@ namespace lotus::physics {
 		return result;
 	}
 
-	void body::correction::apply_position(scalar &lambda) const {
+	void body_contact::correction::apply_position(scalar &lambda) const {
 		lambda += delta_lambda;
 		const vec3 p = direction * delta_lambda;
 		body1->state.position.position += p * body1->properties.inverse_mass;
@@ -41,7 +41,7 @@ namespace lotus::physics {
 		);
 	}
 
-	void body::correction::apply_velocity(scalar mag) const {
+	void body_contact::correction::apply_velocity(scalar mag) const {
 		const scalar p_norm = -mag * delta_lambda;
 		const vec3 p = direction * p_norm;
 		body1->state.velocity.linear += p * body1->properties.inverse_mass;

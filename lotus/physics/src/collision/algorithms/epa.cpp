@@ -4,7 +4,7 @@
 /// Implementation of the expanding polytope algorithm.
 
 #include "lotus/algorithms/convex_hull.h"
-#include "lotus/collision/shapes/polyhedron.h"
+#include "lotus/collision/shapes/convex_polyhedron.h"
 
 namespace lotus::collision {
 	epa_t::result epa_t::operator()(polyhedron_pair input, gjk_t::result gjk_state) {

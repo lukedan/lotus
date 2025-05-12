@@ -1,10 +1,10 @@
-#include "lotus/collision/shapes/polyhedron.h"
+#include "lotus/collision/shapes/convex_polyhedron.h"
 
 /// \file
 /// Implementation of polyhedron-related functions.
 
 namespace lotus::collision::shapes {
-	void polyhedron::properties::add_face(vec3 p1, vec3 p2, vec3 p3) {
+	void convex_polyhedron::properties::add_face(vec3 p1, vec3 p2, vec3 p3) {
 		constexpr static mat33s _canonical{
 			{ 1.0f / 60.0f,  1.0f / 120.0f, 1.0f / 120.0f },
 			{ 1.0f / 120.0f, 1.0f / 60.0f,  1.0f / 120.0f },
@@ -20,7 +20,7 @@ namespace lotus::collision::shapes {
 	}
 
 
-	std::pair<polyhedron, polyhedron::properties> polyhedron::bake(std::span<const vec3> vertices) {
+	std::pair<convex_polyhedron, convex_polyhedron::properties> convex_polyhedron::bake(std::span<const vec3> vertices) {
 		using convex_hull = incremental_convex_hull;
 
 		auto bookmark = get_scratch_bookmark();
@@ -106,7 +106,7 @@ namespace lotus::collision::shapes {
 			} while (face_ptr != hull_state.get_any_face());
 		}
 
-		polyhedron poly;
+		convex_polyhedron poly;
 
 		// gather vertices
 		const vec3 center_of_mass = props.get_center_of_mass();
@@ -127,7 +127,7 @@ namespace lotus::collision::shapes {
 		return { std::move(poly), props };
 	}
 
-	std::pair<u32, scalar> polyhedron::get_support_vertex(vec3 dir) const {
+	std::pair<u32, scalar> convex_polyhedron::get_support_vertex(vec3 dir) const {
 		usize result = 0;
 		scalar dot1max = vec::dot(vertices[result], dir);
 		for (usize i = 1; i < vertices.size(); ++i) {
@@ -140,7 +140,7 @@ namespace lotus::collision::shapes {
 		return { static_cast<u32>(result), dot1max };
 	}
 
-	polyhedron::axis_projection polyhedron::project_onto_axis(vec3 dir) const {
+	convex_polyhedron::axis_projection convex_polyhedron::project_onto_axis(vec3 dir) const {
 		axis_projection result = std::nullopt;
 		for (usize i = 0; i < vertices.size(); ++i) {
 			const scalar dotv = vec::dot(dir, vertices[i]);
@@ -156,7 +156,7 @@ namespace lotus::collision::shapes {
 		return result;
 	}
 
-	polyhedron::axis_projection polyhedron::project_onto_axis_with_transform(vec3 axis, physics::body_position pos) const {
+	convex_polyhedron::axis_projection convex_polyhedron::project_onto_axis_with_transform(vec3 axis, body_position pos) const {
 		const scalar offset = vec::dot(axis, pos.position);
 		axis_projection result = project_onto_axis(pos.orientation.inverse().rotate(axis));
 		result.min += offset;

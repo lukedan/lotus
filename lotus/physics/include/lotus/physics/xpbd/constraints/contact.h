@@ -4,10 +4,43 @@
 /// Contact constraints.
 
 #include "lotus/physics/common.h"
+#include "lotus/physics/body.h"
 
 namespace lotus::physics::xpbd::constraints {
 	/// A contact constraint between two bodies.
 	struct body_contact {
+		/// Data associated with a correction.
+		struct correction {
+			/// No initialization.
+			correction(uninitialized_t) {
+			}
+			/// Computes correction data but does not actually apply it. The offsets are in local space, while the
+			/// direction is in world space and should be normalized.
+			[[nodiscard]] static correction compute(
+				body&, body&, vec3 r1, vec3 r2, vec3 dir, scalar c
+			);
+			/// \ref compute() with the raw offset.
+			[[nodiscard]] inline static correction compute(
+				body &b1, body &b2, vec3 r1, vec3 r2, vec3 delta_x
+			) {
+				const scalar norm = delta_x.norm();
+				return compute(b1, b2, r1, r2, delta_x / norm, norm);
+			}
+
+			/// Applies this correction as a positional correction.
+			void apply_position(scalar &lambda) const;
+			/// Applies this correction as a velocity correction. The input magnitude is the real magnitude of the
+			/// velocity change; this object should have been computed with a magnitude of 1.
+			void apply_velocity(scalar mag) const;
+
+			body *body1; ///< The first body.
+			body *body2; ///< The second body.
+			scalar delta_lambda; ///< The change in the multiplier.
+			vec3 direction = uninitialized; ///< Normalized direction of the correction.
+			vec3 rotation1 = uninitialized; ///< Partial rotation delta for the first body.
+			vec3 rotation2 = uninitialized; ///< Partial rotation delta for the second body.
+		};
+
 		/// No initialization.
 		body_contact(uninitialized_t) {
 		}
@@ -31,7 +64,7 @@ namespace lotus::physics::xpbd::constraints {
 				if (depth < 0.0f) {
 					return;
 				}
-				body::correction::compute(
+				correction::compute(
 					*body1, *body2, offset1, offset2, normal, depth
 				).apply_position(lambda_n);
 			}
@@ -47,12 +80,12 @@ namespace lotus::physics::xpbd::constraints {
 
 				const scalar static_friction = std::min(body1->material.static_friction, body2->material.static_friction);
 
-				const auto correction = body::correction::compute(
+				const auto cor = correction::compute(
 					*body1, *body2, offset1, offset2, delta_pt
 				);
 				const scalar max_multiplier = static_friction * lambda_n;
-				if (correction.delta_lambda > max_multiplier) {
-					correction.apply_position(lambda_t);
+				if (cor.delta_lambda > max_multiplier) {
+					cor.apply_position(lambda_t);
 				}
 			}
 		}

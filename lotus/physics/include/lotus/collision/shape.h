@@ -6,7 +6,7 @@
 #include <variant>
 
 #include "shapes/simple.h"
-#include "shapes/polyhedron.h"
+#include "shapes/convex_polyhedron.h"
 
 namespace lotus::collision {
 	/// A generic shape.
@@ -15,13 +15,13 @@ namespace lotus::collision {
 		enum class type : u8 {
 			plane, ///< \ref shapes::plane.
 			sphere, ///< \ref shapes::sphere.
-			polyhedron, ///< \ref shapes::polyhedron.
+			polyhedron, ///< \ref shapes::convex_polyhedron.
 
 			num_types ///< The total number of shape types.
 		};
 
 		/// A union for the storage of shapes. The order of types must match the \ref type enum.
-		using storage = std::variant<shapes::plane, shapes::sphere, shapes::polyhedron>;
+		using storage = std::variant<shapes::plane, shapes::sphere, shapes::convex_polyhedron>;
 
 		/// Creates a new shape.
 		template <typename Shape> [[nodiscard]] inline static shape create(Shape s) {

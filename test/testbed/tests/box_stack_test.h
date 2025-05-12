@@ -46,8 +46,8 @@ public:
 			box_verts.emplace_back(-half_size[0],  half_size[1], -half_size[2]);
 			box_verts.emplace_back(-half_size[0], -half_size[1],  half_size[2]);
 			box_verts.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
-			auto [box_poly, box_poly_props] = lotus::collision::shapes::polyhedron::bake(box_verts);
-			box_shape.value.emplace<lotus::collision::shapes::polyhedron>(std::move(box_poly));
+			auto [box_poly, box_poly_props] = lotus::collision::shapes::convex_polyhedron::bake(box_verts);
+			box_shape.value.emplace<lotus::collision::shapes::convex_polyhedron>(std::move(box_poly));
 			box_props = box_poly_props.get_body_properties(1.0f);
 		}
 
@@ -62,10 +62,10 @@ public:
 			bullet_verts.emplace_back(-half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
 			bullet_verts.emplace_back(-half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
 			bullet_verts.emplace_back(-half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
-			auto [bullet_poly, bullet_poly_props] = lotus::collision::shapes::polyhedron::bake(bullet_verts);
+			auto [bullet_poly, bullet_poly_props] = lotus::collision::shapes::convex_polyhedron::bake(bullet_verts);
 
 			_bullet_shape = &_engine.shapes.emplace_front();
-			_bullet_shape->value.emplace<lotus::collision::shapes::polyhedron>(std::move(bullet_poly));
+			_bullet_shape->value.emplace<lotus::collision::shapes::convex_polyhedron>(std::move(bullet_poly));
 			_bullet_properties = bullet_poly_props.get_body_properties(10.0f);
 		}
 

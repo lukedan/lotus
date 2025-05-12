@@ -3,7 +3,7 @@
 /// \file
 /// Implementation of common functions.
 
-#include "lotus/collision/shapes/polyhedron.h"
+#include "lotus/collision/shapes/convex_polyhedron.h"
 
 namespace lotus::collision {
 	simplex_vertex polyhedron_pair::support_vertex(vec3 dir) const {
@@ -20,9 +20,9 @@ namespace lotus::collision {
 	}
 
 	polyhedron_pair::axis_projection_result polyhedron_pair::penetration_distance(vec3 axis) const {
-		const shapes::polyhedron::axis_projection proj1 =
+		const shapes::convex_polyhedron::axis_projection proj1 =
 			shape1->project_onto_axis_with_transform(axis, position1);
-		const shapes::polyhedron::axis_projection proj2 =
+		const shapes::convex_polyhedron::axis_projection proj2 =
 			shape2->project_onto_axis_with_transform(axis, position2);
 		const scalar dist12 = proj2.min - proj1.max;
 		const scalar dist21 = proj1.min - proj2.max;

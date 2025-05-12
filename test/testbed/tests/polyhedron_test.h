@@ -200,7 +200,7 @@ public:
 		return "Polyhedron Test";
 	}
 protected:
-	lotus::collision::shapes::polyhedron::properties _props = lotus::uninitialized;
+	lotus::collision::shapes::convex_polyhedron::properties _props = lotus::uninitialized;
 	debug_render _render;
 	std::vector<vec3> _vertices;
 	std::vector<bool> _vertex_states;

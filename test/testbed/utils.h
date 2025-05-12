@@ -10,7 +10,7 @@
 #include <lotus/renderer/context/asset_manager.h>
 
 using namespace lotus::types;
-using namespace lotus::physics::types;
+using namespace lotus::collision::types;
 
 using vec2 = lotus::cvec2<scalar>;
 using vec3 = lotus::cvec3<scalar>;
@@ -67,7 +67,7 @@ public:
 
 	void draw_physics_body(const lotus::collision::shapes::plane&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_physics_body(const lotus::collision::shapes::sphere&, mat44s transform, const body_visual*, bool wireframe);
-	void draw_physics_body(const lotus::collision::shapes::polyhedron&, mat44s transform, const body_visual*, bool wireframe);
+	void draw_physics_body(const lotus::collision::shapes::convex_polyhedron&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_system(lotus::physics::xpbd::solver&);
 
 

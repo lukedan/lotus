@@ -8,7 +8,7 @@ target_sources(lotus_physics
 		"include/lotus/collision/algorithms/gjk.h"
 		"include/lotus/collision/algorithms/sat.h"
 
-		"include/lotus/collision/shapes/polyhedron.h"
+		"include/lotus/collision/shapes/convex_polyhedron.h"
 		"include/lotus/collision/shapes/simple.h"
 
 		"include/lotus/collision/common.h"
@@ -29,11 +29,11 @@ target_sources(lotus_physics
 		"src/collision/algorithms/gjk.cpp"
 		"src/collision/algorithms/sat.cpp"
 
-		"src/collision/shapes/polyhedron.cpp"
+		"src/collision/shapes/convex_polyhedron.cpp"
 
 		"src/collision/common.cpp"
 
-		"src/physics/xpbd/solver.cpp"
+		"src/physics/xpbd/constraints/contact.cpp"
 
-		"src/physics/body.cpp")
+		"src/physics/xpbd/solver.cpp")
 target_link_libraries(lotus_physics PUBLIC lotus_core)

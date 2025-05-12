@@ -3,7 +3,7 @@
 /// \file
 /// The separation axis test.
 
-#include "lotus/collision/shapes/polyhedron.h"
+#include "lotus/collision/shapes/convex_polyhedron.h"
 #include "lotus/physics/body_properties.h"
 
 namespace lotus::collision {

@@ -13,7 +13,7 @@
 namespace lotus::collision::shapes {
 	/// A convex polyhedron. The polyhedron is placed so that the center of mass of the polyhedron is at the origin
 	/// of its local coordinates.
-	struct polyhedron {
+	struct convex_polyhedron {
 		/// Additional properties of a polyhedron. Used to compute its inertia matrix and center the polyhedron.
 		struct properties {
 			/// No initialization.
@@ -92,7 +92,7 @@ namespace lotus::collision::shapes {
 
 		/// Processes the given list of vertices and creates a polyhedron from its convex hull, computing its rigid
 		/// body properties in the process.
-		[[nodiscard]] static std::pair<polyhedron, properties> bake(std::span<const vec3> verts);
+		[[nodiscard]] static std::pair<convex_polyhedron, properties> bake(std::span<const vec3> verts);
 
 		/// Returns the index of the support vertex in the given direction, and its dot product with the direction.
 		[[nodiscard]] std::pair<u32, scalar> get_support_vertex(vec3 dir) const;
@@ -100,6 +100,6 @@ namespace lotus::collision::shapes {
 		[[nodiscard]] axis_projection project_onto_axis(vec3) const;
 		/// Returns the range that this polyhedron covers when projected onto the given axis, assuming that it has
 		/// the given transform.
-		[[nodiscard]] axis_projection project_onto_axis_with_transform(vec3, physics::body_position) const;
+		[[nodiscard]] axis_projection project_onto_axis_with_transform(vec3, body_position) const;
 	};
 }

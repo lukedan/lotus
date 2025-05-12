@@ -33,7 +33,7 @@ namespace lotus::collision {
 			[&hull_data](const convex_hull::state &hull, convex_hull::face_id fi) {
 				const auto& face = hull.get_face(fi);
 				hull_data.get(fi) =
-					vec::dot(vec::unsafe_normalize(face.normal), hull.get_vertex(face.vertex_indices[0]));
+					vec::dot(vecu::normalize(face.normal), hull.get_vertex(face.vertex_indices[0]));
 			}
 		);
 		for (u32 i = 0; i < 4; ++i) {
@@ -68,7 +68,7 @@ namespace lotus::collision {
 			const convex_hull::face &nearest_face = hull.get_face(nearest_face_id);
 			const simplex_vertex new_vert_id = input.support_vertex(nearest_face.normal);
 			const vec3 new_vert_pos = input.simplex_vertex_position(new_vert_id);
-			const scalar new_dist = vec::dot(vec::unsafe_normalize(nearest_face.normal), new_vert_pos);
+			const scalar new_dist = vec::dot(vecu::normalize(nearest_face.normal), new_vert_pos);
 			if (new_dist - nearest_face_dist < 1e-6f) { // TODO: threshold
 				break;
 			}

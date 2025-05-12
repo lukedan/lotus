@@ -27,7 +27,7 @@ namespace lotus::physics::xpbd {
 			b.state.position.position += dt * b.state.velocity.linear;
 
 			// TODO external torque
-			b.state.position.orientation = quat::unsafe_normalize(
+			b.state.position.orientation = quatu::normalize(
 				b.state.position.orientation +
 				0.5f * dt * quats::from_vector(b.state.velocity.angular) * b.state.position.orientation
 			);

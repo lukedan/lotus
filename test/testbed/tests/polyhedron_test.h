@@ -77,7 +77,7 @@ public:
 			const vec3 p0 = poly_verts[tri[0]];
 			const vec3 p1 = poly_verts[tri[1]];
 			const vec3 p2 = poly_verts[tri[2]];
-			const vec3 n = lotus::vec::unsafe_normalize(lotus::vec::cross(p1 - p0, p2 - p0));
+			const vec3 n = lotus::vecu::normalize(lotus::vec::cross(p1 - p0, p2 - p0));
 
 			indices.emplace_back(verts.size());
 			verts.emplace_back(p0);

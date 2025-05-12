@@ -16,7 +16,7 @@ namespace lotus {
 	class vec : public mat {
 	public:
 		/// Dot product.
-		template <typename Vec> [[nodiscard]] inline static constexpr typename Vec::value_type dot(
+		template <typename Vec> [[nodiscard]] static constexpr typename Vec::value_type dot(
 			const Vec &lhs, const Vec &rhs
 		) {
 			auto result = static_cast<typename Vec::value_type>(0);
@@ -35,24 +35,33 @@ namespace lotus {
 				lhs[0] * rhs[1] - lhs[1] * rhs[0]
 			};
 		}
-		/// Returns the matrix that can be used to compute the cross product between two vectors. This matrix
-		/// corresponds to the left operand.
+		/// Returns the matrix that can be used to compute the cross product between two vectors, according to
+		/// Wikipedia's definitions: https://en.wikipedia.org/wiki/Cross_product#Conversion_to_matrix_multiplication
+		/// This function returns F(v) for v such that <tt>a x b = F(a) b = F(b)^T a</tt>.
 		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
 			Vec::dimensionality == 3, matrix<3, 3, typename Vec::value_type>
-		> cross_product_matrix(const Vec &v) {
+		> cross_matrix(const Vec &v) {
 			return {
 				{ 0, -v[2], v[1] },
 				{ v[2], 0, -v[0] },
 				{ -v[1], v[0], 0 }
 			};
 		}
+	};
+
+	/// Unsafe vector operations.
+	class vec_unsafe {
+	public:
+		/// Prevents instances of this type from being created.
+		vec_unsafe() = delete;
 
 		/// Normalizes the given vector without any safety checks.
-		template <typename Vec> [[nodiscard]] inline static constexpr Vec unsafe_normalize(Vec v) {
+		template <typename Vec> [[nodiscard]] static constexpr Vec normalize(Vec v) {
 			v /= v.norm();
 			return v;
 		}
 	};
+	using vecu = vec_unsafe; ///< Shorthand for \ref vec_unsafe.
 
 
 	/// Shorthands for various vector types.

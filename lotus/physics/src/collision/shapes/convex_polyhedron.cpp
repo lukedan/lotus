@@ -48,7 +48,7 @@ namespace lotus::collision::shapes {
 			convex_hull::face_id face_ptr = hull_state.get_any_face();
 			do {
 				const convex_hull::face &face = hull_state.get_face(face_ptr);
-				const vec3 face_normal = vec::unsafe_normalize(face.normal);
+				const vec3 face_normal = vecu::normalize(face.normal);
 
 				// compute body properties
 				props.add_face(
@@ -78,7 +78,7 @@ namespace lotus::collision::shapes {
 
 					{ // if this face and its neighbor have similar normals, this edge does not need to be counted
 						const convex_hull::face &other_face = hull_state.get_face(edge.face);
-						const scalar dotv = vec::dot(face_normal, vec::unsafe_normalize(other_face.normal));
+						const scalar dotv = vec::dot(face_normal, vecu::normalize(other_face.normal));
 						if (dotv > unique_normal_threshold) {
 							continue;
 						}
@@ -86,7 +86,7 @@ namespace lotus::collision::shapes {
 
 					const vec3 p1 = hull_state.get_vertex(face.vertex_indices[i]);
 					const vec3 p2 = hull_state.get_vertex(face.vertex_indices[(i + 1) % 3]);
-					const vec3 edge_dir = vec::unsafe_normalize(p2 - p1);
+					const vec3 edge_dir = vecu::normalize(p2 - p1);
 					// see if we have a similar edge
 					bool has_similar = false;
 					for (const vec3 e : unique_edges) {

@@ -86,8 +86,8 @@ namespace lotus {
 		/// \param jitter_offset Optional TAA jitter offset. This is applied in clip space, so pixel values need to
 		///                      be divided by <tt>screen_size * 2</tt>.
 		[[nodiscard]] /*constexpr*/ camera<T> into_camera(cvec2<T> jitter_offset = zero) const {
-			cvec3<T> unit_forward = vec::unsafe_normalize(look_at - position);
-			cvec3<T> unit_right = vec::unsafe_normalize(vec::cross(unit_forward, world_up));
+			cvec3<T> unit_forward = vecu::normalize(look_at - position);
+			cvec3<T> unit_right = vecu::normalize(vec::cross(unit_forward, world_up));
 			cvec3<T> unit_up = vec::cross(unit_right, unit_forward);
 
 			mat33<T> rotation = mat::concat_columns(unit_right, unit_up, unit_forward).transposed();

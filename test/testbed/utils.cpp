@@ -65,7 +65,7 @@ void debug_render::draw_body(
 		auto &vert = verts.emplace_back();
 		vert.position = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0);
 		vert.color    = color;
-		vert.normal   = lotus::vec::unsafe_normalize(normal_transform * normals[i]);
+		vert.normal   = lotus::vecu::normalize(normal_transform * normals[i]);
 	}
 	for (usize i = 0; i < indices.size(); i += 3) {
 		if (wireframe) {
@@ -133,8 +133,8 @@ void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, boo
 }
 
 void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, mat44s transform, const body_visual *visual, bool wireframe) {
-	vec3 vx = lotus::vec::unsafe_normalize((transform * vec4(1.0f, 0.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
-	vec3 vy = lotus::vec::unsafe_normalize((transform * vec4(0.0f, 1.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
+	vec3 vx = lotus::vecu::normalize((transform * vec4(1.0f, 0.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
+	vec3 vy = lotus::vecu::normalize((transform * vec4(0.0f, 1.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
 	vec3 v0 = (transform * vec4(0.0f, 1.0f, 0.0f, 1.0f)).block<3, 1>(0, 0);
 	lotus::linear_rgba_f color = visual ? visual->color : lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f);
 	if (wireframe) {
@@ -294,7 +294,7 @@ void debug_render::flush(
 	};
 
 	shader_types::default_shader_constants constants;
-	constants.light_direction = lotus::vec::unsafe_normalize(lotus::cvec3f(0.3f, 0.4f, 0.5f));
+	constants.light_direction = lotus::vecu::normalize(lotus::cvec3f(0.3f, 0.4f, 0.5f));
 	constants.projection_view = ctx->camera.projection_view_matrix.into<float>();
 
 	auto pass = q.begin_pass({ frame_buffer }, depth_buffer, size, u8"Debug Render");

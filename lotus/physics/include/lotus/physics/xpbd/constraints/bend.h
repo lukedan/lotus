@@ -118,27 +118,27 @@ namespace lotus::physics::xpbd::constraints {
 			const mat33s i_minus_n1n1t_over_n1norm = inv_n1_norm * (mat33s::identity() - n1 * n1.transposed());
 			const mat33s i_minus_n2n2t_over_n2norm = inv_n2_norm * (mat33s::identity() - n2 * n2.transposed());
 			const mat33s n2_cross_i_minus_n1n1t_over_n1norm =
-				vec::cross_product_matrix(n2) * i_minus_n1n1t_over_n1norm;
+				vec::cross_matrix(n2) * i_minus_n1n1t_over_n1norm;
 			const mat33s n1_cross_i_minus_n2n2t_over_n2norm =
-				vec::cross_product_matrix(n1) * i_minus_n2n2t_over_n2norm;
+				vec::cross_matrix(n1) * i_minus_n2n2t_over_n2norm;
 
 			const auto dtheta_dx2 =
 				cosv * (
 					sin_vec.transposed() * i_minus_d1nd1nt_over_d1norm +
 					d1n.transposed() * (
-						n2_cross_i_minus_n1n1t_over_n1norm * vec::cross_product_matrix(d2) -
-						n1_cross_i_minus_n2n2t_over_n2norm * vec::cross_product_matrix(d3)
+						n2_cross_i_minus_n1n1t_over_n1norm * vec::cross_matrix(d2) -
+						n1_cross_i_minus_n2n2t_over_n2norm * vec::cross_matrix(d3)
 					)
 				) + sinv * (
-					n1.transposed() * i_minus_n2n2t_over_n2norm * vec::cross_product_matrix(d3) +
-					n2.transposed() * i_minus_n1n1t_over_n1norm * vec::cross_product_matrix(d2)
+					n1.transposed() * i_minus_n2n2t_over_n2norm * vec::cross_matrix(d3) +
+					n2.transposed() * i_minus_n1n1t_over_n1norm * vec::cross_matrix(d2)
 				);
 			const auto dtheta_dx3 =
-				-cosv * (d1n.transposed() * (n2_cross_i_minus_n1n1t_over_n1norm * vec::cross_product_matrix(d1))) -
-				sinv * (n2.transposed() * i_minus_n1n1t_over_n1norm * vec::cross_product_matrix(d1));
+				-cosv * (d1n.transposed() * (n2_cross_i_minus_n1n1t_over_n1norm * vec::cross_matrix(d1))) -
+				sinv * (n2.transposed() * i_minus_n1n1t_over_n1norm * vec::cross_matrix(d1));
 			const auto dtheta_dx4 =
-				cosv * (d1n.transposed() * n1_cross_i_minus_n2n2t_over_n2norm * vec::cross_product_matrix(d1)) -
-				sinv * (n1.transposed() * i_minus_n2n2t_over_n2norm * vec::cross_product_matrix(d1));
+				cosv * (d1n.transposed() * n1_cross_i_minus_n2n2t_over_n2norm * vec::cross_matrix(d1)) -
+				sinv * (n1.transposed() * i_minus_n2n2t_over_n2norm * vec::cross_matrix(d1));
 			const auto dtheta_dx1 = -dtheta_dx2 - dtheta_dx3 - dtheta_dx4;
 
 			const scalar c_coefficient = state.sqrt_sum_inverse_areas * state.edge_length / std::sqrt(8.0f);

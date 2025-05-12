@@ -31,11 +31,11 @@ namespace lotus::physics::xpbd::constraints {
 		const vec3 p = direction * delta_lambda;
 		body1->state.position.position += p * body1->properties.inverse_mass;
 		body2->state.position.position -= p * body2->properties.inverse_mass;
-		body1->state.position.orientation = quat::unsafe_normalize(
+		body1->state.position.orientation = quatu::normalize(
 			body1->state.position.orientation +
 			body1->state.position.orientation * quats::from_vector((0.5f * delta_lambda) * rotation1)
 		);
-		body2->state.position.orientation = quat::unsafe_normalize(
+		body2->state.position.orientation = quatu::normalize(
 			body2->state.position.orientation -
 			body2->state.position.orientation * quats::from_vector((0.5f * delta_lambda) * rotation2)
 		);

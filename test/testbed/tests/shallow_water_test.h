@@ -655,7 +655,7 @@ protected:
 				const vec3 xp = get_pos(x + 1 < sz[0] ? x + 1 : x, y);
 				const vec3 yn = get_pos(x, y > 0 ? y - 1 : y);
 				const vec3 yp = get_pos(x, y + 1 < sz[1] ? y + 1 : y);
-				norm.emplace_back(lotus::vec::unsafe_normalize(lotus::vec::cross(xp - xn, yp - yn)));
+				norm.emplace_back(lotus::vecu::normalize(lotus::vec::cross(xp - xn, yp - yn)));
 			}
 		}
 		render.draw_body(pos, norm, indices, transform, color, wireframe);

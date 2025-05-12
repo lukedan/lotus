@@ -354,7 +354,7 @@ namespace lotus::renderer::assimp {
 					if (it != lights_mapping.end()) {
 						auto &light = lights[it->second];
 						light.position = (trans * cvec4f(cvec3f(light.position), 1.0f)).block<3, 1>(0, 0);
-						light.direction = vec::unsafe_normalize((trans * cvec4f(cvec3f(light.direction), 0.0f)).block<3, 1>(0, 0));
+						light.direction = vecu::normalize((trans * cvec4f(cvec3f(light.direction), 0.0f)).block<3, 1>(0, 0));
 						lights_mapping.erase(it);
 					}
 				}

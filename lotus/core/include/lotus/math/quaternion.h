@@ -15,11 +15,13 @@ namespace lotus {
 		unit ///< Unit quaternion with a magnitude of 1.
 	};
 
-	struct quat;
+	class quat;
+	class quat_unsafe;
 
 	/// A quaternion.
 	template <typename T, quaternion_kind Kind = quaternion_kind::arbitrary> struct quaternion {
 		friend quat;
+		friend quat_unsafe;
 		template <typename, quaternion_kind> friend struct quaternion;
 	public:
 		using value_type = T; ///< Value type.
@@ -33,8 +35,7 @@ namespace lotus {
 		}
 		/// Unit quaternions can be implicitly converted into arbitrary quaternions.
 		template <
-			typename Dummy = int,
-			std::enable_if_t<Kind == quaternion_kind::arbitrary, Dummy> = 0
+			typename Dummy = int, std::enable_if_t<Kind == quaternion_kind::arbitrary, Dummy> = 0
 		> constexpr quaternion(const quaternion<T, quaternion_kind::unit> &src) :
 			quaternion(src.w(), src.x(), src.y(), src.z()) {
 		}
@@ -282,7 +283,7 @@ namespace lotus {
 			auto xx = x() * x();
 			auto yy = y() * y();
 			auto zz = z() * z();
-			
+
 			auto xy = x() * y();
 			auto xz = x() * z();
 			auto yz = y() * z();
@@ -315,11 +316,10 @@ namespace lotus {
 			return result;
 		}
 	private:
-		T
-			_w, ///< The cosine of half the rotation angle.
-			_x, ///< Rotation axis X times the sine of half the rotation angle.
-			_y, ///< Rotation axis Y times the sine of half the rotation angle.
-			_z; ///< Rotation axis Z times the sine of half the rotation angle.
+		T _w; ///< The cosine of half the rotation angle.
+		T _x; ///< Rotation axis X times the sine of half the rotation angle.
+		T _y; ///< Rotation axis Y times the sine of half the rotation angle.
+		T _z; ///< Rotation axis Z times the sine of half the rotation angle.
 
 		/// Initializes all components of this quaternion.
 		constexpr quaternion(T cw, T cx, T cy, T cz) :
@@ -336,9 +336,13 @@ namespace lotus {
 
 
 	/// Quaternion utilities.
-	struct quat {
+	class quat {
+	public:
+		/// Prevent objects of this type from being created.
+		quat() = delete;
+
 		/// Creates a quaternion from the given normalized axis and rotation angle.
-		template <typename Vec> [[nodiscard]] inline static constexpr std::enable_if_t<
+		template <typename Vec> [[nodiscard]] static constexpr std::enable_if_t<
 			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
 		> from_normalized_axis_angle(const Vec &axis, typename Vec::value_type angle) {
 			using _type = typename Vec::value_type;
@@ -348,23 +352,27 @@ namespace lotus {
 			_type sin_half = std::sin(angle);
 			return unit_quaternion<_type>(w, sin_half * axis[0], sin_half * axis[1], sin_half * axis[2]);
 		}
-		/// Creates a quaternion from the given axis and rotation angle. This function calls
-		/// \ref vec::unsafe_normalize() to normalize the rotation axis; use \ref from_normalized_axis_angle()
-		/// instead if the axis is guaranteed to be normalized.
-		template <typename Vec> [[nodiscard]] inline static constexpr std::enable_if_t<
+		/// Creates a quaternion from the given axis and rotation angle. This function calls \ref vecu::normalize()
+		/// to normalize the rotation axis; use \ref from_normalized_axis_angle() instead if the axis is guaranteed
+		/// to be normalized.
+		template <typename Vec> [[nodiscard]] static constexpr std::enable_if_t<
 			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
 		> from_axis_angle(const Vec &axis, typename Vec::value_type angle) {
-			return from_normalized_axis_angle(vec::unsafe_normalize(axis), std::move(angle));
+			return from_normalized_axis_angle(vecu::normalize(axis), std::move(angle));
 		}
+	};
 
-		/// No normalization needed for unit quaternions.
-		template <typename T> constexpr static unit_quaternion<T> unsafe_normalize(unit_quaternion<T> q) {
-			return q;
-		}
+	/// Unsafe quaternion utilities.
+	class quat_unsafe {
+	public:
+		/// Prevent objects of this type from being created.
+		quat_unsafe() = delete;
+
 		/// Normalizes the given quaternion without checking if its magnitude is close to zero.
-		template <typename T> inline constexpr static unit_quaternion<T> unsafe_normalize(quaternion<T> q) {
-			T norm = q.magnitude();
+		template <typename T> constexpr static unit_quaternion<T> normalize(quaternion<T> q) {
+			const T norm = q.magnitude();
 			return unit_quaternion<T>(q.w() / norm, q.x() / norm, q.y() / norm, q.z() / norm);
 		}
 	};
+	using quatu = quat_unsafe; ///< Shorthand for \ref quat_unsafe.
 }

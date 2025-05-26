@@ -37,6 +37,9 @@ public:
 			soft_reset();
 		}
 	}
+	/// Key press callback.
+	virtual void on_key_down(lotus::system::window_events::key_down&) {
+	}
 protected:
 	/// Retrieves the test context.
 	[[nodiscard]] const test_context &_get_test_context() const {

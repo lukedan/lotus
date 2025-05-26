@@ -28,6 +28,11 @@ namespace lotus::physics {
 
 		vec3 linear = uninitialized; ///< Linear velocity.
 		vec3 angular = uninitialized; ///< Angular velocity.
+
+		/// Returns the linar and angular components concatenated into a vector.
+		[[nodiscard]] column_vector<6, scalar> get_vector() const {
+			return column_vector<6, scalar>(linear, angular);
+		}
 	private:
 		/// Initializes all fields of this struct.
 		constexpr body_velocity(vec3 l, vec3 a) : linear(l), angular(a) {

@@ -14,6 +14,10 @@ target_sources(lotus_physics
 		"include/lotus/collision/common.h"
 		"include/lotus/collision/shape.h"
 
+		"include/lotus/physics/rigid_body/constraints/contact_set_blcp.h"
+
+		"include/lotus/physics/rigid_body/solver.h"
+
 		"include/lotus/physics/xpbd/constraints/bend.h"
 		"include/lotus/physics/xpbd/constraints/contact.h"
 		"include/lotus/physics/xpbd/constraints/face.h"
@@ -24,6 +28,7 @@ target_sources(lotus_physics
 		"include/lotus/physics/body.h"
 		"include/lotus/physics/body_properties.h"
 		"include/lotus/physics/common.h"
+		"include/lotus/physics/world.h"
 	PRIVATE
 		"src/collision/algorithms/epa.cpp"
 		"src/collision/algorithms/gjk.cpp"
@@ -33,7 +38,13 @@ target_sources(lotus_physics
 
 		"src/collision/common.cpp"
 
+		"src/physics/rigid_body/constraints/contact_set_blcp.cpp"
+
+		"src/physics/rigid_body/solver.cpp"
+
 		"src/physics/xpbd/constraints/contact.cpp"
 
-		"src/physics/xpbd/solver.cpp")
+		"src/physics/xpbd/solver.cpp"
+
+		"src/physics/world.cpp")
 target_link_libraries(lotus_physics PUBLIC lotus_core)

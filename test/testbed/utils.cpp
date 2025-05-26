@@ -6,6 +6,9 @@
 #include <lotus/renderer/context/constant_uploader.h>
 
 #include <lotus/renderer/shader_types_include_wrapper.h>
+
+#include "lotus/physics/world.h"
+
 namespace shader_types {
 #include "shaders/shader_types.hlsli"
 }
@@ -200,38 +203,67 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::convex_poly
 	}
 }
 
-void debug_render::draw_system(lotus::physics::xpbd::solver &engine) {
-	for (const lotus::physics::body &b : engine.bodies) {
+void debug_render::draw_world(const lotus::physics::world &world) {
+	for (const lotus::physics::body *b : world.get_bodies()) {
 		const body_visual *visual = nullptr;
-		if (b.user_data) {
-			visual = static_cast<const body_visual*>(b.user_data);
+		if (b->user_data) {
+			visual = static_cast<const body_visual*>(b->user_data);
 		}
 
 		auto mat = mat44s::identity();
-		mat.set_block(0, 0, b.state.position.orientation.into_matrix());
-		mat.set_block(0, 3, b.state.position.position);
+		mat.set_block(0, 0, b->state.position.orientation.into_matrix());
+		mat.set_block(0, 3, b->state.position.position);
 
 		std::visit(
 			[&](const auto &shape) {
 				draw_physics_body(shape, mat, visual, ctx->wireframe_bodies);
 			},
-			b.body_shape->value
+			b->body_shape->value
 		);
 	}
+
+	// debug stuff
+	if (ctx->draw_body_velocities) {
+		for (const lotus::physics::body *b : world.get_bodies()) {
+			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.linear, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
+			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.angular, lotus::linear_rgba_f(0.0f, 1.0f, 0.0f, 1.0f));
+		}
+	}
+}
+
+void debug_render::draw_system(lotus::physics::rigid_body::solver &solver) {
+	draw_world(*solver.physics_world);
+
+	// debug stuff
+	if (ctx->draw_contacts) {
+		using contact_set_t = lotus::physics::rigid_body::constraints::contact_set_blcp;
+		for (contact_set_t &contact_set : solver.contact_constraints) {
+			for (usize i = 0; i < contact_set.contacts_info.size(); ++i) {
+				const contact_set_t::contact_info &ci = contact_set.contacts_info[i];
+				const vec3 impulse = ci.tangents.get_tangent_to_world_matrix() * contact_set.lambda[i];
+				draw_line(ci.contact, ci.contact + impulse, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
+			}
+		}
+	}
+}
+
+
+void debug_render::draw_system(lotus::physics::xpbd::solver &solver) {
+	draw_world(*solver.physics_world);
 
 	// surfaces
 	std::vector<vec3> positions;
 	if (!ctx->wireframe_surfaces) {
-		for (const auto &p : engine.particles) {
+		for (const auto &p : solver.particles) {
 			positions.emplace_back(p.state.position);
 		}
 	}
 	for (const auto &surface : surfaces) {
 		if (ctx->wireframe_surfaces) {
 			for (usize i = 0; i < surface.triangles.size(); i += 3) {
-				auto p1 = engine.particles[surface.triangles[i]].state.position;
-				auto p2 = engine.particles[surface.triangles[i + 1]].state.position;
-				auto p3 = engine.particles[surface.triangles[i + 2]].state.position;
+				auto p1 = solver.particles[surface.triangles[i]].state.position;
+				auto p2 = solver.particles[surface.triangles[i + 1]].state.position;
+				auto p3 = solver.particles[surface.triangles[i + 2]].state.position;
 				draw_line(p1, p2, surface.color);
 				draw_line(p2, p3, surface.color);
 				draw_line(p3, p1, surface.color);
@@ -242,15 +274,8 @@ void debug_render::draw_system(lotus::physics::xpbd::solver &engine) {
 	}
 
 	// debug stuff
-	if (ctx->draw_body_velocities) {
-		for (const lotus::physics::body &b : engine.bodies) {
-			draw_line(b.state.position.position, b.state.position.position + b.state.velocity.linear, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
-			draw_line(b.state.position.position, b.state.position.position + b.state.velocity.angular, lotus::linear_rgba_f(0.0f, 1.0f, 0.0f, 1.0f));
-		}
-	}
-
 	if (ctx->draw_contacts) {
-		for (const auto &c : engine.contact_constraints) {
+		for (const auto &c : solver.contact_constraints) {
 			auto p1 = c.body1->state.position.local_to_global(c.offset1);
 			auto p2 = c.body2->state.position.local_to_global(c.offset2);
 			draw_point(p1, lotus::linear_rgba_f(0.0f, 0.0f, 1.0f, 1.0f));

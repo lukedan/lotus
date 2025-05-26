@@ -309,6 +309,11 @@ protected:
 		_test_context.camera_params.position = _test_context.camera_params.look_at + diff;
 		_test_context.update_camera();
 	}
+	void _on_key_down(lotus::system::window_events::key_down &kd) override {
+		if (_test) {
+			_test->on_key_down(kd);
+		}
+	}
 };
 
 int main(int argc, char **argv) {

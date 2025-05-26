@@ -25,6 +25,29 @@ namespace lotus::physics {
 			return result;
 		}
 
+		/// Applies an impulse to this body.
+		void apply_impulse(vec3 pos_ws, vec3 impulse_ws) {
+			state.velocity.linear += impulse_ws * properties.inverse_mass;
+			state.velocity.angular +=
+				properties.inverse_inertia * vec::cross(pos_ws - state.position.position, impulse_ws);
+		}
+
+		/// Performs explicit time integration on body velocity. This function does not update previous state.
+		void velocity_integration(scalar dt, vec3 external_accel, vec3 external_angular_accel) {
+			if (properties.inverse_mass > 0.0f) {
+				state.velocity.linear += dt * external_accel;
+				state.velocity.angular += dt * external_angular_accel;
+			}
+		}
+		/// Performs explicit time integration on body position. This function does not update previous state.
+		void position_integration(scalar dt) {
+			state.position.position += dt * state.velocity.linear;
+			state.position.orientation = quatu::normalize(
+				state.position.orientation +
+				0.5f * dt * quats::from_vector(state.velocity.angular) * state.position.orientation
+			);
+		}
+
 		collision::shape *body_shape; ///< The shape of this body.
 		material_properties material = uninitialized; ///< The material of this body.
 		body_properties properties = uninitialized; ///< The properties of this body.

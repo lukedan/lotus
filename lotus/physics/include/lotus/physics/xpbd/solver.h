@@ -15,70 +15,17 @@
 #include "constraints/face.h"
 #include "constraints/bend.h"
 
+namespace lotus::physics {
+	class world;
+}
+
 namespace lotus::physics::xpbd {
 	/// The XPBD solver.
 	class solver {
 	public:
-		/// Result of collision detection.
-		struct collision_detection_result {
-			/// No initialization.
-			collision_detection_result(uninitialized_t) {
-			}
-			/// Creates a new object.
-			[[nodiscard]] inline static collision_detection_result create(vec3 c1, vec3 c2, vec3 n) {
-				collision_detection_result result = uninitialized;
-				result.contact1 = c1;
-				result.contact2 = c2;
-				result.normal = n;
-				return result;
-			}
-
-			vec3 contact1 = uninitialized; ///< Contact point on the first object in local space.
-			vec3 contact2 = uninitialized; ///< Contact point on the second object in local space.
-			/// Normalized contact normal. There's no guarantee of its direction.
-			vec3 normal = uninitialized;
-		};
-
 		/// Executes one time step with the given delta time in seconds and the given number of iterations.
 		void timestep(scalar dt, u32 iters);
 
-
-		/// Detects collision between two generic shapes.
-		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shape&, const body_position&, const collision::shape&, const body_position&
-		);
-		/// Fallback case for collision detection between generic shapes - this always returns \p std::nullopt and
-		/// should only be used internally.
-		template <
-			typename Shape1, typename Shape2
-		> [[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const Shape1&, const body_position&, const Shape2&, const body_position&
-		);
-		/// Detects collision between a sphere and a plane.
-		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::sphere&, const body_position&,
-			const collision::shapes::plane&, const body_position&
-		);
-		/// Detects collision between two spheres.
-		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::sphere&, const body_position&,
-			const collision::shapes::sphere&, const body_position&
-		);
-		/// Detects collision between a plane and a convex polyhedron.
-		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::plane&, const body_position&,
-			const collision::shapes::convex_polyhedron&, const body_position&
-		);
-		/// Detects collision between a sphere and a convex polyhedron.
-		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::sphere&, const body_position&,
-			const collision::shapes::convex_polyhedron&, const body_position&
-		);
-		/// Detects collision between two polyhedra.
-		[[nodiscard]] static std::optional<collision_detection_result> detect_collision(
-			const collision::shapes::convex_polyhedron&, const body_position&,
-			const collision::shapes::convex_polyhedron&, const body_position&
-		);
 
 		/// Handles the collision between a plane and a particle.
 		static bool handle_shape_particle_collision(const collision::shapes::plane&, const body_state&, vec3&);
@@ -88,10 +35,7 @@ namespace lotus::physics::xpbd {
 		static bool handle_shape_particle_collision(const collision::shapes::convex_polyhedron&, const body_state&, vec3&);
 
 
-		/// The list of shapes. This provides a convenient place to store shapes, but the user can store shapes
-		/// anywhere.
-		std::deque<collision::shape> shapes;
-		std::list<body> bodies; ///< The list of bodies.
+		world *physics_world = nullptr; ///< The physics world.
 
 		std::vector<particle> particles; ///< The list of particles.
 
@@ -109,7 +53,5 @@ namespace lotus::physics::xpbd {
 
 		std::deque<constraints::body_contact> contact_constraints; ///< Contact constraints.
 		std::vector<std::pair<scalar, scalar>> contact_lambdas; ///< Lambda values for contact constraints.
-
-		vec3 gravity = zero; ///< Gravity.
 	};
 }

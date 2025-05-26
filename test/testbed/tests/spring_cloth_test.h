@@ -12,8 +12,11 @@ public:
 	}
 
 	void soft_reset() override {
+		_bodies.clear();
+		_world = lotus::physics::world();
+		_world.gravity = { 0.0f, -10.0f, 0.0f };
 		_engine = lotus::physics::xpbd::solver();
-		_engine.gravity = { 0.0f, -10.0f, 0.0f };
+		_engine.physics_world = &_world;
 
 		_render = debug_render();
 		_render.ctx = &_get_test_context();
@@ -70,18 +73,16 @@ public:
 			}
 		}
 
-		auto &sphere_shape = _engine.shapes.emplace_back(
-			lotus::collision::shape::create(lotus::collision::shapes::sphere::from_radius(0.25f))
-		);
+		_sphere_shape = lotus::collision::shape::create(lotus::collision::shapes::sphere::from_radius(0.25f));
 
 		auto material = lotus::physics::material_properties(0.5f, 0.45f, 0.2f);
 
-		_engine.bodies.emplace_front(lotus::physics::body::create(
-			sphere_shape, material,
+		_sphere = &_bodies.emplace_front(lotus::physics::body::create(
+			_sphere_shape, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(lotus::zero, uquats::identity())
 		));
-		_sphere = _engine.bodies.begin();
+		_world.add_body(*_sphere);
 	}
 
 	void timestep(scalar dt, u32 iterations) override {
@@ -133,6 +134,8 @@ public:
 		return "Spring Cloth";
 	}
 protected:
+	std::deque<lotus::physics::body> _bodies;
+	lotus::physics::world _world;
 	lotus::physics::xpbd::solver _engine;
 	debug_render _render;
 	scalar _world_time = 0.0f;
@@ -145,10 +148,12 @@ protected:
 	float _youngs_modulus_diag = 50000.0f;
 	float _youngs_modulus_long = 50000.0f;
 
-	std::list<lotus::physics::body>::iterator _sphere;
+	lotus::physics::body *_sphere = nullptr;
 	float _sphere_travel = 1.5f;
 	float _sphere_period = 3.0f;
 	float _sphere_yz[2]{ 0.5f, 0.0f };
+
+	lotus::collision::shape _sphere_shape;
 
 
 	void _add_spring(usize i1, usize i2, scalar y) {

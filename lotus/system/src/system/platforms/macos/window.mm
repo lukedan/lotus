@@ -10,6 +10,7 @@
 #include "lotus/logging.h"
 #include "lotus/system/window.h"
 #include "lotus/system/platforms/macos/application.h"
+#include "lotus/system/platforms/macos/details.h"
 
 using _window_ptr_t = lotus::system::window*; ///< Window pointer type.
 using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_event_type; ///< Custom event type.
@@ -204,6 +205,28 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 			[self convert_modifier_keys: e.modifierFlags]
 		);
 		wnd->on_mouse_scroll(event);
+	}
+}
+
+- (void)keyDown: (NSEvent*)e {
+	const _window_ptr_t wnd = [self get_window_ptr];
+	if (wnd->on_key_down) {
+		lotus::system::window_events::key_down event(
+			lotus::system::platforms::macos::_details::conversions::to_key(e.keyCode),
+			[self convert_modifier_keys: e.modifierFlags]
+		);
+		wnd->on_key_down(event);
+	}
+}
+
+- (void)keyUp: (NSEvent*)e {
+	const _window_ptr_t wnd = [self get_window_ptr];
+	if (wnd->on_key_up) {
+		lotus::system::window_events::key_up event(
+			lotus::system::platforms::macos::_details::conversions::to_key(e.keyCode),
+			[self convert_modifier_keys: e.modifierFlags]
+		);
+		wnd->on_key_up(event);
 	}
 }
 

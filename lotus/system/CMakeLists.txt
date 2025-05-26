@@ -18,9 +18,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 		PUBLIC
 			"include/lotus/system/platforms/macos/application.h"
 			"include/lotus/system/platforms/macos/common.h"
+			"include/lotus/system/platforms/macos/details.h"
 			"include/lotus/system/platforms/macos/window.h"
 		PRIVATE
 			"src/system/platforms/macos/application.mm"
+			"src/system/platforms/macos/details.mm"
 			"src/system/platforms/macos/window.mm")
 	set(LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR "lotus/system/platforms/macos/")
 

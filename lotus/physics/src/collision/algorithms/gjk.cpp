@@ -8,8 +8,8 @@
 #include "lotus/memory/stack_allocator.h"
 #include "lotus/collision/shapes/convex_polyhedron.h"
 
-namespace lotus::collision {
-	gjk_t::result gjk_t::operator()(polyhedron_pair input, persistent_result pstate) {
+namespace lotus::collision::gjk {
+	result gjk(polyhedron_pair input, persistent_result pstate) {
 		auto bookmark = get_scratch_bookmark();
 
 		transient_result tstate = uninitialized;

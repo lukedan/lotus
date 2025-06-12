@@ -94,11 +94,11 @@ namespace lotus::physics {
 	) {
 		const collision::polyhedron_pair pair(p1, s1, p2, s2);
 
-		const collision::gjk_t::result gjk_res = collision::gjk(pair);
+		const collision::gjk::result gjk_res = collision::gjk::gjk(pair);
 		if (!gjk_res.has_intersection) {
 			return std::nullopt;
 		}
-		const collision::epa_t::result epa_res = collision::epa(pair, gjk_res);
+		const collision::epa::result epa_res = collision::epa::epa(pair, gjk_res);
 
 		contact_info result = uninitialized;
 		result.normal = epa_res.normal;

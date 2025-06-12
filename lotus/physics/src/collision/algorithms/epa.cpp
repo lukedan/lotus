@@ -6,8 +6,8 @@
 #include "lotus/algorithms/convex_hull.h"
 #include "lotus/collision/shapes/convex_polyhedron.h"
 
-namespace lotus::collision {
-	epa_t::result epa_t::operator()(polyhedron_pair input, gjk_t::result gjk_state) {
+namespace lotus::collision::epa {
+	result epa(polyhedron_pair input, gjk::result gjk_state) {
 		using convex_hull = incremental_convex_hull;
 
 		auto bookmark = get_scratch_bookmark();

@@ -8,12 +8,14 @@ namespace lotus::physics::rigid_body::constraints {
 		const mat33s ntb = ci.tangents.get_tangent_to_world_matrix().transposed();
 		const vec3 r1 = ci.contact - b1.state.position.position;
 		const vec3 r2 = ci.contact - b2.state.position.position;
+		const mat33s rot1 = b1.state.position.orientation.into_matrix();
+		const mat33s rot2 = b2.state.position.orientation.into_matrix();
 		matrix<6, 6, scalar> m1 = zero;
 		matrix<6, 6, scalar> m2 = zero;
 		m1.set_block(0, 0, b1.properties.inverse_mass * mat33s::identity());
 		m2.set_block(0, 0, b2.properties.inverse_mass * mat33s::identity());
-		m1.set_block(3, 3, b1.properties.inverse_inertia);
-		m2.set_block(3, 3, b2.properties.inverse_inertia);
+		m1.set_block(3, 3, rot1 * b1.properties.inverse_inertia * rot1.transposed());
+		m2.set_block(3, 3, rot2 * b2.properties.inverse_inertia * rot2.transposed());
 
 		j1 = mat::concat_columns(-ntb, ntb * vec::cross_matrix(r1));
 		j2 = mat::concat_columns(ntb, -ntb * vec::cross_matrix(r2));

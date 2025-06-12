@@ -29,7 +29,11 @@ namespace lotus::physics {
 		void apply_impulse(vec3 pos_ws, vec3 impulse_ws) {
 			state.velocity.linear += impulse_ws * properties.inverse_mass;
 			state.velocity.angular +=
-				properties.inverse_inertia * vec::cross(pos_ws - state.position.position, impulse_ws);
+				state.position.orientation.rotate(
+					properties.inverse_inertia * state.position.orientation.inverse().rotate(
+						vec::cross(pos_ws - state.position.position, impulse_ws)
+					)
+				);
 		}
 
 		/// Performs explicit time integration on body velocity. This function does not update previous state.

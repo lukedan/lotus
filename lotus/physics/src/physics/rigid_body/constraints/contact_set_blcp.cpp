@@ -22,6 +22,7 @@ namespace lotus::physics::rigid_body::constraints {
 		j1m = j1 * m1;
 		j2m = j2 * m2;
 		inv_dii = (j1m * j1.transposed() + j2m * j2.transposed()).inverse();
+		crash_if(inv_dii.has_nan());
 		b = j1 * b1.state.velocity.get_vector() + j2 * b2.state.velocity.get_vector();
 	}
 
@@ -65,14 +66,34 @@ namespace lotus::physics::rigid_body::constraints {
 		}
 	}
 
+	vec3 contact_set_blcp::get_impulse(usize contact_index) const {
+		return contacts_info[contact_index].tangents.get_tangent_to_world_matrix() * lambda[contact_index];
+	}
+
 	void contact_set_blcp::apply_impulses() const {
 		for (usize i = 0; i < contacts_data.size(); ++i) {
 			const contact_info &ci = contacts_info[i];
-			const vec3 l = lambda[i];
-			const vec3 impulse = ci.tangents.get_tangent_to_world_matrix() * l;
+			const vec3 impulse = get_impulse(i);
+			crash_if(impulse.has_nan());
 			bodies[ci.body1].b->apply_impulse(ci.contact, -impulse);
 			bodies[ci.body2].b->apply_impulse(ci.contact, impulse);
 		}
+	}
+
+	tangent_frame<scalar> contact_set_blcp::select_tangent_frame_for_contact(
+		const body &b1, const body &b2, vec3 contact_point, vec3 contact_normal
+	) {
+		const vec3 rel_velocity =
+			b1.state.velocity.get_velocity_at(contact_point - b1.state.position.position) -
+			b2.state.velocity.get_velocity_at(contact_point - b2.state.position.position);
+		const vec3 bitangent_dir = vec::cross(contact_normal, rel_velocity);
+		const scalar bitangent_len = bitangent_dir.squared_norm();
+		if (bitangent_len < epsilons::contact_tangent) {
+			return tangent_frame<scalar>::from_normal(contact_normal);
+		}
+		const vec3 bitangent = bitangent_dir / std::sqrt(bitangent_len);
+		const vec3 tangent = vec::cross(bitangent, contact_normal);
+		return tangent_frame<scalar>::from_ntb(contact_normal, tangent, bitangent);
 	}
 
 	column_vector<6, scalar> contact_set_blcp::_a(u32 body_index) const {

@@ -240,7 +240,7 @@ void debug_render::draw_system(lotus::physics::rigid_body::solver &solver) {
 		for (contact_set_t &contact_set : solver.contact_constraints) {
 			for (usize i = 0; i < contact_set.contacts_info.size(); ++i) {
 				const contact_set_t::contact_info &ci = contact_set.contacts_info[i];
-				const vec3 impulse = ci.tangents.get_tangent_to_world_matrix() * contact_set.lambda[i];
+				const vec3 impulse = contact_set.get_impulse(i);
 				draw_line(ci.contact, ci.contact + impulse, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
 			}
 		}

@@ -11,7 +11,6 @@ namespace lotus::physics::rigid_body::constraints {
 	/// Contact constraints between a set of bodies solved using the splitting box LCP solver.
 	struct contact_set_blcp {
 	public:
-		using tangent_frame = lotus::tangent_frame<scalar>; ///< Tangent frame type.
 		using jacobian_mat = matrix<3, 6, scalar>; ///< Jacobian matrix type.
 		/// Information about a contact.
 		struct contact_info {
@@ -19,8 +18,8 @@ namespace lotus::physics::rigid_body::constraints {
 			contact_info(uninitialized_t) {
 			}
 
-			tangent_frame tangents = uninitialized; ///< Contact tangent frame.
 			vec3 contact = uninitialized; ///< Contact point.
+			tangent_frame<scalar> tangents = uninitialized; ///< Contact tangent frame.
 			u32 body1; ///< Index of the first body.
 			u32 body2; ///< Index of the second body.
 		};
@@ -79,8 +78,18 @@ namespace lotus::physics::rigid_body::constraints {
 
 		/// Updates all contacts once in a Gauss-Seidel fashion.
 		void solve_iteration(scalar dt);
+
+		/// Returns the impulse of the given contact. This impulse is intended for the second body of the contact,
+		/// i.e., its negative is intended to be applied to the first body.
+		[[nodiscard]] vec3 get_impulse(usize contact_index) const;
 		/// Updates the velocities of all bodies.
 		void apply_impulses() const;
+
+		/// Computes the optimal contact tangent frame, so that the tangent is aligned with the relative velocity at
+		/// the contact point.
+		[[nodiscard]] static tangent_frame<scalar> select_tangent_frame_for_contact(
+			const body&, const body&, vec3 contact_point, vec3 contact_normal
+		);
 
 		std::vector<body_data> bodies; ///< All bodies involved in this set of contacts.
 		std::vector<contact_info> contacts_info; ///< Information about all contacts.

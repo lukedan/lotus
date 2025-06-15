@@ -11,6 +11,12 @@ namespace lotus::physics {
 	using namespace lotus::collision::types;
 	using namespace lotus::collision::constants;
 
+	/// Epsilon values used in various places.
+	namespace epsilons {
+		/// Minimum squared length of contact tangent when computed from relative velocity.
+		constexpr scalar contact_tangent = 1e-8f;
+	}
+
 	using body_position = collision::body_position;
 	/// The velocity of a rigid body; first order time derivative of a \ref body_position.
 	struct body_velocity {
@@ -32,6 +38,11 @@ namespace lotus::physics {
 		/// Returns the linar and angular components concatenated into a vector.
 		[[nodiscard]] column_vector<6, scalar> get_vector() const {
 			return column_vector<6, scalar>(linear, angular);
+		}
+
+		/// Returns the global linear velocity at the given offset.
+		[[nodiscard]] vec3 get_velocity_at(vec3 local_offset) const {
+			return linear + vec::cross(angular, local_offset);
 		}
 	private:
 		/// Initializes all fields of this struct.

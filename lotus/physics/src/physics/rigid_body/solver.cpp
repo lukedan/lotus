@@ -29,8 +29,10 @@ namespace lotus::physics::rigid_body {
 			};
 			for (const world::collision_info &ci : collisions) {
 				constraints::contact_set_blcp::contact_info &contact = contacts.emplace_back(uninitialized);
-				contact.tangents = tangent_frame<scalar>::from_normal(ci.contact.normal);
 				contact.contact  = ci.body1->state.position.local_to_global(ci.contact.contact1);
+				contact.tangents = constraints::contact_set_blcp::select_tangent_frame_for_contact(
+					*ci.body1, *ci.body2, contact.contact, ci.contact.normal
+				);
 				contact.body1    = get_body_id(ci.body1);
 				contact.body2    = get_body_id(ci.body2);
 			}

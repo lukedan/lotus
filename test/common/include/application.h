@@ -101,7 +101,8 @@ namespace lotus {
 			_assets = _wrap(new auto(renderer::assets::manager::create(
 				*_context, _asset_loading_queue, &_shader_utils
 			)));
-			_assets->asset_library_path = _get_asset_library_path();
+			_assets->asset_library_path = std::getenv("LOTUS_ASSET_LIBRARY_PATH");
+			crash_if(_assets->asset_library_path.empty()); // missing environment variable LOTUS_ASSET_LIBRARY_PATH
 			_assets->additional_shader_include_paths = _get_additional_shader_include_paths();
 
 			// initialize ImGUI and debug drawing
@@ -220,8 +221,6 @@ namespace lotus {
 		/// Derived classes should override this to return the desired GPU queue index used for presenting to swap
 		/// chains.
 		[[nodiscard]] virtual u32 _get_present_queue_index() const = 0;
-		/// Derived classes should override this and return the asset library path.
-		[[nodiscard]] virtual std::filesystem::path _get_asset_library_path() const = 0;
 		/// Derived classes should override this and return additional shader include paths.
 		[[nodiscard]] virtual std::vector<std::filesystem::path> _get_additional_shader_include_paths() const = 0;
 

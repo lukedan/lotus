@@ -267,11 +267,8 @@ protected:
 	u32 _get_present_queue_index() const override {
 		return 0;
 	}
-	std::filesystem::path _get_asset_library_path() const override {
-		return "D:/Documents/Projects/lotus/lotus/renderer/include/lotus/renderer/assets";
-	}
 	std::vector<std::filesystem::path> _get_additional_shader_include_paths() const override {
-		return { "shaders/", _get_asset_library_path() / "shaders/" };
+		return { _assets->asset_library_path / "shaders/" };
 	}
 
 	void _on_initialized() override {

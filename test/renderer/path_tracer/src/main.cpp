@@ -42,8 +42,7 @@ namespace shader_types {
 
 class path_tracer_app : public lotus::application {
 public:
-	path_tracer_app(int argc, char **argv, lgpu::context_options gpu_context_opts) :
-		application(argc, argv, u8"Path Tracer", gpu_context_opts) {
+	path_tracer_app(int argc, char **argv) : application(argc, argv, u8"Path Tracer") {
 	}
 
 	std::unique_ptr<scene_representation> scene;
@@ -94,7 +93,9 @@ private:
 
 		scene = std::make_unique<scene_representation>(*_assets, _gfx_q);
 		for (int i = 1; i < _argc; ++i) {
-			scene->load(_argv[i]);
+			if (_argv[i][0] != '-') {
+				scene->load(_argv[i]);
+			}
 		}
 		scene->finish_loading();
 
@@ -249,7 +250,7 @@ int main(int argc, char **argv) {
 		std::cout << "No model file specified\n";
 		return 1;
 	}
-	path_tracer_app app(argc, argv, lotus::gpu::context_options::enable_validation | lotus::gpu::context_options::enable_debug_info);
+	path_tracer_app app(argc, argv);
 	app.initialize();
 	return app.run();
 }

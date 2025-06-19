@@ -18,25 +18,15 @@
 #include <lotus/renderer/debug_drawing.h>
 
 namespace lotus {
-	/// Base class for a test application that comes with a window, a GPU context, a rendering context, ImGUI, and other
-	/// utilities.
+	/// Base class for a test application that comes with a window, a GPU context, a rendering context, ImGUI, and
+	/// other utilities.
 	class application {
 	public:
 		/// Initializes the application.
-		application(int argc, char **argv, std::u8string_view app_name, gpu::context_options gpu_context_options) :
+		application(int argc, char **argv, std::u8string_view app_name) :
 			_argc(argc),
 			_argv(argv),
 			_app(app_name),
-			_gpu_context(gpu::context::create(
-				gpu_context_options,
-				[this](
-					gpu::debug_message_severity severity,
-					gpu::context::debug_message_id id,
-					std::u8string_view msg
-				) {
-					_on_gpu_debug_message(severity, id, msg);
-				}
-			)),
 			_gpu_adapter_properties(uninitialized),
 			_shader_utils(gpu::shader_utility::create()) {
 
@@ -47,16 +37,37 @@ namespace lotus {
 
 		/// Initializes GPU resources. This should be called immediately after the constructor.
 		void initialize() {
-			gpu::adapter best_adapter = nullptr;
+			gpu::context_options gpu_context_options = gpu::context_options::none;
 
+			// parse command line args
+			for (int i = 1; i < _argc; ++i) {
+				if (std::string_view(_argv[i]) == "-v") {
+					gpu_context_options |= gpu::context_options::enable_validation;
+				} else if (std::string_view(_argv[i]) == "-d") {
+					gpu_context_options |= gpu::context_options::enable_debug_info;
+				}
+			}
+
+			_gpu_context = _wrap(new auto(gpu::context::create(
+				gpu_context_options,
+				[this](
+					gpu::debug_message_severity severity,
+					gpu::context::debug_message_id id,
+					std::u8string_view msg
+				) {
+					_on_gpu_debug_message(severity, id, msg);
+				}
+			)));
+
+			gpu::adapter best_adapter = nullptr;
 			{ // choose adapter
 				int best_adapter_score = std::numeric_limits<int>::min();
-				std::vector<gpu::adapter> adapters = _gpu_context.get_all_adapters();
-				for (usize i = 0; i < adapters.size(); ++i) {
-					const int score = _score_device(adapters[i]);
+				std::vector<gpu::adapter> adapters = _gpu_context->get_all_adapters();
+				for (gpu::adapter &adap : adapters) {
+					const int score = _score_device(adap);
 					if (score > best_adapter_score) {
 						best_adapter_score = score;
-						best_adapter = adapters[i];
+						best_adapter = adap;
 					}
 				}
 			}
@@ -68,7 +79,7 @@ namespace lotus {
 				std::tie(_gpu_device, gpu_cmd_queues) = best_adapter.create_device(_get_desired_queues());
 
 				_context = _wrap(new auto(renderer::context::create(
-					_gpu_context, _gpu_adapter_properties, _gpu_device, gpu_cmd_queues
+					*_gpu_context, _gpu_adapter_properties, _gpu_device, gpu_cmd_queues
 				)));
 				_context->on_batch_statistics_available =
 					[this](renderer::batch_index, renderer::batch_statistics_late stats) {
@@ -185,7 +196,7 @@ namespace lotus {
 		system::application _app; ///< The system application.
 		std::unique_ptr<system::window> _window; ///< The main window.
 
-		gpu::context _gpu_context; ///< The GPU context.
+		std::unique_ptr<gpu::context> _gpu_context; ///< The GPU context.
 		gpu::device _gpu_device = nullptr; ///< The GPU device.
 		gpu::adapter_properties _gpu_adapter_properties; ///< The GPU adapter properties.
 		gpu::shader_utility _shader_utils; ///< Shader utilities.
@@ -204,7 +215,7 @@ namespace lotus {
 		/// Scores an adapter. The GPU device will be created using the one with the highest score. Derived classes can
 		/// override this to control device selection strategy. By default, discrete devices are scored as 1 and
 		/// otherwise 0.
-		[[nodiscard]] virtual int _score_device(gpu::adapter adapter) const {
+		[[nodiscard]] virtual int _score_device(gpu::adapter &adapter) const {
 			auto props = adapter.get_properties();
 			return props.is_discrete ? 1 : 0;
 		}

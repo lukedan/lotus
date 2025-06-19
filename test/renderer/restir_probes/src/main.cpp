@@ -34,8 +34,7 @@ template <typename T> static bool ImGui_SliderT(const char *label, T *data, T mi
 
 class restir_probe_app : public lotus::application {
 public:
-	restir_probe_app(int argc, char **argv, lgpu::context_options gpu_context_opts) :
-		application(argc, argv, u8"ReSTIR Probes", gpu_context_opts) {
+	restir_probe_app(int argc, char **argv) : application(argc, argv, u8"ReSTIR Probes") {
 	}
 
 
@@ -297,7 +296,9 @@ protected:
 
 		scene = std::make_unique<scene_representation>(*_assets, _graphics_queue);
 		for (int i = 1; i < _argc; ++i) {
-			scene->load(_argv[i]);
+			if (_argv[i][0] != '-') {
+				scene->load(_argv[i]);
+			}
 		}
 		scene->finish_loading();
 
@@ -1049,9 +1050,7 @@ protected:
 };
 
 int main(int argc, char **argv) {
-	/*auto gpu_context_options = lgpu::context_options::enable_validation | lgpu::context_options::enable_debug_info;*/
-	auto gpu_context_options = lgpu::context_options::none;
-	restir_probe_app app(argc, argv, gpu_context_options);
+	restir_probe_app app(argc, argv);
 	app.initialize();
 	return app.run();
 }

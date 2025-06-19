@@ -33,7 +33,7 @@ namespace lotus::gpu {
 		/// No default construction.
 		context() = delete;
 		/// Creates a new context object.
-		[[nodiscard]] inline static context create(context_options opt, debug_message_callback debug_msg_cb = nullptr) {
+		[[nodiscard]] static context create(context_options opt, debug_message_callback debug_msg_cb = nullptr) {
 			return backend::context::create(opt, std::move(debug_msg_cb));
 		}
 		/// No copy construction.

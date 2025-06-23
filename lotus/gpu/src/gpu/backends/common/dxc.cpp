@@ -199,6 +199,18 @@ namespace lotus::gpu::backends::common {
 			args.emplace_back(def.c_str());
 		}
 
+		constexpr bool _debug_dump_shader_compile_args = false;
+		if constexpr (_debug_dump_shader_compile_args) {
+			auto wstring_to_u8string = [](std::wstring_view s) {
+				return std::string(s.begin(), s.end()); // FIXME assumes ascii codepoints only
+			};
+			std::string allargs;
+			for (const auto &arg : args) {
+				allargs += " " + wstring_to_u8string(arg);
+			}
+			log().debug("Args: {}", allargs);
+		}
+
 		DxcBuffer buffer;
 		buffer.Ptr      = code.data();
 		buffer.Size     = code.size();

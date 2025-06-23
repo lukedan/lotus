@@ -115,8 +115,11 @@ namespace lotus::helpers {
 			_assets = _wrap(new auto(renderer::assets::manager::create(
 				*_context, _asset_loading_queue, &_shader_utils
 			)));
-			_assets->asset_library_path = std::getenv("LOTUS_ASSET_LIBRARY_PATH");
-			crash_if(_assets->asset_library_path.empty()); // missing environment variable LOTUS_ASSET_LIBRARY_PATH
+			if (const char *asset_library_path = std::getenv("LOTUS_ASSET_LIBRARY_PATH")) {
+				_assets->asset_library_path = asset_library_path;
+			} else {
+				crash_if(true); // missing environment variable LOTUS_ASSET_LIBRARY_PATH
+			}
 			_assets->additional_shader_include_paths = _get_additional_shader_include_paths();
 
 			// initialize ImGUI and debug drawing

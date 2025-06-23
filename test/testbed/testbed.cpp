@@ -4,12 +4,11 @@
 #include <memory>
 #include <functional>
 
+#include <lotus/helpers/application.h>
 #include <lotus/math/matrix.h>
 #include <lotus/math/vector.h>
 #include <lotus/math/quaternion.h>
 #include <lotus/utils/camera.h>
-
-#include <application.h>
 
 #include "camera_control.h"
 #include "utils.h"
@@ -25,7 +24,7 @@
 #include <imgui_tables.cpp>
 
 /// The testbed applicaiton.
-class testbed_app : public lotus::application {
+class testbed_app : public lotus::helpers::application {
 public:
 	/// Initializes the application.
 	testbed_app(int argc, char **argv) : application(argc, argv, u8"Physics Testbed") {

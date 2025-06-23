@@ -21,6 +21,8 @@
 #include <lotus/renderer/loaders/gltf_loader.h>
 #include <lotus/renderer/loaders/fbx_loader.h>
 
+#include <lotus/helpers/application.h>
+
 #include <scene.h>
 #include <camera_control.h>
 
@@ -30,8 +32,6 @@ namespace shader_types {
 }
 #include <lotus/renderer/shader_types_include_wrapper.h>
 
-#include "application.h"
-
 #include <imgui.cpp>
 #include <imgui_draw.cpp>
 #include <imgui_widgets.cpp>
@@ -40,7 +40,7 @@ namespace shader_types {
 /*#define NO_SCENES*/
 //#define DISABLE_ALL_RT
 
-class path_tracer_app : public lotus::application {
+class path_tracer_app : public lotus::helpers::application {
 public:
 	path_tracer_app(int argc, char **argv) : application(argc, argv, u8"Path Tracer") {
 	}

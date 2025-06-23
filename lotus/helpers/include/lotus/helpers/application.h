@@ -1,5 +1,8 @@
 #pragma once
 
+/// \file
+/// Basic implementation of an application class.
+
 #include <fstream>
 
 #include <lotus/utils/strings.h>
@@ -17,7 +20,7 @@
 #include <lotus/renderer/dear_imgui.h>
 #include <lotus/renderer/debug_drawing.h>
 
-namespace lotus {
+namespace lotus::helpers {
 	/// Base class for a test application that comes with a window, a GPU context, a rendering context, ImGUI, and
 	/// other utilities.
 	class application {
@@ -278,7 +281,9 @@ namespace lotus {
 		/// Filters out certain backend-specific messages.
 		template <gpu::backend_type Backend> static bool _filter_message(gpu::context::debug_message_id id) {
 			if constexpr (Backend == gpu::backend_type::vulkan) {
-				return id != 0xFC68BE96 && id != 0xA5625282;
+				return
+					id != static_cast<gpu::context::debug_message_id>(0xFC68BE96) &&
+					id != static_cast<gpu::context::debug_message_id>(0xA5625282);
 			}
 			return true;
 		}

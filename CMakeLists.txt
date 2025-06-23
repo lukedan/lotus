@@ -65,6 +65,7 @@ add_subdirectory("lotus/gpu/")
 add_subdirectory("lotus/physics/")
 add_subdirectory("lotus/renderer/")
 add_subdirectory("lotus/system/")
+add_subdirectory("lotus/helpers/")
 
 add_subdirectory("tools/")
 

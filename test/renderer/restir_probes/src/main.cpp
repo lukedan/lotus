@@ -1,5 +1,3 @@
-#include <application.h>
-
 #include <cinttypes>
 #include <queue>
 #include <random>
@@ -10,6 +8,7 @@
 #include <lotus/math/sequences.h>
 #include <lotus/utils/camera.h>
 #include <lotus/renderer/g_buffer.h>
+#include <lotus/helpers/application.h>
 
 #include <lotus/renderer/shader_types_include_wrapper.h>
 namespace shader_types {
@@ -32,7 +31,7 @@ template <typename T> static bool ImGui_SliderT(const char *label, T *data, T mi
 	return ImGui::SliderScalar(label, ImGuiAutoDataType_v<T>, data, &min, &max, format, flags);
 }
 
-class restir_probe_app : public lotus::application {
+class restir_probe_app : public lotus::helpers::application {
 public:
 	restir_probe_app(int argc, char **argv) : application(argc, argv, u8"ReSTIR Probes") {
 	}

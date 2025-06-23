@@ -8,7 +8,7 @@ function(add_restir_probe_executable GPU_BACKEND)
 	target_link_libraries(${PROJ} PRIVATE lotus_renderer_${GPU_BACKEND} lotus_helpers)
 	target_include_directories(${PROJ} PRIVATE "../common/include")
 	target_include_directories(${PROJ} PRIVATE "../../common/include")
-	target_include_directories(${PROJ} PRIVATE "../../thirdparty/imgui")
+	target_include_directories(${PROJ} PRIVATE "../../../thirdparty/imgui")
 endfunction()
 
 foreach(GPU_BACKEND ${LOTUS_GPU_ALL_AVAILABLE_BACKENDS})

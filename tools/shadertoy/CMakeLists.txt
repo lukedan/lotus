@@ -16,7 +16,9 @@ function(add_shadertoy_executable GPU_BACKEND)
 			"src/project.h")
 	target_link_libraries(${PROJ} PRIVATE
 		lotus_renderer_${GPU_BACKEND}
+		lotus_helpers
 		nlohmann_json::nlohmann_json)
+	target_include_directories(${PROJ} PRIVATE "../../thirdparty/imgui")
 endfunction()
 
 foreach(GPU_BACKEND ${LOTUS_GPU_ALL_AVAILABLE_BACKENDS})

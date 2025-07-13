@@ -114,7 +114,7 @@ namespace lotus::renderer::dear_imgui {
 
 				auto pass = _q.begin_pass({ target }, nullptr, target_size, u8"ImGui Draw Pass");
 				for (const ImDrawCmd &cmd : cmd_list->CmdBuffer) {
-					auto texture_index = cmd.TextureId;
+					auto texture_index = cmd.GetTexID();
 					shader_types::dear_imgui_draw_data data;
 					data.projection = projection;
 					data.scissor_min = cvec2f(cmd.ClipRect.x, cmd.ClipRect.y) - pos;

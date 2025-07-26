@@ -14,22 +14,30 @@ namespace shader_types {
 }
 #include <lotus/renderer/shader_types_include_wrapper.h>
 
-void debug_render::draw_point(vec3 p, lotus::linear_rgba_f color) {
-	auto &vert = point_vertices.emplace_back();
-	vert.position = p.into<float>();
-	vert.normal   = lotus::zero;
-	vert.color    = color;
+void debug_render::draw_point(vec3 p, lotus::linear_rgba_f color, scalar size) {
+	draw_box(
+		{
+			{ size, 0.0f, 0.0f, p[0] },
+			{ 0.0f, size, 0.0f, p[1] },
+			{ 0.0f, 0.0f, size, p[2] },
+			{ 0.0f, 0.0f, 0.0f, 1.0f },
+		},
+		color,
+		false
+	);
 }
 
 void debug_render::draw_line(vec3 a, vec3 b, lotus::linear_rgba_f color) {
+	color.a = 0.0f; // disable lighting
+
 	auto first_index = static_cast<u32>(line_vertices.size());
 	auto &v1 = line_vertices.emplace_back();
 	v1.position = a.into<float>();
-	v1.normal   = lotus::zero;
+	v1.normal   = vec3(1.0f, 0.0f, 0.0f);
 	v1.color    = color;
 	auto &v2 = line_vertices.emplace_back();
 	v2.position = b.into<float>();
-	v2.normal   = lotus::zero;
+	v2.normal   = vec3(1.0f, 0.0f, 0.0f);
 	v2.color    = color;
 	line_indices.emplace_back(first_index);
 	line_indices.emplace_back(first_index + 1);
@@ -134,6 +142,60 @@ void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, boo
 
 	draw_body(_vertices, _vertices, _indices, transform, color, wireframe);
 }
+
+void debug_render::draw_box(mat44s transform, lotus::linear_rgba_f color, bool wireframe) {
+	static constexpr std::array _vertices = {
+		// XY negative
+		vec3(-0.5f, -0.5f, -0.5f),
+		vec3( 0.5f, -0.5f, -0.5f),
+		vec3(-0.5f,  0.5f, -0.5f),
+		vec3( 0.5f,  0.5f, -0.5f),
+		// XY positive
+		vec3(-0.5f, -0.5f,  0.5f),
+		vec3( 0.5f, -0.5f,  0.5f),
+		vec3(-0.5f,  0.5f,  0.5f),
+		vec3( 0.5f,  0.5f,  0.5f),
+		// XZ negative
+		vec3(-0.5f, -0.5f, -0.5f),
+		vec3( 0.5f, -0.5f, -0.5f),
+		vec3(-0.5f, -0.5f,  0.5f),
+		vec3( 0.5f, -0.5f,  0.5f),
+		// XZ positive
+		vec3(-0.5f,  0.5f, -0.5f),
+		vec3( 0.5f,  0.5f, -0.5f),
+		vec3(-0.5f,  0.5f,  0.5f),
+		vec3( 0.5f,  0.5f,  0.5f),
+		// YZ negative
+		vec3(-0.5f, -0.5f, -0.5f),
+		vec3(-0.5f,  0.5f, -0.5f),
+		vec3(-0.5f, -0.5f,  0.5f),
+		vec3(-0.5f,  0.5f,  0.5f),
+		// YZ positive
+		vec3( 0.5f, -0.5f, -0.5f),
+		vec3( 0.5f,  0.5f, -0.5f),
+		vec3( 0.5f, -0.5f,  0.5f),
+		vec3( 0.5f,  0.5f,  0.5f),
+	};
+	static constexpr std::array _normals = {
+		vec3( 0.0f,  0.0f, -1.0f), vec3( 0.0f,  0.0f, -1.0f), vec3( 0.0f,  0.0f, -1.0f), vec3( 0.0f,  0.0f, -1.0f),
+		vec3( 0.0f,  0.0f,  1.0f), vec3( 0.0f,  0.0f,  1.0f), vec3( 0.0f,  0.0f,  1.0f), vec3( 0.0f,  0.0f,  1.0f),
+		vec3( 0.0f, -1.0f,  0.0f), vec3( 0.0f, -1.0f,  0.0f), vec3( 0.0f, -1.0f,  0.0f), vec3( 0.0f, -1.0f,  0.0f),
+		vec3( 0.0f,  1.0f,  0.0f), vec3( 0.0f,  1.0f,  0.0f), vec3( 0.0f,  1.0f,  0.0f), vec3( 0.0f,  1.0f,  0.0f),
+		vec3(-1.0f,  0.0f,  0.0f), vec3(-1.0f,  0.0f,  0.0f), vec3(-1.0f,  0.0f,  0.0f), vec3(-1.0f,  0.0f,  0.0f),
+		vec3( 1.0f,  0.0f,  0.0f), vec3( 1.0f,  0.0f,  0.0f), vec3( 1.0f,  0.0f,  0.0f), vec3( 1.0f,  0.0f,  0.0f),
+	};
+	static constexpr std::array<u32, 36> _indices = {
+		0  + 0, 0  + 1, 0  + 2, 0  + 1, 0  + 3, 0  + 2,
+		4  + 0, 4  + 2, 4  + 1, 4  + 1, 4  + 2, 4  + 3,
+		8  + 0, 8  + 1, 8  + 2, 8  + 1, 8  + 3, 8  + 2,
+		12 + 0, 12 + 2, 12 + 1, 12 + 1, 12 + 2, 12 + 3,
+		16 + 0, 16 + 1, 16 + 2, 16 + 1, 16 + 3, 16 + 2,
+		20 + 0, 20 + 2, 20 + 1, 20 + 1, 20 + 2, 20 + 3,
+	};
+
+	draw_body(_vertices, _normals, _indices, transform, color, wireframe);
+}
+
 
 void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, mat44s transform, const body_visual *visual, bool wireframe) {
 	vec3 vx = lotus::vecu::normalize((transform * vec4(1.0f, 0.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
@@ -241,6 +303,7 @@ void debug_render::draw_system(lotus::physics::rigid_body::solver &solver) {
 			for (usize i = 0; i < contact_set.contacts_info.size(); ++i) {
 				const contact_set_t::contact_info &ci = contact_set.contacts_info[i];
 				const vec3 impulse = contact_set.get_impulse(i);
+				draw_point(ci.contact, lotus::linear_rgba_f(1.0f, 1.0f, 0.0f, 0.0f));
 				draw_line(ci.contact, ci.contact + impulse, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
 			}
 		}

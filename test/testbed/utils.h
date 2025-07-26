@@ -53,7 +53,7 @@ public:
 		vec3 normal = lotus::uninitialized;
 	};
 
-	void draw_point(vec3 p, lotus::linear_rgba_f color);
+	void draw_point(vec3 p, lotus::linear_rgba_f color, scalar size = 0.05f);
 	void draw_line(vec3 a, vec3 b, lotus::linear_rgba_f color);
 
 	void draw_body(
@@ -65,6 +65,7 @@ public:
 		bool wireframe
 	);
 	void draw_sphere(mat44s transform, lotus::linear_rgba_f color, bool wireframe);
+	void draw_box(mat44s transform, lotus::linear_rgba_f color, bool wireframe);
 
 	void draw_physics_body(const lotus::collision::shapes::plane&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_physics_body(const lotus::collision::shapes::sphere&, mat44s transform, const body_visual*, bool wireframe);

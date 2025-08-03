@@ -5,13 +5,13 @@
 
 #include <span>
 
-#include "lotus/physics/rigid_body/constraints/contact_set_blcp.h"
+#include "lotus/physics/sequential_impulse/constraints/contact_set_blcp.h"
 
 namespace lotus::physics {
 	class world;
 }
 
-namespace lotus::physics::rigid_body {
+namespace lotus::physics::sequential_impulse {
 	/// The rigid body solver.
 	class solver {
 	public:

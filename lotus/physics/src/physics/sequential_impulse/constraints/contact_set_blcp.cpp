@@ -1,9 +1,9 @@
-#include "lotus/physics/rigid_body/constraints/contact_set_blcp.h"
+#include "lotus/physics/sequential_impulse/constraints/contact_set_blcp.h"
 
 /// \file
 /// Implementation of rigid body contact constraints.
 
-namespace lotus::physics::rigid_body::constraints {
+namespace lotus::physics::sequential_impulse::constraints {
 	contact_set_blcp::contact_data::contact_data(const body &b1, const body &b2, contact_info ci) {
 		const mat33s ntb = ci.tangents.get_tangent_to_world_matrix().transposed();
 		const vec3 r1 = ci.contact - b1.state.position.position;

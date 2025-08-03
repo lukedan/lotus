@@ -14,9 +14,9 @@ target_sources(lotus_physics
 		"include/lotus/collision/common.h"
 		"include/lotus/collision/shape.h"
 
-		"include/lotus/physics/rigid_body/constraints/contact_set_blcp.h"
+		"include/lotus/physics/sequential_impulse/constraints/contact_set_blcp.h"
 
-		"include/lotus/physics/rigid_body/solver.h"
+		"include/lotus/physics/sequential_impulse/solver.h"
 
 		"include/lotus/physics/xpbd/constraints/bend.h"
 		"include/lotus/physics/xpbd/constraints/contact.h"
@@ -38,9 +38,9 @@ target_sources(lotus_physics
 
 		"src/collision/common.cpp"
 
-		"src/physics/rigid_body/constraints/contact_set_blcp.cpp"
+		"src/physics/sequential_impulse/constraints/contact_set_blcp.cpp"
 
-		"src/physics/rigid_body/solver.cpp"
+		"src/physics/sequential_impulse/solver.cpp"
 
 		"src/physics/xpbd/constraints/contact.cpp"
 

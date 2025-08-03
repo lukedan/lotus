@@ -1,11 +1,11 @@
-#include "lotus/physics/rigid_body/solver.h"
+#include "lotus/physics/sequential_impulse/solver.h"
 
 /// \file
 /// Implementation of the rigid body solver.
 
 #include "lotus/physics/world.h"
 
-namespace lotus::physics::rigid_body {
+namespace lotus::physics::sequential_impulse {
 	void solver::timestep(scalar dt, u32 iters) {
 		// advect
 		for (body *b : physics_world->get_bodies()) {

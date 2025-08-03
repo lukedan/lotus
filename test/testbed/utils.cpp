@@ -293,12 +293,12 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 	}
 }
 
-void debug_render::draw_system(lotus::physics::rigid_body::solver &solver) {
+void debug_render::draw_system(lotus::physics::sequential_impulse::solver &solver) {
 	draw_world(*solver.physics_world);
 
 	// debug stuff
 	if (ctx->draw_contacts) {
-		using contact_set_t = lotus::physics::rigid_body::constraints::contact_set_blcp;
+		using contact_set_t = lotus::physics::sequential_impulse::constraints::contact_set_blcp;
 		for (contact_set_t &contact_set : solver.contact_constraints) {
 			for (usize i = 0; i < contact_set.contacts_info.size(); ++i) {
 				const contact_set_t::contact_info &ci = contact_set.contacts_info[i];

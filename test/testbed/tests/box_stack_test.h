@@ -1,6 +1,6 @@
 #pragma once
 
-#include <lotus/physics/rigid_body/solver.h>
+#include <lotus/physics/sequential_impulse/solver.h>
 #include <lotus/physics/xpbd/solver.h>
 #include <lotus/physics/world.h>
 
@@ -179,7 +179,7 @@ protected:
 	std::deque<lotus::physics::body> _bodies;
 	lotus::physics::world _world;
 	//lotus::physics::xpbd::solver _solver;
-	lotus::physics::rigid_body::solver _solver;
+	lotus::physics::sequential_impulse::solver _solver;
 	debug_render _render;
 
 	bool _rotate_90 = false;

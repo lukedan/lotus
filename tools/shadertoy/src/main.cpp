@@ -134,6 +134,11 @@ protected:
 	}
 
 	void _process_frame(lotus::renderer::constant_uploader &uploader, lotus::renderer::dependency constants_dep, lotus::renderer::dependency assets_dep) override {
+		_gfx_q.acquire_dependency(constants_dep, u8"Wait for constants");
+		if (assets_dep) {
+			_gfx_q.acquire_dependency(assets_dep, u8"Wait for assets");
+		}
+
 		// create new resources
 		for (auto &p : _project.passes) {
 			for (usize out_i = 0; out_i < p.second.targets.size(); ++out_i) {

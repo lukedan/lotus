@@ -3,12 +3,19 @@
 /// \file
 /// Common cross-platform GPU definitions.
 
+#include "lotus/compiler.h"
+
 #if _WIN32
 #	include <winerror.h>
 #	include <atlbase.h>
 #	include <Unknwn.h>
 #endif
+LOTUS_PRAGMA_PUSH_DIAGNOSTICS
+LOTUS_PRAGMA_IGNORE_DIAGNOSTICS_SIGN_CONVERSION
+LOTUS_PRAGMA_IGNORE_DIAGNOSTICS_IMPLICIT_INT_CONVERSION
+LOTUS_PRAGMA_IGNORE_DIAGNOSTICS_UNUSED_PARAMETER
 #include LOTUS_GPU_DXC_HEADER
+LOTUS_PRAGMA_POP_DIAGNOSTICS
 
 #if !_WIN32
 // hack to make DirectX-Headers compile on MacOS

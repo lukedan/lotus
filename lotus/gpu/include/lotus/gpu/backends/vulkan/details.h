@@ -3,8 +3,13 @@
 /// \file
 /// Miscellaneous internal functions and classes used by the Vulkan backend.
 
+#include "lotus/compiler.h"
+
 #include <vulkan/vulkan.hpp>
+LOTUS_PRAGMA_PUSH_DIAGNOSTICS
+LOTUS_PRAGMA_IGNORE_DIAGNOSTICS_SIGN_CONVERSION
 #include <spirv_reflect.h>
+LOTUS_PRAGMA_POP_DIAGNOSTICS
 
 #include "lotus/logging.h"
 #include "lotus/utils/static_function.h"

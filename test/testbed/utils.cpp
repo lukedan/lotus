@@ -15,6 +15,9 @@ namespace shader_types {
 #include <lotus/renderer/shader_types_include_wrapper.h>
 
 void debug_render::draw_point(vec3 p, lotus::linear_rgba_f color, scalar size) {
+	if (size <= 0.0f) {
+		size = ctx->particle_size;
+	}
 	draw_box(
 		{
 			{ size, 0.0f, 0.0f, p[0] },
@@ -196,6 +199,15 @@ void debug_render::draw_box(mat44s transform, lotus::linear_rgba_f color, bool w
 	draw_body(_vertices, _normals, _indices, transform, color, wireframe);
 }
 
+void debug_render::draw_frame(uquats ori, vec3 pos, scalar size) {
+	const vec3 x = ori.rotate(vec3(size, 0.0f, 0.0f));
+	const vec3 y = ori.rotate(vec3(0.0f, size, 0.0f));
+	const vec3 z = ori.rotate(vec3(0.0f, 0.0f, size));
+
+	draw_line(pos, pos + x, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
+	draw_line(pos, pos + y, lotus::linear_rgba_f(0.0f, 1.0f, 0.0f, 1.0f));
+	draw_line(pos, pos + z, lotus::linear_rgba_f(0.0f, 0.0f, 1.0f, 1.0f));
+}
 
 void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, mat44s transform, const body_visual *visual, bool wireframe) {
 	vec3 vx = lotus::vecu::normalize((transform * vec4(1.0f, 0.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
@@ -293,6 +305,34 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 	}
 }
 
+
+void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
+	draw_world(*solver.physics_world);
+
+	if (ctx->draw_particles) {
+		for (const lotus::physics::particle &p : solver.particles) {
+			draw_point(p.state.position, lotus::linear_rgba_f(0.0f, 1.0f, 1.0f, 1.0f));
+		}
+	}
+
+	if (ctx->draw_orientations) {
+		for (const lotus::physics::avbd::constraints::cosserat_rod::stretch_shear &c : solver.rod_stretch_shear_constraints) {
+			const vec3 p1 = solver.particles[c.particle1].state.position;
+			const vec3 p2 = solver.particles[c.particle2].state.position;
+			draw_frame(
+				solver.orientations[c.orientation].state.orientation,
+				0.5f * (p1 + p2),
+				(p1 - p2).norm() * 0.3f
+			);
+		}
+	}
+
+	// segments
+	for (const lotus::physics::avbd::constraints::cosserat_rod::stretch_shear &constraint : solver.rod_stretch_shear_constraints) {
+		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f));
+	}
+}
+
 void debug_render::draw_system(lotus::physics::sequential_impulse::solver &solver) {
 	draw_world(*solver.physics_world);
 
@@ -310,9 +350,26 @@ void debug_render::draw_system(lotus::physics::sequential_impulse::solver &solve
 	}
 }
 
-
 void debug_render::draw_system(lotus::physics::xpbd::solver &solver) {
 	draw_world(*solver.physics_world);
+
+	if (ctx->draw_particles) {
+		for (const lotus::physics::particle &p : solver.particles) {
+			draw_point(p.state.position, lotus::linear_rgba_f(0.0f, 1.0f, 1.0f, 1.0f));
+		}
+	}
+
+	if (ctx->draw_orientations) {
+		for (const lotus::physics::xpbd::constraints::cosserat_rod::stretch_shear &c : solver.rod_stretch_shear_constraints) {
+			const vec3 p1 = solver.particles[c.particle1].state.position;
+			const vec3 p2 = solver.particles[c.particle2].state.position;
+			draw_frame(
+				solver.orientations[c.orientation].state.orientation,
+				0.5f * (p1 + p2),
+				(p1 - p2).norm() * 0.3f
+			);
+		}
+	}
 
 	// surfaces
 	std::vector<vec3> positions;
@@ -334,6 +391,11 @@ void debug_render::draw_system(lotus::physics::xpbd::solver &solver) {
 		} else {
 			draw_body(positions, {}, surface.triangles, mat44s::identity(), surface.color, false);
 		}
+	}
+
+	// segments
+	for (const lotus::physics::xpbd::constraints::cosserat_rod::stretch_shear &constraint : solver.rod_stretch_shear_constraints) {
+		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f));
 	}
 
 	// debug stuff

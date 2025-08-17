@@ -6,6 +6,7 @@
 #include <lotus/color.h>
 #include <lotus/math/vector.h>
 #include <lotus/utils/camera.h>
+#include <lotus/physics/avbd/solver.h>
 #include <lotus/physics/sequential_impulse/solver.h>
 #include <lotus/physics/xpbd/solver.h>
 #include <lotus/renderer/context/asset_manager.h>
@@ -30,6 +31,9 @@ struct test_context {
 	bool wireframe_bodies = false;
 	bool draw_body_velocities = true;
 	bool draw_contacts = false;
+	bool draw_particles = true;
+	bool draw_orientations = true;
+	f32 particle_size = 0.05f;
 
 	void update_camera() {
 		camera = camera_params.into_camera();
@@ -53,7 +57,7 @@ public:
 		vec3 normal = lotus::uninitialized;
 	};
 
-	void draw_point(vec3 p, lotus::linear_rgba_f color, scalar size = 0.05f);
+	void draw_point(vec3 p, lotus::linear_rgba_f color, scalar size = 0.0f);
 	void draw_line(vec3 a, vec3 b, lotus::linear_rgba_f color);
 
 	void draw_body(
@@ -67,10 +71,13 @@ public:
 	void draw_sphere(mat44s transform, lotus::linear_rgba_f color, bool wireframe);
 	void draw_box(mat44s transform, lotus::linear_rgba_f color, bool wireframe);
 
+	void draw_frame(uquats ori, vec3 pos, scalar size);
+
 	void draw_physics_body(const lotus::collision::shapes::plane&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_physics_body(const lotus::collision::shapes::sphere&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_physics_body(const lotus::collision::shapes::convex_polyhedron&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_world(const lotus::physics::world&);
+	void draw_system(lotus::physics::avbd::solver&);
 	void draw_system(lotus::physics::sequential_impulse::solver&);
 	void draw_system(lotus::physics::xpbd::solver&);
 

@@ -17,6 +17,15 @@ namespace lotus::physics::xpbd {
 			}
 			p.state.position += dt * p.state.velocity;
 		}
+		for (orientation &o : orientations) {
+			o.prev_orientation = o.state.orientation;
+			if (o.inv_inertia > 0.0f) {
+				o.state.orientation = quatu::normalize(
+					o.state.orientation +
+					0.5f * dt * quat::from_vec3_xyz(o.state.angular_velocity) * o.state.orientation
+				);
+			}
+		}
 		for (body *b : physics_world->get_bodies()) {
 			b->prev_position = b->state.position;
 			// TODO external torque
@@ -36,16 +45,22 @@ namespace lotus::physics::xpbd {
 
 		// solve constraints
 		contact_lambdas.resize(contact_constraints.size());
-		std::fill(contact_lambdas.begin(), contact_lambdas.end(), std::make_pair(0.0f, 0.0f));
+		std::ranges::fill(contact_lambdas, std::make_pair(0.0f, 0.0f));
 
 		spring_lambdas.resize(particle_spring_constraints.size());
-		std::fill(spring_lambdas.begin(), spring_lambdas.end(), 0.0f);
+		std::ranges::fill(spring_lambdas, 0.0f);
 
 		face_lambdas.resize(face_constraints.size(), uninitialized);
-		std::fill(face_lambdas.begin(), face_lambdas.end(), zero);
+		std::ranges::fill(face_lambdas, zero);
 
 		bend_lambdas.resize(bend_constraints.size());
-		std::fill(bend_lambdas.begin(), bend_lambdas.end(), 0.0f);
+		std::ranges::fill(bend_lambdas, 0.0f);
+
+		rod_stretch_shear_lagrangians.resize(rod_stretch_shear_constraints.size(), zero);
+		std::ranges::fill(rod_stretch_shear_lagrangians, zero);
+
+		rod_bend_twist_lagrangians.resize(rod_bend_twist_constraints.size(), zero);
+		std::ranges::fill(rod_bend_twist_lagrangians, zero);
 
 		for (usize i = 0; i < iters; ++i) {
 			// project body contact constraints
@@ -106,10 +121,36 @@ namespace lotus::physics::xpbd {
 					inv_dt2, bend_lambdas[j]
 				);
 			}
+
+			// project rod bend-twist constraints
+			for (usize j = 0; j < rod_bend_twist_constraints.size(); ++j) {
+				const constraints::cosserat_rod::bend_twist &con = rod_bend_twist_constraints[j];
+				con.project(
+					orientations[con.orientation1],
+					orientations[con.orientation2],
+					inv_dt2,
+					rod_bend_twist_lagrangians[j]
+				);
+			}
+
+			// project rod stretch-shear constraints
+			for (usize j = 0; j < rod_stretch_shear_constraints.size(); ++j) {
+				const constraints::cosserat_rod::stretch_shear &con = rod_stretch_shear_constraints[j];
+				con.project(
+					particles[con.particle1],
+					particles[con.particle2],
+					orientations[con.orientation],
+					inv_dt2,
+					rod_stretch_shear_lagrangians[j]
+				);
+			}
 		}
 
 		for (particle &p : particles) {
 			p.state.velocity = (p.state.position - p.prev_position) / dt;
+		}
+		for (orientation &o : orientations) {
+			o.state.angular_velocity = (2.0f / dt) * (o.state.orientation * o.prev_orientation.conjugate()).axis();
 		}
 		for (body *b : physics_world->get_bodies()) {
 			b->prev_velocity = b->state.velocity;

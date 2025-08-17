@@ -72,13 +72,11 @@ namespace lotus::physics {
 	};
 	/// Position and velocity information about a particle.
 	struct particle_state {
-	public:
 		/// No initialization.
 		particle_state(uninitialized_t) {
 		}
-		/// Initializes the particle state with the given position and velocity.
-		[[nodiscard]] constexpr static particle_state at(vec3 pos, vec3 vel) {
-			return particle_state(pos, vel);
+		/// Initializes all fields of this struct.
+		constexpr particle_state(vec3 pos, vec3 vel) : position(pos), velocity(vel) {
 		}
 		/// Initializes the particle to be stationary with the given position.
 		[[nodiscard]] constexpr static particle_state stationary_at(vec3 pos) {
@@ -87,9 +85,21 @@ namespace lotus::physics {
 
 		vec3 position = uninitialized; ///< The position of this particle.
 		vec3 velocity = uninitialized; ///< The velocity of this particle.
-	protected:
-		/// Initializes all fields of this struct.
-		constexpr particle_state(vec3 x, vec3 v) : position(x), velocity(v) {
+	};
+	/// Orientation and angular velocity information.
+	struct orientation_state {
+		/// No initialization.
+		orientation_state(uninitialized_t) {
 		}
+		/// Initializes all fields of this struct.
+		constexpr orientation_state(uquats ori, vec3 angular_vel) : orientation(ori), angular_velocity(angular_vel) {
+		}
+		/// Initializes the orientation with the given value, and angular velocity to zero.
+		[[nodiscard]] constexpr static orientation_state stationary_at(uquats ori) {
+			return orientation_state(ori, zero);
+		}
+
+		uquats orientation = uninitialized; ///< Orientation.
+		vec3 angular_velocity = uninitialized; ///< Angular velocity.
 	};
 }

@@ -13,6 +13,7 @@
 #include "camera_control.h"
 #include "utils.h"
 #include "tests/box_stack_test.h"
+#include "tests/cosserat_rod_test.h"
 #include "tests/fem_cloth_test.h"
 #include "tests/polyhedron_test.h"
 #include "tests/shallow_water_test.h"
@@ -153,6 +154,9 @@ protected:
 				ImGui::Checkbox("Wireframe Bodies", &_test_context.wireframe_bodies);
 				ImGui::Checkbox("Body Velocity", &_test_context.draw_body_velocities);
 				ImGui::Checkbox("Contacts", &_test_context.draw_contacts);
+				ImGui::Checkbox("Particles", &_test_context.draw_particles);
+				ImGui::SliderFloat("Particle Size", &_test_context.particle_size, 0.001f, 10.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
+				ImGui::Checkbox("Orientations", &_test_context.draw_orientations);
 
 				ImGui::Separator();
 				ImGui::SliderFloat("Scroll Sensitivity", &_scroll_sensitivity, 0.0f, 1.0f);
@@ -315,6 +319,7 @@ int main(int argc, char **argv) {
 	testbed_app app(argc, argv);
 	app.initialize();
 	app.register_test<convex_hull_test>();
+	app.register_test<cosserat_rod_test>();
 	app.register_test<fem_cloth_test>();
 	app.register_test<spring_cloth_test>();
 	app.register_test<box_stack_test>();

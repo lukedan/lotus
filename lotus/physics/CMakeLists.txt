@@ -14,12 +14,17 @@ target_sources(lotus_physics
 		"include/lotus/collision/common.h"
 		"include/lotus/collision/shape.h"
 
+		"include/lotus/physics/avbd/constraints/cosserat_rod.h"
+
+		"include/lotus/physics/avbd/solver.h"
+
 		"include/lotus/physics/sequential_impulse/constraints/contact_set_blcp.h"
 
 		"include/lotus/physics/sequential_impulse/solver.h"
 
 		"include/lotus/physics/xpbd/constraints/bend.h"
 		"include/lotus/physics/xpbd/constraints/contact.h"
+		"include/lotus/physics/xpbd/constraints/cosserat_rod.h"
 		"include/lotus/physics/xpbd/constraints/face.h"
 		"include/lotus/physics/xpbd/constraints/spring.h"
 
@@ -38,11 +43,16 @@ target_sources(lotus_physics
 
 		"src/collision/common.cpp"
 
+		"src/physics/avbd/constraints/cosserat_rod.cpp"
+
+		"src/physics/avbd/solver.cpp"
+
 		"src/physics/sequential_impulse/constraints/contact_set_blcp.cpp"
 
 		"src/physics/sequential_impulse/solver.cpp"
 
 		"src/physics/xpbd/constraints/contact.cpp"
+		"src/physics/xpbd/constraints/cosserat_rod.cpp"
 
 		"src/physics/xpbd/solver.cpp"
 

@@ -77,4 +77,15 @@ namespace lotus::physics {
 		particle_state state = uninitialized; ///< The state of this particle.
 		vec3 prev_position = uninitialized; ///< Position in the previous timestep.
 	};
+	/// Data associated with a single orientation.
+	struct orientation {
+		/// No initialization.
+		orientation(uninitialized_t) {
+		}
+
+		// TODO move this to a separate struct?
+		scalar inv_inertia; ///< Inverse inertia.
+		orientation_state state = uninitialized; ///< The state of this orientation.
+		uquats prev_orientation = uninitialized; ///< State in the previous timestep.
+	};
 }

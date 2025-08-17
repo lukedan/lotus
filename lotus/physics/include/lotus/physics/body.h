@@ -48,7 +48,7 @@ namespace lotus::physics {
 			state.position.position += dt * state.velocity.linear;
 			state.position.orientation = quatu::normalize(
 				state.position.orientation +
-				0.5f * dt * quats::from_vector(state.velocity.angular) * state.position.orientation
+				0.5f * dt * quat::from_vec3_xyz(state.velocity.angular) * state.position.orientation
 			);
 		}
 

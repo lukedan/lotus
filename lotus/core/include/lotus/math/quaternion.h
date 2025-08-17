@@ -7,6 +7,7 @@
 #include <type_traits>
 
 #include "lotus/math/vector.h"
+#include "lotus/math/tangent_frame.h"
 
 namespace lotus {
 	/// Whether this quaternion is a unit quaternion.
@@ -15,13 +16,8 @@ namespace lotus {
 		unit ///< Unit quaternion with a magnitude of 1.
 	};
 
-	class quat;
-	class quat_unsafe;
-
 	/// A quaternion.
 	template <typename T, quaternion_kind Kind = quaternion_kind::arbitrary> struct quaternion {
-		friend quat;
-		friend quat_unsafe;
 		template <typename, quaternion_kind> friend struct quaternion;
 	public:
 		using value_type = T; ///< Value type.
@@ -57,12 +53,6 @@ namespace lotus {
 		/// Returns the identity quaternion.
 		[[nodiscard]] constexpr static quaternion<T, quaternion_kind::unit> identity() {
 			return quaternion<T, quaternion_kind::unit>(1, 0, 0, 0);
-		}
-		/// Creates a quaternion using the given 3D vector for X, Y, and Z, leaving W empty.
-		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
-			Vec::dimensionality == 3 && Kind == quaternion_kind::arbitrary, quaternion
-		> from_vector(const Vec &v) {
-			return from_wxyz(static_cast<T>(0), v[0], v[1], v[2]);
 		}
 
 
@@ -145,15 +135,13 @@ namespace lotus {
 			z() -= rhs.z();
 			return *this;
 		}
-		/// Memberwise subtraction.
-		template <
-			quaternion_kind OtherKind,
-			typename Dummy = int, std::enable_if_t<Kind == quaternion_kind::arbitrary, Dummy> = 0
-		> [[nodiscard]] friend constexpr quaternion operator-(
-			quaternion<T, Kind> lhs, const quaternion<T, OtherKind> &rhs
+		/// Memberwise subtraction. The result is assumed to be a non-unit quaternion.
+		template <quaternion_kind OtherKind> [[nodiscard]] friend constexpr quaternion<T> operator-(
+			const quaternion &lhs, const quaternion<T, OtherKind> &rhs
 		) {
-			lhs -= rhs;
-			return lhs;
+			quaternion<T> res = lhs;
+			res -= rhs;
+			return res;
 		}
 
 		/// In-place scalar multiplication.
@@ -239,6 +227,10 @@ namespace lotus {
 				static_cast<U>(_w), static_cast<U>(_x), static_cast<U>(_y), static_cast<U>(_z)
 			);
 		}
+		/// Assumes that this quaternion is normalized.
+		[[nodiscard]] constexpr quaternion<T, quaternion_kind::unit> assume_normalized() const {
+			return quaternion<T, quaternion_kind::unit>(w(), x(), y(), z());
+		}
 
 
 		// properties
@@ -279,7 +271,7 @@ namespace lotus {
 		}
 
 		/// Returns the corresponding rotation matrix.
-		[[nodiscard]] constexpr matrix<3, 3, T> into_matrix() const {
+		[[nodiscard]] constexpr matrix<3, 3, T> into_rotation_matrix() const {
 			auto xx = x() * x();
 			auto yy = y() * y();
 			auto zz = z() * z();
@@ -301,6 +293,14 @@ namespace lotus {
 				{ s * (xy + zw),     1 - s * (xx + zz), s * (yz - xw)     },
 				{ s * (xz - yw),     s * (yz + xw),     1 - s * (xx + yy) }
 			};
+		}
+		/// Returns a vector containing the x, y, z, and w components of this quaternion.
+		[[nodiscard]] constexpr cvec4<T> into_vector_xyzw() const {
+			return cvec4<T>(x(), y(), z(), w());
+		}
+		/// Returns a vector containing the w, x, y, and z components of this quaternion.
+		[[nodiscard]] constexpr cvec4<T> into_vector_wxyz() const {
+			return cvec4<T>(w(), x(), y(), z());
 		}
 
 		/// Rotates a vector.
@@ -335,33 +335,6 @@ namespace lotus {
 	using uquatd = unit_quaternion<double>; ///< Shorthand for unit quaternions of \p double.
 
 
-	/// Quaternion utilities.
-	class quat {
-	public:
-		/// Prevent objects of this type from being created.
-		quat() = delete;
-
-		/// Creates a quaternion from the given normalized axis and rotation angle.
-		template <typename Vec> [[nodiscard]] static constexpr std::enable_if_t<
-			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
-		> from_normalized_axis_angle(const Vec &axis, typename Vec::value_type angle) {
-			using _type = typename Vec::value_type;
-
-			angle /= static_cast<_type>(2);
-			_type w = std::cos(angle);
-			_type sin_half = std::sin(angle);
-			return unit_quaternion<_type>(w, sin_half * axis[0], sin_half * axis[1], sin_half * axis[2]);
-		}
-		/// Creates a quaternion from the given axis and rotation angle. This function calls \ref vecu::normalize()
-		/// to normalize the rotation axis; use \ref from_normalized_axis_angle() instead if the axis is guaranteed
-		/// to be normalized.
-		template <typename Vec> [[nodiscard]] static constexpr std::enable_if_t<
-			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
-		> from_axis_angle(const Vec &axis, typename Vec::value_type angle) {
-			return from_normalized_axis_angle(vecu::normalize(axis), std::move(angle));
-		}
-	};
-
 	/// Unsafe quaternion utilities.
 	class quat_unsafe {
 	public:
@@ -370,8 +343,83 @@ namespace lotus {
 
 		/// Normalizes the given quaternion without checking if its magnitude is close to zero.
 		template <typename T> constexpr static unit_quaternion<T> normalize(quaternion<T> q) {
-			const T norm = q.magnitude();
-			return unit_quaternion<T>(q.w() / norm, q.x() / norm, q.y() / norm, q.z() / norm);
+			return (q / q.magnitude()).assume_normalized();
+		}
+		/// Creates a quaternion that rotates the given \p from vector to the given \p to vector. Both vectors are
+		/// assumed to be normalized. This method fails if the two vectors are parallel and face away from each other.
+		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
+			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
+		> from_normalized_from_to(const Vec &from, const Vec &to) {
+			using _type = Vec::value_type;
+
+			const _type dotv = vec::dot(from, to);
+			const Vec crossv = vec::cross(from, to);
+			return quaternion<_type>::from_wxyz(dotv, crossv[0], crossv[1], crossv[2]).assume_normalized();
+		}
+	};
+	/// Quaternion utilities.
+	class quat {
+	public:
+		/// Prevent objects of this type from being created.
+		quat() = delete;
+
+		/// Creates a quaternion using the given 3D vector for X, Y, and Z, leaving W empty.
+		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
+			Vec::dimensionality == 3, quaternion<typename Vec::value_type>
+		> from_vec3_xyz(Vec v) {
+			using _type = Vec::value_type;
+			return quaternion<_type>::from_wxyz(zero, std::move(v[0]), std::move(v[1]), std::move(v[2]));
+		}
+		/// Creates a quaternion using the given vector, assuming that the elements in the vector are ordered as w,
+		/// x, y, and z.
+		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
+			Vec::dimensionality == 4, quaternion<typename Vec::value_type>
+		> from_vec4_wxyz(Vec v) {
+			using _type = Vec::value_type;
+			return quaternion<_type>::from_wxyz(std::move(v[0]), std::move(v[1]), std::move(v[2]), std::move(v[3]));
+		}
+		/// Creates a quaternion using the given vector, assuming that the elements in the vector are ordered as x,
+		/// y, z, and w.
+		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
+			Vec::dimensionality == 4, quaternion<typename Vec::value_type>
+		> from_vec4_xyzw(Vec v) {
+			using _type = Vec::value_type;
+			return quaternion<_type>::from_wxyz(std::move(v[3]), std::move(v[0]), std::move(v[1]), std::move(v[2]));
+		}
+		/// Creates a quaternion from the given normalized axis and rotation angle.
+		template <typename Vec> [[nodiscard]] static constexpr std::enable_if_t<
+			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
+		> from_normalized_axis_angle(const Vec &axis, Vec::value_type angle) {
+			using _type = Vec::value_type;
+
+			angle /= static_cast<_type>(2);
+			_type w = std::cos(angle);
+			_type sin_half = std::sin(angle);
+			return quaternion<_type>::from_wxyz(
+				w, sin_half * axis[0], sin_half * axis[1], sin_half * axis[2]
+			).assume_normalized();
+		}
+		/// Creates a quaternion from the given axis and rotation angle. This function calls \ref vecu::normalize()
+		/// to normalize the rotation axis; use \ref from_normalized_axis_angle() instead if the axis is guaranteed
+		/// to be normalized.
+		template <typename Vec> [[nodiscard]] static constexpr std::enable_if_t<
+			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
+		> from_axis_angle(const Vec &axis, Vec::value_type angle) {
+			return from_normalized_axis_angle(vecu::normalize(axis), std::move(angle));
+		}
+		/// Safe version of \ref quat_unsafe::from_normalized_from_to().
+		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
+			Vec::dimensionality == 3, unit_quaternion<typename Vec::value_type>
+		> from_normalized_from_to(const Vec &from, const Vec &to, Vec::value_type eps = 1e-6f) {
+			using _type = Vec::value_type;
+
+			const _type dotv = vec::dot(from, to);
+			// the two vectors are parallel and facing away from each other
+			if (dotv < -1.0f + eps) {
+				const cvec3<_type> n = tangent_frame<_type>::from_normal(from).bitangent;
+				return quaternion<_type>::from_wxyz(0.0f, n[0], n[1], n[2]).assume_normalized();
+			}
+			return quat_unsafe::from_normalized_from_to(from, to);
 		}
 	};
 	using quatu = quat_unsafe; ///< Shorthand for \ref quat_unsafe.

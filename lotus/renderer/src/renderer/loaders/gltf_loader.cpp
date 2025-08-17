@@ -354,7 +354,7 @@ namespace lotus::renderer::gltf {
 						mat33f::identity() :
 						quatu::normalize(quatd::from_wxyz(
 							node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]
-						).into<float>()).into_matrix();
+						).into<float>()).into_rotation_matrix();
 					auto translation =
 						node.translation.empty() ?
 						cvec3f(zero) :

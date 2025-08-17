@@ -273,7 +273,7 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 		}
 
 		auto mat = mat44s::identity();
-		mat.set_block(0, 0, b->state.position.orientation.into_matrix());
+		mat.set_block(0, 0, b->state.position.orientation.into_rotation_matrix());
 		mat.set_block(0, 3, b->state.position.position);
 
 		std::visit(

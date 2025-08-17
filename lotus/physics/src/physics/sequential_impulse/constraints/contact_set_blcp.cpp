@@ -8,8 +8,8 @@ namespace lotus::physics::sequential_impulse::constraints {
 		const mat33s ntb = ci.tangents.get_tangent_to_world_matrix().transposed();
 		const vec3 r1 = ci.contact - b1.state.position.position;
 		const vec3 r2 = ci.contact - b2.state.position.position;
-		const mat33s rot1 = b1.state.position.orientation.into_matrix();
-		const mat33s rot2 = b2.state.position.orientation.into_matrix();
+		const mat33s rot1 = b1.state.position.orientation.into_rotation_matrix();
+		const mat33s rot2 = b2.state.position.orientation.into_rotation_matrix();
 		matrix<6, 6, scalar> m1 = zero;
 		matrix<6, 6, scalar> m2 = zero;
 		m1.set_block(0, 0, b1.properties.inverse_mass * mat33s::identity());

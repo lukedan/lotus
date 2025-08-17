@@ -11,10 +11,14 @@ namespace lotus::collision {
 	/// Type definitions for the physics engine.
 	inline namespace types {
 		using scalar = float; ///< Scalar type.
-		using vec3 = cvec3<scalar>; ///< Vector type.
+		using vec3 = cvec3<scalar>; ///< 3D vector type.
+		using vec4 = cvec4<scalar>; ///< 4D vector type.
 		using quats = quaternion<scalar>; ///< Quaternion type.
 		using uquats = unit_quaternion<scalar>; ///< Unit quaternion type.
 		using mat33s = mat33<scalar>; ///< 3x3 matrix type.
+		using mat34s = mat34<scalar>; ///< 3x4 matrix type.
+		using mat43s = matrix<4, 3, scalar>; ///< 4x3 matrix type.
+		using mat44s = mat44<scalar>; ///< 4x4 matrix type.
 	}
 
 	inline namespace constants {

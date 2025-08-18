@@ -158,11 +158,11 @@ protected:
 		}
 
 		pass::global_input globals_buf_data = uninitialized;
-		globals_buf_data.mouse = _mouse_pos.into<float>();
-		globals_buf_data.mouse_down = _mouse_down_pos.into<float>();
-		globals_buf_data.mouse_drag = _mouse_drag_pos.into<float>();
+		globals_buf_data.mouse = _mouse_pos.into<f32>();
+		globals_buf_data.mouse_down = _mouse_down_pos.into<f32>();
+		globals_buf_data.mouse_drag = _mouse_drag_pos.into<f32>();
 		globals_buf_data.resolution = _get_window_size().into<i32>();
-		globals_buf_data.time = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - _start_time).count();
+		globals_buf_data.time = std::chrono::duration<f32>(std::chrono::high_resolution_clock::now() - _start_time).count();
 
 		// render all passes
 		for (auto pit : _pass_order) {
@@ -181,7 +181,7 @@ protected:
 				for (auto &out : pit->second.targets) {
 					color_surfaces.emplace_back(
 						out.current_frame,
-						lgpu::color_render_target_access::create_clear(lotus::cvec4d(1.0, 0.0, 0.0, 0.0))
+						lgpu::color_render_target_access::create_clear(lotus::cvec4f64(1.0, 0.0, 0.0, 0.0))
 					);
 					state.blend_options.emplace_back(lgpu::render_target_blend_options::disabled());
 				}
@@ -249,7 +249,7 @@ protected:
 			auto pass = _gfx_q.begin_pass(
 				{
 					lren::image2d_color(
-						_swap_chain, lgpu::color_render_target_access::create_clear(lotus::cvec4d(1.0, 0.0, 0.0, 0.0))
+						_swap_chain, lgpu::color_render_target_access::create_clear(lotus::cvec4f64(1.0, 0.0, 0.0, 0.0))
 					)
 				},
 				nullptr, _get_window_size(), u8"Main blit pass"

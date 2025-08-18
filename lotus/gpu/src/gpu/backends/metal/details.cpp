@@ -488,7 +488,7 @@ namespace lotus::gpu::backends::metal::_details {
 			return MTL::Size(sz[0], sz[1], sz[2]);
 		}
 
-		MTL::PackedFloat4x3 to_packed_float4x3(mat34f m) {
+		MTL::PackedFloat4x3 to_packed_float4x3(mat34f32 m) {
 			MTL::PackedFloat4x3 result;
 			for (usize r = 0; r < 3; ++r) {
 				for (usize c = 0; c < 4; ++c) {
@@ -499,7 +499,7 @@ namespace lotus::gpu::backends::metal::_details {
 		}
 
 		MTL::Viewport to_viewport(viewport vp) {
-			const cvec2f size = vp.xy.signed_size();
+			const cvec2f32 size = vp.xy.signed_size();
 			return MTL::Viewport(vp.xy.min[0], vp.xy.min[1], size[0], size[1], vp.minimum_depth, vp.maximum_depth);
 		}
 

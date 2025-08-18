@@ -392,12 +392,12 @@ namespace lotus::renderer {
 			gpu::filtering min = gpu::filtering::linear,
 			gpu::filtering mag = gpu::filtering::linear,
 			gpu::filtering mip = gpu::filtering::linear,
-			float lod_bias = 0.0f, float minlod = 0.0f, float maxlod = std::numeric_limits<float>::max(),
-			std::optional<float> max_aniso = std::nullopt,
+			f32 lod_bias = 0.0f, f32 minlod = 0.0f, f32 maxlod = std::numeric_limits<f32>::max(),
+			std::optional<f32> max_aniso = std::nullopt,
 			gpu::sampler_address_mode addr_u = gpu::sampler_address_mode::repeat,
 			gpu::sampler_address_mode addr_v = gpu::sampler_address_mode::repeat,
 			gpu::sampler_address_mode addr_w = gpu::sampler_address_mode::repeat,
-			linear_rgba_f border = zero,
+			linear_rgba_f32 border = zero,
 			gpu::comparison_function comp = gpu::comparison_function::none
 		) :
 			border_color(border),
@@ -411,11 +411,11 @@ namespace lotus::renderer {
 		/// Default comparisons.
 		[[nodiscard]] friend constexpr bool operator==(const sampler_state&, const sampler_state&) = default;
 
-		linear_rgba_f border_color = zero; ///< Border color used when sampling outside of the image.
-		float mip_lod_bias = 0.0f; ///< LOD bias.
-		float min_lod      = 0.0f; ///< Minimum LOD of this sampler.
-		float max_lod      = 0.0f; ///< Maximum LOD of this sampler.
-		[[no_unique_address]] std::optional<float> max_anisotropy; ///< Maximum anisotropy.
+		linear_rgba_f32 border_color = zero; ///< Border color used when sampling outside of the image.
+		f32 mip_lod_bias = 0.0f; ///< LOD bias.
+		f32 min_lod      = 0.0f; ///< Minimum LOD of this sampler.
+		f32 max_lod      = 0.0f; ///< Maximum LOD of this sampler.
+		[[no_unique_address]] std::optional<f32> max_anisotropy; ///< Maximum anisotropy.
 		gpu::filtering minification  = gpu::filtering::nearest; ///< Minification filtering.
 		gpu::filtering magnification = gpu::filtering::nearest; ///< Magnification filtering.
 		gpu::filtering mipmapping    = gpu::filtering::nearest; ///< Mipmapping filtering.

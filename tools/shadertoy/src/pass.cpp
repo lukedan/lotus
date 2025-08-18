@@ -115,7 +115,7 @@ std::optional<pass> pass::load(const nlohmann::json &val) {
 					);
 				} else if (def.value().is_number()) {
 					pair.second = std::u8string(
-						lotus::string::assume_utf8(std::to_string(def.value().get<double>()))
+						lotus::string::assume_utf8(std::to_string(def.value().get<f64>()))
 					);
 				} else if (!def.value().is_null()) {
 					log().error("Invalid define value type");

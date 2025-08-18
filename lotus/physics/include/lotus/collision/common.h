@@ -10,7 +10,7 @@
 namespace lotus::collision {
 	/// Type definitions for the physics engine.
 	inline namespace types {
-		using scalar = float; ///< Scalar type.
+		using scalar = f32; ///< Scalar type.
 		using vec3 = cvec3<scalar>; ///< 3D vector type.
 		using vec4 = cvec4<scalar>; ///< 4D vector type.
 		using quats = quaternion<scalar>; ///< Quaternion type.

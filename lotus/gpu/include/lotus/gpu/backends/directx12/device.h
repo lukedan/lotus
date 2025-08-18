@@ -186,9 +186,9 @@ namespace lotus::gpu::backends::directx12 {
 		/// Fills out all fields in a \ref sampler.
 		[[nodiscard]] sampler create_sampler(
 			filtering minification, filtering magnification, filtering mipmapping,
-			float mip_lod_bias, float min_lod, float max_lod, std::optional<float> max_anisotropy,
+			f32 mip_lod_bias, f32 min_lod, f32 max_lod, std::optional<f32> max_anisotropy,
 			sampler_address_mode addressing_u, sampler_address_mode addressing_v, sampler_address_mode addressing_w,
-			linear_rgba_f border_color, comparison_function comparison
+			linear_rgba_f32 border_color, comparison_function comparison
 		);
 
 		/// Fills out all fields in a \ref frame_buffer.

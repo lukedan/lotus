@@ -483,15 +483,11 @@ namespace lotus::gpu::backends::vulkan::_details {
 			return result;
 		}
 
-		/// Implementation for \ref to_clear_value() for \ref cvec4d.
-		[[nodiscard]] static vk::ClearValue _to_clear_value_impl(const cvec4d &vec) {
+		/// Implementation for \ref to_clear_value() for \ref cvec4f64.
+		[[nodiscard]] static vk::ClearValue _to_clear_value_impl(const cvec4f64 &vec) {
+			const cvec4f32 vec_f32 = vec.into<f32>();
 			vk::ClearValue result;
-			result.setColor(std::array<float, 4>{
-				static_cast<float>(vec[0]),
-				static_cast<float>(vec[1]),
-				static_cast<float>(vec[2]),
-				static_cast<float>(vec[3]),
-			});
+			result.setColor({ vec_f32[0], vec_f32[1], vec_f32[2], vec_f32[3] });
 			return result;
 		}
 		/// Implementation for \ref to_clear_value() for \ref cvec4<u64>.

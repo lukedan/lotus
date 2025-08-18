@@ -464,10 +464,10 @@ namespace lotus::gpu::backends::directx12 {
 	}
 
 
-	double command_queue::get_timestamp_frequency() {
+	f64 command_queue::get_timestamp_frequency() {
 		UINT64 freq = 0;
 		_details::assert_dx(_queue->GetTimestampFrequency(&freq));
-		return static_cast<double>(freq);
+		return static_cast<f64>(freq);
 	}
 
 	void command_queue::submit_command_lists(

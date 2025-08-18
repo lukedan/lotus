@@ -44,32 +44,32 @@ class debug_render {
 public:
 	struct surface_visual {
 		std::vector<u32> triangles;
-		lotus::linear_rgba_f color{ 1.0f, 1.0f, 1.0f, 1.0f };
+		lotus::linear_rgba_f32 color{ 1.0f, 1.0f, 1.0f, 1.0f };
 	};
 	struct body_visual {
 		std::vector<u32> triangles;
-		lotus::linear_rgba_f color{ 1.0f, 1.0f, 1.0f, 1.0f };
+		lotus::linear_rgba_f32 color{ 1.0f, 1.0f, 1.0f, 1.0f };
 	};
 
 	struct vertex {
 		vec3 position = lotus::uninitialized;
-		lotus::linear_rgba_f color = lotus::uninitialized;
+		lotus::linear_rgba_f32 color = lotus::uninitialized;
 		vec3 normal = lotus::uninitialized;
 	};
 
-	void draw_point(vec3 p, lotus::linear_rgba_f color, scalar size = 0.0f);
-	void draw_line(vec3 a, vec3 b, lotus::linear_rgba_f color);
+	void draw_point(vec3 p, lotus::linear_rgba_f32 color, scalar size = 0.0f);
+	void draw_line(vec3 a, vec3 b, lotus::linear_rgba_f32 color);
 
 	void draw_body(
 		std::span<const vec3> positions,
 		std::span<const vec3> normals,
 		std::span<const u32> indices,
 		mat44s transform,
-		lotus::linear_rgba_f color,
+		lotus::linear_rgba_f32 color,
 		bool wireframe
 	);
-	void draw_sphere(mat44s transform, lotus::linear_rgba_f color, bool wireframe);
-	void draw_box(mat44s transform, lotus::linear_rgba_f color, bool wireframe);
+	void draw_sphere(mat44s transform, lotus::linear_rgba_f32 color, bool wireframe);
+	void draw_box(mat44s transform, lotus::linear_rgba_f32 color, bool wireframe);
 
 	void draw_frame(uquats ori, vec3 pos, scalar size);
 

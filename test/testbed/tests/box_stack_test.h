@@ -186,13 +186,13 @@ protected:
 	bool _fix_first_row = false;
 	bool _add_walls = false;
 
-	float _static_friction = 0.4f;
-	float _dynamic_friction = 0.35f;
-	float _restitution = 0.0f;
+	f32 _static_friction = 0.4f;
+	f32 _dynamic_friction = 0.35f;
+	f32 _restitution = 0.0f;
 
-	float _density = 1.0f;
-	float _box_size[3]{ 1.0f, 0.2f, 0.6f };
-	float _gap[2]{ 0.02f, 0.02f };
+	f32 _density = 1.0f;
+	f32 _box_size[3]{ 1.0f, 0.2f, 0.6f };
+	f32 _gap[2]{ 0.02f, 0.02f };
 	int _box_count[2]{ 5, 3 };
 
 	lotus::collision::shape _plane_shape;

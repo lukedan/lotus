@@ -191,7 +191,7 @@ namespace lotus::gpu::backends::metal {
 		command_queue(std::nullptr_t) {
 		}
 
-		[[nodiscard]] double get_timestamp_frequency(); // TODO
+		[[nodiscard]] f64 get_timestamp_frequency(); // TODO
 
 		/// Creates command lists to handle synchronization, and calls \p MTL::CommandBuffer::commit() to submit all
 		/// the command lists.

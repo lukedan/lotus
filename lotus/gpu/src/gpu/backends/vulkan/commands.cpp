@@ -79,7 +79,7 @@ namespace lotus::gpu::backends::vulkan {
 					.setLoadOp(_details::conversions::to_attachment_load_op(depth_access.load_operation))
 					.setStoreOp(_details::conversions::to_attachment_store_op(depth_access.store_operation))
 					.setClearValue(vk::ClearDepthStencilValue(
-						static_cast<float>(depth_access.clear_value), stencil_access.clear_value
+						static_cast<f32>(depth_access.clear_value), stencil_access.clear_value
 					));
 				info.setPDepthAttachment(&depth_attachment);
 			}
@@ -93,7 +93,7 @@ namespace lotus::gpu::backends::vulkan {
 					.setLoadOp(_details::conversions::to_attachment_load_op(stencil_access.load_operation))
 					.setStoreOp(_details::conversions::to_attachment_store_op(stencil_access.store_operation))
 					.setClearValue(vk::ClearDepthStencilValue(
-						static_cast<float>(depth_access.clear_value), stencil_access.clear_value
+						static_cast<f32>(depth_access.clear_value), stencil_access.clear_value
 					));
 				info.setPStencilAttachment(&stencil_attachment);
 			}
@@ -170,7 +170,7 @@ namespace lotus::gpu::backends::vulkan {
 		auto bookmark = get_scratch_bookmark();
 		auto viewports = bookmark.create_reserved_vector_array<vk::Viewport>(vps.size());
 		for (const auto &vp : vps) {
-			cvec2f size = vp.xy.signed_size();
+			cvec2f32 size = vp.xy.signed_size();
 			viewports.emplace_back(vp.xy.min[0], vp.xy.min[1], size[0], size[1], vp.minimum_depth, vp.maximum_depth);
 		}
 		_buffer.setViewport(0, viewports);
@@ -306,7 +306,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	void command_list::insert_marker(const char8_t *name, linear_rgba_u8 color) {
 		if (bit_mask::contains<context_options::enable_debug_info>(_device->_options)) {
-			auto color_f = color.into<float>();
+			const linear_rgba_f32 color_f = color.into<f32>();
 			vk::DebugMarkerMarkerInfoEXT info;
 			info
 				.setPMarkerName(reinterpret_cast<const char*>(name))
@@ -317,7 +317,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	void command_list::begin_marker_scope(const char8_t *name, linear_rgba_u8 color) {
 		if (bit_mask::contains<context_options::enable_debug_info>(_device->_options)) {
-			auto color_f = color.into<float>();
+			const linear_rgba_f32 color_f = color.into<f32>();
 			vk::DebugMarkerMarkerInfoEXT info;
 			info
 				.setPMarkerName(reinterpret_cast<const char*>(name))

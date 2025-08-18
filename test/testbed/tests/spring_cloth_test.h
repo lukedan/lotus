@@ -31,7 +31,7 @@ public:
 		scalar segment_length = _cloth_size / static_cast<scalar>(side_segs - 1);
 
 		auto &surface = _render.surfaces.emplace_back();
-		surface.color = lotus::linear_rgba_f(1.0f, 0.4f, 0.2f, 0.5f);
+		surface.color = lotus::linear_rgba_f32(1.0f, 0.4f, 0.2f, 0.5f);
 		std::vector<std::vector<u32>> pid(side_segs, std::vector<u32>(side_segs));
 		for (usize y = 0; y < side_segs; ++y) {
 			for (usize x = 0; x < side_segs; ++x) {
@@ -141,17 +141,17 @@ protected:
 	scalar _world_time = 0.0f;
 
 	int _side_segments = 30;
-	float _cloth_size = 1.0f;
-	float _cloth_density = 1200.0f;
+	f32 _cloth_size = 1.0f;
+	f32 _cloth_density = 1200.0f;
 
-	float _youngs_modulus_short = 50000.0f;
-	float _youngs_modulus_diag = 50000.0f;
-	float _youngs_modulus_long = 50000.0f;
+	f32 _youngs_modulus_short = 50000.0f;
+	f32 _youngs_modulus_diag = 50000.0f;
+	f32 _youngs_modulus_long = 50000.0f;
 
 	lotus::physics::body *_sphere = nullptr;
-	float _sphere_travel = 1.5f;
-	float _sphere_period = 3.0f;
-	float _sphere_yz[2]{ 0.5f, 0.0f };
+	f32 _sphere_travel = 1.5f;
+	f32 _sphere_period = 3.0f;
+	f32 _sphere_yz[2]{ 0.5f, 0.0f };
 
 	lotus::collision::shape _sphere_shape;
 

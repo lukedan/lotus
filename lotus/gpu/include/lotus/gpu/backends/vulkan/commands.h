@@ -171,7 +171,7 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		/// Returns \ref _timestamp_frequency.
-		[[nodiscard]] double get_timestamp_frequency() {
+		[[nodiscard]] f64 get_timestamp_frequency() {
 			return _timestamp_frequency;
 		}
 
@@ -197,7 +197,7 @@ namespace lotus::gpu::backends::vulkan {
 	private:
 		vk::Queue _queue; ///< The queue.
 		u32 _family_index = std::numeric_limits<u32>::max(); ///< Queue family index.
-		double _timestamp_frequency = 0.0f; ///< Timestamp frequency.
+		f64 _timestamp_frequency = 0.0f; ///< Timestamp frequency.
 		queue_capabilities _capabilities = queue_capabilities::none; ///< The capabilities of this queue.
 	};
 }

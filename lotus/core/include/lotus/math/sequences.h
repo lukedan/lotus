@@ -10,7 +10,7 @@
 /// Mathematical sequences.
 namespace lotus::sequences {
 	/// The Halton sequence.
-	template <typename F = float, u32 NumBits = 32> struct halton {
+	template <typename F = f32, u32 NumBits = 32> struct halton {
 	public:
 		/// Initializes a new Halton sequence.
 		[[nodiscard]] static constexpr halton create(u32 base) {

@@ -15,7 +15,7 @@ namespace lotus {
 	) {
 		FILE *fout = stdout;
 		console::set_foreground_color(console::color::white, fout);
-		std::fprintf(fout, "[%6.2f]", std::chrono::duration<double>(time).count());
+		std::fprintf(fout, "[%6.2f]", std::chrono::duration<f64>(time).count());
 		console::set_foreground_color(console::color::blue, fout);
 		std::fprintf(fout, " %s:%d:%d", loc.file_name(), loc.line(), loc.column());
 		console::reset_color(fout);

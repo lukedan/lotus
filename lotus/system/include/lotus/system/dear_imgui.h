@@ -32,7 +32,7 @@ namespace lotus::system::dear_imgui {
 		/// Called when the mouse leaves the window.
 		void on_mouse_leave() {
 			auto &io = ImGui::GetIO();
-			io.AddMousePosEvent(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
+			io.AddMousePosEvent(-std::numeric_limits<f32>::max(), -std::numeric_limits<f32>::max());
 		}
 		/// Called when a mouse down event is detected.
 		void on_mouse_down(window &wnd, window_events::mouse::button_down &e) {

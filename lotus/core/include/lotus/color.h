@@ -40,7 +40,7 @@ namespace lotus {
 		template <typename U> constexpr linear_rgba<U> into() const {
 			if constexpr (std::is_integral_v<T>) {
 				if constexpr (std::is_integral_v<U>) {
-					return into<float>().template into<U>(); // TODO better approach?
+					return into<f32>().template into<U>(); // TODO better approach?
 				} else {
 					return linear_rgba<U>(
 						static_cast<U>(r) / std::numeric_limits<T>::max(),
@@ -95,8 +95,8 @@ namespace std {
 
 namespace lotus {
 	inline namespace linear_colors {
-		using linear_rgba_f  = linear_rgba<float>;  ///< Linear RGBA colors of \p float.
-		using linear_rgba_d  = linear_rgba<double>; ///< Linear RGBA colors of \p double.
-		using linear_rgba_u8 = linear_rgba<u8>;     ///< Linear RGBA colors of \ref u8.
+		using linear_rgba_f32 = linear_rgba<f32>; ///< Linear RGBA colors of \ref f32.
+		using linear_rgba_f64 = linear_rgba<f64>; ///< Linear RGBA colors of \ref f64.
+		using linear_rgba_u8  = linear_rgba<u8>;  ///< Linear RGBA colors of \ref u8.
 	}
 }

@@ -196,14 +196,14 @@ namespace lotus::renderer::fbx {
 			if (can_use_indices) {
 				for (int i_vert = 0; i_vert < vert_count; ++i_vert) {
 					const auto &v = control_points[i_vert];
-					mesh_positions[0].emplace_back(cvec3d(v[0], v[1], v[2]).into<float>());
+					mesh_positions[0].emplace_back(cvec3d(v[0], v[1], v[2]).into<f32>());
 					if (normals) {
 						int i_norm = i_vert;
 						if (normals->GetReferenceMode() == fbxsdk::FbxGeometryElement::eIndexToDirect) {
 							i_norm = normals->GetIndexArray()[i_norm];
 						}
 						const auto &n = normals->GetDirectArray()[i_norm];
-						mesh_normals[0].emplace_back(cvec3d(n[0], n[1], n[2]).into<float>());
+						mesh_normals[0].emplace_back(cvec3d(n[0], n[1], n[2]).into<f32>());
 					}
 					if (uvs) {
 						int i_uv = i_vert;
@@ -211,7 +211,7 @@ namespace lotus::renderer::fbx {
 							i_uv = uvs->GetIndexArray()[i_uv];
 						}
 						const auto &uv = uvs->GetDirectArray()[i_uv];
-						mesh_uvs[0].emplace_back(cvec2d(uv[0], 1.0 - uv[1]).into<float>());
+						mesh_uvs[0].emplace_back(cvec2d(uv[0], 1.0 - uv[1]).into<f32>());
 					}
 				}
 				int poly_count = mesh->GetPolygonCount();
@@ -276,7 +276,7 @@ namespace lotus::renderer::fbx {
 						} else {
 							v = control_points[i_vert];
 						}
-						mesh_positions[material_index].emplace_back(cvec3d(v[0], v[1], v[2]).into<float>());
+						mesh_positions[material_index].emplace_back(cvec3d(v[0], v[1], v[2]).into<f32>());
 						if (normals) {
 							fbxsdk::FbxVector4 n;
 							if (!mesh->GetPolygonVertexNormal(i_poly, i_pt, n)) {
@@ -285,7 +285,7 @@ namespace lotus::renderer::fbx {
 									mesh->GetName(), i_poly, i_pt
 								);
 							}
-							mesh_normals[material_index].emplace_back(cvec3d(n[0], n[1], n[2]).into<float>());
+							mesh_normals[material_index].emplace_back(cvec3d(n[0], n[1], n[2]).into<f32>());
 						}
 						if (uvs) {
 							fbxsdk::FbxVector2 uv;
@@ -296,7 +296,7 @@ namespace lotus::renderer::fbx {
 									mesh->GetName(), i_poly, i_pt
 								);
 							}
-							mesh_uvs[material_index].emplace_back(cvec2d(uv[0], 1.0 - uv[1]).into<float>());
+							mesh_uvs[material_index].emplace_back(cvec2d(uv[0], 1.0 - uv[1]).into<f32>());
 						}
 					};
 
@@ -571,7 +571,7 @@ namespace lotus::renderer::fbx {
 				for (usize y = 0; y < 4; ++y) {
 					for (usize x = 0; x < 4; ++x) {
 						// transposed
-						local_trans(y, x) = static_cast<float>(matrix[static_cast<int>(x)][static_cast<int>(y)]);
+						local_trans(y, x) = static_cast<f32>(matrix[static_cast<int>(x)][static_cast<int>(y)]);
 					}
 				}
 				mat44f node_trans = parent_trans * local_trans;

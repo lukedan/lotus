@@ -14,7 +14,7 @@ namespace shader_types {
 }
 #include <lotus/renderer/shader_types_include_wrapper.h>
 
-void debug_render::draw_point(vec3 p, lotus::linear_rgba_f color, scalar size) {
+void debug_render::draw_point(vec3 p, lotus::linear_rgba_f32 color, scalar size) {
 	if (size <= 0.0f) {
 		size = ctx->particle_size;
 	}
@@ -30,16 +30,16 @@ void debug_render::draw_point(vec3 p, lotus::linear_rgba_f color, scalar size) {
 	);
 }
 
-void debug_render::draw_line(vec3 a, vec3 b, lotus::linear_rgba_f color) {
+void debug_render::draw_line(vec3 a, vec3 b, lotus::linear_rgba_f32 color) {
 	color.a = 0.0f; // disable lighting
 
 	auto first_index = static_cast<u32>(line_vertices.size());
 	auto &v1 = line_vertices.emplace_back();
-	v1.position = a.into<float>();
+	v1.position = a.into<f32>();
 	v1.normal   = vec3(1.0f, 0.0f, 0.0f);
 	v1.color    = color;
 	auto &v2 = line_vertices.emplace_back();
-	v2.position = b.into<float>();
+	v2.position = b.into<f32>();
 	v2.normal   = vec3(1.0f, 0.0f, 0.0f);
 	v2.color    = color;
 	line_indices.emplace_back(first_index);
@@ -51,7 +51,7 @@ void debug_render::draw_body(
 	std::span<const vec3> normals,
 	std::span<const u32> indices,
 	mat44s transform,
-	lotus::linear_rgba_f color,
+	lotus::linear_rgba_f32 color,
 	bool wireframe
 ) {
 	std::vector<vec3> generated_normals;
@@ -99,7 +99,7 @@ void debug_render::draw_body(
 	}
 }
 
-void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, bool wireframe) {
+void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f32 color, bool wireframe) {
 	constexpr u32 _z_slices = 10;
 	constexpr u32 _xy_slices = 30;
 	constexpr scalar _z_slice_angle = lotus::physics::pi / _z_slices;
@@ -146,7 +146,7 @@ void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f color, boo
 	draw_body(_vertices, _vertices, _indices, transform, color, wireframe);
 }
 
-void debug_render::draw_box(mat44s transform, lotus::linear_rgba_f color, bool wireframe) {
+void debug_render::draw_box(mat44s transform, lotus::linear_rgba_f32 color, bool wireframe) {
 	static constexpr std::array _vertices = {
 		// XY negative
 		vec3(-0.5f, -0.5f, -0.5f),
@@ -204,16 +204,16 @@ void debug_render::draw_frame(uquats ori, vec3 pos, scalar size) {
 	const vec3 y = ori.rotate(vec3(0.0f, size, 0.0f));
 	const vec3 z = ori.rotate(vec3(0.0f, 0.0f, size));
 
-	draw_line(pos, pos + x, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
-	draw_line(pos, pos + y, lotus::linear_rgba_f(0.0f, 1.0f, 0.0f, 1.0f));
-	draw_line(pos, pos + z, lotus::linear_rgba_f(0.0f, 0.0f, 1.0f, 1.0f));
+	draw_line(pos, pos + x, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
+	draw_line(pos, pos + y, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
+	draw_line(pos, pos + z, lotus::linear_rgba_f32(0.0f, 0.0f, 1.0f, 1.0f));
 }
 
 void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, mat44s transform, const body_visual *visual, bool wireframe) {
 	vec3 vx = lotus::vecu::normalize((transform * vec4(1.0f, 0.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
 	vec3 vy = lotus::vecu::normalize((transform * vec4(0.0f, 1.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
 	vec3 v0 = (transform * vec4(0.0f, 1.0f, 0.0f, 1.0f)).block<3, 1>(0, 0);
-	lotus::linear_rgba_f color = visual ? visual->color : lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f);
+	lotus::linear_rgba_f32 color = visual ? visual->color : lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f);
 	if (wireframe) {
 		for (int x = -100; x <= 100; ++x) {
 			draw_line(v0 + vx * x + vy * -100.0f, v0 + vx * x + vy * 100.0f, color);
@@ -237,7 +237,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::sphere &sph
 	auto mat = mat44s::identity();
 	mat.set_block(0, 0, mat33s::identity() * 2.0f * sphere.radius);
 	mat.set_block(0, 3, sphere.offset);
-	draw_sphere(transform * mat, visual ? visual->color : lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f), wireframe);
+	draw_sphere(transform * mat, visual ? visual->color : lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f), wireframe);
 }
 
 void debug_render::draw_physics_body(const lotus::collision::shapes::convex_polyhedron &poly, mat44s transform, const body_visual *visual, bool wireframe) {
@@ -273,7 +273,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::convex_poly
 			} while (fi != hull.get_any_face());
 		}
 
-		draw_body(verts, {}, indices, transform, lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f), wireframe);
+		draw_body(verts, {}, indices, transform, lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f), wireframe);
 	}
 }
 
@@ -299,8 +299,8 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 	// debug stuff
 	if (ctx->draw_body_velocities) {
 		for (const lotus::physics::body *b : world.get_bodies()) {
-			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.linear, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
-			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.angular, lotus::linear_rgba_f(0.0f, 1.0f, 0.0f, 1.0f));
+			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.linear, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
+			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.angular, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
 		}
 	}
 }
@@ -311,7 +311,7 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 
 	if (ctx->draw_particles) {
 		for (const lotus::physics::particle &p : solver.particles) {
-			draw_point(p.state.position, lotus::linear_rgba_f(0.0f, 1.0f, 1.0f, 1.0f));
+			draw_point(p.state.position, lotus::linear_rgba_f32(0.0f, 1.0f, 1.0f, 1.0f));
 		}
 	}
 
@@ -329,7 +329,7 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 
 	// segments
 	for (const lotus::physics::avbd::constraints::cosserat_rod::stretch_shear &constraint : solver.rod_stretch_shear_constraints) {
-		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f));
+		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f));
 	}
 }
 
@@ -343,8 +343,8 @@ void debug_render::draw_system(lotus::physics::sequential_impulse::solver &solve
 			for (usize i = 0; i < contact_set.contacts_info.size(); ++i) {
 				const contact_set_t::contact_info &ci = contact_set.contacts_info[i];
 				const vec3 impulse = contact_set.get_impulse(i);
-				draw_point(ci.contact, lotus::linear_rgba_f(1.0f, 1.0f, 0.0f, 0.0f));
-				draw_line(ci.contact, ci.contact + impulse, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
+				draw_point(ci.contact, lotus::linear_rgba_f32(1.0f, 1.0f, 0.0f, 0.0f));
+				draw_line(ci.contact, ci.contact + impulse, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
 			}
 		}
 	}
@@ -355,7 +355,7 @@ void debug_render::draw_system(lotus::physics::xpbd::solver &solver) {
 
 	if (ctx->draw_particles) {
 		for (const lotus::physics::particle &p : solver.particles) {
-			draw_point(p.state.position, lotus::linear_rgba_f(0.0f, 1.0f, 1.0f, 1.0f));
+			draw_point(p.state.position, lotus::linear_rgba_f32(0.0f, 1.0f, 1.0f, 1.0f));
 		}
 	}
 
@@ -395,7 +395,7 @@ void debug_render::draw_system(lotus::physics::xpbd::solver &solver) {
 
 	// segments
 	for (const lotus::physics::xpbd::constraints::cosserat_rod::stretch_shear &constraint : solver.rod_stretch_shear_constraints) {
-		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f));
+		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f));
 	}
 
 	// debug stuff
@@ -403,8 +403,8 @@ void debug_render::draw_system(lotus::physics::xpbd::solver &solver) {
 		for (const auto &c : solver.contact_constraints) {
 			auto p1 = c.body1->state.position.local_to_global(c.offset1);
 			auto p2 = c.body2->state.position.local_to_global(c.offset2);
-			draw_point(p1, lotus::linear_rgba_f(0.0f, 0.0f, 1.0f, 1.0f));
-			draw_point(p2, lotus::linear_rgba_f(0.0f, 0.0f, 1.0f, 1.0f));
+			draw_point(p1, lotus::linear_rgba_f32(0.0f, 0.0f, 1.0f, 1.0f));
+			draw_point(p2, lotus::linear_rgba_f32(0.0f, 0.0f, 1.0f, 1.0f));
 		}
 	}
 }
@@ -444,8 +444,8 @@ void debug_render::flush(
 	};
 
 	shader_types::default_shader_constants constants;
-	constants.light_direction = lotus::vecu::normalize(lotus::cvec3f(0.3f, 0.4f, 0.5f));
-	constants.projection_view = ctx->camera.projection_view_matrix.into<float>();
+	constants.light_direction = lotus::vecu::normalize(lotus::cvec3f32(0.3f, 0.4f, 0.5f));
+	constants.projection_view = ctx->camera.projection_view_matrix.into<f32>();
 
 	auto pass = q.begin_pass({ frame_buffer }, depth_buffer, size, u8"Debug Render");
 	if (!mesh_vertices.empty()) {

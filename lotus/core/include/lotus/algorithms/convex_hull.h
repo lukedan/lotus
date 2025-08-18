@@ -23,7 +23,7 @@ namespace lotus {
 		~incremental_convex_hull() = delete;
 
 		/// Scalar type.
-		using scalar = float;
+		using scalar = f32;
 		/// Vector type.
 		using vec3 = cvec3<scalar>;
 

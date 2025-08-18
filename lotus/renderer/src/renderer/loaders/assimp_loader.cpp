@@ -109,7 +109,7 @@ namespace lotus::renderer::assimp {
 			geom.topology = gpu::primitive_topology::triangle_list;
 
 			geom.num_vertices = static_cast<u32>(mesh->mNumVertices);
-			geom.vertex_buffer = _load_input_buffer<float, 3>(
+			geom.vertex_buffer = _load_input_buffer<f32, 3>(
 				_asset_manager,
 				assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 					"{}({}).vertices", mesh->mName.C_Str(), i_geom
@@ -122,7 +122,7 @@ namespace lotus::renderer::assimp {
 				nullptr
 			);
 			if (mesh->HasNormals()) {
-				geom.normal_buffer = _load_input_buffer<float, 3>(
+				geom.normal_buffer = _load_input_buffer<f32, 3>(
 					_asset_manager,
 					assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 						"{}({}).normals", mesh->mName.C_Str(), i_geom
@@ -135,7 +135,7 @@ namespace lotus::renderer::assimp {
 				);
 			}
 			if (mesh->HasTangentsAndBitangents()) {
-				geom.tangent_buffer = _load_input_buffer<float, 4>(
+				geom.tangent_buffer = _load_input_buffer<f32, 4>(
 					_asset_manager,
 					assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 						"{}({}).tangents", mesh->mName.C_Str(), i_geom
@@ -145,12 +145,12 @@ namespace lotus::renderer::assimp {
 					gpu::buffer_usage_mask::shader_read,
 					buf_pool,
 					[](aiVector3D v) {
-						return cvec4f(v.x, v.y, v.z, 1.0f);
+						return cvec4f32(v.x, v.y, v.z, 1.0f);
 					}
 				);
 			}
 			if (mesh->HasTextureCoords(0)) {
-				geom.uv_buffer = _load_input_buffer<float, 2>(
+				geom.uv_buffer = _load_input_buffer<f32, 2>(
 					_asset_manager,
 					assets::identifier(path, std::u8string(string::assume_utf8(std::format(
 						"{}({}).uvs", mesh->mName.C_Str(), i_geom
@@ -160,7 +160,7 @@ namespace lotus::renderer::assimp {
 					gpu::buffer_usage_mask::shader_read,
 					buf_pool,
 					[](aiVector3D v) {
-						return cvec2f(v.x, 1.0f - v.y);
+						return cvec2f32(v.x, 1.0f - v.y);
 					}
 				);
 			}
@@ -247,23 +247,23 @@ namespace lotus::renderer::assimp {
 			}
 
 			// properties
-			data->properties.albedo_multiplier    = cvec4f(1.0f, 1.0f, 1.0f, 1.0f);
+			data->properties.albedo_multiplier    = cvec4f32(1.0f, 1.0f, 1.0f, 1.0f);
 			data->properties.normal_scale         = 1.0f;
 			data->properties.metalness_multiplier = 1.0f;
 			data->properties.roughness_multiplier = 1.0f;
 			data->properties.alpha_cutoff         = 0.5f;
 			if (auto color = _get_material_property<aiColor4D>(mat, AI_MATKEY_BASE_COLOR)) {
 				data->properties.albedo_multiplier =
-					cvec4<ai_real>(color->r, color->g, color->b, color->a).into<float>();
+					cvec4<ai_real>(color->r, color->g, color->b, color->a).into<f32>();
 			} else if (auto dif_color = _get_material_property<aiColor3D>(mat, AI_MATKEY_COLOR_DIFFUSE)) {
 				data->properties.albedo_multiplier =
-					cvec4<ai_real>(dif_color->r, dif_color->g, dif_color->b, 1.0f).into<float>();
+					cvec4<ai_real>(dif_color->r, dif_color->g, dif_color->b, 1.0f).into<f32>();
 			}
 			if (auto factor = _get_material_property<ai_real>(mat, AI_MATKEY_METALLIC_FACTOR)) {
-				data->properties.metalness_multiplier = static_cast<float>(factor.value());
+				data->properties.metalness_multiplier = static_cast<f32>(factor.value());
 			}
 			if (auto factor = _get_material_property<ai_real>(mat, AI_MATKEY_ROUGHNESS_FACTOR)) {
-				data->properties.roughness_multiplier = static_cast<float>(factor.value());
+				data->properties.roughness_multiplier = static_cast<f32>(factor.value());
 			}
 
 			const auto &mat_handle = materials.emplace_back(_asset_manager.register_material(
@@ -315,29 +315,29 @@ namespace lotus::renderer::assimp {
 					log().error("Undefined light type: {}", light->mName.C_Str());
 					break;
 				}
-				loaded_light.position   = cvec3f(light->mPosition.x, light->mPosition.y, light->mPosition.z);
-				loaded_light.direction  = cvec3f(light->mDirection.x, light->mDirection.y, light->mDirection.z);
+				loaded_light.position   = cvec3f32(light->mPosition.x, light->mPosition.y, light->mPosition.z);
+				loaded_light.direction  = cvec3f32(light->mDirection.x, light->mDirection.y, light->mDirection.z);
 				// mColorSpecular is ignored
 				loaded_light.irradiance =
-					cvec3f(light->mColorDiffuse.r, light->mColorDiffuse.g, light->mColorDiffuse.b);
+					cvec3f32(light->mColorDiffuse.r, light->mColorDiffuse.g, light->mColorDiffuse.b);
 			}
 		}
 
 		{ // load instances
-			std::vector<std::pair<const aiNode*, mat44f>> stack;
-			stack.emplace_back(scene->mRootNode, mat44f::identity());
+			std::vector<std::pair<const aiNode*, mat44f32>> stack;
+			stack.emplace_back(scene->mRootNode, mat44f32::identity());
 			while (!stack.empty()) {
 				auto [node, parent_trans] = stack.back();
 				stack.pop_back();
 
 				aiMatrix4x4 m = node->mTransformation;
-				mat44f local_trans{
+				mat44f32 local_trans{
 					{ m.a1, m.a2, m.a3, m.a4 },
 					{ m.b1, m.b2, m.b3, m.b4 },
 					{ m.c1, m.c2, m.c3, m.c4 },
 					{ m.d1, m.d2, m.d3, m.d4 },
 				};
-				mat44f trans = parent_trans * local_trans;
+				mat44f32 trans = parent_trans * local_trans;
 
 				for (unsigned i_mesh = 0; i_mesh < node->mNumMeshes; ++i_mesh) {
 					instance inst = nullptr;
@@ -353,8 +353,8 @@ namespace lotus::renderer::assimp {
 					auto it = lights_mapping.find(node->mName.C_Str());
 					if (it != lights_mapping.end()) {
 						auto &light = lights[it->second];
-						light.position = (trans * cvec4f(cvec3f(light.position), 1.0f)).block<3, 1>(0, 0);
-						light.direction = vecu::normalize((trans * cvec4f(cvec3f(light.direction), 0.0f)).block<3, 1>(0, 0));
+						light.position = (trans * cvec4f32(cvec3f32(light.position), 1.0f)).block<3, 1>(0, 0);
+						light.direction = vecu::normalize((trans * cvec4f32(cvec3f32(light.direction), 0.0f)).block<3, 1>(0, 0));
 						lights_mapping.erase(it);
 					}
 				}

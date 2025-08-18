@@ -101,9 +101,9 @@ namespace lotus::gpu::backends::metal {
 		/// Calls \p MTL::Device::newSamplerState().
 		[[nodiscard]] sampler create_sampler(
 			filtering minification, filtering magnification, filtering mipmapping,
-			float mip_lod_bias, float min_lod, float max_lod, std::optional<float> max_anisotropy,
+			f32 mip_lod_bias, f32 min_lod, f32 max_lod, std::optional<f32> max_anisotropy,
 			sampler_address_mode addressing_u, sampler_address_mode addressing_v, sampler_address_mode addressing_w,
-			linear_rgba_f border_color, comparison_function comparison
+			linear_rgba_f32 border_color, comparison_function comparison
 		);
 
 		/// Creates a new \ref descriptor_set_layout object.
@@ -243,7 +243,7 @@ namespace lotus::gpu::backends::metal {
 		/// Fills out a \p MTL::IndirectAccelerationStructureInstanceDescriptor.
 		[[nodiscard]] instance_description get_bottom_level_acceleration_structure_description(
 			bottom_level_acceleration_structure&,
-			mat44f trans, u32 id, u8 mask, u32 hit_group_offset,
+			mat44f32 trans, u32 id, u8 mask, u32 hit_group_offset,
 			raytracing_instance_flags
 		) const;
 

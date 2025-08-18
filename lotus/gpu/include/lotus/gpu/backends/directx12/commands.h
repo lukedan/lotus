@@ -166,7 +166,7 @@ namespace lotus::gpu::backends::directx12 {
 		}
 
 		/// Calls \p ID3D12CommandQueue::GetTimestampFrequency().
-		[[nodiscard]] double get_timestamp_frequency();
+		[[nodiscard]] f64 get_timestamp_frequency();
 
 		/// Calls \p ID3D12CommandQueue::Wait() for any synchronization primitives, submit all command lists using
 		/// \p ID3D12CommandQueue::ExecuteCommandLists(), then signals any synchronization primitives using

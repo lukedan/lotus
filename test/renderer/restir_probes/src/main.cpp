@@ -68,29 +68,29 @@ public:
 	lren::assets::handle<lren::assets::image2d> envmap_lut = nullptr;
 	lren::assets::handle<lren::assets::image2d> sky_hdri   = nullptr;
 
-	lotus::camera_parameters<float> cam_params = uninitialized;
-	lotus::camera<float> prev_cam = uninitialized;
-	lotus::camera_control<float> cam_control = nullptr;
+	lotus::camera_parameters<f32> cam_params = uninitialized;
+	lotus::camera<f32> prev_cam = uninitialized;
+	lotus::camera_control<f32> cam_control = nullptr;
 
-	float lighting_scale = 1.0f;
+	f32 lighting_scale = 1.0f;
 	int lighting_mode = 1;
 	char sky_hdri_path[1024] = { 0 };
-	float sky_scale = 1.0f;
+	f32 sky_scale = 1.0f;
 	cvec3u32 probe_density = cvec3u32(50u, 50u, 50u);
 	u32 direct_reservoirs_per_probe = 2;
 	u32 indirect_reservoirs_per_probe = 4;
 	u32 direct_sample_count_cap = 10;
 	u32 indirect_sample_count_cap = 10;
 	u32 indirect_spatial_reuse_passes = 3;
-	lotus::aab3f probe_bounds = lotus::aab3f::create_from_min_max({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f });
-	float visualize_probe_size = 0.1f;
+	lotus::aab3f32 probe_bounds = lotus::aab3f32::create_from_min_max({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f });
+	f32 visualize_probe_size = 0.1f;
 	int visualize_probes_mode = 0;
 	int shade_point_debug_mode = 0;
 	bool trace_shadow_rays_naive = true;
 	bool trace_shadow_rays_reservoir = false;
-	float diffuse_mul = 1.0f;
-	float specular_mul = 1.0f;
-	float sh_ra_factor = 0.05f;
+	f32 diffuse_mul = 1.0f;
+	f32 specular_mul = 1.0f;
+	f32 sh_ra_factor = 0.05f;
 	bool use_indirect_diffuse = true;
 	bool use_indirect_specular = true;
 	bool indirect_specular_use_visible_normals = true;
@@ -106,7 +106,7 @@ public:
 	int gbuffer_visualization = 0;
 
 	bool enable_taa = true;
-	float taa_ra_factor = 0.1f;
+	f32 taa_ra_factor = 0.1f;
 	int taa_sequence_x = 1;
 	int taa_sequence_y = 1;
 	u32 taa_sample_count = 8;
@@ -114,7 +114,7 @@ public:
 	u32 taa_sample_param_x = 2;
 	u32 taa_sample_param_y = 3;
 
-	std::vector<cvec2f> taa_samples;
+	std::vector<cvec2f32> taa_samples;
 	u32 taa_phase = 0;
 
 	u32 num_accumulated_frames = 0;
@@ -135,23 +135,23 @@ public:
 	std::default_random_engine rng;
 
 
-	static float get_taa_sample(int mode, int index, int param) {
+	static f32 get_taa_sample(int mode, int index, int param) {
 		switch (mode) {
 		case 0:
 			return 0.5f;
 		case 1:
 			{
-				auto seq = lotus::sequences::halton<float>::create(param);
+				auto seq = lotus::sequences::halton<f32>::create(param);
 				return seq(index);
 			}
 		case 2:
 			{
-				auto seq = lotus::sequences::hammersley<float>::create();
+				auto seq = lotus::sequences::hammersley<f32>::create();
 				return seq(param, index)[0];
 			}
 		case 3:
 			{
-				auto seq = lotus::sequences::hammersley<float>::create();
+				auto seq = lotus::sequences::hammersley<f32>::create();
 				return seq(param, index)[1];
 			}
 		}
@@ -160,7 +160,7 @@ public:
 	void update_taa_samples() {
 		taa_samples.resize(taa_sample_count, zero);
 		for (u32 i = 0; i < taa_sample_count; ++i) {
-			taa_samples[i] = cvec2f(
+			taa_samples[i] = cvec2f32(
 				get_taa_sample(taa_sequence_x, i + taa_sample_offset, taa_sample_param_x),
 				get_taa_sample(taa_sequence_y, i + taa_sample_offset, taa_sample_param_y)
 			);
@@ -186,7 +186,7 @@ public:
 			description
 		);
 	};
-	void fill_texture3d(lren::image3d_view img, cvec4f value, lren::constant_uploader &uploader, std::u8string_view description) {
+	void fill_texture3d(lren::image3d_view img, cvec4f32 value, lren::constant_uploader &uploader, std::u8string_view description) {
 		shader_types::fill_texture3d_constants data;
 		data.value = value;
 		data.size = img.get_size();
@@ -244,9 +244,9 @@ public:
 		clear_reservoirs = true;
 
 		// compute transformation matrices
-		cvec3f grid_size = probe_bounds.signed_size();
-		mat33f rotscale = mat33f::diagonal(grid_size).inverse();
-		mat44f world_to_grid = mat44f::identity();
+		cvec3f32 grid_size = probe_bounds.signed_size();
+		mat33f32 rotscale = mat33f32::diagonal(grid_size).inverse();
+		mat44f32 world_to_grid = mat44f32::identity();
 		world_to_grid.set_block(0, 0, rotscale);
 		world_to_grid.set_block(0, 3, rotscale * -probe_bounds.min);
 
@@ -328,8 +328,8 @@ protected:
 		envmap_lut = _assets->get_image2d(lren::assets::identifier(_assets->asset_library_path / "envmap_lut.dds"), runtime_tex_pool);
 		sky_hdri = _assets->get_null_image();
 
-		cam_params = lotus::camera_parameters<float>::create_look_at(zero, cvec3f(100.0f, 100.0f, 100.0f));
-		cam_control = lotus::camera_control<float>(cam_params);
+		cam_params = lotus::camera_parameters<f32>::create_look_at(zero, cvec3f32(100.0f, 100.0f, 100.0f));
+		cam_control = lotus::camera_control<f32>(cam_params);
 
 		update_taa_samples();
 		resize_probe_buffers();
@@ -339,7 +339,7 @@ protected:
 
 	void _on_resize(lsys::window_events::resize &resize) override {
 		cvec2u32 sz = resize.new_size;
-		cam_params.aspect_ratio = sz[0] / static_cast<float>(sz[1]);
+		cam_params.aspect_ratio = sz[0] / static_cast<f32>(sz[1]);
 		path_tracer_accum = _context->request_image2d(u8"Path Tracer Accumulation Buffer", sz, 1, lgpu::format::r32g32b32a32_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
 	}
 
@@ -383,8 +383,8 @@ protected:
 
 			const cvec2u32 window_size = _get_window_size();
 
-			cvec2f taa_jitter = taa_samples[std::min(taa_phase, static_cast<u32>(taa_samples.size()))] - cvec2f::filled(0.5f);
-			auto cam = cam_params.into_camera(lotus::vec::memberwise_divide(taa_jitter, (2u * window_size).into<float>()));
+			cvec2f32 taa_jitter = taa_samples[std::min(taa_phase, static_cast<u32>(taa_samples.size()))] - cvec2f32::filled(0.5f);
+			auto cam = cam_params.into_camera(lotus::vec::memberwise_divide(taa_jitter, (2u * window_size).into<f32>()));
 
 			auto g_buf = lren::g_buffer::view::create(*_context, window_size, runtime_tex_pool);
 			{ // g-buffer
@@ -397,7 +397,7 @@ protected:
 				view_data.projection_view          = cam.projection_view_matrix;
 				view_data.jittered_projection_view = cam.jittered_projection_view_matrix;
 				view_data.prev_projection_view     = prev_cam.projection_view_matrix;
-				view_data.rcp_viewport_size        = lotus::vec::memberwise_reciprocal(window_size.into<float>());
+				view_data.rcp_viewport_size        = lotus::vec::memberwise_reciprocal(window_size.into<f32>());
 
 				auto pass = g_buf.begin_pass(_graphics_queue);
 				lren::g_buffer::render_instances(
@@ -421,7 +421,7 @@ protected:
 			shader_types::lighting_constants lighting_constants;
 			lighting_constants.jittered_projection_view         = cam.jittered_projection_view_matrix;
 			lighting_constants.inverse_jittered_projection_view = cam.inverse_jittered_projection_view_matrix;
-			lighting_constants.camera                           = cvec4f(cam_params.position, 1.0f);
+			lighting_constants.camera                           = cvec4f32(cam_params.position, 1.0f);
 			lighting_constants.depth_linearization_constants    = cam.depth_linearization_constants;
 			lighting_constants.screen_size                      = window_size.into<u32>();
 			lighting_constants.num_lights                       = static_cast<u32>(scene->lights.size());
@@ -433,10 +433,10 @@ protected:
 			lighting_constants.use_indirect                     = use_indirect_diffuse;
 			lighting_constants.sky_scale                        = sky_scale;
 			{
-				cvec2f envmaplut_size = envmap_lut->image.get_size().into<float>();
-				cvec2f rcp_size = lotus::vec::memberwise_reciprocal(envmaplut_size);
-				lighting_constants.envmaplut_uvscale = lotus::vec::memberwise_multiply(envmaplut_size - cvec2f::filled(1.0f), rcp_size);
-				lighting_constants.envmaplut_uvbias  = lotus::vec::memberwise_multiply(cvec2f::filled(0.5f), rcp_size);
+				cvec2f32 envmaplut_size = envmap_lut->image.get_size().into<f32>();
+				cvec2f32 rcp_size = lotus::vec::memberwise_reciprocal(envmaplut_size);
+				lighting_constants.envmaplut_uvscale = lotus::vec::memberwise_multiply(envmaplut_size - cvec2f32::filled(1.0f), rcp_size);
+				lighting_constants.envmaplut_uvbias  = lotus::vec::memberwise_multiply(cvec2f32::filled(0.5f), rcp_size);
 			}
 
 			u32 num_probes = probe_density[0] * probe_density[1] * probe_density[2];
@@ -617,11 +617,11 @@ protected:
 
 				shader_types::sky_constants constants;
 				{
-					auto rot_only = mat44f::identity();
+					auto rot_only = mat44f32::identity();
 					rot_only.set_block(0, 0, cam.view_matrix.block<3, 3>(0, 0));
 					constants.inverse_projection_view_no_translation = (cam.projection_matrix * rot_only).inverse();
 
-					auto prev_rot_only = mat44f::identity();
+					auto prev_rot_only = mat44f32::identity();
 					prev_rot_only.set_block(0, 0, prev_cam.view_matrix.block<3, 3>(0, 0));
 					constants.prev_projection_view_no_translation = prev_cam.projection_matrix * prev_rot_only;
 				}
@@ -713,17 +713,17 @@ protected:
 			}
 
 			if (shade_point_debug_mode != 0) {
-				float tan_half_fovy = std::tan(0.5f * cam_params.fov_y_radians);
-				cvec3f half_right = cam.unit_right * cam_params.aspect_ratio * tan_half_fovy;
-				cvec3f half_down = cam.unit_up * -tan_half_fovy;
-				cvec3f pixel_x = half_right / (0.5f * window_size[0]);
-				cvec3f pixel_y = half_down / (0.5f * window_size[1]);
+				f32 tan_half_fovy = std::tan(0.5f * cam_params.fov_y_radians);
+				cvec3f32 half_right = cam.unit_right * cam_params.aspect_ratio * tan_half_fovy;
+				cvec3f32 half_down = cam.unit_up * -tan_half_fovy;
+				cvec3f32 pixel_x = half_right / (0.5f * window_size[0]);
+				cvec3f32 pixel_y = half_down / (0.5f * window_size[1]);
 
 				shader_types::shade_point_debug_constants constants;
-				constants.camera      = cvec4f(cam_params.position, 1.0f);
-				constants.x           = cvec4f(pixel_x, 0.0f);
-				constants.y           = cvec4f(pixel_y, 0.0f);
-				constants.top_left    = cvec4f(cam.unit_forward - half_right - half_down, 0.0f);
+				constants.camera      = cvec4f32(cam_params.position, 1.0f);
+				constants.x           = cvec4f32(pixel_x, 0.0f);
+				constants.y           = cvec4f32(pixel_y, 0.0f);
+				constants.top_left    = cvec4f32(cam.unit_forward - half_right - half_down, 0.0f);
 				constants.window_size = window_size.into<u32>();
 				constants.num_lights  = static_cast<u32>(scene->lights.size());
 				constants.mode        = shade_point_debug_mode;
@@ -776,7 +776,7 @@ protected:
 				);
 				shader_types::taa_constants constants;
 				constants.viewport_size         = window_size.into<u32>();
-				constants.rcp_viewport_size     = lotus::vec::memberwise_reciprocal(window_size.into<float>());
+				constants.rcp_viewport_size     = lotus::vec::memberwise_reciprocal(window_size.into<f32>());
 				constants.use_indirect_specular = use_indirect_specular;
 				constants.ra_factor             = taa_ra_factor;
 				constants.enable_taa            = enable_taa && prev_irradiance.is_valid();
@@ -908,7 +908,7 @@ protected:
 				}
 
 				for (const auto &l : scene->lights) {
-					_debug_renderer->add_locator(l.position, lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f));
+					_debug_renderer->add_locator(l.position, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
 				}
 
 				// debug drawing
@@ -971,14 +971,14 @@ protected:
 				}
 			}
 			{ // draw samples
-				constexpr cvec2f canvas_size(150.0f, 150.0f);
-				constexpr float dot_radius = 2.0f;
+				constexpr cvec2f32 canvas_size(150.0f, 150.0f);
+				constexpr f32 dot_radius = 2.0f;
 
-				auto to_imvec2 = [](cvec2f p) {
+				auto to_imvec2 = [](cvec2f32 p) {
 					return ImVec2(p[0], p[1]);
 				};
 				auto to_cvec2f = [](ImVec2 p) {
-					return cvec2f(p.x, p.y);
+					return cvec2f32(p.x, p.y);
 				};
 
 				auto *list = ImGui::GetWindowDrawList();
@@ -986,13 +986,13 @@ protected:
 				list->AddRectFilled(to_imvec2(pos), to_imvec2(pos + canvas_size), ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
 
 				for (usize i = 0; i < taa_samples.size(); ++i) {
-					cvec2f smp = taa_samples[i];
-					cvec2f dot_pos = pos + lotus::vec::memberwise_multiply(smp, canvas_size);
-					float seq_pos = i / static_cast<float>(taa_samples.size() - 1);
+					cvec2f32 smp = taa_samples[i];
+					cvec2f32 dot_pos = pos + lotus::vec::memberwise_multiply(smp, canvas_size);
+					f32 seq_pos = i / static_cast<f32>(taa_samples.size() - 1);
 					list->AddCircleFilled(to_imvec2(dot_pos), dot_radius, ImGui::ColorConvertFloat4ToU32(ImVec4(seq_pos, 0.0f, 1.0f - seq_pos, 1.0f)));
 				}
 
-				ImGui::SetCursorScreenPos(to_imvec2(pos + cvec2f(0.0f, canvas_size[1])));
+				ImGui::SetCursorScreenPos(to_imvec2(pos + cvec2f32(0.0f, canvas_size[1])));
 			}
 			ImGui::Separator();
 
@@ -1007,13 +1007,13 @@ protected:
 			needs_resizing = ImGui_SliderT<u32>("Direct Reservoirs Per Probe", &direct_reservoirs_per_probe, 1, 20) || needs_resizing;
 			needs_resizing = ImGui_SliderT<u32>("Indirect Reservoirs Per Probe", &indirect_reservoirs_per_probe, 1, 20) || needs_resizing;
 			{
-				float rx[2] = { probe_bounds.min[0], probe_bounds.max[0] };
-				float ry[2] = { probe_bounds.min[1], probe_bounds.max[1] };
-				float rz[2] = { probe_bounds.min[2], probe_bounds.max[2] };
+				f32 rx[2] = { probe_bounds.min[0], probe_bounds.max[0] };
+				f32 ry[2] = { probe_bounds.min[1], probe_bounds.max[1] };
+				f32 rz[2] = { probe_bounds.min[2], probe_bounds.max[2] };
 				needs_resizing = ImGui::SliderFloat2("Range X", rx, -20.0f, 20.0f) || needs_resizing;
 				needs_resizing = ImGui::SliderFloat2("Range Y", ry, -20.0f, 20.0f) || needs_resizing;
 				needs_resizing = ImGui::SliderFloat2("Range Z", rz, -20.0f, 20.0f) || needs_resizing;
-				probe_bounds = lotus::aab3f::create_from_min_max({ rx[0], ry[0], rz[0] }, { rx[1], ry[1], rz[1] });
+				probe_bounds = lotus::aab3f32::create_from_min_max({ rx[0], ry[0], rz[0] }, { rx[1], ry[1], rz[1] });
 			}
 			ImGui::Separator();
 

@@ -15,7 +15,7 @@ namespace lotus {
 	namespace _details::short_vector {
 		/// Adjusts the size to be at least the given value.
 		template <bool Exact, typename Size> [[nodiscard]] Size enlarge_size(
-			Size original, Size target, Size base, float factor
+			Size original, Size target, Size base, f32 factor
 		) {
 			if constexpr (Exact) {
 				return target;

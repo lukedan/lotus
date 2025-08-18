@@ -100,13 +100,13 @@ public:
 			normals,
 			indices,
 			mat44s::identity(),
-			lotus::linear_rgba_f(1.0f, 1.0f, 1.0f, 1.0f),
+			lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f),
 			_get_test_context().wireframe_bodies
 		);
 
 		for (usize i = 0; i < poly_verts.size(); ++i) {
 			const vec3 p = poly_verts[i];
-			const float size = 0.1f;
+			const f32 size = 0.1f;
 			const mat44s trans({
 				{ size, 0.0f, 0.0f, p[0] },
 				{ 0.0f, size, 0.0f, p[1] },
@@ -115,7 +115,7 @@ public:
 			});
 			_render.draw_sphere(
 				trans,
-				poly_vert_used[i] ? lotus::linear_rgba_f(1.0f, 0.0f, 0.0f, 1.0f) : lotus::linear_rgba_f(0.4f, 0.4f, 0.4f, 1.0f),
+				poly_vert_used[i] ? lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f) : lotus::linear_rgba_f32(0.4f, 0.4f, 0.4f, 1.0f),
 				false
 			);
 		}
@@ -125,7 +125,7 @@ public:
 		glDisable(GL_LIGHTING);
 		glBegin(GL_POINTS);
 		for (usize i = 0; i < _vertices.size(); ++i) {
-			std::array<float, 3> color{ 0.5f, 0.5f, 0.5f };
+			std::array<f32, 3> color{ 0.5f, 0.5f, 0.5f };
 			if (i == _cur_vertex) {
 				color = { 1.0f, 1.0f, 0.0f };
 			} else if (i < _cur_vertex) {

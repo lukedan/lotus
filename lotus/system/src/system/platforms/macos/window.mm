@@ -45,7 +45,7 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 	if (_ptr->on_resize) {
 		auto *wnd = (__bridge NSWindow*)_ptr->get_native_handle();
 		const NSSize size = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
-		lotus::system::window_events::resize event(lotus::cvec2d(size.width, size.height).into<lotus::u32>());
+		lotus::system::window_events::resize event(lotus::cvec2f64(size.width, size.height).into<lotus::u32>());
 		_ptr->on_resize(event);
 	}
 }
@@ -73,7 +73,7 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 - (lotus::cvec2i)convert_mouse_position: (NSPoint)pos {
 	const NSPoint pt = [self.contentView convertPointToBacking: pos];
 	const NSSize sz = [self.contentView convertSizeToBacking: self.contentView.frame.size];
-	return lotus::cvec2d(pt.x, sz.height - pt.y).into<int>();
+	return lotus::cvec2f64(pt.x, sz.height - pt.y).into<int>();
 }
 
 /// Extracts modifier keys information from the given event.
@@ -201,7 +201,7 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 	if (wnd->on_mouse_scroll) {
 		lotus::system::window_events::mouse::scroll event(
 			[self convert_mouse_position: e.locationInWindow],
-			lotus::cvec2d(e.scrollingDeltaX, e.scrollingDeltaY).into<float>(),
+			lotus::cvec2f64(e.scrollingDeltaX, e.scrollingDeltaY).into<lotus::f32>(),
 			[self convert_modifier_keys: e.modifierFlags]
 		);
 		wnd->on_mouse_scroll(event);
@@ -239,7 +239,7 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 				if (wnd->on_resize) {
 					const NSSize size = [self.contentView convertSizeToBacking: self.contentView.frame.size];
 					lotus::system::window_events::resize event(
-						lotus::cvec2d(size.width, size.height).into<lotus::u32>()
+						lotus::cvec2f64(size.width, size.height).into<lotus::u32>()
 					);
 					wnd->on_resize(event);
 				}
@@ -304,7 +304,7 @@ namespace lotus::system::platforms::macos {
 	cvec2s window::get_size() const {
 		auto *wnd = (__bridge NSWindow*)_handle;
 		const NSSize size = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
-		return cvec2d(size.width, size.height).into<usize>();
+		return cvec2f64(size.width, size.height).into<usize>();
 	}
 
 	void window::set_title(std::u8string_view title) {

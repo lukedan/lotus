@@ -194,7 +194,7 @@ namespace lotus::helpers {
 		std::vector<renderer::batch_statistics_early> batch_stats_early;
 		/// "Late" statistics of the previous batch.
 		renderer::batch_statistics_late batch_stats_late = zero;
-		float cpu_frame_time_ms = 0.0f; ///< CPU time of previous frame in milliseconds.
+		f32 cpu_frame_time_ms = 0.0f; ///< CPU time of previous frame in milliseconds.
 	protected:
 		const int _argc;
 		const char *const *const _argv;
@@ -623,7 +623,7 @@ namespace lotus::helpers {
 			}
 
 			auto frame_cpu_end = std::chrono::high_resolution_clock::now();
-			cpu_frame_time_ms = std::chrono::duration<float, std::milli>(frame_cpu_end - frame_cpu_begin).count();
+			cpu_frame_time_ms = std::chrono::duration<f32, std::milli>(frame_cpu_end - frame_cpu_begin).count();
 		}
 	};
 }

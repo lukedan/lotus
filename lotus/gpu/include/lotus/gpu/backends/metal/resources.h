@@ -128,10 +128,10 @@ namespace lotus::gpu::backends::metal {
 	private:
 		NS::SharedPtr<MTL::SamplerState> _smp; ///< The sampler.
 		/// Mipmapping bias. This is written directly into the "descriptor" instead of embedded into \ref _smp.
-		float _mip_lod_bias = 0.0f;
+		f32 _mip_lod_bias = 0.0f;
 
 		/// Initializes all fields of this struct.
-		sampler(NS::SharedPtr<MTL::SamplerState> smp, float mip_lod_bias) :
+		sampler(NS::SharedPtr<MTL::SamplerState> smp, f32 mip_lod_bias) :
 			_smp(std::move(smp)), _mip_lod_bias(mip_lod_bias) {
 		}
 	};

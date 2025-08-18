@@ -290,7 +290,7 @@ namespace lotus {
 		}
 		/// Squared root of \ref squared_norm().
 		template <
-			typename Res = std::conditional_t<std::is_floating_point_v<T>, T, double>
+			typename Res = std::conditional_t<std::is_floating_point_v<T>, T, f32>
 		> [[nodiscard]] constexpr Res norm() const {
 			return std::sqrt(static_cast<Res>(squared_norm()));
 		}
@@ -808,24 +808,24 @@ namespace lotus {
 	/// Shorthand for various matrix types.
 	inline namespace matrix_types {
 		template <typename T> using mat22 = matrix<2, 2, T>; ///< 2x2 matrices.
-		using mat22f = matrix<2, 2, float>;  ///< 2x2 matrices of \p float.
-		using mat22d = matrix<2, 2, double>; ///< 2x2 matrices of \p double.
+		using mat22f32 = matrix<2, 2, f32>; ///< 2x2 matrices of \ref f32.
+		using mat22f64 = matrix<2, 2, f64>; ///< 2x2 matrices of \ref f64.
 
 		template <typename T> using mat23 = matrix<2, 3, T>; ///< 2x3 matrices.
-		using mat23f = matrix<2, 3, float>;  ///< 2x2 matrices of \p float.
-		using mat23d = matrix<2, 3, double>; ///< 2x2 matrices of \p double.
+		using mat23f32 = matrix<2, 3, f32>; ///< 2x2 matrices of \ref f32.
+		using mat23f64 = matrix<2, 3, f64>; ///< 2x2 matrices of \ref f64.
 
 		template <typename T> using mat33 = matrix<3, 3, T>; ///< 3x3 matrices.
-		using mat33f = matrix<3, 3, float>;  ///< 2x2 matrices of \p float.
-		using mat33d = matrix<3, 3, double>; ///< 2x2 matrices of \p double.
+		using mat33f32 = matrix<3, 3, f32>; ///< 2x2 matrices of \ref f32.
+		using mat33f64 = matrix<3, 3, f64>; ///< 2x2 matrices of \ref f64.
 
 		template <typename T> using mat34 = matrix<3, 4, T>; ///< 3x4 matrices.
-		using mat34f = matrix<3, 4, float>;  ///< 2x2 matrices of \p float.
-		using mat34d = matrix<3, 4, double>; ///< 2x2 matrices of \p double.
+		using mat34f32 = matrix<3, 4, f32>; ///< 2x2 matrices of \ref f32.
+		using mat34f64 = matrix<3, 4, f64>; ///< 2x2 matrices of \ref f64.
 
 		template <typename T> using mat44 = matrix<4, 4, T>; ///< 4x4 matrices.
-		using mat44f = matrix<4, 4, float>;  ///< 2x2 matrices of \p float.
-		using mat44d = matrix<4, 4, double>; ///< 2x2 matrices of \p double.
+		using mat44f32 = matrix<4, 4, f32>; ///< 2x2 matrices of \ref f32.
+		using mat44f64 = matrix<4, 4, f64>; ///< 2x2 matrices of \ref f64.
 	}
 
 

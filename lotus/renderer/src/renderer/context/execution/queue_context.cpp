@@ -327,7 +327,7 @@ namespace lotus::renderer::execution {
 			)
 		);
 		_get_command_list().set_viewports({
-			gpu::viewport(aab2f::create_from_min_max(zero, cmd.render_target_size.into<float>()), 0.0f, 1.0f)
+			gpu::viewport(aab2f32::create_from_min_max(zero, cmd.render_target_size.into<f32>()), 0.0f, 1.0f)
 		});
 		_get_command_list().set_scissor_rectangles({ aab2u32::create_from_min_max(zero, cmd.render_target_size) });
 	}

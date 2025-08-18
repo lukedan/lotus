@@ -3,6 +3,8 @@
 /// \file
 /// Math constants.
 
+#include "lotus/types.h"
+
 namespace lotus::constants {
-	constexpr inline double pi = 3.14159265359; ///< Pi.
+	constexpr inline f64 pi = 3.14159265359; ///< Pi.
 }

@@ -112,9 +112,9 @@ public:
 			auto &gpu_inst = instance_data.emplace_back();
 			gpu_inst.geometry_index = geom_index;
 			gpu_inst.material_index = mat_index;
-			auto decomp = lotus::mat::lup_decompose(inst.transform.block<3, 3>(0, 0).into<double>());
-			mat44f normal_trans = zero;
-			normal_trans.set_block(0, 0, (decomp.invert().transposed() * std::pow(decomp.determinant(), 2.0f / 3.0f)).into<float>());
+			auto decomp = lotus::mat::lup_decompose(inst.transform.block<3, 3>(0, 0).into<f64>());
+			mat44f32 normal_trans = zero;
+			normal_trans.set_block(0, 0, (decomp.invert().transposed() * std::pow(decomp.determinant(), 2.0f / 3.0f)).into<f32>());
 			gpu_inst.normal_transform = normal_trans;
 
 			auto inst_index = instances.size();

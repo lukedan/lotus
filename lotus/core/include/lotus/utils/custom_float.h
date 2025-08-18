@@ -122,8 +122,8 @@ namespace lotus {
 		/// Reinterprets the given built-in floating point type as a \ref basic_custom_float.
 		template <typename T> [[nodiscard]] inline static constexpr std::enable_if_t<
 			sizeof(Storage) == sizeof(T) && (
-				(ExponentBits == 8 && MantissaBits == 23 && std::is_same_v<T, float>) ||
-				(ExponentBits == 11 && MantissaBits == 52 && std::is_same_v<T, double>)
+				(ExponentBits == 8 && MantissaBits == 23 && std::is_same_v<T, f32>) ||
+				(ExponentBits == 11 && MantissaBits == 52 && std::is_same_v<T, f64>)
 			),
 			basic_custom_float
 		> reinterpret(T value) {

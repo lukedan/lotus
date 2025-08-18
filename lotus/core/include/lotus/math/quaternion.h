@@ -328,11 +328,11 @@ namespace lotus {
 	};
 	template <typename T> using unit_quaternion = quaternion<T, quaternion_kind::unit>; ///< Unit quaternions.
 
-	using quatf = quaternion<float>; ///< Shorthand for quaternions of \p float.
-	using quatd = quaternion<double>; ///< Shorthand for quaternions of \p double.
+	using quatf32 = quaternion<f32>; ///< Shorthand for quaternions of \ref f32.
+	using quatf64 = quaternion<f64>; ///< Shorthand for quaternions of \ref f64.
 
-	using uquatf = unit_quaternion<float>; ///< Shorthand for unit quaternions of \p float.
-	using uquatd = unit_quaternion<double>; ///< Shorthand for unit quaternions of \p double.
+	using uquatf32 = unit_quaternion<f32>; ///< Shorthand for unit quaternions of \ref f32.
+	using uquatf64 = unit_quaternion<f64>; ///< Shorthand for unit quaternions of \ref f64.
 
 
 	/// Unsafe quaternion utilities.

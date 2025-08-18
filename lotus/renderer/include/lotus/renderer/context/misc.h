@@ -25,7 +25,7 @@ namespace lotus::renderer {
 			}
 
 			std::u8string name; ///< The name of this timer.
-			float duration_ms = 0.0f; ///< Duration of the timer in milliseconds.
+			f32 duration_ms = 0.0f; ///< Duration of the timer in milliseconds.
 		};
 
 		/// Statistics about transitions.

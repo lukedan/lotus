@@ -332,14 +332,14 @@ namespace lotus::gpu::backends::metal {
 		filtering minification,
 		filtering magnification,
 		filtering mipmapping,
-		float mip_lod_bias,
-		float min_lod,
-		float max_lod,
-		std::optional<float> max_anisotropy,
+		f32 mip_lod_bias,
+		f32 min_lod,
+		f32 max_lod,
+		std::optional<f32> max_anisotropy,
 		sampler_address_mode addressing_u,
 		sampler_address_mode addressing_v,
 		sampler_address_mode addressing_w,
-		linear_rgba_f, // border color not supported
+		linear_rgba_f32, // border color not supported
 		comparison_function comparison
 	) {
 		auto smp = NS::TransferPtr(MTL::SamplerDescriptor::alloc()->init());
@@ -860,7 +860,7 @@ namespace lotus::gpu::backends::metal {
 
 	instance_description device::get_bottom_level_acceleration_structure_description(
 		bottom_level_acceleration_structure &blas,
-		mat44f trans,
+		mat44f32 trans,
 		u32 id,
 		u8 mask,
 		u32 hit_group_offset,

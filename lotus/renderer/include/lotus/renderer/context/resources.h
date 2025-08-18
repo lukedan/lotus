@@ -947,7 +947,7 @@ namespace lotus::renderer {
 		}
 		/// Initializes all fields of this struct.
 		blas_instance(
-			blas as, mat44f trans, u32 as_id, u8 as_mask, u32 hg_offset,
+			blas as, mat44f32 trans, u32 as_id, u8 as_mask, u32 hg_offset,
 			gpu::raytracing_instance_flags f
 		) :
 			acceleration_structure(std::move(as)), transform(trans),
@@ -955,7 +955,7 @@ namespace lotus::renderer {
 		}
 
 		recorded_resources::blas acceleration_structure; ///< The acceleration structure.
-		mat44f transform = uninitialized; ///< Transform of this instance.
+		mat44f32 transform = uninitialized; ///< Transform of this instance.
 		u32 id = 0; ///< ID of this instance.
 		u8 mask = 0; ///< Ray mask.
 		u32 hit_group_offset = 0; ///< Offset in the hit group.

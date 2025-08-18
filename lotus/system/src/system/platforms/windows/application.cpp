@@ -131,7 +131,7 @@ namespace lotus::system::platforms::windows {
 				_details::assert_win32(ScreenToClient(sys_wnd->_hwnd, &pos));
 				window_events::mouse::scroll info(
 					cvec2i(pos.x, pos.y),
-					cvec2f(0.0f, GET_WHEEL_DELTA_WPARAM(wparam) / static_cast<float>(WHEEL_DELTA)),
+					cvec2f(0.0f, GET_WHEEL_DELTA_WPARAM(wparam) / static_cast<f32>(WHEEL_DELTA)),
 					_get_modifier_key_mask(wparam)
 				);
 				sys_wnd->on_mouse_scroll(info);
@@ -143,7 +143,7 @@ namespace lotus::system::platforms::windows {
 				_details::assert_win32(ScreenToClient(sys_wnd->_hwnd, &pos));
 				window_events::mouse::scroll info(
 					cvec2i(pos.x, pos.y),
-					cvec2f(GET_WHEEL_DELTA_WPARAM(wparam) / static_cast<float>(WHEEL_DELTA), 0.0f),
+					cvec2f(GET_WHEEL_DELTA_WPARAM(wparam) / static_cast<f32>(WHEEL_DELTA), 0.0f),
 					_get_modifier_key_mask(wparam)
 				);
 				sys_wnd->on_mouse_scroll(info);

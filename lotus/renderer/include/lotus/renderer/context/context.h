@@ -782,8 +782,8 @@ namespace lotus::renderer {
 
 		assets::handle<assets::material> material; ///< The material of this instance.
 		assets::handle<assets::geometry> geometry; ///< Geometry of this instance.
-		mat44f transform; ///< Transform of this instance.
-		mat44f prev_transform; ///< Transform of this instance for the previous frame.
+		mat44f32 transform; ///< Transform of this instance.
+		mat44f32 prev_transform; ///< Transform of this instance for the previous frame.
 	};
 
 

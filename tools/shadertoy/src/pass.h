@@ -52,11 +52,11 @@ public:
 		global_input(uninitialized_t) {
 		}
 
-		lotus::cvec2f mouse = uninitialized; ///< Mouse position in pixels.
-		lotus::cvec2f mouse_down = uninitialized; ///< Mouse position in pixels.
-		lotus::cvec2f mouse_drag = uninitialized; ///< Mouse position in pixels.
+		lotus::cvec2f32 mouse = uninitialized; ///< Mouse position in pixels.
+		lotus::cvec2f32 mouse_down = uninitialized; ///< Mouse position in pixels.
+		lotus::cvec2f32 mouse_drag = uninitialized; ///< Mouse position in pixels.
 		lotus::cvec2<i32> resolution = uninitialized; ///< Screen resolution.
-		float time; ///< Total run time.
+		f32 time; ///< Total run time.
 	};
 
 	/// An input.

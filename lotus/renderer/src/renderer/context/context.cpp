@@ -1070,7 +1070,7 @@ namespace lotus::renderer {
 
 				for (usize iq = 0; iq < _queues.size(); ++iq) { // read back timer information
 					auto &queue_data = batch.resolve_data.queues[iq];
-					double frequency = _queues[iq].queue.get_timestamp_frequency();
+					f64 frequency = _queues[iq].queue.get_timestamp_frequency();
 
 					auto &queue_res = result.timer_results.emplace_back();
 					queue_res.reserve(queue_data.timers.size());
@@ -1083,7 +1083,7 @@ namespace lotus::renderer {
 							u64 ticks = raw_results[tmr.second_timestamp] - raw_results[tmr.first_timestamp];
 							auto &res = queue_res.emplace_back(nullptr);
 							/*res.name = std::move(tmr.name);*/
-							res.duration_ms = static_cast<float>((ticks * 1000) / frequency);
+							res.duration_ms = static_cast<f32>((ticks * 1000) / frequency);
 						}
 					}
 				}

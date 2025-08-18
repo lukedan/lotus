@@ -19,11 +19,11 @@ namespace lotus::renderer {
 			vertex_untextured(uninitialized_t) {
 			}
 			/// Initializes all fields of this struct.
-			vertex_untextured(cvec3f p, cvec4f c) : position(p), color(c) {
+			vertex_untextured(cvec3f32 p, cvec4f32 c) : position(p), color(c) {
 			}
 
-			cvec3f position = uninitialized; ///< Position of the vertex.
-			cvec4f color = uninitialized; ///< Color of the vertex.
+			cvec3f32 position = uninitialized; ///< Position of the vertex.
+			cvec4f32 color = uninitialized; ///< Color of the vertex.
 		};
 		/// A vertex with UV coordinates.
 		struct vertex_textured {
@@ -31,12 +31,12 @@ namespace lotus::renderer {
 			vertex_textured(uninitialized_t) {
 			}
 			/// Initializes all fields of this struct.
-			vertex_textured(cvec3f p, cvec4f c, cvec2f u) : position(p), color(c), uv(u) {
+			vertex_textured(cvec3f32 p, cvec4f32 c, cvec2f32 u) : position(p), color(c), uv(u) {
 			}
 
-			cvec3f position = uninitialized; ///< Position of the vertex.
-			cvec4f color = uninitialized; ///< Color of the vertex.
-			cvec2f uv = uninitialized; ///< UV of the vertex.
+			cvec3f32 position = uninitialized; ///< Position of the vertex.
+			cvec4f32 color = uninitialized; ///< Color of the vertex.
+			cvec2f32 uv = uninitialized; ///< UV of the vertex.
 		};
 
 		/// Creates a valid debug renderer object.
@@ -89,7 +89,7 @@ namespace lotus::renderer {
 		/// Renders all accumulated contents to the given target and resets the vertex buffers.
 		void flush(
 			image2d_color target, image2d_depth_stencil depth_stencil, cvec2u32 size,
-			mat44f projection, constant_uploader &uploader, std::u8string_view description = u8"Debug Draw"
+			mat44f32 projection, constant_uploader &uploader, std::u8string_view description = u8"Debug Draw"
 		) {
 			_do_flush(
 				_lines_untextured, gpu::primitive_topology::line_list,
@@ -111,7 +111,7 @@ namespace lotus::renderer {
 
 
 		/// Adds a line segment.
-		void add_line(cvec3f p1, cvec3f p2, linear_rgba_f color) {
+		void add_line(cvec3f32 p1, cvec3f32 p2, linear_rgba_f32 color) {
 			vertex_untextured vs[] = {
 				vertex_untextured(p1, color.into_vector()),
 				vertex_untextured(p2, color.into_vector()),
@@ -120,10 +120,10 @@ namespace lotus::renderer {
 		}
 
 		/// Adds a simple locator composed of three axis-aligned line segments.
-		void add_locator(cvec3f pos, linear_rgba_f color, float size = 0.1f) {
-			add_line(pos - cvec3f(size, 0.0f, 0.0f), pos + cvec3f(size, 0.0f, 0.0f), color);
-			add_line(pos - cvec3f(0.0f, size, 0.0f), pos + cvec3f(0.0f, size, 0.0f), color);
-			add_line(pos - cvec3f(0.0f, 0.0f, size), pos + cvec3f(0.0f, 0.0f, size), color);
+		void add_locator(cvec3f32 pos, linear_rgba_f32 color, f32 size = 0.1f) {
+			add_line(pos - cvec3f32(size, 0.0f, 0.0f), pos + cvec3f32(size, 0.0f, 0.0f), color);
+			add_line(pos - cvec3f32(0.0f, size, 0.0f), pos + cvec3f32(0.0f, size, 0.0f), color);
+			add_line(pos - cvec3f32(0.0f, 0.0f, size), pos + cvec3f32(0.0f, 0.0f, size), color);
 		}
 	private:
 		/// Only initializes \ref _asset_man.
@@ -159,7 +159,7 @@ namespace lotus::renderer {
 		template <typename Vert> void _do_flush(
 			std::vector<Vert> &vertices, gpu::primitive_topology topology,
 			image2d_color target, image2d_depth_stencil depth_stencil, cvec2u32 size,
-			mat44f projection, image2d_view texture, constant_uploader &uploader,
+			mat44f32 projection, image2d_view texture, constant_uploader &uploader,
 			std::u8string_view description = u8"Debug Draw"
 		) {
 			if (vertices.empty()) {

@@ -32,7 +32,7 @@ namespace lotus::collision::shapes {
 			scalar sum_determinants; ///< The sum of all determinants computed using faces.
 
 			/// Returns the volume of the polyhedron.
-			[[nodiscard]] float get_volume() const {
+			[[nodiscard]] f32 get_volume() const {
 				return sum_determinants / 6.0f;
 			}
 			/// Returns the center of mass of the polyhedron.

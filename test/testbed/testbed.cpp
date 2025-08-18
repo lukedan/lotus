@@ -37,7 +37,7 @@ public:
 
 		{
 			auto pass = _gfx_q.begin_pass(
-				{ lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::cvec4d(0.5, 0.5, 1.0, 1.0))) },
+				{ lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::cvec4f64(0.5, 0.5, 1.0, 1.0))) },
 				lotus::renderer::image2d_depth_stencil(depth_buf, lotus::gpu::depth_render_target_access::create_clear(0.0f)),
 				_get_window_size(), u8"Clear"
 			);
@@ -46,7 +46,7 @@ public:
 		if (_test) {
 			_test->render(
 				*_context, _gfx_q, uploader,
-				lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::cvec4d(0.5, 0.5, 1.0, 1.0))),
+				lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::cvec4f64(0.5, 0.5, 1.0, 1.0))),
 				lotus::renderer::image2d_depth_stencil(depth_buf, lotus::gpu::depth_render_target_access::create_clear(0.0f)),
 				_get_window_size()
 			);
@@ -126,20 +126,20 @@ protected:
 	scalar _time_accum = 0.0f; ///< Accumulated time.
 
 	bool _test_running = false; ///< Whether the test is currently running.
-	float _time_scale = 100.0f; ///< Time scaling.
-	float _time_step = 0.001f; ///< Time step.
+	f32 _time_scale = 100.0f; ///< Time scaling.
+	f32 _time_step = 0.001f; ///< Time step.
 	int _iters = 1; ///< Solver iterations.
 
-	float _max_frametime = 0.1f; ///< Maximum frame time.
+	f32 _max_frametime = 0.1f; ///< Maximum frame time.
 	scalar _simulation_speed = 0.0f; ///< Simulation speed.
 	bool _update_truncated = false; ///< Whether the update was terminated early to prevent locking up.
 	scalar _timestep_cost = 0.0f; ///< Running average of timestep costs.
-	float _timestep_cost_factor = 0.01f; ///< Running average factor of timestep costs.
+	f32 _timestep_cost_factor = 0.01f; ///< Running average factor of timestep costs.
 
 	lotus::renderer::context::queue _gfx_q = nullptr;
 	lotus::renderer::pool _pool = nullptr;
 	/// Sensitivity for scrolling to move the camera closer and further from the focus point.
-	float _scroll_sensitivity = 0.95f;
+	f32 _scroll_sensitivity = 0.95f;
 	lotus::camera_control<scalar> _camera_control = nullptr;
 
 	test_context _test_context; ///< Test context.

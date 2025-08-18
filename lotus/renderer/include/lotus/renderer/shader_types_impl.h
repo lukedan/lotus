@@ -117,10 +117,8 @@ namespace lotus::renderer::shader_types {
 	using dword    = uint;
 
 	using half     = u16; // TODO float16 type
-	using float_   = float;
-	using double_  = double;
-	static_assert(sizeof(float) == sizeof(u32), "Expecting float to be 32 bits");
-	static_assert(sizeof(double) == sizeof(u64), "Expecting double to be 64 bits");
+	using float_   = f32;
+	using double_  = f64;
 
 
 	using int2     = vector<int_, 2>;

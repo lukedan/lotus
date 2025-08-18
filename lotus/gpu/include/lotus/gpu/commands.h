@@ -307,7 +307,7 @@ namespace lotus::gpu {
 		command_queue &operator=(const command_queue&) = default;
 
 		/// Returns the number of ticks per second for timestamp queries on this queue.
-		[[nodiscard]] double get_timestamp_frequency() {
+		[[nodiscard]] f64 get_timestamp_frequency() {
 			return backend::command_queue::get_timestamp_frequency();
 		}
 

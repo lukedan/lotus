@@ -333,9 +333,9 @@ namespace lotus::gpu::backends::vulkan {
 
 	sampler device::create_sampler(
 		filtering minification, filtering magnification, filtering mipmapping,
-		float mip_lod_bias, float min_lod, float max_lod, std::optional<float> max_anisotropy,
+		f32 mip_lod_bias, f32 min_lod, f32 max_lod, std::optional<f32> max_anisotropy,
 		sampler_address_mode addressing_u, sampler_address_mode addressing_v, sampler_address_mode addressing_w,
-		linear_rgba_f border_color, comparison_function comparison
+		linear_rgba_f32 border_color, comparison_function comparison
 	) {
 		sampler result = nullptr;
 		vk::SamplerCreateInfo info;
@@ -356,7 +356,7 @@ namespace lotus::gpu::backends::vulkan {
 		if constexpr (system::platform::type == system::platform_type::macos) {
 			info.setBorderColor(vk::BorderColor::eFloatOpaqueBlack);
 		} else {
-			const std::array<float, 4> border_color_arr{ { border_color.r, border_color.g, border_color.b, border_color.a } };
+			const std::array border_color_arr{ border_color.r, border_color.g, border_color.b, border_color.a };
 			vk::SamplerCustomBorderColorCreateInfoEXT border_color_info;
 			border_color_info
 				.setPNext(info.pNext)
@@ -1100,7 +1100,7 @@ namespace lotus::gpu::backends::vulkan {
 
 	instance_description device::get_bottom_level_acceleration_structure_description(
 		bottom_level_acceleration_structure &as,
-		mat44f trans, u32 id, u8 mask, u32 hit_group_offset,
+		mat44f32 trans, u32 id, u8 mask, u32 hit_group_offset,
 		raytracing_instance_flags flags
 	) const {
 		instance_description result = uninitialized;
@@ -1461,8 +1461,8 @@ namespace lotus::gpu::backends::vulkan {
 		auto queue_create_infos = bookmark.create_reserved_vector_array<vk::DeviceQueueCreateInfo>(3);
 		{
 			auto priorities = enums::dynamic_sequential_mapping<
-				queue_family, memory::stack_allocator::vector_type<float>
-			>::filled(bookmark.create_vector_array<float>());
+				queue_family, memory::stack_allocator::vector_type<f32>
+			>::filled(bookmark.create_vector_array<f32>());
 
 			// TODO for now we don't actually have priorities
 			for (const auto &param : queue_params) {
@@ -1624,7 +1624,7 @@ namespace lotus::gpu::backends::vulkan {
 		std::vector<command_queue> queues;
 		queues.reserve(queue_params.size());
 		{
-			double timestamp_freq = 1000000.0 / static_cast<double>(result._device_limits.timestampPeriod);
+			f64 timestamp_freq = 1000000.0 / static_cast<f64>(result._device_limits.timestampPeriod);
 
 			auto cur_queue = enums::dynamic_sequential_mapping<queue_family, u32>::filled(0);
 			for (const auto &param : queue_params) {

@@ -57,8 +57,8 @@ public:
 	lren::assets::handle<lren::assets::shader> blit_ps = nullptr;
 	lren::assets::handle<lren::assets::shader> resolve_ps = nullptr;
 
-	lotus::camera_parameters<float> cam_params = uninitialized;
-	lotus::camera_control<float> cam_control = nullptr;
+	lotus::camera_parameters<f32> cam_params = uninitialized;
+	lotus::camera_control<f32> cam_control = nullptr;
 
 	lren::image2d_view rt_result = nullptr;
 private:
@@ -107,15 +107,15 @@ private:
 		blit_ps    = _assets->compile_shader_in_filesystem(_assets->asset_library_path / "shaders/misc/blit_ps.hlsl",            lgpu::shader_stage::pixel_shader,  u8"main_ps", {});
 		resolve_ps = _assets->compile_shader_in_filesystem("src/shaders/rt_resolve.hlsl",                                        lgpu::shader_stage::pixel_shader,  u8"main_ps", {});
 
-		cam_params = lotus::camera_parameters<float>::create_look_at(cvec3f(0.0f, 0.0f, 0.0f), cvec3f(50.0f, 10.0f, 0.0f));
+		cam_params = lotus::camera_parameters<f32>::create_look_at(cvec3f32(0.0f, 0.0f, 0.0f), cvec3f32(50.0f, 10.0f, 0.0f));
 		cam_params.far_plane = 4000.0f;
-		cam_control = lotus::camera_control<float>(cam_params);
+		cam_control = lotus::camera_control<f32>(cam_params);
 	}
 
 	void _on_resize(lsys::window_events::resize &resize) override {
 		frame_index = 0;
 		const cvec2u32 sz = resize.new_size;
-		cam_params.aspect_ratio = sz[0] / static_cast<float>(sz[1]);
+		cam_params.aspect_ratio = sz[0] / static_cast<f32>(sz[1]);
 		rt_result = _context->request_image2d(
 			u8"Raytracing result", sz, 1, lgpu::format::r32g32b32a32_float,
 			lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write,
@@ -148,10 +148,10 @@ private:
 			_gfx_q.acquire_dependency(assets_dep, u8"Wait for assets");
 		}
 
-		const lotus::camera<float> cam = cam_params.into_camera();
+		const lotus::camera<f32> cam = cam_params.into_camera();
 		const cvec2u32 window_size = _get_window_size();
 
-		float tan_half_fovy = tan(cam_params.fov_y_radians * 0.5f);
+		f32 tan_half_fovy = tan(cam_params.fov_y_radians * 0.5f);
 		auto right_half = cam.unit_right * tan_half_fovy * cam_params.aspect_ratio;
 		auto up_half = cam.unit_up * tan_half_fovy;
 
@@ -159,7 +159,7 @@ private:
 		globals.camera_position = cam_params.position;
 		globals.t_min = 0.001f;
 		globals.top_left = cam.unit_forward - right_half + up_half;
-		globals.t_max = std::numeric_limits<float>::max();
+		globals.t_max = std::numeric_limits<f32>::max();
 		globals.right = right_half / (window_size[0] * 0.5f);
 		globals.down = -up_half / (window_size[1] * 0.5f);
 		globals.frame_index = frame_index;
@@ -214,7 +214,7 @@ private:
 			auto pass = _gfx_q.begin_pass({
 				lren::image2d_color(
 					_swap_chain,
-					lgpu::color_render_target_access::create_clear(cvec4d(0.0f, 0.0f, 0.0f, 0.0f))
+					lgpu::color_render_target_access::create_clear(cvec4f64(0.0f, 0.0f, 0.0f, 0.0f))
 				)
 			}, nullptr, window_size, u8"Final blit");
 			lren::graphics_pipeline_state state(

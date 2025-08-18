@@ -20,12 +20,12 @@ namespace lotus::renderer::dear_imgui {
 			vertex(uninitialized_t) {
 			}
 			/// Initializes all fields of this struct.
-			vertex(cvec2f p, cvec2f u, cvec4f c) : position(p), uv(u), color(c) {
+			vertex(cvec2f32 p, cvec2f32 u, cvec4f32 c) : position(p), uv(u), color(c) {
 			}
 
-			cvec2f position = uninitialized; ///< Vertex position.
-			cvec2f uv       = uninitialized; ///< Vertex UV.
-			cvec4f color    = uninitialized; ///< Vertex color.
+			cvec2f32 position = uninitialized; ///< Vertex position.
+			cvec2f32 uv       = uninitialized; ///< Vertex UV.
+			cvec4f32 color    = uninitialized; ///< Vertex color.
 		};
 		using index = u32; ///< Index type.
 
@@ -61,10 +61,10 @@ namespace lotus::renderer::dear_imgui {
 
 			auto &ctx = _asset_man.get_context();
 
-			cvec2f pos(draw_data->DisplayPos.x, draw_data->DisplayPos.y);
-			cvec2f size(draw_data->DisplaySize.x, draw_data->DisplaySize.y);
-			cvec2f offset = -2.0f * vec::memberwise_divide(pos, size) - cvec2f(1.0f, 1.0f);
-			mat44f projection({
+			cvec2f32 pos(draw_data->DisplayPos.x, draw_data->DisplayPos.y);
+			cvec2f32 size(draw_data->DisplaySize.x, draw_data->DisplaySize.y);
+			cvec2f32 offset = -2.0f * vec::memberwise_divide(pos, size) - cvec2f32(1.0f, 1.0f);
+			mat44f32 projection({
 				{ 2.0f / size[0], 0.0f,            0.0f, offset[0]  },
 				{ 0.0f,           -2.0f / size[1], 0.0f, -offset[1] },
 				{ 0.0f,           0.0f,            0.5f, 0.5f       },
@@ -89,9 +89,9 @@ namespace lotus::renderer::dear_imgui {
 				for (ImDrawVert vert : cmd_list->VtxBuffer) {
 					auto color = static_cast<ImVec4>(ImColor(vert.col));
 					vertices.emplace_back(
-						cvec2f(vert.pos.x, vert.pos.y),
-						cvec2f(vert.uv.x, vert.uv.y),
-						cvec4f(color.x, color.y, color.z, color.w)
+						cvec2f32(vert.pos.x, vert.pos.y),
+						cvec2f32(vert.uv.x, vert.uv.y),
+						cvec4f32(color.x, color.y, color.z, color.w)
 					);
 				}
 				std::vector<index> indices;
@@ -117,8 +117,8 @@ namespace lotus::renderer::dear_imgui {
 					auto texture_index = cmd.GetTexID();
 					shader_types::dear_imgui_draw_data data;
 					data.projection = projection;
-					data.scissor_min = cvec2f(cmd.ClipRect.x, cmd.ClipRect.y) - pos;
-					data.scissor_max = cvec2f(cmd.ClipRect.z, cmd.ClipRect.w) - pos;
+					data.scissor_min = cvec2f32(cmd.ClipRect.x, cmd.ClipRect.y) - pos;
+					data.scissor_max = cvec2f32(cmd.ClipRect.z, cmd.ClipRect.w) - pos;
 					data.uses_texture = texture_index > 0;
 					all_resource_bindings resources(
 						{

@@ -22,8 +22,8 @@ template <typename T> [[nodiscard]] constexpr T saturate(T v) {
 }
 
 namespace trowbridge_reitz {
-	[[nodiscard]] double g2_smith(double n_dot_l, double n_dot_v, double alpha) {
-		double a2 = squared(alpha);
+	[[nodiscard]] f64 g2_smith(f64 n_dot_l, f64 n_dot_v, f64 alpha) {
+		f64 a2 = squared(alpha);
 		return
 			2.0 * n_dot_l * n_dot_v / (
 				n_dot_v * std::sqrt(a2 + (1.0 - a2) * squared(n_dot_l)) +
@@ -31,44 +31,44 @@ namespace trowbridge_reitz {
 			);
 	}
 
-	[[nodiscard]] cvec2d importance_sample_d(double xi, double alpha) {
-		double denom = xi * (squared(alpha) - 1.0) + 1.0;
-		return cvec2d(
+	[[nodiscard]] cvec2f64 importance_sample_d(f64 xi, f64 alpha) {
+		f64 denom = xi * (squared(alpha) - 1.0) + 1.0;
+		return cvec2f64(
 			std::sqrt((1.0 - xi) / denom),
 			squared(denom) / (lotus::constants::pi * squared(alpha))
 		);
 	}
 }
 
-cvec2d integrate_brdf(double roughness, double n_dot_v, u32 seq_bits) {
+cvec2f64 integrate_brdf(f64 roughness, f64 n_dot_v, u32 seq_bits) {
 	n_dot_v = std::max(0.0001, n_dot_v);
 	u32 num_samples = 1 << seq_bits;
-	double alpha = squared(roughness);
-	cvec3d v(std::sqrt(1.0 - squared(n_dot_v)), 0.0, n_dot_v);
+	f64 alpha = squared(roughness);
+	cvec3f64 v(std::sqrt(1.0 - squared(n_dot_v)), 0.0, n_dot_v);
 
-	double a = 0.0;
-	double b = 0.0;
+	f64 a = 0.0;
+	f64 b = 0.0;
 
-	auto seq = lotus::sequences::hammersley<double>::create();
+	auto seq = lotus::sequences::hammersley<f64>::create();
 	for (u32 i = 0; i < num_samples; ++i) {
-		cvec2d xi = seq(seq_bits, i);
-		double n_dot_h = trowbridge_reitz::importance_sample_d(xi[0], alpha)[0];
-		double phi = xi[1] * 2.0 * lotus::constants::pi;
-		double sin_theta = std::sqrt(1.0 - squared(n_dot_h));
-		cvec3d h(sin_theta * std::cos(phi), sin_theta * std::sin(phi), n_dot_h);
-		double v_dot_h = vec::dot(v, h);
-		cvec3d l = 2.0 * v_dot_h * h - v;
+		cvec2f64 xi = seq(seq_bits, i);
+		f64 n_dot_h = trowbridge_reitz::importance_sample_d(xi[0], alpha)[0];
+		f64 phi = xi[1] * 2.0 * lotus::constants::pi;
+		f64 sin_theta = std::sqrt(1.0 - squared(n_dot_h));
+		cvec3f64 h(sin_theta * std::cos(phi), sin_theta * std::sin(phi), n_dot_h);
+		f64 v_dot_h = vec::dot(v, h);
+		cvec3f64 l = 2.0 * v_dot_h * h - v;
 		if (l[2] > 0.0) {
-			double g = trowbridge_reitz::g2_smith(saturate(l[2]), n_dot_v, alpha);
-			double g_vis = g * saturate(v_dot_h) / (n_dot_h * n_dot_v);
-			double fc = 1.0 - saturate(v_dot_h);
+			f64 g = trowbridge_reitz::g2_smith(saturate(l[2]), n_dot_v, alpha);
+			f64 g_vis = g * saturate(v_dot_h) / (n_dot_h * n_dot_v);
+			f64 fc = 1.0 - saturate(v_dot_h);
 			fc = squared(squared(fc)) * fc;
 			a += (1.0 - fc) * g_vis;
 			b += fc * g_vis;
 		}
 	}
 
-	return cvec2d(a, b) / num_samples;
+	return cvec2f64(a, b) / num_samples;
 }
 
 int main() {
@@ -115,14 +115,14 @@ int main() {
 	}
 
 	for (u32 i_n_dot_v = 0; i_n_dot_v < samples_n_dot_v; ++i_n_dot_v) {
-		float n_dot_v = i_n_dot_v / static_cast<float>(samples_n_dot_v - 1);
+		f32 n_dot_v = i_n_dot_v / static_cast<f32>(samples_n_dot_v - 1);
 		for (u32 i_roughness = 0; i_roughness < samples_roughness; ++i_roughness) {
-			float roughness = i_roughness / static_cast<float>(samples_roughness);
+			f32 roughness = i_roughness / static_cast<f32>(samples_roughness);
 
-			cvec2d values = integrate_brdf(roughness, n_dot_v, seq_bits);
-			cvec2<u16> values_f16 = lotus::vec::memberwise_operation([](double x) {
+			cvec2f64 values = integrate_brdf(roughness, n_dot_v, seq_bits);
+			cvec2<u16> values_f16 = lotus::vec::memberwise_operation([](f64 x) {
 				lotus::crash_if(!std::isfinite(x));
-				return static_cast<u16>(std::clamp<double>(
+				return static_cast<u16>(std::clamp<f64>(
 					std::round(x * std::numeric_limits<u16>::max()),
 					0.0,
 					std::numeric_limits<u16>::max()

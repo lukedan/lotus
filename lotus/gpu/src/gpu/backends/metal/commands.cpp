@@ -448,7 +448,8 @@ namespace lotus::gpu::backends::metal {
 	}
 
 
-	double command_queue::get_timestamp_frequency() {
+	f64 command_queue::get_timestamp_frequency() {
+		return 1.0f;
 		// TODO
 	}
 

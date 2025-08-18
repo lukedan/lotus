@@ -894,11 +894,11 @@ namespace lotus::gpu {
 		constexpr color_clear_value(cvec4<u64> v) : value(v) {
 		}
 		/// Initializes this struct with the given floating-point value.
-		constexpr color_clear_value(cvec4d v) : value(v) {
+		constexpr color_clear_value(cvec4f64 v) : value(v) {
 		}
 
 		/// The clear color value that can be either floating-point or integral.
-		std::variant<cvec4<u64>, cvec4d> value;
+		std::variant<cvec4<u64>, cvec4f64> value;
 	};
 
 
@@ -1020,12 +1020,12 @@ namespace lotus::gpu {
 			return depth_bias_options(0.0f, 0.0f, 0.0f);
 		}
 		/// Creates a depth bias state that does not contain clamping for the bias.
-		[[nodiscard]] constexpr inline static depth_bias_options create_unclamped(float bias, float slope_bias) {
+		[[nodiscard]] constexpr inline static depth_bias_options create_unclamped(f32 bias, f32 slope_bias) {
 			return depth_bias_options(bias, slope_bias, 0.0f);
 		}
 		/// Creates a new object containing the specified values.
 		[[nodiscard]] constexpr inline static depth_bias_options create_clamped(
-			float bias, float slope_bias, float clamp
+			f32 bias, f32 slope_bias, f32 clamp
 		) {
 			return depth_bias_options(bias, slope_bias, clamp);
 		}
@@ -1033,15 +1033,15 @@ namespace lotus::gpu {
 		/// Default equality and inequality.
 		[[nodiscard]] friend bool operator==(const depth_bias_options&, const depth_bias_options&) = default;
 
-		float bias = 0.0f; ///< Uniform depth bias based on the floating-point precision at the triangle.
-		float slope_scaled_bias = 0.0f; ///< Slope (and implicitly texel size) scaled depth bias.
+		f32 bias = 0.0f; ///< Uniform depth bias based on the floating-point precision at the triangle.
+		f32 slope_scaled_bias = 0.0f; ///< Slope (and implicitly texel size) scaled depth bias.
 		/// The value that the resulting bias is clamped to. If this is greater than zero, it specifies the maximum
 		/// bias value; otherwise, if this is less than zero, it specifies the negative minimum bias value;
 		/// otherwise, the bias value is not altered.
-		float clamp = 0.0f;
+		f32 clamp = 0.0f;
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr depth_bias_options(float constant, float slope, float c) :
+		constexpr depth_bias_options(f32 constant, f32 slope, f32 c) :
 			bias(constant), slope_scaled_bias(slope), clamp(c) {
 		}
 	};
@@ -1964,7 +1964,7 @@ namespace lotus::gpu {
 	/// Access of a color render target by a pass.
 	using color_render_target_access = render_target_access<color_clear_value>;
 	/// Access of a depth render target by a pass.
-	using depth_render_target_access = render_target_access<double>;
+	using depth_render_target_access = render_target_access<f64>;
 	/// Access of a stencil render target by a pass.
 	using stencil_render_target_access = render_target_access<u32>;
 
@@ -1993,13 +1993,13 @@ namespace lotus::gpu {
 		viewport(uninitialized_t) {
 		}
 		/// Initializes all fields of this struct.
-		constexpr viewport(aab2f plane, float mind, float maxd) :
+		constexpr viewport(aab2f32 plane, f32 mind, f32 maxd) :
 			xy(plane), minimum_depth(mind), maximum_depth(maxd) {
 		}
 
-		aab2f xy = uninitialized; ///< The dimensions of this viewport on X and Y.
-		float minimum_depth; ///< Minimum depth.
-		float maximum_depth; ///< Maximum depth.
+		aab2f32 xy = uninitialized; ///< The dimensions of this viewport on X and Y.
+		f32 minimum_depth; ///< Minimum depth.
+		f32 maximum_depth; ///< Maximum depth.
 	};
 
 

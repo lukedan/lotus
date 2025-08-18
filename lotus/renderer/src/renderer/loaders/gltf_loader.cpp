@@ -81,14 +81,14 @@ namespace lotus::renderer::gltf {
 				case TINYGLTF_COMPONENT_TYPE_FLOAT:
 					{
 						assert(std::is_floating_point_v<T>);
-						auto *current = reinterpret_cast<const float*>(current_raw);
+						auto *current = reinterpret_cast<const f32*>(current_raw);
 						target[j] = static_cast<T>(current[j]);
 					}
 					break;
 				case TINYGLTF_COMPONENT_TYPE_DOUBLE:
 					{
 						assert(std::is_floating_point_v<T>);
-						auto *current = reinterpret_cast<const double*>(current_raw);
+						auto *current = reinterpret_cast<const f64*>(current_raw);
 						target[j] = static_cast<T>(current[j]);
 					}
 					break;
@@ -121,7 +121,7 @@ namespace lotus::renderer::gltf {
 			count[i] = sizeof(T) * 8;
 		}
 		auto ty = gpu::format_properties::data_type::unknown;
-		if constexpr (std::is_same_v<T, float>) {
+		if constexpr (std::is_same_v<T, f32>) {
 			ty = gpu::format_properties::data_type::floating_point;
 		} else if constexpr (std::is_same_v<T, u32>) {
 			ty = gpu::format_properties::data_type::unsigned_int;
@@ -196,7 +196,7 @@ namespace lotus::renderer::gltf {
 				if (auto it = prim.attributes.find("POSITION"); it != prim.attributes.end()) {
 					geom.num_vertices  =
 						static_cast<u32>(model.accessors[static_cast<usize>(it->second)].count);
-					geom.vertex_buffer = _load_input_buffer<float>(
+					geom.vertex_buffer = _load_input_buffer<f32>(
 						_asset_manager, path, model, it->second, 3,
 						gpu::buffer_usage_mask::vertex_buffer |
 						gpu::buffer_usage_mask::shader_read |
@@ -205,21 +205,21 @@ namespace lotus::renderer::gltf {
 					);
 				}
 				if (auto it = prim.attributes.find("NORMAL"); it != prim.attributes.end()) {
-					geom.normal_buffer = _load_input_buffer<float>(
+					geom.normal_buffer = _load_input_buffer<f32>(
 						_asset_manager, path, model, it->second, 3,
 						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read,
 						buf_pool
 					);
 				}
 				if (auto it = prim.attributes.find("TANGENT"); it != prim.attributes.end()) {
-					geom.tangent_buffer = _load_input_buffer<float>(
+					geom.tangent_buffer = _load_input_buffer<f32>(
 						_asset_manager, path, model, it->second, 3,
 						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read,
 						buf_pool
 					);
 				}
 				if (auto it = prim.attributes.find("TEXCOORD_0"); it != prim.attributes.end()) {
-					geom.uv_buffer = _load_input_buffer<float>(
+					geom.uv_buffer = _load_input_buffer<f32>(
 						_asset_manager, path, model, it->second, 2,
 						gpu::buffer_usage_mask::vertex_buffer | gpu::buffer_usage_mask::shader_read,
 						buf_pool
@@ -293,18 +293,18 @@ namespace lotus::renderer::gltf {
 			auto mat_data = std::make_unique<material_data>(_asset_manager);
 			mat_data->properties.albedo_multiplier =
 				mat.pbrMetallicRoughness.baseColorFactor.empty() ?
-				cvec4f(1.0f, 1.0f, 1.0f, 1.0f) :
-				cvec4f(
-					static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[0]),
-					static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[1]),
-					static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[2]),
-					static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[3])
+				cvec4f32(1.0f, 1.0f, 1.0f, 1.0f) :
+				cvec4f32(
+					static_cast<f32>(mat.pbrMetallicRoughness.baseColorFactor[0]),
+					static_cast<f32>(mat.pbrMetallicRoughness.baseColorFactor[1]),
+					static_cast<f32>(mat.pbrMetallicRoughness.baseColorFactor[2]),
+					static_cast<f32>(mat.pbrMetallicRoughness.baseColorFactor[3])
 				);
-			mat_data->properties.normal_scale         = static_cast<float>(mat.normalTexture.scale);
-			mat_data->properties.metalness_multiplier = static_cast<float>(mat.pbrMetallicRoughness.metallicFactor);
-			mat_data->properties.roughness_multiplier = static_cast<float>(mat.pbrMetallicRoughness.roughnessFactor);
+			mat_data->properties.normal_scale         = static_cast<f32>(mat.normalTexture.scale);
+			mat_data->properties.metalness_multiplier = static_cast<f32>(mat.pbrMetallicRoughness.metallicFactor);
+			mat_data->properties.roughness_multiplier = static_cast<f32>(mat.pbrMetallicRoughness.roughnessFactor);
 			mat_data->properties.alpha_cutoff         =
-				mat.alphaMode == "MASK" ? static_cast<float>(mat.alphaCutoff) : 0.0f;
+				mat.alphaMode == "MASK" ? static_cast<f32>(mat.alphaCutoff) : 0.0f;
 
 			const auto get_tex = [&images, &model](
 				int index, const assets::handle<assets::image2d> &default_img = nullptr
@@ -334,34 +334,34 @@ namespace lotus::renderer::gltf {
 
 		// load nodes
 		if (instance_loaded_callback) {
-			std::vector<std::pair<int, mat44f>> stack;
+			std::vector<std::pair<int, mat44f32>> stack;
 			for (const auto &node : model.scenes[static_cast<usize>(model.defaultScene)].nodes) {
-				stack.emplace_back(node, mat44f::identity());
+				stack.emplace_back(node, mat44f32::identity());
 			}
 			while (!stack.empty()) {
 				const auto [node_id, transform] = stack.back();
 				stack.pop_back();
 				const auto &node = model.nodes[static_cast<usize>(node_id)];
 
-				mat44f trans = uninitialized;
+				mat44f32 trans = uninitialized;
 				if (node.matrix.empty()) {
 					auto scale =
 						node.scale.empty() ?
-						mat33f::identity() :
-						mat33d::diagonal(node.scale[0], node.scale[1], node.scale[2]).into<float>();
+						mat33f32::identity() :
+						mat33f64::diagonal(node.scale[0], node.scale[1], node.scale[2]).into<f32>();
 					auto rotation =
 						node.rotation.empty() ?
-						mat33f::identity() :
-						quatu::normalize(quatd::from_wxyz(
+						mat33f32::identity() :
+						quatu::normalize(quatf64::from_wxyz(
 							node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]
-						).into<float>()).into_rotation_matrix();
+						).into<f32>()).into_rotation_matrix();
 					auto translation =
 						node.translation.empty() ?
-						cvec3f(zero) :
-						cvec3d(node.translation[0], node.translation[1], node.translation[2]).into<float>();
+						cvec3f32(zero) :
+						cvec3f64(node.translation[0], node.translation[1], node.translation[2]).into<f32>();
 					trans = mat::concat_rows(
 						mat::concat_columns(rotation * scale, translation),
-						rvec4f(0.0f, 0.0f, 0.0f, 1.0f)
+						rvec4f32(0.0f, 0.0f, 0.0f, 1.0f)
 					);
 				} else {
 					if (node.matrix.size() != 16) {
@@ -375,7 +375,7 @@ namespace lotus::renderer::gltf {
 							if (index >= node.matrix.size()) {
 								break;
 							}
-							trans(row, col) = static_cast<float>(node.matrix[index]);
+							trans(row, col) = static_cast<f32>(node.matrix[index]);
 						}
 					}
 				}
@@ -403,7 +403,7 @@ namespace lotus::renderer::gltf {
 							const tinygltf::Light &light_def =
 								model.lights[static_cast<usize>(index_val.GetNumberAsInt())];
 
-							cvec3d light_color(1.0f, 1.0f, 1.0f);
+							cvec3f64 light_color(1.0f, 1.0f, 1.0f);
 							for (usize i = 0; i < std::min<usize>(light_def.color.size(), 3); ++i) {
 								light_color[i] = light_def.color[i];
 							}
@@ -417,8 +417,8 @@ namespace lotus::renderer::gltf {
 								light_data.type = shader_types::light_type::spot_light;
 							}
 							light_data.position   = trans.block<3, 1>(0, 3);
-							light_data.direction  = vecu::normalize((trans * cvec4f(0.0f, 0.0f, -1.0f, 0.0f)).block<3, 1>(0, 0));
-							light_data.irradiance = (light_def.intensity * light_color).into<float>();
+							light_data.direction  = vecu::normalize((trans * cvec4f32(0.0f, 0.0f, -1.0f, 0.0f)).block<3, 1>(0, 0));
+							light_data.irradiance = (light_def.intensity * light_color).into<f32>();
 							light_loaded_callback(light_data);
 						}
 					}

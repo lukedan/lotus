@@ -122,13 +122,13 @@ namespace lotus::system {
 			/// Information about scrolling.
 			struct scroll {
 				/// Initializes all fields of this struct.
-				scroll(cvec2i pos, cvec2f off, modifier_key_mask mods) :
+				scroll(cvec2i pos, cvec2f32 off, modifier_key_mask mods) :
 					position(pos), offset(off), modifiers(mods) {
 				}
 
 				/// The position of the mouse when scrolling happened, relative to the client area of the window.
 				const cvec2i position;
-				const cvec2f offset; ///< Scrolling offset.
+				const cvec2f32 offset; ///< Scrolling offset.
 				const modifier_key_mask modifiers; ///< Modifier keys that are pressed.
 			};
 		}

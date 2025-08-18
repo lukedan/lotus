@@ -258,8 +258,8 @@ namespace lotus {
 		T begin = zero; ///< The beginning of the range.
 		T end = zero; ///< The end of the range.
 	};
-	using linear_float_range = linear_range<float>; ///< Shorthand for linear ranges for \p float.
-	using linear_usize_range = linear_range<usize>; ///< Shorthand for linear range for \ref usize.
+	using linear_f32_range   = linear_range<f32>;   ///< Shorthand for linear ranges for \ref f32.
+	using linear_usize_range = linear_range<usize>; ///< Shorthand for linear ranges for \ref usize.
 
 
 	/// Console output utilities.

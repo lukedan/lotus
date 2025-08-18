@@ -7,13 +7,13 @@
 
 using namespace lotus::types;
 
-[[nodiscard]] bool test_f32_to_f64(float f32) {
-	auto myf32 = lotus::float32::reinterpret(f32);
+[[nodiscard]] bool test_f32_to_f64(f32 value) {
+	auto myf32 = lotus::float32::reinterpret(value);
 
 	auto myf64 = myf32.into<lotus::float64>();
 	auto myi64 = myf64.reinterpret_as<u64>();
-	auto sysi64 = std::bit_cast<u64>(static_cast<double>(f32));
-	if (std::isnan(f32) != myf64.is_nan()) {
+	auto sysi64 = std::bit_cast<u64>(static_cast<f64>(value));
+	if (std::isnan(value) != myf64.is_nan()) {
 		return false;
 	}
 	if (!myf64.is_nan()) {
@@ -22,13 +22,13 @@ using namespace lotus::types;
 	return true;
 }
 
-[[nodiscard]] bool test_f64_to_f32(double f64) {
-	auto myf64 = lotus::float64::reinterpret(f64);
+[[nodiscard]] bool test_f64_to_f32(f64 value) {
+	auto myf64 = lotus::float64::reinterpret(value);
 
 	auto myf32 = myf64.into<lotus::float32>();
 	auto myi32 = myf32.reinterpret_as<u32>();
-	auto sysi32 = std::bit_cast<u32>(static_cast<float>(f64));
-	if (std::isnan(f64) != myf32.is_nan()) {
+	auto sysi32 = std::bit_cast<u32>(static_cast<f32>(value));
+	if (std::isnan(value) != myf32.is_nan()) {
 		return false;
 	}
 	if (!myf32.is_nan()) {
@@ -42,10 +42,10 @@ int main() {
 
 	for (u32 i = 0; ; ++i) {
 		if (i % 10000000 == 0) {
-			lotus::log().debug("f32 -> f64  {:.1f}%", 100.0 * i / static_cast<double>(std::numeric_limits<u32>::max()));
+			lotus::log().debug("f32 -> f64  {:.1f}%", 100.0 * i / static_cast<f64>(std::numeric_limits<u32>::max()));
 		}
 
-		lotus::crash_if(!test_f32_to_f64(std::bit_cast<float>(i)));
+		lotus::crash_if(!test_f32_to_f64(std::bit_cast<f32>(i)));
 
 		if (i == std::numeric_limits<u32>::max()) {
 			break;
@@ -55,10 +55,10 @@ int main() {
 	constexpr u64 f64_interval = 2100000000;
 	for (u64 i = 0; ; ) {
 		if (i % (f64_interval * 10000000) == 0) {
-			lotus::log().debug("f64 -> f32  {:.1f}%", 100.0 * i / static_cast<double>(std::numeric_limits<u64>::max()));
+			lotus::log().debug("f64 -> f32  {:.1f}%", 100.0 * i / static_cast<f64>(std::numeric_limits<u64>::max()));
 		}
 
-		lotus::crash_if(!test_f64_to_f32(std::bit_cast<double>(i)));
+		lotus::crash_if(!test_f64_to_f32(std::bit_cast<f64>(i)));
 
 		auto new_i = i + f64_interval;
 		if (new_i < i) {
@@ -77,7 +77,7 @@ int main() {
 		}
 
 		u64 x = range(rng);
-		bool ok = test_f64_to_f32(std::bit_cast<double>(x));
+		bool ok = test_f64_to_f32(std::bit_cast<f64>(x));
 		if (!ok) {
 			lotus::log().error("Bad value: {}", x);
 			std::abort();

@@ -43,8 +43,6 @@ target_sources(lotus_physics
 
 		"src/collision/common.cpp"
 
-		"src/physics/avbd/constraints/cosserat_rod.cpp"
-
 		"src/physics/avbd/solver.cpp"
 
 		"src/physics/sequential_impulse/constraints/contact_set_blcp.cpp"

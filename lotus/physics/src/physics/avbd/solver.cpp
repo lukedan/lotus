@@ -35,19 +35,64 @@ namespace lotus::physics::avbd {
 			ori_assoc[sc.orientation].stretch_shear_constraint = static_cast<u32>(i);
 		}
 
-		// position estimation
+		// compute inertial positions
+		std::vector<vec3> initial_positions;
+		std::vector<vec3> inertial_positions;
+		initial_positions.reserve(particles.size());
+		inertial_positions.reserve(particles.size());
+		for (const particle &p : particles) {
+			initial_positions.emplace_back(p.state.position);
+			inertial_positions.emplace_back(
+				p.state.position + dt * (p.state.velocity + dt * physics_world->gravity)
+			);
+		}
+
+		// initial guess
 		for (particle &p : particles) {
-			p.state.position += dt * (p.state.velocity + dt * physics_world->gravity);
+			if (p.properties.inverse_mass <= 0.0f) {
+				continue;
+			}
+
+			p.state.position += dt * (p.state.velocity/* + dt * physics_world->gravity*/); // TODO
 		}
 
 		// iterations
 		for (u32 iter = 0; iter < iters; ++iter) {
 			// position update
-			// TODO
+			for (usize ip = 0; ip < particles.size(); ++ip) {
+				particle &p = particles[ip];
+				if (p.properties.inverse_mass <= 0.0f) {
+					continue;
+				}
+
+				vec3 f = -1.0f / (dt * dt * p.properties.inverse_mass) * (p.state.position - inertial_positions[ip]);
+				// the hessian for Cosserat rods simplifies to a multiple of the identity matrix
+				scalar h = 1.0f / (dt * dt * p.properties.inverse_mass);
+				for (const u32 ss_constraint_index : par_assoc[ip].stretch_shear_constraints) {
+					const constraints::cosserat_rod::stretch_shear &constraint =
+						rod_stretch_shear_constraints[ss_constraint_index];
+					const scalar stiffness = constraint.stiffness * constraint.initial_length;
+					const particle &p1 = particles[constraint.particle1];
+					const particle &p2 = particles[constraint.particle2];
+					const orientation &o = orientations[constraint.orientation];
+					const vec3 c =
+						(p2.state.position - p1.state.position) / constraint.initial_length -
+						o.state.orientation.rotate(constraints::cosserat_rod::direction_basis);
+					const scalar derivative_sign = ip == constraint.particle1 ? -1 : 1;
+					f -= (derivative_sign * stiffness / constraint.initial_length) * c;
+					h += stiffness / (constraint.initial_length * constraint.initial_length);
+				}
+
+				p.state.position += f / h;
+			}
 
 			// orientation update
 			for (usize io = 0; io < orientations.size(); ++io) {
 				orientation &ori = orientations[io];
+				if (ori.inv_inertia <= 0.0f) {
+					continue;
+				}
+
 				const _orientation_association &assoc = ori_assoc[io];
 				crash_if(assoc.stretch_shear_constraint == std::numeric_limits<u32>::max());
 
@@ -55,8 +100,8 @@ namespace lotus::physics::avbd {
 				const constraints::cosserat_rod::stretch_shear &sc =
 					rod_stretch_shear_constraints[assoc.stretch_shear_constraint];
 				const vec3 v =
-					-2.0f * sc.stiffness / sc.initial_length *
-					(particles[sc.particle2].prev_position - particles[sc.particle1].prev_position);
+					-2.0f * sc.stiffness *
+					(particles[sc.particle2].state.position - particles[sc.particle1].state.position);
 
 				// bending part
 				quats b = zero;
@@ -76,6 +121,12 @@ namespace lotus::physics::avbd {
 				const quats qe = quat::from_vec3_xyz(constraints::cosserat_rod::direction_basis);
 				ori.state.orientation = quatu::normalize(qv * b * qe + lambda * b);
 			}
+		}
+
+		// compute velocities
+		for (usize ip = 0; ip < particles.size(); ++ip) {
+			particle &p = particles[ip];
+			p.state.velocity = (p.state.position - initial_positions[ip]) / dt;
 		}
 	}
 }

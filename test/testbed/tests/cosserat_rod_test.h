@@ -11,8 +11,28 @@ public:
 	}
 
 	void timestep(scalar dt, u32 iterations) override {
+		// move the rods around
+		const auto pos_at = [](scalar t) {
+			return 0.2f * vec3(std::sin(t), std::sin(1.3f * t), 0.0f);
+		};
+		const vec3 offset = pos_at(_time + dt * _move_scale) - pos_at(_time);
+		for (lotus::physics::particle &p : _solver_avbd.particles) {
+			if (p.properties.inverse_mass > 0.0f) {
+				continue;
+			}
+			p.state.position += offset;
+		}
+		for (lotus::physics::particle &p : _solver_xpbd.particles) {
+			if (p.properties.inverse_mass > 0.0f) {
+				continue;
+			}
+			p.state.position += offset;
+		}
+
 		_solver_avbd.timestep(dt, iterations);
 		_solver_xpbd.timestep(dt, iterations);
+
+		_time += dt * _move_scale;
 	}
 
 	void render(
@@ -42,19 +62,19 @@ public:
 		_render = debug_render();
 		_render.ctx = &_get_test_context();
 
+		_time = 0.0f;
+
 		for (u32 x = 0; x < 5; ++x) {
 			for (u32 y = 0; y < 5; ++y) {
 				const vec3 start(0.01f * x, 0.01f * y, 0.0f);
 				const vec3 end = start + vec3(0.0f, 0.0f, _length_m);
 
-				const vec3 pos_avbd(0.0f, 0.0f, 0.0f);
 				_create_straight_rod_avbd(
-					start + pos_avbd, end + pos_avbd, _segments, _density_kg_m3, _diameter_m, _k_ss, _k_bt
+					start + _pos_avbd, end + _pos_avbd, _segments, _density_kg_m3, _diameter_m, _k_ss, _k_bt
 				);
 
-				const vec3 pos_xpbd(0.5f, 0.0f, 0.0f);
 				_create_straight_rod_xpbd(
-					start + pos_xpbd, end + pos_xpbd, _segments, _density_kg_m3, _diameter_m, _k_ss, _k_bt
+					start + _pos_xpbd, end + _pos_xpbd, _segments, _density_kg_m3, _diameter_m, _k_ss, _k_bt
 				);
 			}
 		}
@@ -70,6 +90,9 @@ public:
 		ImGui::SliderFloat("Stretching-Shearing Stiffness", &_k_ss, 0.0f, 10000.0f, "%.5f", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderFloat("Bending Stiffness", &_k_bt, 0.0f, 10000.0f, "%.5f", ImGuiSliderFlags_Logarithmic);
 
+		ImGui::Separator();
+		ImGui::SliderFloat("Move Time Scale", &_move_scale, 0.0f, 10.0f);
+
 		test::gui();
 	}
 
@@ -77,11 +100,15 @@ public:
 		return "Cosserat Rod";
 	}
 private:
+	constexpr static vec3 _pos_avbd = vec3(0.0f, 0.0f, 0.0f);
+	constexpr static vec3 _pos_xpbd = vec3(0.5f, 0.0f, 0.0f);
+
 	lotus::physics::world _world_avbd;
 	lotus::physics::avbd::solver _solver_avbd;
 	lotus::physics::world _world_xpbd;
 	lotus::physics::xpbd::solver _solver_xpbd;
 	debug_render _render;
+	scalar _time = 0.0f;
 
 	u32 _segments = 10;
 	scalar _density_kg_m3 = 1000.0f;
@@ -89,6 +116,8 @@ private:
 	scalar _diameter_m = 0.05f; // 5cm
 	scalar _k_ss = 1.0f;
 	scalar _k_bt = 1.0f;
+
+	scalar _move_scale = 0.0f;
 
 	template <typename Solver, typename BendCallback, typename StretchCallback> static void _create_straight_rod(
 		Solver &solver, BendCallback &&bend_cb, StretchCallback &&stretch_cb,
@@ -104,10 +133,11 @@ private:
 		// add particles
 		const auto first_part = static_cast<u32>(solver.particles.size());
 		for (u32 i = 0; i < num_parts; ++i) {
-			lotus::physics::particle &particle = solver.particles.emplace_back(lotus::uninitialized);
-			particle.state                   = lotus::physics::particle_state::stationary_at(start + part_offset * i);
-			particle.prev_position           = particle.state.position;
-			particle.properties.inverse_mass = i < 2 ? 0.0f : inv_part_mass;
+			lotus::physics::particle_properties props = lotus::uninitialized;
+			props.inverse_mass = i < 2 ? 0.0f : inv_part_mass;
+			solver.particles.emplace_back(lotus::physics::particle::create(
+				props, lotus::physics::particle_state::stationary_at(start + part_offset * i)
+			));
 		}
 
 		// add orientations
@@ -169,7 +199,9 @@ private:
 			diameter
 		);
 	}
-	void _create_straight_rod_avbd(vec3 start, vec3 end, u32 num_parts, scalar density, scalar diameter, scalar k_ss, scalar k_bt) {
+	void _create_straight_rod_avbd(
+		vec3 start, vec3 end, u32 num_parts, scalar density, scalar diameter, scalar k_ss, scalar k_bt
+	) {
 		_create_straight_rod(
 			_solver_avbd,
 			[&](u32 o1, u32 o2, uquats init_bend) {

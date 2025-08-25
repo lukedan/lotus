@@ -27,8 +27,7 @@ namespace lotus::physics::avbd {
 			ori_assoc[bc.orientation2].bend_constraints.emplace_back(static_cast<u32>(i));
 		}
 		for (usize i = 0; i < rod_stretch_shear_constraints.size(); ++i) {
-			const constraints::cosserat_rod::stretch_shear &sc =
-				rod_stretch_shear_constraints[i];
+			const constraints::cosserat_rod::stretch_shear &sc = rod_stretch_shear_constraints[i];
 			par_assoc[sc.particle1].stretch_shear_constraints.emplace_back(static_cast<u32>(i));
 			par_assoc[sc.particle2].stretch_shear_constraints.emplace_back(static_cast<u32>(i));
 			crash_if(ori_assoc[sc.orientation].stretch_shear_constraint != std::numeric_limits<u32>::max());
@@ -47,13 +46,22 @@ namespace lotus::physics::avbd {
 			);
 		}
 
+		particle_prev_accelerations.resize(particles.size(), zero);
+
 		// initial guess
-		for (particle &p : particles) {
+		for (usize i = 0; i < particles.size(); ++i) {
+			particle &p = particles[i];
 			if (p.properties.inverse_mass <= 0.0f) {
 				continue;
 			}
-
-			p.state.position += dt * (p.state.velocity/* + dt * physics_world->gravity*/); // TODO
+			// compute adaptive acceleration
+			const vec3 prev_accel = particle_prev_accelerations[i];
+			const vec3 cur_accel = physics_world->gravity;
+			const scalar len_factor = std::clamp(
+				vec::dot(prev_accel, cur_accel) / cur_accel.squared_norm(), 0.0f, 1.0f
+			);
+			const vec3 adaptive_accel = cur_accel * len_factor;
+			p.state.position += dt * (p.state.velocity + dt * adaptive_accel);
 		}
 
 		// iterations
@@ -126,7 +134,9 @@ namespace lotus::physics::avbd {
 		// compute velocities
 		for (usize ip = 0; ip < particles.size(); ++ip) {
 			particle &p = particles[ip];
-			p.state.velocity = (p.state.position - initial_positions[ip]) / dt;
+			const vec3 new_velocity = (p.state.position - initial_positions[ip]) / dt;
+			particle_prev_accelerations[ip] = (new_velocity - p.state.velocity) / dt;
+			p.state.velocity = new_velocity;
 		}
 	}
 }

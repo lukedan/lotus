@@ -24,6 +24,9 @@ namespace lotus::physics::avbd {
 		std::vector<particle> particles; ///< The list of particles.
 		std::vector<orientation> orientations; ///< The list of orientations.
 
+		/// Previous frame accelerations used for the initial position estimation.
+		std::vector<vec3> particle_prev_accelerations; // TODO prevent this from going out of sync
+
 		/// All Cosserat rod bending-twisting constraints.
 		std::vector<constraints::cosserat_rod::bend_twist> rod_bend_twist_constraints;
 		/// All Cosserat rod stretching-shearing constraints.

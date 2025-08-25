@@ -68,8 +68,9 @@ namespace lotus::physics {
 		/// Creates a new particle.
 		[[nodiscard]] inline static particle create(particle_properties props, particle_state st) {
 			particle result = uninitialized;
-			result.properties = props;
-			result.state      = st;
+			result.properties    = props;
+			result.state         = st;
+			result.prev_position = result.state.position;
 			return result;
 		}
 

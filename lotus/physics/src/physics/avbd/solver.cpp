@@ -131,6 +131,20 @@ namespace lotus::physics::avbd {
 			}
 		}
 
+		// naive collision handling
+		for (particle &p : particles) {
+			for (const body *b : physics_world->get_bodies()) {
+				if (std::holds_alternative<collision::shapes::sphere>(b->body_shape->value)) {
+					const auto &sphere = std::get<collision::shapes::sphere>(b->body_shape->value);
+					const vec3 diff = p.state.position - b->state.position.position;
+					const scalar diff_len = diff.norm();
+					if (diff_len < sphere.radius) {
+						p.state.position = b->state.position.position + diff * (sphere.radius / diff_len);
+					}
+				}
+			}
+		}
+
 		// compute velocities
 		for (usize ip = 0; ip < particles.size(); ++ip) {
 			particle &p = particles[ip];

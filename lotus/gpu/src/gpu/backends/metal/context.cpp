@@ -3,8 +3,6 @@
 /// \file
 /// Metal device management and creation code.
 
-#include <Metal/Metal.hpp>
-
 #include "lotus/gpu/backends/metal/details.h"
 
 namespace lotus::gpu::backends::metal {

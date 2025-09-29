@@ -5,8 +5,6 @@
 
 #include <numeric>
 
-#include <Metal/Metal.hpp>
-
 #include "lotus/gpu/commands.h"
 #include "lotus/gpu/descriptors.h"
 #include "lotus/gpu/synchronization.h"

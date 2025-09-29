@@ -5,9 +5,6 @@
 
 #include <array>
 
-#include <QuartzCore/QuartzCore.hpp>
-#include <Metal/Metal.hpp>
-
 #include "lotus/gpu/acceleration_structure.h"
 #include "lotus/gpu/pipeline.h"
 #include "lotus/gpu/resources.h"

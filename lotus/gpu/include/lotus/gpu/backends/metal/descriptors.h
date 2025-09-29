@@ -6,8 +6,6 @@
 #include <cstddef>
 #include <vector>
 
-#include <Metal/Metal.hpp>
-
 #include "details.h"
 
 namespace lotus::gpu::backends::metal {

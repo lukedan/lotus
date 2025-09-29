@@ -3,8 +3,6 @@
 /// \file
 /// Metal frame buffer implementation.
 
-#include <QuartzCore/QuartzCore.hpp>
-
 #include "lotus/gpu/backends/metal/resources.h"
 
 namespace lotus::gpu::backends::metal {

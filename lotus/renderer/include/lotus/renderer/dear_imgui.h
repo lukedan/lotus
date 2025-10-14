@@ -63,7 +63,7 @@ namespace lotus::renderer::dear_imgui {
 
 			cvec2f32 pos(draw_data->DisplayPos.x, draw_data->DisplayPos.y);
 			cvec2f32 size(draw_data->DisplaySize.x, draw_data->DisplaySize.y);
-			cvec2f32 offset = -2.0f * vec::memberwise_divide(pos, size) - cvec2f32(1.0f, 1.0f);
+			cvec2f32 offset = -2.0f * matm::divide(pos, size) - cvec2f32(1.0f, 1.0f);
 			mat44f32 projection({
 				{ 2.0f / size[0], 0.0f,            0.0f, offset[0]  },
 				{ 0.0f,           -2.0f / size[1], 0.0f, -offset[1] },

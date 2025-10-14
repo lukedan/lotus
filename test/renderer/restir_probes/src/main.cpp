@@ -384,7 +384,7 @@ protected:
 			const cvec2u32 window_size = _get_window_size();
 
 			cvec2f32 taa_jitter = taa_samples[std::min(taa_phase, static_cast<u32>(taa_samples.size()))] - cvec2f32::filled(0.5f);
-			auto cam = cam_params.into_camera(lotus::vec::memberwise_divide(taa_jitter, (2u * window_size).into<f32>()));
+			auto cam = cam_params.into_camera(lotus::matm::divide(taa_jitter, (2u * window_size).into<f32>()));
 
 			auto g_buf = lren::g_buffer::view::create(*_context, window_size, runtime_tex_pool);
 			{ // g-buffer
@@ -397,7 +397,7 @@ protected:
 				view_data.projection_view          = cam.projection_view_matrix;
 				view_data.jittered_projection_view = cam.jittered_projection_view_matrix;
 				view_data.prev_projection_view     = prev_cam.projection_view_matrix;
-				view_data.rcp_viewport_size        = lotus::vec::memberwise_reciprocal(window_size.into<f32>());
+				view_data.rcp_viewport_size        = lotus::matm::reciprocal(window_size.into<f32>());
 
 				auto pass = g_buf.begin_pass(_graphics_queue);
 				lren::g_buffer::render_instances(
@@ -434,9 +434,9 @@ protected:
 			lighting_constants.sky_scale                        = sky_scale;
 			{
 				cvec2f32 envmaplut_size = envmap_lut->image.get_size().into<f32>();
-				cvec2f32 rcp_size = lotus::vec::memberwise_reciprocal(envmaplut_size);
-				lighting_constants.envmaplut_uvscale = lotus::vec::memberwise_multiply(envmaplut_size - cvec2f32::filled(1.0f), rcp_size);
-				lighting_constants.envmaplut_uvbias  = lotus::vec::memberwise_multiply(cvec2f32::filled(0.5f), rcp_size);
+				cvec2f32 rcp_size = lotus::matm::reciprocal(envmaplut_size);
+				lighting_constants.envmaplut_uvscale = lotus::matm::multiply(envmaplut_size - cvec2f32::filled(1.0f), rcp_size);
+				lighting_constants.envmaplut_uvbias  = lotus::matm::multiply(cvec2f32::filled(0.5f), rcp_size);
 			}
 
 			u32 num_probes = probe_density[0] * probe_density[1] * probe_density[2];
@@ -776,7 +776,7 @@ protected:
 				);
 				shader_types::taa_constants constants;
 				constants.viewport_size         = window_size.into<u32>();
-				constants.rcp_viewport_size     = lotus::vec::memberwise_reciprocal(window_size.into<f32>());
+				constants.rcp_viewport_size     = lotus::matm::reciprocal(window_size.into<f32>());
 				constants.use_indirect_specular = use_indirect_specular;
 				constants.ra_factor             = taa_ra_factor;
 				constants.enable_taa            = enable_taa && prev_irradiance.is_valid();
@@ -987,7 +987,7 @@ protected:
 
 				for (usize i = 0; i < taa_samples.size(); ++i) {
 					cvec2f32 smp = taa_samples[i];
-					cvec2f32 dot_pos = pos + lotus::vec::memberwise_multiply(smp, canvas_size);
+					cvec2f32 dot_pos = pos + lotus::matm::multiply(smp, canvas_size);
 					f32 seq_pos = i / static_cast<f32>(taa_samples.size() - 1);
 					list->AddCircleFilled(to_imvec2(dot_pos), dot_radius, ImGui::ColorConvertFloat4ToU32(ImVec4(seq_pos, 0.0f, 1.0f - seq_pos, 1.0f)));
 				}

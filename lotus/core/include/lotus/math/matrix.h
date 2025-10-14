@@ -445,21 +445,20 @@ namespace lotus {
 	}
 
 
-	template <usize N, typename T> class lup_decomposition;
-	/// Matrix utilities.
-	class mat {
+	/// Memberwise matrix utilities.
+	class mat_memberwise {
 	public:
 		/// This class only contains utility functions.
-		mat() = delete;
+		mat_memberwise() = delete;
 
 		/// Applies the memberwise operator to the given matrices and returns the result.
 		template <
 			usize R, usize C, typename ...Types, typename Operator
-		> [[nodiscard]] constexpr inline static std::conditional_t<
+		> [[nodiscard]] constexpr static std::conditional_t<
 			std::is_same_v<std::invoke_result_t<Operator, const Types&...>, void>,
 			void,
 			matrix<R, C, std::invoke_result_t<Operator, const Types&...>>
-		> memberwise_operation(
+		> operation(
 			Operator op, const matrix<R, C, Types> &...mats
 		) {
 			using _result_type = std::invoke_result_t<Operator, const Types&...>;
@@ -482,52 +481,60 @@ namespace lotus {
 		/// Memberwise multiplication of the two matrices.
 		template <
 			usize R, usize C, typename T
-		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_multiply(
+		> [[nodiscard]] constexpr static matrix<R, C, T> multiply(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
-			return memberwise_operation([](const T &lhs, const T &rhs) {
+			return operation([](const T &lhs, const T &rhs) {
 				return lhs * rhs;
 			}, lhs, rhs);
 		}
 		/// Memberwise multiplication of the two matrices.
 		template <
 			usize R, usize C, typename T
-		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_divide(
+		> [[nodiscard]] constexpr static matrix<R, C, T> divide(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
-			return memberwise_operation([](const T &lhs, const T &rhs) {
+			return operation([](const T &lhs, const T &rhs) {
 				return lhs / rhs;
 			}, lhs, rhs);
 		}
 		/// Memberwise minimum of the two matrices.
 		template <
 			usize R, usize C, typename T
-		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_min(
+		> [[nodiscard]] constexpr static matrix<R, C, T> min(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
-			return memberwise_operation([](const T &lhs, const T &rhs) {
+			return operation([](const T &lhs, const T &rhs) {
 				return std::min(lhs, rhs);
 			}, lhs, rhs);
 		}
 		/// Memberwise minimum of the two matrices.
 		template <
 			usize R, usize C, typename T
-		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_max(
+		> [[nodiscard]] constexpr static matrix<R, C, T> max(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
-			return memberwise_operation([](const T &lhs, const T &rhs) {
+			return operation([](const T &lhs, const T &rhs) {
 				return std::max(lhs, rhs);
 			}, lhs, rhs);
 		}
 		/// Memberwise reciprocal of the given matrix.
 		template <
 			usize R, usize C, typename T
-		> [[nodiscard]] constexpr inline static matrix<R, C, T> memberwise_reciprocal(const matrix<R, C, T> &m) {
-			return memberwise_operation([](const T &v) {
+		> [[nodiscard]] constexpr static matrix<R, C, T> reciprocal(const matrix<R, C, T> &m) {
+			return operation([](const T &v) {
 				return static_cast<T>(1.0f / v);
 			}, m);
 		}
+	};
+	using matm = mat_memberwise; ///< Shorthand.
 
+	template <usize N, typename T> class lup_decomposition;
+	/// Matrix utilities.
+	class mat {
+	public:
+		/// This class only contains utility functions.
+		mat() = delete;
 	protected:
 		/// Returns the number of rows in the given matrix.
 		template <typename Mat> constexpr static usize _num_rows() {

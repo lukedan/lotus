@@ -120,7 +120,7 @@ int main() {
 			f32 roughness = i_roughness / static_cast<f32>(samples_roughness);
 
 			cvec2f64 values = integrate_brdf(roughness, n_dot_v, seq_bits);
-			cvec2<u16> values_f16 = lotus::vec::memberwise_operation([](f64 x) {
+			cvec2<u16> values_f16 = lotus::matm::operation([](f64 x) {
 				lotus::crash_if(!std::isfinite(x));
 				return static_cast<u16>(std::clamp<f64>(
 					std::round(x * std::numeric_limits<u16>::max()),

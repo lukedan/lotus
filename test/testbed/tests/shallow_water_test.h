@@ -288,7 +288,7 @@ public:
 		grid2<f32> _uy;
 
 		[[nodiscard]] vec2 _cell_size() const {
-			return lotus::vec::memberwise_divide(
+			return lotus::matm::divide(
 				vec2(_get_test()._grid_size[0], _get_test()._grid_size[1]),
 				(_h.get_size() - lotus::cvec2u32(1u, 1u)).into<scalar>()
 			);
@@ -392,7 +392,7 @@ public:
 			const f32 beta = 2.0f;
 
 			const vec2 cell_size = _cell_size();
-			const vec2 f = lotus::vec::memberwise_reciprocal(cell_size) * dt;
+			const vec2 f = lotus::matm::reciprocal(cell_size) * dt;
 			const f32 havgmax = beta * 0.5f * (cell_size[0] + cell_size[1]) / (_get_test()._gravity * dt);
 			grid2<f32> nh(_h.get_size());
 			for (u32 y = 0; y < _h.get_size()[1]; ++y) {
@@ -428,7 +428,7 @@ public:
 		}
 		void _integrate_velocity(f32 dt) {
 			// TODO no external acceleration
-			const vec2 f = lotus::vec::memberwise_reciprocal(_cell_size()) * _get_test()._gravity * dt;
+			const vec2 f = lotus::matm::reciprocal(_cell_size()) * _get_test()._gravity * dt;
 			for (u32 y = 0; y < _ux.get_size()[1]; ++y) {
 				for (u32 x = 0; x < _ux.get_size()[0]; ++x) {
 					_ux(x, y) -= f[0] * (_eta(x + 1, y) - _eta(x, y));
@@ -487,7 +487,7 @@ public:
 			{ 0.0f, 0.0f, 1.0f, -0.5f * _grid_size[1] },
 			{ 0.0f, 0.0f, 0.0f, 0.0f },
 		});
-		const vec2 cell_size = lotus::vec::memberwise_divide(vec2(_grid_size[0], _grid_size[1]), (_terrain.get_size() - lotus::cvec2u32(1u, 1u)).into<scalar>());
+		const vec2 cell_size = lotus::matm::divide(vec2(_grid_size[0], _grid_size[1]), (_terrain.get_size() - lotus::cvec2u32(1u, 1u)).into<scalar>());
 		if (_method) {
 			_draw_heightfield(
 				[this](u32 x, u32 y) {
@@ -573,7 +573,7 @@ protected:
 
 	void _generate_terrain() {
 		const auto mmul = [](auto x, auto y) {
-			return lotus::vec::memberwise_multiply(x, y);
+			return lotus::matm::multiply(x, y);
 		};
 		const auto fract = [](f32 x) {
 			return x - static_cast<int>(x);

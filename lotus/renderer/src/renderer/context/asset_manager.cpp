@@ -92,10 +92,10 @@ namespace lotus::renderer::assets {
 				const auto raw_data = loaded->get_raw_data();
 				auto current = raw_data.data();
 				for (u32 i = 0; i < loaded->get_num_mips(); ++i) {
-					const cvec2u32 pixel_size = vec::memberwise_max(
+					const cvec2u32 pixel_size = matm::max(
 						cvec2u32(loaded->get_width() >> i, loaded->get_height() >> i), one
 					);
-					const cvec2u32 num_fragments = vec::memberwise_divide(pixel_size + frag_size - one, frag_size);
+					const cvec2u32 num_fragments = matm::divide(pixel_size + frag_size - one, frag_size);
 					const usize size_bytes =
 						num_fragments[0] * num_fragments[1] * format_props.bytes_per_fragment;
 

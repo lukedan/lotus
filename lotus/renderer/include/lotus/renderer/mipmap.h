@@ -12,7 +12,7 @@ namespace lotus::renderer::mipmap {
 	}
 	/// Returns the size of a specified mip level.
 	[[nodiscard]] inline constexpr cvec2u32 get_size(cvec2u32 top_mip_size, u32 mip_level) {
-		return vec::memberwise_operation(
+		return matm::operation(
 			[&](u32 s) {
 				return std::max<u32>(1, s >> mip_level);
 			},

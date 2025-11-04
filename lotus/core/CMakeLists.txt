@@ -6,6 +6,11 @@ target_sources(lotus_core
 	PUBLIC
 		"include/lotus/algorithms/convex_hull.h"
 
+		"include/lotus/math/auto_diff/common.h"
+		"include/lotus/math/auto_diff/context.h"
+		"include/lotus/math/auto_diff/operations.h"
+		"include/lotus/math/auto_diff/utils.h"
+
 		"include/lotus/math/aab.h"
 		"include/lotus/math/constants.h"
 		"include/lotus/math/matrix.h"

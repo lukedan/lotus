@@ -11,6 +11,7 @@
 #include <array>
 
 #include "lotus/common.h"
+#include "numeric_traits.h"
 
 namespace lotus {
 	template <usize Rows, usize Cols, typename T> struct matrix;
@@ -289,10 +290,8 @@ namespace lotus {
 			return result;
 		}
 		/// Squared root of \ref squared_norm().
-		template <
-			typename Res = std::conditional_t<std::is_floating_point_v<T>, T, f32>
-		> [[nodiscard]] constexpr Res norm() const {
-			return std::sqrt(static_cast<Res>(squared_norm()));
+		[[nodiscard]] constexpr T norm() const {
+			return numeric_traits<T>::sqrt(squared_norm());
 		}
 
 		/// Default equality and inequality comparisons.

@@ -29,6 +29,11 @@ namespace lotus::auto_diff {
 
 		/// Initializes this expression to empty.
 		constexpr expression() = default;
+		/// Initializes this expression to a constant.
+		template <
+			typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0
+		> constexpr explicit expression(T v) : _constant(v) {
+		}
 
 		/// Evaluates this expression.
 		template <typename T> [[nodiscard]] constexpr T eval() const;
@@ -46,12 +51,27 @@ namespace lotus::auto_diff {
 		}
 	private:
 		context *_ctx = nullptr; ///< The associated context.
-		_details::operation_data *_op = nullptr; ///< The underlying operation.
+		union {
+			_details::operation_data *_op; ///< The underlying operation.
+			f64 _constant = 0.0; ///< A constant if \ref _ctx is \p nullptr.
+		};
 
 		/// Initializes this expression with an operation.
 		constexpr expression(context &ctx, _details::operation_data &op) : _ctx(&ctx), _op(&op) {
 		}
 	};
+}
+namespace lotus {
+	/// Specialization for automatically differentiated expressions.
+	template <> struct numeric_traits<auto_diff::expression> {
+		using value_type = auto_diff::expression; ///< Value type.
+
+		/// Square root.
+		[[nodiscard]] constexpr static value_type sqrt(value_type);
+	};
+}
+
+namespace lotus::auto_diff {
 	/// A variable that can be automatically differentiated with respect to.
 	template <typename T> struct variable {
 		friend context;
@@ -93,7 +113,7 @@ namespace lotus::auto_diff {
 
 	namespace _details {
 		/// Struct used to test if a type is a specialization of \ref variable.
-		template <typename T> struct is_variable {
+		template <typename> struct is_variable {
 			constexpr static bool value = false; ///< Not a variable.
 		};
 		/// Variables are variables.
@@ -104,7 +124,7 @@ namespace lotus::auto_diff {
 		template <typename T> constexpr bool is_variable_v = is_variable<T>::value;
 
 		/// Converts a type to its corresponding \ref value_type.
-		template <typename T> struct to_value_type {
+		template <typename> struct to_value_type {
 		};
 		/// Conversion for 32-bit floating point.
 		template <> struct to_value_type<f32> {

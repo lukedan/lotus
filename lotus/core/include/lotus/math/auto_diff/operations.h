@@ -138,6 +138,9 @@ namespace lotus::auto_diff::_details {
 			operations::variable<f32>,
 			operations::variable<f64>,
 
+			operations::sqrt<f32>,
+			operations::sqrt<f64>,
+
 			operations::add<f32>,
 			operations::add<f64>,
 			operations::subtract<f32>,
@@ -201,17 +204,6 @@ namespace lotus::auto_diff::_details {
 	};
 	/// Shorthand for \ref is_operand::value.
 	template <typename T> constexpr bool is_operand_v = is_operand<T>::value;
-
-	/// Returns the \ref value_type of an operand.
-	template <typename T> [[nodiscard]] constexpr value_type get_operand_value_type(const T &op) {
-		if constexpr (std::is_arithmetic_v<T>) {
-			return to_value_type_v<T>;
-		} else if constexpr (std::is_same_v<T, expression>) {
-			return op.get_value_type();
-		} else {
-			return to_value_type_v<typename T::value_type>;
-		}
-	}
 }
 
 

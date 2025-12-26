@@ -41,10 +41,15 @@ namespace lotus {
 		vector_type tangent   = uninitialized;
 		vector_type bitangent = uninitialized;
 
-		/// Returns a matrix containing the basis vectors as rows. The matrix converts a vector from tangent space to
-		/// world space when multiplied with a column vector.
+		/// Returns a matrix containing the basis vectors as columns. The matrix converts a vector from tangent space
+		/// to world space when multiplied with a column vector.
 		[[nodiscard]] mat33<T> get_tangent_to_world_matrix() const {
 			return mat::concat_columns(normal, tangent, bitangent);
+		}
+		/// Returns a matrix containing the basis vectors as rows. This matrix converts a vector from world space to
+		/// tangent space when multiplied with a column vector.
+		[[nodiscard]] mat33<T> get_world_to_tangent_matrix() const {
+			return mat::concat_columns(normal, tangent, bitangent).transposed();
 		}
 	};
 }

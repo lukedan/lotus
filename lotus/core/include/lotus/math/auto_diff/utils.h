@@ -24,5 +24,40 @@ namespace lotus::auto_diff {
 				m
 			);
 		}
+
+		/// Evaluates a matrix.
+		template <typename T, usize Rows, usize Cols> constexpr static matrix<Rows, Cols, T> eval(
+			const matrix<Rows, Cols, expression> &m
+		) {
+			return matm::operation(
+				[](const expression &e) {
+					return e.eval<T>();
+				},
+				m
+			);
+		}
+		/// Takes the derivative of the matrix against the given variable.
+		template <usize Rows, usize Cols, typename T> constexpr static matrix<Rows, Cols, expression> diff(
+			const matrix<Rows, Cols, expression> &m, const variable<T> &v
+		) {
+			return matm::operation(
+				[&](const expression &e) {
+					return e.diff(v);
+				},
+				m
+			);
+		}
+
+		/// Simplifies all elements of the matrix.
+		template <usize Rows, usize Cols> constexpr static matrix<Rows, Cols, expression> simplify(
+			const matrix<Rows, Cols, expression> &m
+		) {
+			return matm::operation(
+				[&](const expression &e) {
+					return e.simplified();
+				},
+				m
+			);
+		}
 	};
 }

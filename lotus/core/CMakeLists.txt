@@ -8,8 +8,10 @@ target_sources(lotus_core
 
 		"include/lotus/math/auto_diff/common.h"
 		"include/lotus/math/auto_diff/context.h"
+		"include/lotus/math/auto_diff/expression.h"
 		"include/lotus/math/auto_diff/operations.h"
 		"include/lotus/math/auto_diff/utils.h"
+		"include/lotus/math/auto_diff/variable.h"
 
 		"include/lotus/math/aab.h"
 		"include/lotus/math/constants.h"
@@ -47,6 +49,8 @@ target_sources(lotus_core
 		"include/lotus/logging.h"
 	PRIVATE
 		"src/algorithms/convex_hull.cpp"
+
+		"src/math/auto_diff/expression.cpp"
 
 		"src/math/matrix.natvis"
 

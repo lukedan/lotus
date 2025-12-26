@@ -3,9 +3,14 @@
 /// \file
 /// Operations on automatically differentiated scalars.
 
+#include <variant>
+#include <format>
+
 #include "lotus/common.h"
 
 #include "common.h"
+#include "variable.h"
+#include "expression.h"
 
 namespace lotus::auto_diff::operations {
 	/// Constant.
@@ -23,7 +28,7 @@ namespace lotus::auto_diff::operations {
 
 		/// Converts \ref value into a string.
 		[[nodiscard]] constexpr std::string to_string() const {
-			return std::to_string(value);
+			return std::format("{}", value);
 		}
 	};
 	/// Variable.
@@ -46,15 +51,17 @@ namespace lotus::auto_diff::operations {
 	};
 
 	/// Operands of a unary operation.
-	struct unary_operands {
-		_details::operation_data *op; ///< The operand.
+	struct unary_operation {
+		const _details::operation_data *op; ///< The operand.
 	};
 
 	/// Square root.
-	template <typename Scalar> struct sqrt {
+	template <typename Scalar> struct sqrt : unary_operation {
 		using value_type = Scalar; ///< Value type.
 
-		unary_operands ops; ///< Operands.
+		/// Initializes the operands.
+		explicit sqrt(const _details::operation_data *op) : unary_operation(op) {
+		}
 
 		/// Takes the square root of the operand.
 		[[nodiscard]] constexpr value_type eval() const;
@@ -66,16 +73,18 @@ namespace lotus::auto_diff::operations {
 	};
 
 	/// Operands of a binary operation.
-	struct binary_operands {
-		_details::operation_data *lhs; ///< The left hand side operand.
-		_details::operation_data *rhs; ///< The right hand side operand.
+	struct binary_operation {
+		const _details::operation_data *lhs; ///< The left hand side operand.
+		const _details::operation_data *rhs; ///< The right hand side operand.
 	};
 
 	/// Addition.
-	template <typename Scalar> struct add {
+	template <typename Scalar> struct add : binary_operation {
 		using value_type = Scalar; ///< Value type.
 
-		binary_operands ops; ///< Operands.
+		/// Initializes the operands.
+		add(const _details::operation_data *lhs, const _details::operation_data *rhs) : binary_operation(lhs, rhs) {
+		}
 
 		/// Adds the two operands.
 		[[nodiscard]] constexpr value_type eval() const;
@@ -86,10 +95,13 @@ namespace lotus::auto_diff::operations {
 		[[nodiscard]] constexpr std::string to_string() const;
 	};
 	/// Subtraction.
-	template <typename Scalar> struct subtract {
+	template <typename Scalar> struct subtract : binary_operation {
 		using value_type = Scalar; ///< Value type.
 
-		binary_operands ops; ///< Operands.
+		/// Initializes the operands.
+		subtract(const _details::operation_data *lhs, const _details::operation_data *rhs) :
+			binary_operation(lhs, rhs) {
+		}
 
 		/// Subtracts the two operands.
 		[[nodiscard]] constexpr value_type eval() const;
@@ -100,10 +112,13 @@ namespace lotus::auto_diff::operations {
 		[[nodiscard]] constexpr std::string to_string() const;
 	};
 	/// Multiplication.
-	template <typename Scalar> struct multiply {
+	template <typename Scalar> struct multiply : binary_operation {
 		using value_type = Scalar; ///< Value type.
 
-		binary_operands ops; ///< Operands.
+		/// Initializes the operands.
+		multiply(const _details::operation_data *lhs, const _details::operation_data *rhs) :
+			binary_operation(lhs, rhs) {
+		}
 
 		/// Multiplies the two operands.
 		[[nodiscard]] constexpr value_type eval() const;
@@ -114,10 +129,13 @@ namespace lotus::auto_diff::operations {
 		[[nodiscard]] constexpr std::string to_string() const;
 	};
 	/// Division.
-	template <typename Scalar> struct divide {
+	template <typename Scalar> struct divide : binary_operation {
 		using value_type = Scalar; ///< Value type.
 
-		binary_operands ops; ///< Operands.
+		/// Initializes the operands.
+		divide(const _details::operation_data *lhs, const _details::operation_data *rhs) :
+			binary_operation(lhs, rhs) {
+		}
 
 		/// Divides the first operand by the second one.
 		[[nodiscard]] constexpr value_type eval() const;
@@ -209,14 +227,23 @@ namespace lotus::auto_diff::_details {
 
 namespace lotus::auto_diff {
 	template <typename T> constexpr T expression::eval() const {
+		if (!_ctx) {
+			return static_cast<T>(_constant);
+		}
 		return _op->eval<T>();
 	}
 
 	template <typename T> constexpr expression expression::diff(const variable<T> &v) const {
+		if (!_ctx) {
+			return expression(0.0f);
+		}
 		return _op->diff(*v._data, *_ctx);
 	}
 
 	constexpr std::string expression::to_string() const {
+		if (!_ctx) {
+			return std::format("{}", _constant);
+		}
 		return _op->to_string();
 	}
 
@@ -227,43 +254,43 @@ namespace lotus::auto_diff {
 
 	namespace operations {
 		template <typename T> constexpr T sqrt<T>::eval() const {
-			return std::sqrt(ops.op->eval<value_type>());
+			return std::sqrt(op->eval<value_type>());
 		}
 
 		template <typename T> constexpr std::string sqrt<T>::to_string() const {
-			return "sqrt(" + ops.op->to_string() + ")";
+			return "sqrt(" + op->to_string() + ")";
 		}
 
 		template <typename T> constexpr T add<T>::eval() const {
-			return ops.lhs->eval<value_type>() + ops.rhs->eval<value_type>();
+			return lhs->eval<value_type>() + rhs->eval<value_type>();
 		}
 
 		template <typename T> constexpr std::string add<T>::to_string() const {
-			return "(" + ops.lhs->to_string() + " + " + ops.rhs->to_string() + ")";
+			return "(" + lhs->to_string() + " + " + rhs->to_string() + ")";
 		}
 
 		template <typename T> constexpr T subtract<T>::eval() const {
-			return ops.lhs->eval<value_type>() - ops.rhs->eval<value_type>();
+			return lhs->eval<value_type>() - rhs->eval<value_type>();
 		}
 
 		template <typename T> constexpr std::string subtract<T>::to_string() const {
-			return "(" + ops.lhs->to_string() + " - " + ops.rhs->to_string() + ")";
+			return "(" + lhs->to_string() + " - " + rhs->to_string() + ")";
 		}
 
 		template <typename T> constexpr T multiply<T>::eval() const {
-			return ops.lhs->eval<value_type>() * ops.rhs->eval<value_type>();
+			return lhs->eval<value_type>() * rhs->eval<value_type>();
 		}
 
 		template <typename T> constexpr std::string multiply<T>::to_string() const {
-			return "(" + ops.lhs->to_string() + " * " + ops.rhs->to_string() + ")";
+			return "(" + lhs->to_string() + " * " + rhs->to_string() + ")";
 		}
 
 		template <typename T> constexpr T divide<T>::eval() const {
-			return ops.lhs->eval<value_type>() / ops.rhs->eval<value_type>();
+			return lhs->eval<value_type>() / rhs->eval<value_type>();
 		}
 
 		template <typename T> constexpr std::string divide<T>::to_string() const {
-			return "(" + ops.lhs->to_string() + " / " + ops.rhs->to_string() + ")";
+			return "(" + lhs->to_string() + " / " + rhs->to_string() + ")";
 		}
 	}
 }

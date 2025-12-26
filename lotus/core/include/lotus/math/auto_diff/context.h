@@ -6,6 +6,8 @@
 #include <deque>
 
 #include "common.h"
+#include "variable.h"
+#include "expression.h"
 #include "operations.h"
 
 namespace lotus::auto_diff {
@@ -72,12 +74,16 @@ namespace lotus::auto_diff::_details {
 	struct utils {
 		/// Returns the \ref value_type of an operand.
 		template <typename T> [[nodiscard]] constexpr static value_type get_operand_value_type(const T &op) {
-			if constexpr (std::is_arithmetic_v<T>) {
-				return to_value_type_v<T>;
+			if constexpr (is_variable_v<T>) {
+				return to_value_type_v<typename T::value_type>;
 			} else if constexpr (std::is_same_v<T, expression>) {
 				return op._ctx ? op.get_value_type() : value_type::f64;
+			} else if constexpr (std::is_same_v<T, f64>) {
+				return value_type::f64;
+			} else if constexpr (std::is_arithmetic_v<T>) {
+				return value_type::f32;
 			} else {
-				return to_value_type_v<typename T::value_type>;
+				static_assert(false, "Invalid operand type");
 			}
 		}
 
@@ -114,8 +120,12 @@ namespace lotus::auto_diff::_details {
 		}
 
 		/// Wraps an operation in an expression.
-		[[nodiscard]] constexpr static expression make_expr(context &ctx, operation_data &op) {
+		[[nodiscard]] constexpr static expression make_expr(context &ctx, const operation_data &op) {
 			return expression(ctx, op);
+		}
+		/// Returns the operation contained in the expression.
+		[[nodiscard]] constexpr static const operation_data *get_op(const expression &e) {
+			return e._op;
 		}
 
 		/// Creates a new expression.
@@ -126,17 +136,17 @@ namespace lotus::auto_diff::_details {
 		}
 
 		/// Type erases an operand.
-		template <typename T> [[nodiscard]] constexpr static operation_data &to_operand(
+		template <typename T> [[nodiscard]] constexpr static const operation_data &to_operand(
 			const T &op, context &ctx
 		) {
-			if constexpr (std::is_same_v<T, f32>) {
-				return new_op<operations::constant<f32>>(ctx, op);
-			} else if constexpr (std::is_same_v<T, f64>) {
-				return new_op<operations::constant<f64>>(ctx, op);
-			} else if constexpr (is_variable_v<T>) {
+			if constexpr (is_variable_v<T>) {
 				return new_op<operations::variable<typename T::value_type>>(ctx, op._data);
 			} else if constexpr (std::is_same_v<T, expression>) {
 				return op._ctx ? *op._op : new_op<operations::constant<f64>>(ctx, op._constant);
+			} else if constexpr (std::is_same_v<T, f64>) {
+				return new_op<operations::constant<f64>>(ctx, op);
+			} else if constexpr (std::is_arithmetic_v<T>) {
+				return new_op<operations::constant<f32>>(ctx, op);
 			} else {
 				static_assert(false, "Invalid type for operand");
 			}
@@ -163,15 +173,15 @@ namespace lotus::auto_diff::_details {
 		const auto [ctx, res_ty] = utils::get_unary_operator_metadata(v);
 		if (!ctx) {
 			operation_data op(operations::constant<f64>(utils::to_value(v)));
-			return expression(Op<f64>(operations::unary_operands(&op)).eval());
+			return expression(Op<f64>(&op).eval());
 		}
 
-		operations::unary_operands operands(&utils::to_operand(v, *ctx));
+		const operation_data *op = &utils::to_operand(v, *ctx);
 		switch (res_ty) {
 		case value_type::f32:
-			return utils::make_expr(*ctx, utils::new_op<Op<f32>>(*ctx, operands));
+			return utils::make_expr(*ctx, utils::new_op<Op<f32>>(*ctx, op));
 		case value_type::f64:
-			return utils::make_expr(*ctx, utils::new_op<Op<f64>>(*ctx, operands));
+			return utils::make_expr(*ctx, utils::new_op<Op<f64>>(*ctx, op));
 		default:
 			std::abort();
 		}
@@ -186,15 +196,16 @@ namespace lotus::auto_diff::_details {
 		if (!ctx) {
 			operation_data lhs_c(operations::constant<f64>(utils::to_value(lhs)));
 			operation_data rhs_c(operations::constant<f64>(utils::to_value(rhs)));
-			return expression(Op<f64>(operations::binary_operands(&lhs_c, &rhs_c)).eval());
+			return expression(Op<f64>(&lhs_c, &rhs_c).eval());
 		}
 
-		operations::binary_operands operands(&utils::to_operand(lhs, *ctx), &utils::to_operand(rhs, *ctx));
+		const operation_data *lhs_op = &utils::to_operand(lhs, *ctx);
+		const operation_data *rhs_op = &utils::to_operand(rhs, *ctx);
 		switch (res_ty) {
 		case value_type::f32:
-			return utils::make_expr(*ctx, utils::new_op<Op<f32>>(*ctx, operands));
+			return utils::make_expr(*ctx, utils::new_op<Op<f32>>(*ctx, lhs_op, rhs_op));
 		case value_type::f64:
-			return utils::make_expr(*ctx, utils::new_op<Op<f64>>(*ctx, operands));
+			return utils::make_expr(*ctx, utils::new_op<Op<f64>>(*ctx, lhs_op, rhs_op));
 		default:
 			std::abort();
 		}
@@ -284,36 +295,36 @@ namespace lotus::auto_diff {
 			const _details::variable_data &v, context &ctx
 		) const {
 			// TODO reference self directly
-			expression self = _details::utils::make_expr(ctx, _details::utils::new_op<sqrt>(ctx, ops));
-			return 0.5f * ops.op->diff(v, ctx) / self;
+			expression self = _details::utils::make_expr(ctx, _details::utils::new_op<sqrt>(ctx, op));
+			return 0.5f * op->diff(v, ctx) / self;
 		}
 
 		template <typename T> constexpr expression add<T>::diff(
 			const _details::variable_data &v, context &ctx
 		) const {
-			return ops.lhs->diff(v, ctx) + ops.rhs->diff(v, ctx);
+			return lhs->diff(v, ctx) + rhs->diff(v, ctx);
 		}
 
 		template <typename T> constexpr expression subtract<T>::diff(
 			const _details::variable_data &v, context &ctx
 		) const {
-			return ops.lhs->diff(v, ctx) - ops.rhs->diff(v, ctx);
+			return lhs->diff(v, ctx) - rhs->diff(v, ctx);
 		}
 
 		template <typename T> constexpr expression multiply<T>::diff(
 			const _details::variable_data &v, context &ctx
 		) const {
-			const expression lhs = _details::utils::make_expr(ctx, *ops.lhs);
-			const expression rhs = _details::utils::make_expr(ctx, *ops.rhs);
-			return ops.lhs->diff(v, ctx) * rhs + lhs * ops.rhs->diff(v, ctx);
+			const expression lhs_expr = _details::utils::make_expr(ctx, *lhs);
+			const expression rhs_expr = _details::utils::make_expr(ctx, *rhs);
+			return lhs->diff(v, ctx) * rhs_expr + lhs_expr * rhs->diff(v, ctx);
 		}
 
 		template <typename T> constexpr expression divide<T>::diff(
 			const _details::variable_data &v, context &ctx
 		) const {
-			const expression lhs = _details::utils::make_expr(ctx, *ops.lhs);
-			const expression rhs = _details::utils::make_expr(ctx, *ops.rhs);
-			return (ops.lhs->diff(v, ctx) * rhs - lhs * ops.rhs->diff(v, ctx)) / (rhs * rhs);
+			const expression lhs_expr = _details::utils::make_expr(ctx, *lhs);
+			const expression rhs_expr = _details::utils::make_expr(ctx, *rhs);
+			return (lhs->diff(v, ctx) * rhs_expr - lhs_expr * rhs->diff(v, ctx)) / (rhs_expr * rhs_expr);
 		}
 	}
 }

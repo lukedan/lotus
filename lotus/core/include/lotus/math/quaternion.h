@@ -304,9 +304,8 @@ namespace lotus {
 		}
 
 		/// Rotates a vector.
-		template <typename Vec> [[nodiscard]] constexpr std::enable_if_t<Vec::dimensionality == 3, Vec> rotate(
-			const Vec &v1
-		) const {
+		template <typename Vec> [[nodiscard]] constexpr auto rotate(const Vec &v1) const {
+			static_assert(Vec::dimensionality == 3, "Incorrect dimensionality");
 			T s = w();
 			auto v = axis();
 			auto result = (2 * vec::dot(v, v1)) * v + (s * s - v.squared_norm()) * v1 + (2 * s) * vec::cross(v, v1);

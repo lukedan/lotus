@@ -326,124 +326,6 @@ namespace lotus {
 	};
 
 
-	// arithmetic
-	/// Matrix multiplication.
-	template <
-		usize Rows, usize Col1Row2, usize Cols, typename T
-	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator*(
-		const matrix<Rows, Col1Row2, T> &lhs, const matrix<Col1Row2, Cols, T> &rhs
-	) {
-		matrix<Rows, Cols, T> result = zero;
-		for (usize y = 0; y < Rows; ++y) {
-			for (usize x = 0; x < Cols; ++x) {
-				T &res = result(y, x);
-				for (usize k = 0; k < Col1Row2; ++k) {
-					res += lhs(y, k) * rhs(k, x);
-				}
-			}
-		}
-		return result;
-	}
-
-	/// In-place memberwise addition.
-	template <usize Rows, usize Cols, typename T> inline constexpr matrix<Rows, Cols, T> &operator+=(
-		matrix<Rows, Cols, T> &lhs, const matrix<Rows, Cols, T> &rhs
-	) {
-		for (usize y = 0; y < Rows; ++y) {
-			for (usize x = 0; x < Cols; ++x) {
-				lhs(y, x) += rhs(y, x);
-			}
-		}
-		return lhs;
-	}
-	/// Memberwise addition.
-	template <
-		usize Rows, usize Cols, typename T
-	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator+(
-		matrix<Rows, Cols, T> lhs, const matrix<Rows, Cols, T> &rhs
-	) {
-		lhs += rhs;
-		return lhs;
-	}
-
-	/// In-place memberwise subtraction.
-	template <usize Rows, usize Cols, typename T> inline constexpr matrix<Rows, Cols, T> &operator-=(
-		matrix<Rows, Cols, T> &lhs, const matrix<Rows, Cols, T> &rhs
-	) {
-		for (usize y = 0; y < Rows; ++y) {
-			for (usize x = 0; x < Cols; ++x) {
-				lhs(y, x) -= rhs(y, x);
-			}
-		}
-		return lhs;
-	}
-	/// Memberwise subtraction.
-	template <
-		usize Rows, usize Cols, typename T
-	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator-(
-		matrix<Rows, Cols, T> lhs, const matrix<Rows, Cols, T> &rhs
-	) {
-		lhs -= rhs;
-		return lhs;
-	}
-	/// Negation.
-	template <
-		usize Rows, usize Cols, typename T
-	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator-(matrix<Rows, Cols, T> m) {
-		for (usize y = 0; y < Rows; ++y) {
-			for (usize x = 0; x < Cols; ++x) {
-				m(y, x) = -m(y, x);
-			}
-		}
-		return m;
-	}
-
-	/// In-place scalar multiplication.
-	template <
-		usize Rows, usize Cols, typename T, typename U
-	> inline constexpr matrix<Rows, Cols, T> &operator*=(matrix<Rows, Cols, T> &lhs, const U &rhs) {
-		for (usize y = 0; y < Rows; ++y) {
-			for (usize x = 0; x < Cols; ++x) {
-				lhs(y, x) *= rhs;
-			}
-		}
-		return lhs;
-	}
-	/// Scalar multiplication.
-	template <
-		usize Rows, usize Cols, typename T, typename U
-	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator*(matrix<Rows, Cols, T> lhs, const U &rhs) {
-		lhs *= rhs;
-		return lhs;
-	}
-	/// Scalar multiplication.
-	template <
-		usize Rows, usize Cols, typename T, typename U
-	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator*(const U &lhs, matrix<Rows, Cols, T> rhs) {
-		rhs *= lhs;
-		return rhs;
-	}
-
-	/// In-place scalar division.
-	template <
-		usize Rows, usize Cols, typename T, typename U
-	> inline constexpr matrix<Rows, Cols, T> &operator/=(matrix<Rows, Cols, T> &lhs, const U &rhs) {
-		for (usize y = 0; y < Rows; ++y) {
-			for (usize x = 0; x < Cols; ++x) {
-				lhs(y, x) /= rhs;
-			}
-		}
-		return lhs;
-	}
-	/// Scalar division.
-	template <
-		usize Rows, usize Cols, typename T, typename U
-	> [[nodiscard]] inline constexpr matrix<Rows, Cols, T> operator/(matrix<Rows, Cols, T> lhs, const U &rhs) {
-		lhs /= rhs;
-		return lhs;
-	}
-
-
 	/// Memberwise matrix utilities.
 	class mat_memberwise {
 	public:
@@ -527,6 +409,127 @@ namespace lotus {
 		}
 	};
 	using matm = mat_memberwise; ///< Shorthand.
+
+
+	// arithmetic
+	/// Matrix multiplication.
+	template <
+		usize Rows, usize Col1Row2, usize Cols, typename U, typename V
+	> [[nodiscard]] constexpr auto operator*(
+		const matrix<Rows, Col1Row2, U> &lhs, const matrix<Col1Row2, Cols, V> &rhs
+	) {
+		using _res_type = decltype(lhs(0, 0) * rhs(0, 0) + lhs(0, 0) * rhs(0, 0));
+		matrix<Rows, Cols, _res_type> result = zero;
+		for (usize y = 0; y < Rows; ++y) {
+			for (usize x = 0; x < Cols; ++x) {
+				_res_type &res = result(y, x);
+				for (usize k = 0; k < Col1Row2; ++k) {
+					res += lhs(y, k) * rhs(k, x);
+				}
+			}
+		}
+		return result;
+	}
+
+	/// In-place memberwise addition.
+	template <usize Rows, usize Cols, typename T, typename U> constexpr matrix<Rows, Cols, T> &operator+=(
+		matrix<Rows, Cols, T> &lhs, const matrix<Rows, Cols, U> &rhs
+	) {
+		for (usize y = 0; y < Rows; ++y) {
+			for (usize x = 0; x < Cols; ++x) {
+				lhs(y, x) += rhs(y, x);
+			}
+		}
+		return lhs;
+	}
+	/// Memberwise addition.
+	template <
+		usize Rows, usize Cols, typename T, typename U
+	> [[nodiscard]] constexpr auto operator+(matrix<Rows, Cols, T> lhs, const matrix<Rows, Cols, U> &rhs) {
+		return matm::operation([](const auto &vl, const auto &vr) {
+			return vl + vr;
+		}, lhs, rhs);
+	}
+
+	/// In-place memberwise subtraction.
+	template <usize Rows, usize Cols, typename T, typename U> constexpr matrix<Rows, Cols, T> &operator-=(
+		matrix<Rows, Cols, T> &lhs, const matrix<Rows, Cols, U> &rhs
+	) {
+		for (usize y = 0; y < Rows; ++y) {
+			for (usize x = 0; x < Cols; ++x) {
+				lhs(y, x) -= rhs(y, x);
+			}
+		}
+		return lhs;
+	}
+	/// Memberwise subtraction.
+	template <
+		usize Rows, usize Cols, typename T, typename U
+	> [[nodiscard]] constexpr auto operator-(matrix<Rows, Cols, T> lhs, const matrix<Rows, Cols, U> &rhs) {
+		return matm::operation([](const auto &vl, const auto &vr) {
+			return vl - vr;
+		}, lhs, rhs);
+	}
+	/// Negation.
+	template <
+		usize Rows, usize Cols, typename T
+	> [[nodiscard]] constexpr matrix<Rows, Cols, T> operator-(matrix<Rows, Cols, T> m) {
+		for (usize y = 0; y < Rows; ++y) {
+			for (usize x = 0; x < Cols; ++x) {
+				m(y, x) = -m(y, x);
+			}
+		}
+		return m;
+	}
+
+	/// In-place scalar multiplication.
+	template <
+		usize Rows, usize Cols, typename T, typename U
+	> constexpr matrix<Rows, Cols, T> &operator*=(matrix<Rows, Cols, T> &lhs, const U &rhs) {
+		for (usize y = 0; y < Rows; ++y) {
+			for (usize x = 0; x < Cols; ++x) {
+				lhs(y, x) *= rhs;
+			}
+		}
+		return lhs;
+	}
+	/// Scalar multiplication.
+	template <
+		usize Rows, usize Cols, typename T, typename U
+	> [[nodiscard]] constexpr auto operator*(const matrix<Rows, Cols, T> &lhs, const U &rhs) {
+		return matm::operation([&](const T &v) {
+			return v * rhs;
+		}, lhs);
+	}
+	/// Scalar multiplication.
+	template <
+		usize Rows, usize Cols, typename T, typename U
+	> [[nodiscard]] constexpr auto operator*(const U &lhs, const matrix<Rows, Cols, T> &rhs) {
+		return matm::operation([&](const T &v) {
+			return lhs * v;
+		}, rhs);
+	}
+
+	/// In-place scalar division.
+	template <
+		usize Rows, usize Cols, typename T, typename U
+	> constexpr matrix<Rows, Cols, T> &operator/=(matrix<Rows, Cols, T> &lhs, const U &rhs) {
+		for (usize y = 0; y < Rows; ++y) {
+			for (usize x = 0; x < Cols; ++x) {
+				lhs(y, x) /= rhs;
+			}
+		}
+		return lhs;
+	}
+	/// Scalar division.
+	template <
+		usize Rows, usize Cols, typename T, typename U
+	> [[nodiscard]] constexpr auto operator/(matrix<Rows, Cols, T> lhs, const U &rhs) {
+		return matm::operation([&](const auto &v) {
+			return v / rhs;
+		}, lhs);
+	}
+
 
 	template <usize N, typename T> class lup_decomposition;
 	/// Matrix utilities.

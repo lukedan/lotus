@@ -16,20 +16,22 @@ namespace lotus {
 	class vec : public mat {
 	public:
 		/// Dot product.
-		template <typename Vec> [[nodiscard]] static constexpr typename Vec::value_type dot(
-			const Vec &lhs, const Vec &rhs
+		template <typename VecLhs, typename VecRhs> [[nodiscard]] static constexpr auto dot(
+			const VecLhs &lhs, const VecRhs &rhs
 		) {
-			auto result = static_cast<typename Vec::value_type>(0);
-			for (usize i = 0; i < Vec::dimensionality; ++i) {
+			static_assert(VecLhs::dimensionality == VecRhs::dimensionality, "Dimensionality mismatch");
+			auto result = lhs[0] * rhs[0];
+			for (usize i = 1; i < VecLhs::dimensionality; ++i) {
 				result += lhs[i] * rhs[i];
 			}
 			return result;
 		}
 		/// Cross product.
-		template <typename Vec> [[nodiscard]] constexpr static std::enable_if_t<
-			Vec::dimensionality == 3, Vec
-		> cross(const Vec &lhs, const Vec &rhs) {
-			return {
+		template <typename VecLhs, typename VecRhs> [[nodiscard]] constexpr static auto cross(
+			const VecLhs &lhs, const VecRhs &rhs
+		) {
+			static_assert(VecLhs::dimensionality == 3 && VecRhs::dimensionality == 3, "Incorrect dimensionality");
+			return matrix<VecLhs::num_rows, VecLhs::num_columns, decltype(lhs[0] * rhs[0])>{
 				lhs[1] * rhs[2] - lhs[2] * rhs[1],
 				lhs[2] * rhs[0] - lhs[0] * rhs[2],
 				lhs[0] * rhs[1] - lhs[1] * rhs[0]

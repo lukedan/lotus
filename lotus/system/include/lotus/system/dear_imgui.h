@@ -198,9 +198,9 @@ namespace lotus::system::dear_imgui {
 		/// Updates modifier key state.
 		void _update_modifier_keys(modifier_key_mask mods) {
 			auto &io = ImGui::GetIO();
-			io.AddKeyEvent(ImGuiKey_ModCtrl,  bit_mask::contains<modifier_key_mask::control>(mods));
-			io.AddKeyEvent(ImGuiKey_ModShift, bit_mask::contains<modifier_key_mask::shift  >(mods));
-			io.AddKeyEvent(ImGuiKey_ModAlt,   bit_mask::contains<modifier_key_mask::alt    >(mods));
+			io.AddKeyEvent(ImGuiMod_Ctrl,  bit_mask::contains<modifier_key_mask::control>(mods));
+			io.AddKeyEvent(ImGuiMod_Shift, bit_mask::contains<modifier_key_mask::shift  >(mods));
+			io.AddKeyEvent(ImGuiMod_Alt,   bit_mask::contains<modifier_key_mask::alt    >(mods));
 		}
 	};
 }

@@ -10,6 +10,7 @@
 #include "descriptors.h"
 #include "details.h"
 #include "frame_buffer.h"
+#include "resources.h"
 
 namespace lotus::gpu::backends::vulkan {
 	class adapter;
@@ -30,7 +31,7 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		/// Calls \p vk::UniqueDevice::acquireNextImageKHR().
-		[[nodiscard]] back_buffer_info acquire_back_buffer(swap_chain&);
+		[[nodiscard]] std::tuple<image2d, fence*, swap_chain_status> acquire_back_buffer(swap_chain&);
 		/// Calls \p vk::UniqueDevice::createSwapchainKHRUnique() to create a new swap chain reusing the old swap
 		/// chain.
 		void resize_swap_chain_buffers(swap_chain&, cvec2u32);

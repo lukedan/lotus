@@ -33,35 +33,6 @@ namespace lotus::gpu {
 		/// No copy assignment.
 		swap_chain &operator=(const swap_chain&) = delete;
 
-		/// Returns the actual number of images in this swapchain.
-		[[nodiscard]] u32 get_image_count() const {
-			return backend::swap_chain::get_image_count();
-		}
-		/// Returns the backing image at the given index.
-		[[nodiscard]] image2d get_image(u32 index) {
-			return backend::swap_chain::get_image(index);
-		}
-		/// Updates the synchronization primitives used internally. This will affect the next frame for which
-		/// \ref command_queue::present() has not been called. There should be exactly \ref get_image_count()
-		/// elements in the array, but they may not correspond to the swapchain images at the same index.
-		void update_synchronization_primitives(std::span<const back_buffer_synchronization> prim) {
-			backend::swap_chain::update_synchronization_primitives(prim);
-		}
-		/// \overload
-		void update_synchronization_primitives(std::initializer_list<back_buffer_synchronization> prim) {
-			update_synchronization_primitives({ prim.begin(), prim.end() });
-		}
-		/// \overload
-		void update_synchronization_primitives(std::span<fence> fences) {
-			auto bookmark = get_scratch_bookmark();
-			auto prims = bookmark.create_vector_array<back_buffer_synchronization>(get_image_count(), nullptr);
-			crash_if(fences.size() != prims.size());
-			for (usize i = 0; i < fences.size(); ++i) {
-				prims[i].notify_fence = &fences[i];
-			}
-			update_synchronization_primitives(prims);
-		}
-
 		/// Checks if this object holds a valid swap chain.
 		[[nodiscard]] bool is_valid() const {
 			return backend::swap_chain::is_valid();

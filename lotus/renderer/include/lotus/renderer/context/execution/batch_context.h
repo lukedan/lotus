@@ -58,9 +58,6 @@ namespace lotus::renderer::execution {
 			queue_submission_index to_acquire_before
 		);
 
-		/// Marks the given swap chain as having been presented to in this batch.
-		void mark_swap_chain_presented(_details::swap_chain&);
-
 
 		// execution
 		/// Creates a new descriptor set for the given array of bindings.
@@ -87,9 +84,6 @@ namespace lotus::renderer::execution {
 			return _queue_pseudo_ctxs[index];
 		}
 
-		/// Finishes executing the batch.
-		void finish_batch();
-
 		/// Records a resource that is only used within this batch.
 		template <typename T> T &record_batch_resource(T);
 		/// Returns the batch resolve data associated with the given queue.
@@ -105,8 +99,5 @@ namespace lotus::renderer::execution {
 		renderer::context &_rctx; ///< The renderer context.
 		short_vector<queue_pseudo_context, 4> _queue_pseudo_ctxs; ///< All pseudo-execution contexts.
 		short_vector<queue_context, 4> _queue_ctxs; ///< All queue contexts.
-
-		/// All swap chains that have been presented to during this batch.
-		std::vector<_details::swap_chain*> _presented_swap_chains;
 	};
 }

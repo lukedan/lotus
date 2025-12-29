@@ -836,23 +836,17 @@ namespace lotus::renderer::execution {
 		);
 
 		if (access.layout == gpu::image_layout::present) {
-			crash_if(chain.next_image_index == _details::swap_chain::invalid_image_index); // must be acquired
+			crash_if(!chain.current_image); // must be acquired
 			crash_if(_q.queue.get_index() != chain.queue_index); // must be presented on the specified queue
 			crash_if(chain.previous_present == _q.ctx._batch_index); // cannot present twice in the same batch
 			// update batch index
 			chain.previous_present = _q.ctx._batch_index;
-			_batch_ctx.mark_swap_chain_presented(chain);
 		} else {
 			_q.ctx._maybe_update_swap_chain(chain);
 		}
 
-		// retrieve the swap chain image if necessary
-		if (!chain.current_image) {
-			chain.current_image = &_batch_ctx.record_batch_resource(chain.chain.get_image(chain.next_image_index));
-		}
-
 		// TODO properly stage transitions
-		auto &back_buffer = chain.back_buffers[chain.next_image_index];
+		/*auto &back_buffer = chain.back_buffers[chain.next_image_index];
 		_queue_ctx._cmd_ops[std::to_underlying(scope.begin)].pre_image_transitions.emplace_back(
 			gpu::subresource_range::first_color(),
 			*chain.current_image,
@@ -865,8 +859,7 @@ namespace lotus::renderer::execution {
 			access.layout,
 			_q.queue.get_family()
 		);
-		back_buffer.current_usage = access;
-		/*std::abort();*/
+		back_buffer.current_usage = access;*/
 	}
 
 	u32 queue_pseudo_context::_maybe_insert_timestamp() {

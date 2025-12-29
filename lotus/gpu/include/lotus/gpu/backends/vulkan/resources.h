@@ -9,6 +9,7 @@
 
 namespace lotus::gpu::backends::vulkan {
 	class command_list;
+	class context;
 	class device;
 	class swap_chain;
 
@@ -72,11 +73,12 @@ namespace lotus::gpu::backends::vulkan {
 		/// Base class of all image types, contains a \p vk::Image and the \p vk::Device that created it.
 		class image_base : public gpu::image_base {
 			friend command_list;
+			friend context;
 			friend device;
 			friend swap_chain;
 		public:
 			/// Move construction.
-			image_base(image_base &&src) :
+			image_base(image_base &&src) noexcept :
 				_device(std::exchange(src._device, nullptr)),
 				_memory(std::exchange(src._memory, nullptr)),
 				_image(std::exchange(src._image, nullptr)) {
@@ -146,8 +148,9 @@ namespace lotus::gpu::backends::vulkan {
 
 	/// A 2D image.
 	template <image_type Type> class basic_image : public _details::image_base {
-		friend swap_chain;
+		friend context;
 		friend device;
+		friend swap_chain;
 	protected:
 		/// Creates an empty object.
 		basic_image(std::nullptr_t) : _details::image_base(nullptr) {

@@ -21,6 +21,21 @@ namespace lotus::gpu {
 	class adapter;
 	class device;
 
+	/// Information used when presenting a back buffer.
+	struct back_buffer_info {
+		/// Initializes this object to empty.
+		back_buffer_info(std::nullptr_t) {
+		}
+
+		/// The back buffer to render to and will be presented next. This is only valid until
+		/// \ref command_queue::present() is called.
+		basic_image<image_type::type_2d> back_buffer = nullptr;
+		/// Fence that will be triggered when \ref back_buffer is ready to be written to. This can be empty, in which
+		/// case no fences need to be waited on.
+		fence *on_presented = nullptr;
+		swap_chain_status status = swap_chain_status::unavailable; ///< The status of this swapchain.
+	};
+
 	/// Interface to the graphics device.
 	class device : public backend::device {
 		friend adapter;
@@ -44,7 +59,13 @@ namespace lotus::gpu {
 		/// Acquires the next back buffer and returns its index in this swap chain. This should only be called once
 		/// per frame.
 		[[nodiscard]] back_buffer_info acquire_back_buffer(swap_chain &swapchain) {
-			return backend::device::acquire_back_buffer(swapchain);
+			std::tuple<backend::image2d, backend::fence*, swap_chain_status> back_buf =
+				backend::device::acquire_back_buffer(swapchain);
+			back_buffer_info result = nullptr;
+			result.back_buffer  = image2d(std::move(std::get<0>(back_buf)));
+			result.on_presented = static_cast<fence*>(std::get<1>(back_buf));
+			result.status       = std::get<2>(back_buf);
+			return result;
 		}
 		/// Resizes all buffers in the swap chain.
 		void resize_swap_chain_buffers(swap_chain &swapchain, cvec2u32 size) {

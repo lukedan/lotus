@@ -482,7 +482,6 @@ namespace lotus::renderer {
 		}
 
 		// finalize & clean up
-		bctx.finish_batch();
 		_first_batch_command_index = _sub_index;
 		for (usize i = 0; i < _queues.size(); ++i) {
 			_queues[i].reset_batch();
@@ -911,85 +910,72 @@ namespace lotus::renderer {
 	}
 
 	gpu::image2d_view &context::_request_swap_chain_view(const recorded_resources::swap_chain &chain) {
-		crash_if(chain._ptr->next_image_index == _details::swap_chain::invalid_image_index);
 		return _batch_data.back().resources.record(_device.create_image2d_view_from(
-			*chain._ptr->current_image,
+			chain._ptr->current_image,
 			chain._ptr->current_format,
 			gpu::mip_levels::only_top()
 		));
 	}
 
 	void context::_maybe_update_swap_chain(_details::swap_chain &chain) {
-		if (chain.next_image_index == _details::swap_chain::invalid_image_index) {
-			// acquire next back buffer
-			gpu::back_buffer_info back_buffer = nullptr;
-			if (chain.chain) {
-				back_buffer = _device.acquire_back_buffer(chain.chain);
-				// wait until this buffer becomes available
-				// immediately wait in case we need to re-create the swap chain later
-				if (back_buffer.on_presented) {
-					_device.wait_for_fence(*back_buffer.on_presented);
-					_device.reset_fence(*back_buffer.on_presented);
-				}
-			}
-			// recreate swap chain if necessary
-			if (
-				chain.current_size != chain.desired_size ||
-				back_buffer.status == gpu::swap_chain_status::unavailable
-			) {
-				// wait for all queues to finish executing
-				for (u32 i = 0; i < get_num_queues(); ++i) {
-					auto fence = _device.create_fence(gpu::synchronization_state::unset);
-					_queues[i].queue.signal(fence);
-					_device.wait_for_fence(fence);
-				}
-				// discard old fences
-				for (auto &fence : chain.fences) {
-					_batch_data.back().resources.record(std::move(fence));
-				}
-				chain.fences.clear();
-				// release all resources used by previous batches
-				chain.back_buffers.clear();
-				_cleanup(1);
-
-				// update chain
-				if (chain.chain && back_buffer.status == gpu::swap_chain_status::ok) { // resize
-					_device.resize_swap_chain_buffers(chain.chain, chain.desired_size);
-				} else { // create new
-					chain.chain = nullptr;
-					auto [new_chain, new_format] = _context.create_swap_chain_for_window(
-						chain.window,
-						_device,
-						_queues[chain.queue_index].queue,
-						chain.num_images,
-						chain.expected_formats
-					);
-					chain.chain = std::move(new_chain);
-					chain.current_format = new_format;
-				}
-				chain.current_size = chain.desired_size;
-
-				for (u32 i = 0; i < chain.num_images; ++i) {
-					// update chain images
-					chain.back_buffers.emplace_back(nullptr);
-					// create new fences
-					chain.fences.emplace_back(_device.create_fence(gpu::synchronization_state::unset));
-				}
-				chain.chain.update_synchronization_primitives(chain.fences);
-
-				// re-acquire back buffer
-				back_buffer = _device.acquire_back_buffer(chain.chain);
-				crash_if(back_buffer.status == gpu::swap_chain_status::unavailable);
-				// wait for back buffer
-				if (back_buffer.on_presented) {
-					_device.wait_for_fence(*back_buffer.on_presented);
-					_device.reset_fence(*back_buffer.on_presented);
-				}
-			}
-
-			// update next image index
-			chain.next_image_index = back_buffer.index;
+		if (chain.current_image) {
+			return; // already acquired; don't update
 		}
+
+		// acquire next back buffer
+		gpu::back_buffer_info back_buffer = nullptr;
+		if (chain.chain) {
+			back_buffer = _device.acquire_back_buffer(chain.chain);
+			// wait until this buffer becomes available
+			// immediately wait in case we need to re-create the swap chain later
+			if (back_buffer.on_presented) {
+				_device.wait_for_fence(*back_buffer.on_presented);
+				_device.reset_fence(*back_buffer.on_presented);
+			}
+		}
+		// recreate swap chain if necessary
+		if (
+			chain.current_size != chain.desired_size ||
+			back_buffer.status == gpu::swap_chain_status::unavailable
+		) {
+			// wait for all queues to finish executing
+			for (u32 i = 0; i < get_num_queues(); ++i) {
+				auto fence = _device.create_fence(gpu::synchronization_state::unset);
+				_queues[i].queue.signal(fence);
+				_device.wait_for_fence(fence);
+			}
+			// release all resources used by previous batches
+			_cleanup(1);
+
+			// update chain
+			if (chain.chain && back_buffer.status == gpu::swap_chain_status::ok) { // resize
+				_device.resize_swap_chain_buffers(chain.chain, chain.desired_size);
+			} else { // create new
+				chain.chain = nullptr;
+				auto [new_chain, new_format] = _context.create_swap_chain_for_window(
+					chain.window,
+					_device,
+					_queues[chain.queue_index].queue,
+					chain.num_images,
+					chain.expected_formats
+				);
+				chain.chain = std::move(new_chain);
+				chain.current_format = new_format;
+			}
+			chain.current_size = chain.desired_size;
+
+			// re-acquire back buffer
+			back_buffer = _device.acquire_back_buffer(chain.chain);
+			crash_if(back_buffer.status == gpu::swap_chain_status::unavailable);
+			// wait for back buffer
+			if (back_buffer.on_presented) {
+				_device.wait_for_fence(*back_buffer.on_presented);
+				_device.reset_fence(*back_buffer.on_presented);
+			}
+		}
+
+		// update next image index
+		chain.current_image = std::move(back_buffer.back_buffer);
 	}
 
 	void context::_cleanup(usize keep_batches) {

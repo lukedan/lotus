@@ -55,10 +55,6 @@ namespace lotus::renderer::execution {
 		request_dependency_explicit(from_queue, value, to_queue, to_acquire_before);
 	}
 
-	void batch_context::mark_swap_chain_presented(_details::swap_chain &chain) {
-		_presented_swap_chains.emplace_back(&chain);
-	}
-
 	descriptor_set_info batch_context::use_descriptor_set(
 		std::span<const all_resource_bindings::numbered_binding> bindings
 	) {
@@ -124,14 +120,6 @@ namespace lotus::renderer::execution {
 		result.pipeline_resources_key.sort();
 		result.pipeline_resources = &_rctx._cache.get_pipeline_resources(result.pipeline_resources_key);
 		return result;
-	}
-
-	void batch_context::finish_batch() {
-		for (_details::swap_chain *chain : _presented_swap_chains) {
-			// marked to present twice, somehow - we should already have a check somewhere else
-			crash_if(chain->next_image_index == _details::swap_chain::invalid_image_index);
-			chain->next_image_index = _details::swap_chain::invalid_image_index;
-		}
 	}
 
 	batch_resolve_data &batch_context::get_batch_resolve_data() {

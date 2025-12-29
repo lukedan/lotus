@@ -474,12 +474,12 @@ namespace lotus::gpu::backends::vulkan {
 	}
 
 	swap_chain_status command_queue::present(swap_chain &target) {
+		const u32 image_index = target._image_to_present;
 		vk::PresentInfoKHR info;
-		u32 index = target._frame_index;
 		info
 			.setSwapchains(target._swapchain.get())
-			.setImageIndices(index);
-		vk::Result res = _queue.presentKHR(&info);
+			.setImageIndices(image_index);
+		const vk::Result res = _queue.presentKHR(&info);
 		if (res == vk::Result::eSuboptimalKHR) {
 			return swap_chain_status::suboptimal;
 		}

@@ -29,7 +29,7 @@ namespace lotus::gpu::backends::metal {
 		}
 
 		/// Calls \p CA::MetalLayer::nextDrawable().
-		[[nodiscard]] back_buffer_info acquire_back_buffer(swap_chain&);
+		[[nodiscard]] std::tuple<image2d, fence*, swap_chain_status> acquire_back_buffer(swap_chain&);
 		/// Calls \p CA::MetalLayer::setDrawableSize().
 		void resize_swap_chain_buffers(swap_chain&, cvec2u32 size);
 

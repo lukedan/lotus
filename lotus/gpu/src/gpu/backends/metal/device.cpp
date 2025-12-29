@@ -11,15 +11,12 @@
 #include "lotus/gpu/backends/common/dxc.h"
 
 namespace lotus::gpu::backends::metal {
-	back_buffer_info device::acquire_back_buffer(swap_chain &chain) {
+	std::tuple<image2d, fence*, swap_chain_status> device::acquire_back_buffer(swap_chain &chain) {
 		chain._drawable = NS::RetainPtr(chain._layer->nextDrawable());
 		if (!chain._drawable) {
-			return nullptr;
+			return { image2d(nullptr), nullptr, swap_chain_status::unavailable };
 		}
-		back_buffer_info result = nullptr;
-		result.index  = 0;
-		result.status = swap_chain_status::ok;
-		return result;
+		return { image2d({ NS::RetainPtr(chain._drawable->texture()), nullptr }), nullptr, swap_chain_status::ok };
 	}
 
 	command_allocator device::create_command_allocator(command_queue &q) {

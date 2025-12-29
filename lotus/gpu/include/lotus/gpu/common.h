@@ -1652,42 +1652,6 @@ namespace lotus::gpu {
 		}
 	};
 
-	/// Synchronization primitives that will be notified when a frame has finished presenting.
-	struct back_buffer_synchronization {
-	public:
-		/// Initializes all fields to \p nullptr.
-		back_buffer_synchronization(std::nullptr_t) {
-		}
-		/// Creates a new object with the specified parameters.
-		[[nodiscard]] inline static back_buffer_synchronization create(fence *f) {
-			return back_buffer_synchronization(f);
-		}
-		/// Creates an object indicating that only the given fence should be used for synchronization.
-		[[nodiscard]] inline static back_buffer_synchronization with_fence(fence &f) {
-			return back_buffer_synchronization(&f);
-		}
-
-		fence *notify_fence = nullptr; ///< Fence to notify.
-	protected:
-		/// Initializes all fields of this struct.
-		back_buffer_synchronization(fence *f) : notify_fence(f) {
-		}
-	};
-	/// Information used when presenting a back buffer.
-	struct back_buffer_info {
-		/// No initialization.
-		back_buffer_info(uninitialized_t) {
-		}
-		/// Initializes the \ref fence to \p nullptr and the status to \ref swap_chain_status::unavailable.
-		back_buffer_info(std::nullptr_t) : index(0), on_presented(nullptr), status(swap_chain_status::unavailable) {
-		}
-
-		u32 index; ///< Index of the back buffer.
-		/// Fence that will be triggered when this has finished presenting the previous frame. This can be empty.
-		fence *on_presented;
-		swap_chain_status status; ///< The status of this swapchain.
-	};
-
 	/// Contains additional metadata about a staging buffer.
 	struct staging_buffer_metadata {
 		/// No initialization.

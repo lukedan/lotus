@@ -135,7 +135,7 @@ namespace lotus::gpu::backends::vulkan {
 			// TODO allocator
 			result._surface = _details::unwrap(_instance->createWin32SurfaceKHRUnique(surface_info));
 #elif defined(__APPLE__)
-			CAMetalLayer *layer = _details::create_core_animation_metal_layer(wnd.get_native_handle());
+			const CAMetalLayer *layer = _details::create_core_animation_metal_layer(wnd.get_native_handle());
 			vk::MetalSurfaceCreateInfoEXT surface_info;
 			surface_info.setPLayer(layer);
 			// TODO allocator
@@ -185,7 +185,7 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		vk::SwapchainCreateInfoKHR info;
-		cvec2s size = wnd.get_size();
+		const cvec2s size = wnd.get_size();
 		info
 			.setSurface(result._surface.get())
 			.setMinImageCount(static_cast<u32>(frame_count))
@@ -200,8 +200,12 @@ namespace lotus::gpu::backends::vulkan {
 		// TODO allocator
 		result._swapchain = _details::unwrap(dev._device->createSwapchainKHRUnique(info));
 
+		// retrieve swap chain images
 		result._images = _details::unwrap(dev._device->getSwapchainImagesKHR(result._swapchain.get()));
-		result._synchronization.resize(result._images.size(), nullptr);
+		// create images and fences for each image
+		for (usize i = 0; i < frame_count; ++i) {
+			result._fences.emplace_back(dev.create_fence(synchronization_state::unset));
+		}
 
 		return { std::move(result), result_format };
 	}

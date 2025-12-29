@@ -159,7 +159,6 @@ if(LOTUS_GPU_USE_VULKAN)
 			"src/gpu/backends/vulkan/context.cpp"
 			"src/gpu/backends/vulkan/details.cpp"
 			"src/gpu/backends/vulkan/device.cpp"
-			"src/gpu/backends/vulkan/frame_buffer.cpp"
 			"src/gpu/backends/vulkan/pipeline.cpp"
 			"src/gpu/backends/vulkan/resources.cpp")
 	add_gpu_backend_include_definitions(lotus_gpu_vulkan "lotus/gpu/backends/vulkan/")
@@ -244,7 +243,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND LOTUS_GPU_USE_METAL)
 			"src/gpu/backends/metal/details.cpp"
 			"src/gpu/backends/metal/device.cpp"
 			"src/gpu/backends/metal/device.mm"
-			"src/gpu/backends/metal/frame_buffer.cpp"
 			"src/gpu/backends/metal/metal_impl.cpp")
 	add_gpu_backend_include_definitions(lotus_gpu_metal "lotus/gpu/backends/metal/")
 	target_include_directories(lotus_gpu_metal PUBLIC "thirdparty/metal-cpp/")

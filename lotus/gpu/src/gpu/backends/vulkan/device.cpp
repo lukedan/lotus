@@ -14,42 +14,32 @@
 #include "lotus/gpu/synchronization.h"
 
 namespace lotus::gpu::backends::vulkan {
-	back_buffer_info device::acquire_back_buffer(swap_chain &swapchain) {
-		auto &sync = swapchain._synchronization[swapchain._frame_counter];
-		if (++swapchain._frame_counter == swapchain._synchronization.size()) {
-			swapchain._frame_counter = 0;
-		}
-		// Vulkan requires that we have at least one synchronization primitive for the call. If there's none, then
-		// either we're on the first frame, in which case we should copy from the next frame; or we just haven't
-		// specified any which is an error
-		if (sync.notify_fence == nullptr) {
-			sync.notify_fence = sync.next_fence;
-		}
-		crash_if(!sync.notify_fence);
-		vk::Fence &notify_fence = static_cast<fence*>(sync.notify_fence)->_fence.get();
-		crash_if(!notify_fence);
+	std::tuple<image2d, fence*, swap_chain_status> device::acquire_back_buffer(swap_chain &swapchain) {
+		swapchain._fence_to_signal = (swapchain._fence_to_signal + 1) % swapchain._images.size();
 
-		u32 frame_index;
-		auto res = _device->acquireNextImageKHR(
+		fence &fence_to_signal = swapchain._fences[swapchain._fence_to_signal];
+		u32 image_index;
+		const vk::Result res = _device->acquireNextImageKHR(
 			swapchain._swapchain.get(),
 			std::numeric_limits<u64>::max(),
 			nullptr,
-			notify_fence,
-			&frame_index
+			fence_to_signal._fence.get(),
+			&image_index
 		);
-		swapchain._frame_index = static_cast<u16>(frame_index);
+		swapchain._image_to_present = static_cast<u16>(image_index);
 
-		back_buffer_info result = uninitialized;
-		result.index        = swapchain._frame_index;
-		result.on_presented = sync.notify_fence;
+		image2d back_buffer = nullptr;
+		swap_chain_status status;
+		back_buffer._image = swapchain._images[image_index];
 		if (res == vk::Result::eErrorOutOfDateKHR || res == vk::Result::eErrorSurfaceLostKHR) {
-			result.status = swap_chain_status::unavailable;
+			status = swap_chain_status::unavailable;
 		} else if (res == vk::Result::eSuboptimalKHR) {
-			result.status = swap_chain_status::suboptimal;
+			status = swap_chain_status::suboptimal;
 		} else {
-			result.status = swap_chain_status::ok;
+			_details::assert_vk(res);
+			status = swap_chain_status::ok;
 		}
-		return result;
+		return { std::move(back_buffer), &fence_to_signal, status };
 	}
 
 	void device::resize_swap_chain_buffers(swap_chain &s, cvec2u32 size) {
@@ -57,7 +47,7 @@ namespace lotus::gpu::backends::vulkan {
 		vk::SwapchainCreateInfoKHR info;
 		info
 			.setSurface(s._surface.get())
-			.setMinImageCount(static_cast<u32>(s.get_image_count()))
+			.setMinImageCount(static_cast<u32>(s._images.size()))
 			.setImageFormat(s._format.format)
 			.setImageColorSpace(s._format.colorSpace)
 			.setImageExtent(vk::Extent2D(size[0], size[1]))
@@ -70,8 +60,9 @@ namespace lotus::gpu::backends::vulkan {
 		// TODO allocator
 		s._swapchain = _details::unwrap(_device->createSwapchainKHRUnique(info));
 
+		// retrieve swap chain images
 		s._images = _details::unwrap(_device->getSwapchainImagesKHR(s._swapchain.get()));
-		s._synchronization.resize(s._images.size(), nullptr);
+		// fences for the images can be reused
 	}
 
 	command_allocator device::create_command_allocator(command_queue &q) {
@@ -404,7 +395,7 @@ namespace lotus::gpu::backends::vulkan {
 				for (usize i = 0; i < rng.range.count; ++i) {
 					binding.setBinding(static_cast<u32>(rng.register_index + i));
 					arr.emplace_back(binding);
-					flags_arr.emplace_back(vk::DescriptorBindingFlags());
+					flags_arr.emplace_back(); // empty flags
 				}
 			}
 		}

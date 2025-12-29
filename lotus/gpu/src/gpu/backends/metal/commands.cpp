@@ -482,6 +482,7 @@ namespace lotus::gpu::backends::metal {
 		auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
 		cmd_buf->presentDrawable(chain._drawable.get());
 		cmd_buf->commit();
+		chain._drawable = nullptr;
 		return swap_chain_status::ok;
 	}
 

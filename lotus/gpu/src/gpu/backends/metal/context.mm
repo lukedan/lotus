@@ -54,9 +54,4 @@ namespace lotus::gpu::backends::metal {
 		result._window = (__bridge void*)wnd;
 		return { std::move(result), result_fmt };
 	}
-
-
-	u32 swap_chain::get_image_count() const {
-		return static_cast<u32>(((__bridge CAMetalLayer*)_layer).maximumDrawableCount);
-	}
 }

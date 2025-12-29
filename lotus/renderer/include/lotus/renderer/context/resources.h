@@ -287,18 +287,6 @@ namespace lotus::renderer {
 		/// A swap chain associated with a window, managed by a context.
 		struct swap_chain : public resource {
 		public:
-			/// Index indicating that a new back buffer needs to be acquired.
-			constexpr static u32 invalid_image_index = std::numeric_limits<u32>::max();
-
-			/// Data associated with a single back buffer within this chain.
-			struct back_buffer {
-				/// Initializes this back buffer with the given image.
-				back_buffer(std::nullptr_t) : current_usage(image_access::initial()) {
-				}
-
-				image_access current_usage; ///< Current usage of the image.
-			};
-
 			/// Initializes all fields of this structure without creating a swap chain.
 			swap_chain(
 				system::window &wnd, u32 qi, u32 imgs, std::vector<gpu::format> fmts,
@@ -315,19 +303,15 @@ namespace lotus::renderer {
 			}
 
 			gpu::swap_chain chain; ///< The swap chain.
-			std::vector<gpu::fence> fences; ///< Synchronization primitives for each back buffer.
-			std::vector<back_buffer> back_buffers; ///< Back buffers in this swap chain.
 
 			cvec2u32 current_size; ///< Current size of swap chain images.
 			cvec2u32 desired_size; ///< Desired size of swap chain images.
 			gpu::format current_format = gpu::format::none; ///< Format of the swap chain images.
 
-			/// Index of the next image that would be presented in this swap chain.
-			u32 next_image_index = invalid_image_index;
 			/// Holds the current image to be written to and presented in the swap chain. This is initialized during
 			/// the pseudo execution phase when the swap chain is used, and cleared when it is finally presented
 			/// during execution.
-			gpu::image2d *current_image = nullptr;
+			gpu::image2d current_image = nullptr;
 			/// The last batch when this swap chain was presented.
 			batch_index previous_present = batch_index::zero;
 

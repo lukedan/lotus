@@ -7,7 +7,12 @@
 #include <utility>
 #include <map>
 
+#include "lotus/compiler.h"
+
+LOTUS_PRAGMA_PUSH_DIAGNOSTICS
+LOTUS_PRAGMA_IGNORE_DIAGNOSTICS_SIGN_CONVERSION
 #include <Metal/Metal.hpp>
+LOTUS_PRAGMA_POP_DIAGNOSTICS
 
 #include <metal_irconverter/metal_irconverter.h>
 #define IR_RUNTIME_METALCPP

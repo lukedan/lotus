@@ -35,12 +35,6 @@ namespace lotus::gpu::backends::vulkan {
 		return *this;
 	}
 
-	void command_list::reset_and_start(command_allocator&) {
-		_details::assert_vk(_buffer.reset());
-		vk::CommandBufferBeginInfo info;
-		_details::assert_vk(_buffer.begin(info));
-	}
-
 	void command_list::begin_pass(const frame_buffer &buf, const frame_buffer_access &access) {
 		assert(buf._color_views.size() == access.color_render_targets.size());
 

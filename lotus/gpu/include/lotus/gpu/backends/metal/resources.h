@@ -83,6 +83,7 @@ namespace lotus::gpu::backends::metal {
 			explicit basic_image_view_base(NS::SharedPtr<MTL::Texture> tex) : _tex(std::move(tex)) {
 			}
 		private:
+			// TODO: switch to using texture view IDs
 			NS::SharedPtr<MTL::Texture> _tex; ///< The texture.
 		};
 	}

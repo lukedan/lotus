@@ -22,11 +22,11 @@ namespace lotus::gpu::backends::metal {
 		}
 	private:
 		/// Acceleration structure descriptor.
-		NS::SharedPtr<MTL::PrimitiveAccelerationStructureDescriptor> _descriptor;
+		NS::SharedPtr<MTL4::PrimitiveAccelerationStructureDescriptor> _descriptor;
 
 		/// Initializes \ref _descriptor.
 		explicit bottom_level_acceleration_structure_geometry(
-			NS::SharedPtr<MTL::PrimitiveAccelerationStructureDescriptor> desc
+			NS::SharedPtr<MTL4::PrimitiveAccelerationStructureDescriptor> desc
 		) : _descriptor(std::move(desc)) {
 		}
 	};

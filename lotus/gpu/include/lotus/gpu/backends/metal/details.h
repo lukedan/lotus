@@ -12,9 +12,13 @@
 LOTUS_PRAGMA_PUSH_DIAGNOSTICS
 LOTUS_PRAGMA_IGNORE_DIAGNOSTICS_SIGN_CONVERSION
 #include <Metal/Metal.hpp>
+#include <Metal/MTL4AccelerationStructure.hpp>
 LOTUS_PRAGMA_POP_DIAGNOSTICS
 
 #include <metal_irconverter/metal_irconverter.h>
+#if IR_VERSION_MAJOR < 3
+#	error "Metal IR converter version 3 needed"
+#endif
 #define IR_RUNTIME_METALCPP
 #include <metal_irconverter_runtime/metal_irconverter_runtime.h>
 
@@ -29,6 +33,16 @@ namespace lotus::gpu::backends::metal::_details {
 	/// Debug callback type for the Metal backend.
 	using debug_message_callback =
 		static_function<void(debug_message_severity, debug_message_id, std::u8string_view)>;
+
+	/// Comparison between resource IDs.
+	struct resource_id_compare {
+		/// Comparison by converting the structs to \ref u64.
+		[[nodiscard]] static bool operator()(MTL::ResourceID lhs, MTL::ResourceID rhs) {
+			return std::bit_cast<u64>(lhs) < std::bit_cast<u64>(rhs);
+		}
+	};
+	/// Mapping from drawable resource IDs to drawables.
+	using drawable_mapping = std::map<MTL::ResourceID, MTL::Drawable*, resource_id_compare>;
 
 
 	/// A pointer that has an associated residency set, from which the resource is removed upon disposal.
@@ -45,7 +59,7 @@ namespace lotus::gpu::backends::metal::_details {
 			}
 		}
 		/// Move constructor.
-		residency_ptr(residency_ptr &&src) :
+		residency_ptr(residency_ptr &&src) noexcept :
 			_ptr(std::move(src._ptr)),
 			_residency_set(std::exchange(src._residency_set, nullptr)) {
 		}
@@ -102,7 +116,7 @@ namespace lotus::gpu::backends::metal::_details {
 	enum class memory_type_index : std::underlying_type_t<gpu::memory_type_index> {
 		shared_cpu_cached,   ///< \p MTL::StorageModeShared with CPU-side caching enabled.
 		shared_cpu_uncached, ///< \p MTL::StorageModeShared with CPU-side caching disabled.
-		device_private,      ///< \p MTL::StroageModePrivate.
+		device_private,      ///< \p MTL::StorageModePrivate.
 
 		num_enumerators ///< The number of enumerators.
 	};

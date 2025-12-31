@@ -180,14 +180,15 @@ namespace lotus::gpu::backends::metal {
 				std::is_standard_layout_v<IRShaderIdentifier>,
 				"IRShaderIdentifier should be a standard layout type"
 			);
-			return { reinterpret_cast<const std::byte*>(&_id), sizeof(_id) };
+			return std::as_bytes(std::span(&_id, 1));
 		}
 
 		IRShaderIdentifier _id;
 	};
 
-	/// Contains a \p MTL::CounterSampleBuffer.
+	/// Contains a \p MTL4::CounterHeap.
 	class timestamp_query_heap {
+		friend command_list;
 		friend device;
 	protected:
 		/// Initializes this object to empty.
@@ -196,13 +197,13 @@ namespace lotus::gpu::backends::metal {
 
 		/// Checks if this object is valid.
 		[[nodiscard]] bool is_valid() const {
-			return !!_buf;
+			return !!_heap;
 		}
 	private:
-		NS::SharedPtr<MTL::CounterSampleBuffer> _buf; ///< The counter sample buffer.
+		NS::SharedPtr<MTL4::CounterHeap> _heap; ///< The counter heap.
 
 		/// Initializes \ref _buf.
-		explicit timestamp_query_heap(NS::SharedPtr<MTL::CounterSampleBuffer> buf) : _buf(std::move(buf)) {
+		explicit timestamp_query_heap(NS::SharedPtr<MTL4::CounterHeap> heap) : _heap(std::move(heap)) {
 		}
 	};
 }

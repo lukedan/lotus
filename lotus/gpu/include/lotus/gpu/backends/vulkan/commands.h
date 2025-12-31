@@ -54,9 +54,6 @@ namespace lotus::gpu::backends::vulkan {
 		/// No copy assignment.
 		command_list &operator=(const command_list&) = delete;
 
-		/// Calls \p vk::CommandBuffer::reset() and \p vk::CommandBuffer::begin().
-		void reset_and_start(command_allocator&);
-
 		/// Calls \p vk::CommandBuffer::beginRendering().
 		void begin_pass(const frame_buffer&, const frame_buffer_access&);
 

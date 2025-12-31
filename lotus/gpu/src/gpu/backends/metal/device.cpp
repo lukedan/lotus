@@ -16,15 +16,21 @@ namespace lotus::gpu::backends::metal {
 		if (!chain._drawable) {
 			return { image2d(nullptr), nullptr, swap_chain_status::unavailable };
 		}
-		return { image2d({ NS::RetainPtr(chain._drawable->texture()), nullptr }), nullptr, swap_chain_status::ok };
+		NS::SharedPtr<MTL::Texture> texture = NS::RetainPtr(chain._drawable->texture());
+		auto [it, inserted] = _drawable_mapping->emplace(texture->gpuResourceID(), chain._drawable.get());
+		crash_if(!inserted);
+		return { image2d({ std::move(texture), nullptr }), nullptr, swap_chain_status::ok };
 	}
 
 	command_allocator device::create_command_allocator(command_queue &q) {
 		return command_allocator(q._q.get());
 	}
 
-	command_list device::create_and_start_command_list(command_allocator &alloc) {
-		return command_list(NS::RetainPtr(alloc._q->commandBuffer()));
+	command_list device::create_and_start_command_list(command_allocator&) {
+		MTL4::CommandBuffer *buf = _dev->newCommandBuffer();
+		MTL4::CommandAllocator *alloc = _dev->newCommandAllocator();
+		buf->beginCommandBuffer(alloc);
+		return command_list(NS::TransferPtr(buf), NS::TransferPtr(alloc));
 	}
 
 	/// Default resource options for argument buffers. Assumes that we don't need to read from the argument buffer.
@@ -551,7 +557,7 @@ namespace lotus::gpu::backends::metal {
 		image_usage_mask usages
 	) {
 		auto descriptor = _details::create_texture_descriptor(
-			MTL::TextureType2DArray, // need to use array type for Metal-DXIR interop
+			MTL::TextureType2D,
 			fmt,
 			cvec3u32(size, 1u),
 			mip_levels,
@@ -604,7 +610,7 @@ namespace lotus::gpu::backends::metal {
 		image_usage_mask usages
 	) {
 		auto descriptor = _details::create_texture_descriptor(
-			MTL::TextureType2DArray,
+			MTL::TextureType2D,
 			fmt,
 			cvec3u32(size, 1u),
 			mip_levels,
@@ -655,7 +661,7 @@ namespace lotus::gpu::backends::metal {
 		usize offset
 	) {
 		auto descriptor = _details::create_texture_descriptor(
-			MTL::TextureType2DArray,
+			MTL::TextureType2D,
 			fmt,
 			cvec3u32(size, 1u),
 			mip_levels,
@@ -701,7 +707,7 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	image2d_view device::create_image2d_view_from(const image2d &img, format fmt, mip_levels mips) {
-		if (img._tex->framebufferOnly()) {
+		if (img._tex->isFramebufferOnly()) {
 			// cannot create views of framebuffer only textures
 			// TODO check that the formats etc. match
 			crash_if(_details::conversions::to_pixel_format(fmt) != img._tex->pixelFormat());
@@ -710,7 +716,7 @@ namespace lotus::gpu::backends::metal {
 
 		return image2d_view(NS::TransferPtr(img._tex->newTextureView(
 			_details::conversions::to_pixel_format(fmt),
-			MTL::TextureType2DArray,
+			MTL::TextureType2D,
 			_details::conversions::to_range(mips, img._tex.get()),
 			NS::Range(0, 1)
 		)));
@@ -777,12 +783,11 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	timestamp_query_heap device::create_timestamp_query_heap(u32 size) {
-		auto descriptor = NS::TransferPtr(MTL::CounterSampleBufferDescriptor::alloc()->init());
-		descriptor->setCounterSet(_timestamp_counter_set);
-		descriptor->setStorageMode(MTL::StorageModeShared);
-		descriptor->setSampleCount(size);
+		auto descriptor = NS::TransferPtr(MTL4::CounterHeapDescriptor::alloc()->init());
+		descriptor->setCount(size);
+		descriptor->setType(MTL4::CounterHeapTypeTimestamp);
 		NS::Error *err = nullptr;
-		auto heap = NS::TransferPtr(_dev->newCounterSampleBuffer(descriptor.get(), &err));
+		auto heap = NS::TransferPtr(_dev->newCounterHeap(descriptor.get(), &err));
 		if (err) {
 			log().error("Failed to create counter sample buffer: {}", err->localizedDescription()->utf8String());
 			std::abort();
@@ -794,9 +799,9 @@ namespace lotus::gpu::backends::metal {
 		timestamp_query_heap &heap, u32 first, std::span<u64> timestamps
 	) {
 		NS::SharedPtr<NS::Data> data =
-			NS::RetainPtr(heap._buf->resolveCounterRange(NS::Range(first, timestamps.size())));
-		auto *result = static_cast<const MTL::CounterResultTimestamp*>(data->mutableBytes());
-		crash_if(data->length() < timestamps.size() * sizeof(MTL::CounterResultTimestamp));
+			NS::RetainPtr(heap._heap->resolveCounterRange(NS::Range(first, timestamps.size())));
+		auto *result = static_cast<const MTL4::TimestampHeapEntry*>(data->mutableBytes());
+		crash_if(data->length() < timestamps.size() * sizeof(MTL4::TimestampHeapEntry));
 		for (usize i = 0; i < timestamps.size(); i++) {
 			timestamps[i] = result[i].timestamp;
 		}
@@ -819,24 +824,22 @@ namespace lotus::gpu::backends::metal {
 	bottom_level_acceleration_structure_geometry device::create_bottom_level_acceleration_structure_geometry(
 		std::span<const raytracing_geometry_view> geoms
 	) {
-		std::vector<NS::SharedPtr<MTL::AccelerationStructureTriangleGeometryDescriptor>> descs_ptrs;
-		std::vector<MTL::AccelerationStructureGeometryDescriptor*> descs;
+		std::vector<NS::SharedPtr<MTL4::AccelerationStructureTriangleGeometryDescriptor>> descs_ptrs;
+		std::vector<MTL4::AccelerationStructureGeometryDescriptor*> descs;
 		descs.reserve(geoms.size());
 		for (usize i = 0; i < geoms.size(); ++i) {
 			const raytracing_geometry_view &geom = geoms[i];
-			auto desc = NS::TransferPtr(MTL::AccelerationStructureTriangleGeometryDescriptor::alloc()->init());
-			desc->setOpaque(bit_mask::contains<raytracing_geometry_flags::opaque>(geom.flags));
+			auto desc = NS::TransferPtr(MTL4::AccelerationStructureTriangleGeometryDescriptor::alloc()->init());
 			desc->setAllowDuplicateIntersectionFunctionInvocation(
 				!bit_mask::contains<raytracing_geometry_flags::no_duplicate_any_hit_invocation>(geom.flags)
 			);
-			desc->setTriangleCount(geom.index_buffer.count / 3);
-			desc->setIndexBuffer(geom.index_buffer.data->_buf.get());
+			desc->setOpaque(bit_mask::contains<raytracing_geometry_flags::opaque>(geom.flags));
+			desc->setIndexBuffer(geom.index_buffer.data->_buf->gpuAddress() + geom.index_buffer.offset);
 			desc->setIndexType(_details::conversions::to_index_type(geom.index_buffer.element_format));
-			desc->setIndexBufferOffset(geom.index_buffer.offset);
-			desc->setVertexBuffer(geom.vertex_buffer.data->_buf.get());
-			desc->setVertexBufferOffset(geom.vertex_buffer.offset);
-			desc->setVertexStride(geom.vertex_buffer.stride);
+			desc->setTriangleCount(geom.index_buffer.count / 3);
+			desc->setVertexBuffer(geom.vertex_buffer.data->_buf->gpuAddress() + geom.vertex_buffer.offset);
 			desc->setVertexFormat(_details::conversions::to_attribute_format(geom.vertex_buffer.vertex_format));
+			desc->setVertexStride(geom.vertex_buffer.stride);
 			descs.emplace_back(desc.get());
 			descs_ptrs.emplace_back(std::move(desc));
 		}
@@ -846,7 +849,7 @@ namespace lotus::gpu::backends::metal {
 			static_cast<CFIndex>(descs.size()),
 			&kCFTypeArrayCallBacks
 		);
-		auto as_desc = NS::TransferPtr(MTL::PrimitiveAccelerationStructureDescriptor::alloc()->init());
+		auto as_desc = NS::TransferPtr(MTL4::PrimitiveAccelerationStructureDescriptor::alloc()->init());
 		as_desc->setGeometryDescriptors(reinterpret_cast<const NS::Array*>(cfarray));
 		CFRelease(cfarray);
 		return bottom_level_acceleration_structure_geometry(std::move(as_desc));
@@ -911,8 +914,8 @@ namespace lotus::gpu::backends::metal {
 		auto header = NS::TransferPtr(_dev->newBuffer(
 			sizeof(IRRaytracingAccelerationStructureGPUHeader) + sizeof(u32) * instance_count,
 			MTL::ResourceCPUCacheModeWriteCombined |
-				MTL::ResourceStorageModeShared            |
-				MTL::ResourceHazardTrackingModeUntracked
+			MTL::ResourceStorageModeShared         |
+			MTL::ResourceHazardTrackingModeUntracked
 		));
 		auto *const header_data = static_cast<u8*>(header->contents());
 		std::vector<u32> instance_offsets(instance_count, 0);
@@ -920,6 +923,7 @@ namespace lotus::gpu::backends::metal {
 			header_data,
 			as->gpuResourceID(),
 			header_data + sizeof(IRRaytracingAccelerationStructureGPUHeader),
+			header->gpuAddress() + sizeof(IRRaytracingAccelerationStructureGPUHeader), // TODO undocumented arg
 			instance_offsets.data(),
 			instance_count
 		);
@@ -986,17 +990,10 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	device::device(NS::SharedPtr<MTL::Device> dev, NS::SharedPtr<MTL::ResidencySet> set, context_options opts) :
-		_dev(std::move(dev)), _residency_set(std::move(set)), _context_opts(opts) {
-
-		// find the timestamp counter set
-		NS::Array *counter_sets = _dev->counterSets();
-		for (NS::UInteger i = 0; i < counter_sets->count(); ++i) {
-			auto *counter_set = counter_sets->object<MTL::CounterSet>(i);
-			if (counter_set->name()->isEqualToString(MTL::CommonCounterSetTimestamp)) {
-				_timestamp_counter_set = counter_set;
-				break;
-			}
-		}
+		_dev(std::move(dev)),
+		_residency_set(std::move(set)),
+		_context_opts(opts),
+		_drawable_mapping(std::make_unique<_details::drawable_mapping>()) {
 	}
 
 	_details::residency_ptr<MTL::AccelerationStructure> device::_create_acceleration_structure(
@@ -1121,17 +1118,19 @@ namespace lotus::gpu::backends::metal {
 			std::abort();
 		}
 
+		device dev(_dev, std::move(residency_set), _context_opts);
+
 		// create command queues
 		std::vector<command_queue> queues;
 		queues.reserve(families.size());
 		for (usize i = 0; i < families.size(); ++i) {
 			// Metal does not distinguish between different types of queues
-			auto ptr = NS::TransferPtr(_dev->newCommandQueue());
-			ptr->addResidencySet(residency_set.get());
-			queues.emplace_back(command_queue(std::move(ptr)));
+			auto ptr = NS::TransferPtr(_dev->newMTL4CommandQueue());
+			ptr->addResidencySet(dev._residency_set.get());
+			queues.emplace_back(command_queue(std::move(ptr), *dev._drawable_mapping));
 		}
 
-		return { device(_dev, std::move(residency_set), _context_opts), std::move(queues) };
+		return { std::move(dev), std::move(queues) };
 	}
 
 	adapter_properties adapter::get_properties() const {

@@ -665,7 +665,8 @@ namespace lotus::gpu::backends::metal::_details {
 				IRIntrinsicMaskAnyHitShaderAll,
 				IRIntrinsicMaskCallableShaderAll,
 				IRRayTracingUnlimitedRecursionDepth,
-				IRRayGenerationCompilationVisibleFunction
+				IRRayGenerationCompilationVisibleFunction,
+				IRIntersectionFunctionCompilationIntersectionFunction
 			);
 			IRError *error = nullptr;
 			result.object = ir_make_unique(IRCompilerAllocCompileAndLink(

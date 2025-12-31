@@ -284,8 +284,10 @@ namespace lotus::gpu::backends::metal {
 	private:
 		NS::SharedPtr<MTL::Device> _dev; ///< The device.
 		NS::SharedPtr<MTL::ResidencySet> _residency_set; ///< Manages all resources.
-		MTL::CounterSet *_timestamp_counter_set = nullptr; ///< The counter set for timestamps.
 		context_options _context_opts = context_options::none; ///< Context options.
+
+		/// Mapping from resource IDs to drawables.
+		std::unique_ptr<_details::drawable_mapping> _drawable_mapping;
 
 		NS::SharedPtr<MTL::Function> _raygen_shader; ///< The stub for calling the ray generation shader.
 

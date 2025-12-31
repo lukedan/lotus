@@ -14,14 +14,10 @@ namespace lotus::gpu::backends::metal {
 	}
 
 
-	void command_list::reset_and_start(command_allocator &alloc) {
-		_buf = NS::RetainPtr(alloc._q->commandBuffer());
-	}
-
 	void command_list::begin_pass(const frame_buffer &fb, const frame_buffer_access &access) {
 		crash_if(fb._color_rts.size() != access.color_render_targets.size());
 
-		auto descriptor = NS::TransferPtr(MTL::RenderPassDescriptor::alloc()->init());
+		auto descriptor = NS::TransferPtr(MTL4::RenderPassDescriptor::alloc()->init());
 		// color render targets
 		for (usize i = 0; i < fb._color_rts.size(); ++i) {
 			const color_render_target_access &rt_access = access.color_render_targets[i];
@@ -67,8 +63,21 @@ namespace lotus::gpu::backends::metal {
 		descriptor->setRenderTargetWidth(fb._size[0]);
 		descriptor->setRenderTargetHeight(fb._size[1]);
 
-		_pass_encoder = NS::RetainPtr(_buf->renderCommandEncoder(descriptor.get()));
-		_graphics_sets_bound = false;
+		constexpr static MTL::Stages _graphics_stages =
+			MTL::StageVertex   |
+			MTL::StageFragment |
+			MTL::StageTile     |
+			MTL::StageObject   |
+			MTL::StageMesh;
+
+		_pass_encoder = _buf->renderCommandEncoder(descriptor.get());
+		_pass_encoder->setArgumentTable(_get_graphics_argument_table(), _graphics_stages);
+		if (_pending_graphics_barriers != 0) {
+			_pass_encoder->barrierAfterQueueStages(
+				_pending_graphics_barriers, _graphics_stages, MTL4::VisibilityOptionResourceAlias
+			);
+			_pending_graphics_barriers = 0;
+		}
 	}
 
 	void command_list::bind_pipeline_state(const graphics_pipeline_state &s) {
@@ -95,27 +104,20 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::bind_vertex_buffers(usize start, std::span<const vertex_buffer> buffers) {
-		auto bookmark = get_scratch_bookmark();
-		auto ptrs    = bookmark.create_vector_array<const MTL::Buffer*>(buffers.size());
-		auto offsets = bookmark.create_vector_array<NS::UInteger>(buffers.size());
-		// TODO strides not supported for converted shaders?
-		auto strides = bookmark.create_vector_array<NS::UInteger>(buffers.size());
+		MTL4::ArgumentTable *arg_table = _get_graphics_argument_table();
 		for (usize i = 0; i < buffers.size(); ++i) {
-			ptrs[i]    = buffers[i].data->_buf.get();
-			offsets[i] = buffers[i].offset;
-			strides[i] = buffers[i].stride;
+			const vertex_buffer &buffer = buffers[i];
+			arg_table->setAddress(
+				buffer.data->_buf->gpuAddress() + buffer.offset,
+				buffer.stride,
+				kIRVertexBufferBindPoint + start + i
+			);
 		}
-		_pass_encoder->setVertexBuffers(
-			ptrs.data(),
-			offsets.data(),
-			NS::Range(kIRVertexBufferBindPoint + start, buffers.size())
-		);
 	}
 
 	void command_list::bind_index_buffer(const buffer &buf, usize offset_bytes, index_format fmt) {
-		_index_buffer       = buf._buf.get();
-		_index_offset_bytes = offset_bytes;
-		_index_format       = fmt;
+		_index_addr   = buf._buf->gpuAddress() + offset_bytes;
+		_index_format = fmt;
 	}
 
 	void command_list::bind_graphics_descriptor_sets(
@@ -129,6 +131,7 @@ namespace lotus::gpu::backends::metal {
 		const pipeline_resources&, u32 first, std::span<const gpu::descriptor_set *const> sets
 	) {
 		_update_descriptor_set_bindings(_compute_sets, first, sets);
+		_compute_sets_bound = false;
 	}
 
 	void command_list::set_viewports(std::span<const viewport> vps) {
@@ -152,15 +155,14 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	void command_list::copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size) {
-		auto encoder = NS::RetainPtr(_buf->blitCommandEncoder());
+		_scoped_compute_encoder encoder = _start_compute_pass();
 		encoder->copyFromBuffer(from._buf.get(), off1, to._buf.get(), off2, size);
-		encoder->endEncoding();
 	}
 
 	void command_list::copy_image2d(
 		image2d &from, subresource_index sub1, aab2u32 region, image2d &to, subresource_index sub2, cvec2u32 off
 	) {
-		auto encoder = NS::RetainPtr(_buf->blitCommandEncoder());
+		_scoped_compute_encoder encoder = _start_compute_pass();
 		encoder->copyFromTexture(
 			from._tex.get(),
 			sub1.array_slice,
@@ -172,7 +174,6 @@ namespace lotus::gpu::backends::metal {
 			sub2.mip_level,
 			MTL::Origin(off[0], off[1], 0)
 		);
-		encoder->endEncoding();
 	}
 
 	void command_list::copy_buffer_to_image(
@@ -183,7 +184,7 @@ namespace lotus::gpu::backends::metal {
 		subresource_index subresource,
 		cvec2u32 off
 	) {
-		auto encoder = NS::RetainPtr(_buf->blitCommandEncoder());
+		_scoped_compute_encoder encoder = _start_compute_pass();
 		encoder->copyFromBuffer(
 			from._buf.get(),
 			byte_offset,
@@ -195,15 +196,22 @@ namespace lotus::gpu::backends::metal {
 			subresource.mip_level,
 			MTL::Origin(off[0], off[1], 0)
 		);
-		encoder->endEncoding();
 	}
 
 	void command_list::draw_instanced(u32 first_vertex, u32 vertex_count, u32 first_instance, u32 instance_count) {
 		_maybe_refresh_graphics_descriptor_set_bindings();
 		// this function is used instead of the member function to bind additional auxiliary buffers for HLSL
 		// interoperability; same for draw_indexed_instanced()
-		IRRuntimeDrawPrimitives(
+		/*IRRuntimeDrawPrimitives(
 			_pass_encoder.get(),
+			_details::conversions::to_primitive_type(_topology),
+			first_vertex,
+			vertex_count,
+			instance_count,
+			first_instance
+		);*/
+		// TODO: vertexid/instanceid related
+		_pass_encoder->drawPrimitives(
 			_details::conversions::to_primitive_type(_topology),
 			first_vertex,
 			vertex_count,
@@ -215,10 +223,9 @@ namespace lotus::gpu::backends::metal {
 	void command_list::draw_indexed_instanced(
 		u32 first_index, u32 index_count, i32 first_vertex, u32 first_instance, u32 instance_count
 	) {
-		const usize index_offset = _index_offset_bytes + first_index * get_index_format_size(_index_format);
-		crash_if(index_offset % 4 != 0); // Metal does not support non-multiple-of-4 offsets
+		const usize index_offset_bytes = first_index * get_index_format_size(_index_format);
 		_maybe_refresh_graphics_descriptor_set_bindings();
-		IRRuntimeDrawIndexedPrimitives(
+		/*IRRuntimeDrawIndexedPrimitives(
 			_pass_encoder.get(),
 			_details::conversions::to_primitive_type(_topology),
 			index_count,
@@ -228,30 +235,95 @@ namespace lotus::gpu::backends::metal {
 			instance_count,
 			first_vertex,
 			first_instance
+		);*/
+		// TODO: vertexid/instanceid related
+		_pass_encoder->drawIndexedPrimitives(
+			_details::conversions::to_primitive_type(_topology),
+			index_count,
+			_details::conversions::to_index_type(_index_format),
+			_index_addr + index_offset_bytes,
+			100000000, // TODO
+			instance_count,
+			first_vertex,
+			first_instance
 		);
 	}
 
 	void command_list::run_compute_shader(u32 x, u32 y, u32 z) {
-		auto encoder = NS::RetainPtr(_buf->computeCommandEncoder());
+		_scoped_compute_encoder encoder = _start_compute_pass();
 		encoder->setComputePipelineState(_compute_pipeline.get());
 		// bind resources
-		encoder->setBytes(
-			_compute_sets.data(),
-			_compute_sets.size() * sizeof(decltype(_compute_sets)::value_type),
-			kIRArgumentBufferBindPoint
-		);
+		encoder->setArgumentTable(_get_compute_argument_table());
+		// after the argument table is guaranteed to be initialized
+		_maybe_refresh_compute_descriptor_set_bindings();
 		encoder->dispatchThreadgroups(
 			MTL::Size(x, y, z),
 			_details::conversions::to_size(_compute_thread_group_size.into<NS::UInteger>())
 		);
-		encoder->endEncoding();
 	}
 
-	void command_list::resource_barrier(std::span<const image_barrier>, std::span<const buffer_barrier>) {
-		auto event = NS::TransferPtr(_buf->device()->newEvent());
-		_buf->encodeSignalEvent(event.get(), 1);
-		_buf->encodeWait(event.get(), 1);
-		// TODO
+	void command_list::resource_barrier(
+		std::span<const image_barrier> img_barriers, std::span<const buffer_barrier> buf_barriers
+	) {
+		// stages that may not have writes from shaders: ResourceState, Blit, AccelerationStructure
+		constexpr static MTL::Stages _custom_shader_write_stages =
+			MTL::StageVertex   |
+			MTL::StageFragment |
+			MTL::StageTile     |
+			MTL::StageObject   |
+			MTL::StageMesh     |
+			MTL::StageDispatch |
+			MTL::StageMachineLearning;
+
+		MTL::Stages wait_stages = 0;
+
+		for (const image_barrier &img : img_barriers) {
+			if (img.from_layout == image_layout::present) {
+				_used_swapchain_images.emplace_back(
+					static_cast<const _details::basic_image_base*>(img.target)->_tex->gpuResourceID()
+				);
+			}
+
+			// read-write/write-write barriers
+			if (bit_mask::contains_any(img.to_access, image_access_mask::write_bits)) {
+				wait_stages |= MTL::StageAll; // not optimal
+			} else {
+				// write-read barriers
+				if (bit_mask::contains<image_access_mask::copy_destination>(img.from_access)) {
+					wait_stages |= MTL::StageBlit;
+				}
+				if (bit_mask::contains_any(
+					img.from_access,
+					image_access_mask::color_render_target | image_access_mask::depth_stencil_read_write
+				)) {
+					wait_stages |= MTL::StageFragment;
+				}
+				if (bit_mask::contains<image_access_mask::shader_write>(img.from_access)) {
+					wait_stages |= _custom_shader_write_stages;
+				}
+			}
+		}
+		for (const buffer_barrier &buf : buf_barriers) {
+			if (wait_stages == MTL::StageAll) {
+				break; // no need to check
+			}
+
+			// read-write/write-write barriers
+			if (bit_mask::contains_any(buf.to_access, buffer_access_mask::write_bits)) {
+				wait_stages |= MTL::StageAll;
+			} else {
+				// write-read barriers
+				if (bit_mask::contains<buffer_access_mask::copy_destination>(buf.from_access)) {
+					wait_stages |= MTL::StageBlit;
+				}
+				if (bit_mask::contains<buffer_access_mask::shader_write>(buf.from_access)) {
+					wait_stages |= _custom_shader_write_stages;
+				}
+			}
+		}
+
+		_pending_compute_barriers |= wait_stages;
+		_pending_graphics_barriers |= wait_stages;
 	}
 
 	void command_list::end_pass() {
@@ -259,8 +331,8 @@ namespace lotus::gpu::backends::metal {
 		_pass_encoder = nullptr;
 	}
 
-	void command_list::query_timestamp(timestamp_query_heap&, u32 index) {
-		// TODO
+	void command_list::query_timestamp(timestamp_query_heap &heap, u32 index) {
+		_buf->writeTimestampIntoHeap(heap._heap.get(), index);
 	}
 
 	void command_list::resolve_queries(timestamp_query_heap&, u32, u32) {
@@ -270,15 +342,17 @@ namespace lotus::gpu::backends::metal {
 		// TODO
 	}
 
-	void command_list::begin_marker_scope(const char8_t*, linear_rgba_u8) {
-		// TODO
+	void command_list::begin_marker_scope(const char8_t *desc, linear_rgba_u8) {
+		// TODO color
+		_buf->pushDebugGroup(_details::conversions::to_string(desc).get());
 	}
 
 	void command_list::end_marker_scope() {
-		// TODO
+		_buf->popDebugGroup();
 	}
 
 	void command_list::finish() {
+		_buf->endCommandBuffer();
 	}
 
 	void command_list::build_acceleration_structure(
@@ -287,11 +361,10 @@ namespace lotus::gpu::backends::metal {
 		buffer &scratch,
 		usize scratch_offset
 	) {
-		auto encoder = NS::RetainPtr(_buf->accelerationStructureCommandEncoder());
+		_scoped_compute_encoder encoder = _start_compute_pass();
 		encoder->buildAccelerationStructure(
-			output._as.get(), geom._descriptor.get(), scratch._buf.get(), scratch_offset
+			output._as.get(), geom._descriptor.get(), scratch._buf->gpuAddress() + scratch_offset
 		);
-		encoder->endEncoding();
 	}
 
 	void command_list::build_acceleration_structure(
@@ -309,11 +382,9 @@ namespace lotus::gpu::backends::metal {
 		*static_cast<_count_type*>(count_buffer->contents()) = count;
 		count_buffer->setLabel(NS::String::string("Build TLAS Count Buffer", NS::UTF8StringEncoding));
 
-		auto desc = NS::TransferPtr(MTL::IndirectInstanceAccelerationStructureDescriptor::alloc()->init());
-		desc->setInstanceCountBuffer(count_buffer.get());
-		desc->setInstanceCountBufferOffset(0);
-		desc->setInstanceDescriptorBuffer(instances._buf.get());
-		desc->setInstanceDescriptorBufferOffset(offset);
+		auto desc = NS::TransferPtr(MTL4::IndirectInstanceAccelerationStructureDescriptor::alloc()->init());
+		desc->setInstanceCountBuffer(count_buffer->gpuAddress());
+		desc->setInstanceDescriptorBuffer(instances._buf->gpuAddress() + offset);
 		desc->setInstanceDescriptorStride(sizeof(instance_description));
 		desc->setInstanceDescriptorType(MTL::AccelerationStructureInstanceDescriptorTypeIndirect);
 		desc->setMaxInstanceCount(count);
@@ -327,12 +398,10 @@ namespace lotus::gpu::backends::metal {
 			instance_ids[i] = instance_descriptors[i]._descriptor.userID;
 		}
 
-		auto encoder = NS::RetainPtr(_buf->accelerationStructureCommandEncoder());
-		encoder->useResource(count_buffer.get(), MTL::ResourceUsageRead);
+		_scoped_compute_encoder encoder = _start_compute_pass();
 		encoder->buildAccelerationStructure(
-			output._as.get(), desc.get(), scratch._buf.get(), scratch_offset
+			output._as.get(), desc.get(), scratch._buf->gpuAddress() + scratch_offset
 		);
-		encoder->endEncoding();
 	}
 
 	void command_list::bind_pipeline_state(const raytracing_pipeline_state&) {
@@ -412,13 +481,13 @@ namespace lotus::gpu::backends::metal {
 			break;
 		}
 
-		auto encoder = NS::RetainPtr(_buf->computeCommandEncoder());
-		encoder->setBytes(
-			_compute_sets.data(),
-			_compute_sets.size() * sizeof(decltype(_compute_sets)::value_type),
-			kIRArgumentBufferBindPoint
-		);
-		encoder->setBytes(&argument, sizeof(argument), kIRRayDispatchArgumentsBindPoint);
+		MTL4::ArgumentTable *arg_table = _get_compute_argument_table();
+		_maybe_refresh_compute_descriptor_set_bindings();
+		const MTL::GPUAddress argument_addr = _allocate_temporary_buffer(std::as_bytes(std::span(&argument, 1)));
+		arg_table->setAddress(argument_addr, kIRRayDispatchArgumentsBindPoint);
+
+		_scoped_compute_encoder encoder = _start_compute_pass();
+		encoder->setArgumentTable(arg_table);
 		encoder->dispatchThreads(MTL::Size(width, height, depth), thread_group_size);
 	}
 
@@ -435,67 +504,154 @@ namespace lotus::gpu::backends::metal {
 		}
 	}
 
+	MTL4::ArgumentTable *command_list::_get_graphics_argument_table() {
+		if (!_graphics_bindings) {
+			auto arg_table_descriptor = NS::TransferPtr(MTL4::ArgumentTableDescriptor::alloc()->init());
+			arg_table_descriptor->setSupportAttributeStrides(true); // needed for vertex buffers
+			arg_table_descriptor->setMaxBufferBindCount(31); // TODO
+			NS::Error *error = nullptr;
+			_graphics_bindings = NS::TransferPtr(_buf->device()->newArgumentTable(arg_table_descriptor.get(), &error));
+			if (error) {
+				log().error("Failed to create argument table: {}", error->localizedDescription()->utf8String());
+			}
+		}
+		return _graphics_bindings.get();
+	}
+
+	MTL4::ArgumentTable *command_list::_get_compute_argument_table() {
+		if (!_compute_bindings) {
+			auto arg_table_descriptor = NS::TransferPtr(MTL4::ArgumentTableDescriptor::alloc()->init());
+			arg_table_descriptor->setMaxBufferBindCount(31); // TODO
+			NS::Error *error = nullptr;
+			_compute_bindings = NS::TransferPtr(_buf->device()->newArgumentTable(arg_table_descriptor.get(), &error));
+			if (error) {
+				log().error("Failed to create argument table: {}", error->localizedDescription()->utf8String());
+			}
+		}
+		return _compute_bindings.get();
+	}
+
+	MTL::GPUAddress command_list::_allocate_temporary_buffer(std::span<const std::byte> data) {
+		NS::SharedPtr<MTL::Buffer> &buf = _binding_buffers.emplace_back(NS::TransferPtr(
+			_buf->device()->newBuffer(data.data(), data.size(), MTL::ResourceStorageModeShared)
+		));
+		_residency_set->addAllocation(buf.get());
+		return buf->gpuAddress();
+	}
+
 	void command_list::_maybe_refresh_graphics_descriptor_set_bindings() {
 		if (_graphics_sets_bound) {
 			return;
 		}
-		const usize bindings_bytes = _graphics_sets.size() * sizeof(u64);
-		_pass_encoder->setVertexBytes(_graphics_sets.data(), bindings_bytes, kIRArgumentBufferBindPoint);
-		_pass_encoder->setFragmentBytes(_graphics_sets.data(), bindings_bytes, kIRArgumentBufferBindPoint);
+		const MTL::GPUAddress data_addr = _allocate_temporary_buffer(std::as_bytes(std::span(_graphics_sets)));
+		_graphics_bindings->setAddress(data_addr, kIRArgumentBufferBindPoint);
 		_graphics_sets_bound = true;
+	}
+
+	void command_list::_maybe_refresh_compute_descriptor_set_bindings() {
+		if (_compute_sets_bound) {
+			return;
+		}
+		const MTL::GPUAddress data_addr = _allocate_temporary_buffer(std::as_bytes(std::span(_compute_sets)));
+		_compute_bindings->setAddress(data_addr, kIRArgumentBufferBindPoint);
+		_compute_sets_bound = true;
+	}
+
+	command_list::_scoped_compute_encoder command_list::_start_compute_pass() {
+		MTL4::ComputeCommandEncoder *encoder = _buf->computeCommandEncoder();
+		if (_pending_compute_barriers != 0) {
+			constexpr static MTL::Stages _compute_stages =
+				MTL::StageAccelerationStructure |
+				MTL::StageBlit                  |
+				MTL::StageDispatch;
+			encoder->barrierAfterQueueStages(
+				_pending_compute_barriers, _compute_stages, MTL4::VisibilityOptionResourceAlias
+			);
+			_pending_compute_barriers = 0;
+		}
+		return _scoped_compute_encoder(encoder);
 	}
 
 
 	f64 command_queue::get_timestamp_frequency() {
-		return 1.0f;
-		// TODO
+		return static_cast<f64>(_q->device()->queryTimestampFrequency());
 	}
 
 	void command_queue::submit_command_lists(
 		std::span<const gpu::command_list *const> cmd_lists, queue_synchronization sync
 	) {
-		if (!sync.wait_semaphores.empty()) {
-			// use a command buffer to submit the waits
-			auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
-			for (const timeline_semaphore_synchronization &sem : sync.wait_semaphores) {
-				cmd_buf->encodeWait(sem.semaphore->_event.get(), sem.value);
-			}
-			cmd_buf->commit();
+		// handle waits
+		for (const timeline_semaphore_synchronization &sem : sync.wait_semaphores) {
+			_q->wait(sem.semaphore->_event.get(), sem.value);
 		}
-		for (const gpu::command_list *list : cmd_lists) {
-			list->_buf->commit();
+
+		// submit command lists
+		if (!cmd_lists.empty()) {
+			auto bookmark = get_scratch_bookmark();
+			auto mtl_lists = bookmark.create_reserved_vector_array<const MTL4::CommandBuffer*>(cmd_lists.size());
+			auto flush = [&]() {
+				if (mtl_lists.empty()) {
+					return;
+				}
+				_q->commit(mtl_lists.data(), mtl_lists.size());
+				mtl_lists.clear();
+			};
+
+			for (const gpu::command_list *list : cmd_lists) {
+				list->_residency_set->commit();
+
+				// insert any swap chain waits
+				if (!list->_used_swapchain_images.empty()) {
+					flush();
+					for (const MTL::ResourceID id : list->_used_swapchain_images) {
+						auto iter = _drawable_mapping->find(id);
+						crash_if(iter == _drawable_mapping->end());
+						_q->wait(iter->second);
+					}
+				}
+
+				mtl_lists.emplace_back(list->_buf.get());
+
+				// handle pending barriers
+				if (list->_pending_graphics_barriers != 0 || list->_pending_compute_barriers != 0) {
+					flush();
+					{ // insert a wait
+						auto event = NS::TransferPtr(_q->device()->newEvent());
+						_q->signalEvent(event.get(), 1);
+						_q->wait(event.get(), 1);
+					}
+				}
+			}
+			flush();
 		}
-		if (sync.notify_fence || !sync.notify_semaphores.empty()) {
-			// use a command buffer to submit the signals
-			auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
-			if (sync.notify_fence) {
-				cmd_buf->encodeSignalEvent(sync.notify_fence->_event.get(), 1);
-			}
-			for (const timeline_semaphore_synchronization &sem : sync.notify_semaphores) {
-				cmd_buf->encodeSignalEvent(sem.semaphore->_event.get(), sem.value);
-			}
-			cmd_buf->commit();
+
+		// handle signals
+		if (sync.notify_fence) {
+			signal(*sync.notify_fence);
+		}
+		for (const timeline_semaphore_synchronization &sem : sync.notify_semaphores) {
+			signal(*sem.semaphore, sem.value);
 		}
 	}
 
 	swap_chain_status command_queue::present(swap_chain &chain) {
-		auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
-		cmd_buf->presentDrawable(chain._drawable.get());
-		cmd_buf->commit();
+		{ // remove this drawable from the mapping
+			auto it = _drawable_mapping->find(chain._drawable->texture()->gpuResourceID());
+			crash_if(it == _drawable_mapping->end());
+			_drawable_mapping->erase(it);
+		}
+		_q->signalDrawable(chain._drawable.get());
+		chain._drawable->present();
 		chain._drawable = nullptr;
 		return swap_chain_status::ok;
 	}
 
 	void command_queue::signal(fence &f) {
-		auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
-		cmd_buf->encodeSignalEvent(f._event.get(), 1);
-		cmd_buf->commit();
+		_q->signalEvent(f._event.get(), 1);
 	}
 
 	void command_queue::signal(timeline_semaphore &sem, gpu::_details::timeline_semaphore_value_type val) {
-		auto cmd_buf = NS::RetainPtr(_q->commandBuffer());
-		cmd_buf->encodeSignalEvent(sem._event.get(), val);
-		cmd_buf->commit();
+		_q->signalEvent(sem._event.get(), val);
 	}
 
 	queue_capabilities command_queue::get_capabilities() const {

@@ -18,7 +18,7 @@ namespace lotus::gpu::backends::metal {
 		usize frame_count,
 		std::span<const format> formats
 	) {
-		auto *wnd = (__bridge NSWindow*)sys_wnd.get_native_handle();
+		auto *wnd = static_cast<NSWindow*>(sys_wnd.get_native_handle());
 
 		// determine the format
 		// https://developer.apple.com/documentation/quartzcore/cametallayer/pixelformat
@@ -39,19 +39,21 @@ namespace lotus::gpu::backends::metal {
 		// create metal layer
 		auto *layer = [[CAMetalLayer alloc] init];
 		layer.maximumDrawableCount      = frame_count;
-		layer.device                    = (__bridge id<MTLDevice>)(dev._dev.get());
+		layer.device                    = static_cast<id<MTLDevice>>(dev._dev.get());
 		layer.drawableSize              = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
-		layer.pixelFormat               = static_cast<MTLPixelFormat>(_details::conversions::to_pixel_format(result_fmt));
+		layer.pixelFormat               =
+			static_cast<MTLPixelFormat>(_details::conversions::to_pixel_format(result_fmt));
 		layer.framebufferOnly           = false;
 		layer.allowsNextDrawableTimeout = false;
 		layer.opaque                    = true;
 
 		layer.delegate = wnd.contentView;
 		wnd.contentView.layer = layer;
+	    [layer release]; // we don't own the layer - the window does
 
 		swap_chain result = nullptr;
-		result._layer  = (__bridge CA::MetalLayer*)layer; // we don't own the layer - the window does
-		result._window = (__bridge void*)wnd;
+		result._layer  = static_cast<CA::MetalLayer*>(layer);
+		result._window = wnd;
 		return { std::move(result), result_fmt };
 	}
 }

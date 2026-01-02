@@ -6,7 +6,12 @@
 #include "lotus/system/platforms/macos/window.h"
 
 namespace lotus::system::platforms::macos {
+	application::~application() {
+		[static_cast<NSAutoreleasePool*>(_autorelease_pool) release];
+	}
+
 	application::application(std::u8string_view name) {
+		_autorelease_pool = [[NSAutoreleasePool alloc] init];
 		[NSApplication sharedApplication];
 		[NSApp setActivationPolicy: NSApplicationActivationPolicyRegular];
 	}
@@ -16,7 +21,7 @@ namespace lotus::system::platforms::macos {
 	}
 
 	/// Handles the given event.
-	[[nodiscard]] message_type _handle_event(NSEvent *event) {
+	[[nodiscard]] static message_type _handle_event(NSEvent *event) {
 		if (!event) {
 			return message_type::none;
 		}
@@ -33,6 +38,7 @@ namespace lotus::system::platforms::macos {
 	}
 
 	message_type application::process_message_blocking() {
+		_drain_autorelease_pool();
 		NSEvent *event = [NSApp
 			nextEventMatchingMask: NSEventMaskAny
 			untilDate:             nullptr
@@ -43,6 +49,7 @@ namespace lotus::system::platforms::macos {
 	}
 
 	message_type application::process_message_nonblocking() {
+		_drain_autorelease_pool();
 		NSEvent *event = [NSApp
 			nextEventMatchingMask: NSEventMaskAny
 			untilDate:             [[NSDate alloc] init]
@@ -65,5 +72,10 @@ namespace lotus::system::platforms::macos {
 			data2:              0
 		];
 		[NSApp postEvent: event atStart: false];
+	}
+
+	void application::_drain_autorelease_pool() {
+		[static_cast<NSAutoreleasePool*>(_autorelease_pool) release];
+		_autorelease_pool = [[NSAutoreleasePool alloc] init];
 	}
 }

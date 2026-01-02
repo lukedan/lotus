@@ -17,6 +17,9 @@ namespace lotus::system::platforms::macos {
 
 	/// Application class for MacOS.
 	class application {
+	public:
+		/// Releases the autorelease pool.
+		~application();
 	protected:
 		/// Initializes the application.
 		explicit application(std::u8string_view);
@@ -31,5 +34,10 @@ namespace lotus::system::platforms::macos {
 
 		/// Calls <tt>NSApp terminate</tt>.
 		void quit();
+	private:
+		void *_autorelease_pool = nullptr; ///< The global \p NSAutoreleasePool.
+
+		/// Drains the current \ref _autorelease_pool and creates a new one.
+		void _drain_autorelease_pool();
 	};
 }

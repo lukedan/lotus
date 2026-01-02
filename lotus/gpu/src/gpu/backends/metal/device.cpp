@@ -27,16 +27,16 @@ namespace lotus::gpu::backends::metal {
 	}
 
 	command_list device::create_and_start_command_list(command_allocator&) {
-		MTL4::CommandBuffer *buf = _dev->newCommandBuffer();
-		MTL4::CommandAllocator *alloc = _dev->newCommandAllocator();
-		buf->beginCommandBuffer(alloc);
-		return command_list(NS::TransferPtr(buf), NS::TransferPtr(alloc));
+		auto buf = NS::TransferPtr(_dev->newCommandBuffer());
+		auto alloc = NS::TransferPtr(_dev->newCommandAllocator());
+		buf->beginCommandBuffer(alloc.get());
+		return command_list(std::move(buf), std::move(alloc));
 	}
 
 	/// Default resource options for argument buffers. Assumes that we don't need to read from the argument buffer.
 	constexpr static MTL::ResourceOptions _arg_buffer_options =
 		MTL::ResourceOptionCPUCacheModeWriteCombined |
-		MTL::ResourceStorageModeShared |
+		MTL::ResourceStorageModeShared               |
 		MTL::ResourceHazardTrackingModeUntracked;
 
 	descriptor_pool device::create_descriptor_pool(

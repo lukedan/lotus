@@ -187,9 +187,7 @@ if(LOTUS_GPU_USE_VULKAN)
 				"${QUARTZ_CORE_LIB}" "${METAL_LIB}")
 		target_compile_options(lotus_gpu_vulkan
 			PUBLIC
-				-fms-extensions
-			PRIVATE
-				-fobjc-arc)
+				-fms-extensions)
 		target_compile_definitions(lotus_gpu_vulkan PUBLIC VK_USE_PLATFORM_METAL_EXT)
 	endif()
 
@@ -259,9 +257,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND LOTUS_GPU_USE_METAL)
 			"${METAL_SHADER_CONVERTER_LIB}")
 	target_compile_options(lotus_gpu_metal
 		PUBLIC
-			-fms-extensions
-		PRIVATE
-			-fobjc-arc)
+			-fms-extensions)
 
 	# TODO temporarily using Vulkan DXC for Metal. should we compile DXC ourselves?
 	find_package(Vulkan REQUIRED COMPONENTS dxc)

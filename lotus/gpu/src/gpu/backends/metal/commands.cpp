@@ -510,7 +510,8 @@ namespace lotus::gpu::backends::metal {
 			arg_table_descriptor->setSupportAttributeStrides(true); // needed for vertex buffers
 			arg_table_descriptor->setMaxBufferBindCount(31); // TODO
 			NS::Error *error = nullptr;
-			_graphics_bindings = NS::TransferPtr(_buf->device()->newArgumentTable(arg_table_descriptor.get(), &error));
+			_graphics_bindings =
+				NS::TransferPtr(_buf->device()->newArgumentTable(arg_table_descriptor.get(), &error));
 			if (error) {
 				log().error("Failed to create argument table: {}", error->localizedDescription()->utf8String());
 			}
@@ -523,7 +524,8 @@ namespace lotus::gpu::backends::metal {
 			auto arg_table_descriptor = NS::TransferPtr(MTL4::ArgumentTableDescriptor::alloc()->init());
 			arg_table_descriptor->setMaxBufferBindCount(31); // TODO
 			NS::Error *error = nullptr;
-			_compute_bindings = NS::TransferPtr(_buf->device()->newArgumentTable(arg_table_descriptor.get(), &error));
+			_compute_bindings =
+				NS::TransferPtr(_buf->device()->newArgumentTable(arg_table_descriptor.get(), &error));
 			if (error) {
 				log().error("Failed to create argument table: {}", error->localizedDescription()->utf8String());
 			}

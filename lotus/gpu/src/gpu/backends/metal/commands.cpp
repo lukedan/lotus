@@ -391,8 +391,9 @@ namespace lotus::gpu::backends::metal {
 
 		// update the instance id buffer
 		// TODO this needs to be a compute dispatch
-		const auto *header = static_cast<IRRaytracingAccelerationStructureGPUHeader*>(output._header->contents());
-		auto *instance_ids = reinterpret_cast<u32*>(header->addressOfInstanceContributions);
+		auto *header = static_cast<IRRaytracingAccelerationStructureGPUHeader*>(output._header->contents());
+		// by default, instance IDs are stored immediately after the header
+		auto *instance_ids = reinterpret_cast<u32*>(header + 1);
 		const auto *instance_descriptors = static_cast<instance_description*>(instances._buf->contents());
 		for (usize i = 0; i < count; ++i) {
 			instance_ids[i] = instance_descriptors[i]._descriptor.userID;

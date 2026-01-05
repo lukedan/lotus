@@ -910,7 +910,7 @@ namespace lotus::gpu::backends::metal {
 		// create acceleration structure
 		auto as = _create_acceleration_structure(buf, offset, size);
 
-		// header buffer
+		// header buffer + instances buffer
 		auto header = NS::TransferPtr(_dev->newBuffer(
 			sizeof(IRRaytracingAccelerationStructureGPUHeader) + sizeof(u32) * instance_count,
 			MTL::ResourceCPUCacheModeWriteCombined |
@@ -923,7 +923,7 @@ namespace lotus::gpu::backends::metal {
 			header_data,
 			as->gpuResourceID(),
 			header_data + sizeof(IRRaytracingAccelerationStructureGPUHeader),
-			header->gpuAddress() + sizeof(IRRaytracingAccelerationStructureGPUHeader), // TODO undocumented arg
+			header->gpuAddress() + sizeof(IRRaytracingAccelerationStructureGPUHeader),
 			instance_offsets.data(),
 			instance_count
 		);

@@ -5,6 +5,7 @@
 #include <lotus/logging.h>
 #include <lotus/utils/misc.h>
 #include <lotus/system/application.h>
+#include <lotus/system/dialog.h>
 #include <lotus/system/window.h>
 #include <lotus/gpu/context.h>
 #include <lotus/gpu/device.h>
@@ -265,10 +266,22 @@ protected:
 	}
 	void _process_imgui() override {
 		if (ImGui::Begin("Shader Toy", nullptr, ImGuiWindowFlags_NoCollapse)) {
-			ImGui::Text("Path");
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Path:");
+			ImGui::SameLine();
 			ImGui::PushItemWidth(-1.0f);
 			ImGui::InputText("##PATH", _project_path, std::size(_project_path));
 			ImGui::PopItemWidth();
+
+			if (ImGui::Button("Open...")) {
+				const std::filesystem::path p = lotus::system::dialog::file::open(_window.get());
+				if (!p.empty()) {
+					std::strncpy(_project_path, p.c_str(), std::size(_project_path));
+					*(std::end(_project_path) - 1) = 0;
+					_load_project();
+				}
+			}
+			ImGui::SameLine();
 			if (ImGui::Button("Reload")) {
 				_load_project();
 			}

@@ -311,6 +311,7 @@ namespace lotus::system::platforms::macos {
 		NSString *title_str = _details::conversions::to_ns_string(title);
 		auto *wnd = static_cast<NSWindow*>(_handle);
 		[wnd setTitle: title_str];
+		[title_str release];
 	}
 
 	window::window() {

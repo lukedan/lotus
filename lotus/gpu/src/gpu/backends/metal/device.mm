@@ -3,8 +3,7 @@
 /// \file
 /// Objectie-C implementation of Metal rendering devices.
 
-#include <AppKit/AppKit.h>
-#include <QuartzCore/QuartzCore.h>
+#include <CoreGraphics/CGGeometry.h>
 
 namespace lotus::gpu::backends::metal {
 	void device::resize_swap_chain_buffers(swap_chain &chain, cvec2u32 size) {

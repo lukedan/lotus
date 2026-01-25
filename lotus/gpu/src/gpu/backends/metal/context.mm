@@ -5,8 +5,15 @@
 
 #include <array>
 
-#include <AppKit/AppKit.h>
-#include <QuartzCore/QuartzCore.h>
+#include "lotus/compiler.h"
+
+LOTUS_PRAGMA_PUSH_DIAGNOSTICS
+LOTUS_PRAGMA_IGNORE_DIAGNOSTICS_ANONYMOUS_ENUM_CONVERSION
+LOTUS_PRAGMA_IGNORE_DIAGNOSTICS_DEPRECATED_DECLARATIONS
+LOTUS_PRAGMA_IGNORE_DIAGNOSTICS_MISSING_METHOD_RETURN_TYPE
+#include <AppKit/NSWindow.h>
+LOTUS_PRAGMA_POP_DIAGNOSTICS
+#include <QuartzCore/CAMetalLayer.h>
 
 #include "lotus/gpu/common.h"
 

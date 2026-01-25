@@ -71,6 +71,23 @@ namespace lotus::system {
 		num_enumerators ///< Total number of keys.
 	};
 
+	/// OS-provided dialogs.
+	namespace dialog {
+		/// A message box.
+		namespace message_box {
+			/// The style of a message box.
+			enum class style {
+				plain,       ///< A plain message box with no icons.
+				information, ///< A message box containing information.
+				warning,     ///< A message box containing a warning.
+				error,       ///< A message box containing an error
+
+				num_enumerators ///< Number of enumerators.
+			};
+		}
+	}
+
+
 	namespace window_events {
 		/// Information about the user requesting the window to close.
 		struct close_request {

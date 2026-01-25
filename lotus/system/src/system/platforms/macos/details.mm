@@ -153,5 +153,10 @@ namespace lotus::system::platforms::macos::_details {
 			}
 			return key::unknown;
 		}
+
+
+		NSString *to_ns_string(std::u8string_view s) {
+			return [[NSString alloc] initWithBytes: s.data() length: s.size() encoding: NSUTF8StringEncoding];
+		}
 	}
 }

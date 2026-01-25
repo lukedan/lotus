@@ -308,20 +308,14 @@ namespace lotus::system::platforms::macos {
 	}
 
 	void window::set_title(std::u8string_view title) {
-		auto *title_str = [[NSString alloc]
-			initWithBytes: title.data()
-			length:        title.size()
-			encoding:      NSUTF8StringEncoding
-		];
+		NSString *title_str = _details::conversions::to_ns_string(title);
 		auto *wnd = static_cast<NSWindow*>(_handle);
 		[wnd setTitle: title_str];
 	}
 
 	window::window() {
 		// initialize window delegate
-		auto *delegate = [[lotus_window_delegate alloc]
-			init_with_window_ptr: static_cast<system::window*>(this)
-		];
+		auto *delegate = [[lotus_window_delegate alloc] init_with_window_ptr: static_cast<system::window*>(this)];
 		_window_ptr = [delegate get_window_ptr];
 
 		// initialize window

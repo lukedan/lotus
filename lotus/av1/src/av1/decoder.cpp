@@ -180,13 +180,15 @@ namespace lotus::av1 {
 		fout << 255 << "\n";
 		for (u32 y = 0; y < h; ++y) {
 			for (u32 x = 0; x < w; ++x) {
-				const cvec3u32 yuv = get_sample({ x, y });
-				const cvec3f32 yuv_norm = (yuv.into<float>() / ((1u << bit_depth) - 1)) - cvec3f32(0.0f, 0.5f, 0.5f);
-				const cvec3f32 rgb_norm = mat33f32({
+				constexpr mat33f32 yuv_to_rgb = {
 					{ 1.0f,      0.0f,  1.13983f },
 					{ 1.0f, -0.39465f, -0.58060f },
 					{ 1.0f,  2.03211f,      0.0f }
-				}) * yuv_norm;
+				};
+
+				const cvec3u32 yuv = get_sample({ x, y });
+				const cvec3f32 yuv_norm = (yuv.into<float>() / ((1u << bit_depth) - 1)) - cvec3f32(0.0f, 0.5f, 0.5f);
+				const cvec3f32 rgb_norm = yuv_to_rgb * yuv_norm;
 				const cvec3u32 rgb = (rgb_norm * 255.0f + cvec3f32::filled(0.5f)).into<u32>();
 				fout << rgb[0] << " " << rgb[1] << " " << rgb[2] << "\n";
 			}

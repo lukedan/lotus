@@ -372,7 +372,7 @@ namespace lotus::av1 {
 		} else {
 			result.show_existing_frame = read_bit();
 			if (result.show_existing_frame) {
-				result.frame_to_show = read_bits<3>();
+				result.frame_to_show_map_idx = read_bits<3>();
 				if (seq_header.decoder_model_info_present && !seq_header.timing_info.equal_picture_interval) {
 					std::abort(); // TODO temporal point info
 				}
@@ -1249,10 +1249,10 @@ namespace lotus::av1 {
 				sz -= tile_size + header.tile_info.tile_size_bytes;
 			}
 			state::block_range sbr = zero;
-			sbr.row_start = sb.row_starts[tile_row];
-			sbr.row_end   = sb.row_starts[tile_row + 1];
-			sbr.col_start = sb.col_starts[tile_col];
-			sbr.col_end   = sb.col_starts[tile_col + 1];
+			sbr.mi_row_start = sb.row_starts[tile_row];
+			sbr.mi_row_end   = sb.row_starts[tile_row + 1];
+			sbr.mi_col_start = sb.col_starts[tile_col];
+			sbr.mi_col_end   = sb.col_starts[tile_col + 1];
 			sb.current_q_index = header.quantization_params.base_q_idx;
 			auto decoder = symbol_decoder::init_symbol(
 				*this, non_coeff_cdfs, coeff_cdfs, header.disable_cdf_update, tile_size
@@ -1291,9 +1291,9 @@ namespace lotus::av1 {
 		}
 		const block_size sb_size = seq_header.get_block_size();
 		const u32 sb_size4 = constants::num_4x4_blocks_wide[std::to_underlying(sb_size)];
-		for (u32 r = sbr.row_start; r < sbr.row_end; r += sb_size4) {
+		for (u32 r = sbr.mi_row_start; r < sbr.mi_row_end; r += sb_size4) {
 			functions::clear_left_context(sb);
-			for (u32 c = sbr.col_start; c < sbr.col_end; c += sb_size4) {
+			for (u32 c = sbr.mi_col_start; c < sbr.mi_col_end; c += sb_size4) {
 				sb.read_deltas = header.delta_q_params.delta_q_present;
 				functions::clear_cdef(seq_header, sb, r, c);
 				functions::clear_block_decoded_flags(seq_header, sb, sbr, r, c, sb_size4);
@@ -1407,9 +1407,9 @@ namespace lotus::av1 {
 		block_size sub_size
 	) {
 		state::block_decoding sbd = zero;
-		sbd.row  = r;
-		sbd.col  = c;
-		sbd.size = sub_size;
+		sbd.mi_row  = r;
+		sbd.mi_col  = c;
+		sbd.mi_size = sub_size;
 		const u32 bw4 = constants::num_4x4_blocks_wide[std::to_underlying(sub_size)];
 		const u32 bh4 = constants::num_4x4_blocks_high[std::to_underlying(sub_size)];
 		if (bh4 == 1 && seq_header.color_config.subsampling_y && (r & 1) == 0) {
@@ -1472,7 +1472,7 @@ namespace lotus::av1 {
 				sb.skip_modes      (r + y, c + x) = mode_info.skip_mode;
 				sb.skips           (r + y, c + x) = mode_info.skip;
 				// TODO sb.tx_sizes(r + y, c + x) = tx_size;
-				sb.sizes           (r + y, c + x) = sbd.size;
+				sb.mi_sizes        (r + y, c + x) = sbd.mi_size;
 				sb.segment_ids     (r + y, c + x) = mode_info.segment_id;
 				sb.palette_sizes[0](r + y, c + x) = mode_info.palette_size_y;
 				sb.palette_sizes[1](r + y, c + x) = mode_info.palette_size_uv;
@@ -1551,7 +1551,7 @@ namespace lotus::av1 {
 			result.y_mode        = decoder.read_intra_frame_y_mode(sb, sbd);
 			result.angle_delta_y = read_intra_angle_info_y(result, decoder, sbd);
 			if (sbd.has_chroma) {
-				result.uv_mode = decoder.read_uv_mode(seq_header, result, sbd.size);
+				result.uv_mode = decoder.read_uv_mode(seq_header, result, sbd.mi_size);
 				if (result.uv_mode == prediction_mode::uv_cfl) {
 					result.cfl_alphas = read_cfl_alphas(decoder);
 				}
@@ -1560,9 +1560,9 @@ namespace lotus::av1 {
 			result.palette_size_y  = 0;
 			result.palette_size_uv = 0;
 			if (
-				sbd.size >= block_size::b8x8 &&
-				constants::block_width(sbd.size) <= 64 &&
-				constants::block_height(sbd.size) <= 64 &&
+				sbd.mi_size >= block_size::b8x8 &&
+				constants::block_width(sbd.mi_size) <= 64 &&
+				constants::block_height(sbd.mi_size) <= 64 &&
 				header.allow_screen_content_tools
 			) {
 				read_palette_mode_info(seq_header, result, decoder, sb, sbd);
@@ -1601,15 +1601,15 @@ namespace lotus::av1 {
 	) {
 		std::optional<segment_id_t> prev_ul;
 		if (sbd.avail_u && sbd.avail_l) {
-			prev_ul = sb.segment_ids(sbd.row - 1, sbd.col - 1);
+			prev_ul = sb.segment_ids(sbd.mi_row - 1, sbd.mi_col - 1);
 		}
 		std::optional<segment_id_t> prev_u;
 		if (sbd.avail_u) {
-			prev_u = sb.segment_ids(sbd.row - 1, sbd.col);
+			prev_u = sb.segment_ids(sbd.mi_row - 1, sbd.mi_col);
 		}
 		std::optional<segment_id_t> prev_l;
 		if (sbd.avail_l) {
-			prev_l = sb.segment_ids(sbd.row, sbd.col - 1);
+			prev_l = sb.segment_ids(sbd.mi_row, sbd.mi_col - 1);
 		}
 		segment_id_t pred;
 		if (!prev_u) {
@@ -1642,8 +1642,8 @@ namespace lotus::av1 {
 			mode_info.is_segment_feature_active(features::ref_frame, header.segmentation_params) ||
 			mode_info.is_segment_feature_active(features::globalmv,  header.segmentation_params) ||
 			!header.skip_mode_present ||
-			constants::block_width(sbd.size) < 8 ||
-			constants::block_height(sbd.size) < 8
+			constants::block_width(sbd.mi_size) < 8 ||
+			constants::block_height(sbd.mi_size) < 8
 		) {
 			return false;
 		} else {
@@ -1678,7 +1678,7 @@ namespace lotus::av1 {
 		const state::block_decoding &sbd
 	) {
 		const block_size sb_size = seq_header.get_block_size();
-		if (sbd.size == sb_size && mode_info.skip) {
+		if (sbd.mi_size == sb_size && mode_info.skip) {
 			return;
 		}
 		if (sb.read_deltas) {
@@ -1708,7 +1708,7 @@ namespace lotus::av1 {
 		const state::block_decoding &sbd
 	) {
 		const block_size sb_size = seq_header.get_block_size();
-		if (sbd.size == sb_size && result.skip) {
+		if (sbd.mi_size == sb_size && result.skip) {
 			return;
 		}
 		if (sb.read_deltas && header.delta_lf_params.delta_lf_present) {
@@ -1753,10 +1753,10 @@ namespace lotus::av1 {
 		if (mode_info.lossless) {
 			return tx_size::size_4x4;
 		}
-		const tx_size max_rect_tx_size = constants::max_tx_size_rect[std::to_underlying(sbd.size)];
-		const u32 max_tx_depth = constants::max_tx_depth_table[std::to_underlying(sbd.size)];
+		const tx_size max_rect_tx_size = constants::max_tx_size_rect[std::to_underlying(sbd.mi_size)];
+		const u32 max_tx_depth = constants::max_tx_depth_table[std::to_underlying(sbd.mi_size)];
 		tx_size txsize = max_rect_tx_size;
-		if (sbd.size > block_size::b4x4 && allow_select && header.tx_mode == tx_mode::select) {
+		if (sbd.mi_size > block_size::b4x4 && allow_select && header.tx_mode == tx_mode::select) {
 			const u32 ctx = cdf::context::compute_tx_depth(sb, sbd, max_rect_tx_size);
 			const u8 tx_depth = decoder.read_tx_depth(max_tx_depth, ctx);
 			for (u32 i = 0; i < tx_depth; ++i) {
@@ -1773,27 +1773,27 @@ namespace lotus::av1 {
 		state::block &sb,
 		const state::block_decoding &sbd
 	) {
-		const u32 bw4 = constants::num_4x4_blocks_wide[std::to_underlying(sbd.size)];
-		const u32 bh4 = constants::num_4x4_blocks_high[std::to_underlying(sbd.size)];
+		const u32 bw4 = constants::num_4x4_blocks_wide[std::to_underlying(sbd.mi_size)];
+		const u32 bh4 = constants::num_4x4_blocks_high[std::to_underlying(sbd.mi_size)];
 		if (
 			header.tx_mode == tx_mode::select &&
-			sbd.size > block_size::b4x4 &&
+			sbd.mi_size > block_size::b4x4 &&
 			mode_info.is_inter &&
 			!mode_info.skip &&
 			!mode_info.lossless
 		) {
-			const tx_size max_tx_sz = constants::max_tx_size_rect[std::to_underlying(sbd.size)];
+			const tx_size max_tx_sz = constants::max_tx_size_rect[std::to_underlying(sbd.mi_size)];
 			const u32 tx_w4 = constants::get_tx_width(max_tx_sz) / constants::mi_size;
 			const u32 tx_h4 = constants::get_tx_height(max_tx_sz) / constants::mi_size;
-			for (u32 row = sbd.row; row < sbd.row + bh4; row += tx_h4) {
-				for (u32 col = sbd.col; col < sbd.col + bw4; col += tx_w4) {
+			for (u32 row = sbd.mi_row; row < sbd.mi_row + bh4; row += tx_h4) {
+				for (u32 col = sbd.mi_col; col < sbd.mi_col + bw4; col += tx_w4) {
 					read_var_tx_size(header, decoder, sb, sbd, row, col, max_tx_sz, 0);
 				}
 			}
 		} else {
 			sb.tx_size = read_tx_size(header, mode_info, decoder, sb, sbd, !mode_info.skip || !mode_info.is_inter);
-			for (u32 row = sbd.row; row < sbd.row + bh4; ++row) {
-				for (u32 col = sbd.col; col < sbd.col + bw4; ++col) {
+			for (u32 row = sbd.mi_row; row < sbd.mi_row + bh4; ++row) {
+				for (u32 col = sbd.mi_col; col < sbd.mi_col + bw4; ++col) {
 					sb.inter_tx_sizes(row, col) = sb.tx_size;
 				}
 			}
@@ -1848,10 +1848,14 @@ namespace lotus::av1 {
 		obu::mode_info result = zero;
 
 		result.use_intrabc = false;
-		result.left_ref_frame[0]  = sbd.avail_l ? sb.ref_frames[0](sbd.row, sbd.col - 1) : reference_frame::intra;
-		result.above_ref_frame[0] = sbd.avail_u ? sb.ref_frames[0](sbd.row - 1, sbd.col) : reference_frame::intra;
-		result.left_ref_frame[1]  = sbd.avail_l ? sb.ref_frames[1](sbd.row, sbd.col - 1) : reference_frame::none;
-		result.above_ref_frame[1] = sbd.avail_u ? sb.ref_frames[1](sbd.row - 1, sbd.col) : reference_frame::none;
+		result.left_ref_frame[0] =
+			sbd.avail_l ? sb.ref_frames[0](sbd.mi_row, sbd.mi_col - 1) : reference_frame::intra;
+		result.above_ref_frame[0] =
+			sbd.avail_u ? sb.ref_frames[0](sbd.mi_row - 1, sbd.mi_col) : reference_frame::intra;
+		result.left_ref_frame[1] =
+			sbd.avail_l ? sb.ref_frames[1](sbd.mi_row, sbd.mi_col - 1) : reference_frame::none;
+		result.above_ref_frame[1] =
+			sbd.avail_u ? sb.ref_frames[1](sbd.mi_row - 1, sbd.mi_col) : reference_frame::none;
 		result.left_intra   = result.left_ref_frame[0]  <= reference_frame::intra;
 		result.above_intra  = result.above_ref_frame[0] <= reference_frame::intra;
 		result.left_single  = result.left_ref_frame[1]  <= reference_frame::intra;
@@ -1901,11 +1905,11 @@ namespace lotus::av1 {
 				if (!pre_skip) {
 					if (mode_info.skip) {
 						const bool seg_id_predicted = false;
-						for (u32 i = 0; i < constants::num_4x4_blocks_wide[std::to_underlying(sbd.size)]; ++i) {
-							sb.above_seg_pred_context[sbd.col + i] = seg_id_predicted;
+						for (u32 i = 0; i < constants::num_4x4_blocks_wide[std::to_underlying(sbd.mi_size)]; ++i) {
+							sb.above_seg_pred_context[sbd.mi_col + i] = seg_id_predicted;
 						}
-						for (u32 i = 0; i < constants::num_4x4_blocks_high[std::to_underlying(sbd.size)]; ++i) {
-							sb.left_seg_pred_context[sbd.row + i] = seg_id_predicted;
+						for (u32 i = 0; i < constants::num_4x4_blocks_high[std::to_underlying(sbd.mi_size)]; ++i) {
+							sb.left_seg_pred_context[sbd.mi_row + i] = seg_id_predicted;
 						}
 						return read_segment_id(header, decoder, sb, sbd, mode_info.skip);
 					}
@@ -1918,11 +1922,11 @@ namespace lotus::av1 {
 					} else {
 						segment_id = read_segment_id(header, decoder, sb, sbd, mode_info.skip);
 					}
-					for (u32 i = 0; i < constants::num_4x4_blocks_wide[std::to_underlying(sbd.size)]; ++i) {
-						sb.above_seg_pred_context[sbd.col + i] = seg_id_predicted;
+					for (u32 i = 0; i < constants::num_4x4_blocks_wide[std::to_underlying(sbd.mi_size)]; ++i) {
+						sb.above_seg_pred_context[sbd.mi_col + i] = seg_id_predicted;
 					}
-					for (u32 i = 0; i < constants::num_4x4_blocks_high[std::to_underlying(sbd.size)]; ++i) {
-						sb.left_seg_pred_context[sbd.row + i] = seg_id_predicted;
+					for (u32 i = 0; i < constants::num_4x4_blocks_high[std::to_underlying(sbd.mi_size)]; ++i) {
+						sb.left_seg_pred_context[sbd.mi_row + i] = seg_id_predicted;
 					}
 					return segment_id;
 				} else {
@@ -1966,10 +1970,10 @@ namespace lotus::av1 {
 	) {
 		mode_info.ref_frame[0] = reference_frame::intra;
 		mode_info.ref_frame[1] = reference_frame::none;
-		mode_info.y_mode = decoder.read_y_mode(sbd.size);
+		mode_info.y_mode = decoder.read_y_mode(sbd.mi_size);
 		mode_info.angle_delta_y = read_intra_angle_info_y(mode_info, decoder, sbd);
 		if (sbd.has_chroma) {
-			mode_info.uv_mode = decoder.read_uv_mode(seq_header, mode_info, sbd.size);
+			mode_info.uv_mode = decoder.read_uv_mode(seq_header, mode_info, sbd.mi_size);
 			if (mode_info.uv_mode == prediction_mode::uv_cfl) {
 				mode_info.cfl_alphas = read_cfl_alphas(decoder);
 			}
@@ -1978,9 +1982,9 @@ namespace lotus::av1 {
 		mode_info.palette_size_y = 0;
 		mode_info.palette_size_uv = 0;
 		if (
-			sbd.size >= block_size::b8x8 &&
-			constants::block_width(sbd.size) <= 64 &&
-			constants::block_height(sbd.size) <= 64 &&
+			sbd.mi_size >= block_size::b8x8 &&
+			constants::block_width(sbd.mi_size) <= 64 &&
+			constants::block_height(sbd.mi_size) <= 64 &&
 			header.allow_screen_content_tools
 		) {
 			read_palette_mode_info(seq_header, mode_info, decoder, sb, sbd);
@@ -2087,9 +2091,9 @@ namespace lotus::av1 {
 			seq_header.enable_filter_intra &&
 			mode_info.y_mode == prediction_mode::dc &&
 			mode_info.palette_size_y == 0 &&
-			std::max(constants::block_width(sbd.size), constants::block_height(sbd.size)) <= 32
+			std::max(constants::block_width(sbd.mi_size), constants::block_height(sbd.mi_size)) <= 32
 		) {
-			mode_info.use_filter_intra = decoder.read_use_filter_intra(sbd.size);
+			mode_info.use_filter_intra = decoder.read_use_filter_intra(sbd.mi_size);
 			if (mode_info.use_filter_intra) {
 				mode_info.filter_intra_mode = decoder.read_filter_intra_mode();
 			}
@@ -2122,7 +2126,7 @@ namespace lotus::av1 {
 					const block_size sb_size =
 						seq_header.use_128x128_superblock ? block_size::b128x128 : block_size::b64x64;
 					const u32 sb_size4 = constants::num_4x4_blocks_high[std::to_underlying(sb_size)];
-					if (sbd.row - sb_size4 < mi.row_start) {
+					if (sbd.mi_row - sb_size4 < mi.mi_row_start) {
 						mv.pred_mv[0] = cvec2i32(
 							0, -static_cast<i32>(sb_size4 * constants::mi_size + constants::intrabc_delay_pixels) * 8
 						);
@@ -2158,19 +2162,19 @@ namespace lotus::av1 {
 			!mode_info.skip_mode &&
 			seq_header.enable_interintra_compound &&
 			!is_compound &&
-			sbd.size >= block_size::b8x8 &&
-			sbd.size <= block_size::b32x32
+			sbd.mi_size >= block_size::b8x8 &&
+			sbd.mi_size <= block_size::b32x32
 		) {
-			mode_info.interintra = decoder.read_interintra(sbd.size);
+			mode_info.interintra = decoder.read_interintra(sbd.mi_size);
 			if (mode_info.interintra) {
-				mode_info.interintra_mode = decoder.read_interintra_mode(sbd.size);
+				mode_info.interintra_mode = decoder.read_interintra_mode(sbd.mi_size);
 				mode_info.ref_frame[1] = reference_frame::intra;
 				mode_info.angle_delta_y  = 0;
 				mode_info.angle_delta_uv = 0;
 				mode_info.use_filter_intra = false;
-				mode_info.wedge_interintra = decoder.read_wedge_interintra(sbd.size);
+				mode_info.wedge_interintra = decoder.read_wedge_interintra(sbd.mi_size);
 				if (mode_info.wedge_interintra) {
-					mode_info.wedge_index = decoder.read_wedge_index(sbd.size);
+					mode_info.wedge_index = decoder.read_wedge_index(sbd.mi_size);
 					mode_info.wedge_sign = false;
 				}
 			}
@@ -2261,15 +2265,15 @@ namespace lotus::av1 {
 	) {
 		const u32 sb_mask = seq_header.use_128x128_superblock ? 31 : 15;
 
-		const u32 width_chunks = std::max(1u, constants::block_width(sbd.size) >> 6);
-		const u32 height_chunks = std::max(1u, constants::block_height(sbd.size) >> 6);
+		const u32 width_chunks = std::max(1u, constants::block_width(sbd.mi_size) >> 6);
+		const u32 height_chunks = std::max(1u, constants::block_height(sbd.mi_size) >> 6);
 
-		const block_size mi_size_chunk = width_chunks > 1 || height_chunks > 1 ? block_size::b64x64 : sbd.size;
+		const block_size mi_size_chunk = width_chunks > 1 || height_chunks > 1 ? block_size::b64x64 : sbd.mi_size;
 
 		for (u32 chunk_y = 0; chunk_y < height_chunks; ++chunk_y) {
 			for (u32 chunk_x = 0; chunk_x < width_chunks; ++chunk_x) {
-				const u32 mi_row_chunk = sbd.row + (chunk_y << 4);
-				const u32 mi_col_chunk = sbd.col + (chunk_x << 4);
+				const u32 mi_row_chunk = sbd.mi_row + (chunk_y << 4);
+				const u32 mi_col_chunk = sbd.mi_col + (chunk_x << 4);
 				/*const u32 sub_block_mi_row = mi_row_chunk & sb_mask;
 				const u32 sub_block_mi_col = mi_col_chunk & sb_mask;*/ // unused?
 
@@ -2303,8 +2307,8 @@ namespace lotus::av1 {
 							num_4x4_h * 4
 						);
 					} else {
-						const u32 base_x_block = (sbd.col >> sub_x) * constants::mi_size;
-						const u32 base_y_block = (sbd.row >> sub_y) * constants::mi_size;
+						const u32 base_x_block = (sbd.mi_col >> sub_x) * constants::mi_size;
+						const u32 base_y_block = (sbd.mi_row >> sub_y) * constants::mi_size;
 						for (u32 y = 0; y < num_4x4_h; y += step_y) {
 							for (u32 x = 0; x < num_4x4_w; x += step_x) {
 								read_transform_block(
@@ -2678,7 +2682,7 @@ namespace lotus::av1 {
 		symbol_decoder &decoder,
 		const state::block_decoding &sbd
 	) {
-		if (sbd.size >= block_size::b8x8) {
+		if (sbd.mi_size >= block_size::b8x8) {
 			if (functions::is_directional_mode(mode_info.y_mode)) {
 				const i8 angle_delta_y = decoder.read_angle_delta_y(mode_info.y_mode);
 				return angle_delta_y - static_cast<i32>(constants::max_angle_delta);
@@ -2692,7 +2696,7 @@ namespace lotus::av1 {
 		symbol_decoder &decoder,
 		const state::block_decoding &mi
 	) {
-		if (mi.size >= block_size::b8x8) {
+		if (mi.mi_size >= block_size::b8x8) {
 			if (functions::is_directional_mode(mode_info.uv_mode)) {
 				const i8 angle_delta_uv = decoder.read_angle_delta_uv(mode_info.uv_mode);
 				return angle_delta_uv - static_cast<i32>(constants::max_angle_delta);
@@ -2733,8 +2737,8 @@ namespace lotus::av1 {
 		const state::block_decoding &sbd
 	) {
 		const u32 bsize_ctx =
-			constants::mi_width_log2[std::to_underlying(sbd.size)] +
-			constants::mi_height_log2[std::to_underlying(sbd.size)] -
+			constants::mi_width_log2[std::to_underlying(sbd.mi_size)] +
+			constants::mi_height_log2[std::to_underlying(sbd.mi_size)] -
 			2;
 		if (mode_info.y_mode == prediction_mode::dc) {
 			const bool has_palette_y =
@@ -2897,16 +2901,16 @@ namespace lotus::av1 {
 	) {
 		state::color_map color_map = uninitialized;
 
-		u32 block_height = constants::block_height(sbd.size);
-		u32 block_width = constants::block_width(sbd.size);
+		u32 block_height = constants::block_height(sbd.mi_size);
+		u32 block_width = constants::block_width(sbd.mi_size);
 		u32 onscreen_height =
-			std::min(block_height, (header.frame_size.get_mi_rows() - sbd.row) * constants::mi_size);
+			std::min(block_height, (header.frame_size.get_mi_rows() - sbd.mi_row) * constants::mi_size);
 		u32 onscreen_width =
-			std::min(block_width, (header.frame_size.get_mi_cols() - sbd.col) * constants::mi_size);
+			std::min(block_width, (header.frame_size.get_mi_cols() - sbd.mi_col) * constants::mi_size);
 
 		if (mode_info.palette_size_y != 0) {
 			const u32 color_index_map_y = decoder.read_ns(mode_info.palette_size_y);
-			color_map.y[0][0] = color_index_map_y;
+			color_map.color_map_y[0][0] = color_index_map_y;
 			for (i32 i = 1; i < static_cast<i32>(onscreen_height + onscreen_width) - 1; ++i) {
 				for (
 					i32 j = std::min(i, static_cast<i32>(onscreen_width) - 1);
@@ -2914,29 +2918,29 @@ namespace lotus::av1 {
 					--j
 				) {
 					const auto ctx = functions::palette_color_context::get(
-						color_map.y, static_cast<u32>(i - j), static_cast<u32>(j), mode_info.palette_size_y
+						color_map.color_map_y, static_cast<u32>(i - j), static_cast<u32>(j), mode_info.palette_size_y
 					);
 					const u8 palette_color_idx_y =
 						decoder.read_palette_color_idx_y(mode_info.palette_size_y, ctx.hash);
-					color_map.y[static_cast<usize>(i - j)][static_cast<usize>(j)] =
+					color_map.color_map_y[static_cast<usize>(i - j)][static_cast<usize>(j)] =
 						ctx.color_order[palette_color_idx_y];
 				}
 			}
 			for (u32 i = 0; i < onscreen_height; ++i) {
 				for (u32 j = onscreen_width; j < block_width; ++j) {
-					color_map.y[i][j] = color_map.y[i][onscreen_width - 1];
+					color_map.color_map_y[i][j] = color_map.color_map_y[i][onscreen_width - 1];
 				}
 			}
 			for (u32 i = onscreen_height; i < block_height; ++i) {
 				for (u32 j = 0; j < block_width; ++j) {
-					color_map.y[i][j] = color_map.y[onscreen_height - 1][j];
+					color_map.color_map_y[i][j] = color_map.color_map_y[onscreen_height - 1][j];
 				}
 			}
 		}
 
 		if (mode_info.palette_size_uv != 0) {
 			const u32 color_index_map_uv = decoder.read_ns(mode_info.palette_size_uv);
-			color_map.uv[0][0] = color_index_map_uv;
+			color_map.color_map_uv[0][0] = color_index_map_uv;
 			block_height >>= seq_header.color_config.subsampling_y ? 1 : 0;
 			block_width  >>= seq_header.color_config.subsampling_x ? 1 : 0;
 			onscreen_height >>= seq_header.color_config.subsampling_y ? 1 : 0;
@@ -2957,22 +2961,25 @@ namespace lotus::av1 {
 					--j
 				) {
 					const auto ctx = functions::palette_color_context::get(
-						color_map.uv, static_cast<u32>(i - j), static_cast<u32>(j), mode_info.palette_size_uv
+						color_map.color_map_uv,
+						static_cast<u32>(i - j),
+						static_cast<u32>(j),
+						mode_info.palette_size_uv
 					);
 					const u8 palette_color_idx_uv =
 						decoder.read_palette_color_idx_uv(mode_info.palette_size_uv, ctx.hash);
-					color_map.uv[static_cast<usize>(i - j)][static_cast<usize>(j)] =
+					color_map.color_map_uv[static_cast<usize>(i - j)][static_cast<usize>(j)] =
 						ctx.color_order[palette_color_idx_uv];
 				}
 			}
 			for (u32 i = 0; i < onscreen_height; ++i) {
 				for (u32 j = onscreen_width; j < block_width; ++j) {
-					color_map.uv[i][j] = color_map.uv[i][onscreen_width - 1];
+					color_map.color_map_uv[i][j] = color_map.color_map_uv[i][onscreen_width - 1];
 				}
 			}
 			for (u32 i = onscreen_height; i < block_height; ++i) {
 				for (u32 j = 0; j < block_width; ++j) {
-					color_map.uv[i][j] = color_map.uv[onscreen_height - 1][j];
+					color_map.color_map_uv[i][j] = color_map.color_map_uv[onscreen_height - 1][j];
 				}
 			}
 		}
@@ -2993,12 +3000,12 @@ namespace lotus::av1 {
 		}
 		const u32 cdef_size4 = constants::num_4x4_blocks_wide[std::to_underlying(block_size::b64x64)];
 		const u32 cdef_mask4 = ~(cdef_size4 - 1);
-		const u32 r = sbd.row & cdef_mask4;
-		const u32 c = sbd.col & cdef_mask4;
+		const u32 r = sbd.mi_row & cdef_mask4;
+		const u32 c = sbd.mi_col & cdef_mask4;
 		if (sb.cdef_idx(r, c) == -1) {
 			sb.cdef_idx(r, c) = static_cast<i8>(decoder.read_literal(header.cdef_params.bits));
-			const u32 w4 = constants::num_4x4_blocks_wide[std::to_underlying(sbd.size)];
-			const u32 h4 = constants::num_4x4_blocks_high[std::to_underlying(sbd.size)];
+			const u32 w4 = constants::num_4x4_blocks_wide[std::to_underlying(sbd.mi_size)];
+			const u32 h4 = constants::num_4x4_blocks_high[std::to_underlying(sbd.mi_size)];
 			for (u32 i = r; i < r + h4; i += cdef_size4) {
 				for (u32 j = c; j < c + w4; j += cdef_size4) {
 					sb.cdef_idx(i, j) = sb.cdef_idx(r, c);

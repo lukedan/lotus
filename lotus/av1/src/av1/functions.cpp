@@ -11,7 +11,7 @@ namespace lotus::av1::functions {
 			return tx_sz;
 		}
 		const tx_size uv_tx = constants::max_tx_size_rect[
-			std::to_underlying(get_plane_residual_size(color_config, sbd.size, plane))
+			std::to_underlying(get_plane_residual_size(color_config, sbd.mi_size, plane))
 		];
 		const u32 uv_tx_width = constants::get_tx_width(uv_tx);
 		const u32 uv_tx_height = constants::get_tx_height(uv_tx);
@@ -48,8 +48,8 @@ namespace lotus::av1::functions {
 		}
 
 		if (mode_info.is_inter) {
-			const u32 x4 = std::max(sbd.col, block_x << (seq_header.color_config.subsampling_x ? 1 : 0));
-			const u32 y4 = std::max(sbd.row, block_y << (seq_header.color_config.subsampling_y ? 1 : 0));
+			const u32 x4 = std::max(sbd.mi_col, block_x << (seq_header.color_config.subsampling_x ? 1 : 0));
+			const u32 y4 = std::max(sbd.mi_row, block_y << (seq_header.color_config.subsampling_y ? 1 : 0));
 			const inverse_transform tx_type = sb.tx_types(y4, x4);
 			if (!is_tx_type_in_set(mode_info, tx_set, tx_type)) {
 				return inverse_transform::dct_dct;
@@ -73,26 +73,26 @@ namespace lotus::av1::functions {
 		bool above_smooth = false;
 		bool left_smooth = false;
 		if (plane == 0 ? sbd.avail_u : sbd.avail_u_chroma) {
-			u32 r = sbd.row - 1;
-			u32 c = sbd.col;
+			u32 r = sbd.mi_row - 1;
+			u32 c = sbd.mi_col;
 			if (plane > 0) {
-				if (seq_header.color_config.subsampling_x && !(sbd.col & 1)) {
+				if (seq_header.color_config.subsampling_x && !(sbd.mi_col & 1)) {
 					++c;
 				}
-				if (seq_header.color_config.subsampling_y && (sbd.row & 1)) {
+				if (seq_header.color_config.subsampling_y && (sbd.mi_row & 1)) {
 					--r;
 				}
 			}
 			above_smooth = is_smooth(sb, r, c, plane);
 		}
 		if (plane == 0 ? sbd.avail_l : sbd.avail_l_chroma) {
-			u32 r = sbd.row;
-			u32 c = sbd.col - 1;
+			u32 r = sbd.mi_row;
+			u32 c = sbd.mi_col - 1;
 			if (plane > 0) {
-				if (seq_header.color_config.subsampling_x && (sbd.col & 1)) {
+				if (seq_header.color_config.subsampling_x && (sbd.mi_col & 1)) {
 					--c;
 				}
-				if (seq_header.color_config.subsampling_y && !(sbd.row & 1)) {
+				if (seq_header.color_config.subsampling_y && !(sbd.mi_row & 1)) {
 					++r;
 				}
 			}

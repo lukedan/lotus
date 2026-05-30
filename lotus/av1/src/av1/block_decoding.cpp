@@ -15,20 +15,21 @@ namespace lotus::av1::block_decoding {
 		const state::block_decoding &sbd
 	) {
 		const u32 sb_mask = seq_header.use_128x128_superblock ? 31 : 15;
-		const u32 sub_block_mi_row = sbd.row & sb_mask;
-		const u32 sub_block_mi_col = sbd.col & sb_mask;
+		const u32 sub_block_mi_row = sbd.mi_row & sb_mask;
+		const u32 sub_block_mi_col = sbd.mi_col & sb_mask;
 		for (u32 plane = 0; plane < 1 + (sbd.has_chroma ? 1 : 0) * 2; ++plane) {
-			const block_size plane_sz = functions::get_plane_residual_size(seq_header.color_config, sbd.size, plane);
+			const block_size plane_sz =
+				functions::get_plane_residual_size(seq_header.color_config, sbd.mi_size, plane);
 			const u32 num_4x4_w = constants::num_4x4_blocks_wide[std::to_underlying(plane_sz)];
 			const u32 num_4x4_h = constants::num_4x4_blocks_high[std::to_underlying(plane_sz)];
 			const u32 log2w = constants::mi_size_log2 + constants::mi_width_log2[std::to_underlying(plane_sz)];
 			const u32 log2h = constants::mi_size_log2 + constants::mi_height_log2[std::to_underlying(plane_sz)];
 			const u32 sub_x = plane > 0 ? (seq_header.color_config.subsampling_x ? 1 : 0) : 0;
 			const u32 sub_y = plane > 0 ? (seq_header.color_config.subsampling_y ? 1 : 0) : 0;
-			const u32 base_x = (sbd.col >> sub_x) * constants::mi_size;
-			const u32 base_y = (sbd.row >> sub_y) * constants::mi_size;
-			const u32 cand_row = (sbd.row >> sub_y) << sub_y;
-			const u32 cand_col = (sbd.col >> sub_x) << sub_x;
+			const u32 base_x = (sbd.mi_col >> sub_x) * constants::mi_size;
+			const u32 base_y = (sbd.mi_row >> sub_y) * constants::mi_size;
+			const u32 cand_row = (sbd.mi_row >> sub_y) << sub_y;
+			const u32 cand_col = (sbd.mi_col >> sub_x) << sub_x;
 
 			const bool is_inter_intra = mode_info.is_inter && mode_info.ref_frame[1] == reference_frame::intra;
 			if (is_inter_intra) {
@@ -499,7 +500,7 @@ namespace lotus::av1::block_decoding {
 			crash_if(plane != 2);
 			palette = mode_info.palette_colors_v;
 		}
-		const state::color_map::channel &map = plane == 0 ? scm.y : scm.uv;
+		const state::color_map::channel &map = plane == 0 ? scm.color_map_y : scm.color_map_uv;
 		for (u32 i = 0; i < h; ++i) {
 			for (u32 j = 0; j < w; ++j) {
 				sb.curr_frame[plane](start_y + i, start_x + j) = palette[map[y * 4 + i][x * 4 + j]];

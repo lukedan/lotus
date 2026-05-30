@@ -25,9 +25,9 @@ namespace lotus::av1::cdf::context {
 			result.b_size = b_size;
 			result.bsl = constants::mi_width_log2[std::to_underlying(b_size)];
 			const bool above =
-				avail_u && constants::mi_width_log2 [std::to_underlying(mi.sizes(r - 1, c))] < result.bsl;
+				avail_u && constants::mi_width_log2 [std::to_underlying(mi.mi_sizes(r - 1, c))] < result.bsl;
 			const bool left =
-				avail_l && constants::mi_height_log2[std::to_underlying(mi.sizes(r, c - 1))] < result.bsl;
+				avail_l && constants::mi_height_log2[std::to_underlying(mi.mi_sizes(r, c - 1))] < result.bsl;
 			result.ctx = (left ? 1 : 0) * 2 + (above ? 1 : 0);
 			return result;
 		}
@@ -46,19 +46,19 @@ namespace lotus::av1::cdf::context {
 		const u32 max_tx_height = constants::get_tx_height(max_rect_tx_size);
 
 		u32 above_w;
-		if (sbd.avail_u && sb.is_inters(sbd.row - 1, sbd.col)) {
-			above_w = constants::block_width(sb.sizes(sbd.row - 1, sbd.col));
+		if (sbd.avail_u && sb.is_inters(sbd.mi_row - 1, sbd.mi_col)) {
+			above_w = constants::block_width(sb.mi_sizes(sbd.mi_row - 1, sbd.mi_col));
 		} else if (sbd.avail_u) {
-			above_w = functions::get_above_tx_width(sb, sbd, sbd.row, sbd.col);
+			above_w = functions::get_above_tx_width(sb, sbd, sbd.mi_row, sbd.mi_col);
 		} else {
 			above_w = 0;
 		}
 
 		u32 left_h;
-		if (sbd.avail_l && sb.is_inters(sbd.row, sbd.col - 1)) {
-			left_h = constants::block_height(sb.sizes(sbd.row, sbd.col - 1));
+		if (sbd.avail_l && sb.is_inters(sbd.mi_row, sbd.mi_col - 1)) {
+			left_h = constants::block_height(sb.mi_sizes(sbd.mi_row, sbd.mi_col - 1));
 		} else if (sbd.avail_l) {
-			left_h = functions::get_left_tx_height(sb, sbd, sbd.row, sbd.col);
+			left_h = functions::get_left_tx_height(sb, sbd, sbd.mi_row, sbd.mi_col);
 		} else {
 			left_h = 0;
 		}
@@ -73,7 +73,7 @@ namespace lotus::av1::cdf::context {
 		const bool above = functions::get_above_tx_width(sb, sbd, row, col) < constants::get_tx_width(tx_sz);
 		const bool left = functions::get_left_tx_height(sb, sbd, row, col) < constants::get_tx_height(tx_sz);
 		const u32 size =
-			std::min(64u, std::max(constants::block_width(sbd.size), constants::block_height(sbd.size)));
+			std::min(64u, std::max(constants::block_width(sbd.mi_size), constants::block_height(sbd.mi_size)));
 		const tx_size max_tx_sz = functions::find_tx_size(size, size);
 		const tx_size tx_sz_sqr_up = constants::get_tx_size_sqr_up(tx_sz);
 		return
@@ -123,10 +123,10 @@ namespace lotus::av1::cdf::context {
 	[[nodiscard]] inline u32 compute_skip_mode(const state::block &sb, const state::block_decoding &sbd) {
 		u32 ctx = 0;
 		if (sbd.avail_u) {
-			ctx += sb.skip_modes(sbd.row - 1, sbd.col);
+			ctx += sb.skip_modes(sbd.mi_row - 1, sbd.mi_col);
 		}
 		if (sbd.avail_l) {
-			ctx += sb.skip_modes(sbd.row, sbd.col - 1);
+			ctx += sb.skip_modes(sbd.mi_row, sbd.mi_col - 1);
 		}
 		return ctx;
 	}
@@ -135,10 +135,10 @@ namespace lotus::av1::cdf::context {
 	[[nodiscard]] inline u32 compute_skip(const state::block &sb, const state::block_decoding &bs) {
 		u32 ctx = 0;
 		if (bs.avail_u) {
-			ctx += sb.skips(bs.row - 1, bs.col) ? 1 : 0;
+			ctx += sb.skips(bs.mi_row - 1, bs.mi_col) ? 1 : 0;
 		}
 		if (bs.avail_l) {
-			ctx += sb.skips(bs.row, bs.col - 1) ? 1 : 0;
+			ctx += sb.skips(bs.mi_row, bs.mi_col - 1) ? 1 : 0;
 		}
 		return ctx;
 	}
@@ -157,19 +157,19 @@ namespace lotus::av1::cdf::context {
 
 		if (sbd.avail_l) {
 			if (
-				sb.ref_frames[0](sbd.row, sbd.col - 1) == mode_info.ref_frame[0] ||
-				sb.ref_frames[1](sbd.row, sbd.col - 1) == mode_info.ref_frame[0]
+				sb.ref_frames[0](sbd.mi_row, sbd.mi_col - 1) == mode_info.ref_frame[0] ||
+				sb.ref_frames[1](sbd.mi_row, sbd.mi_col - 1) == mode_info.ref_frame[0]
 			) {
-				left_type = sb.interp_filters[sbd.row][sbd.col - 1][dir];
+				left_type = sb.interp_filters[sbd.mi_row][sbd.mi_col - 1][dir];
 			}
 		}
 
 		if (sbd.avail_u) {
 			if (
-				sb.ref_frames[0](sbd.row - 1, sbd.col) == mode_info.ref_frame[0] ||
-				sb.ref_frames[1](sbd.row - 1, sbd.col) == mode_info.ref_frame[0]
+				sb.ref_frames[0](sbd.mi_row - 1, sbd.mi_col) == mode_info.ref_frame[0] ||
+				sb.ref_frames[1](sbd.mi_row - 1, sbd.mi_col) == mode_info.ref_frame[0]
 			) {
-				above_type = sb.interp_filters[sbd.row - 1][sbd.col][dir];
+				above_type = sb.interp_filters[sbd.mi_row - 1][sbd.mi_col][dir];
 			}
 		}
 
@@ -205,7 +205,7 @@ namespace lotus::av1::cdf::context {
 		const u32 w = constants::get_tx_width(tx_sz);
 		const u32 h = constants::get_tx_height(tx_sz);
 
-		const block_size bsize = functions::get_plane_residual_size(seq_header.color_config, sbd.size, plane);
+		const block_size bsize = functions::get_plane_residual_size(seq_header.color_config, sbd.mi_size, plane);
 		const u32 bw = constants::block_width(bsize);
 		const u32 bh = constants::block_height(bsize);
 
@@ -388,10 +388,10 @@ namespace lotus::av1::cdf::context {
 	/// Compute \p ctx for \p has_palette_y.
 	[[nodiscard]] inline u32 compute_has_palette_y(const state::block &sb, const state::block_decoding &sbd) {
 		u32 ctx = 0;
-		if (sbd.avail_u && sb.palette_sizes[0](sbd.row - 1, sbd.col) > 0) {
+		if (sbd.avail_u && sb.palette_sizes[0](sbd.mi_row - 1, sbd.mi_col) > 0) {
 			++ctx;
 		}
-		if (sbd.avail_l && sb.palette_sizes[0](sbd.row, sbd.col - 1) > 0) {
+		if (sbd.avail_l && sb.palette_sizes[0](sbd.mi_row, sbd.mi_col - 1) > 0) {
 			++ctx;
 		}
 		return ctx;

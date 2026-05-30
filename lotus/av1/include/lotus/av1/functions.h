@@ -86,8 +86,8 @@ namespace lotus::av1::functions {
 		for (u32 plane = 0; plane < seq_header.color_config.get_num_planes(); ++plane) {
 			const u32 sub_x = plane > 0 ? (seq_header.color_config.subsampling_x ? 1 : 0) : 0;
 			const u32 sub_y = plane > 0 ? (seq_header.color_config.subsampling_y ? 1 : 0) : 0;
-			const u32 sb_width4 = (sbr.col_end - c) >> sub_x;
-			const u32 sb_height4 = (sbr.row_end - r) >> sub_y;
+			const u32 sb_width4 = (sbr.mi_col_end - c) >> sub_x;
+			const u32 sb_height4 = (sbr.mi_row_end - r) >> sub_y;
 			for (i32 y = -1; y <= static_cast<i32>(sb_size4 >> sub_y); ++y) {
 				for (i32 x = -1; x <= static_cast<i32>(sb_size4 >> sub_x); ++x) {
 					if (y < 0 && x < static_cast<i32>(sb_width4)) {
@@ -114,11 +114,11 @@ namespace lotus::av1::functions {
 		for (u32 plane = 0; plane < (sbd.has_chroma ? 3 : 1); ++plane) {
 			const u32 sub_x = plane > 0 ? (seq_header.color_config.subsampling_x ? 1 : 0) : 0;
 			const u32 sub_y = plane > 0 ? (seq_header.color_config.subsampling_y ? 1 : 0) : 0;
-			for (u32 i = sbd.col >> sub_x; i < ((sbd.col + bw4) >> sub_x); ++i) {
+			for (u32 i = sbd.mi_col >> sub_x; i < ((sbd.mi_col + bw4) >> sub_x); ++i) {
 				sb.above_level_context[plane][i] = 0;
 				sb.above_dc_context[plane][i] = 0;
 			}
-			for (u32 i = sbd.row >> sub_y; i < ((sbd.row + bh4) >> sub_y); ++i) {
+			for (u32 i = sbd.mi_row >> sub_y; i < ((sbd.mi_row + bh4) >> sub_y); ++i) {
 				sb.left_level_context[plane][i] = 0;
 				sb.left_dc_context[plane][i] = 0;
 			}
@@ -159,14 +159,14 @@ namespace lotus::av1::functions {
 	[[nodiscard]] constexpr segment_id_t get_segment_id(
 		const state::block &sb, const state::block_decoding &sbd, u32 mi_rows, u32 mi_cols
 	) {
-		const u32 bw4 = constants::num_4x4_blocks_wide[std::to_underlying(sbd.size)];
-		const u32 bh4 = constants::num_4x4_blocks_high[std::to_underlying(sbd.size)];
-		const u32 x_mis = std::min(mi_cols - sbd.col, bw4);
-		const u32 y_mis = std::min(mi_rows - sbd.row, bh4);
+		const u32 bw4 = constants::num_4x4_blocks_wide[std::to_underlying(sbd.mi_size)];
+		const u32 bh4 = constants::num_4x4_blocks_high[std::to_underlying(sbd.mi_size)];
+		const u32 x_mis = std::min(mi_cols - sbd.mi_col, bw4);
+		const u32 y_mis = std::min(mi_rows - sbd.mi_row, bh4);
 		auto seg = static_cast<segment_id_t>(7);
 		for (u32 y = 0; y < y_mis; ++y) {
 			for (u32 x = 0; x < x_mis; ++x) {
-				seg = std::min(seg, sb.prev_segment_ids[sbd.row + y][sbd.col + x]);
+				seg = std::min(seg, sb.prev_segment_ids[sbd.mi_row + y][sbd.mi_col + x]);
 			}
 		}
 		return seg;
@@ -189,7 +189,7 @@ namespace lotus::av1::functions {
 		const obu::mode_info &mode_info,
 		const state::block_decoding &sbd
 	) {
-		const bool large = std::min(constants::block_width(sbd.size), constants::block_height(sbd.size)) >= 8;
+		const bool large = std::min(constants::block_width(sbd.mi_size), constants::block_height(sbd.mi_size)) >= 8;
 		if (mode_info.skip_mode || mode_info.motion_mode == motion_compensation::localwarp) {
 			return false;
 		} else if (large && mode_info.y_mode == prediction_mode::globalmv) {
@@ -427,19 +427,19 @@ namespace lotus::av1::functions {
 		const state::block &sb, const state::block_decoding &sbd, u32 plane
 	) {
 		u32 above_n = 0;
-		if ((sbd.row * constants::mi_size) % 64 != 0) {
-			above_n = sb.palette_sizes[plane](sbd.row - 1, sbd.col);
+		if ((sbd.mi_row * constants::mi_size) % 64 != 0) {
+			above_n = sb.palette_sizes[plane](sbd.mi_row - 1, sbd.mi_col);
 		}
 		u32 left_n = 0;
 		if (sbd.avail_l) {
-			left_n = sb.palette_sizes[plane](sbd.row, sbd.col - 1);
+			left_n = sb.palette_sizes[plane](sbd.mi_row, sbd.mi_col - 1);
 		}
 		u32 above_idx = 0;
 		u32 left_idx = 0;
 		palette_cache_t palette_cache;
 		while (above_idx < above_n && left_idx < left_n) {
-			const channel_t above_c = sb.palette_colors[plane](sbd.row - 1, sbd.col)[above_idx];
-			const channel_t left_c = sb.palette_colors[plane](sbd.row, sbd.col - 1)[left_idx];
+			const channel_t above_c = sb.palette_colors[plane](sbd.mi_row - 1, sbd.mi_col)[above_idx];
+			const channel_t left_c = sb.palette_colors[plane](sbd.mi_row, sbd.mi_col - 1)[left_idx];
 			if (left_c < above_c) {
 				if (palette_cache.empty() || left_c != palette_cache.back()) {
 					palette_cache.emplace_back(left_c);
@@ -456,14 +456,14 @@ namespace lotus::av1::functions {
 			}
 		}
 		while (above_idx < above_n) {
-			const channel_t val = sb.palette_colors[plane](sbd.row - 1, sbd.col)[above_idx];
+			const channel_t val = sb.palette_colors[plane](sbd.mi_row - 1, sbd.mi_col)[above_idx];
 			++above_idx;
 			if (palette_cache.empty() || val != palette_cache.back()) {
 				palette_cache.emplace_back(val);
 			}
 		}
 		while (left_idx < left_n) {
-			const channel_t val = sb.palette_colors[plane](sbd.row, sbd.col - 1)[left_idx];
+			const channel_t val = sb.palette_colors[plane](sbd.mi_row, sbd.mi_col - 1)[left_idx];
 			++left_idx;
 			if (palette_cache.empty() || val != palette_cache.back()) {
 				palette_cache.emplace_back(val);
@@ -684,11 +684,11 @@ namespace lotus::av1::functions {
 	[[nodiscard]] constexpr u32 get_above_tx_width(
 		const state::block &sb, const state::block_decoding &sbd, u32 row, u32 col
 	) {
-		if (row == sbd.row) {
+		if (row == sbd.mi_row) {
 			if (!sbd.avail_u) {
 				return 64;
 			} else if (sb.skips(row - 1, col) && sb.is_inters(row - 1, col)) {
-				return constants::block_width(sb.sizes(row - 1, col));
+				return constants::block_width(sb.mi_sizes(row - 1, col));
 			}
 		}
 		return constants::get_tx_width(sb.inter_tx_sizes(row - 1, col));
@@ -698,11 +698,11 @@ namespace lotus::av1::functions {
 	[[nodiscard]] constexpr u32 get_left_tx_height(
 		const state::block &sb, const state::block_decoding &sbd, u32 row, u32 col
 	) {
-		if (col == sbd.col) {
+		if (col == sbd.mi_col) {
 			if (!sbd.avail_l) {
 				return 64;
 			} else if (sb.skips(row, col - 1) && sb.is_inters(row, col - 1)) {
-				return constants::block_height(sb.sizes(row, col - 1));
+				return constants::block_height(sb.mi_sizes(row, col - 1));
 			}
 		}
 		return constants::get_tx_height(sb.inter_tx_sizes(row, col - 1));

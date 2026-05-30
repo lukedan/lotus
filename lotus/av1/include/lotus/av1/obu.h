@@ -441,15 +441,15 @@ namespace lotus::av1::obu {
 		global_motion_params global_motion_params = zero; ///< Global motion parameters.
 		film_grain_params film_graim_params = zero; ///< Film grain parameters.
 
-		u32 display_frame_id    = 0; ///< \p display_frame_id.
-		u32 current_frame_id    = 0; ///< \p current_frame_id.
-		u8  frame_to_show       = 0; ///< \p frame_to_show_map_idx.
-		u8  refresh_frame_flags = 0; ///< \p refresh_frame_flags.
-		u8  order_hint          = 0; ///< \p order_hint.
-		u8  primary_ref_frame   = 0; ///< \p primary_ref_frame.
-		u8  last_frame_index    = 0; ///< \p last_frame_idx.
-		u8  gold_frame_index    = 0; ///< \p gold_frame_idx.
-		u8  lossless_bits       = 0; ///< \p LosslessArray.
+		u32 display_frame_id      = 0; ///< \p display_frame_id.
+		u32 current_frame_id      = 0; ///< \p current_frame_id.
+		u8  frame_to_show_map_idx = 0; ///< \p frame_to_show_map_idx.
+		u8  refresh_frame_flags   = 0; ///< \p refresh_frame_flags.
+		u8  order_hint            = 0; ///< \p order_hint.
+		u8  primary_ref_frame     = 0; ///< \p primary_ref_frame.
+		u8  last_frame_index      = 0; ///< \p last_frame_idx.
+		u8  gold_frame_index      = 0; ///< \p gold_frame_idx.
+		u8  lossless_bits         = 0; ///< \p LosslessArray.
 
 		frame_type frame_type = zero; ///< \p frame_type.
 		tx_mode tx_mode = zero; ///< \p TxMode.

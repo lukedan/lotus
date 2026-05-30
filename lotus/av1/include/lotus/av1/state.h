@@ -71,7 +71,7 @@ namespace lotus::av1::state {
 		grid2<bool> is_inters = zero; ///< \p IsInters.
 		grid2<bool> skip_modes = zero; ///< \p SkipModes.
 		grid2<bool> skips = zero; ///< \p Skips.
-		grid2<block_size> sizes = zero; ///< \p MiSizes.
+		grid2<block_size> mi_sizes = zero; ///< \p MiSizes.
 		grid2<segment_id_t> segment_ids = zero; ///< \p SegmentIds.
 		segment_id_t **prev_segment_ids = nullptr; ///< \p PrevSegmentIds.
 		grid2<u8> palette_sizes[2] = { zero, zero }; ///< \p PaletteSizes.
@@ -127,7 +127,7 @@ namespace lotus::av1::state {
 			result.is_inters         = grid2<bool>::allocate(mi_cols, mi_rows, false);
 			result.skip_modes        = grid2<bool>::allocate(mi_cols, mi_rows, false);
 			result.skips             = grid2<bool>::allocate(mi_cols, mi_rows, false);
-			result.sizes             = grid2<block_size>::allocate(mi_cols, mi_rows, zero);
+			result.mi_sizes          = grid2<block_size>::allocate(mi_cols, mi_rows, zero);
 			result.segment_ids       = grid2<segment_id_t>::allocate(mi_cols, mi_rows, zero);
 			result.palette_sizes[0]  = grid2<u8>::allocate(mi_cols, mi_rows, 0);
 			result.palette_sizes[1]  = grid2<u8>::allocate(mi_cols, mi_rows, 0);
@@ -174,14 +174,14 @@ namespace lotus::av1::state {
 		block_range(zero_t) {
 		}
 
-		u32 col_start = 0; ///< \p MiColStart.
-		u32 col_end   = 0; ///< \p MiColEnd.
-		u32 row_start = 0; ///< \p MiRowStart.
-		u32 row_end   = 0; ///< \p MiRowEnd.
+		u32 mi_col_start = 0; ///< \p MiColStart.
+		u32 mi_col_end   = 0; ///< \p MiColEnd.
+		u32 mi_row_start = 0; ///< \p MiRowStart.
+		u32 mi_row_end   = 0; ///< \p MiRowEnd.
 
 		/// 5.11.51. Is inside function
 		[[nodiscard]] bool is_inside(u32 r, u32 c) const {
-			return c >= col_start && c < col_end && r >= row_start && r < row_end;
+			return c >= mi_col_start && c < mi_col_end && r >= mi_row_start && r < mi_row_end;
 		}
 	};
 
@@ -192,9 +192,9 @@ namespace lotus::av1::state {
 		block_decoding(zero_t) {
 		}
 
-		u32 row = 0; ///< \p MiRow.
-		u32 col = 0; ///< \p MiCol.
-		block_size size = zero; ///< \p MiSize.
+		u32 mi_row = 0; ///< \p MiRow.
+		u32 mi_col = 0; ///< \p MiCol.
+		block_size mi_size = zero; ///< \p MiSize.
 
 		bool avail_u        : 1 = false; ///< \p AvailU.
 		bool avail_l        : 1 = false; ///< \p AvailL.
@@ -222,8 +222,8 @@ namespace lotus::av1::state {
 		color_map(uninitialized_t) {
 		}
 
-		channel y;  ///< \p ColorMapY.
-		channel uv; ///< \p ColorMapUV.
+		channel color_map_y;  ///< \p ColorMapY.
+		channel color_map_uv; ///< \p ColorMapUV.
 	};
 
 	/// Motion vector related context.

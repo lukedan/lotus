@@ -79,10 +79,10 @@ namespace lotus::av1 {
 		const state::block &sb, const state::block_decoding &sbd
 	) {
 		const u32 abovemode = constants::intra_mode_context[std::to_underlying(
-			sbd.avail_u ? sb.y_modes(sbd.row - 1, sbd.col) : prediction_mode::dc
+			sbd.avail_u ? sb.y_modes(sbd.mi_row - 1, sbd.mi_col) : prediction_mode::dc
 		)];
 		const u32 leftmode = constants::intra_mode_context[std::to_underlying(
-			sbd.avail_l ? sb.y_modes(sbd.row, sbd.col - 1) : prediction_mode::dc
+			sbd.avail_l ? sb.y_modes(sbd.mi_row, sbd.mi_col - 1) : prediction_mode::dc
 		)];
 		return static_cast<prediction_mode>(read_symbol(_tile_intra_frame_y_mode_cdf.value[abovemode][leftmode]));
 	}
@@ -199,8 +199,8 @@ namespace lotus::av1 {
 
 	bool symbol_decoder::read_seg_id_predicted(const state::block &sb, const state::block_decoding &sbd) {
 		const u32 ctx =
-			(sb.left_seg_pred_context[sbd.row]  ? 1 : 0) +
-			(sb.above_seg_pred_context[sbd.col] ? 1 : 0);
+			(sb.left_seg_pred_context[sbd.mi_row]  ? 1 : 0) +
+			(sb.above_seg_pred_context[sbd.mi_col] ? 1 : 0);
 		return read_symbol(_tile_non_coeff_cdf.segment_id_predicted.value[ctx]) != zero;
 	}
 

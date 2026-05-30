@@ -22,7 +22,10 @@ namespace lotus {
 			}
 			Size result = std::max(base, original);
 			while (result < target) {
-				result = static_cast<Size>(result * factor);
+				result += std::max(
+					static_cast<Size>(1),
+					static_cast<Size>(static_cast<f32>(result) * (factor - 1.0f))
+				);
 			}
 			return result;
 		}

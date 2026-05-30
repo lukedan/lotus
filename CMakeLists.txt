@@ -67,6 +67,8 @@ add_subdirectory("lotus/renderer/")
 add_subdirectory("lotus/system/")
 add_subdirectory("lotus/helpers/")
 
+add_subdirectory("lotus/av1")
+
 add_subdirectory("tools/")
 
 add_subdirectory("test/")

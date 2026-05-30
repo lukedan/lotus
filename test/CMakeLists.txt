@@ -1,4 +1,5 @@
 add_subdirectory("auto_diff/")
+add_subdirectory("av1/")
 add_subdirectory("misc/")
 add_subdirectorY("renderer/")
 add_subdirectory("testbed/")

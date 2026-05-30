@@ -51,12 +51,20 @@ namespace lotus {
 
 
 	/// Converts the given four-character literal to its 32-bit binary representation.
-	constexpr inline static u32 make_four_character_code(std::u8string_view s) {
+	consteval u32 make_four_character_code(const char8_t (&s)[5]) {
 		return
-			static_cast<u32>(s[0]) |
-			(static_cast<u32>(s[1]) << 8) |
+			static_cast<u32>(s[0])         |
+			(static_cast<u32>(s[1]) << 8)  |
 			(static_cast<u32>(s[2]) << 16) |
 			(static_cast<u32>(s[3]) << 24);
+	}
+	/// Similar to \ref make_four_character_code(), but reversed.
+	consteval u32 make_four_character_code_reverse(const char8_t (&s)[5]) {
+		return
+			(static_cast<u32>(s[0]) << 24) |
+			(static_cast<u32>(s[1]) << 16) |
+			(static_cast<u32>(s[2]) << 8)  |
+			static_cast<u32>(s[3]);
 	}
 
 	/// Helper class that enables overloading of lambdas and function objects.

@@ -88,22 +88,34 @@ namespace lotus {
 	constexpr inline zero_t zero; ///< An instance of \ref zero_t.
 
 
-	/// The minimum-sized type that is able to hold the given value.
+	/// The minimum-sized unsigned type that is able to hold the given value.
 	template <u64 Value> struct minimum_unsigned_type {
 		/// The type.
 		using type = std::conditional_t<
-			(Value < std::numeric_limits<u8>::max()), u8,
-			std::conditional_t<
-				(Value < std::numeric_limits<u16>::max()), u16,
-				std::conditional_t<
-					(Value < std::numeric_limits<u32>::max()), u32,
-					u64
+			(Value < std::numeric_limits<u8>::max()), u8, std::conditional_t<
+				(Value < std::numeric_limits<u16>::max()), u16, std::conditional_t<
+					(Value < std::numeric_limits<u32>::max()), u32, u64
 				>
 			>
 		>;
 	};
 	/// Shorthand for \ref minimum_unsigned_type::type.
 	template <u64 Value> using minimum_unsigned_type_t = minimum_unsigned_type<Value>::type;
+
+	/// The minimum-sized unsigned type that is able to hold the given number of bits.
+	template <u8 Bits> struct minimum_unsigned_type_bits {
+		static_assert(Bits <= 64, "Unsupported bit count");
+		/// The type.
+		using type = std::conditional_t<
+			Bits <= 8, u8, std::conditional_t<
+				Bits <= 16, u16, std::conditional_t<
+					Bits <= 32, u32, u64
+				>
+			>
+		>;
+	};
+	/// Shorthand for \ref minimum_unsigned_type_bits::type.
+	template <u8 Bits> using minimum_unsigned_type_bits_t = minimum_unsigned_type_bits<Bits>::type;
 
 
 	/// Used to obtain certain attributes of member pointers.

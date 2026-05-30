@@ -72,6 +72,9 @@ namespace lotus {
 		constexpr static usize dimensionality = std::max(num_rows, num_columns);
 		using value_type = T; ///< Value type.
 
+		/// Value initialization when no args are present.
+		constexpr matrix() : elements{} {
+		}
 		/// Does not initialize the matrix.
 		matrix(uninitialized_t) {
 		}
@@ -294,6 +297,18 @@ namespace lotus {
 			return numeric_traits<T>::sqrt(squared_norm());
 		}
 
+		/// Returns \p true if all elements of this matrix are true.
+		[[nodiscard]] constexpr bool all_true() const requires std::is_same_v<T, bool> {
+			for (const auto &row : elements) {
+				for (const bool elem : row) {
+					if (!elem) {
+						return false;
+					}
+				}
+			}
+			return true;
+		}
+
 		/// Default equality and inequality comparisons.
 		[[nodiscard]] friend bool operator==(const matrix&, const matrix&) = default;
 
@@ -360,9 +375,7 @@ namespace lotus {
 			}
 		}
 		/// Memberwise multiplication of the two matrices.
-		template <
-			usize R, usize C, typename T
-		> [[nodiscard]] constexpr static matrix<R, C, T> multiply(
+		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, T> multiply(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
 			return operation([](const T &lhs, const T &rhs) {
@@ -370,9 +383,7 @@ namespace lotus {
 			}, lhs, rhs);
 		}
 		/// Memberwise multiplication of the two matrices.
-		template <
-			usize R, usize C, typename T
-		> [[nodiscard]] constexpr static matrix<R, C, T> divide(
+		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, T> divide(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
 			return operation([](const T &lhs, const T &rhs) {
@@ -380,9 +391,7 @@ namespace lotus {
 			}, lhs, rhs);
 		}
 		/// Memberwise minimum of the two matrices.
-		template <
-			usize R, usize C, typename T
-		> [[nodiscard]] constexpr static matrix<R, C, T> min(
+		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, T> min(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
 			return operation([](const T &lhs, const T &rhs) {
@@ -390,9 +399,7 @@ namespace lotus {
 			}, lhs, rhs);
 		}
 		/// Memberwise minimum of the two matrices.
-		template <
-			usize R, usize C, typename T
-		> [[nodiscard]] constexpr static matrix<R, C, T> max(
+		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, T> max(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
 		) {
 			return operation([](const T &lhs, const T &rhs) {
@@ -406,6 +413,14 @@ namespace lotus {
 			return operation([](const T &v) {
 				return static_cast<T>(1.0f / v);
 			}, m);
+		}
+		/// Memberwise equality of two matrices.
+		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, bool> equals(
+			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
+		) {
+			return operation([](const T &lhs, const T &rhs) {
+				return lhs == rhs;
+			}, lhs, rhs);
 		}
 	};
 	using matm = mat_memberwise; ///< Shorthand.
@@ -821,20 +836,21 @@ namespace lotus {
 		using mat22f64 = matrix<2, 2, f64>; ///< 2x2 matrices of \ref f64.
 
 		template <typename T> using mat23 = matrix<2, 3, T>; ///< 2x3 matrices.
-		using mat23f32 = matrix<2, 3, f32>; ///< 2x2 matrices of \ref f32.
-		using mat23f64 = matrix<2, 3, f64>; ///< 2x2 matrices of \ref f64.
+		using mat23f32 = matrix<2, 3, f32>; ///< 2x3 matrices of \ref f32.
+		using mat23f64 = matrix<2, 3, f64>; ///< 2x3 matrices of \ref f64.
 
 		template <typename T> using mat33 = matrix<3, 3, T>; ///< 3x3 matrices.
-		using mat33f32 = matrix<3, 3, f32>; ///< 2x2 matrices of \ref f32.
-		using mat33f64 = matrix<3, 3, f64>; ///< 2x2 matrices of \ref f64.
+		using mat33u32 = matrix<3, 3, u32>; ///< 3x3 matrices of \ref u32.
+		using mat33f32 = matrix<3, 3, f32>; ///< 3x3 matrices of \ref f32.
+		using mat33f64 = matrix<3, 3, f64>; ///< 3x3 matrices of \ref f64.
 
 		template <typename T> using mat34 = matrix<3, 4, T>; ///< 3x4 matrices.
-		using mat34f32 = matrix<3, 4, f32>; ///< 2x2 matrices of \ref f32.
-		using mat34f64 = matrix<3, 4, f64>; ///< 2x2 matrices of \ref f64.
+		using mat34f32 = matrix<3, 4, f32>; ///< 3x4 matrices of \ref f32.
+		using mat34f64 = matrix<3, 4, f64>; ///< 3x4 matrices of \ref f64.
 
 		template <typename T> using mat44 = matrix<4, 4, T>; ///< 4x4 matrices.
-		using mat44f32 = matrix<4, 4, f32>; ///< 2x2 matrices of \ref f32.
-		using mat44f64 = matrix<4, 4, f64>; ///< 2x2 matrices of \ref f64.
+		using mat44f32 = matrix<4, 4, f32>; ///< 4x4 matrices of \ref f32.
+		using mat44f64 = matrix<4, 4, f64>; ///< 4x4 matrices of \ref f64.
 	}
 
 

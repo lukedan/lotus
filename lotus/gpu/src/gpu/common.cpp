@@ -16,7 +16,7 @@ namespace lotus::gpu {
 	}
 
 	constexpr static u8 o = 0; // zero for visibility
-	constexpr static cvec2u8 _bc7_block_size = cvec2i(4, 4).into<u8>();
+	constexpr static cvec2u8 _bc7_block_size = cvec2i32(4, 4).into<u8>();
 	constexpr static enums::sequential_mapping<format, format_properties> _format_property_table{
 		std::pair(format::none,               zero),
 		std::pair(format::d32_float_s8,       format_properties::create_depth_stencil(32, 8, format_properties::data_type::floating_point)),

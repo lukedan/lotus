@@ -174,7 +174,7 @@ namespace lotus::renderer::assets {
 			return job_result(
 				std::move(j),
 				loader_type::stbi,
-				cvec2i(width, height).into<u32>(),
+				cvec2i32(width, height).into<u32>(),
 				pixel_format,
 				{ job_result::subresource(std::span(bytes, bytes + num_bytes), 0) },
 				[ptr = loaded]() {

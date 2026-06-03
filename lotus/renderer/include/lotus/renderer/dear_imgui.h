@@ -198,7 +198,7 @@ namespace lotus::renderer::dear_imgui {
 			io.Fonts->GetTexDataAsRGBA32(&tex_data, &width, &height);
 
 			image2d_view result = rctx.request_image2d(
-				u8"Dear ImGui Font Atlas", cvec2i(width, height).into<u32>(), 1,
+				u8"Dear ImGui Font Atlas", cvec2i32(width, height).into<u32>(), 1,
 				gpu::format::r8g8b8a8_unorm,
 				gpu::image_usage_mask::copy_destination | gpu::image_usage_mask::shader_read, nullptr
 			);

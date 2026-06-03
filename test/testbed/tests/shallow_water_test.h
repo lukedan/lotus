@@ -37,7 +37,7 @@ public:
 			return at(x, y);
 		}
 
-		[[nodiscard]] lotus::mat22<T> gather_zero(lotus::cvec2i pos) const {
+		[[nodiscard]] lotus::mat22<T> gather_zero(lotus::cvec2i32 pos) const {
 			auto value = [&](int x, int y) -> T {
 				if (x < 0 || x >= static_cast<int>(get_size()[0])) {
 					return lotus::zero;
@@ -450,7 +450,7 @@ public:
 		_render = debug_render();
 		_render.ctx = &_get_test_context();
 
-		_terrain.resize(lotus::cvec2i(_size[0], _size[1]).into<u32>());
+		_terrain.resize(lotus::cvec2i32(_size[0], _size[1]).into<u32>());
 		_generate_terrain();
 
 		// called last because it might depend on the terrain

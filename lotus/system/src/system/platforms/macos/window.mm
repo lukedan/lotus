@@ -70,7 +70,7 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 @implementation lotus_window
 
 /// Converts a mouse position from the window's base coordinate system to its backing coordinate system.
-- (lotus::cvec2i)convert_mouse_position: (NSPoint)pos {
+- (lotus::cvec2i32)convert_mouse_position: (NSPoint)pos {
 	const NSPoint pt = [self.contentView convertPointToBacking: pos];
 	const NSSize sz = [self.contentView convertSizeToBacking: self.contentView.frame.size];
 	return lotus::cvec2f64(pt.x, sz.height - pt.y).into<int>();

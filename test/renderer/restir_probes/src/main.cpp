@@ -524,7 +524,7 @@ protected:
 				if (indirect_spatial_reuse) { // indirect spatial reuse
 					auto tmr = _graphics_queue.start_timer(u8"Indirect Spatial Reuse");
 
-					cvec3i offsets[6] = {
+					cvec3i32 offsets[6] = {
 						{  1,  0,  0 },
 						{ -1,  0,  0 },
 						{  0,  1,  0 },
@@ -1002,7 +1002,7 @@ protected:
 				auto probes_int = probe_density.into<int>();
 				int probes[3] = { probes_int[0], probes_int[1], probes_int[2] };
 				needs_resizing = ImGui::SliderInt3("Num Probes", probes, 2, 100) || needs_resizing;
-				probe_density = cvec3i(probes[0], probes[1], probes[2]).into<u32>();
+				probe_density = cvec3i32(probes[0], probes[1], probes[2]).into<u32>();
 			}
 			needs_resizing = ImGui_SliderT<u32>("Direct Reservoirs Per Probe", &direct_reservoirs_per_probe, 1, 20) || needs_resizing;
 			needs_resizing = ImGui_SliderT<u32>("Indirect Reservoirs Per Probe", &indirect_reservoirs_per_probe, 1, 20) || needs_resizing;

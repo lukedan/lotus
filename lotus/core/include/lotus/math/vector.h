@@ -71,6 +71,7 @@ namespace lotus {
 		template <typename T> using cvec2 = column_vector<2, T>; ///< 2D column vectors.
 		using cvec2f32 = cvec2<f32>;   ///< 2D column vectors of \ref f32.
 		using cvec2f64 = cvec2<f64>;   ///< 2D column vectors of \ref f64.
+		using cvec2i16 = cvec2<i16>;   ///< 2D column vectors of \ref i16.
 		using cvec2i32 = cvec2<i32>;   ///< 2D column vectors of \ref i32.
 		using cvec2s   = cvec2<usize>; ///< 2D column vectors of \ref usize.
 		using cvec2u8  = cvec2<u8>;    ///< 2D column vectors of \ref u8.
@@ -79,6 +80,7 @@ namespace lotus {
 		template <typename T> using cvec3 = column_vector<3, T>; ///< 3D column vectors.
 		using cvec3f32 = cvec3<f32>;   ///< 3D column vectors of \ref f32.
 		using cvec3f64 = cvec3<f64>;   ///< 3D column vectors of \ref f64.
+		using cvec3i32 = cvec3<i32>;   ///< 3D column vectors of \ref i32.
 		using cvec3s   = cvec3<usize>; ///< 3D column vectors of \ref usize.
 		using cvec3u32 = cvec3<u32>;   ///< 2D column vectors of \ref u32.
 

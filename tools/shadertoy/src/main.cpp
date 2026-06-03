@@ -36,9 +36,9 @@ protected:
 	lren::pool _resource_pool = nullptr;
 
 	bool _mouse_down = false;
-	lotus::cvec2i _mouse_pos = zero;
-	lotus::cvec2i _mouse_down_pos = zero;
-	lotus::cvec2i _mouse_drag_pos = zero;
+	lotus::cvec2i32 _mouse_pos = zero;
+	lotus::cvec2i32 _mouse_down_pos = zero;
+	lotus::cvec2i32 _mouse_drag_pos = zero;
 
 	std::chrono::high_resolution_clock::time_point _start_time;
 	u64 _frame_index = 0;

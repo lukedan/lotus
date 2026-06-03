@@ -106,45 +106,45 @@ namespace lotus::system {
 			/// Information about mouse movement.
 			struct move {
 				/// Initializes \ref new_position.
-				explicit move(cvec2i pos, modifier_key_mask mods) : new_position(pos), modifiers(mods) {
+				explicit move(cvec2i32 pos, modifier_key_mask mods) : new_position(pos), modifiers(mods) {
 				}
 
-				const cvec2i new_position; ///< New mouse position.
+				const cvec2i32 new_position; ///< New mouse position.
 				const modifier_key_mask modifiers; ///< Modifier keys that are pressed.
 			};
 			/// Information about a mouse button being pressed.
 			struct button_down {
 				/// Initializes all fields of the struct.
-				button_down(cvec2i pos, mouse_button btn, modifier_key_mask mods) :
+				button_down(cvec2i32 pos, mouse_button btn, modifier_key_mask mods) :
 					position(pos), button(btn), modifiers(mods) {
 				}
 
 				/// The position of the mouse when the button is pressed, relative to the client are of the window.
-				const cvec2i position;
+				const cvec2i32 position;
 				const mouse_button button; ///< The mouse button.
 				const modifier_key_mask modifiers; ///< Modifier keys that are pressed.
 			};
 			/// Information about a mouse button being released.
 			struct button_up {
 				/// Initializes all fields of this struct.
-				button_up(cvec2i pos, mouse_button btn, modifier_key_mask mods) :
+				button_up(cvec2i32 pos, mouse_button btn, modifier_key_mask mods) :
 					position(pos), button(btn), modifiers(mods) {
 				}
 
 				/// The position of the mouse when the button is released, relative to the client are of the window.
-				const cvec2i position;
+				const cvec2i32 position;
 				const mouse_button button; ///< The mouse button.
 				const modifier_key_mask modifiers; ///< Modifier keys that are pressed.
 			};
 			/// Information about scrolling.
 			struct scroll {
 				/// Initializes all fields of this struct.
-				scroll(cvec2i pos, cvec2f32 off, modifier_key_mask mods) :
+				scroll(cvec2i32 pos, cvec2f32 off, modifier_key_mask mods) :
 					position(pos), offset(off), modifiers(mods) {
 				}
 
 				/// The position of the mouse when scrolling happened, relative to the client area of the window.
-				const cvec2i position;
+				const cvec2i32 position;
 				const cvec2f32 offset; ///< Scrolling offset.
 				const modifier_key_mask modifiers; ///< Modifier keys that are pressed.
 			};

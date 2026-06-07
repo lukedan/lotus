@@ -4,7 +4,9 @@
 /// Utilities for auto differentiation.
 
 #include "lotus/math/matrix.h"
-#include "context.h"
+#include "lotus/math/vector.h"
+
+#include "lotus/math/auto_diff/context.h"
 
 namespace lotus::auto_diff {
 	/// Matrix related utility functions.
@@ -16,7 +18,9 @@ namespace lotus::auto_diff {
 		/// Converts a matrix of variables into a matrix of expressions.
 		template <
 			usize Rows, usize Cols, typename T
-		> constexpr static matrix<Rows, Cols, expression> into_expression(const matrix<Rows, Cols, variable<T>> &m) {
+		> [[nodiscard]] constexpr static matrix<Rows, Cols, expression> into_expression(
+			const matrix<Rows, Cols, variable<T>> &m
+		) {
 			return matm::operation(
 				[](const variable<T> &v) {
 					return v.into_expression();
@@ -46,6 +50,31 @@ namespace lotus::auto_diff {
 				},
 				m
 			);
+		}
+		/// Takes the derivative of the scalar against the vector, in denominator layout.
+		template <usize Rows, typename T> constexpr static column_vector<Rows, expression> diff_denominator(
+			const expression &y, const column_vector<Rows, variable<T>> &x
+		) {
+			return matm::operation(
+				[&](const variable<T> &v) {
+					return y.diff(v);
+				},
+				x
+			);
+		}
+		/// Takes the derivative of the vector against another vector, in denominator layout.
+		template <
+			usize YRows, usize XRows, typename T
+		> constexpr static matrix<XRows, YRows, expression> diff_denominator(
+			const column_vector<YRows, expression> &y, const column_vector<XRows, variable<T>> &x
+		) {
+			matrix<XRows, YRows, expression> result = zero;
+			for (usize r = 0; r < XRows; ++r) {
+				for (usize c = 0; c < YRows; ++c) {
+					result(r, c) = y[c].diff(x[r]);
+				}
+			}
+			return result;
 		}
 
 		/// Simplifies all elements of the matrix.

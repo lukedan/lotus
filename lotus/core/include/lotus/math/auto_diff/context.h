@@ -224,6 +224,11 @@ namespace lotus::auto_diff::inline operators {
 		return lhs = lhs + rhs;
 	}
 
+	/// Negation.
+	template <typename T> [[nodiscard]] constexpr expression operator-(const T &v) {
+		return _details::default_unary_operator_impl<operations::negate>(v);
+	}
+
 	/// Subtraction operator.
 	template <typename Lhs, typename Rhs> [[nodiscard]] constexpr std::enable_if_t<
 		_details::is_operand_v<Lhs> || _details::is_operand_v<Rhs>, expression
@@ -289,6 +294,12 @@ namespace lotus::auto_diff {
 			const _details::variable_data &v, context &ctx
 		) const {
 			return &v == var ? ctx.get_one_expression() : ctx.get_zero_expression();
+		}
+
+		template <typename T> constexpr expression negate<T>::diff(
+			const _details::variable_data &v, context &ctx
+		) const {
+			return -op->diff(v, ctx);
 		}
 
 		template <typename T> constexpr expression sqrt<T>::diff(

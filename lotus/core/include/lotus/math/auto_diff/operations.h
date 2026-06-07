@@ -55,6 +55,23 @@ namespace lotus::auto_diff::operations {
 		const _details::operation_data *op; ///< The operand.
 	};
 
+	/// Negation.
+	template <typename Scalar> struct negate : unary_operation {
+		using value_type = Scalar; ///< Value type.
+
+		/// Initializes the operands.
+		explicit negate(const _details::operation_data *op) : unary_operation(op) {
+		}
+
+		/// Negates the operand.
+		[[nodiscard]] constexpr value_type eval() const;
+		/// Negates the derivative.
+		[[nodiscard]] constexpr expression diff(const _details::variable_data&, context&) const;
+
+		/// Returns "-(op)".
+		[[nodiscard]] constexpr std::string to_string() const;
+	};
+
 	/// Square root.
 	template <typename Scalar> struct sqrt : unary_operation {
 		using value_type = Scalar; ///< Value type.
@@ -156,6 +173,8 @@ namespace lotus::auto_diff::_details {
 			operations::variable<f32>,
 			operations::variable<f64>,
 
+			operations::negate<f32>,
+			operations::negate<f64>,
 			operations::sqrt<f32>,
 			operations::sqrt<f64>,
 
@@ -253,6 +272,14 @@ namespace lotus::auto_diff {
 
 
 	namespace operations {
+		template <typename T> constexpr T negate<T>::eval() const {
+			return -(op->eval<value_type>());
+		}
+
+		template <typename T> constexpr std::string negate<T>::to_string() const {
+			return "-(" + op->to_string() + ")";
+		}
+
 		template <typename T> constexpr T sqrt<T>::eval() const {
 			return std::sqrt(op->eval<value_type>());
 		}

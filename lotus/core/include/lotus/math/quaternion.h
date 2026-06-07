@@ -154,24 +154,8 @@ namespace lotus {
 			z() *= rhs;
 			return *this;
 		}
-		/// Scalar multiplication.
-		[[nodiscard]] friend constexpr quaternion<T, quaternion_kind::arbitrary> operator*(
-			const quaternion<T, Kind> &lhs, const T &rhs
-		) {
-			quaternion<T, quaternion_kind::arbitrary> res = lhs;
-			res *= rhs;
-			return res;
-		}
-		/// Scalar multiplication.
-		[[nodiscard]] friend constexpr quaternion<T, quaternion_kind::arbitrary> operator*(
-			const T &lhs, const quaternion<T, Kind> &rhs
-		) {
-			quaternion<T, quaternion_kind::arbitrary> res = rhs;
-			res *= lhs;
-			return res;
-		}
 
-		/// In-place quaternion multiplication.
+		/// In-place quaternion product.
 		template <quaternion_kind OtherKind> constexpr std::enable_if_t<
 			Kind == quaternion_kind::arbitrary || OtherKind == quaternion_kind::unit, quaternion&
 		> operator*=(const quaternion<T, OtherKind> &rhs) {
@@ -182,20 +166,6 @@ namespace lotus {
 			_y = std::move(res_axis[1]);
 			_z = std::move(res_axis[2]);
 			return *this;
-		}
-		/// Quaternion multiplication.
-		template <quaternion_kind OtherKind> [[nodiscard]] friend constexpr quaternion<
-			T,
-			Kind == quaternion_kind::arbitrary || OtherKind == quaternion_kind::arbitrary ?
-				quaternion_kind::arbitrary : quaternion_kind::unit
-		> operator*(const quaternion<T, Kind> &lhs, const quaternion<T, OtherKind> &rhs) {
-			quaternion<
-				T,
-				Kind == quaternion_kind::arbitrary || OtherKind == quaternion_kind::arbitrary ?
-					quaternion_kind::arbitrary : quaternion_kind::unit
-			> result = lhs;
-			result *= rhs;
-			return result;
 		}
 
 		/// In-place scalar division.
@@ -270,6 +240,25 @@ namespace lotus {
 			return result;
 		}
 
+		/// Returns a 4x4 matrix such that product_matrix_left_wxyz(q1) * q2.into_vec4_wxyz() == q1 * q2.
+		[[nodiscard]] constexpr mat44<T> product_matrix_left_wxyz() const {
+			return {
+				{ w(), -x(), -y(), -z() },
+				{ x(),  w(), -z(),  y() },
+				{ y(),  z(),  w(), -x() },
+				{ z(), -y(),  x(),  w() },
+			};
+		}
+		/// Returns a 4x4 matrix such that product_matrix_right_wxyz(q2) * q1.into_vec4_wxyz() == q1 * q2.
+		[[nodiscard]] constexpr mat44<T> product_matrix_right_wxyz() const {
+			return {
+				{ w(), -x(), -y(), -z() },
+				{ x(),  w(),  z(), -y() },
+				{ y(), -z(),  w(),  x() },
+				{ z(),  y(), -x(),  w() },
+			};
+		}
+
 		/// Returns the corresponding rotation matrix.
 		[[nodiscard]] constexpr matrix<3, 3, T> into_rotation_matrix() const {
 			auto xx = x() * x();
@@ -326,6 +315,46 @@ namespace lotus {
 		}
 	};
 	template <typename T> using unit_quaternion = quaternion<T, quaternion_kind::unit>; ///< Unit quaternions.
+
+	/// Scalar-quaternion multiplication.
+	template <typename T, typename U, quaternion_kind Kind> [[nodiscard]] constexpr auto operator*(
+		const quaternion<T, Kind> &lhs, const U &rhs
+	) {
+		using _res_type = decltype(lhs.x() * rhs);
+		return quaternion<_res_type>::from_wxyz(lhs.w() * rhs, lhs.x() * rhs, lhs.y() * rhs, lhs.z() * rhs);
+	}
+	/// Quaternion-scalar multiplication.
+	template <typename T, typename U, quaternion_kind Kind> [[nodiscard]] constexpr auto operator*(
+		const T &lhs, const quaternion<U, Kind> &rhs
+	) {
+		using _res_type = decltype(lhs * rhs.x());
+		return quaternion<_res_type>::from_wxyz(lhs * rhs.w(), lhs * rhs.x(), lhs * rhs.y(), lhs * rhs.z());
+	}
+
+	/// Quaternion product.
+	template <
+		typename T, quaternion_kind Kind1, typename U, quaternion_kind Kind2
+	> [[nodiscard]] constexpr auto operator*(
+		const quaternion<T, Kind1> &lhs, const quaternion<U, Kind2> &rhs
+	) {
+		constexpr quaternion_kind _res_kind =
+			Kind1 == quaternion_kind::arbitrary || Kind2 == quaternion_kind::arbitrary ?
+			quaternion_kind::arbitrary :
+			quaternion_kind::unit;
+		using _res_type = decltype(lhs.w() * rhs.w());
+
+		const _res_type res_w = lhs.w() * rhs.w() - vec::dot(lhs.axis(), rhs.axis());
+		const cvec3<_res_type> res_axis =
+			lhs.w() * rhs.axis() + rhs.w() * lhs.axis() + vec::cross(lhs.axis(), rhs.axis());
+		const auto result = quaternion<_res_type>::from_wxyz(
+			std::move(res_w), std::move(res_axis[0]), std::move(res_axis[1]), std::move(res_axis[2])
+		);
+		if constexpr (_res_kind == quaternion_kind::arbitrary) {
+			return result;
+		} else {
+			return result.assume_normalized();
+		}
+	}
 
 	using quatf32 = quaternion<f32>; ///< Shorthand for quaternions of \ref f32.
 	using quatf64 = quaternion<f64>; ///< Shorthand for quaternions of \ref f64.

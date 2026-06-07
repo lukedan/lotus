@@ -56,6 +56,22 @@ public:
 		}
 
 		{
+			std::vector<vec3> platform_verts;
+			vec3 half_size(10.0f, 0.1f, 10.0f);
+			half_size *= 0.5f;
+			platform_verts.emplace_back( half_size[0],  half_size[1],  half_size[2]);
+			platform_verts.emplace_back( half_size[0],  half_size[1], -half_size[2]);
+			platform_verts.emplace_back( half_size[0], -half_size[1],  half_size[2]);
+			platform_verts.emplace_back( half_size[0], -half_size[1], -half_size[2]);
+			platform_verts.emplace_back(-half_size[0],  half_size[1],  half_size[2]);
+			platform_verts.emplace_back(-half_size[0],  half_size[1], -half_size[2]);
+			platform_verts.emplace_back(-half_size[0], -half_size[1],  half_size[2]);
+			platform_verts.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
+			auto [platform_poly, platform_poly_props] = lotus::collision::shapes::convex_polyhedron::bake(platform_verts);
+			_platform_shape = lotus::collision::shape::create(std::move(platform_poly));
+		}
+
+		{
 			std::vector<vec3> bullet_verts;
 			vec3 half_bullet_size(0.05f, 0.05f, 0.05f);
 			bullet_verts.emplace_back(half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
@@ -75,13 +91,23 @@ public:
 			_static_friction, _dynamic_friction, _restitution
 		);
 
-		_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
-			_plane_shape, material,
-			lotus::physics::body_properties::kinematic(),
-			lotus::physics::body_state::stationary_at(
-				lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::physics::pi)
-			)
-		)));
+		if (_use_platform) {
+			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+				_platform_shape, material,
+				lotus::physics::body_properties::kinematic(),
+				lotus::physics::body_state::stationary_at(
+					vec3(0.0f, -0.05f, 0.0f), uquats::identity()
+				)
+			)));
+		} else {
+			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+				_plane_shape, material,
+				lotus::physics::body_properties::kinematic(),
+				lotus::physics::body_state::stationary_at(
+					lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::physics::pi)
+				)
+			)));
+		}
 		if (_add_walls) {
 			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
 				_plane_shape, material,
@@ -151,6 +177,7 @@ public:
 		ImGui::SliderFloat2("Gap", _gap, 0.0f, 0.1f);
 		ImGui::Checkbox("Rotate 90 Degrees", &_rotate_90);
 		ImGui::Checkbox("Fix First Row", &_fix_first_row);
+		ImGui::Checkbox("Use Platform", &_use_platform);
 		ImGui::Checkbox("Add Walls", &_add_walls);
 
 		ImGui::Separator();
@@ -179,11 +206,13 @@ protected:
 	std::deque<lotus::physics::body> _bodies;
 	lotus::physics::world _world;
 	//lotus::physics::xpbd::solver _solver;
-	lotus::physics::sequential_impulse::solver _solver;
+	//lotus::physics::sequential_impulse::solver _solver;
+	lotus::physics::avbd::solver _solver;
 	debug_render _render;
 
 	bool _rotate_90 = false;
 	bool _fix_first_row = false;
+	bool _use_platform = false;
 	bool _add_walls = false;
 
 	f32 _static_friction = 0.4f;
@@ -197,6 +226,7 @@ protected:
 
 	lotus::collision::shape _plane_shape;
 	lotus::collision::shape _box_shape;
+	lotus::collision::shape _platform_shape;
 	lotus::collision::shape _bullet_shape;
 	lotus::physics::body_properties _bullet_properties = lotus::uninitialized;
 
@@ -207,14 +237,9 @@ protected:
 			material,
 			_bullet_properties,
 			lotus::physics::body_state::from_position_velocity(
-				lotus::physics::body_position::at(
-					_get_test_context().camera_params.position,
-					uquats::identity()
-				),
-				lotus::physics::body_velocity::from_linear_angular(
-					_get_test_context().camera.unit_forward * 50.0f,
-					lotus::zero
-				)
+				_get_test_context().camera_params.position,
+				uquats::identity(),
+				_get_test_context().camera.unit_forward * 50.0f
 			)
 		)));
 	}

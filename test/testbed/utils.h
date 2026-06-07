@@ -12,16 +12,14 @@
 #include <lotus/renderer/context/asset_manager.h>
 
 using namespace lotus::types;
+using namespace lotus::vector_types;
 using namespace lotus::collision::types;
-
-using vec2 = lotus::cvec2<scalar>;
-using vec3 = lotus::cvec3<scalar>;
-using vec4 = lotus::cvec4<scalar>;
-using mat44s = lotus::mat44<scalar>;
 
 struct test_context {
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> default_shader_vs = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> default_shader_ps = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> shadow_vs = nullptr;
+	lotus::renderer::assets::manager *asset_manager = nullptr;
 	lotus::camera_parameters<scalar> camera_params = lotus::uninitialized;
 	lotus::camera<scalar> camera = lotus::uninitialized;
 	lotus::renderer::pool resource_pool = nullptr;
@@ -52,9 +50,9 @@ public:
 	};
 
 	struct vertex {
-		vec3 position = lotus::uninitialized;
+		cvec3f32 position = lotus::uninitialized;
 		lotus::linear_rgba_f32 color = lotus::uninitialized;
-		vec3 normal = lotus::uninitialized;
+		cvec3f32 normal = lotus::uninitialized;
 	};
 
 	void draw_point(vec3 p, lotus::linear_rgba_f32 color, scalar size = 0.0f);

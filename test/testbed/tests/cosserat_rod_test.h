@@ -146,14 +146,14 @@ private:
 	scalar _collider_time = 0.0f;
 
 	u32 _segments = 10;
-	scalar _density_kg_m3 = 1000.0f;
-	scalar _length_m = 0.2f; // 20cm
-	scalar _diameter_m = 0.05f; // 5cm
-	scalar _k_ss = 1.0f;
-	scalar _k_bt = 1.0f;
+	f32 _density_kg_m3 = 1000.0f;
+	f32 _length_m = 0.2f; // 20cm
+	f32 _diameter_m = 0.05f; // 5cm
+	f32 _k_ss = 1.0f;
+	f32 _k_bt = 1.0f;
 
-	scalar _move_scale = 0.0f;
-	scalar _collider_move_scale = 0.0f;
+	f32 _move_scale = 0.0f;
+	f32 _collider_move_scale = 0.0f;
 
 	template <typename Solver, typename BendCallback, typename StretchCallback> static void _create_straight_rod(
 		Solver &solver, BendCallback &&bend_cb, StretchCallback &&stretch_cb,

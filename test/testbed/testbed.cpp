@@ -12,6 +12,7 @@
 
 #include "camera_control.h"
 #include "utils.h"
+#include "tests/angular_momentum_test.h"
 #include "tests/box_stack_test.h"
 #include "tests/cosserat_rod_test.h"
 #include "tests/fem_cloth_test.h"
@@ -276,6 +277,8 @@ protected:
 	void _on_initialized() override {
 		_test_context.default_shader_vs = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
 		_test_context.default_shader_ps = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
+		_test_context.shadow_vs = _assets->compile_shader_in_filesystem("./shaders/shadow.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
+		_test_context.asset_manager = _assets.get();
 		_test_context.resource_pool = _context->request_pool(u8"Test Resource Pool");
 		_test_context.upload_pool = _context->request_pool(u8"Test Upload Pool", _context->get_upload_memory_type_index());
 		_reset_camera();
@@ -318,6 +321,7 @@ protected:
 int main(int argc, char **argv) {
 	testbed_app app(argc, argv);
 	app.initialize();
+	app.register_test<angular_momentum_test>();
 	app.register_test<convex_hull_test>();
 	app.register_test<cosserat_rod_test>();
 	app.register_test<fem_cloth_test>();

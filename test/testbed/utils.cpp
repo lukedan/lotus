@@ -36,11 +36,11 @@ void debug_render::draw_line(vec3 a, vec3 b, lotus::linear_rgba_f32 color) {
 	auto first_index = static_cast<u32>(line_vertices.size());
 	auto &v1 = line_vertices.emplace_back();
 	v1.position = a.into<f32>();
-	v1.normal   = vec3(1.0f, 0.0f, 0.0f);
+	v1.normal   = cvec3f32(1.0f, 0.0f, 0.0f);
 	v1.color    = color;
 	auto &v2 = line_vertices.emplace_back();
 	v2.position = b.into<f32>();
-	v2.normal   = vec3(1.0f, 0.0f, 0.0f);
+	v2.normal   = cvec3f32(1.0f, 0.0f, 0.0f);
 	v2.color    = color;
 	line_indices.emplace_back(first_index);
 	line_indices.emplace_back(first_index + 1);
@@ -77,9 +77,9 @@ void debug_render::draw_body(
 	auto normal_transform = transform.block<3, 3>(0, 0).inverse().transposed();
 	for (usize i = 0; i < positions.size(); ++i) {
 		auto &vert = verts.emplace_back();
-		vert.position = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0);
+		vert.position = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0).into<f32>();
 		vert.color    = color;
-		vert.normal   = lotus::vecu::normalize(normal_transform * normals[i]);
+		vert.normal   = lotus::vecu::normalize(normal_transform * normals[i]).into<f32>();
 	}
 	for (usize i = 0; i < indices.size(); i += 3) {
 		if (wireframe) {
@@ -327,6 +327,17 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 		}
 	}
 
+	if (ctx->draw_contacts) {
+		for (const lotus::physics::avbd::constraints::rigid_body_contact &c : solver.contacts) {
+			draw_point(c.get_global_pos1(), lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
+			draw_point(c.get_global_pos2(), lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
+			draw_line(c.get_global_pos1(), c.get_global_pos2(), lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
+			draw_line(c.get_global_pos1(), c.body1->state.position.position, lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
+			draw_line(c.get_global_pos2(), c.body2->state.position.position, lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
+			draw_line(c.get_global_pos1(), c.get_global_pos1() + c.tangents.normal, lotus::linear_rgba_f32(0.0f, 0.0f, 1.0f, 1.0f));
+		}
+	}
+
 	// segments
 	for (const lotus::physics::avbd::constraints::cosserat_rod::stretch_shear &constraint : solver.rod_stretch_shear_constraints) {
 		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f));
@@ -432,76 +443,145 @@ void debug_render::flush(
 
 	auto point_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(point_vertices.data()), sizeof(vertex) * point_vertices.size() }, u8"Point Vertices");
 
-	auto pipeline_state = lotus::renderer::graphics_pipeline_state(
-		{ lotus::gpu::render_target_blend_options::disabled(), },
-		lotus::gpu::rasterizer_options(lotus::gpu::depth_bias_options::disabled(), lotus::gpu::front_facing_mode::clockwise, lotus::gpu::cull_mode::none, false),
-		lotus::gpu::depth_stencil_options(true, true, lotus::gpu::comparison_function::greater, false, 0, 0, lotus::gpu::stencil_options::always_pass_no_op(), lotus::gpu::stencil_options::always_pass_no_op())
-	);
-	auto vertex_input_elements = {
-		lotus::gpu::input_buffer_element(u8"POSITION", 0, lotus::gpu::format::r32g32b32_float, offsetof(debug_render::vertex, position)),
-		lotus::gpu::input_buffer_element(u8"COLOR", 0, lotus::gpu::format::r32g32b32a32_float, offsetof(debug_render::vertex, color)),
-		lotus::gpu::input_buffer_element(u8"NORMAL", 0, lotus::gpu::format::r32g32b32_float, offsetof(debug_render::vertex, normal)),
-	};
 
-	shader_types::default_shader_constants constants;
-	constants.light_direction = lotus::vecu::normalize(lotus::cvec3f32(0.3f, 0.4f, 0.5f));
-	constants.projection_view = ctx->camera.projection_view_matrix.into<f32>();
+	const vec3 light_dir = lotus::vecu::normalize(vec3(0.3f, 0.4f, 0.5f));
 
-	auto pass = q.begin_pass({ frame_buffer }, depth_buffer, size, u8"Debug Render");
-	if (!mesh_vertices.empty()) {
-		pass.draw_instanced(
-			{
-				lotus::renderer::input_buffer_binding(0, mesh_vert_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements),
-			},
-			static_cast<u32>(mesh_vertices.size()),
-			lotus::renderer::index_buffer_binding(mesh_idx_buf, 0, lotus::gpu::index_format::uint32),
-			static_cast<u32>(mesh_indices.size()),
-			lotus::gpu::primitive_topology::triangle_list,
-			lotus::renderer::all_resource_bindings({}, {
-				{ u8"constants", uploader.upload(constants) },
-			}),
-			ctx->default_shader_vs, ctx->default_shader_ps,
-			pipeline_state,
-			1,
-			u8"Debug Meshes"
-		);
+	lotus::renderer::image2d_view shadow_map = rctx.request_image2d(u8"Shadow Map", cvec2u32(2048, 2048), 1, lotus::gpu::format::d32_float, lotus::gpu::image_usage_mask::depth_stencil_render_target | lotus::gpu::image_usage_mask::shader_read, ctx->resource_pool);
+
+	const float _shadow_map_depth = 50.0f;
+	const float _shadow_map_size  = 10.0f;
+	mat44s shadow_projection_view = lotus::uninitialized;
+	{ // construct shadow view matrix
+		const auto light_tangents = lotus::tangent_frame<scalar>::from_normal(light_dir);
+		mat44s shadow_cam_pos = mat44s::identity();
+		shadow_cam_pos.set_block(0, 3, -(ctx->camera_params.position + light_dir * 0.5f * _shadow_map_depth));
+		mat44s shadow_view = mat44s::identity();
+		shadow_view.set_block(0, 0, lotus::mat::concat_columns(
+			light_tangents.tangent, light_tangents.bitangent, light_tangents.normal
+		).transposed());
+		const mat44s shadow_projection = {
+			{ 1.0f / _shadow_map_size,                    0.0f,                     0.0f, 0.0f },
+			{                    0.0f, 1.0f / _shadow_map_size,                     0.0f, 0.0f },
+			{                    0.0f,                    0.0f, 1.0f / _shadow_map_depth, 1.0f },
+			{                    0.0f,                    0.0f,                     0.0f, 1.0f },
+		};
+		shadow_projection_view = shadow_projection * shadow_view * shadow_cam_pos;
 	}
-	if (!line_vertices.empty()) {
-		pass.draw_instanced(
-			{
-				lotus::renderer::input_buffer_binding(0, line_vert_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements),
-			},
-			static_cast<u32>(line_vertices.size()),
-			lotus::renderer::index_buffer_binding(line_idx_buf, 0, lotus::gpu::index_format::uint32),
-			static_cast<u32>(line_indices.size()),
-			lotus::gpu::primitive_topology::line_list,
-			lotus::renderer::all_resource_bindings({}, {
-				{ u8"constants", uploader.upload(constants) },
-			}),
-			ctx->default_shader_vs, ctx->default_shader_ps,
-			pipeline_state,
-			1,
-			u8"Debug Lines"
+
+	{ // shadow pass
+		auto vertex_input_elements = {
+			lotus::gpu::input_buffer_element(u8"POSITION", 0, lotus::gpu::format::r32g32b32_float, offsetof(debug_render::vertex, position)),
+		};
+		auto pipeline_state = lotus::renderer::graphics_pipeline_state(
+			{},
+			lotus::gpu::rasterizer_options(lotus::gpu::depth_bias_options::create_unclamped(-2.0f, -2.0f), lotus::gpu::front_facing_mode::clockwise, lotus::gpu::cull_mode::none, false),
+			lotus::gpu::depth_stencil_options(true, true, lotus::gpu::comparison_function::greater, false, 0, 0, lotus::gpu::stencil_options::always_pass_no_op(), lotus::gpu::stencil_options::always_pass_no_op())
 		);
+		shader_types::shadow_constants constants;
+		constants.projection_view = shadow_projection_view;
+
+		auto pass = q.begin_pass({}, lotus::renderer::image2d_depth_stencil(shadow_map, lotus::gpu::depth_render_target_access::create_clear(0.0f)), shadow_map.get_size(), u8"Shadow Map");
+		if (!mesh_vertices.empty()) {
+			pass.draw_instanced(
+				{ lotus::renderer::input_buffer_binding(0, mesh_vert_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements) },
+				static_cast<u32>(mesh_vertices.size()),
+				lotus::renderer::index_buffer_binding(mesh_idx_buf, 0, lotus::gpu::index_format::uint32),
+				static_cast<u32>(mesh_indices.size()),
+				lotus::gpu::primitive_topology::triangle_list,
+				lotus::renderer::all_resource_bindings({}, {
+					{ u8"constants", uploader.upload(constants) }
+				}),
+				ctx->shadow_vs, nullptr,
+				pipeline_state,
+				1,
+				u8"Shadow Meshes"
+			);
+		}
+		pass.end();
 	}
-	if (!point_vertices.empty()) {
-		pass.draw_instanced(
-			{
-				lotus::renderer::input_buffer_binding(0, point_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements),
-			},
-			static_cast<u32>(point_vertices.size()),
-			nullptr, 0,
-			lotus::gpu::primitive_topology::point_list,
-			lotus::renderer::all_resource_bindings({}, {
-				{ u8"constants", uploader.upload(constants) },
-			}),
-			ctx->default_shader_vs, ctx->default_shader_ps,
-			pipeline_state,
-			1,
-			u8"Debug Points"
+
+	{ // main pass
+		auto vertex_input_elements = {
+			lotus::gpu::input_buffer_element(u8"POSITION", 0, lotus::gpu::format::r32g32b32_float, offsetof(debug_render::vertex, position)),
+			lotus::gpu::input_buffer_element(u8"COLOR", 0, lotus::gpu::format::r32g32b32a32_float, offsetof(debug_render::vertex, color)),
+			lotus::gpu::input_buffer_element(u8"NORMAL", 0, lotus::gpu::format::r32g32b32_float, offsetof(debug_render::vertex, normal)),
+		};
+		auto pipeline_state = lotus::renderer::graphics_pipeline_state(
+			{ lotus::gpu::render_target_blend_options::disabled(), },
+			lotus::gpu::rasterizer_options(lotus::gpu::depth_bias_options::disabled(), lotus::gpu::front_facing_mode::clockwise, lotus::gpu::cull_mode::none, false),
+			lotus::gpu::depth_stencil_options(true, true, lotus::gpu::comparison_function::greater, false, 0, 0, lotus::gpu::stencil_options::always_pass_no_op(), lotus::gpu::stencil_options::always_pass_no_op())
 		);
+		auto pipeline_state_no_depth = lotus::renderer::graphics_pipeline_state(
+			{ lotus::gpu::render_target_blend_options::disabled(), },
+			lotus::gpu::rasterizer_options(lotus::gpu::depth_bias_options::disabled(), lotus::gpu::front_facing_mode::clockwise, lotus::gpu::cull_mode::none, false),
+			lotus::gpu::depth_stencil_options::all_disabled()
+		);
+		shader_types::default_shader_constants constants;
+		constants.light_direction        = light_dir;
+		constants.shadow_projection_view = shadow_projection_view;
+		constants.projection_view        = ctx->camera.projection_view_matrix.into<f32>();
+
+		auto pass = q.begin_pass({ frame_buffer }, depth_buffer, size, u8"Debug Render");
+		if (!mesh_vertices.empty()) {
+			pass.draw_instanced(
+				{
+					lotus::renderer::input_buffer_binding(0, mesh_vert_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements),
+				},
+				static_cast<u32>(mesh_vertices.size()),
+				lotus::renderer::index_buffer_binding(mesh_idx_buf, 0, lotus::gpu::index_format::uint32),
+				static_cast<u32>(mesh_indices.size()),
+				lotus::gpu::primitive_topology::triangle_list,
+				lotus::renderer::all_resource_bindings(
+					{
+						{ 1, ctx->asset_manager->get_samplers() }
+					}, {
+						{ u8"constants",  uploader.upload(constants)     },
+						{ u8"shadow_map", shadow_map.bind_as_read_only() },
+					}
+				),
+				ctx->default_shader_vs, ctx->default_shader_ps,
+				pipeline_state,
+				1,
+				u8"Debug Meshes"
+			);
+		}
+		if (!line_vertices.empty()) {
+			pass.draw_instanced(
+				{
+					lotus::renderer::input_buffer_binding(0, line_vert_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements),
+				},
+				static_cast<u32>(line_vertices.size()),
+				lotus::renderer::index_buffer_binding(line_idx_buf, 0, lotus::gpu::index_format::uint32),
+				static_cast<u32>(line_indices.size()),
+				lotus::gpu::primitive_topology::line_list,
+				lotus::renderer::all_resource_bindings({}, {
+					{ u8"constants", uploader.upload(constants) },
+				}),
+				ctx->default_shader_vs, ctx->default_shader_ps,
+				pipeline_state_no_depth,
+				1,
+				u8"Debug Lines"
+			);
+		}
+		if (!point_vertices.empty()) {
+			pass.draw_instanced(
+				{
+					lotus::renderer::input_buffer_binding(0, point_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements),
+				},
+				static_cast<u32>(point_vertices.size()),
+				nullptr, 0,
+				lotus::gpu::primitive_topology::point_list,
+				lotus::renderer::all_resource_bindings({}, {
+					{ u8"constants", uploader.upload(constants) },
+				}),
+				ctx->default_shader_vs, ctx->default_shader_ps,
+				pipeline_state_no_depth,
+				1,
+				u8"Debug Points"
+			);
+		}
+		pass.end();
 	}
-	pass.end();
 
 	mesh_vertices.clear();
 	mesh_indices.clear();

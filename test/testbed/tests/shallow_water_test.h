@@ -55,8 +55,8 @@ public:
 			return result;
 		}
 		[[nodiscard]] std::pair<T, lotus::mat22<T>> sample_zero(vec2 pos) const {
-			pos[0] = std::clamp(pos[0], -10000.0f, 10000.0f);
-			pos[1] = std::clamp(pos[1], -10000.0f, 10000.0f);
+			pos[0] = std::clamp<scalar>(pos[0], -10000.0f, 10000.0f);
+			pos[1] = std::clamp<scalar>(pos[1], -10000.0f, 10000.0f);
 			const auto x = static_cast<int>(std::floor(pos[0]));
 			const auto y = static_cast<int>(std::floor(pos[1]));
 			const auto gather_res = gather_zero({ x, y });
@@ -367,7 +367,7 @@ public:
 					) {
 						_ux(x, y) = 0.0f;
 					}
-					_ux(x, y) = std::clamp(_ux(x, y), -clamp[0], clamp[0]);
+					_ux(x, y) = std::clamp<scalar>(_ux(x, y), -clamp[0], clamp[0]);
 				}
 			}
 			for (u32 y = 0; y < _uy.get_size()[1]; ++y) {
@@ -383,7 +383,7 @@ public:
 					) {
 						_uy(x, y) = 0.0f;
 					}
-					_uy(x, y) = std::clamp(_uy(x, y), -clamp[1], clamp[1]);
+					_uy(x, y) = std::clamp<scalar>(_uy(x, y), -clamp[1], clamp[1]);
 				}
 			}
 		}
@@ -411,7 +411,7 @@ public:
 
 					const f32 hadj = std::max(0.0f, 0.25f * (hbxn + hbxp + hbyn + hbyp) - havgmax);
 
-					nh(x, y) = std::max(
+					nh(x, y) = std::max<scalar>(
 						0.0f,
 						h - (
 							f[0] * ((hbxp - hadj) * uxp - (hbxn - hadj) * uxn) +

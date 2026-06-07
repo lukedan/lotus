@@ -431,8 +431,12 @@ namespace lotus::gpu::backends::metal {
 		}
 
 		auto descriptor = NS::TransferPtr(MTL::RenderPipelineDescriptor::alloc()->init());
-		descriptor->setVertexFunction(_details::get_single_shader_function(vs->_lib.get()).get());
-		descriptor->setFragmentFunction(_details::get_single_shader_function(ps->_lib.get()).get());
+		if (vs) {
+			descriptor->setVertexFunction(_details::get_single_shader_function(vs->_lib.get()).get());
+		}
+		if (ps) {
+			descriptor->setFragmentFunction(_details::get_single_shader_function(ps->_lib.get()).get());
+		}
 		// TODO tessellation shaders?
 		descriptor->setVertexDescriptor(vert_descriptor.get());
 		for (usize i = 0; i < fb_layout.color_render_target_formats.size(); ++i) {

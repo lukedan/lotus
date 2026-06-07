@@ -130,7 +130,7 @@ namespace std {
 	template <typename T> struct hash<lotus::renderer::assets::handle<T>> {
 		/// Hashes the given object.
 		[[nodiscard]] size_t operator()(const lotus::renderer::assets::handle<T> &h) const {
-			return lotus::compute_hash(h.get().get_unique_id());
+			return h ? lotus::compute_hash(h.get().get_unique_id()) : lotus::compute_hash(nullptr);
 		}
 	};
 }

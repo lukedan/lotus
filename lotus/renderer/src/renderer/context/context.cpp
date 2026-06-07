@@ -34,7 +34,13 @@ namespace lotus::renderer {
 		std::u8string_view description
 	) {
 		_details::bindings_builder builder;
-		auto reflections = { &vs->reflection, &ps->reflection };
+		short_vector<const gpu::shader_reflection*, 2> reflections;
+		if (vs) {
+			reflections.emplace_back(&vs->reflection);
+		}
+		if (ps) {
+			reflections.emplace_back(&ps->reflection);
+		}
 		builder.add(std::move(resources), reflections);
 		_q->add_command<commands::draw_instanced>(
 			description,

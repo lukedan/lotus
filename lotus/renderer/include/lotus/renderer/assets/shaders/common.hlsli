@@ -57,8 +57,9 @@ namespace octahedral_mapping {
 	}
 }
 
-#define LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(SPACE)          \
-	SamplerState linear_sampler       : register(s0, SPACE); \
-	SamplerState linear_clamp_sampler : register(s1, SPACE); \
+#define LOTUS_DECLARE_BASIC_SAMPLER_BINDINGS(SPACE)                            \
+	SamplerState linear_sampler                         : register(s0, SPACE); \
+	SamplerState linear_clamp_sampler                   : register(s1, SPACE); \
+	SamplerComparisonState linear_clamp_greater_sampler : register(s2, SPACE); \
 
 #endif

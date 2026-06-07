@@ -11,6 +11,7 @@ namespace lotus::collision {
 	/// Type definitions for the physics engine.
 	inline namespace types {
 		using scalar = f32; ///< Scalar type.
+		using vec2 = cvec2<scalar>; ///< 2D vector type.
 		using vec3 = cvec3<scalar>; ///< 3D vector type.
 		using vec4 = cvec4<scalar>; ///< 4D vector type.
 		using quats = quaternion<scalar>; ///< Quaternion type.
@@ -32,13 +33,11 @@ namespace lotus::collision {
 
 	/// The position of a rigid body.
 	struct body_position {
-	public:
 		/// No initialization.
 		body_position(uninitialized_t) {
 		}
-		/// Initializes the position with the given position and orientation.
-		[[nodiscard]] constexpr static body_position at(vec3 x, uquats q) {
-			return body_position(x, q);
+		/// Initializes all fields of this struct.
+		constexpr body_position(vec3 x, uquats q) : position(x), orientation(q) {
 		}
 
 		/// Converts the given local space position to world space.
@@ -52,10 +51,6 @@ namespace lotus::collision {
 
 		vec3 position = uninitialized; ///< The center of mass in world space.
 		uquats orientation = uninitialized; ///< The rotation/orientation of this body.
-	private:
-		/// Initializes all fields of this struct.
-		constexpr body_position(vec3 x, uquats q) : position(x), orientation(q) {
-		}
 	};
 
 	/// A vertex in a simplex.

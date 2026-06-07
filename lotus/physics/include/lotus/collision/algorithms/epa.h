@@ -22,7 +22,8 @@ namespace lotus::collision::epa {
 		std::array<vec3, 3> simplex_positions{ uninitialized, uninitialized, uninitialized };
 		/// Vertices of the contact plane.
 		std::array<simplex_vertex, 3> vertices{ uninitialized, uninitialized, uninitialized };
-		vec3 normal = uninitialized; ///< Contact normal.
+		/// Normalized contact normal. This points out of the first body and into the second body.
+		vec3 normal = uninitialized;
 		scalar penetration_depth; ///< Penetration depth.
 	};
 

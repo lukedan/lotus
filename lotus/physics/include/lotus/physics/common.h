@@ -27,6 +27,10 @@ namespace lotus::physics {
 		/// Initializes velocity to zero.
 		constexpr body_velocity(zero_t) : body_velocity(zero, zero) {
 		}
+		/// Initializes an object representing the given linear velocity and zero angular velocity.
+		[[nodiscard]] constexpr static body_velocity from_linear(vec3 l) {
+			return body_velocity(l, zero);
+		}
 		/// Initializes all fields of this struct.
 		[[nodiscard]] constexpr static body_velocity from_linear_angular(vec3 l, vec3 a) {
 			return body_velocity(l, a);
@@ -51,21 +55,28 @@ namespace lotus::physics {
 	};
 	/// Position and velocity information about a body.
 	struct body_state {
-	public:
 		/// No initialization.
 		body_state(uninitialized_t) {
 		}
-		/// Initializes the body state with the given position, orientation, and linear and angular velocities.
-		[[nodiscard]] constexpr static body_state from_position_velocity(body_position pos, body_velocity vel) {
-			return body_state(pos, vel);
-		}
 		/// Initializes the body state to be stationary at the given position and orientation.
+		[[nodiscard]] constexpr static body_state stationary_at(body_position bp) {
+			return body_state(bp, zero);
+		}
+		/// \overload
 		[[nodiscard]] constexpr static body_state stationary_at(vec3 x, uquats q) {
-			return body_state(body_position::at(x, q), zero);
+			return body_state(body_position(x, q), zero);
+		}
+		/// Initializes the body state with the given position and velocity, leaving its angular momentum at zero.
+		[[nodiscard]] constexpr static body_state from_position_velocity(body_position bp, vec3 v) {
+			return body_state(bp, body_velocity::from_linear(v));
+		}
+		/// \overload
+		[[nodiscard]] constexpr static body_state from_position_velocity(vec3 x, uquats q, vec3 v) {
+			return body_state(body_position(x, q), body_velocity::from_linear(v));
 		}
 
-		body_position position = uninitialized;
-		body_velocity velocity = uninitialized;
+		body_position position = uninitialized; ///< The position and orientation of the body.
+		body_velocity velocity = uninitialized; ///< The linear and angular velocity of the body.
 	protected:
 		/// Initializes all fields of this struct.
 		constexpr body_state(body_position p, body_velocity v) : position(p), velocity(v) {

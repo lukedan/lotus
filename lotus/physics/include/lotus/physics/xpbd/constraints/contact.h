@@ -71,14 +71,16 @@ namespace lotus::physics::xpbd::constraints {
 
 			{ // handle static friction
 				const vec3 global_contact1 = body1->state.position.local_to_global(offset1);
-				const vec3 old_global_contact1 = body1->prev_position.local_to_global(offset1);
+				const vec3 old_global_contact1 = body1->prev_state.position.local_to_global(offset1);
 				const vec3 global_contact2 = body2->state.position.local_to_global(offset2);
-				const vec3 old_global_contact2 = body2->prev_position.local_to_global(offset2);
+				const vec3 old_global_contact2 = body2->prev_state.position.local_to_global(offset2);
 
-				const vec3 delta_p = (global_contact1 - old_global_contact1) - (global_contact2 - old_global_contact2);
+				const vec3 delta_p =
+					(global_contact1 - old_global_contact1) - (global_contact2 - old_global_contact2);
 				const vec3 delta_pt = delta_p - normal * vec::dot(normal, delta_p);
 
-				const scalar static_friction = std::min(body1->material.static_friction, body2->material.static_friction);
+				const scalar static_friction =
+					std::min(body1->material.static_friction, body2->material.static_friction);
 
 				const auto cor = correction::compute(
 					*body1, *body2, offset1, offset2, delta_pt

@@ -16,7 +16,7 @@ namespace lotus::physics::sequential_impulse {
 		// handle collisions
 		contact_constraints.clear();
 		{
-			const std::vector<world::collision_info> collisions = physics_world->detect_collisions();
+			const std::vector<world::rigid_body_collision> collisions = physics_world->detect_collisions();
 			std::vector<body*> bodies;
 			std::vector<constraints::contact_set_blcp::contact_info> contacts;
 			std::unordered_map<body*, u32> body_ids;
@@ -27,9 +27,9 @@ namespace lotus::physics::sequential_impulse {
 				}
 				return it->second;
 			};
-			for (const world::collision_info &ci : collisions) {
+			for (const world::rigid_body_collision &ci : collisions) {
 				constraints::contact_set_blcp::contact_info &contact = contacts.emplace_back(uninitialized);
-				contact.contact  = ci.body1->state.position.local_to_global(ci.contact.contact1);
+				contact.contact  = ci.body1->state.position.local_to_global(ci.contact.local_pos1);
 				contact.tangents = constraints::contact_set_blcp::select_tangent_frame_for_contact(
 					*ci.body1, *ci.body2, contact.contact, ci.contact.normal
 				);

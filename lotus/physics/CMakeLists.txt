@@ -12,6 +12,7 @@ target_sources(lotus_physics
 		"include/lotus/collision/shapes/simple.h"
 
 		"include/lotus/collision/common.h"
+		"include/lotus/collision/contact.h"
 		"include/lotus/collision/shape.h"
 
 		"include/lotus/physics/avbd/constraints/cosserat_rod.h"
@@ -42,6 +43,7 @@ target_sources(lotus_physics
 		"src/collision/shapes/convex_polyhedron.cpp"
 
 		"src/collision/common.cpp"
+		"src/collision/contact.cpp"
 
 		"src/physics/avbd/solver.cpp"
 

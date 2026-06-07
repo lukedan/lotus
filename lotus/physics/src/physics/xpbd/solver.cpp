@@ -27,7 +27,7 @@ namespace lotus::physics::xpbd {
 			}
 		}
 		for (body *b : physics_world->get_bodies()) {
-			b->prev_position = b->state.position;
+			b->prev_state = b->state;
 			// TODO external torque
 			b->velocity_integration(dt, physics_world->gravity, zero);
 			b->position_integration(dt);
@@ -35,10 +35,10 @@ namespace lotus::physics::xpbd {
 
 		{ // detect collisions
 			contact_constraints.clear();
-			const std::vector<world::collision_info> collisions = physics_world->detect_collisions();
-			for (const world::collision_info &info : collisions) {
+			const std::vector<world::rigid_body_collision> collisions = physics_world->detect_collisions();
+			for (const world::rigid_body_collision &info : collisions) {
 				contact_constraints.emplace_back(constraints::body_contact::create_for(
-					*info.body1, *info.body2, info.contact.contact1, info.contact.contact2, info.contact.normal
+					*info.body1, *info.body2, info.contact.local_pos1, info.contact.local_pos2, info.contact.normal
 				));
 			}
 		}
@@ -153,10 +153,10 @@ namespace lotus::physics::xpbd {
 			o.state.angular_velocity = (2.0f / dt) * (o.state.orientation * o.prev_orientation.conjugate()).axis();
 		}
 		for (body *b : physics_world->get_bodies()) {
-			b->prev_velocity = b->state.velocity;
+			b->prev_state.velocity = b->state.velocity;
 
-			b->state.velocity.linear = (b->state.position.position - b->prev_position.position) / dt;
-			uquats dq = b->state.position.orientation * b->prev_position.orientation.inverse();
+			b->state.velocity.linear = (b->state.position.position - b->prev_state.position.position) / dt;
+			uquats dq = b->state.position.orientation * b->prev_state.position.orientation.inverse();
 			b->state.velocity.angular = dq.axis() * (2.0f / dt);
 			if (dq.w() < 0.0f) {
 				b->state.velocity.angular = -b->state.velocity.angular;
@@ -176,8 +176,8 @@ namespace lotus::physics::xpbd {
 			scalar vn = vec::dot(contact.normal, vel);
 			vec3 vt = vel - contact.normal * vn;
 
-			vec3 old_vel1 = b1.prev_velocity.linear + vec::cross(b1.prev_velocity.angular, world_off1);
-			vec3 old_vel2 = b2.prev_velocity.linear + vec::cross(b2.prev_velocity.angular, world_off2);
+			vec3 old_vel1 = b1.prev_state.velocity.linear + vec::cross(b1.prev_state.velocity.angular, world_off1);
+			vec3 old_vel2 = b2.prev_state.velocity.linear + vec::cross(b2.prev_state.velocity.angular, world_off2);
 			scalar old_vn = vec::dot(contact.normal, old_vel1 - old_vel2);
 
 			scalar friction_coeff = std::min(b1.material.dynamic_friction, b2.material.dynamic_friction);
@@ -212,7 +212,7 @@ namespace lotus::physics::xpbd {
 	bool solver::handle_shape_particle_collision(
 		const collision::shapes::plane&, const body_state &state, vec3 &pos
 	) {
-		vec3 plane_pos = state.position.orientation.inverse().rotate(pos - state.position.position);
+		vec3 plane_pos = state.position.global_to_local(pos);
 		if (plane_pos[2] < 0.0f) {
 			plane_pos[2] = 0.0f;
 			pos = state.position.local_to_global(plane_pos);

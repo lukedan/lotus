@@ -86,7 +86,7 @@ namespace lotus::collision::epa {
 		return result(
 			std::array{ hull.get_vertex(v1), hull.get_vertex(v2), hull.get_vertex(v3) },
 			std::array{ hull_data.get(v1), hull_data.get(v2), hull_data.get(v3) },
-			result_face.normal,
+			vecu::normalize(result_face.normal),
 			nearest_face_dist
 		);
 	}

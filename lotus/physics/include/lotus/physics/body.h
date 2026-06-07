@@ -13,7 +13,7 @@ namespace lotus::physics {
 		body(uninitialized_t) {
 		}
 		/// Creates a new body.
-		[[nodiscard]] inline static body create(
+		[[nodiscard]] static body create(
 			collision::shape &shape, material_properties mat, body_properties prop, body_state st
 		) {
 			body result = uninitialized;
@@ -42,7 +42,7 @@ namespace lotus::physics {
 				state.velocity.linear += dt * external_accel;
 				state.velocity.angular += dt * external_angular_accel;
 			}
-		}
+			}
 		/// Performs explicit time integration on body position. This function does not update previous state.
 		void position_integration(scalar dt) {
 			state.position.position += dt * state.velocity.linear;
@@ -56,8 +56,7 @@ namespace lotus::physics {
 		material_properties material = uninitialized; ///< The material of this body.
 		body_properties properties = uninitialized; ///< The properties of this body.
 		body_state state = uninitialized; ///< The state of this body.
-		body_position prev_position = uninitialized; ///< Position after the previous timestep.
-		body_velocity prev_velocity = uninitialized; ///< Velocity after the previous timestep.
+		body_state prev_state = uninitialized; ///< Body state after the previous timestep.
 		void *user_data; ///< User data.
 	};
 	/// Data associated with a single particle.
@@ -66,7 +65,7 @@ namespace lotus::physics {
 		particle(uninitialized_t) {
 		}
 		/// Creates a new particle.
-		[[nodiscard]] inline static particle create(particle_properties props, particle_state st) {
+		[[nodiscard]] static particle create(particle_properties props, particle_state st) {
 			particle result = uninitialized;
 			result.properties    = props;
 			result.state         = st;

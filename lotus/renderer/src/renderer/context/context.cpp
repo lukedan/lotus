@@ -110,6 +110,10 @@ namespace lotus::renderer {
 		);
 	}
 
+	void context::pass::set_stencil_reference(u32 v, std::u8string_view description) {
+		_q->add_command<commands::set_stencil_reference>(description, v);
+	}
+
 	void context::pass::end() {
 		if (_q) {
 			_q->add_command<commands::end_pass>(u8"End Pass");

@@ -142,6 +142,8 @@ namespace lotus::renderer::execution {
 		void _execute(const commands::begin_pass&);
 		/// Draws a mesh.
 		void _execute(const commands::draw_instanced&);
+		/// Updates the stencil reference.
+		void _execute(const commands::set_stencil_reference&);
 		/// Ends the render pass.
 		void _execute(const commands::end_pass&);
 		/// Executes a compute dispatch command.

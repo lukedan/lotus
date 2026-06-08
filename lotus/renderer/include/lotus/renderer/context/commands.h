@@ -191,6 +191,20 @@ namespace lotus::renderer {
 			}
 		};
 
+		/// Sets the stencil reference.
+		struct set_stencil_reference {
+			/// Initializes all fields of this struct.
+			explicit set_stencil_reference(u32 v) : value(v) {
+			}
+
+			u32 value = 0; ///< New value.
+
+			/// Returns the properties of this command.
+			[[nodiscard]] constexpr static flags get_flags() {
+				return flags::pass_command;
+			}
+		};
+
 		/// Ends the current render pass.
 		struct end_pass {
 			/// Returns the properties of this command.
@@ -383,6 +397,7 @@ namespace lotus::renderer {
 
 			commands::begin_pass, // TODO: somewhat large
 			commands::draw_instanced, // TODO: very large
+			commands::set_stencil_reference,
 			commands::end_pass,
 
 			commands::dispatch_compute,

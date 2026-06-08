@@ -362,8 +362,9 @@ namespace lotus::renderer::execution {
 			} else {
 				// ensure that all command types are handled
 				crash_if(!(
-					std::holds_alternative<commands::start_timer>(pass_cmd_union) ||
-					std::holds_alternative<commands::end_timer>(pass_cmd_union)   ||
+					std::holds_alternative<commands::set_stencil_reference>(pass_cmd_union) ||
+					std::holds_alternative<commands::start_timer>(pass_cmd_union)           ||
+					std::holds_alternative<commands::end_timer>(pass_cmd_union)             ||
 					std::holds_alternative<commands::pause_for_debugging>(pass_cmd_union)
 				));
 			}

@@ -542,6 +542,7 @@ void debug_render::flush(
 			size,
 			u8"Shadow Quad"
 		);
+		pass.set_stencil_reference(0, u8"Shadow Stencil");
 		pass.draw_instanced({}, 3, nullptr, 0, lotus::gpu::primitive_topology::triangle_list, nullptr, ctx->fullscreen_quad_vs, ctx->shadow_quad_ps, pipeline_state, 1, u8"Shadow Quad");
 	};
 

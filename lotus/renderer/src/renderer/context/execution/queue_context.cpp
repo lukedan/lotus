@@ -375,6 +375,11 @@ namespace lotus::renderer::execution {
 		}
 	}
 
+	void queue_context::_execute(const commands::set_stencil_reference &cmd) {
+		crash_if(!_within_pass);
+		_get_command_list().set_stencil_reference(cmd.value);
+	}
+
 	void queue_context::_execute(const commands::end_pass&) {
 		crash_if(!_within_pass);
 		_within_pass = false;

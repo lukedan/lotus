@@ -124,6 +124,11 @@ namespace lotus::renderer::execution {
 		void _pseudo_execute(const commands::draw_instanced&) {
 			std::unreachable();
 		}
+		/// Calls \p std::unreachable() - pseudo-execution for pass commands are handled manually during
+		/// \ref commands::begin_pass.
+		void _pseudo_execute(const commands::set_stencil_reference&) {
+			std::unreachable();
+		}
 		/// Calls \p std::unreachable() - pseudo-execution for pass commands are handled manually.
 		void _pseudo_execute(const commands::end_pass&) {
 			std::unreachable();

@@ -213,6 +213,9 @@ namespace lotus::renderer {
 				std::u8string_view description
 			);
 
+			/// Sets the stencil reference.
+			void set_stencil_reference(u32, std::u8string_view description);
+
 			/// Finishes rendering to the pass and records all commands into the context.
 			void end();
 		private:

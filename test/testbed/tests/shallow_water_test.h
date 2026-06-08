@@ -477,15 +477,15 @@ public:
 		lotus::renderer::context &ctx,
 		lotus::renderer::context::queue &q,
 		lotus::renderer::constant_uploader &uploader,
-		lotus::renderer::image2d_color color,
-		lotus::renderer::image2d_depth_stencil depth,
+		lotus::renderer::recorded_resources::swap_chain swap_chain,
+		lotus::renderer::recorded_resources::image2d_view depth_stencil,
 		lotus::cvec2u32 size
 	) override {
 		const mat44s transform({
 			{ 1.0f, 0.0f, 0.0f, -0.5f * _grid_size[0] },
 			{ 0.0f, 1.0f, 0.0f, 0.0f },
 			{ 0.0f, 0.0f, 1.0f, -0.5f * _grid_size[1] },
-			{ 0.0f, 0.0f, 0.0f, 0.0f },
+			{ 0.0f, 0.0f, 0.0f, 1.0f },
 		});
 		const vec2 cell_size = lotus::matm::divide(vec2(_grid_size[0], _grid_size[1]), (_terrain.get_size() - lotus::cvec2u32(1u, 1u)).into<scalar>());
 		if (_method) {
@@ -497,7 +497,7 @@ public:
 			);
 		}
 		_draw_heightfield(_terrain, _render, cell_size, lotus::linear_rgba_f32(0.8f, 0.5f, 0.0f, 1.0f), transform, _get_test_context().wireframe_surfaces);
-		_render.flush(ctx, q, uploader, color, depth, size);
+		_render.flush(ctx, q, uploader, swap_chain, depth_stencil, size);
 	}
 
 	void gui() override {
@@ -638,11 +638,11 @@ protected:
 				pos.emplace_back(x * cell_size[0], height(x, y), y * cell_size[1]);
 				if (x > 0 && y > 0) {
 					indices.emplace_back(x0y0);
+					indices.emplace_back(x1y1);
 					indices.emplace_back(x1y0);
-					indices.emplace_back(x1y1);
 					indices.emplace_back(x0y0);
-					indices.emplace_back(x1y1);
 					indices.emplace_back(x0y1);
+					indices.emplace_back(x1y1);
 				}
 			}
 		}
@@ -655,7 +655,7 @@ protected:
 				const vec3 xp = get_pos(x + 1 < sz[0] ? x + 1 : x, y);
 				const vec3 yn = get_pos(x, y > 0 ? y - 1 : y);
 				const vec3 yp = get_pos(x, y + 1 < sz[1] ? y + 1 : y);
-				norm.emplace_back(lotus::vecu::normalize(lotus::vec::cross(xp - xn, yp - yn)));
+				norm.emplace_back(lotus::vecu::normalize(lotus::vec::cross(yp - yn, xp - xn)));
 			}
 		}
 		render.draw_body(pos, norm, indices, transform, color, wireframe);

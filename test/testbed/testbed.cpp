@@ -34,43 +34,20 @@ public:
 
 	/// Renders all objects.
 	void render(lotus::renderer::constant_uploader &uploader) {
-		auto depth_buf = _context->request_image2d(u8"Depth Buffer", _get_window_size(), 1, lotus::gpu::format::d32_float, lotus::gpu::image_usage_mask::depth_stencil_render_target, _pool);
+		auto depth_buf = _context->request_image2d(u8"Depth Buffer", _get_window_size(), 1, lotus::gpu::format::d32_float_s8, lotus::gpu::image_usage_mask::depth_stencil_render_target, _pool);
 
+		const cvec4f64 clear_color(0.5, 0.5, 1.0, 1.0);
 		{
 			auto pass = _gfx_q.begin_pass(
-				{ lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::cvec4f64(0.5, 0.5, 1.0, 1.0))) },
-				lotus::renderer::image2d_depth_stencil(depth_buf, lotus::gpu::depth_render_target_access::create_clear(0.0f)),
+				{ lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(clear_color)) },
+				lotus::renderer::image2d_depth_stencil(depth_buf, lotus::gpu::depth_render_target_access::create_clear(0.0f), lotus::gpu::stencil_render_target_access::create_clear(0)),
 				_get_window_size(), u8"Clear"
 			);
 		}
 
 		if (_test) {
-			_test->render(
-				*_context, _gfx_q, uploader,
-				lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::cvec4f64(0.5, 0.5, 1.0, 1.0))),
-				lotus::renderer::image2d_depth_stencil(depth_buf, lotus::gpu::depth_render_target_access::create_clear(0.0f)),
-				_get_window_size()
-			);
+			_test->render(*_context, _gfx_q, uploader, _swap_chain, depth_buf, _get_window_size());
 		}
-
-		/*
-		if (_mouse_buttons[GLFW_MOUSE_BUTTON_LEFT] || _mouse_buttons[GLFW_MOUSE_BUTTON_MIDDLE]) {
-			vec3 center = _camera_params.look_at;
-			glDisable(GL_LIGHTING);
-			glBegin(GL_LINES);
-			glColor3f(1.0f, 0.0f, 0.0f);
-			glVertex3d(center[0] - 0.1, center[1], center[2]);
-			glVertex3d(center[0] + 0.1, center[1], center[2]);
-			glColor3f(0.0f, 1.0f, 0.0f);
-			glVertex3d(center[0], center[1] - 0.1, center[2]);
-			glVertex3d(center[0], center[1] + 0.1, center[2]);
-			glColor3f(0.0f, 0.0f, 1.0f);
-			glVertex3d(center[0], center[1], center[2] - 0.1);
-			glVertex3d(center[0], center[1], center[2] + 0.1);
-			glEnd();
-			glEnable(GL_LIGHTING);
-		}
-		*/
 	}
 
 	/// Updates the simulation.
@@ -156,6 +133,7 @@ protected:
 				ImGui::Checkbox("Body Velocity", &_test_context.draw_body_velocities);
 				ImGui::Checkbox("Contacts", &_test_context.draw_contacts);
 				ImGui::Checkbox("Particles", &_test_context.draw_particles);
+				ImGui::Checkbox("Shadows", &_test_context.draw_shadows);
 				ImGui::SliderFloat("Particle Size", &_test_context.particle_size, 0.001f, 10.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
 				ImGui::Checkbox("Orientations", &_test_context.draw_orientations);
 
@@ -194,7 +172,13 @@ protected:
 						_test->timestep(_time_step, _iters);
 					}
 				}
-				if (ImGui::Button("Reset Test")) {
+				if (ImGui::Button("Soft Reset")) {
+					if (_test) {
+						_test->soft_reset();
+					}
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Hard Reset")) {
 					_test_running = false;
 					_test.reset();
 					if (_test_index < _tests.size()) {
@@ -278,6 +262,8 @@ protected:
 		_test_context.default_shader_vs = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
 		_test_context.default_shader_ps = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
 		_test_context.shadow_vs = _assets->compile_shader_in_filesystem("./shaders/shadow.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
+		_test_context.fullscreen_quad_vs = _assets->compile_shader_in_filesystem(_assets->asset_library_path / "shaders/misc/fullscreen_quad_vs.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
+		_test_context.shadow_quad_ps = _assets->compile_shader_in_filesystem("./shaders/shadow_quad.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
 		_test_context.asset_manager = _assets.get();
 		_test_context.resource_pool = _context->request_pool(u8"Test Resource Pool");
 		_test_context.upload_pool = _context->request_pool(u8"Test Upload Pool", _context->get_upload_memory_type_index());

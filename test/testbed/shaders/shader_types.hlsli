@@ -3,7 +3,6 @@
 
 struct default_shader_constants {
 	float4x4 projection_view;
-	float4x4 shadow_projection_view;
 	float3 light_direction;
 };
 

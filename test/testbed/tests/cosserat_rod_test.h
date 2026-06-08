@@ -49,13 +49,13 @@ public:
 		lotus::renderer::context &ctx,
 		lotus::renderer::context::queue &q,
 		lotus::renderer::constant_uploader &uploader,
-		lotus::renderer::image2d_color color,
-		lotus::renderer::image2d_depth_stencil depth,
+		lotus::renderer::recorded_resources::swap_chain swap_chain,
+		lotus::renderer::recorded_resources::image2d_view depth_stencil,
 		lotus::cvec2u32 size
 	) override {
 		_render.draw_system(_solver_avbd);
 		_render.draw_system(_solver_xpbd);
-		_render.flush(ctx, q, uploader, color, depth, size);
+		_render.flush(ctx, q, uploader, swap_chain, depth_stencil, size);
 	}
 
 	void soft_reset() override {

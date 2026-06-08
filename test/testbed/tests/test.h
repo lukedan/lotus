@@ -29,13 +29,10 @@ public:
 	/// Renders the scene.
 	virtual void render(
 		lotus::renderer::context&, lotus::renderer::context::queue&, lotus::renderer::constant_uploader&,
-		lotus::renderer::image2d_color, lotus::renderer::image2d_depth_stencil, lotus::cvec2u32 size
+		lotus::renderer::recorded_resources::swap_chain, lotus::renderer::recorded_resources::image2d_view depth_stencil, cvec2u32 size
 	) = 0;
 	/// Displays the test-specific GUI.
 	virtual void gui() {
-		if (ImGui::Button("Soft Reset")) {
-			soft_reset();
-		}
 	}
 	/// Key press callback.
 	virtual void on_key_down(lotus::system::window_events::key_down&) {

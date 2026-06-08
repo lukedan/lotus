@@ -148,16 +148,16 @@ void debug_render::draw_sphere(mat44s transform, lotus::linear_rgba_f32 color, b
 
 void debug_render::draw_box(mat44s transform, lotus::linear_rgba_f32 color, bool wireframe) {
 	static constexpr std::array _vertices = {
-		// XY negative
-		vec3(-0.5f, -0.5f, -0.5f),
-		vec3( 0.5f, -0.5f, -0.5f),
-		vec3(-0.5f,  0.5f, -0.5f),
-		vec3( 0.5f,  0.5f, -0.5f),
 		// XY positive
 		vec3(-0.5f, -0.5f,  0.5f),
 		vec3( 0.5f, -0.5f,  0.5f),
 		vec3(-0.5f,  0.5f,  0.5f),
 		vec3( 0.5f,  0.5f,  0.5f),
+		// XY negative
+		vec3(-0.5f, -0.5f, -0.5f),
+		vec3( 0.5f, -0.5f, -0.5f),
+		vec3(-0.5f,  0.5f, -0.5f),
+		vec3( 0.5f,  0.5f, -0.5f),
 		// XZ negative
 		vec3(-0.5f, -0.5f, -0.5f),
 		vec3( 0.5f, -0.5f, -0.5f),
@@ -168,24 +168,24 @@ void debug_render::draw_box(mat44s transform, lotus::linear_rgba_f32 color, bool
 		vec3( 0.5f,  0.5f, -0.5f),
 		vec3(-0.5f,  0.5f,  0.5f),
 		vec3( 0.5f,  0.5f,  0.5f),
-		// YZ negative
-		vec3(-0.5f, -0.5f, -0.5f),
-		vec3(-0.5f,  0.5f, -0.5f),
-		vec3(-0.5f, -0.5f,  0.5f),
-		vec3(-0.5f,  0.5f,  0.5f),
 		// YZ positive
 		vec3( 0.5f, -0.5f, -0.5f),
 		vec3( 0.5f,  0.5f, -0.5f),
 		vec3( 0.5f, -0.5f,  0.5f),
 		vec3( 0.5f,  0.5f,  0.5f),
+		// YZ negative
+		vec3(-0.5f, -0.5f, -0.5f),
+		vec3(-0.5f,  0.5f, -0.5f),
+		vec3(-0.5f, -0.5f,  0.5f),
+		vec3(-0.5f,  0.5f,  0.5f),
 	};
 	static constexpr std::array _normals = {
-		vec3( 0.0f,  0.0f, -1.0f), vec3( 0.0f,  0.0f, -1.0f), vec3( 0.0f,  0.0f, -1.0f), vec3( 0.0f,  0.0f, -1.0f),
 		vec3( 0.0f,  0.0f,  1.0f), vec3( 0.0f,  0.0f,  1.0f), vec3( 0.0f,  0.0f,  1.0f), vec3( 0.0f,  0.0f,  1.0f),
+		vec3( 0.0f,  0.0f, -1.0f), vec3( 0.0f,  0.0f, -1.0f), vec3( 0.0f,  0.0f, -1.0f), vec3( 0.0f,  0.0f, -1.0f),
 		vec3( 0.0f, -1.0f,  0.0f), vec3( 0.0f, -1.0f,  0.0f), vec3( 0.0f, -1.0f,  0.0f), vec3( 0.0f, -1.0f,  0.0f),
 		vec3( 0.0f,  1.0f,  0.0f), vec3( 0.0f,  1.0f,  0.0f), vec3( 0.0f,  1.0f,  0.0f), vec3( 0.0f,  1.0f,  0.0f),
-		vec3(-1.0f,  0.0f,  0.0f), vec3(-1.0f,  0.0f,  0.0f), vec3(-1.0f,  0.0f,  0.0f), vec3(-1.0f,  0.0f,  0.0f),
 		vec3( 1.0f,  0.0f,  0.0f), vec3( 1.0f,  0.0f,  0.0f), vec3( 1.0f,  0.0f,  0.0f), vec3( 1.0f,  0.0f,  0.0f),
+		vec3(-1.0f,  0.0f,  0.0f), vec3(-1.0f,  0.0f,  0.0f), vec3(-1.0f,  0.0f,  0.0f), vec3(-1.0f,  0.0f,  0.0f),
 	};
 	static constexpr std::array<u32, 36> _indices = {
 		0  + 0, 0  + 1, 0  + 2, 0  + 1, 0  + 3, 0  + 2,
@@ -422,71 +422,98 @@ void debug_render::draw_system(lotus::physics::xpbd::solver &solver) {
 
 void debug_render::flush(
 	lotus::renderer::context &rctx, lotus::renderer::context::queue &q, lotus::renderer::constant_uploader &uploader,
-	lotus::renderer::image2d_color frame_buffer, lotus::renderer::image2d_depth_stencil depth_buffer, lotus::cvec2u32 size
+	lotus::renderer::recorded_resources::swap_chain swap_chain, lotus::renderer::recorded_resources::image2d_view depth_stencil, lotus::cvec2u32 size
 ) {
-	auto upload_data_buffer = [&](lotus::renderer::context::queue &q, lotus::gpu::buffer_usage_mask usages, std::span<const std::byte> data, std::u8string_view name) -> lotus::renderer::buffer {
+	auto upload_data_buffer_bytes = [&](lotus::renderer::context::queue &q, lotus::gpu::buffer_usage_mask usages, std::span<const std::byte> data, std::u8string_view name) -> lotus::renderer::buffer {
 		if (data.empty()) {
 			return nullptr;
 		}
 		auto result = rctx.request_buffer(name, data.size_bytes(), usages | lotus::gpu::buffer_usage_mask::copy_destination, ctx->resource_pool);
 		auto temp = rctx.request_buffer(name, data.size_bytes(), lotus::gpu::buffer_usage_mask::copy_source, ctx->upload_pool);
 		rctx.write_data_to_buffer(temp, data);
-		q.copy_buffer(temp, result, 0, 0, data.size(), u8"Upload data buffer");
+		q.copy_buffer(temp, result, 0, 0, data.size_bytes(), u8"Upload data buffer");
 		return result;
 	};
+	auto upload_data_buffer_vec = [&]<typename T>(lotus::renderer::context::queue &q, lotus::gpu::buffer_usage_mask usages, const std::vector<T> &data, std::u8string_view name) -> lotus::renderer::buffer {
+		return upload_data_buffer_bytes(q, usages, { reinterpret_cast<const std::byte*>(data.data()), sizeof(T) * data.size() }, name);
+	};
 
-	auto mesh_vert_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(mesh_vertices.data()), sizeof(vertex) * mesh_vertices.size() }, u8"Mesh Vertices");
-	auto mesh_idx_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(mesh_indices.data()), sizeof(u32) * mesh_indices.size() }, u8"Mesh Indices");
+	auto mesh_vert_buf = upload_data_buffer_vec(q, lotus::gpu::buffer_usage_mask::vertex_buffer, mesh_vertices, u8"Mesh Vertices");
+	auto mesh_idx_buf = upload_data_buffer_vec(q, lotus::gpu::buffer_usage_mask::index_buffer, mesh_indices, u8"Mesh Indices");
 
-	auto line_vert_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(line_vertices.data()), sizeof(vertex) * line_vertices.size() }, u8"Line Vertices");
-	auto line_idx_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::index_buffer, { reinterpret_cast<const std::byte*>(line_indices.data()), sizeof(u32) * line_indices.size() }, u8"Line Indices");
+	auto line_vert_buf = upload_data_buffer_vec(q, lotus::gpu::buffer_usage_mask::vertex_buffer, line_vertices, u8"Line Vertices");
+	auto line_idx_buf = upload_data_buffer_vec(q, lotus::gpu::buffer_usage_mask::index_buffer, line_indices, u8"Line Indices");
 
-	auto point_buf = upload_data_buffer(q, lotus::gpu::buffer_usage_mask::vertex_buffer, { reinterpret_cast<const std::byte*>(point_vertices.data()), sizeof(vertex) * point_vertices.size() }, u8"Point Vertices");
+	auto point_buf = upload_data_buffer_vec(q, lotus::gpu::buffer_usage_mask::vertex_buffer, point_vertices, u8"Point Vertices");
 
 
 	const vec3 light_dir = lotus::vecu::normalize(vec3(0.3f, 0.4f, 0.5f));
 
-	lotus::renderer::image2d_view shadow_map = rctx.request_image2d(u8"Shadow Map", cvec2u32(2048, 2048), 1, lotus::gpu::format::d32_float, lotus::gpu::image_usage_mask::depth_stencil_render_target | lotus::gpu::image_usage_mask::shader_read, ctx->resource_pool);
+	const auto draw_shadow_stencil = [&]() {
+		// extrude and render shadow faces
+		const auto num_verts = static_cast<u32>(mesh_vertices.size());
+		std::vector<cvec3f32> shadow_mesh_verts;
+		std::vector<u32> shadow_mesh_indices;
+		for (const vertex &v : mesh_vertices) {
+			shadow_mesh_verts.emplace_back(v.position);
+		}
+		for (u32 i = 0; i < num_verts; ++i) {
+			const scalar extrude_factor = 100.0f;
+			shadow_mesh_verts.emplace_back(shadow_mesh_verts[i] - light_dir * extrude_factor);
+		}
+		for (usize i = 0; i < mesh_indices.size(); i += 3) {
+			u32 i0 = mesh_indices[i];
+			u32 i1 = mesh_indices[i + 1];
+			u32 i2 = mesh_indices[i + 2];
+			cvec3f32 p0 = shadow_mesh_verts[i0];
+			cvec3f32 p1 = shadow_mesh_verts[i1];
+			cvec3f32 p2 = shadow_mesh_verts[i2];
+			if (lotus::vec::dot(lotus::vec::cross(p1 - p0, p2 - p0), light_dir) > 0.0f) {
+				continue;
+			}
+			const u32 j0 = i0 + num_verts;
+			const u32 j1 = i1 + num_verts;
+			const u32 j2 = i2 + num_verts;
+			shadow_mesh_indices.insert(shadow_mesh_indices.end(), { j0, j1, j2 });
+			shadow_mesh_indices.insert(shadow_mesh_indices.end(), { i0, i2, i1 });
 
-	const float _shadow_map_depth = 50.0f;
-	const float _shadow_map_size  = 10.0f;
-	mat44s shadow_projection_view = lotus::uninitialized;
-	{ // construct shadow view matrix
-		const auto light_tangents = lotus::tangent_frame<scalar>::from_normal(light_dir);
-		mat44s shadow_cam_pos = mat44s::identity();
-		shadow_cam_pos.set_block(0, 3, -(ctx->camera_params.position + light_dir * 0.5f * _shadow_map_depth));
-		mat44s shadow_view = mat44s::identity();
-		shadow_view.set_block(0, 0, lotus::mat::concat_columns(
-			light_tangents.tangent, light_tangents.bitangent, light_tangents.normal
-		).transposed());
-		const mat44s shadow_projection = {
-			{ 1.0f / _shadow_map_size,                    0.0f,                     0.0f, 0.0f },
-			{                    0.0f, 1.0f / _shadow_map_size,                     0.0f, 0.0f },
-			{                    0.0f,                    0.0f, 1.0f / _shadow_map_depth, 1.0f },
-			{                    0.0f,                    0.0f,                     0.0f, 1.0f },
-		};
-		shadow_projection_view = shadow_projection * shadow_view * shadow_cam_pos;
-	}
+			shadow_mesh_indices.insert(shadow_mesh_indices.end(), { i0, i1, j1 });
+			shadow_mesh_indices.insert(shadow_mesh_indices.end(), { i0, j1, j0 });
 
-	{ // shadow pass
+			shadow_mesh_indices.insert(shadow_mesh_indices.end(), { i1, i2, j2 });
+			shadow_mesh_indices.insert(shadow_mesh_indices.end(), { i1, j2, j1 });
+
+			shadow_mesh_indices.insert(shadow_mesh_indices.end(), { i2, i0, j0 });
+			shadow_mesh_indices.insert(shadow_mesh_indices.end(), { i2, j0, j2 });
+		}
+
+		auto shadow_vert_buf = upload_data_buffer_vec(q, lotus::gpu::buffer_usage_mask::vertex_buffer, shadow_mesh_verts, u8"Shadow Vertices");
+		auto shadow_idx_buf = upload_data_buffer_vec(q, lotus::gpu::buffer_usage_mask::index_buffer, shadow_mesh_indices, u8"Shadow Indices");
+
 		auto vertex_input_elements = {
-			lotus::gpu::input_buffer_element(u8"POSITION", 0, lotus::gpu::format::r32g32b32_float, offsetof(debug_render::vertex, position)),
+			lotus::gpu::input_buffer_element(u8"POSITION", 0, lotus::gpu::format::r32g32b32_float, 0),
 		};
 		auto pipeline_state = lotus::renderer::graphics_pipeline_state(
-			{},
-			lotus::gpu::rasterizer_options(lotus::gpu::depth_bias_options::create_unclamped(-2.0f, -2.0f), lotus::gpu::front_facing_mode::clockwise, lotus::gpu::cull_mode::none, false),
-			lotus::gpu::depth_stencil_options(true, true, lotus::gpu::comparison_function::greater, false, 0, 0, lotus::gpu::stencil_options::always_pass_no_op(), lotus::gpu::stencil_options::always_pass_no_op())
+			{ lotus::gpu::render_target_blend_options::disabled(), },
+			lotus::gpu::rasterizer_options(lotus::gpu::depth_bias_options::disabled(), lotus::gpu::front_facing_mode::clockwise, lotus::gpu::cull_mode::none, false),
+			lotus::gpu::depth_stencil_options(
+				true, false, lotus::gpu::comparison_function::less, true, 0xFF, 0xFF,
+				lotus::gpu::stencil_options::create(lotus::gpu::comparison_function::always, lotus::gpu::stencil_operation::keep, lotus::gpu::stencil_operation::keep, lotus::gpu::stencil_operation::increment_and_wrap),
+				lotus::gpu::stencil_options::create(lotus::gpu::comparison_function::always, lotus::gpu::stencil_operation::keep, lotus::gpu::stencil_operation::keep, lotus::gpu::stencil_operation::decrement_and_wrap)
+			)
 		);
 		shader_types::shadow_constants constants;
-		constants.projection_view = shadow_projection_view;
+		constants.projection_view = ctx->camera.projection_view_matrix.into<f32>();
 
-		auto pass = q.begin_pass({}, lotus::renderer::image2d_depth_stencil(shadow_map, lotus::gpu::depth_render_target_access::create_clear(0.0f)), shadow_map.get_size(), u8"Shadow Map");
-		if (!mesh_vertices.empty()) {
+		auto pass = q.begin_pass({}, lotus::renderer::image2d_depth_stencil(
+			depth_stencil, lotus::gpu::depth_render_target_access::create_preserve_and_write(), lotus::gpu::stencil_render_target_access::create_preserve_and_write()
+		), size, u8"Shadow Stencil");
+		if (!shadow_mesh_verts.empty()) {
 			pass.draw_instanced(
-				{ lotus::renderer::input_buffer_binding(0, mesh_vert_buf, 0, sizeof(vertex), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements) },
-				static_cast<u32>(mesh_vertices.size()),
-				lotus::renderer::index_buffer_binding(mesh_idx_buf, 0, lotus::gpu::index_format::uint32),
-				static_cast<u32>(mesh_indices.size()),
+				{ lotus::renderer::input_buffer_binding(0, shadow_vert_buf, 0, sizeof(cvec3f32), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements) },
+				static_cast<u32>(shadow_mesh_verts.size()),
+				lotus::renderer::index_buffer_binding(shadow_idx_buf, 0, lotus::gpu::index_format::uint32),
+				static_cast<u32>(shadow_mesh_indices.size()),
 				lotus::gpu::primitive_topology::triangle_list,
 				lotus::renderer::all_resource_bindings({}, {
 					{ u8"constants", uploader.upload(constants) }
@@ -497,8 +524,26 @@ void debug_render::flush(
 				u8"Shadow Meshes"
 			);
 		}
-		pass.end();
-	}
+	};
+
+	const auto draw_shadow_quad = [&]() {
+		auto pipeline_state = lotus::renderer::graphics_pipeline_state(
+			{ lotus::gpu::render_target_blend_options::create_default_alpha_blend(), },
+			lotus::gpu::rasterizer_options(lotus::gpu::depth_bias_options::disabled(), lotus::gpu::front_facing_mode::clockwise, lotus::gpu::cull_mode::none, false),
+			lotus::gpu::depth_stencil_options(
+				false, false, lotus::gpu::comparison_function::always, true, 0xFF, 0,
+				lotus::gpu::stencil_options::create(lotus::gpu::comparison_function::not_equal, lotus::gpu::stencil_operation::keep, lotus::gpu::stencil_operation::keep, lotus::gpu::stencil_operation::keep),
+				lotus::gpu::stencil_options::create(lotus::gpu::comparison_function::not_equal, lotus::gpu::stencil_operation::keep, lotus::gpu::stencil_operation::keep, lotus::gpu::stencil_operation::keep)
+			)
+		);
+		auto pass = q.begin_pass(
+			{ lotus::renderer::image2d_color(swap_chain, lotus::gpu::color_render_target_access::create_preserve_and_write()) },
+			lotus::renderer::image2d_depth_stencil(depth_stencil, lotus::gpu::depth_render_target_access::create_preserve_and_write(), lotus::gpu::stencil_render_target_access::create_preserve_and_write()),
+			size,
+			u8"Shadow Quad"
+		);
+		pass.draw_instanced({}, 3, nullptr, 0, lotus::gpu::primitive_topology::triangle_list, nullptr, ctx->fullscreen_quad_vs, ctx->shadow_quad_ps, pipeline_state, 1, u8"Shadow Quad");
+	};
 
 	{ // main pass
 		auto vertex_input_elements = {
@@ -508,7 +553,7 @@ void debug_render::flush(
 		};
 		auto pipeline_state = lotus::renderer::graphics_pipeline_state(
 			{ lotus::gpu::render_target_blend_options::disabled(), },
-			lotus::gpu::rasterizer_options(lotus::gpu::depth_bias_options::disabled(), lotus::gpu::front_facing_mode::clockwise, lotus::gpu::cull_mode::none, false),
+			lotus::gpu::rasterizer_options(lotus::gpu::depth_bias_options::disabled(), lotus::gpu::front_facing_mode::counter_clockwise, lotus::gpu::cull_mode::cull_back, false),
 			lotus::gpu::depth_stencil_options(true, true, lotus::gpu::comparison_function::greater, false, 0, 0, lotus::gpu::stencil_options::always_pass_no_op(), lotus::gpu::stencil_options::always_pass_no_op())
 		);
 		auto pipeline_state_no_depth = lotus::renderer::graphics_pipeline_state(
@@ -517,11 +562,15 @@ void debug_render::flush(
 			lotus::gpu::depth_stencil_options::all_disabled()
 		);
 		shader_types::default_shader_constants constants;
-		constants.light_direction        = light_dir;
-		constants.shadow_projection_view = shadow_projection_view;
-		constants.projection_view        = ctx->camera.projection_view_matrix.into<f32>();
+		constants.light_direction = light_dir;
+		constants.projection_view = ctx->camera.projection_view_matrix.into<f32>();
 
-		auto pass = q.begin_pass({ frame_buffer }, depth_buffer, size, u8"Debug Render");
+		auto pass = q.begin_pass(
+			{ lotus::renderer::image2d_color(swap_chain, lotus::gpu::color_render_target_access::create_preserve_and_write()) },
+			lotus::renderer::image2d_depth_stencil(depth_stencil, lotus::gpu::depth_render_target_access::create_preserve_and_write(), lotus::gpu::stencil_render_target_access::create_preserve_and_write()),
+			size,
+			u8"Debug Render"
+		);
 		if (!mesh_vertices.empty()) {
 			pass.draw_instanced(
 				{
@@ -531,14 +580,9 @@ void debug_render::flush(
 				lotus::renderer::index_buffer_binding(mesh_idx_buf, 0, lotus::gpu::index_format::uint32),
 				static_cast<u32>(mesh_indices.size()),
 				lotus::gpu::primitive_topology::triangle_list,
-				lotus::renderer::all_resource_bindings(
-					{
-						{ 1, ctx->asset_manager->get_samplers() }
-					}, {
-						{ u8"constants",  uploader.upload(constants)     },
-						{ u8"shadow_map", shadow_map.bind_as_read_only() },
-					}
-				),
+				lotus::renderer::all_resource_bindings({}, {
+					{ u8"constants", uploader.upload(constants) },
+				}),
 				ctx->default_shader_vs, ctx->default_shader_ps,
 				pipeline_state,
 				1,
@@ -580,7 +624,11 @@ void debug_render::flush(
 				u8"Debug Points"
 			);
 		}
-		pass.end();
+	}
+
+	if (ctx->draw_shadows) {
+		draw_shadow_stencil();
+		draw_shadow_quad();
 	}
 
 	mesh_vertices.clear();

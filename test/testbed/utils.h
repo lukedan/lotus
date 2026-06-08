@@ -19,6 +19,8 @@ struct test_context {
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> default_shader_vs = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> default_shader_ps = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> shadow_vs = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> fullscreen_quad_vs = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> shadow_quad_ps = nullptr;
 	lotus::renderer::assets::manager *asset_manager = nullptr;
 	lotus::camera_parameters<scalar> camera_params = lotus::uninitialized;
 	lotus::camera<scalar> camera = lotus::uninitialized;
@@ -30,6 +32,7 @@ struct test_context {
 	bool draw_body_velocities = true;
 	bool draw_contacts = false;
 	bool draw_particles = true;
+	bool draw_shadows = true;
 	bool draw_orientations = true;
 	f32 particle_size = 0.05f;
 
@@ -82,7 +85,7 @@ public:
 
 	void flush(
 		lotus::renderer::context&, lotus::renderer::context::queue&, lotus::renderer::constant_uploader&,
-		lotus::renderer::image2d_color, lotus::renderer::image2d_depth_stencil, lotus::cvec2u32 size
+		lotus::renderer::recorded_resources::swap_chain, lotus::renderer::recorded_resources::image2d_view, lotus::cvec2u32 size
 	);
 
 

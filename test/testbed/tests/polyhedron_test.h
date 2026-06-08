@@ -64,8 +64,8 @@ public:
 		lotus::renderer::context &ctx,
 		lotus::renderer::context::queue &q,
 		lotus::renderer::constant_uploader &uploader,
-		lotus::renderer::image2d_color color,
-		lotus::renderer::image2d_depth_stencil ds,
+		lotus::renderer::recorded_resources::swap_chain swap_chain,
+		lotus::renderer::recorded_resources::image2d_view depth_stencil,
 		lotus::cvec2u32 size
 	) override {
 		const auto [poly_verts, poly_tris] = _get_polyhedron();
@@ -120,7 +120,7 @@ public:
 			);
 		}
 
-		_render.flush(ctx, q, uploader, color, ds, size);
+		_render.flush(ctx, q, uploader, swap_chain, depth_stencil, size);
 		/*glPointSize(10.0f);
 		glDisable(GL_LIGHTING);
 		glBegin(GL_POINTS);

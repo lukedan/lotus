@@ -154,6 +154,10 @@ namespace lotus::gpu::backends::metal {
 		_pass_encoder->setScissorRects(scissor_rects.data(), scissor_rects.size());
 	}
 
+	void command_list::set_stencil_reference(u32 value) {
+		_pass_encoder->setStencilReferenceValue(value);
+	}
+
 	void command_list::copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size) {
 		_scoped_compute_encoder encoder = _start_compute_pass();
 		encoder->copyFromBuffer(from._buf.get(), off1, to._buf.get(), off2, size);

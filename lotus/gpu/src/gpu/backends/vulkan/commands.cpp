@@ -182,6 +182,10 @@ namespace lotus::gpu::backends::vulkan {
 		_buffer.setScissor(0, scissors);
 	}
 
+	void command_list::set_stencil_reference(u32 value) {
+		_buffer.setStencilReference(vk::StencilFaceFlagBits::eFrontAndBack, value);
+	}
+
 	void command_list::copy_buffer(
 		const buffer &from, usize off1, buffer &to, usize off2, usize size
 	) {

@@ -137,6 +137,10 @@ namespace lotus::gpu {
 		void set_scissor_rectangles(std::initializer_list<aab2u32> scissor) {
 			set_scissor_rectangles({ scissor.begin(), scissor.end() });
 		}
+		/// Sets the stencil reference.
+		void set_stencil_reference(u32 value) {
+			backend::command_list::set_stencil_reference(value);
+		}
 
 		/// Inserts a copy operation between the two buffers.
 		void copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size) {

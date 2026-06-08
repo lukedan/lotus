@@ -578,6 +578,7 @@ namespace lotus::gpu::backends::vulkan {
 		std::array dynamic_states{
 			vk::DynamicState::eViewport,
 			vk::DynamicState::eScissor,
+			vk::DynamicState::eStencilReference,
 		};
 		vk::PipelineDynamicStateCreateInfo dynamic;
 		dynamic.setDynamicStates(dynamic_states);

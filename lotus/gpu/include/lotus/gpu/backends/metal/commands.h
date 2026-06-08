@@ -73,6 +73,8 @@ namespace lotus::gpu::backends::metal {
 		void set_viewports(std::span<const viewport>);
 		/// Calls \p MTL4::RenderCommandEncoder::setScissorRects().
 		void set_scissor_rectangles(std::span<const aab2u32>);
+		/// Calls \p MTL4::RenderCommandEncoder::setStencilReferenceValue().
+		void set_stencil_reference(u32);
 
 		/// Creates a \p MTL4::ComputeCommandEncoder to encode a copy command.
 		void copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size);

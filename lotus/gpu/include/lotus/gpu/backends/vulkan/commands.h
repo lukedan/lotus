@@ -78,6 +78,8 @@ namespace lotus::gpu::backends::vulkan {
 		void set_viewports(std::span<const viewport>);
 		/// Calls \p vk::CommandBuffer::setScissor().
 		void set_scissor_rectangles(std::span<const aab2u32>);
+		/// Calls \p vk::CommandBuffer::setStencilReference().
+		void set_stencil_reference(u32);
 
 		/// Calls \p vk::CommandBuffer::copyBuffer().
 		void copy_buffer(const buffer &from, usize off1, buffer &to, usize off2, usize size);

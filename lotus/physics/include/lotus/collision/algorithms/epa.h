@@ -10,6 +10,13 @@
 namespace lotus::collision::epa {
 	/// Results from the algorithm.
 	struct result {
+		/// The type of this contact.
+		enum class type {
+			vertex_face, ///< A vertex on the first polyhedron collides with a face on the second polyhedron.
+			face_vertex, ///< A face on the firxt polyhedron collides with a vertex on the second polyhedron.
+			edge_edge,   ///< Two edges on both polyhedra collides with each other.
+		};
+
 		/// No initialization.
 		result(uninitialized_t) {
 		}
@@ -25,6 +32,9 @@ namespace lotus::collision::epa {
 		/// Normalized contact normal. This points out of the first body and into the second body.
 		vec3 normal = uninitialized;
 		scalar penetration_depth; ///< Penetration depth.
+
+		/// Analyzes the contact vertices and returns the type of this result.
+		[[nodiscard]] type compute_type() const;
 	};
 
 	/// Executes the algorithm.

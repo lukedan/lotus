@@ -4,6 +4,7 @@ configure_lotus_module(lotus_physics)
 target_include_directories(lotus_physics PUBLIC "include/")
 target_sources(lotus_physics
 	PUBLIC
+		"include/lotus/collision/algorithms/contact_manifold.h"
 		"include/lotus/collision/algorithms/epa.h"
 		"include/lotus/collision/algorithms/gjk.h"
 		"include/lotus/collision/algorithms/sat.h"
@@ -36,6 +37,7 @@ target_sources(lotus_physics
 		"include/lotus/physics/common.h"
 		"include/lotus/physics/world.h"
 	PRIVATE
+		"src/collision/algorithms/contact_manifold.cpp"
 		"src/collision/algorithms/epa.cpp"
 		"src/collision/algorithms/gjk.cpp"
 		"src/collision/algorithms/sat.cpp"

@@ -4,7 +4,9 @@ function(add_testbed_executable GPU_BACKEND)
 	add_executable(${PROJ})
 	target_sources(${PROJ}
 		PRIVATE
+			"tests/angular_momentum_test.h"
 			"tests/box_stack_test.h"
+			"tests/cosserat_rod_test.h"
 			"tests/fem_cloth_test.h"
 			"tests/polyhedron_test.h"
 			"tests/shallow_water_test.h"

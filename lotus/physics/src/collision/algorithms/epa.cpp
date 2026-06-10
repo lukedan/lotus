@@ -7,6 +7,17 @@
 #include "lotus/collision/shapes/convex_polyhedron.h"
 
 namespace lotus::collision::epa {
+	result::type result::compute_type() const {
+		if (vertices[0].index1 == vertices[1].index1 && vertices[0].index1 == vertices[2].index1) {
+			return type::vertex_face;
+		}
+		if (vertices[0].index2 == vertices[1].index2 && vertices[0].index2 == vertices[2].index2) {
+			return type::face_vertex;
+		}
+		return type::edge_edge;
+	}
+
+
 	result epa(polyhedron_pair input, gjk::result gjk_state) {
 		using convex_hull = incremental_convex_hull;
 

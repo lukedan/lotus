@@ -157,7 +157,11 @@ namespace lotus::physics::avbd {
 					vec::dot(contact.get_global_pos1() - contact.get_global_pos2(), contact.tangents.normal);
 				const _vec6 dcdx = sign * _vec6(contact.tangents.normal, vec::cross(r, contact.tangents.normal));
 
-				const scalar stiffness = 100000.0f;
+				if (c < 0.0f) {
+					continue;
+				}
+
+				const scalar stiffness = 1000.0f;
 
 				// f term
 				f -= stiffness * std::max<scalar>(0.0f, c) * dcdx;

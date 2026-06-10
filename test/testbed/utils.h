@@ -34,6 +34,7 @@ struct test_context {
 	bool draw_particles = true;
 	bool draw_shadows = true;
 	bool draw_orientations = true;
+	bool draw_faces = false;
 	f32 particle_size = 0.05f;
 
 	void update_camera() {

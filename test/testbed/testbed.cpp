@@ -134,6 +134,7 @@ protected:
 				ImGui::Checkbox("Contacts", &_test_context.draw_contacts);
 				ImGui::Checkbox("Particles", &_test_context.draw_particles);
 				ImGui::Checkbox("Shadows", &_test_context.draw_shadows);
+				ImGui::Checkbox("Faces", &_test_context.draw_faces);
 				ImGui::SliderFloat("Particle Size", &_test_context.particle_size, 0.001f, 10.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
 				ImGui::Checkbox("Orientations", &_test_context.draw_orientations);
 

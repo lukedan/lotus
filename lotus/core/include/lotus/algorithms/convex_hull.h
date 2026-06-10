@@ -252,6 +252,16 @@ namespace lotus {
 				return static_cast<u32>(_faces.size());
 			}
 
+			/// Iterates over all faces in the convex hull in an unspecified order.
+			template <typename Cb> void for_each_face(Cb &&callback) const {
+				face_id fi = get_any_face();
+				do {
+					const face &f = get_face(fi);
+					callback(f);
+					fi = f.next;
+				} while (fi != get_any_face());
+			}
+
 			/// Callback that's invoked after a new face has been added.
 			face_callback on_face_added    = nullptr;
 			/// Callback that's invoked before a face is being removed.

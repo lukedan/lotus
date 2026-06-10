@@ -57,7 +57,13 @@ namespace lotus::collision::shapes {
 		};
 		/// A arbitrary polygonal face of a polyhedron.
 		struct face {
-			/// Vertex indices of the face in clockwise order looking from the outside.
+			/// Zero initialization.
+			face(zero_t) {
+			}
+
+			vec3 normal = zero; ///< Normalized normal pointing outwards.
+			std::vector<u32> adjacent_faces; ///< Indices of adjacent faces.
+			/// Vertices on this face. These vertices are ordered clockwise when looking from out of the polyhedron.
 			std::vector<u32> vertex_indices;
 		};
 		/// The result of projecting a polyhedron onto an axis.
@@ -80,9 +86,9 @@ namespace lotus::collision::shapes {
 		};
 
 		/// Minimum dot product between two normals for them to be considered similar.
-		constexpr static scalar unique_normal_threshold = 0.999f;
+		constexpr static scalar unique_normal_threshold = 0.99999f;
 		/// Minimum dot product between two edges for them to be considered similar.
-		constexpr static scalar unique_edge_threshold = 0.999f;
+		constexpr static scalar unique_edge_threshold = 0.99999f;
 
 		// TODO allocator or pool?
 		std::vector<vec3> vertices; ///< Vertices of this polyhedron.

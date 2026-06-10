@@ -48,17 +48,16 @@ namespace lotus::physics::avbd {
 	// rigid bodies
 	void solver::_update_body_contacts() {
 		// TODO: warm starting etc.
-		const std::vector<world::rigid_body_collision> new_contacts = physics_world->detect_collisions();
+		std::vector<world::rigid_body_collision> new_contacts = physics_world->detect_collisions();
 		contacts.clear();
-		for (const world::rigid_body_collision &c : new_contacts) {
-			constraints::rigid_body_contact new_contact = uninitialized;
-			new_contact.body1      = c.body1;
-			new_contact.body2      = c.body2;
-			new_contact.tangents   = tangent_frame<scalar>::from_normal(c.contact.normal);
-			new_contact.local_pos1 = c.contact.local_pos1;
-			new_contact.local_pos2 = c.contact.local_pos2;
-			new_contact.stiffness  = vec3::filled(1.0f);
-			new_contact.lambda     = zero;
+		for (world::rigid_body_collision &c : new_contacts) {
+			constraints::rigid_body_contact new_contact;
+			new_contact.body1          = c.body1;
+			new_contact.body2          = c.body2;
+			new_contact.tangents       = tangent_frame<scalar>::from_normal(c.contact_manifold.normal);
+			new_contact.contact_points = std::move(c.contact_manifold.points);
+			new_contact.stiffness      = vec3::filled(1.0f);
+			new_contact.lambda         = zero;
 			contacts.emplace_back(new_contact);
 		}
 	}
@@ -148,26 +147,29 @@ namespace lotus::physics::avbd {
 			// constraint terms for f and h
 			for (const u32 ci : bdata.constraint_association[index].contact_constraints) {
 				const constraints::rigid_body_contact &contact = contacts[ci];
-
 				const scalar sign = cur_body == contact.body1 ? 1.0f : -1.0f;
-				const vec3 r_local = cur_body == contact.body1 ? contact.local_pos1 : contact.local_pos2;
-				const vec3 r = cur_pos.orientation.rotate(r_local);
+				for (const collision::contact_manifold::point &contact_point : contact.contact_points) {
+					const vec3 r_local =
+						cur_body == contact.body1 ? contact_point.local_position1 : contact_point.local_position2;
+					const vec3 r = cur_pos.orientation.rotate(r_local);
 
-				const scalar c =
-					vec::dot(contact.get_global_pos1() - contact.get_global_pos2(), contact.tangents.normal);
-				const _vec6 dcdx = sign * _vec6(contact.tangents.normal, vec::cross(r, contact.tangents.normal));
+					const vec3 penetration =
+						contact.body1->state.position.local_to_global(contact_point.local_position1) -
+						contact.body2->state.position.local_to_global(contact_point.local_position2);
+					const scalar c = vec::dot(penetration, contact.tangents.normal);
+					if (c < 0.0f) {
+						continue;
+					}
 
-				if (c < 0.0f) {
-					continue;
+					const scalar stiffness = 1000.0f;
+					const _vec6 dcdx = sign * _vec6(contact.tangents.normal, vec::cross(r, contact.tangents.normal));
+
+					// f term
+					f -= stiffness * std::max<scalar>(0.0f, c) * dcdx;
+
+					// h term
+					h += stiffness * dcdx * dcdx.transposed();
 				}
-
-				const scalar stiffness = 1000.0f;
-
-				// f term
-				f -= stiffness * std::max<scalar>(0.0f, c) * dcdx;
-
-				// h term
-				h += stiffness * dcdx * dcdx.transposed();
 			}
 
 			// solve

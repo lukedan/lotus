@@ -342,12 +342,16 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 
 	if (ctx->draw_contacts) {
 		for (const lotus::physics::avbd::constraints::rigid_body_contact &c : solver.contacts) {
-			draw_point(c.get_global_pos1(), lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
-			draw_point(c.get_global_pos2(), lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
-			draw_line(c.get_global_pos1(), c.get_global_pos2(), lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
-			draw_line(c.get_global_pos1(), c.body1->state.position.position, lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
-			draw_line(c.get_global_pos2(), c.body2->state.position.position, lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
-			draw_line(c.get_global_pos1(), c.get_global_pos1() + c.tangents.normal, lotus::linear_rgba_f32(0.0f, 0.0f, 1.0f, 1.0f));
+			for (const lotus::collision::contact_manifold::point &cp : c.contact_points) {
+				const vec3 p1 = c.body1->state.position.local_to_global(cp.local_position1);
+				const vec3 p2 = c.body2->state.position.local_to_global(cp.local_position2);
+				draw_point(p1, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
+				draw_point(p2, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
+				draw_line(p1, p2, lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
+				draw_line(p1, c.body1->state.position.position, lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
+				draw_line(p2, c.body2->state.position.position, lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
+				draw_line(p1, p1 + c.tangents.normal, lotus::linear_rgba_f32(0.0f, 0.0f, 1.0f, 1.0f));
+			}
 		}
 	}
 

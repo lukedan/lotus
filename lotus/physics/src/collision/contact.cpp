@@ -6,16 +6,16 @@
 #include "lotus/collision/algorithms/gjk.h"
 #include "lotus/collision/algorithms/epa.h"
 
-namespace lotus::collision {
+namespace lotus::collision::contact {
 	template <
 		typename Shape1, typename Shape2
-	> [[nodiscard]] std::optional<rigid_body_contact> rigid_body_contact::detect(
+	> [[nodiscard]] std::optional<contact_manifold> detect(
 		const Shape1&, const body_position&, const Shape2&, const body_position&
 	) {
 		return std::nullopt;
 	}
 
-	std::optional<rigid_body_contact> rigid_body_contact::detect(
+	std::optional<contact_manifold> detect(
 		const shape &s1, const body_position &st1, const shape &s2, const body_position &st2
 	) {
 		crash_if(s1.get_type() > s2.get_type());
@@ -24,14 +24,14 @@ namespace lotus::collision {
 		}, s1.value, s2.value);
 	}
 
-	std::optional<rigid_body_contact> rigid_body_contact::detect(
+	std::optional<contact_manifold> detect(
 		const shapes::plane&, const body_position&, const shapes::sphere&, const body_position&
 	) {
 		std::abort();
 		return std::nullopt; // TODO
 	}
 
-	std::optional<rigid_body_contact> rigid_body_contact::detect(
+	std::optional<contact_manifold> detect(
 		const shapes::sphere&, const body_position&,
 		const shapes::sphere&, const body_position&
 	) {
@@ -39,38 +39,36 @@ namespace lotus::collision {
 		return std::nullopt; // TODO
 	}
 
-	std::optional<rigid_body_contact> rigid_body_contact::detect(
+	std::optional<contact_manifold> detect(
 		const shapes::plane&, const body_position &s1,
 		const shapes::convex_polyhedron &p2, const body_position &s2
 	) {
 		const vec3 norm_world = s1.orientation.rotate(vec3(0.0f, 0.0f, 1.0f));
 		const vec3 norm_local2 = s2.orientation.inverse().rotate(norm_world);
 		const vec3 plane_pos = s2.global_to_local(s1.position);
-		scalar min_depth = 0.0f;
-		std::optional<vec3> contact;
+		contact_manifold result;
+		result.normal = norm_world;
 		for (const vec3 &vert : p2.vertices) {
-			scalar depth = vec::dot(vert - plane_pos, norm_local2);
-			if (depth < min_depth) {
-				min_depth = depth;
-				contact = vert;
+			const scalar depth = vec::dot(vert - plane_pos, norm_local2);
+			if (depth < 0.0f) {
+				const vec3 projected_pos = s2.local_to_global(vert) - norm_world * depth;
+				result.points.emplace_back(s1.global_to_local(projected_pos), vert);
 			}
 		}
-		if (contact) {
-			vec3 vert_world = s2.local_to_global(contact.value());
-			vert_world -= norm_world * min_depth;
-			return rigid_body_contact(s1.global_to_local(vert_world), contact.value(), norm_world);
+		if (result.points.empty()) {
+			return std::nullopt;
 		}
-		return std::nullopt;
+		return result;
 	}
 
-	std::optional<rigid_body_contact> rigid_body_contact::detect(
+	std::optional<contact_manifold> detect(
 		const shapes::sphere&, const body_position&,
 		const shapes::convex_polyhedron&, const body_position&
 	) {
 		return std::nullopt; // TODO
 	}
 
-	std::optional<rigid_body_contact> rigid_body_contact::detect(
+	std::optional<contact_manifold> detect(
 		const shapes::convex_polyhedron &p1, const body_position &s1,
 		const shapes::convex_polyhedron &p2, const body_position &s2
 	) {
@@ -81,71 +79,6 @@ namespace lotus::collision {
 			return std::nullopt;
 		}
 		const epa::result epa_res = epa::epa(pair, gjk_res);
-
-		rigid_body_contact result = uninitialized;
-		result.normal = epa_res.normal;
-		switch (epa_res.compute_type()) {
-		case epa::result::type::vertex_face:
-			{
-				result.local_pos1 = p1.vertices[epa_res.vertices[0].index1];
-				const vec3 contact2 = s1.local_to_global(result.local_pos1) - epa_res.penetration_depth * result.normal;
-				result.local_pos2 = s2.global_to_local(contact2);
-			}
-			break;
-		case epa::result::type::face_vertex:
-			{
-				result.local_pos2 = p2.vertices[epa_res.vertices[0].index2];
-				const vec3 contact1 = s2.local_to_global(result.local_pos2) + epa_res.penetration_depth * result.normal;
-				result.local_pos1 = s1.global_to_local(contact1);
-			}
-			break;
-		case epa::result::type::edge_edge:
-			{
-				std::array<vec3, 3> spx_pos = epa_res.simplex_positions;
-				std::array<simplex_vertex, 3> spx_id = epa_res.vertices;
-
-				// adjust the arrays so that the two edges can be easily determined
-				if (spx_id[0].index1 != spx_id[1].index1 && spx_id[0].index2 != spx_id[1].index2) {
-					// spx_id[2] is the common vertex
-					std::swap(spx_pos[0], spx_pos[2]);
-					std::swap(spx_id[0], spx_id[2]);
-				} else if (spx_id[0].index1 != spx_id[2].index1 && spx_id[0].index2 != spx_id[2].index2) {
-					// spx_id[1] is the common vertex
-					std::swap(spx_pos[0], spx_pos[1]);
-					std::swap(spx_id[0], spx_id[1]);
-				}
-				if (spx_id[0].index1 == spx_id[1].index1) {
-					std::swap(spx_pos[1], spx_pos[2]);
-					std::swap(spx_id[1], spx_id[2]);
-				}
-
-				// solve for barycentric coordinates
-				vec3 diff12 = spx_pos[1] - spx_pos[0]; // also the x axis
-				vec3 diff13 = spx_pos[2] - spx_pos[0];
-				vec3 y = vec::cross(result.normal, diff12);
-				auto xform = mat::concat_columns(diff12 / diff12.squared_norm(), y / y.squared_norm()).transposed();
-				cvec2<scalar> pos1 = xform * diff13;
-				vec3 contact_offset = epa_res.penetration_depth * epa_res.normal - spx_pos[0];
-				cvec2<scalar> contact = xform * contact_offset;
-				// [cx] = [1 px][bx]
-				// [cy]   [0 py][by]
-				//
-				// [bx] = 1 / py [py -px][cx] = [cx - px * cy / py]
-				// [by]          [0   1 ][cy]   [     cy / py     ]
-				scalar y_ratio = contact[1] / pos1[1];
-				cvec2<scalar> barycentric(contact[0] - pos1[0] * y_ratio, y_ratio);
-
-				vec3 local_contact2 =
-					p2.vertices[spx_id[0].index2] * (1.0f - barycentric[1]) +
-					p2.vertices[spx_id[2].index2] * barycentric[1];
-				vec3 local_contact1 =
-					p1.vertices[spx_id[0].index1] * (1.0f - barycentric[0]) +
-					p1.vertices[spx_id[1].index1] * barycentric[0];
-				result.local_pos1 = local_contact1;
-				result.local_pos2 = local_contact2;
-			}
-			break;
-		}
-		return result;
+		return contact_manifold::compute_for_polyhedra(pair, epa_res);
 	}
 }

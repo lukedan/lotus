@@ -28,13 +28,16 @@ namespace lotus::physics::sequential_impulse {
 				return it->second;
 			};
 			for (const world::rigid_body_collision &ci : collisions) {
-				constraints::contact_set_blcp::contact_info &contact = contacts.emplace_back(uninitialized);
-				contact.contact  = ci.body1->state.position.local_to_global(ci.contact.local_pos1);
-				contact.tangents = constraints::contact_set_blcp::select_tangent_frame_for_contact(
-					*ci.body1, *ci.body2, contact.contact, ci.contact.normal
-				);
-				contact.body1    = get_body_id(ci.body1);
-				contact.body2    = get_body_id(ci.body2);
+				// TODO better storage
+				for (const collision::contact_manifold::point &pt : ci.contact_manifold.points) {
+					constraints::contact_set_blcp::contact_info &contact = contacts.emplace_back(uninitialized);
+					contact.contact  = ci.body1->state.position.local_to_global(pt.local_position1);
+					contact.tangents = constraints::contact_set_blcp::select_tangent_frame_for_contact(
+						*ci.body1, *ci.body2, contact.contact, ci.contact_manifold.normal
+					);
+					contact.body1    = get_body_id(ci.body1);
+					contact.body2    = get_body_id(ci.body2);
+				}
 			}
 			contact_constraints.emplace_back(constraints::contact_set_blcp::create(bodies, contacts));
 		}

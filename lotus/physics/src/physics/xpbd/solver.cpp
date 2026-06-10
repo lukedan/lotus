@@ -37,9 +37,12 @@ namespace lotus::physics::xpbd {
 			contact_constraints.clear();
 			const std::vector<world::rigid_body_collision> collisions = physics_world->detect_collisions();
 			for (const world::rigid_body_collision &info : collisions) {
-				contact_constraints.emplace_back(constraints::body_contact::create_for(
-					*info.body1, *info.body2, info.contact.local_pos1, info.contact.local_pos2, info.contact.normal
-				));
+				// TODO better storage
+				for (const collision::contact_manifold::point &cp : info.contact_manifold.points) {
+					contact_constraints.emplace_back(constraints::body_contact::create_for(
+						*info.body1, *info.body2, cp.local_position1, cp.local_position2, info.contact_manifold.normal
+					));
+				}
 			}
 		}
 

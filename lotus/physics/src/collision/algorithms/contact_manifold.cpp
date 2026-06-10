@@ -59,6 +59,8 @@ namespace lotus::collision {
 					epa_res.vertices[epa_res.vertices[0].index2 == epa_res.vertices[1].index2 ? 2 : 1].index2
 				})
 			};
+		default:
+			std::unreachable();
 		}
 	}
 
@@ -155,7 +157,9 @@ namespace lotus::collision {
 		return verts_ws;
 	}
 
-	contact_manifold contact_manifold::compute(const polyhedron_pair &pair, const epa::result &epa_res) {
+	contact_manifold contact_manifold::compute_for_polyhedra(
+		const polyhedron_pair &pair, const epa::result &epa_res
+	) {
 		const auto [vert_idx1, vert_idx2] =
 			compute_most_penetrating_vertices(epa_res, *pair.shape1, pair.position1, *pair.shape2, pair.position2);
 		const vec3 normal1_ls = pair.position1.orientation.conjugate().rotate(epa_res.normal);
@@ -207,6 +211,7 @@ namespace lotus::collision {
 				pair.position2.global_to_local(candidate.second)
 			);
 		}
+		result.normal = epa_res.normal;
 		return result;
 	}
 }

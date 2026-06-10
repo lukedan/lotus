@@ -7,7 +7,6 @@
 
 #include "lotus/collision/shapes/convex_polyhedron.h"
 #include "lotus/collision/algorithms/epa.h"
-#include "lotus/collision/contact.h"
 
 namespace lotus::collision {
 	/// Algorithm for finding the contact manifold between two polyhedra.
@@ -52,9 +51,18 @@ namespace lotus::collision {
 			u32 face2
 		);
 
-		/// Computes the contact manifold for the given contact.
-		[[nodiscard]] static contact_manifold compute(const polyhedron_pair&, const epa::result&);
+		/// Computes the contact manifold for the given pair of polyhedra.
+		[[nodiscard]] static contact_manifold compute_for_polyhedra(const polyhedron_pair&, const epa::result&);
+		/// Returns a contact manifold where the two bodies only contact at the given point pair.
+		[[nodiscard]] static contact_manifold create_at(vec3 point1_ls, vec3 point2_ls, vec3 normal) {
+			contact_manifold result;
+			result.normal = normal;
+			result.points.emplace_back(point1_ls, point2_ls);
+			return result;
+		}
+
 
 		short_vector<point, 6> points; ///< All contact points.
+		vec3 normal = zero; ///< Contact normal. This points out of the first body and into the second body.
 	};
 }

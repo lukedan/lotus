@@ -14,6 +14,9 @@ namespace lotus {
 		/// No initialization.
 		tangent_frame(uninitialized_t) {
 		}
+		/// Zero initialization.
+		tangent_frame(zero_t) : normal(zero), tangent(zero), bitangent(zero) {
+		}
 		/// Creates a new tangent frame from the given normal, tangent, and bitangent.
 		static tangent_frame from_ntb(vector_type n, vector_type t, vector_type b) {
 			tangent_frame result = uninitialized;

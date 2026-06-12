@@ -18,6 +18,10 @@ using namespace lotus::collision::types;
 struct test_context {
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> default_shader_vs = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> default_shader_ps = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> point_shader_vs = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> point_shader_ps = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> line_shader_vs = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> line_shader_ps = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> shadow_vs = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> fullscreen_quad_vs = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> shadow_quad_ps = nullptr;
@@ -30,12 +34,18 @@ struct test_context {
 	bool wireframe_surfaces = false;
 	bool wireframe_bodies = false;
 	bool draw_body_velocities = true;
-	bool draw_contacts = false;
+	bool draw_contact_points = false;
+	bool draw_contact_normals = false;
+	bool draw_contact_relationships = false;
 	bool draw_particles = true;
 	bool draw_shadows = true;
 	bool draw_orientations = true;
 	bool draw_faces = false;
-	f32 particle_size = 0.05f;
+	bool point_depth_test = false;
+	bool line_depth_test = false;
+	f32 point_size = 20.0f;
+	f32 point_opacity = 0.5f;
+	f32 line_opacity = 1.0f;
 
 	void update_camera() {
 		camera = camera_params.into_camera();
@@ -54,9 +64,18 @@ public:
 	};
 
 	struct vertex {
-		cvec3f32 position = lotus::uninitialized;
-		lotus::linear_rgba_f32 color = lotus::uninitialized;
-		cvec3f32 normal = lotus::uninitialized;
+		cvec3f32 position = lotus::zero;
+		lotus::linear_rgba_f32 color = lotus::zero;
+		cvec3f32 normal = lotus::zero;
+	};
+	struct point_vertex {
+		cvec3f32 position = lotus::zero;
+		lotus::linear_rgba_f32 color = lotus::zero;
+		f32 size = 0;
+	};
+	struct line_vertex {
+		cvec3f32 position = lotus::zero;
+		lotus::linear_rgba_f32 color = lotus::zero;
 	};
 
 	void draw_point(vec3 p, lotus::linear_rgba_f32 color, scalar size = 0.0f);
@@ -95,10 +114,10 @@ public:
 	std::vector<vertex> mesh_vertices;
 	std::vector<u32> mesh_indices;
 
-	std::vector<vertex> line_vertices;
+	std::vector<line_vertex> line_vertices;
 	std::vector<u32> line_indices;
 
-	std::vector<vertex> point_vertices;
+	std::vector<point_vertex> point_vertices;
 
 	std::deque<surface_visual> surfaces;
 	std::deque<body_visual> bodies;

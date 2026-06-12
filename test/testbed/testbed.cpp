@@ -131,11 +131,17 @@ protected:
 				ImGui::Checkbox("Wireframe Surfaces", &_test_context.wireframe_surfaces);
 				ImGui::Checkbox("Wireframe Bodies", &_test_context.wireframe_bodies);
 				ImGui::Checkbox("Body Velocity", &_test_context.draw_body_velocities);
-				ImGui::Checkbox("Contacts", &_test_context.draw_contacts);
+				ImGui::Checkbox("Contact Points", &_test_context.draw_contact_points);
+				ImGui::Checkbox("Contact Normals", &_test_context.draw_contact_normals);
+				ImGui::Checkbox("Contact Relationships", &_test_context.draw_contact_relationships);
 				ImGui::Checkbox("Particles", &_test_context.draw_particles);
 				ImGui::Checkbox("Shadows", &_test_context.draw_shadows);
 				ImGui::Checkbox("Faces", &_test_context.draw_faces);
-				ImGui::SliderFloat("Particle Size", &_test_context.particle_size, 0.001f, 10.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
+				ImGui::SliderFloat("Point Size", &_test_context.point_size, 0.0f, 50.0f);
+				ImGui::SliderFloat("Point Opacity", &_test_context.point_opacity, 0.0f, 1.0f);
+				ImGui::Checkbox("Point Depth Testing", &_test_context.point_depth_test);
+				ImGui::SliderFloat("Line Opacity", &_test_context.line_opacity, 0.0f, 1.0f);
+				ImGui::Checkbox("Line Depth Test", &_test_context.line_depth_test);
 				ImGui::Checkbox("Orientations", &_test_context.draw_orientations);
 
 				ImGui::Separator();
@@ -262,6 +268,10 @@ protected:
 	void _on_initialized() override {
 		_test_context.default_shader_vs = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
 		_test_context.default_shader_ps = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
+		_test_context.point_shader_vs = _assets->compile_shader_in_filesystem("./shaders/point_shader.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
+		_test_context.point_shader_ps = _assets->compile_shader_in_filesystem("./shaders/point_shader.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
+		_test_context.line_shader_vs = _assets->compile_shader_in_filesystem("./shaders/line_shader.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
+		_test_context.line_shader_ps = _assets->compile_shader_in_filesystem("./shaders/line_shader.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
 		_test_context.shadow_vs = _assets->compile_shader_in_filesystem("./shaders/shadow.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
 		_test_context.fullscreen_quad_vs = _assets->compile_shader_in_filesystem(_assets->asset_library_path / "shaders/misc/fullscreen_quad_vs.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
 		_test_context.shadow_quad_ps = _assets->compile_shader_in_filesystem("./shaders/shadow_quad.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");

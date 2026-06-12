@@ -138,14 +138,6 @@ namespace lotus::collision {
 		for (const u32 vert_idx : poly1.faces[face1].vertex_indices) {
 			verts_ws.emplace_back(pos1.local_to_global(poly1.vertices[vert_idx]));
 		}
-		{ // clip against contact plane
-			const shapes::convex_polyhedron::face &clip_face = poly2.faces[face2];
-			const vec3 normal_ws = pos2.orientation.rotate(clip_face.normal);
-			const scalar plane_dist =
-				vec::dot(normal_ws, pos2.position) +
-				vec::dot(clip_face.normal, poly2.vertices[clip_face.vertex_indices[0]]);
-			verts_ws = clip_edge_loop_against_half_space(verts_ws, normal_ws, plane_dist);
-		}
 		for (const u32 face_idx : poly2.faces[face2].adjacent_faces) {
 			const shapes::convex_polyhedron::face &clip_face = poly2.faces[face_idx];
 			const vec3 normal_ws = pos2.orientation.rotate(clip_face.normal);
@@ -153,6 +145,21 @@ namespace lotus::collision {
 				vec::dot(normal_ws, pos2.position) +
 				vec::dot(clip_face.normal, poly2.vertices[clip_face.vertex_indices[0]]);
 			verts_ws = clip_edge_loop_against_half_space(verts_ws, normal_ws, plane_dist);
+		}
+		{ // discard contact points in front of the contact plane
+			const shapes::convex_polyhedron::face &clip_face = poly2.faces[face2];
+			const vec3 normal_ws = pos2.orientation.rotate(clip_face.normal);
+			const scalar plane_dist =
+				vec::dot(normal_ws, pos2.position) +
+				vec::dot(clip_face.normal, poly2.vertices[clip_face.vertex_indices[0]]);
+			contact_point_list new_verts_ws;
+			for (const vec3 point : verts_ws) {
+				const bool clipped = vec::dot(point, normal_ws) > plane_dist;
+				if (!clipped) {
+					new_verts_ws.emplace_back(point);
+				}
+			}
+			verts_ws = std::move(new_verts_ws);
 		}
 		return verts_ws;
 	}

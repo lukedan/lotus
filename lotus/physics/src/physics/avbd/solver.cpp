@@ -6,6 +6,29 @@
 #include "lotus/physics/world.h"
 
 namespace lotus::physics::avbd {
+	solver::_contact_force solver::_contact_force::clamp(
+		vec3 force, const material_properties &mat1, const material_properties &mat2
+	) {
+		_contact_force result = zero;
+		if (force[0] < 0.0f) {
+			result.normal_clamped   = true;
+			result.friction_clamped = true;
+			return result;
+		}
+		result.force = force;
+		// clamp friction force
+		const scalar static_friction_force = std::min(mat1.static_friction, mat2.static_friction) * force[0];
+		const scalar dynamic_friction_force = std::min(mat1.dynamic_friction, mat2.dynamic_friction) * force[0];
+		const vec2 friction_force = force.block<2, 1>(1, 0);
+		if (friction_force.squared_norm() >= static_friction_force * static_friction_force) {
+			const scalar scale = dynamic_friction_force / std::max<scalar>(1e-6f, friction_force.norm());
+			result.force = vec3(force[0], friction_force * scale);
+			result.friction_clamped = true;
+		}
+		return result;
+	}
+
+
 	void solver::timestep(scalar dt, u32 iters) {
 		// prepare rigid bodies
 		_update_body_contacts();
@@ -25,20 +48,8 @@ namespace lotus::physics::avbd {
 			_solve_bodies(dt, body_step_data);
 			_solve_particles(dt, particle_step_data);
 			_solve_orientations(orientation_step_data);
-		}
 
-		// naive collision handling
-		for (particle &p : particles) {
-			for (const body *b : physics_world->get_bodies()) {
-				if (std::holds_alternative<collision::shapes::sphere>(b->body_shape->value)) {
-					const auto &sphere = std::get<collision::shapes::sphere>(b->body_shape->value);
-					const vec3 diff = p.state.position - b->state.position.position;
-					const scalar diff_len = diff.norm();
-					if (diff_len < sphere.radius) {
-						p.state.position = b->state.position.position + diff * (sphere.radius / diff_len);
-					}
-				}
-			}
+			_update_body_dual_variables(body_step_data);
 		}
 
 		_compute_body_velocities(dt, body_step_data);
@@ -46,19 +57,37 @@ namespace lotus::physics::avbd {
 	}
 
 	// rigid bodies
+	vec3 solver::_compute_raw_contact_error(
+		const constraints::rigid_body_contact &contact,
+		const constraints::rigid_body_contact::point &contact_point
+	) {
+		const vec3 penetration =
+			contact.body1->state.position.local_to_global(contact_point.local_position1) -
+			contact.body2->state.position.local_to_global(contact_point.local_position2);
+		return {
+			vec::dot(penetration, contact.tangents.normal),
+			vec::dot(penetration, contact.tangents.tangent),
+			vec::dot(penetration, contact.tangents.bitangent)
+		};
+	}
+
 	void solver::_update_body_contacts() {
-		// TODO: warm starting etc.
 		std::vector<world::rigid_body_collision> new_contacts = physics_world->detect_collisions();
 		contacts.clear();
-		for (world::rigid_body_collision &c : new_contacts) {
-			constraints::rigid_body_contact new_contact;
-			new_contact.body1          = c.body1;
-			new_contact.body2          = c.body2;
-			new_contact.tangents       = tangent_frame<scalar>::from_normal(c.contact_manifold.normal);
-			new_contact.contact_points = std::move(c.contact_manifold.points);
-			new_contact.stiffness      = vec3::filled(1.0f);
-			new_contact.lambda         = zero;
-			contacts.emplace_back(new_contact);
+		for (const world::rigid_body_collision &c : new_contacts) {
+			constraints::rigid_body_contact &new_contact = contacts.emplace_back();
+			new_contact.body1    = c.body1;
+			new_contact.body2    = c.body2;
+			new_contact.tangents = tangent_frame<scalar>::from_normal(c.contact_manifold.normal);
+			for (const collision::contact_manifold::point &p : c.contact_manifold.points) {
+				constraints::rigid_body_contact::point &point = new_contact.contact_points.emplace_back();
+				point.local_position1 = p.local_position1;
+				point.local_position2 = p.local_position2;
+				// TODO warm starting
+				point.stiffness       = vec3::filled(1000.0f);
+				point.force           = zero;
+				point.initial_error   = _compute_raw_contact_error(new_contact, point);
+			}
 		}
 	}
 
@@ -123,14 +152,14 @@ namespace lotus::physics::avbd {
 		using _mat66 = matrix<6, 6, scalar>;
 
 		const std::span<body *const> bodies = physics_world->get_bodies();
-		for (usize index = 0; index < bodies.size(); ++index) {
-			body *cur_body = bodies[index];
+		for (usize bi = 0; bi < bodies.size(); ++bi) {
+			body *cur_body = bodies[bi];
 			body_position &cur_pos = cur_body->state.position;
 			if (cur_body->properties.inverse_mass <= 0.0f) {
 				continue;
 			}
 
-			const body_position inertial_pos = bdata.inertial_positions[index];
+			const body_position inertial_pos = bdata.inertial_positions[bi];
 			const mat33s local_to_world = cur_pos.orientation.into_rotation_matrix();
 			const mat33s inertia_ws = local_to_world.transposed() * cur_body->properties.inertia * local_to_world;
 
@@ -145,30 +174,32 @@ namespace lotus::physics::avbd {
 			);
 
 			// constraint terms for f and h
-			for (const u32 ci : bdata.constraint_association[index].contact_constraints) {
+			for (const u32 ci : bdata.constraint_association[bi].contact_constraints) {
 				const constraints::rigid_body_contact &contact = contacts[ci];
 				const scalar sign = cur_body == contact.body1 ? 1.0f : -1.0f;
-				for (const collision::contact_manifold::point &contact_point : contact.contact_points) {
+				for (const constraints::rigid_body_contact::point &contact_point : contact.contact_points) {
 					const vec3 r_local =
 						cur_body == contact.body1 ? contact_point.local_position1 : contact_point.local_position2;
 					const vec3 r = cur_pos.orientation.rotate(r_local);
 
-					const vec3 penetration =
-						contact.body1->state.position.local_to_global(contact_point.local_position1) -
-						contact.body2->state.position.local_to_global(contact_point.local_position2);
-					const scalar c = vec::dot(penetration, contact.tangents.normal);
-					if (c < 0.0f) {
-						continue;
-					}
 
-					const scalar stiffness = 1000.0f;
-					const _vec6 dcdx = sign * _vec6(contact.tangents.normal, vec::cross(r, contact.tangents.normal));
+					// compute constraint terms
+					const vec3 c = _compute_contact_error(contact, contact_point);
+					const vec3 unclamped_force = matm::multiply(contact_point.stiffness, c) + contact_point.force;
+					const auto force =
+						_contact_force::clamp(unclamped_force, contact.body1->material, contact.body2->material);
 
-					// f term
-					f -= stiffness * std::max<scalar>(0.0f, c) * dcdx;
-
-					// h term
-					h += stiffness * dcdx * dcdx.transposed();
+					const _vec6 dcdx =
+						sign * _vec6(contact.tangents.normal, vec::cross(r, contact.tangents.normal));
+					const _vec6 dcdy =
+						sign * _vec6(contact.tangents.tangent, vec::cross(r, contact.tangents.tangent));
+					const _vec6 dcdz =
+						sign * _vec6(contact.tangents.bitangent, vec::cross(r, contact.tangents.bitangent));
+					f -= mat::concat_columns(dcdx, dcdy, dcdz) * force.force;
+					h +=
+						contact_point.stiffness[0] * dcdx * dcdx.transposed() +
+						contact_point.stiffness[1] * dcdy * dcdy.transposed() +
+						contact_point.stiffness[2] * dcdz * dcdz.transposed();
 				}
 			}
 
@@ -185,6 +216,34 @@ namespace lotus::physics::avbd {
 			cur_pos.orientation = quatu::normalize(
 				cur_pos.orientation + 0.5f * quat::from_vec3_xyz(delta_x.block<3, 1>(3, 0)) * cur_pos.orientation
 			);
+		}
+	}
+
+	void solver::_update_body_dual_variables(const _body_step_data &bdata) {
+		const std::span<body *const> bodies = physics_world->get_bodies();
+		for (usize bi = 0; bi < bodies.size(); ++bi) {
+			body *cur_body = bodies[bi];
+			if (cur_body->properties.inverse_mass <= 0.0f) {
+				continue;
+			}
+
+			for (const u32 ci : bdata.constraint_association[bi].contact_constraints) {
+				constraints::rigid_body_contact &contact = contacts[ci];
+				for (constraints::rigid_body_contact::point &contact_point : contact.contact_points) {
+					const vec3 c = _compute_contact_error(contact, contact_point);
+					const vec3 unclamped_force = matm::multiply(contact_point.stiffness, c) + contact_point.force;
+					const auto force =
+						_contact_force::clamp(unclamped_force, contact.body1->material, contact.body2->material);
+					contact_point.force = force.force;
+					if (!force.normal_clamped) {
+						contact_point.stiffness[0] += stiffness_ramping * std::abs(c[0]);
+					}
+					if (!force.friction_clamped) {
+						contact_point.stiffness += vec3(0.0f, stiffness_ramping * matm::abs(c.block<2, 1>(1, 0)));
+					}
+					contact_point.stiffness = matm::min(contact_point.stiffness, vec3::filled(maximum_stiffness));
+				}
+			}
 		}
 	}
 

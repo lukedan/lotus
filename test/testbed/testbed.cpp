@@ -105,8 +105,8 @@ protected:
 
 	bool _test_running = false; ///< Whether the test is currently running.
 	f32 _time_scale = 100.0f; ///< Time scaling.
-	f32 _time_step = 0.001f; ///< Time step.
-	int _iters = 1; ///< Solver iterations.
+	f32 _time_step = 1.0f / 60.0f; ///< Time step.
+	int _iters = 8; ///< Solver iterations.
 
 	f32 _max_frametime = 0.1f; ///< Maximum frame time.
 	scalar _simulation_speed = 0.0f; ///< Simulation speed.

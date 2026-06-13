@@ -18,6 +18,11 @@ namespace lotus::physics::avbd {
 	/// The AVBD solver.
 	class solver {
 	public:
+		constexpr static scalar contact_damping = 0.95f; ///< α - explosive error correction prevention.
+		constexpr static scalar stiffness_ramping = 10.0f; ///< β - the speed at which stiffness increases.
+		constexpr static scalar minimum_stiffness = 1.0f; ///< Minimum value of k.
+		constexpr static scalar maximum_stiffness = 10000000000.0f; ///< Maximum value of k.
+
 		/// Advances the simulation by one timestep.
 		void timestep(scalar dt, u32 iters);
 
@@ -36,17 +41,20 @@ namespace lotus::physics::avbd {
 
 		std::vector<constraints::rigid_body_contact> contacts; ///< All contacts in the current time step.
 	private:
-		/// A soft stiffness variable and a dual variable used to improve convergence for hard constraints.
-		struct _pseudo_hard_stiffness {
-			/// No initialization.
-			_pseudo_hard_stiffness(uninitialized_t) {
+		/// Clamped contact force.
+		struct _contact_force {
+			/// Zero initialization.
+			_contact_force(zero_t) {
 			}
-			/// Initializes all fields of this struct.
-			_pseudo_hard_stiffness(scalar s, scalar l) : stiffness(s), lambda(l) {
-			}
+			/// Clamps the normal force to be larger than zero, and the friction force to be within the friction
+			/// cone.
+			[[nodiscard]] static _contact_force clamp(
+				vec3 force, const material_properties&, const material_properties&
+			);
 
-			scalar stiffness; ///< Stiffness.
-			scalar lambda; ///< The dual variable.
+			vec3 force = zero; ///< Clamped contact force.
+			bool normal_clamped = false; ///< Whether the normal force is clamped.
+			bool friction_clamped = false; ///< Whether the friction force is clamped.
 		};
 
 		/// Data associated with all rigid bodies within a single time step.
@@ -83,6 +91,19 @@ namespace lotus::physics::avbd {
 			std::vector<constraints> constraint_association; ///< Constraint association.
 		};
 
+		/// Computes the raw (\ref alpha not applied) contact error at the given contact point.
+		[[nodiscard]] static vec3 _compute_raw_contact_error(
+			const constraints::rigid_body_contact&, const constraints::rigid_body_contact::point&
+		);
+		/// Computes the contact error at the given contact point with \ref alpha applied.
+		[[nodiscard]] static vec3 _compute_contact_error(
+			const constraints::rigid_body_contact &contact,
+			const constraints::rigid_body_contact::point &contact_point
+		) {
+			return
+				_compute_raw_contact_error(contact, contact_point) -
+				contact_damping * contact_point.initial_error;
+		}
 		/// Updates all contact constraints. This needs to happen before the association between bodies and
 		/// constraints are computed in \ref _prepare_bodies().
 		void _update_body_contacts();
@@ -92,6 +113,8 @@ namespace lotus::physics::avbd {
 		void _init_solve_bodies(scalar dt, const _body_step_data&);
 		/// Updates all rigid bodies by a single iteration.
 		void _solve_bodies(scalar dt, const _body_step_data&);
+		/// Updates all rigid body dual variables.
+		void _update_body_dual_variables(const _body_step_data&);
 		/// Updates the velocities of all bodies at the end of a time step.
 		void _compute_body_velocities(scalar dt, const _body_step_data&);
 

@@ -336,8 +336,8 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 		}
 	}
 
-	for (const lotus::physics::avbd::constraints::rigid_body_contact &c : solver.contacts) {
-		for (const lotus::collision::contact_manifold::point &cp : c.contact_points) {
+	for (const auto &c : solver.contacts) {
+		for (const auto &cp : c.contact_points) {
 			const vec3 p1 = c.body1->state.position.local_to_global(cp.local_position1);
 			const vec3 p2 = c.body2->state.position.local_to_global(cp.local_position2);
 			if (ctx->draw_contact_points) {
@@ -345,7 +345,7 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 				draw_point(p2, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
 			}
 			if (ctx->draw_contact_normals) {
-				draw_line(p1, p1 + c.tangents.normal, lotus::linear_rgba_f32(0.0f, 0.0f, 1.0f, 1.0f));
+				draw_line(p1, p1 + c.tangents.normal * cp.force[0], lotus::linear_rgba_f32(0.0f, 0.0f, 1.0f, 1.0f));
 			}
 			if (ctx->draw_contact_relationships) {
 				draw_line(p1, p2, lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));

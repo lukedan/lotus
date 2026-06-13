@@ -3,12 +3,11 @@
 /// \file
 /// Matrices.
 
-#include <cstddef>
-#include <cassert>
 #include <cmath>
 #include <type_traits>
 #include <algorithm>
 #include <array>
+#include <format>
 
 #include "lotus/common.h"
 #include "numeric_traits.h"
@@ -18,7 +17,7 @@ namespace lotus {
 
 	namespace _details {
 		/// Used to determine if the type is a matrix type.
-		template <typename T> struct is_matrix : std::false_type {
+		template <typename> struct is_matrix : std::false_type {
 		};
 		/// Specialization for matrix types.
 		template <
@@ -26,9 +25,21 @@ namespace lotus {
 		> struct is_matrix<matrix<Rows, Cols, U>> : std::true_type {
 		};
 		template <typename T> constexpr bool is_matrix_v = is_matrix<T>::value; ///< Shorthand for \ref is_matrix.
+		template <typename T> concept matrix_type = is_matrix_v<T>; ///< Matrix concept.
+
+		/// Used to determine if the type is a vector type.
+		template <typename> struct is_vector : std::false_type {
+		};
+		/// Vector types have 1 column or 1 row.
+		template <usize Rows, usize Cols, typename T> struct is_vector<matrix<Rows, Cols, T>> :
+			std::integral_constant<bool, Rows == 1 || Cols == 1> {
+		};
+		template <typename T> constexpr bool is_vector_v = is_vector<T>::value; ///< Shorthand for \ref is_vector.
+		template <typename T> concept vector_type = is_vector_v<T>; ///< Vector concept.
+
 
 		/// Helper class used for obtaining the number of rows and columns in a matrix.
-		template <typename T> struct matrix_size {
+		template <typename> struct matrix_size {
 			/// Scalars are one-dimensional.
 			constexpr static usize width = 1;
 			/// Scalars are one-dimensional.
@@ -39,11 +50,11 @@ namespace lotus {
 			constexpr static usize width = Cols; ///< Width of the matrix.
 			constexpr static usize height = Rows; ///< Height of the matrix.
 		};
-
 		/// Shorthand for matrix width.
 		template <typename T> constexpr usize matrix_width_v = matrix_size<T>::width;
 		/// Shorthand for matrix height.
 		template <typename T> constexpr usize matrix_height_v = matrix_size<T>::height;
+
 
 		template <typename...> struct first_value_type;
 		/// Returns the first available \ref matrix::value_type.
@@ -94,16 +105,12 @@ namespace lotus {
 			}
 		}
 		/// Initializes a vector.
-		template <
-			typename ...Args,
-			std::enable_if_t<
-				(
-					(Rows == 1 && ((_details::matrix_height_v<Args> == 1) && ...)) ||
-					(Cols == 1 && ((_details::matrix_width_v<Args> == 1) && ...))
-				) && (sizeof...(Args) > 1),
-				int
-			> = 0
-		> constexpr matrix(Args &&...data) : elements{} {
+		template <typename ...Args> constexpr matrix(Args &&...data) requires (
+			sizeof...(Args) > 1 && (
+				(Rows == 1 && ((_details::matrix_height_v<Args> == 1) && ...)) ||
+				(Cols == 1 && ((_details::matrix_width_v<Args> == 1) && ...))
+			)
+		) : elements{} {
 			_set_vector<0>(*this, std::forward<Args>(data)...);
 		}
 		/// Default move constructor.
@@ -116,7 +123,7 @@ namespace lotus {
 		constexpr matrix &operator=(const matrix&) = default;
 
 		/// Returns an identity matrix.
-		[[nodiscard]] inline static constexpr matrix identity() {
+		[[nodiscard]] static constexpr matrix identity() {
 			matrix result = zero;
 			for (usize i = 0; i < std::min(Rows, Cols); ++i) {
 				result(i, i) = static_cast<T>(1);
@@ -124,7 +131,7 @@ namespace lotus {
 			return result;
 		}
 		/// Returns a diagonal matrix with the values in the given vector on its diagonal.
-		[[nodiscard]] inline static constexpr matrix diagonal(matrix<std::min(Rows, Cols), 1, T> values) {
+		[[nodiscard]] static constexpr matrix diagonal(matrix<std::min(Rows, Cols), 1, T> values) {
 			matrix result = zero;
 			for (usize i = 0; i < std::min(Rows, Cols); ++i) {
 				result(i, i) = std::move(values[i]);
@@ -132,9 +139,9 @@ namespace lotus {
 			return result;
 		}
 		/// \overload
-		template <typename U = int> [[nodiscard]] inline static constexpr std::enable_if_t<
-			std::is_same_v<U, U> && (std::min(Rows, Cols) > 1), matrix
-		> diagonal(matrix<1, std::min(Rows, Cols), T> values) {
+		[[nodiscard]] static constexpr matrix diagonal(
+			matrix<1, std::min(Rows, Cols), T> values
+		) requires (std::min(Rows, Cols) > 1) {
 			matrix result = zero;
 			for (usize i = 0; i < std::min(Rows, Cols); ++i) {
 				result(i, i) = std::move(values[i]);
@@ -142,13 +149,13 @@ namespace lotus {
 			return result;
 		}
 		/// Shorthand for constructing a new vector and calling \ref diagonal() with it.
-		template <typename ...Args> [[nodiscard]] inline static constexpr std::enable_if_t<
-			(sizeof...(Args) > 1), matrix
-		> diagonal(Args &&...args) {
+		template <typename ...Args> [[nodiscard]] static constexpr matrix diagonal(
+			Args &&...args
+		) requires (sizeof...(Args) > 1) {
 			return diagonal(matrix<std::min(Rows, Cols), 1, T>(std::forward<Args>(args)...));
 		}
 		/// Returns a matrix filled with the given value.
-		[[nodiscard]] inline static constexpr matrix filled(const T &val) {
+		[[nodiscard]] static constexpr matrix filled(const T &val) {
 			matrix result = zero;
 			for (usize y = 0; y < Rows; ++y) {
 				for (usize x = 0; x < Cols; ++x) {
@@ -179,9 +186,7 @@ namespace lotus {
 			return elements[row][col];
 		}
 		/// Vector indexing - only valid for matrices with one of its dimensions being 1.
-		template <
-			typename Dummy = int, std::enable_if_t<Rows == 1 || Cols == 1, Dummy> = 0
-		> [[nodiscard]] constexpr T &operator[](usize i) {
+		[[nodiscard]] constexpr T &operator[](usize i) requires _details::vector_type<matrix> {
 			if constexpr (Rows == 1) {
 				return elements[0][i];
 			} else {
@@ -189,9 +194,7 @@ namespace lotus {
 			}
 		}
 		/// \overload
-		template <
-			typename Dummy = int, std::enable_if_t<Rows == 1 || Cols == 1, Dummy> = 0
-		> [[nodiscard]] constexpr const T &operator[](usize i) const {
+		[[nodiscard]] constexpr const T &operator[](usize i) const requires _details::vector_type<matrix> {
 			if constexpr (Rows == 1) {
 				return elements[0][i];
 			} else {
@@ -224,9 +227,7 @@ namespace lotus {
 		/// Computes the inverse of this matrix.
 		[[nodiscard]] constexpr matrix<Rows, Cols, T> inverse() const;
 		/// Computes the determinant of this matrix.
-		template <typename U = T> [[nodiscard]] constexpr std::enable_if_t<
-			std::is_same_v<U, U> && Rows == Cols, U
-		> determinant() const;
+		template <typename U = T> [[nodiscard]] constexpr U determinant() const requires (Rows == Cols);
 
 		/// Returns the trace of this matrix.
 		[[nodiscard]] constexpr T trace() const {
@@ -331,16 +332,68 @@ namespace lotus {
 			_set_vector<Index + _current_dimensionality>(m, std::forward<OtherArgs>(other_args)...);
 		}
 		/// Fills one component of the vector.
-		template <
-			usize Index, typename U, typename ...OtherArgs,
-			std::enable_if_t<!_details::is_matrix_v<std::decay_t<U>>, int> = 0
-		> constexpr static void _set_vector(matrix &m, U &&first, OtherArgs &&...other_args) {
+		template <usize Index, typename U, typename ...OtherArgs> constexpr static void _set_vector(
+			matrix &m, U &&first, OtherArgs &&...other_args
+		) requires (!_details::is_matrix_v<std::decay_t<U>>) {
 			m[Index] = std::forward<U>(first);
 			_set_vector<Index + 1>(m, std::forward<OtherArgs>(other_args)...);
 		}
 	};
+}
+/// Formatter for matrices.
+template <
+	lotus::usize Rows, lotus::usize Cols, typename T
+> struct std::formatter<lotus::matrix<Rows, Cols, T>, char> {
+	/// Saves the format string.
+	template <typename ParseCtx> constexpr ParseCtx::iterator parse(ParseCtx &ctx) {
+		typename ParseCtx::iterator it = ctx.begin();
+		_fmt_string += '{';
+		for (; it != ctx.end() && *it != '}'; ++it) {
+			_fmt_string += *it;
+		}
+		_fmt_string += '}';
+		return it;
+	}
 
+	/// Formats the given matrix.
+	template <typename FormatCtx> FormatCtx::iterator format(
+		const lotus::matrix<Rows, Cols, T> &mat, FormatCtx &ctx
+	) const {
+		if constexpr (Rows == 1 || Cols == 1) {
+			auto out = ctx.out();
+			out = std::format_to(std::move(out), "{{");
+			out = _print_one(std::move(out), mat[0]);
+			for (size_t i = 1; i < max(Rows, Cols); ++i) {
+				out = std::format_to(std::move(out), ", ");
+				out = _print_one(std::move(out), mat[i]);
+			}
+			return std::format_to(std::move(out), "}}");
+		} else {
+			auto out = ctx.out();
+			out = std::format_to(std::move(out), "{{");
+			for (size_t row = 0; row < Rows; ++row) {
+				out = std::format_to(std::move(out), row == 0 ? "{{" : ", {{");
+				for (size_t col = 0; col < Cols; ++col) {
+					if (col != 0) {
+						out = std::format_to(std::move(out), ", ");
+					}
+					out = _print_one(std::move(out), mat(row, col));
+				}
+				out = std::format_to(std::move(out), "}}");
+			}
+			return std::format_to(std::move(out), "}}");
+		}
+	}
+private:
+	std::string _fmt_string; ///< Original formatting args.
 
+	/// Prints a single element to the output.
+	template <typename It> It _print_one(It &&out, const T &val) const {
+		return std::vformat_to(std::move(out), _fmt_string, std::make_format_args(val));
+	}
+};
+
+namespace lotus {
 	/// Memberwise matrix utilities.
 	class mat_memberwise {
 	public:
@@ -421,6 +474,14 @@ namespace lotus {
 			return operation([](const T &lhs, const T &rhs) {
 				return lhs == rhs;
 			}, lhs, rhs);
+		}
+		/// Memberwise absolute value.
+		template <
+			usize R, usize C, typename T
+		> [[nodiscard]] constexpr static matrix<R, C, T> abs(const matrix<R, C, T> &m) {
+			return operation([](const T &val) {
+				return std::abs(val);
+			}, m);
 		}
 	};
 	using matm = mat_memberwise; ///< Shorthand.
@@ -861,9 +922,9 @@ namespace lotus {
 		return mat::lup_decompose(*this).invert();
 	}
 
-	template <usize Rows, usize Cols, typename T> template <typename U> constexpr std::enable_if_t<
-		std::is_same_v<U, U> && Rows == Cols, U
-	> matrix<Rows, Cols, T>::determinant() const {
+	template <
+		usize Rows, usize Cols, typename T
+	> template <typename U> constexpr U matrix<Rows, Cols, T>::determinant() const requires (Rows == Cols) {
 		return mat::lup_decompose(into<U>()).determinant();
 	}
 

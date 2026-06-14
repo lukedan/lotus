@@ -8,18 +8,10 @@
 #include "lotus/collision/algorithms/contact_manifold.h"
 
 namespace lotus::collision::contact {
-	/// Detects collision between two generic shapes. The type index of the first shape must be less than that of
-	/// the second shape.
+	/// Detects collision between two generic shapes. This will be dispatched to one of the \ref detect() functions
+	/// for specific shapes below. The type index of the first shape must be less than that of the second shape.
 	[[nodiscard]] std::optional<contact_manifold> detect(
 		const shape&, const body_position&, const shape&, const body_position&
-	);
-
-	/// Fallback case for collision detection between generic shapes - this always returns \p std::nullopt and
-	/// should only be used internally.
-	template <
-		typename Shape1, typename Shape2
-	> [[nodiscard]] std::optional<contact_manifold> detect(
-		const Shape1&, const body_position&, const Shape2&, const body_position&
 	);
 
 	/// Detects collision between a sphere and a plane.

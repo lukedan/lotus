@@ -257,7 +257,7 @@ namespace lotus {
 				face_id fi = get_any_face();
 				do {
 					const face &f = get_face(fi);
-					callback(f);
+					callback(fi, f);
 					fi = f.next;
 				} while (fi != get_any_face());
 			}

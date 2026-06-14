@@ -56,20 +56,15 @@ namespace lotus::collision::epa {
 		const usize num_verts = input.shape1->vertices.size() * input.shape2->vertices.size();
 		for (usize iter = 4; iter < num_verts; ++iter) {
 			// find the closest plane
-			nearest_face_id = hull.get_any_face();
-			nearest_face_dist = hull_data.get(nearest_face_id);
-			for (
-				convex_hull::face_id fi = hull.get_face(hull.get_any_face()).next;
-				fi != hull.get_any_face();
-				fi = hull.get_face(fi).next
-			) {
-				const scalar cur_dist = hull_data.get(fi);
+			nearest_face_id = incremental_convex_hull::face_id::invalid;
+			nearest_face_dist = std::numeric_limits<scalar>::infinity();
+			hull.for_each_face([&](convex_hull::face_id fid, const convex_hull::face&) {
+				const scalar cur_dist = hull_data.get(fid);
 				if (cur_dist < nearest_face_dist) {
-					nearest_face_id = fi;
+					nearest_face_id = fid;
 					nearest_face_dist = cur_dist;
 				}
-			}
-
+			});
 			// numerical instability
 			if (nearest_face_dist < 0.0f) {
 				break;

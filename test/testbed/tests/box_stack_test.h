@@ -52,7 +52,7 @@ public:
 			box_verts.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
 			auto [box_poly, box_poly_props] = lotus::collision::shapes::convex_polyhedron::bake(box_verts);
 			_box_shape = lotus::collision::shape::create(std::move(box_poly));
-			box_props = box_poly_props.get_body_properties(1.0f);
+			box_props = box_poly_props.get_body_properties(_density);
 		}
 
 		{
@@ -73,7 +73,7 @@ public:
 
 		{
 			std::vector<vec3> bullet_verts;
-			vec3 half_bullet_size(0.05f, 0.05f, 0.05f);
+			vec3 half_bullet_size = vec3::filled(0.5f);
 			bullet_verts.emplace_back(half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
 			bullet_verts.emplace_back(half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
 			bullet_verts.emplace_back(half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
@@ -84,7 +84,7 @@ public:
 			bullet_verts.emplace_back(-half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
 			auto [bullet_poly, bullet_poly_props] = lotus::collision::shapes::convex_polyhedron::bake(bullet_verts);
 			_bullet_shape = lotus::collision::shape::create(std::move(bullet_poly));
-			_bullet_properties = bullet_poly_props.get_body_properties(1000.0f);
+			_bullet_properties = bullet_poly_props.get_body_properties(_density);
 		}
 
 		auto material = lotus::physics::material_properties(

@@ -7,9 +7,9 @@
 #include "lotus/collision/algorithms/epa.h"
 
 namespace lotus::collision::contact {
-	template <
-		typename Shape1, typename Shape2
-	> [[nodiscard]] std::optional<contact_manifold> detect(
+	/// Fallback case for collision detection between generic shapes - this always returns \p std::nullopt and
+	/// should only be used internally.
+	template <typename Shape1, typename Shape2> [[nodiscard]] std::optional<contact_manifold> detect(
 		const Shape1&, const body_position&, const Shape2&, const body_position&
 	) {
 		return std::nullopt;
@@ -19,8 +19,8 @@ namespace lotus::collision::contact {
 		const shape &s1, const body_position &st1, const shape &s2, const body_position &st2
 	) {
 		crash_if(s1.get_type() > s2.get_type());
-		return std::visit([&](const auto &shapea, const auto &shapeb) {
-			return detect(shapea, st1, shapeb, st2);
+		return std::visit([&](const auto &shape1, const auto &shape2) {
+			return detect(shape1, st1, shape2, st2);
 		}, s1.value, s2.value);
 	}
 

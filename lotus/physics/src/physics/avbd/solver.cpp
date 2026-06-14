@@ -65,7 +65,7 @@ namespace lotus::physics::avbd {
 			contact.body1->state.position.local_to_global(contact_point.local_position1) -
 			contact.body2->state.position.local_to_global(contact_point.local_position2);
 		return {
-			vec::dot(penetration, contact.tangents.normal),
+			vec::dot(penetration, contact.tangents.normal) - physics_world->collision_threshold,
 			vec::dot(penetration, contact.tangents.tangent),
 			vec::dot(penetration, contact.tangents.bitangent)
 		};

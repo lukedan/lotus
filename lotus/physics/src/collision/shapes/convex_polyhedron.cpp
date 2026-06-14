@@ -46,7 +46,7 @@ namespace lotus::collision::shapes {
 		// compute body properties, and mark all relevant vertices
 		properties props = zero;
 		std::vector vert_used = bookmark.create_vector_array<bool>(vertices.size(), false);
-		hull_state.for_each_face([&](const convex_hull::face &f) {
+		hull_state.for_each_face([&](convex_hull::face_id, const convex_hull::face &f) {
 			for (const convex_hull::vertex_id vid : f.vertex_indices) {
 				vert_used[std::to_underlying(vid)] = true;
 			}
@@ -73,7 +73,7 @@ namespace lotus::collision::shapes {
 		}
 
 		// gather faces
-		hull_state.for_each_face([&](const convex_hull::face &f) {
+		hull_state.for_each_face([&](convex_hull::face_id, const convex_hull::face &f) {
 			const vec3 n = vecu::normalize(f.normal);
 			face *add_to_face = nullptr;
 			for (face &poly_face : poly.faces) {
@@ -163,7 +163,7 @@ namespace lotus::collision::shapes {
 		}
 
 		// gather unique edges
-		hull_state.for_each_face([&](const convex_hull::face &f) {
+		hull_state.for_each_face([&](convex_hull::face_id, const convex_hull::face &f) {
 			const vec3 face_normal = vecu::normalize(f.normal);
 			for (u32 i = 0; i < 3; ++i) {
 				const convex_hull::half_edge_ref edge = f.edges[i];

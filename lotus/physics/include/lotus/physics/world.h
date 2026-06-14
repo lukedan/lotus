@@ -40,6 +40,8 @@ namespace lotus::physics {
 		}
 
 		vec3 gravity = zero; ///< Gravity.
+		/// Enlarges all objects by this threshold for preventing flickering contacts.
+		scalar collision_threshold = 0.001f;
 	private:
 		std::vector<body*> _bodies; ///< The list of bodies in this world.
 	};

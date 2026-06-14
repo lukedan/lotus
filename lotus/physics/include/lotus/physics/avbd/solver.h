@@ -92,11 +92,11 @@ namespace lotus::physics::avbd {
 		};
 
 		/// Computes the raw (\ref alpha not applied) contact error at the given contact point.
-		[[nodiscard]] static vec3 _compute_raw_contact_error(
+		[[nodiscard]] vec3 _compute_raw_contact_error(
 			const constraints::rigid_body_contact&, const constraints::rigid_body_contact::point&
 		);
 		/// Computes the contact error at the given contact point with \ref alpha applied.
-		[[nodiscard]] static vec3 _compute_contact_error(
+		[[nodiscard]] vec3 _compute_contact_error(
 			const constraints::rigid_body_contact &contact,
 			const constraints::rigid_body_contact::point &contact_point
 		) {

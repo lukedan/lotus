@@ -70,3 +70,16 @@ if("${LOTUS_USE_ALLOCATOR}" STREQUAL "mimalloc")
 elseif(NOT "${LOTUS_USE_ALLOCATOR}" STREQUAL "default")
 	message(FATAL_ERROR "Unknown allocator: ${LOTUS_USE_ALLOCATOR}")
 endif()
+
+if(LOTUS_USE_SANITIZER)
+	if(
+		(CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
+		(CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
+		(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+	)
+		target_compile_options(lotus_core PUBLIC -fsanitize=${LOTUS_USE_SANITIZER})
+		target_link_options(lotus_core PUBLIC -fsanitize=${LOTUS_USE_SANITIZER})
+	else()
+		message(SEND_ERROR "Sanitizer \"${LOTUS_USE_SANITIZER}\" not supported")
+	endif()
+endif()

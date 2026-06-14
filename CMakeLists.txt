@@ -7,6 +7,9 @@ cmake_policy(SET CMP0092 NEW) # don't add /W3 for MSVC
 set(
 	LOTUS_USE_ALLOCATOR "default" CACHE STRING
 	"What allocator to use. Available values are \"default\" and \"mimalloc\".")
+set(
+	LOTUS_USE_SANITIZER "NO" CACHE STRING
+	"Which sanitizer to use.")
 
 
 if(LOTUS_BUILD_DXC)

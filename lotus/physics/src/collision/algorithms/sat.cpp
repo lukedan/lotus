@@ -38,6 +38,6 @@ namespace lotus::collision {
 			}
 		}
 
-		return result(max_proj.shape2_after_shape2 ? max_proj_axis : -max_proj_axis, max_proj.distance);
+		return result(max_proj.shape2_after_shape1 ? max_proj_axis : -max_proj_axis, max_proj.distance);
 	}
 }

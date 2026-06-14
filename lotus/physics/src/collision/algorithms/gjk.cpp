@@ -23,10 +23,14 @@ namespace lotus::collision::gjk {
 			input.shape1->vertices.size() * input.shape2->vertices.size(), false
 		);
 		auto mark_vert = [&](simplex_vertex v) {
-			vertex_looked_at[v.index1 * input.shape2->vertices.size() + v.index2] = true;
+			const usize index =
+				std::to_underlying(v.index1) * input.shape2->vertices.size() + std::to_underlying(v.index2);
+			vertex_looked_at[index] = true;
 		};
 		auto check_vert = [&](simplex_vertex v) {
-			return vertex_looked_at[v.index1 * input.shape2->vertices.size() + v.index2];
+			const usize index =
+				std::to_underlying(v.index1) * input.shape2->vertices.size() + std::to_underlying(v.index2);
+			return vertex_looked_at[index];
 		};
 		for (usize i = 0; i < pstate.simplex_vertices; ++i) {
 			mark_vert(pstate.simplex[i]);

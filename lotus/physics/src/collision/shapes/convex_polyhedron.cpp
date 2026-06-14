@@ -61,14 +61,14 @@ namespace lotus::collision::shapes {
 
 		// gather vertices
 		std::vector vert_id_to_index =
-			bookmark.create_vector_array<u32>(hull_state.get_vertex_count(), std::numeric_limits<u32>::max());
+			bookmark.create_vector_array<vertex_id>(hull_state.get_vertex_count(), vertex_id::invalid);
 		const vec3 center_of_mass = props.get_center_of_mass();
 		for (usize i = 0; i < hull_state.get_vertex_count(); ++i) {
 			if (!vert_used[i]) {
 				continue;
 			}
 			const vec3 vert = hull_state.get_vertex(static_cast<convex_hull::vertex_id>(i));
-			vert_id_to_index[i] = static_cast<u32>(poly.vertices.size());
+			vert_id_to_index[i] = static_cast<vertex_id>(poly.vertices.size());
 			poly.vertices.emplace_back(vert - center_of_mass);
 		}
 
@@ -101,15 +101,15 @@ namespace lotus::collision::shapes {
 			f.vertex_indices.erase(erase_beg, erase_end);
 
 			// sort counter-clockwise
-			const vec3 ref_point = poly.vertices[f.vertex_indices[0]];
-			const auto sort_range = [&poly, &f, ref_point](this auto self, std::span<u32> range) {
+			const vec3 ref_point = poly.get_vertex(f.vertex_indices[0]);
+			const auto sort_range = [&poly, &f, ref_point](this auto self, std::span<vertex_id> range) {
 				if (range.size() < 2) {
 					return;
 				}
-				const vec3 ref_axis = poly.vertices[range[0]] - ref_point;
+				const vec3 ref_axis = poly.get_vertex(range[0]) - ref_point;
 				usize split = 0;
 				for (usize i = 1; i < range.size(); ++i) {
-					if (vec::dot(f.normal, vec::cross(ref_axis, poly.vertices[range[i]] - ref_point)) > 0.0f) {
+					if (vec::dot(f.normal, vec::cross(ref_axis, poly.get_vertex(range[i]) - ref_point)) > 0.0f) {
 						++split;
 						std::swap(range[i], range[split]);
 					}
@@ -124,14 +124,14 @@ namespace lotus::collision::shapes {
 		// find adjacent faces
 		for (usize face_idx = 0; face_idx < poly.faces.size(); ++face_idx) {
 			face &cur_face = poly.faces[face_idx];
-			u32 prev_vert = cur_face.vertex_indices.back();
-			for (const u32 vert : cur_face.vertex_indices) {
+			vertex_id prev_vert = cur_face.vertex_indices.back();
+			for (const vertex_id vert : cur_face.vertex_indices) {
 				// look for a face containing both prev_vert and vert
 				for (usize other_face_idx = face_idx + 1; other_face_idx < poly.faces.size(); ++other_face_idx) {
 					face &other_face = poly.faces[other_face_idx];
 					bool has_prev_vert = false;
 					bool has_vert = false;
-					for (const u32 other_vert : other_face.vertex_indices) {
+					for (const vertex_id other_vert : other_face.vertex_indices) {
 						if (other_vert == vert) {
 							has_vert = true;
 						}
@@ -140,8 +140,8 @@ namespace lotus::collision::shapes {
 						}
 					}
 					if (has_vert && has_prev_vert) {
-						cur_face.adjacent_faces.emplace_back(static_cast<u32>(other_face_idx));
-						other_face.adjacent_faces.emplace_back(static_cast<u32>(face_idx));
+						cur_face.adjacent_faces.emplace_back(static_cast<face_id>(other_face_idx));
+						other_face.adjacent_faces.emplace_back(static_cast<face_id>(face_idx));
 					}
 				}
 				prev_vert = vert;
@@ -198,7 +198,7 @@ namespace lotus::collision::shapes {
 		return { std::move(poly), props };
 	}
 
-	std::pair<u32, scalar> convex_polyhedron::get_support_vertex(vec3 dir) const {
+	std::pair<vertex_id, scalar> convex_polyhedron::get_support_vertex(vec3 dir) const {
 		usize result = 0;
 		scalar dot1max = vec::dot(vertices[result], dir);
 		for (usize i = 1; i < vertices.size(); ++i) {
@@ -208,7 +208,7 @@ namespace lotus::collision::shapes {
 				result = i;
 			}
 		}
-		return { static_cast<u32>(result), dot1max };
+		return { static_cast<vertex_id>(result), dot1max };
 	}
 
 	convex_polyhedron::axis_projection convex_polyhedron::project_onto_axis(vec3 dir) const {
@@ -217,11 +217,11 @@ namespace lotus::collision::shapes {
 			const scalar dotv = vec::dot(dir, vertices[i]);
 			if (dotv < result.min) {
 				result.min = dotv;
-				result.min_vertex = static_cast<u32>(i);
+				result.min_vertex = static_cast<vertex_id>(i);
 			}
 			if (dotv > result.max) {
 				result.max = dotv;
-				result.max_vertex = static_cast<u32>(i);
+				result.max_vertex = static_cast<vertex_id>(i);
 			}
 		}
 		return result;

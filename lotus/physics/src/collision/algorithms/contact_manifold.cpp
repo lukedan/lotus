@@ -6,7 +6,7 @@
 #include "lotus/logging.h"
 
 namespace lotus::collision {
-	std::pair<u32, u32> contact_manifold::compute_most_penetrating_vertices(
+	std::pair<vertex_id, vertex_id> contact_manifold::compute_most_penetrating_vertices(
 		const epa::result &epa_res,
 		const shapes::convex_polyhedron &poly1,
 		const body_position &pos1,
@@ -17,14 +17,14 @@ namespace lotus::collision {
 			const shapes::convex_polyhedron &poly,
 			uquats orientation,
 			vec3 normal_ws,
-			std::initializer_list<u32> candidates
-		) -> u32 {
+			std::initializer_list<vertex_id> candidates
+		) -> vertex_id {
 			const vec3 normal = orientation.conjugate().rotate(normal_ws);
 			auto it = candidates.begin();
-			u32 result = *it;
-			scalar best_dot = vec::dot(normal, poly.vertices[*it]);
+			vertex_id result = *it;
+			scalar best_dot = vec::dot(normal, poly.get_vertex(*it));
 			for (++it; it != candidates.end(); ++it) {
-				const scalar dot = vec::dot(normal, poly.vertices[*it]);
+				const scalar dot = vec::dot(normal, poly.get_vertex(*it));
 				if (dot > best_dot) {
 					best_dot = dot;
 					result = *it;
@@ -64,15 +64,15 @@ namespace lotus::collision {
 		}
 	}
 
-	u32 contact_manifold::find_significant_face(
-		const shapes::convex_polyhedron &poly, u32 contains_vert, vec3 normal_ls
+	face_id contact_manifold::find_significant_face(
+		const shapes::convex_polyhedron &poly, vertex_id contains_vert, vec3 normal_ls
 	) {
-		u32 face_idx = std::numeric_limits<u32>::max();
+		face_id face_idx = face_id::invalid;
 		scalar best_dot = -2.0f;
 		for (usize i = 0; i < poly.faces.size(); ++i) {
 			const shapes::convex_polyhedron::face &cur_face = poly.faces[i];
 			bool valid_face = false;
-			for (const u32 vert : cur_face.vertex_indices) {
+			for (const vertex_id vert : cur_face.vertex_indices) {
 				if (vert == contains_vert) {
 					valid_face = true;
 					break;
@@ -81,10 +81,10 @@ namespace lotus::collision {
 			if (!valid_face) {
 				continue;
 			}
-			const scalar cur_dot = vec::dot(poly.faces[i].normal, normal_ls);
+			const scalar cur_dot = vec::dot(cur_face.normal, normal_ls);
 			if (cur_dot > best_dot) {
 				best_dot = cur_dot;
-				face_idx = static_cast<u32>(i);
+				face_idx = static_cast<face_id>(i);
 			}
 		}
 		return face_idx;
@@ -129,29 +129,29 @@ namespace lotus::collision {
 	contact_manifold::contact_point_list contact_manifold::clip_face_against_polygon(
 		const shapes::convex_polyhedron &poly1,
 		const body_position &pos1,
-		u32 face1,
+		face_id face1,
 		const shapes::convex_polyhedron &poly2,
 		const body_position &pos2,
-		u32 face2
+		face_id face2
 	) {
 		contact_point_list verts_ws;
-		for (const u32 vert_idx : poly1.faces[face1].vertex_indices) {
-			verts_ws.emplace_back(pos1.local_to_global(poly1.vertices[vert_idx]));
+		for (const vertex_id vert_idx : poly1.get_face(face1).vertex_indices) {
+			verts_ws.emplace_back(pos1.local_to_global(poly1.get_vertex(vert_idx)));
 		}
-		for (const u32 face_idx : poly2.faces[face2].adjacent_faces) {
-			const shapes::convex_polyhedron::face &clip_face = poly2.faces[face_idx];
+		for (const face_id face_idx : poly2.get_face(face2).adjacent_faces) {
+			const shapes::convex_polyhedron::face &clip_face = poly2.get_face(face_idx);
 			const vec3 normal_ws = pos2.orientation.rotate(clip_face.normal);
 			const scalar plane_dist =
 				vec::dot(normal_ws, pos2.position) +
-				vec::dot(clip_face.normal, poly2.vertices[clip_face.vertex_indices[0]]);
+				vec::dot(clip_face.normal, poly2.get_vertex(clip_face.vertex_indices[0]));
 			verts_ws = clip_edge_loop_against_half_space(verts_ws, normal_ws, plane_dist);
 		}
 		{ // discard contact points in front of the contact plane
-			const shapes::convex_polyhedron::face &clip_face = poly2.faces[face2];
+			const shapes::convex_polyhedron::face &clip_face = poly2.get_face(face2);
 			const vec3 normal_ws = pos2.orientation.rotate(clip_face.normal);
 			const scalar plane_dist =
 				vec::dot(normal_ws, pos2.position) +
-				vec::dot(clip_face.normal, poly2.vertices[clip_face.vertex_indices[0]]);
+				vec::dot(clip_face.normal, poly2.get_vertex(clip_face.vertex_indices[0]));
 			contact_point_list new_verts_ws;
 			for (const vec3 point : verts_ws) {
 				const bool clipped = vec::dot(point, normal_ws) > plane_dist;
@@ -170,9 +170,9 @@ namespace lotus::collision {
 		const auto [vert_idx1, vert_idx2] =
 			compute_most_penetrating_vertices(epa_res, *pair.shape1, pair.position1, *pair.shape2, pair.position2);
 		const vec3 normal1_ls = pair.position1.orientation.conjugate().rotate(epa_res.normal);
-		const u32 adj_face_idx1 = find_significant_face(*pair.shape1, vert_idx1, normal1_ls);
+		const face_id adj_face_idx1 = find_significant_face(*pair.shape1, vert_idx1, normal1_ls);
 		const vec3 normal2_ls = pair.position2.orientation.conjugate().rotate(-epa_res.normal);
-		const u32 adj_face_idx2 = find_significant_face(*pair.shape2, vert_idx2, normal2_ls);
+		const face_id adj_face_idx2 = find_significant_face(*pair.shape2, vert_idx2, normal2_ls);
 
 		// clip faces
 		const contact_point_list clipped_verts1_ws = clip_face_against_polygon(
@@ -184,10 +184,10 @@ namespace lotus::collision {
 
 		// project each vertex for each polyhedron onto the other polyhedron
 		short_vector<std::pair<vec3, vec3>, 6> candidates_ws;
-		const shapes::convex_polyhedron::face &adj_face1 = pair.shape1->faces[adj_face_idx1];
-		const shapes::convex_polyhedron::face &adj_face2 = pair.shape2->faces[adj_face_idx2];
+		const shapes::convex_polyhedron::face &adj_face1 = pair.shape1->get_face(adj_face_idx1);
+		const shapes::convex_polyhedron::face &adj_face2 = pair.shape2->get_face(adj_face_idx2);
 		{
-			const vec3 vert2_ws = pair.position2.local_to_global(pair.shape2->vertices[vert_idx2]);
+			const vec3 vert2_ws = pair.position2.local_to_global(pair.shape2->get_vertex(vert_idx2));
 			const vec3 face_normal2_ws = pair.position2.orientation.rotate(adj_face2.normal);
 			for (const vec3 v1 : clipped_verts1_ws) {
 				const scalar depth = vec::dot(v1 - vert2_ws, face_normal2_ws);
@@ -197,7 +197,7 @@ namespace lotus::collision {
 			}
 		}
 		{
-			const vec3 vert1_ws = pair.position1.local_to_global(pair.shape1->vertices[vert_idx1]);
+			const vec3 vert1_ws = pair.position1.local_to_global(pair.shape1->get_vertex(vert_idx1));
 			const vec3 face_normal1_ws = pair.position1.orientation.rotate(adj_face1.normal);
 			for (const vec3 v2 : clipped_verts2_ws) {
 				const scalar depth = vec::dot(v2 - vert1_ws, face_normal1_ws);

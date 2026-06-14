@@ -62,9 +62,9 @@ namespace lotus::collision::shapes {
 			}
 
 			vec3 normal = zero; ///< Normalized normal pointing outwards.
-			std::vector<u32> adjacent_faces; ///< Indices of adjacent faces.
+			std::vector<face_id> adjacent_faces; ///< Indices of adjacent faces.
 			/// Vertices on this face. These vertices are ordered clockwise when looking from out of the polyhedron.
-			std::vector<u32> vertex_indices;
+			std::vector<vertex_id> vertex_indices;
 		};
 		/// The result of projecting a polyhedron onto an axis.
 		struct axis_projection {
@@ -73,14 +73,14 @@ namespace lotus::collision::shapes {
 			}
 			/// Initializes this object to the appropriate initial state for finding the projection.
 			axis_projection(std::nullopt_t) :
-				min_vertex(std::numeric_limits<u32>::max()),
-				max_vertex(std::numeric_limits<u32>::max()),
+				min_vertex(vertex_id::invalid),
+				max_vertex(vertex_id::invalid),
 				min(std::numeric_limits<scalar>::max()),
 				max(-std::numeric_limits<scalar>::max()) {
 			}
 
-			u32 min_vertex; ///< Index of the vertex that has the smallest dot product with a given axis.
-			u32 max_vertex; ///< Index of the vertex that has the largest dot product with a given axis.
+			vertex_id min_vertex; ///< Index of the vertex that has the smallest dot product with a given axis.
+			vertex_id max_vertex; ///< Index of the vertex that has the largest dot product with a given axis.
 			scalar min; ///< The dot product between \ref min_vertex and the given axis.
 			scalar max; ///< The dot product between \ref max_vertex and the given axis.
 		};
@@ -92,16 +92,25 @@ namespace lotus::collision::shapes {
 
 		// TODO allocator or pool?
 		std::vector<vec3> vertices; ///< Vertices of this polyhedron.
+		std::vector<face> faces; ///< All faces of the polyhedron.
 		std::vector<vec3> unique_face_normals; ///< List of unique face normals.
 		std::vector<vec3> unique_edge_directions; ///< List of unique edge directions.
-		std::vector<face> faces; ///< All faces of the polyhedron.
 
 		/// Processes the given list of vertices and creates a polyhedron from its convex hull, computing its rigid
 		/// body properties in the process.
 		[[nodiscard]] static std::pair<convex_polyhedron, properties> bake(std::span<const vec3> verts);
 
+		/// Returns the specified vertex.
+		[[nodiscard]] vec3 get_vertex(vertex_id id) const {
+			return vertices[std::to_underlying(id)];
+		}
+		/// Returns the specified face.
+		[[nodiscard]] const face &get_face(face_id id) const {
+			return faces[std::to_underlying(id)];
+		}
+
 		/// Returns the index of the support vertex in the given direction, and its dot product with the direction.
-		[[nodiscard]] std::pair<u32, scalar> get_support_vertex(vec3 dir) const;
+		[[nodiscard]] std::pair<vertex_id, scalar> get_support_vertex(vec3 dir) const;
 		/// Returns the range that this polyhedron covers when projected onto the given axis.
 		[[nodiscard]] axis_projection project_onto_axis(vec3) const;
 		/// Returns the range that this polyhedron covers when projected onto the given axis, assuming that it has

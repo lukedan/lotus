@@ -31,6 +31,15 @@ namespace lotus::collision {
 	}
 
 
+	/// Face index.
+	enum class face_id : u16 {
+		invalid = std::numeric_limits<u16>::max(), ///< Invalid face index.
+	};
+	/// Vertex index.
+	enum class vertex_id : u16 {
+		invalid = std::numeric_limits<u16>::max(), ///< Invalid vertex index.
+	};
+
 	/// The position of a rigid body.
 	struct body_position {
 		/// No initialization.
@@ -59,14 +68,14 @@ namespace lotus::collision {
 		simplex_vertex(uninitialized_t) {
 		}
 		/// Creates a vertex from the given indices.
-		simplex_vertex(u32 i1, u32 i2) : index1(i1), index2(i2) {
+		simplex_vertex(vertex_id i1, vertex_id i2) : index1(i1), index2(i2) {
 		}
 
 		/// Equality.
 		friend bool operator==(simplex_vertex, simplex_vertex) = default;
 
-		u32 index1; ///< Vertex index in the first polyhedron.
-		u32 index2; ///< Vertex index in the second polyhedron.
+		vertex_id index1; ///< Vertex index in the first polyhedron.
+		vertex_id index2; ///< Vertex index in the second polyhedron.
 	};
 
 	/// A pair of polyhedra, represented by their shapes and positions.
@@ -78,14 +87,14 @@ namespace lotus::collision {
 			}
 			/// Initializes this object to an initial state for the algorithm.
 			axis_projection_result(std::nullopt_t) :
-				distance(-std::numeric_limits<scalar>::infinity()), shape2_after_shape2(false) {
+				distance(-std::numeric_limits<scalar>::infinity()), shape2_after_shape1(false) {
 			}
 			/// Initializes all fields of this struct.
-			axis_projection_result(scalar d, bool s2_after_s1) : distance(d), shape2_after_shape2(s2_after_s1) {
+			axis_projection_result(scalar d, bool s2_after_s1) : distance(d), shape2_after_shape1(s2_after_s1) {
 			}
 
 			scalar distance; ///< Separation distance. Possibly negative, which indicates penetration.
-			bool shape2_after_shape2; ///< Whether \ref polyhedron2 is further along the axis than \ref polyhedron1.
+			bool shape2_after_shape1; ///< Whether \ref polyhedron2 is further along the axis than \ref polyhedron1.
 		};
 
 		/// No initialization.

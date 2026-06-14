@@ -26,7 +26,7 @@ namespace lotus::collision {
 		};
 
 		/// Computes one most penetrating vertex from each polyhedron.
-		[[nodiscard]] static std::pair<u32, u32> compute_most_penetrating_vertices(
+		[[nodiscard]] static std::pair<vertex_id, vertex_id> compute_most_penetrating_vertices(
 			const epa::result&,
 			const shapes::convex_polyhedron&,
 			const body_position&,
@@ -34,8 +34,8 @@ namespace lotus::collision {
 			const body_position&
 		);
 		/// Finds the face that contains the given vertex that aligns with the given normal the most.
-		[[nodiscard]] static u32 find_significant_face(
-			const shapes::convex_polyhedron&, u32 contains_vert, vec3 normal_ls
+		[[nodiscard]] static face_id find_significant_face(
+			const shapes::convex_polyhedron&, vertex_id contains_vert, vec3 normal_ls
 		);
 		/// Clips an edge loop against the given half space.
 		[[nodiscard]] static contact_point_list clip_edge_loop_against_half_space(
@@ -45,10 +45,10 @@ namespace lotus::collision {
 		[[nodiscard]] static contact_point_list clip_face_against_polygon(
 			const shapes::convex_polyhedron&,
 			const body_position &pos1,
-			u32 face1,
+			face_id face1,
 			const shapes::convex_polyhedron&,
 			const body_position &pos2,
-			u32 face2
+			face_id face2
 		);
 
 		/// Computes the contact manifold for the given pair of polyhedra.

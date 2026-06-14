@@ -275,9 +275,9 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::convex_poly
 			// draw faces
 			for (const lotus::collision::shapes::convex_polyhedron::face &face : poly.faces) {
 				const vec3 offset = face.normal * 0.01f;
-				vec3 last_vert = (transform * vec4(poly.vertices[face.vertex_indices.back()] + offset, 1.0f)).block<3, 1>(0, 0);
+				vec3 last_vert = (transform * vec4(poly.get_vertex(face.vertex_indices.back()) + offset, 1.0f)).block<3, 1>(0, 0);
 				for (usize i = 0; i < face.vertex_indices.size(); ++i) {
-					const vec3 vert = (transform * vec4(poly.vertices[face.vertex_indices[i]] + offset, 1.0f)).block<3, 1>(0, 0);
+					const vec3 vert = (transform * vec4(poly.get_vertex(face.vertex_indices[i]) + offset, 1.0f)).block<3, 1>(0, 0);
 					draw_line(last_vert, vert, lotus::linear_rgba_f32(0.0f, i / static_cast<float>(face.vertex_indices.size() - 1), 0.0f, 1.0f));
 					last_vert = vert;
 				}

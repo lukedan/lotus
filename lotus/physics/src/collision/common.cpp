@@ -15,8 +15,8 @@ namespace lotus::collision {
 
 	vec3 polyhedron_pair::simplex_vertex_position(simplex_vertex v) const {
 		return
-			position1.local_to_global(shape1->vertices[v.index1].into<scalar>()) -
-			position2.local_to_global(shape2->vertices[v.index2].into<scalar>());
+			position1.local_to_global(shape1->get_vertex(v.index1)) -
+			position2.local_to_global(shape2->get_vertex(v.index2));
 	}
 
 	polyhedron_pair::axis_projection_result polyhedron_pair::penetration_distance(vec3 axis) const {

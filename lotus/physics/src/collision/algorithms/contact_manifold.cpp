@@ -107,14 +107,11 @@ namespace lotus::collision {
 				const scalar t =
 					(plane_dist - vec::dot(cur_point, plane_normal)) /
 					vec::dot(prev_point - cur_point, plane_normal);
-				if (std::isfinite(t)) {
+				// if t is out of range or infinite, the edge is almost parallel to the plane
+				// we ignore it since there's bound to be another clipping point
+				if (t >= 0.0f && t <= 1.0f) {
 					const vec3 intersection = t * prev_point + (1.0f - t) * cur_point;
 					result.emplace_back(intersection);
-				} else {
-					// otherwise edge is almost parallel to the plane; add the point if necessary
-					if (cur_clipped) {
-						result.emplace_back(cur_point);
-					}
 				}
 			}
 			if (!cur_clipped) {
@@ -138,28 +135,15 @@ namespace lotus::collision {
 		for (const vertex_id vert_idx : poly1.get_face(face1).vertex_indices) {
 			verts_ws.emplace_back(pos1.local_to_global(poly1.get_vertex(vert_idx)));
 		}
-		for (const face_id face_idx : poly2.get_face(face2).adjacent_faces) {
-			const shapes::convex_polyhedron::face &clip_face = poly2.get_face(face_idx);
-			const vec3 normal_ws = pos2.orientation.rotate(clip_face.normal);
-			const scalar plane_dist =
-				vec::dot(normal_ws, pos2.position) +
-				vec::dot(clip_face.normal, poly2.get_vertex(clip_face.vertex_indices[0]));
+		const shapes::convex_polyhedron::face &clip_face = poly2.get_face(face2);
+		const vec3 clip_face_normal_ws = pos2.orientation.rotate(clip_face.normal);
+		vec3 last_vert_ws = pos2.local_to_global(poly2.get_vertex(clip_face.vertex_indices.back()));
+		for (const vertex_id vert_idx : clip_face.vertex_indices) {
+			const vec3 cur_vert_ws = pos2.local_to_global(poly2.get_vertex(vert_idx));
+			const vec3 normal_ws = vec::cross(clip_face_normal_ws, cur_vert_ws - last_vert_ws);
+			const scalar plane_dist = vec::dot(cur_vert_ws, normal_ws);
 			verts_ws = clip_edge_loop_against_half_space(verts_ws, normal_ws, plane_dist);
-		}
-		{ // discard contact points in front of the contact plane
-			const shapes::convex_polyhedron::face &clip_face = poly2.get_face(face2);
-			const vec3 normal_ws = pos2.orientation.rotate(clip_face.normal);
-			const scalar plane_dist =
-				vec::dot(normal_ws, pos2.position) +
-				vec::dot(clip_face.normal, poly2.get_vertex(clip_face.vertex_indices[0]));
-			contact_point_list new_verts_ws;
-			for (const vec3 point : verts_ws) {
-				const bool clipped = vec::dot(point, normal_ws) > plane_dist;
-				if (!clipped) {
-					new_verts_ws.emplace_back(point);
-				}
-			}
-			verts_ws = std::move(new_verts_ws);
+			last_vert_ws = cur_vert_ws;
 		}
 		return verts_ws;
 	}
@@ -167,6 +151,7 @@ namespace lotus::collision {
 	contact_manifold contact_manifold::compute_for_polyhedra(
 		const polyhedron_pair &pair, const epa::result &epa_res
 	) {
+		// TODO prioritize the face that's better aligned?
 		const auto [vert_idx1, vert_idx2] =
 			compute_most_penetrating_vertices(epa_res, *pair.shape1, pair.position1, *pair.shape2, pair.position2);
 		const vec3 normal1_ls = pair.position1.orientation.conjugate().rotate(epa_res.normal);
@@ -178,13 +163,9 @@ namespace lotus::collision {
 		const contact_point_list clipped_verts1_ws = clip_face_against_polygon(
 			*pair.shape1, pair.position1, adj_face_idx1, *pair.shape2, pair.position2, adj_face_idx2
 		);
-		const contact_point_list clipped_verts2_ws = clip_face_against_polygon(
-			*pair.shape2, pair.position2, adj_face_idx2, *pair.shape1, pair.position1, adj_face_idx1
-		);
 
 		// project each vertex for each polyhedron onto the other polyhedron
 		short_vector<std::pair<vec3, vec3>, 6> candidates_ws;
-		const shapes::convex_polyhedron::face &adj_face1 = pair.shape1->get_face(adj_face_idx1);
 		const shapes::convex_polyhedron::face &adj_face2 = pair.shape2->get_face(adj_face_idx2);
 		{
 			const vec3 vert2_ws = pair.position2.local_to_global(pair.shape2->get_vertex(vert_idx2));
@@ -196,19 +177,6 @@ namespace lotus::collision {
 				}
 			}
 		}
-		{
-			const vec3 vert1_ws = pair.position1.local_to_global(pair.shape1->get_vertex(vert_idx1));
-			const vec3 face_normal1_ws = pair.position1.orientation.rotate(adj_face1.normal);
-			for (const vec3 v2 : clipped_verts2_ws) {
-				const scalar depth = vec::dot(v2 - vert1_ws, face_normal1_ws);
-				if (depth < 0.0f) { // discard non-penetrating contacts
-					candidates_ws.emplace_back(v2 - depth * face_normal1_ws, v2);
-				}
-			}
-		}
-
-		// deduplicate vertices
-		// TODO
 
 		// gather results
 		contact_manifold result;

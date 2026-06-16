@@ -172,9 +172,9 @@ public:
 	}
 
 	void gui() override {
-		ImGui::SliderInt2("Box Count", _box_count, 1, 20);
+		ImGui::SliderInt2("Box Count", _box_count, 1, 50);
 		ImGui::SliderFloat3("Box Size", _box_size, 0.0f, 2.0f, "%.1f");
-		ImGui::SliderFloat2("Gap", _gap, 0.0f, 0.1f);
+		ImGui::SliderFloat2("Gap", _gap, 0.0f, 2.0f);
 		ImGui::Checkbox("Rotate 90 Degrees", &_rotate_90);
 		ImGui::Checkbox("Fix First Row", &_fix_first_row);
 		ImGui::Checkbox("Use Platform", &_use_platform);
@@ -220,9 +220,9 @@ protected:
 	f32 _restitution = 0.0f;
 
 	f32 _density = 1.0f;
-	f32 _box_size[3]{ 1.0f, 0.2f, 0.6f };
+	f32 _box_size[3]{ 1.0f, 1.0f, 1.0f };
 	f32 _gap[2]{ 0.02f, 0.02f };
-	int _box_count[2]{ 5, 3 };
+	int _box_count[2]{ 20, 10 };
 
 	lotus::collision::shape _plane_shape;
 	lotus::collision::shape _box_shape;

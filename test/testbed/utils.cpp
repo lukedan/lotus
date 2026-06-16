@@ -72,9 +72,10 @@ void debug_render::draw_body(
 		first_vert = static_cast<u32>(mesh_vertices.size());
 		for (usize i = 0; i < positions.size(); ++i) {
 			vertex &vert = mesh_vertices.emplace_back();
-			vert.position = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0).into<f32>();
-			vert.color    = color;
-			vert.normal   = lotus::vecu::normalize(normal_transform * normals[i]).into<f32>();
+			vert.position       = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0).into<f32>();
+			vert.position_ls = positions[i];
+			vert.color          = color;
+			vert.normal         = lotus::vecu::normalize(normal_transform * normals[i]).into<f32>();
 		}
 	}
 	for (usize i = 0; i < indices.size(); i += 3) {
@@ -206,26 +207,28 @@ void debug_render::draw_frame(uquats ori, vec3 pos, scalar size) {
 }
 
 void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, mat44s transform, const body_visual *visual, bool wireframe) {
-	vec3 vx = lotus::vecu::normalize((transform * vec4(1.0f, 0.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
-	vec3 vy = lotus::vecu::normalize((transform * vec4(0.0f, 1.0f, 0.0f, 0.0f)).block<3, 1>(0, 0));
-	vec3 v0 = (transform * vec4(0.0f, 1.0f, 0.0f, 1.0f)).block<3, 1>(0, 0);
+	const i32 size = 100;
+	const vec3 vx = { 1.0f, 0.0f, 0.0f };
+	const vec3 vy = { 0.0f, 1.0f, 0.0f };
 	lotus::linear_rgba_f32 color = visual ? visual->color : lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f);
 	if (wireframe) {
-		for (int x = -100; x <= 100; ++x) {
-			draw_line(v0 + vx * x + vy * -100.0f, v0 + vx * x + vy * 100.0f, color);
-			draw_line(v0 + vy * x + vx * -100.0f, v0 + vy * x + vx * 100.0f, color);
+		for (int x = -size; x <= size; ++x) {
+			draw_line(vx * x + vy * -size, vx * x + vy * size, transform, color);
+			draw_line(vy * x + vx * -size, vy * x + vx * size, transform, color);
 		}
 	} else {
-		vec3 positions[] = {
-			v0 + vx *  100.0f + vy *  100.0f,
-			v0 + vx * -100.0f + vy *  100.0f,
-			v0 + vx *  100.0f + vy * -100.0f,
-			v0 + vx * -100.0f + vy * -100.0f,
+		const scalar scale_ls = 10.0f;
+		const scalar scale_ws = 10.0f;
+		const vec3 positions[] = {
+			vx *  scale_ls + vy *  scale_ls,
+			vx * -scale_ls + vy *  scale_ls,
+			vx *  scale_ls + vy * -scale_ls,
+			vx * -scale_ls + vy * -scale_ls,
 		};
-		u32 indices[] = {
+		const u32 indices[] = {
 			0, 1, 3, 0, 3, 2
 		};
-		draw_body(positions, {}, indices, mat44s::identity(), color, wireframe);
+		draw_body(positions, {}, indices, transform * mat44s::diagonal(scale_ws, scale_ws, scale_ws, 1.0f), color, false);
 	}
 }
 
@@ -568,6 +571,7 @@ void debug_render::flush(
 	{ // main pass
 		auto vertex_input_elements = {
 			lotus::gpu::input_buffer_element(u8"POSITION", 0, lotus::gpu::format::r32g32b32_float, offsetof(debug_render::vertex, position)),
+			lotus::gpu::input_buffer_element(u8"POSITION_LS", 0, lotus::gpu::format::r32g32b32_float, offsetof(debug_render::vertex, position_ls)),
 			lotus::gpu::input_buffer_element(u8"COLOR", 0, lotus::gpu::format::r32g32b32a32_float, offsetof(debug_render::vertex, color)),
 			lotus::gpu::input_buffer_element(u8"NORMAL", 0, lotus::gpu::format::r32g32b32_float, offsetof(debug_render::vertex, normal)),
 		};

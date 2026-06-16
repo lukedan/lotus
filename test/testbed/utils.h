@@ -43,7 +43,7 @@ struct test_context {
 	bool draw_faces = false;
 	bool point_depth_test = false;
 	bool line_depth_test = false;
-	f32 point_size = 20.0f;
+	f32 point_size = 7.0f;
 	f32 point_opacity = 0.5f;
 	f32 line_opacity = 1.0f;
 
@@ -65,6 +65,7 @@ public:
 
 	struct vertex {
 		cvec3f32 position = lotus::zero;
+		cvec3f32 position_ls = lotus::zero;
 		lotus::linear_rgba_f32 color = lotus::zero;
 		cvec3f32 normal = lotus::zero;
 	};
@@ -80,6 +81,11 @@ public:
 
 	void draw_point(vec3 p, lotus::linear_rgba_f32 color, scalar size = 0.0f);
 	void draw_line(vec3 a, vec3 b, lotus::linear_rgba_f32 color);
+	void draw_line(vec3 a, vec3 b, mat44s transform, lotus::linear_rgba_f32 color) {
+		const vec3 ta = (transform * vec4(a, 1.0f)).block<3, 1>(0, 0);
+		const vec3 tb = (transform * vec4(b, 1.0f)).block<3, 1>(0, 0);
+		draw_line(ta, tb, color);
+	}
 
 	void draw_body(
 		std::span<const vec3> positions,

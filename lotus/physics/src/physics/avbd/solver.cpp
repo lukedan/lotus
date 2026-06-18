@@ -154,6 +154,7 @@ namespace lotus::physics::avbd {
 		const std::span<body *const> bodies = physics_world->get_bodies();
 		for (usize bi = 0; bi < bodies.size(); ++bi) {
 			body *cur_body = bodies[bi];
+			crash_if(cur_body->state.position.position.has_nan());
 			body_position &cur_pos = cur_body->state.position;
 			if (cur_body->properties.inverse_mass <= 0.0f) {
 				continue;
@@ -189,17 +190,33 @@ namespace lotus::physics::avbd {
 					const auto force =
 						_contact_force::clamp(unclamped_force, contact.body1->material, contact.body2->material);
 
-					const _vec6 dcdx =
+					const _vec6 dcndx =
 						sign * _vec6(contact.tangents.normal, vec::cross(r, contact.tangents.normal));
-					const _vec6 dcdy =
+					const _vec6 dctdx =
 						sign * _vec6(contact.tangents.tangent, vec::cross(r, contact.tangents.tangent));
-					const _vec6 dcdz =
+					const _vec6 dcbdx =
 						sign * _vec6(contact.tangents.bitangent, vec::cross(r, contact.tangents.bitangent));
-					f -= mat::concat_columns(dcdx, dcdy, dcdz) * force.force;
+
+					const mat33s d2cndq2 =
+						sign * vec::cross_matrix(contact.tangents.normal) * vec::cross_matrix(r);
+					const mat33s d2ctdq2 =
+						sign * vec::cross_matrix(contact.tangents.tangent) * vec::cross_matrix(r);
+					const mat33s d2cbdq2 =
+						sign * vec::cross_matrix(contact.tangents.bitangent) * vec::cross_matrix(r);
+
+					f -= mat::concat_columns(dcndx, dctdx, dcbdx) * force.force;
+
 					h +=
-						contact_point.stiffness[0] * dcdx * dcdx.transposed() +
-						contact_point.stiffness[1] * dcdy * dcdy.transposed() +
-						contact_point.stiffness[2] * dcdz * dcdz.transposed();
+						contact_point.stiffness[0] * (dcndx * dcndx.transposed()) +
+						contact_point.stiffness[1] * (dctdx * dctdx.transposed()) +
+						contact_point.stiffness[2] * (dcbdx * dcbdx.transposed());
+
+					mat33s hrot = h.block<3, 3>(3, 3);
+					hrot +=
+						contact_point.force[0] * d2cndq2 +
+						contact_point.force[1] * d2ctdq2 +
+						contact_point.force[2] * d2cbdq2;
+					h.set_block(3, 3, hrot);
 				}
 			}
 

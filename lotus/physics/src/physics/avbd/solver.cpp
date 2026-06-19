@@ -49,7 +49,7 @@ namespace lotus::physics::avbd {
 			_solve_particles(dt, particle_step_data);
 			_solve_orientations(orientation_step_data);
 
-			_update_body_dual_variables(body_step_data);
+			_update_body_dual_variables();
 		}
 
 		_compute_body_velocities(dt, body_step_data);
@@ -236,30 +236,21 @@ namespace lotus::physics::avbd {
 		}
 	}
 
-	void solver::_update_body_dual_variables(const _body_step_data &bdata) {
-		const std::span<body *const> bodies = physics_world->get_bodies();
-		for (usize bi = 0; bi < bodies.size(); ++bi) {
-			body *cur_body = bodies[bi];
-			if (cur_body->properties.inverse_mass <= 0.0f) {
-				continue;
-			}
-
-			for (const u32 ci : bdata.constraint_association[bi].contact_constraints) {
-				constraints::rigid_body_contact &contact = contacts[ci];
-				for (constraints::rigid_body_contact::point &contact_point : contact.contact_points) {
-					const vec3 c = _compute_contact_error(contact, contact_point);
-					const vec3 unclamped_force = matm::multiply(contact_point.stiffness, c) + contact_point.force;
-					const auto force =
-						_contact_force::clamp(unclamped_force, contact.body1->material, contact.body2->material);
-					contact_point.force = force.force;
-					if (!force.normal_clamped) {
-						contact_point.stiffness[0] += stiffness_ramping * std::abs(c[0]);
-					}
-					if (!force.friction_clamped) {
-						contact_point.stiffness += vec3(0.0f, stiffness_ramping * matm::abs(c.block<2, 1>(1, 0)));
-					}
-					contact_point.stiffness = matm::min(contact_point.stiffness, vec3::filled(maximum_stiffness));
+	void solver::_update_body_dual_variables() {
+		for (constraints::rigid_body_contact &contact : contacts) {
+			for (constraints::rigid_body_contact::point &contact_point : contact.contact_points) {
+				const vec3 c = _compute_contact_error(contact, contact_point);
+				const vec3 unclamped_force = matm::multiply(contact_point.stiffness, c) + contact_point.force;
+				const auto force =
+					_contact_force::clamp(unclamped_force, contact.body1->material, contact.body2->material);
+				contact_point.force = force.force;
+				if (!force.normal_clamped) {
+					contact_point.stiffness[0] += stiffness_ramping * std::abs(c[0]);
 				}
+				if (!force.friction_clamped) {
+					contact_point.stiffness += vec3(0.0f, stiffness_ramping * matm::abs(c.block<2, 1>(1, 0)));
+				}
+				contact_point.stiffness = matm::min(contact_point.stiffness, vec3::filled(maximum_stiffness));
 			}
 		}
 	}

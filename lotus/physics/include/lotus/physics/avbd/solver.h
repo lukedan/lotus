@@ -114,7 +114,7 @@ namespace lotus::physics::avbd {
 		/// Updates all rigid bodies by a single iteration.
 		void _solve_bodies(scalar dt, const _body_step_data&);
 		/// Updates all rigid body dual variables.
-		void _update_body_dual_variables(const _body_step_data&);
+		void _update_body_dual_variables();
 		/// Updates the velocities of all bodies at the end of a time step.
 		void _compute_body_velocities(scalar dt, const _body_step_data&);
 

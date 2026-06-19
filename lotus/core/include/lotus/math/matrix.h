@@ -625,9 +625,9 @@ namespace lotus {
 		/// Implementation of \ref concat_columns() and \ref concat_rows().
 		template <
 			usize Current, typename OutMat, typename CurMat, typename ...OtherMats
-		> constexpr inline static void _concat_impl(OutMat &out, CurMat &&cur, OtherMats &&...others) {
+		> constexpr static void _concat_impl(OutMat &out, CurMat &&cur, OtherMats &&...others) {
 			constexpr bool _is_rows = _num_cols<CurMat>() == _num_cols<OutMat>();
-			using _t1 = typename std::decay_t<OutMat>::value_type;
+			using _t1 = std::decay_t<OutMat>::value_type;
 			static_assert(
 				std::is_same_v<std::decay_t<CurMat>, zero_t> ||
 				std::is_same_v<_t1, typename std::decay_t<CurMat>::value_type>,
@@ -647,16 +647,16 @@ namespace lotus {
 			}
 		}
 		/// Returns the sum of all inputs.
-		template <usize ...Is> [[nodiscard]] constexpr inline static usize _sum() {
+		template <usize ...Is> [[nodiscard]] constexpr static usize _sum() {
 			return (Is + ...);
 		}
 		/// Returns the first input.
-		template <usize I, usize...> [[nodiscard]] constexpr inline static usize _take() {
+		template <usize I, usize...> [[nodiscard]] constexpr static usize _take() {
 			return I;
 		}
 	public:
 		/// Creates a new matrix by concatenating the given matrices horizontally.
-		template <typename ...Mats> [[nodiscard]] inline static constexpr matrix<
+		template <typename ...Mats> [[nodiscard]] static constexpr matrix<
 			_take<_num_rows<Mats>()...>(), _sum<_num_cols<Mats>()...>(), _details::first_value_type_t<Mats...>
 		> concat_columns(Mats &&...mats) {
 			constexpr usize
@@ -674,7 +674,7 @@ namespace lotus {
 			return result;
 		}
 		/// Creates a new matrix by concatenating the given matrices vertically.
-		template <typename ...Mats> [[nodiscard]] inline static constexpr matrix<
+		template <typename ...Mats> [[nodiscard]] static constexpr matrix<
 			_sum<_num_rows<Mats>()...>(), _take<_num_cols<Mats>()...>(), _details::first_value_type_t<Mats...>
 		> concat_rows(Mats &&...mats) {
 			constexpr usize
@@ -690,6 +690,13 @@ namespace lotus {
 			_mat result = zero;
 			_concat_impl<0>(result, std::forward<Mats>(mats)...);
 			return result;
+		}
+
+		/// Linear interpolation.
+		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, T> lerp(
+			const matrix<R, C, T> &a, const matrix<R, C, T> &b, const T &factor
+		) {
+			return (1.0f - factor) * a + factor * b;
 		}
 
 		// products
@@ -715,10 +722,10 @@ namespace lotus {
 		}
 
 		/// Returns the inner product of the two matrices.
-		template <typename Mat> [[nodiscard]] constexpr static typename Mat::value_type inner_product(
+		template <typename Mat> [[nodiscard]] constexpr static Mat::value_type inner_product(
 			const Mat &lhs, const Mat &rhs
 		) {
-			auto result = static_cast<typename Mat::value_type>(0);
+			typename Mat::value_type result = zero;
 			for (usize y = 0; y < Mat::num_rows; ++y) {
 				for (usize x = 0; x < Mat::num_columns; ++x) {
 					result += lhs(y, x) * rhs(y, x);

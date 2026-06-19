@@ -44,9 +44,9 @@ namespace lotus {
 			Vec::dimensionality == 3, matrix<3, 3, typename Vec::value_type>
 		> cross_matrix(const Vec &v) {
 			return {
-				{ 0, -v[2], v[1] },
-				{ v[2], 0, -v[0] },
-				{ -v[1], v[0], 0 }
+				{     0, -v[2],  v[1] },
+				{  v[2],     0, -v[0] },
+				{ -v[1],  v[0],     0 }
 			};
 		}
 	};

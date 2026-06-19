@@ -17,17 +17,7 @@ public:
 
 		lotus::physics::body_properties box_props = lotus::uninitialized;
 		{
-			std::vector<vec3> box_verts;
-			vec3 half_size = vec3(_box_size[0], _box_size[1], _box_size[2]) / 2.0f;
-			box_verts.emplace_back( half_size[0],  half_size[1],  half_size[2]);
-			box_verts.emplace_back( half_size[0],  half_size[1], -half_size[2]);
-			box_verts.emplace_back( half_size[0], -half_size[1],  half_size[2]);
-			box_verts.emplace_back( half_size[0], -half_size[1], -half_size[2]);
-			box_verts.emplace_back(-half_size[0],  half_size[1],  half_size[2]);
-			box_verts.emplace_back(-half_size[0],  half_size[1], -half_size[2]);
-			box_verts.emplace_back(-half_size[0], -half_size[1],  half_size[2]);
-			box_verts.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
-			auto [box_poly, box_poly_props] = lotus::collision::shapes::convex_polyhedron::bake(box_verts);
+			auto [box_poly, box_poly_props] = create_box_shape(vec3(_box_size[0], _box_size[1], _box_size[2]));
 			_box_shape = lotus::collision::shape::create(std::move(box_poly));
 			box_props = box_poly_props.get_body_properties(1.0f);
 			for (usize y = 0; y < 3; ++y) {

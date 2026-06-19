@@ -21,50 +21,18 @@ public:
 
 		lotus::physics::body_properties box_props = lotus::uninitialized;
 		{
-			std::vector<vec3> box_verts;
-			vec3 half_size(_box_size[0], _box_size[1], _box_size[2]);
-			half_size *= 0.5f;
-			box_verts.emplace_back( half_size[0],  half_size[1],  half_size[2]);
-			box_verts.emplace_back( half_size[0],  half_size[1], -half_size[2]);
-			box_verts.emplace_back( half_size[0], -half_size[1],  half_size[2]);
-			box_verts.emplace_back( half_size[0], -half_size[1], -half_size[2]);
-			box_verts.emplace_back(-half_size[0],  half_size[1],  half_size[2]);
-			box_verts.emplace_back(-half_size[0],  half_size[1], -half_size[2]);
-			box_verts.emplace_back(-half_size[0], -half_size[1],  half_size[2]);
-			box_verts.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
-			auto [box_poly, box_poly_props] = lotus::collision::shapes::convex_polyhedron::bake(box_verts);
+			auto [box_poly, box_poly_props] = create_box_shape(vec3(_box_size[0], _box_size[1], _box_size[2]));
 			_box_shape = lotus::collision::shape::create(std::move(box_poly));
 			box_props = box_poly_props.get_body_properties(_density);
 		}
 
 		{
-			std::vector<vec3> platform_verts;
-			vec3 half_size(10.0f, 0.1f, 10.0f);
-			half_size *= 0.5f;
-			platform_verts.emplace_back( half_size[0],  half_size[1],  half_size[2]);
-			platform_verts.emplace_back( half_size[0],  half_size[1], -half_size[2]);
-			platform_verts.emplace_back( half_size[0], -half_size[1],  half_size[2]);
-			platform_verts.emplace_back( half_size[0], -half_size[1], -half_size[2]);
-			platform_verts.emplace_back(-half_size[0],  half_size[1],  half_size[2]);
-			platform_verts.emplace_back(-half_size[0],  half_size[1], -half_size[2]);
-			platform_verts.emplace_back(-half_size[0], -half_size[1],  half_size[2]);
-			platform_verts.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
-			auto [platform_poly, platform_poly_props] = lotus::collision::shapes::convex_polyhedron::bake(platform_verts);
+			auto [platform_poly, platform_poly_props] = create_box_shape(vec3(10.0f, 0.1f, 10.0f));
 			_platform_shape = lotus::collision::shape::create(std::move(platform_poly));
 		}
 
 		{
-			std::vector<vec3> bullet_verts;
-			vec3 half_bullet_size = vec3::filled(0.5f);
-			bullet_verts.emplace_back(half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
-			bullet_verts.emplace_back(half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
-			bullet_verts.emplace_back(half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
-			bullet_verts.emplace_back(half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
-			bullet_verts.emplace_back(-half_bullet_size[0], half_bullet_size[1], half_bullet_size[2]);
-			bullet_verts.emplace_back(-half_bullet_size[0], half_bullet_size[1], -half_bullet_size[2]);
-			bullet_verts.emplace_back(-half_bullet_size[0], -half_bullet_size[1], half_bullet_size[2]);
-			bullet_verts.emplace_back(-half_bullet_size[0], -half_bullet_size[1], -half_bullet_size[2]);
-			auto [bullet_poly, bullet_poly_props] = lotus::collision::shapes::convex_polyhedron::bake(bullet_verts);
+			auto [bullet_poly, bullet_poly_props] = create_box_shape(vec3::filled(1.0f));
 			_bullet_shape = lotus::collision::shape::create(std::move(bullet_poly));
 			_bullet_properties = bullet_poly_props.get_body_properties(_density);
 		}
@@ -124,7 +92,7 @@ public:
 			)));
 		}
 
-		scalar x = -(_box_size[0] + _gap[0]) * (_box_count[0] - 1) / 2.0f;
+		scalar x = -(_box_size[0] + _gap[0]) * (static_cast<f32>(_box_count[0]) - 1.0f) / 2.0f;
 		scalar y = 0.5f * _box_size[1] + _gap[1];
 		for (
 			int yi = 0;

@@ -679,7 +679,7 @@ void debug_render::flush(
 		}
 	}
 
-	if (ctx->draw_shadows) {
+	if (ctx->draw_shadows && !mesh_vertices.empty()) {
 		draw_shadow_stencil();
 		draw_shadow_quad();
 	}

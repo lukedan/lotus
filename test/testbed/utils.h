@@ -128,3 +128,21 @@ public:
 	std::deque<surface_visual> surfaces;
 	std::deque<body_visual> bodies;
 };
+
+/// Creates a box centered at the origin with the given size.
+inline std::pair<
+	lotus::collision::shapes::convex_polyhedron,
+	lotus::collision::shapes::convex_polyhedron::properties
+> create_box_shape(vec3 size) {
+	const vec3 half_size = size * 0.5f;
+	std::vector<vec3> box_verts;
+	box_verts.emplace_back( half_size[0],  half_size[1],  half_size[2]);
+	box_verts.emplace_back( half_size[0],  half_size[1], -half_size[2]);
+	box_verts.emplace_back( half_size[0], -half_size[1],  half_size[2]);
+	box_verts.emplace_back( half_size[0], -half_size[1], -half_size[2]);
+	box_verts.emplace_back(-half_size[0],  half_size[1],  half_size[2]);
+	box_verts.emplace_back(-half_size[0],  half_size[1], -half_size[2]);
+	box_verts.emplace_back(-half_size[0], -half_size[1],  half_size[2]);
+	box_verts.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
+	return lotus::collision::shapes::convex_polyhedron::bake(box_verts);
+}

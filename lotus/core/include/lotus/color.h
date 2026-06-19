@@ -27,12 +27,16 @@ namespace lotus {
 			r(std::move(rr)), g(std::move(gg)), b(std::move(bb)), a(std::move(aa)) {
 		}
 		/// Creates an fully opaque color.
-		[[nodiscard]] constexpr static inline linear_rgba create_opaque(T r, T g, T b) {
+		[[nodiscard]] constexpr static linear_rgba create_opaque(T r, T g, T b) {
 			return linear_rgba(std::move(r), std::move(g), std::move(b), static_cast<T>(1));
 		}
 		/// Creates an fully transparent color.
-		[[nodiscard]] constexpr static inline linear_rgba create_transparent(T r, T g, T b) {
+		[[nodiscard]] constexpr static linear_rgba create_transparent(T r, T g, T b) {
 			return linear_rgba(std::move(r), std::move(g), std::move(b), zero);
+		}
+		/// Converts a 4D vector into a color.
+		[[nodiscard]] constexpr static linear_rgba from_vec4(const cvec4<T> &v) {
+			return linear_rgba(v[0], v[1], v[2], v[3]);
 		}
 
 		/// Converts the color into another format. For floating-point types, the output will be in [0, 1]; for

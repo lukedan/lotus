@@ -362,6 +362,21 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 	for (const lotus::physics::avbd::constraints::cosserat_rod::stretch_shear &constraint : solver.rod_stretch_shear_constraints) {
 		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f));
 	}
+
+	for (const lotus::physics::avbd::constraints::spring &spring : solver.springs) {
+		const vec3 p1 = spring.get_global_position1();
+		const vec3 p2 = spring.get_global_position2();
+		const scalar len_percentage = (p1 - p2).norm() / spring.initial_length;
+		draw_line(
+			p1,
+			p2,
+			lotus::linear_rgba_f32::from_vec4(
+				len_percentage < 1.0f ?
+				lotus::mat::lerp(vec4(1.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 1.0f), len_percentage) :
+				lotus::mat::lerp(vec4(0.0f, 0.0f, 1.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 1.0f), 2.0f - len_percentage)
+			)
+		);
+	}
 }
 
 void debug_render::draw_system(lotus::physics::sequential_impulse::solver &solver) {

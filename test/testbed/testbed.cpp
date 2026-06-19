@@ -19,6 +19,7 @@
 #include "tests/polyhedron_test.h"
 #include "tests/shallow_water_test.h"
 #include "tests/spring_cloth_test.h"
+#include "tests/spring_test.h"
 
 #include <imgui.cpp>
 #include <imgui_draw.cpp>
@@ -320,13 +321,14 @@ protected:
 int main(int argc, char **argv) {
 	testbed_app app(argc, argv);
 	app.initialize();
-	app.register_test<angular_momentum_test>();
 	app.register_test<convex_hull_test>();
-	app.register_test<cosserat_rod_test>();
+	app.register_test<shallow_water_test>();
 	app.register_test<fem_cloth_test>();
 	app.register_test<spring_cloth_test>();
+	app.register_test<cosserat_rod_test>();
 	app.register_test<box_stack_test>();
-	app.register_test<shallow_water_test>();
+	app.register_test<angular_momentum_test>();
+	app.register_test<spring_test>();
 
 	return app.run();
 }

@@ -9,6 +9,7 @@
 #include "lotus/physics/world.h"
 #include "lotus/physics/avbd/constraints/contact.h"
 #include "lotus/physics/avbd/constraints/cosserat_rod.h"
+#include "lotus/physics/avbd/constraints/spring.h"
 
 namespace lotus::physics {
 	class world;
@@ -39,6 +40,7 @@ namespace lotus::physics::avbd {
 		/// All Cosserat rod stretching-shearing constraints.
 		std::vector<constraints::cosserat_rod::stretch_shear> rod_stretch_shear_constraints;
 
+		std::vector<constraints::spring> springs; ///< All spring constraints.
 		std::vector<constraints::rigid_body_contact> contacts; ///< All contacts in the current time step.
 	private:
 		/// Clamped contact force.
@@ -62,6 +64,7 @@ namespace lotus::physics::avbd {
 			/// Constraints that involve a body.
 			struct constraints {
 				std::vector<u32> contact_constraints; ///< Related contact constraints.
+				std::vector<u32> spring_constraints; ///< Related spring constraints.
 			};
 
 			std::vector<body_position> initial_positions; ///< Initial positions.

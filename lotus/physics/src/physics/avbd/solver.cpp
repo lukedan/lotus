@@ -3,6 +3,7 @@
 /// \file
 /// Implementation of the AVBD solver.
 
+#include "lotus/logging.h"
 #include "lotus/physics/world.h"
 
 namespace lotus::physics::avbd {
@@ -113,22 +114,29 @@ namespace lotus::physics::avbd {
 			);
 		}
 
-		// compute per-constraint data
+		// compute inverse constraint association
+		const auto find_body_idx = [&](const body *b) -> usize {
+			for (usize ib = 0; ib < bodies.size(); ++ib) {
+				if (bodies[ib] == b) {
+					return ib;
+				}
+			}
+			std::abort();
+		};
 		result.constraint_association.resize(bodies.size(), {});
 		for (usize i = 0; i < contacts.size(); ++i) {
 			const constraints::rigid_body_contact &contact = contacts[i];
-
-			// compute inverse constraint association
-			auto find_idx = [&](const body *b) -> usize {
-				for (usize ib = 0; ib < bodies.size(); ++ib) {
-					if (bodies[ib] == b) {
-						return ib;
-					}
-				}
-				return 0;
-			};
-			result.constraint_association[find_idx(contact.body1)].contact_constraints.emplace_back(i);
-			result.constraint_association[find_idx(contact.body2)].contact_constraints.emplace_back(i);
+			result.constraint_association[find_body_idx(contact.body1)].contact_constraints.emplace_back(i);
+			result.constraint_association[find_body_idx(contact.body2)].contact_constraints.emplace_back(i);
+		}
+		for (usize i = 0; i < springs.size(); ++i) {
+			const constraints::spring &spring = springs[i];
+			if (spring.body1) {
+				result.constraint_association[find_body_idx(spring.body1)].spring_constraints.emplace_back(i);
+			}
+			if (spring.body2) {
+				result.constraint_association[find_body_idx(spring.body2)].spring_constraints.emplace_back(i);
+			}
 		}
 
 		return result;
@@ -161,10 +169,12 @@ namespace lotus::physics::avbd {
 			}
 
 			const body_position inertial_pos = bdata.inertial_positions[bi];
+			const _body_step_data::constraints &constraint_association = bdata.constraint_association[bi];
+
 			const mat33s local_to_world = cur_pos.orientation.into_rotation_matrix();
 			const mat33s inertia_ws = local_to_world.transposed() * cur_body->properties.inertia * local_to_world;
 
-			// inertial terms for f and h
+			// inertial terms
 			_vec6 f = (-1.0f / (dt * dt)) * _vec6(
 				(cur_pos.position - inertial_pos.position) / cur_body->properties.inverse_mass,
 				inertia_ws * 2.0f * (cur_pos.orientation * inertial_pos.orientation.conjugate()).axis()
@@ -174,8 +184,8 @@ namespace lotus::physics::avbd {
 				mat::concat_columns(mat33s(zero), inertia_ws)
 			);
 
-			// constraint terms for f and h
-			for (const u32 ci : bdata.constraint_association[bi].contact_constraints) {
+			// contact terms
+			for (const u32 ci : constraint_association.contact_constraints) {
 				const constraints::rigid_body_contact &contact = contacts[ci];
 				const scalar sign = cur_body == contact.body1 ? 1.0f : -1.0f;
 				for (const constraints::rigid_body_contact::point &contact_point : contact.contact_points) {
@@ -198,11 +208,11 @@ namespace lotus::physics::avbd {
 						sign * _vec6(contact.tangents.bitangent, vec::cross(r, contact.tangents.bitangent));
 
 					const mat33s d2cndq2 =
-						sign * vec::cross_matrix(contact.tangents.normal) * vec::cross_matrix(r);
+						sign * vec::cross_matrix(r) * vec::cross_matrix(contact.tangents.normal);
 					const mat33s d2ctdq2 =
-						sign * vec::cross_matrix(contact.tangents.tangent) * vec::cross_matrix(r);
+						sign * vec::cross_matrix(r) * vec::cross_matrix(contact.tangents.tangent);
 					const mat33s d2cbdq2 =
-						sign * vec::cross_matrix(contact.tangents.bitangent) * vec::cross_matrix(r);
+						sign * vec::cross_matrix(r) * vec::cross_matrix(contact.tangents.bitangent);
 
 					f -= mat::concat_columns(dcndx, dctdx, dcbdx) * force.force;
 
@@ -220,10 +230,58 @@ namespace lotus::physics::avbd {
 				}
 			}
 
+			// spring terms
+			for (const u32 ci : constraint_association.spring_constraints) {
+				const constraints::spring &spring = springs[ci];
+
+				const vec3 r1 =
+					spring.body1 ?
+					spring.body1->state.position.orientation.rotate(spring.local_position1) :
+					spring.local_position1;
+				const vec3 r2 =
+					spring.body2 ?
+					spring.body2->state.position.orientation.rotate(spring.local_position2) :
+					spring.local_position2;
+				const vec3 d = spring.get_global_position1() - spring.get_global_position2();
+				const scalar d_len = d.norm();
+				const vec3 d_norm = d / d_len;
+				const scalar c = d_len - spring.initial_length;
+
+				const scalar sign = cur_body == spring.body1 ? 1.0f : -1.0f;
+				const vec3 r = cur_body == spring.body1 ? r1 : r2;
+
+				const _vec6 dcdx = sign * _vec6(d_norm, vec::cross(r, d_norm));
+				const _mat66 ddt = dcdx * dcdx.transposed();
+
+				const mat33s rx = vec::cross_matrix(r);
+				_mat66 b = _mat66::identity();
+				b.set_block(3, 0, rx);
+				b.set_block(0, 3, -rx);
+				b.set_block(3, 3, sign * rx * vec::cross_matrix(d - sign * r));
+
+				f -= spring.stiffness * c * dcdx;
+
+				/*
+				const _mat66 d2cdx2 = b / d_len - ddt / (d_len * d_len * d_len);
+				h += spring.stiffness * (ddt + c * d2cdx2);
+				*/
+				// simplified version
+				h += spring.stiffness * (ddt * (1.0f - c / (d_len * d_len * d_len)) + b * (c / d_len));
+				// diagonalized version - not stable without LDLT solver
+				/*
+				_vec6 g = uninitialized;
+				for (usize i = 0; i < 6; ++i) {
+					g[i] = d2cdx2.row(i).norm();
+				}
+				h += spring.stiffness * (ddt + c * _mat66::diagonal(g));
+				*/
+			}
+
 			// solve
 			const auto decomposition = lup_decomposition<6, scalar>::compute(h);
 			const scalar det = decomposition.determinant();
 			if (!std::isfinite(det) || std::abs(det) < 1e-6) {
+				log().debug("Indefinite Hessian");
 				continue;
 			}
 			const _vec6 delta_x = decomposition.solve(f);

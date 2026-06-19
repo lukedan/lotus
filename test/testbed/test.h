@@ -4,11 +4,11 @@
 
 #include <lotus/renderer/shader_types_include_wrapper.h>
 namespace shader_types {
-#include "../shaders/shader_types.hlsli"
+#include "shaders/shader_types.hlsli"
 }
 #include <lotus/renderer/shader_types_include_wrapper.h>
 
-#include "../utils.h"
+#include "utils.h"
 
 /// A test.
 class test {

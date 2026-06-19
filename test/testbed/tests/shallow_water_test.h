@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "test.h"
+#include "../test.h"
 #include "../utils.h"
 
 class shallow_water_test : public test {
@@ -443,7 +443,6 @@ public:
 	};
 
 	explicit shallow_water_test(const test_context &tctx) : test(tctx) {
-		soft_reset();
 	}
 
 	void soft_reset() override {

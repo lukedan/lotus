@@ -4,36 +4,18 @@
 #include <lotus/physics/xpbd/solver.h>
 #include <lotus/physics/world.h>
 
-#include "test.h"
+#include "../physics_test.h"
 
-class box_stack_test : public test {
+class box_stack_test : public physics_test {
 public:
-	explicit box_stack_test(const test_context &tctx) : test(tctx) {
-		soft_reset();
-	}
-
-	void timestep(scalar dt, u32 iters) override {
-		_solver.timestep(dt, iters);
-	}
-
-	void render(
-		lotus::renderer::context &ctx, lotus::renderer::context::queue &q,
-		lotus::renderer::constant_uploader &uploader,
-		lotus::renderer::recorded_resources::swap_chain swap_chain, lotus::renderer::recorded_resources::image2d_view depth_stencil, lotus::cvec2u32 size
-	) override {
-		_render.draw_system(_solver);
-		_render.flush(ctx, q, uploader, swap_chain, depth_stencil, size);
+	explicit box_stack_test(const test_context &tctx) : physics_test(tctx) {
 	}
 
 	void soft_reset() override {
-		_bodies.clear();
-		_world = lotus::physics::world();
-		_world.gravity = vec3(0.0f, -9.8f, 0.0f);
-		_solver = decltype(_solver)();
-		_solver.physics_world = &_world;
+		physics_test::soft_reset();
 
-		_render = debug_render();
-		_render.ctx = &_get_test_context();
+		_bodies.clear();
+		_world.gravity = vec3(0.0f, -9.8f, 0.0f);
 
 		_plane_shape = lotus::collision::shape::create(lotus::collision::shapes::plane());
 
@@ -190,7 +172,7 @@ public:
 		if (ImGui::Button("Shoot Box")) {
 			_shoot_box();
 		}
-		test::gui();
+		physics_test::gui();
 	}
 
 	void on_key_down(lotus::system::window_events::key_down &kd) override {
@@ -204,11 +186,6 @@ public:
 	}
 protected:
 	std::deque<lotus::physics::body> _bodies;
-	lotus::physics::world _world;
-	//lotus::physics::xpbd::solver _solver;
-	//lotus::physics::sequential_impulse::solver _solver;
-	lotus::physics::avbd::solver _solver;
-	debug_render _render;
 
 	bool _rotate_90 = false;
 	bool _fix_first_row = false;

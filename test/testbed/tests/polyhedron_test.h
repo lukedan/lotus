@@ -4,7 +4,7 @@
 
 #include <lotus/algorithms/convex_hull.h>
 
-#include "test.h"
+#include "../test.h"
 #include "../utils.h"
 
 class convex_hull_test : public test {
@@ -21,8 +21,6 @@ public:
 	explicit convex_hull_test(const test_context &tctx) :
 		test(tctx),
 		_convex_hull_storage(hull::create_storage_for_num_vertices(max_verts)) {
-
-		soft_reset();
 	}
 	~convex_hull_test() override {
 		_convex_hull = nullptr;

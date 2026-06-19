@@ -2,13 +2,12 @@
 
 #include <lotus/physics/xpbd/solver.h>
 
-#include "test.h"
+#include "../test.h"
 #include "../utils.h"
 
 class fem_cloth_test : public test {
 public:
 	explicit fem_cloth_test(const test_context &tctx) : test(tctx) {
-		soft_reset();
 	}
 
 	void soft_reset() override {

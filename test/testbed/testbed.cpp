@@ -88,7 +88,9 @@ public:
 		auto &res = _tests.emplace_back();
 		res.name = std::string(Test::get_name());
 		res.create = [this]() {
-			return std::make_unique<Test>(_test_context);
+			auto new_test = std::make_unique<Test>(_test_context);
+			new_test->soft_reset();
+			return new_test;
 		};
 	}
 protected:

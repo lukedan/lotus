@@ -2,12 +2,11 @@
 
 #include "lotus/physics/avbd/solver.h"
 
-#include "test.h"
+#include "../test.h"
 
 class cosserat_rod_test : public test {
 public:
 	explicit cosserat_rod_test(const test_context &tctx) : test(tctx) {
-		soft_reset();
 	}
 
 	void timestep(scalar dt, u32 iterations) override {
@@ -126,7 +125,7 @@ public:
 		test::gui();
 	}
 
-	inline static std::string get_name() {
+	static std::string get_name() {
 		return "Cosserat Rod";
 	}
 private:

@@ -3,35 +3,17 @@
 #include <lotus/physics/sequential_impulse/solver.h>
 #include <lotus/physics/world.h>
 
-#include "test.h"
+#include "../physics_test.h"
 
-class angular_momentum_test : public test {
+class angular_momentum_test : public physics_test {
 public:
-	explicit angular_momentum_test(const test_context &tctx) : test(tctx) {
-		soft_reset();
-	}
-
-	void timestep(scalar dt, u32 iters) override {
-		_solver.timestep(dt, iters);
-	}
-
-	void render(
-		lotus::renderer::context &ctx, lotus::renderer::context::queue &q,
-		lotus::renderer::constant_uploader &uploader,
-		lotus::renderer::recorded_resources::swap_chain swap_chain, lotus::renderer::recorded_resources::image2d_view depth_stencil, lotus::cvec2u32 size
-	) override {
-		_render.draw_system(_solver);
-		_render.flush(ctx, q, uploader, swap_chain, depth_stencil, size);
+	explicit angular_momentum_test(const test_context &tctx) : physics_test(tctx) {
 	}
 
 	void soft_reset() override {
-		_bodies.clear();
-		_world = lotus::physics::world();
-		_solver = decltype(_solver)();
-		_solver.physics_world = &_world;
+		physics_test::soft_reset();
 
-		_render = debug_render();
-		_render.ctx = &_get_test_context();
+		_bodies.clear();
 
 		lotus::physics::body_properties box_props = lotus::uninitialized;
 		{
@@ -91,19 +73,11 @@ public:
 		}
 	}
 
-	void gui() override {
-		test::gui();
-	}
-
 	static std::string get_name() {
 		return "Angular Momentum Test";
 	}
 private:
 	std::deque<lotus::physics::body> _bodies;
-	lotus::physics::world _world;
-	//lotus::physics::sequential_impulse::solver _solver;
-	lotus::physics::avbd::solver _solver;
-	debug_render _render;
 
 	f32 _box_size[3]{ 0.2f, 0.5f, 0.8f };
 	f32 _angular_velocity = 10.0f;

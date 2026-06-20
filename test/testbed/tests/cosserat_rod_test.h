@@ -127,6 +127,9 @@ public:
 	static std::string get_name() {
 		return "Cosserat Rod";
 	}
+	static test_category get_category() {
+		return test_category::soft_body_physics;
+	}
 private:
 	constexpr static vec3 _pos_avbd = vec3(0.0f, 0.0f, 0.0f);
 	constexpr static vec3 _pos_xpbd = vec3(0.5f, 0.0f, 0.0f);

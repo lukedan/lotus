@@ -123,8 +123,11 @@ public:
 		test::gui();
 	}
 
-	inline static std::string get_name() {
+	static std::string get_name() {
 		return "Polyhedron Test";
+	}
+	static test_category get_category() {
+		return test_category::fundamentals;
 	}
 protected:
 	lotus::collision::shapes::convex_polyhedron::properties _props = lotus::uninitialized;

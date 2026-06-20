@@ -149,8 +149,11 @@ public:
 		}
 	}
 
-	inline static std::string get_name() {
+	static std::string get_name() {
 		return "Box Stack Test";
+	}
+	static test_category get_category() {
+		return test_category::rigid_body_physics;
 	}
 protected:
 	std::deque<lotus::physics::body> _bodies;

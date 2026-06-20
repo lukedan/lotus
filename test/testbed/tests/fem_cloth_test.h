@@ -128,8 +128,11 @@ public:
 		test::gui();
 	}
 
-	inline static std::string_view get_name() {
+	static std::string_view get_name() {
 		return "FEM Cloth";
+	}
+	static test_category get_category() {
+		return test_category::soft_body_physics;
 	}
 protected:
 	std::deque<lotus::physics::body> _bodies;

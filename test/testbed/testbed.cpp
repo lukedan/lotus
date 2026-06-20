@@ -83,6 +83,7 @@ public:
 	template <typename Test> void register_test() {
 		auto &res = _tests.emplace_back();
 		res.name = std::string(Test::get_name());
+		res.category = Test::get_category();
 		res.create = [this]() {
 			auto new_test = std::make_unique<Test>(_test_context);
 			new_test->soft_reset();
@@ -93,6 +94,7 @@ protected:
 	/// Used for selecting and creating tests.
 	struct _test_creator {
 		std::string name; ///< The name of this test.
+		test_category category;
 		std::function<std::unique_ptr<test>()> create;///< Creates a test.
 	};
 
@@ -151,9 +153,19 @@ protected:
 
 			if (ImGui::CollapsingHeader("Simulation Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
 				if (ImGui::BeginCombo(
-					"Test", _test_index < _tests.size() ? _tests[_test_index].name.c_str() : "Select Test"
+					"Test",
+					_test_index < _tests.size() ? _tests[_test_index].name.c_str() : "Select Test",
+					ImGuiComboFlags_HeightLargest
 				)) {
+					test_category last_category = test_category::invalid;
 					for (usize i = 0; i < _tests.size(); ++i) {
+						if (_tests[i].category != last_category) {
+							if (last_category != test_category::invalid) {
+								ImGui::Separator();
+							}
+							last_category = _tests[i].category;
+							ImGui::TextDisabled(test_category_names[std::to_underlying(last_category)]);
+						}
 						bool selected = _test_index == i;
 						if (ImGui::Selectable(_tests[i].name.c_str(), &selected)) {
 							_test_index = i;
@@ -264,6 +276,13 @@ protected:
 	}
 
 	void _on_initialized() override {
+		std::sort(_tests.begin(), _tests.end(), [](const _test_creator &lhs, const _test_creator &rhs) {
+			if (lhs.category == rhs.category) {
+				return lhs.name < rhs.name;
+			}
+			return lhs.category < rhs.category;
+		});
+
 		_test_context.gbuffer_shader_vs  = _assets->compile_shader_in_filesystem("./shaders/gbuffer_shader.hlsl", lotus::gpu::shader_stage::vertex_shader,  u8"main_vs");
 		_test_context.gbuffer_shader_ps  = _assets->compile_shader_in_filesystem("./shaders/gbuffer_shader.hlsl", lotus::gpu::shader_stage::pixel_shader,   u8"main_ps");
 		_test_context.point_shader_vs    = _assets->compile_shader_in_filesystem("./shaders/point_shader.hlsl",   lotus::gpu::shader_stage::vertex_shader,  u8"main_vs");
@@ -318,7 +337,6 @@ protected:
 
 int main(int argc, char **argv) {
 	testbed_app app(argc, argv);
-	app.initialize();
 	app.register_test<convex_hull_test>();
 	app.register_test<shallow_water_test>();
 	app.register_test<fem_cloth_test>();
@@ -327,6 +345,7 @@ int main(int argc, char **argv) {
 	app.register_test<box_stack_test>();
 	app.register_test<angular_momentum_test>();
 	app.register_test<spring_test>();
+	app.initialize();
 
 	return app.run();
 }

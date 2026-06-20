@@ -10,6 +10,22 @@ namespace shader_types {
 
 #include "utils.h"
 
+enum class test_category {
+	invalid,
+
+	rigid_body_physics,
+	soft_body_physics,
+	fundamentals,
+	miscellaneous,
+};
+constexpr const char *const test_category_names[] = {
+	"INVALID",
+	"Rigid Body Physics",
+	"Soft Body Physics",
+	"Fundamentals",
+	"Miscellaneous",
+};
+
 /// A test.
 class test {
 public:

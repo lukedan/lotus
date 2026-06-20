@@ -542,8 +542,11 @@ public:
 		test::gui();
 	}
 
-	inline static std::string_view get_name() {
+	static std::string_view get_name() {
 		return "Shallow Water";
+	}
+	static test_category get_category() {
+		return test_category::miscellaneous;
 	}
 protected:
 	debug_render _render;

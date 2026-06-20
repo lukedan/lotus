@@ -66,6 +66,9 @@ public:
 	static std::string get_name() {
 		return "Angular Momentum Test";
 	}
+	static test_category get_category() {
+		return test_category::rigid_body_physics;
+	}
 private:
 	std::deque<lotus::physics::body> _bodies;
 

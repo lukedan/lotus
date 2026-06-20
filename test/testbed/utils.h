@@ -36,7 +36,7 @@ struct test_context {
 	bool wireframe_surfaces = false;
 	bool wireframe_bodies = false;
 	bool draw_body_velocities = true;
-	bool draw_contact_points = false;
+	bool draw_contact_points = true;
 	bool draw_contact_normals = false;
 	bool draw_contact_relationships = false;
 	bool draw_particles = true;

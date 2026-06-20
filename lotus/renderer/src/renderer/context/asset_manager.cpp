@@ -382,8 +382,7 @@ namespace lotus::renderer::assets {
 				gpu::sampler_address_mode::clamp, gpu::sampler_address_mode::clamp, gpu::sampler_address_mode::clamp
 			) },
 			{ 2, sampler_state(
-				gpu::filtering::nearest, gpu::filtering::nearest, gpu::filtering::nearest,
-				0.0f, 0.0f, std::numeric_limits<f32>::max(), 0.0f
+				gpu::filtering::nearest, gpu::filtering::nearest, gpu::filtering::nearest
 			) },
 			{ 3, sampler_state(
 				gpu::filtering::linear, gpu::filtering::linear, gpu::filtering::linear,

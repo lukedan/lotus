@@ -246,6 +246,7 @@ namespace lotus::physics::avbd {
 				const scalar d_len = d.norm();
 				const vec3 d_norm = d / d_len;
 				const scalar c = d_len - spring.initial_length;
+				const scalar stiffness = c > 0.0f ? spring.stretched_stiffness : spring.compressed_stiffness;
 
 				const scalar sign = cur_body == spring.body1 ? 1.0f : -1.0f;
 				const vec3 r = cur_body == spring.body1 ? r1 : r2;
@@ -259,22 +260,15 @@ namespace lotus::physics::avbd {
 				b.set_block(0, 3, -rx);
 				b.set_block(3, 3, sign * rx * vec::cross_matrix(d - sign * r));
 
-				f -= spring.stiffness * c * dcdx;
+				f -= stiffness * c * dcdx;
 
 				/*
 				const _mat66 d2cdx2 = b / d_len - ddt / (d_len * d_len * d_len);
-				h += spring.stiffness * (ddt + c * d2cdx2);
+				h += stiffness * (ddt + c * d2cdx2);
 				*/
-				// simplified version
-				h += spring.stiffness * (ddt * (1.0f - c / (d_len * d_len * d_len)) + b * (c / d_len));
-				// diagonalized version - not stable without LDLT solver
-				/*
-				_vec6 g = uninitialized;
-				for (usize i = 0; i < 6; ++i) {
-					g[i] = d2cdx2.row(i).norm();
-				}
-				h += spring.stiffness * (ddt + c * _mat66::diagonal(g));
-				*/
+				// offers better numerical stability for stiff springs
+				// the cubic term and the constraint term can get very small
+				h += stiffness * ddt + stiffness * (1.0f - spring.initial_length / d_len) * b;
 			}
 
 			// solve

@@ -13,7 +13,8 @@ namespace lotus::physics::avbd::constraints {
 		vec3 local_position1 = zero; ///< Local position on the first body.
 		vec3 local_position2 = zero; ///< Local position on the second body.
 		scalar initial_length = 0.0f; ///< Initial length of this constraint.
-		scalar stiffness = 0.0f; ///< Stiffness of this constraint.
+		scalar compressed_stiffness = 0.0f; ///< Stiffness when this spring is compressed.
+		scalar stretched_stiffness = 0.0f; ///< Stiffness when this spring is stretched.
 
 		/// Returns \ref local_position1 translated to global coordinates.
 		[[nodiscard]] vec3 get_global_position1() const {

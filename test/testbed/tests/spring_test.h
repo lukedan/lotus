@@ -27,7 +27,7 @@ public:
 		for (int i = 0; i < _num_boxes; ++i) {
 			lotus::physics::body &body = _bodies.emplace_back(lotus::physics::body::create(
 				_box_shape, material, box_props,
-				lotus::physics::body_state::stationary_at(vec3(_gap * (static_cast<f32>(i) + 1), _height, 0.0f), uquats::identity())
+				lotus::physics::body_state::stationary_at(vec3(_gap * (static_cast<f32>(i) + 1), 0.0f, 0.0f), uquats::identity())
 			));
 			_world.add_body(body);
 			{
@@ -35,9 +35,10 @@ public:
 				spring.body1 = &body;
 				spring.body2 = prev_body;
 				spring.local_position1 = vec3(-0.5f * _box_size, 0.0f, 0.0f);
-				spring.local_position2 = prev_body ? vec3(0.5f * _box_size, 0.0f, 0.0f) : vec3(0.0f, _height, 0.0f);
+				spring.local_position2 = prev_body ? vec3(0.5f * _box_size, 0.0f, 0.0f) : lotus::zero;
 				spring.initial_length = (spring.get_global_position1() - spring.get_global_position2()).norm();
-				spring.stiffness = _stiffness;
+				spring.compressed_stiffness = _compressed_stiffness;
+				spring.stretched_stiffness = _stretched_stiffness;
 			}
 			prev_body = &body;
 		}
@@ -46,7 +47,7 @@ public:
 			_plane_shape, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
-				lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::physics::pi)
+				vec3(0.0f, -_height, 0.0f), lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::physics::pi)
 			)
 		)));
 	}
@@ -55,7 +56,8 @@ public:
 		ImGui::SliderInt("Num Boxes", &_num_boxes, 1, 10);
 		ImGui::SliderFloat("Box Size", &_box_size, 0.1f, 2.0f);
 		ImGui::SliderFloat("Gap", &_gap, 1.0f, 10.0f);
-		ImGui::SliderFloat("Stiffness", &_stiffness, 0.0f, 10000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
+		ImGui::SliderFloat("Compressed Stiffness", &_compressed_stiffness, 0.0f, 10000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
+		ImGui::SliderFloat("Stretched Stiffness", &_stretched_stiffness, 0.0f, 10000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderFloat("Height", &_height, 2.0f, 150.0f);
 	}
 
@@ -70,6 +72,7 @@ private:
 	int _num_boxes = 3;
 	f32 _box_size = 1.0f;
 	f32 _gap = 5.0f;
-	f32 _stiffness = 10.0f;
+	f32 _compressed_stiffness = 0.0f;
+	f32 _stretched_stiffness = 100.0f;
 	f32 _height = 5.0f;
 };

@@ -348,7 +348,7 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 				draw_point(p2, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
 			}
 			if (ctx->draw_contact_normals) {
-				draw_line(p1, p1 + c.tangents.normal * cp.force[0], lotus::linear_rgba_f32(0.0f, 0.0f, 1.0f, 1.0f));
+				draw_line(p1, p1 + c.tangents.normal * 0.1f, lotus::linear_rgba_f32(0.0f, 0.0f, 1.0f, 1.0f));
 			}
 			if (ctx->draw_contact_relationships) {
 				draw_line(p1, p2, lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
@@ -376,6 +376,20 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 				lotus::mat::lerp(vec4(0.0f, 0.0f, 1.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 1.0f), 2.0f - len_percentage)
 			)
 		);
+	}
+
+	for (const lotus::physics::avbd::constraints::pin &pin : solver.pins) {
+		const vec3 p1 = pin.get_global_position1();
+		const vec3 p2 = pin.get_global_position2();
+		if (pin.body1) {
+			draw_line(p1, pin.body1->state.position.position, lotus::linear_rgba_f32(1.0f, 1.0f, 0.0f, 1.0f));
+		}
+		if (pin.body2) {
+			draw_line(p2, pin.body2->state.position.position, lotus::linear_rgba_f32(1.0f, 1.0f, 0.0f, 1.0f));
+		}
+		draw_line(p1, p2, lotus::linear_rgba_f32(1.0f, 1.0f, 0.0f, 1.0f));
+		draw_point(p1, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
+		draw_point(p2, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
 	}
 }
 

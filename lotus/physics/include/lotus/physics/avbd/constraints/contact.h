@@ -13,9 +13,6 @@ namespace lotus::physics::avbd::constraints {
 		struct point {
 			vec3 local_position1 = zero; ///< Local position of the contact point on the first body.
 			vec3 local_position2 = zero; ///< Local position of the contact point on the second body.
-			vec3 stiffness = zero; ///< Soft stiffness.
-			vec3 force = zero; ///< The force applied during this step, i.e. the dual variable.
-			vec3 initial_error = zero; ///< Contact error at the beginning of the time step.
 		};
 
 		body *body1 = nullptr; ///< The first body involved.

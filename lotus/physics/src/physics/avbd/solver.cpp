@@ -33,7 +33,7 @@ namespace lotus::physics::avbd {
 	void solver::timestep(scalar dt, u32 iters) {
 		// prepare rigid bodies
 		_update_body_contacts();
-		const _body_step_data body_step_data = _prepare_bodies(dt);
+		_body_step_data body_step_data = _prepare_bodies(dt);
 		_init_solve_bodies(dt, body_step_data);
 
 		// prepare particles
@@ -50,7 +50,7 @@ namespace lotus::physics::avbd {
 			_solve_particles(dt, particle_step_data);
 			_solve_orientations(orientation_step_data);
 
-			_update_body_dual_variables();
+			_update_body_dual_variables(body_step_data);
 		}
 
 		_compute_body_velocities(dt, body_step_data);
@@ -61,7 +61,7 @@ namespace lotus::physics::avbd {
 	vec3 solver::_compute_raw_contact_error(
 		const constraints::rigid_body_contact &contact,
 		const constraints::rigid_body_contact::point &contact_point
-	) {
+	) const {
 		const vec3 penetration =
 			contact.body1->state.position.local_to_global(contact_point.local_position1) -
 			contact.body2->state.position.local_to_global(contact_point.local_position2);
@@ -84,10 +84,6 @@ namespace lotus::physics::avbd {
 				constraints::rigid_body_contact::point &point = new_contact.contact_points.emplace_back();
 				point.local_position1 = p.local_position1;
 				point.local_position2 = p.local_position2;
-				// TODO warm starting
-				point.stiffness       = vec3::filled(1000.0f);
-				point.force           = zero;
-				point.initial_error   = _compute_raw_contact_error(new_contact, point);
 			}
 		}
 	}
@@ -138,6 +134,38 @@ namespace lotus::physics::avbd {
 				result.constraint_association[find_body_idx(spring.body2)].spring_constraints.emplace_back(i);
 			}
 		}
+		for (usize i = 0; i < pins.size(); ++i) {
+			const constraints::pin &pin = pins[i];
+			if (pin.body1) {
+				result.constraint_association[find_body_idx(pin.body1)].pin_constraints.emplace_back(i);
+			}
+			if (pin.body2) {
+				result.constraint_association[find_body_idx(pin.body2)].pin_constraints.emplace_back(i);
+			}
+		}
+
+		// initialize contact dual variables
+		result.contact_duals.reserve(contacts.size());
+		for (const constraints::rigid_body_contact &contact : contacts) {
+			_contact_dual &dual = result.contact_duals.emplace_back();
+			dual.contact_points.reserve(contact.contact_points.size());
+			for (const constraints::rigid_body_contact::point &contact_point : contact.contact_points) {
+				_contact_dual::point &point = dual.contact_points.emplace_back(zero);
+				// TODO warm starting
+				point.stiffness     = vec3::filled(1000.0f);
+				point.force         = zero;
+				point.initial_error = _compute_raw_contact_error(contact, contact_point);
+			}
+		}
+
+		// initialize pin dual variables
+		result.pin_duals.reserve(pins.size());
+		for (const constraints::pin &pin : pins) {
+			_pin_dual &dual = result.pin_duals.emplace_back(zero);
+			// TODO warm starting
+			dual.stiffness = vec3::filled(1000.0f);
+			dual.force     = zero;
+		}
 
 		return result;
 	}
@@ -187,16 +215,19 @@ namespace lotus::physics::avbd {
 			// contact terms
 			for (const u32 ci : constraint_association.contact_constraints) {
 				const constraints::rigid_body_contact &contact = contacts[ci];
+				const _contact_dual &dual = bdata.contact_duals[ci];
 				const scalar sign = cur_body == contact.body1 ? 1.0f : -1.0f;
-				for (const constraints::rigid_body_contact::point &contact_point : contact.contact_points) {
+				for (usize cpi = 0; cpi < contact.contact_points.size(); ++cpi) {
+					const constraints::rigid_body_contact::point &contact_point = contact.contact_points[cpi];
+					const _contact_dual::point &dual_point = dual.contact_points[cpi];
+
 					const vec3 r_local =
 						cur_body == contact.body1 ? contact_point.local_position1 : contact_point.local_position2;
 					const vec3 r = cur_pos.orientation.rotate(r_local);
 
-
 					// compute constraint terms
-					const vec3 c = _compute_contact_error(contact, contact_point);
-					const vec3 unclamped_force = matm::multiply(contact_point.stiffness, c) + contact_point.force;
+					const vec3 c = _compute_contact_error(contact, contact_point, dual_point);
+					const vec3 unclamped_force = matm::multiply(dual_point.stiffness, c) + dual_point.force;
 					const auto force =
 						_contact_force::clamp(unclamped_force, contact.body1->material, contact.body2->material);
 
@@ -217,15 +248,15 @@ namespace lotus::physics::avbd {
 					f -= mat::concat_columns(dcndx, dctdx, dcbdx) * force.force;
 
 					h +=
-						contact_point.stiffness[0] * (dcndx * dcndx.transposed()) +
-						contact_point.stiffness[1] * (dctdx * dctdx.transposed()) +
-						contact_point.stiffness[2] * (dcbdx * dcbdx.transposed());
+						dual_point.stiffness[0] * (dcndx * dcndx.transposed()) +
+						dual_point.stiffness[1] * (dctdx * dctdx.transposed()) +
+						dual_point.stiffness[2] * (dcbdx * dcbdx.transposed());
 
 					mat33s hrot = h.block<3, 3>(3, 3);
 					hrot +=
-						contact_point.force[0] * d2cndq2 +
-						contact_point.force[1] * d2ctdq2 +
-						contact_point.force[2] * d2cbdq2;
+						dual_point.force[0] * d2cndq2 +
+						dual_point.force[1] * d2ctdq2 +
+						dual_point.force[2] * d2cbdq2;
 					h.set_block(3, 3, hrot);
 				}
 			}
@@ -271,6 +302,37 @@ namespace lotus::physics::avbd {
 				h += stiffness * ddt + stiffness * (1.0f - spring.initial_length / d_len) * b;
 			}
 
+			// pin terms
+			for (const u32 ci : constraint_association.pin_constraints) {
+				const constraints::pin &pin = pins[ci];
+				const _pin_dual &dual = bdata.pin_duals[ci];
+
+				const scalar sign = cur_body == pin.body1 ? 1.0 : -1.0f;
+				const vec3 r_local = cur_body == pin.body1 ? pin.local_position1 : pin.local_position2;
+				const vec3 r = cur_body->state.position.orientation.rotate(r_local);
+				const vec3 c = pin.get_global_position1() - pin.get_global_position2();
+				const vec3 force = matm::multiply(dual.stiffness, c) + dual.force;
+
+				matrix<6, 3, scalar> dcdx = uninitialized;
+				dcdx.set_block(0, 0, sign * mat33s::identity());
+				dcdx.set_block(3, 0, sign * vec::cross_matrix(r));
+
+				const mat33s d2cdwx2 = vec::cross_matrix(r) * vec::cross_matrix(vec3(1.0f, 0.0f, 0.0f));
+				const mat33s d2cdwy2 = vec::cross_matrix(r) * vec::cross_matrix(vec3(0.0f, 1.0f, 0.0f));
+				const mat33s d2cdwz2 = vec::cross_matrix(r) * vec::cross_matrix(vec3(0.0f, 0.0f, 1.0f));
+
+				f -= dcdx * force;
+
+				h +=
+					dual.stiffness[0] * dcdx.column(0) * dcdx.column(0).transposed() +
+					dual.stiffness[1] * dcdx.column(1) * dcdx.column(1).transposed() +
+					dual.stiffness[2] * dcdx.column(2) * dcdx.column(2).transposed();
+
+				mat33s hrot = h.block<3, 3>(3, 3);
+				hrot += force[0] * d2cdwx2 + force[1] * d2cdwy2 + force[2] * d2cdwz2;
+				h.set_block(3, 3, hrot);
+			}
+
 			// solve
 			const auto decomposition = lup_decomposition<6, scalar>::compute(h);
 			const scalar det = decomposition.determinant();
@@ -288,22 +350,36 @@ namespace lotus::physics::avbd {
 		}
 	}
 
-	void solver::_update_body_dual_variables() {
-		for (constraints::rigid_body_contact &contact : contacts) {
-			for (constraints::rigid_body_contact::point &contact_point : contact.contact_points) {
-				const vec3 c = _compute_contact_error(contact, contact_point);
-				const vec3 unclamped_force = matm::multiply(contact_point.stiffness, c) + contact_point.force;
+	void solver::_update_body_dual_variables(_body_step_data &bdata) {
+		for (usize ci = 0; ci < contacts.size(); ++ci) {
+			const constraints::rigid_body_contact &contact = contacts[ci];
+			_contact_dual &dual = bdata.contact_duals[ci];
+			for (usize cpi = 0; cpi < contact.contact_points.size(); ++cpi) {
+				const constraints::rigid_body_contact::point &contact_point = contact.contact_points[cpi];
+				_contact_dual::point &dual_point = dual.contact_points[cpi];
+
+				const vec3 c = _compute_contact_error(contact, contact_point, dual_point);
+				const vec3 unclamped_force = matm::multiply(dual_point.stiffness, c) + dual_point.force;
 				const auto force =
 					_contact_force::clamp(unclamped_force, contact.body1->material, contact.body2->material);
-				contact_point.force = force.force;
+				dual_point.force = force.force;
 				if (!force.normal_clamped) {
-					contact_point.stiffness[0] += stiffness_ramping * std::abs(c[0]);
+					dual_point.stiffness[0] += stiffness_ramping * std::abs(c[0]);
 				}
 				if (!force.friction_clamped) {
-					contact_point.stiffness += vec3(0.0f, stiffness_ramping * matm::abs(c.block<2, 1>(1, 0)));
+					dual_point.stiffness += vec3(0.0f, stiffness_ramping * matm::abs(c.block<2, 1>(1, 0)));
 				}
-				contact_point.stiffness = matm::min(contact_point.stiffness, vec3::filled(maximum_stiffness));
+				dual_point.stiffness = matm::min(dual_point.stiffness, vec3::filled(maximum_stiffness));
 			}
+		}
+
+		for (usize ci = 0; ci < pins.size(); ++ci) {
+			const constraints::pin &pin = pins[ci];
+			_pin_dual &dual = bdata.pin_duals[ci];
+
+			const vec3 c = pin.get_global_position1() - pin.get_global_position2();
+			dual.force = dual.force + matm::multiply(dual.stiffness, c);
+			dual.stiffness = matm::min(dual.stiffness + matm::abs(c), vec3::filled(maximum_stiffness));
 		}
 	}
 

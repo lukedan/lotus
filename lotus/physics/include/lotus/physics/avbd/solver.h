@@ -9,6 +9,7 @@
 #include "lotus/physics/world.h"
 #include "lotus/physics/avbd/constraints/contact.h"
 #include "lotus/physics/avbd/constraints/cosserat_rod.h"
+#include "lotus/physics/avbd/constraints/pin.h"
 #include "lotus/physics/avbd/constraints/spring.h"
 
 namespace lotus::physics {
@@ -40,8 +41,9 @@ namespace lotus::physics::avbd {
 		/// All Cosserat rod stretching-shearing constraints.
 		std::vector<constraints::cosserat_rod::stretch_shear> rod_stretch_shear_constraints;
 
-		std::vector<constraints::spring> springs; ///< All spring constraints.
 		std::vector<constraints::rigid_body_contact> contacts; ///< All contacts in the current time step.
+		std::vector<constraints::spring> springs; ///< All spring constraints.
+		std::vector<constraints::pin> pins; ///< All pin constraints.
 	private:
 		/// Clamped contact force.
 		struct _contact_force {
@@ -59,17 +61,45 @@ namespace lotus::physics::avbd {
 			bool friction_clamped = false; ///< Whether the friction force is clamped.
 		};
 
+		/// Dual variables for a contact constraint.
+		struct _contact_dual {
+			/// Dual variables for a single contact point.
+			struct point {
+				/// Zero initialization.
+				point(zero_t) {
+				}
+
+				vec3 stiffness = zero; ///< Soft stiffness.
+				vec3 force = zero; ///< The force applied during this step, i.e. the dual variable.
+				vec3 initial_error = zero; ///< Contact error at the beginning of the time step.
+			};
+			std::vector<point> contact_points; ///< All contact points.
+		};
+		/// Dual variables for a pin constraint.
+		struct _pin_dual {
+			/// Zero initialization.
+			_pin_dual(zero_t) {
+			}
+
+			vec3 stiffness = zero; ///< Soft stiffness.
+			vec3 force = zero; ///< The force applied during this step.
+		};
+
 		/// Data associated with all rigid bodies within a single time step.
 		struct _body_step_data {
 			/// Constraints that involve a body.
 			struct constraints {
 				std::vector<u32> contact_constraints; ///< Related contact constraints.
 				std::vector<u32> spring_constraints; ///< Related spring constraints.
+				std::vector<u32> pin_constraints; ///< Related pin constraints.
 			};
 
 			std::vector<body_position> initial_positions; ///< Initial positions.
 			std::vector<body_position> inertial_positions; ///< Inertial positions.
 			std::vector<constraints> constraint_association; ///< Constraint association.
+
+			std::vector<_contact_dual> contact_duals; ///< Dual variables for contact constraints.
+			std::vector<_pin_dual> pin_duals; ///< Dual variables for pin constraints.
 		};
 		/// Data associated with all particles within a single time step.
 		struct _particle_step_data {
@@ -97,15 +127,14 @@ namespace lotus::physics::avbd {
 		/// Computes the raw (\ref alpha not applied) contact error at the given contact point.
 		[[nodiscard]] vec3 _compute_raw_contact_error(
 			const constraints::rigid_body_contact&, const constraints::rigid_body_contact::point&
-		);
+		) const;
 		/// Computes the contact error at the given contact point with \ref alpha applied.
 		[[nodiscard]] vec3 _compute_contact_error(
 			const constraints::rigid_body_contact &contact,
-			const constraints::rigid_body_contact::point &contact_point
-		) {
-			return
-				_compute_raw_contact_error(contact, contact_point) -
-				contact_damping * contact_point.initial_error;
+			const constraints::rigid_body_contact::point &contact_point,
+			const _contact_dual::point &dual_point
+		) const {
+			return _compute_raw_contact_error(contact, contact_point) - contact_damping * dual_point.initial_error;
 		}
 		/// Updates all contact constraints. This needs to happen before the association between bodies and
 		/// constraints are computed in \ref _prepare_bodies().
@@ -117,7 +146,7 @@ namespace lotus::physics::avbd {
 		/// Updates all rigid bodies by a single iteration.
 		void _solve_bodies(scalar dt, const _body_step_data&);
 		/// Updates all rigid body dual variables.
-		void _update_body_dual_variables();
+		void _update_body_dual_variables(_body_step_data&);
 		/// Updates the velocities of all bodies at the end of a time step.
 		void _compute_body_velocities(scalar dt, const _body_step_data&);
 

@@ -7,7 +7,6 @@
 #include <lotus/helpers/application.h>
 #include <lotus/math/matrix.h>
 #include <lotus/math/vector.h>
-#include <lotus/math/quaternion.h>
 #include <lotus/utils/camera.h>
 
 #include "camera_control.h"
@@ -16,6 +15,7 @@
 #include "tests/box_stack_test.h"
 #include "tests/cosserat_rod_test.h"
 #include "tests/fem_cloth_test.h"
+#include "tests/pin_test.h"
 #include "tests/polyhedron_test.h"
 #include "tests/shallow_water_test.h"
 #include "tests/spring_cloth_test.h"
@@ -337,13 +337,14 @@ protected:
 
 int main(int argc, char **argv) {
 	testbed_app app(argc, argv);
+	app.register_test<angular_momentum_test>();
+	app.register_test<box_stack_test>();
+	app.register_test<cosserat_rod_test>();
+	app.register_test<fem_cloth_test>();
+	app.register_test<pin_test>();
 	app.register_test<convex_hull_test>();
 	app.register_test<shallow_water_test>();
-	app.register_test<fem_cloth_test>();
 	app.register_test<spring_cloth_test>();
-	app.register_test<cosserat_rod_test>();
-	app.register_test<box_stack_test>();
-	app.register_test<angular_momentum_test>();
 	app.register_test<spring_test>();
 	app.initialize();
 

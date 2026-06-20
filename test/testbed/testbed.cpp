@@ -35,19 +35,14 @@ public:
 
 	/// Renders all objects.
 	void render(lotus::renderer::constant_uploader &uploader) {
-		auto depth_buf = _context->request_image2d(u8"Depth Buffer", _get_window_size(), 1, lotus::gpu::format::d32_float_s8, lotus::gpu::image_usage_mask::depth_stencil_render_target, _pool);
-
-		const cvec4f64 clear_color(0.5, 0.5, 1.0, 1.0);
-		{
+		if (_test) {
+			_test->render(*_context, _gfx_q, uploader, _swap_chain, _get_window_size());
+		} else {
 			auto pass = _gfx_q.begin_pass(
-				{ lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(clear_color)) },
-				lotus::renderer::image2d_depth_stencil(depth_buf, lotus::gpu::depth_render_target_access::create_clear(0.0f), lotus::gpu::stencil_render_target_access::create_clear(0)),
+				{ lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::zero)) },
+				nullptr,
 				_get_window_size(), u8"Clear"
 			);
-		}
-
-		if (_test) {
-			_test->render(*_context, _gfx_q, uploader, _swap_chain, depth_buf, _get_window_size());
 		}
 	}
 
@@ -118,7 +113,6 @@ protected:
 	f32 _timestep_cost_factor = 0.01f; ///< Running average factor of timestep costs.
 
 	lotus::renderer::context::queue _gfx_q = nullptr;
-	lotus::renderer::pool _pool = nullptr;
 	/// Sensitivity for scrolling to move the camera closer and further from the focus point.
 	f32 _scroll_sensitivity = 0.95f;
 	lotus::camera_control<scalar> _camera_control = nullptr;
@@ -146,6 +140,7 @@ protected:
 				ImGui::SliderFloat("Line Opacity", &_test_context.line_opacity, 0.0f, 1.0f);
 				ImGui::Checkbox("Line Depth Test", &_test_context.line_depth_test);
 				ImGui::Checkbox("Orientations", &_test_context.draw_orientations);
+				ImGui::SliderFloat("SSAO Smoothing", &_test_context.ssao_smoothing, 0.0f, 1.0f);
 
 				ImGui::Separator();
 				ImGui::SliderFloat("Scroll Sensitivity", &_scroll_sensitivity, 0.0f, 1.0f);
@@ -269,22 +264,25 @@ protected:
 	}
 
 	void _on_initialized() override {
-		_test_context.default_shader_vs = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
-		_test_context.default_shader_ps = _assets->compile_shader_in_filesystem("./shaders/default_shader.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
-		_test_context.point_shader_vs = _assets->compile_shader_in_filesystem("./shaders/point_shader.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
-		_test_context.point_shader_ps = _assets->compile_shader_in_filesystem("./shaders/point_shader.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
-		_test_context.line_shader_vs = _assets->compile_shader_in_filesystem("./shaders/line_shader.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
-		_test_context.line_shader_ps = _assets->compile_shader_in_filesystem("./shaders/line_shader.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
-		_test_context.shadow_vs = _assets->compile_shader_in_filesystem("./shaders/shadow.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
-		_test_context.fullscreen_quad_vs = _assets->compile_shader_in_filesystem(_assets->asset_library_path / "shaders/misc/fullscreen_quad_vs.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs");
-		_test_context.shadow_quad_ps = _assets->compile_shader_in_filesystem("./shaders/shadow_quad.hlsl", lotus::gpu::shader_stage::pixel_shader, u8"main_ps");
+		_test_context.gbuffer_shader_vs  = _assets->compile_shader_in_filesystem("./shaders/gbuffer_shader.hlsl", lotus::gpu::shader_stage::vertex_shader,  u8"main_vs");
+		_test_context.gbuffer_shader_ps  = _assets->compile_shader_in_filesystem("./shaders/gbuffer_shader.hlsl", lotus::gpu::shader_stage::pixel_shader,   u8"main_ps");
+		_test_context.point_shader_vs    = _assets->compile_shader_in_filesystem("./shaders/point_shader.hlsl",   lotus::gpu::shader_stage::vertex_shader,  u8"main_vs");
+		_test_context.point_shader_ps    = _assets->compile_shader_in_filesystem("./shaders/point_shader.hlsl",   lotus::gpu::shader_stage::pixel_shader,   u8"main_ps");
+		_test_context.line_shader_vs     = _assets->compile_shader_in_filesystem("./shaders/line_shader.hlsl",    lotus::gpu::shader_stage::vertex_shader,  u8"main_vs");
+		_test_context.line_shader_ps     = _assets->compile_shader_in_filesystem("./shaders/line_shader.hlsl",    lotus::gpu::shader_stage::pixel_shader,   u8"main_ps");
+		_test_context.shadow_vs          = _assets->compile_shader_in_filesystem("./shaders/shadow.hlsl",         lotus::gpu::shader_stage::vertex_shader,  u8"main_vs");
+		_test_context.fullscreen_quad_vs = _assets->compile_shader_in_filesystem(_assets->asset_library_path / "shaders/misc/fullscreen_quad_vs.hlsl", lotus::gpu::shader_stage::vertex_shader, u8"main_vs", { { u8"FULLSCREEN_QUAD_DEPTH", u8"0" } });
+		_test_context.light_quad_ps      = _assets->compile_shader_in_filesystem("./shaders/light_quad.hlsl",     lotus::gpu::shader_stage::pixel_shader,   u8"main_ps");
+		_test_context.ssao_cs            = _assets->compile_shader_in_filesystem("./shaders/ssao.hlsl",           lotus::gpu::shader_stage::compute_shader, u8"main_cs");
+		_test_context.sky_ps             = _assets->compile_shader_in_filesystem("./shaders/sky.hlsl",            lotus::gpu::shader_stage::pixel_shader,   u8"main_ps");
+
 		_test_context.asset_manager = _assets.get();
 		_test_context.resource_pool = _context->request_pool(u8"Test Resource Pool");
 		_test_context.upload_pool = _context->request_pool(u8"Test Upload Pool", _context->get_upload_memory_type_index());
+
 		_reset_camera();
 
 		_gfx_q = _context->get_queue(0);
-		_pool = _context->request_pool(u8"Pool");
 
 		_camera_control = lotus::camera_control<scalar>(_test_context.camera_params);
 	}

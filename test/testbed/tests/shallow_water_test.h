@@ -477,8 +477,7 @@ public:
 		lotus::renderer::context::queue &q,
 		lotus::renderer::constant_uploader &uploader,
 		lotus::renderer::recorded_resources::swap_chain swap_chain,
-		lotus::renderer::recorded_resources::image2d_view depth_stencil,
-		lotus::cvec2u32 size
+		cvec2u32 size
 	) override {
 		const mat44s transform({
 			{ 1.0f, 0.0f, 0.0f, -0.5f * _grid_size[0] },
@@ -496,7 +495,7 @@ public:
 			);
 		}
 		_draw_heightfield(_terrain, _render, cell_size, lotus::linear_rgba_f32(0.8f, 0.5f, 0.0f, 1.0f), transform, _get_test_context().wireframe_surfaces);
-		_render.flush(ctx, q, uploader, swap_chain, depth_stencil, size);
+		_render.flush(ctx, q, uploader, swap_chain, size);
 	}
 
 	void gui() override {

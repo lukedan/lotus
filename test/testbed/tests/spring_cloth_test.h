@@ -97,10 +97,10 @@ public:
 	void render(
 		lotus::renderer::context &ctx, lotus::renderer::context::queue &q,
 		lotus::renderer::constant_uploader &uploader,
-		lotus::renderer::recorded_resources::swap_chain swap_chain, lotus::renderer::recorded_resources::image2d_view depth_stencil, lotus::cvec2u32 size
+		lotus::renderer::recorded_resources::swap_chain swap_chain, cvec2u32 size
 	) override {
 		_render.draw_system(_engine);
-		_render.flush(ctx, q, uploader, swap_chain, depth_stencil, size);
+		_render.flush(ctx, q, uploader, swap_chain, size);
 	}
 
 	void gui() override {

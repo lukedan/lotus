@@ -29,7 +29,7 @@ public:
 	/// Renders the scene.
 	virtual void render(
 		lotus::renderer::context&, lotus::renderer::context::queue&, lotus::renderer::constant_uploader&,
-		lotus::renderer::recorded_resources::swap_chain, lotus::renderer::recorded_resources::image2d_view depth_stencil, cvec2u32 size
+		lotus::renderer::recorded_resources::swap_chain, cvec2u32 size
 	) = 0;
 	/// Displays the test-specific GUI.
 	virtual void gui() {

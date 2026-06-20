@@ -16,15 +16,17 @@ using namespace lotus::vector_types;
 using namespace lotus::collision::types;
 
 struct test_context {
-	lotus::renderer::assets::handle<lotus::renderer::assets::shader> default_shader_vs = nullptr;
-	lotus::renderer::assets::handle<lotus::renderer::assets::shader> default_shader_ps = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> gbuffer_shader_vs = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> gbuffer_shader_ps = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> point_shader_vs = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> point_shader_ps = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> line_shader_vs = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> line_shader_ps = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> shadow_vs = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> fullscreen_quad_vs = nullptr;
-	lotus::renderer::assets::handle<lotus::renderer::assets::shader> shadow_quad_ps = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> light_quad_ps = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> ssao_cs = nullptr;
+	lotus::renderer::assets::handle<lotus::renderer::assets::shader> sky_ps = nullptr;
 	lotus::renderer::assets::manager *asset_manager = nullptr;
 	lotus::camera_parameters<scalar> camera_params = lotus::uninitialized;
 	lotus::camera<scalar> camera = lotus::uninitialized;
@@ -46,6 +48,7 @@ struct test_context {
 	f32 point_size = 7.0f;
 	f32 point_opacity = 0.5f;
 	f32 line_opacity = 1.0f;
+	f32 ssao_smoothing = 0.3f;
 
 	void update_camera() {
 		camera = camera_params.into_camera();
@@ -111,7 +114,7 @@ public:
 
 	void flush(
 		lotus::renderer::context&, lotus::renderer::context::queue&, lotus::renderer::constant_uploader&,
-		lotus::renderer::recorded_resources::swap_chain, lotus::renderer::recorded_resources::image2d_view, lotus::cvec2u32 size
+		lotus::renderer::recorded_resources::swap_chain, cvec2u32 size
 	);
 
 

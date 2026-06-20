@@ -16,6 +16,11 @@ struct ps_input {
 	float3 position_ws : POSITION_WS;
 };
 
+struct ps_output {
+	float3 color  : SV_Target0;
+	float3 normal : SV_Target1;
+};
+
 ConstantBuffer<default_shader_constants> constants : register(b0, space0);
 
 ps_input main_vs(vs_input input) {
@@ -28,13 +33,15 @@ ps_input main_vs(vs_input input) {
 	return result;
 }
 
-float3 main_ps(ps_input input, bool front_facing : SV_IsFrontFace) : SV_Target0 {
+ps_output main_ps(ps_input input, bool front_facing : SV_IsFrontFace) {
 	if (!front_facing) {
 		input.normal *= -1.0f;
 	}
-	const float n_dot_l = dot(normalize(input.normal), constants.light_direction);
-	const float lighting = n_dot_l * 0.5f + 0.5f;
 	const bool3 pattern_mask = bool3((int3)floor(input.position_ls * 3.0f) & 1);
 	const float pattern = (pattern_mask.x ^ pattern_mask.y ^ pattern_mask.z) ? 1.0f : 0.8f;
-	return lighting * (input.color.rgb) * pattern;
+
+	ps_output result;
+	result.color  = input.color.rgb * pattern;
+	result.normal = input.normal;
+	return result;
 }

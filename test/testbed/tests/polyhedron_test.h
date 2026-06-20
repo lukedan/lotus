@@ -63,8 +63,7 @@ public:
 		lotus::renderer::context::queue &q,
 		lotus::renderer::constant_uploader &uploader,
 		lotus::renderer::recorded_resources::swap_chain swap_chain,
-		lotus::renderer::recorded_resources::image2d_view depth_stencil,
-		lotus::cvec2u32 size
+		cvec2u32 size
 	) override {
 		const auto [poly_verts, poly_tris] = _get_polyhedron();
 		std::vector<bool> poly_vert_used(poly_verts.size(), false);
@@ -107,7 +106,7 @@ public:
 			_render.draw_point(poly_verts[i], color);
 		}
 
-		_render.flush(ctx, q, uploader, swap_chain, depth_stencil, size);
+		_render.flush(ctx, q, uploader, swap_chain, size);
 	}
 
 	void gui() override {

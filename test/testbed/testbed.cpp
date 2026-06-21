@@ -36,12 +36,12 @@ public:
 	/// Renders all objects.
 	void render(lotus::renderer::constant_uploader &uploader) {
 		if (_test) {
-			_test->render(*_context, _gfx_q, uploader, _swap_chain, _get_window_size());
+			_test->render(*_context, _gfx_q, uploader, _swap_chain, _get_back_buffer_size());
 		} else {
 			auto pass = _gfx_q.begin_pass(
 				{ lotus::renderer::image2d_color(_swap_chain, lotus::gpu::color_render_target_access::create_clear(lotus::zero)) },
 				nullptr,
-				_get_window_size(), u8"Clear"
+				_get_back_buffer_size(), u8"Clear"
 			);
 		}
 	}
@@ -250,7 +250,13 @@ protected:
 
 
 	void _reset_camera() {
-		_test_context.camera_params = lotus::camera_parameters<scalar>::create_look_at(lotus::zero, { 3.0f, 4.0f, 5.0f }, { 0.0f, 1.0f, 0.0f }, _get_window_size()[0] / std::max<scalar>(1.0f, static_cast<scalar>(_get_window_size()[1])));
+		const vec2 window_size = _get_back_buffer_size().into<scalar>();
+		_test_context.camera_params = lotus::camera_parameters<scalar>::create_look_at(
+			lotus::zero,
+			{ 3.0f, 4.0f, 5.0f },
+			{ 0.0f, 1.0f, 0.0f },
+			window_size[0] / std::max<scalar>(1.0f, window_size[1])
+		);
 		_test_context.update_camera();
 	}
 
@@ -307,7 +313,7 @@ protected:
 	}
 
 	void _on_resize(lotus::system::window_events::resize&) override {
-		lotus::cvec2u32 sz = _get_window_size();
+		cvec2u32 sz = _get_back_buffer_size();
 		_test_context.camera_params.aspect_ratio = sz[0] / static_cast<scalar>(sz[1]);
 		_test_context.update_camera();
 	}

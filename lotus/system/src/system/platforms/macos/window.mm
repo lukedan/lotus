@@ -45,7 +45,7 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 	if (_ptr->on_resize) {
 		auto *wnd = static_cast<NSWindow*>(_ptr->get_native_handle());
 		const NSSize size = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
-		lotus::system::window_events::resize event(lotus::cvec2f64(size.width, size.height).into<lotus::u32>());
+		lotus::system::window_events::resize event(lotus::cvec2f64(size.width, size.height));
 		_ptr->on_resize(event);
 	}
 }
@@ -70,10 +70,10 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 @implementation lotus_window
 
 /// Converts a mouse position from the window's base coordinate system to its backing coordinate system.
-- (lotus::cvec2i32)convert_mouse_position: (NSPoint)pos {
+- (lotus::cvec2f64)convert_mouse_position: (NSPoint)pos {
 	const NSPoint pt = [self.contentView convertPointToBacking: pos];
 	const NSSize sz = [self.contentView convertSizeToBacking: self.contentView.frame.size];
-	return lotus::cvec2f64(pt.x, sz.height - pt.y).into<int>();
+	return lotus::cvec2f64(pt.x, sz.height - pt.y);
 }
 
 /// Extracts modifier keys information from the given event.
@@ -238,10 +238,8 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 				const _window_ptr_t wnd = [self get_window_ptr];
 				if (wnd->on_resize) {
 					const NSSize size = [self.contentView convertSizeToBacking: self.contentView.frame.size];
-					lotus::system::window_events::resize event(
-						lotus::cvec2f64(size.width, size.height).into<lotus::u32>()
-					);
-					wnd->on_resize(event);
+					lotus::system::window_events::resize e(lotus::cvec2f64(size.width, size.height));
+					wnd->on_resize(e);
 				}
 				return;
 			}
@@ -301,10 +299,10 @@ namespace lotus::system::platforms::macos {
 		// TODO
 	}
 
-	cvec2s window::get_size() const {
+	cvec2f64 window::get_size() const {
 		auto *wnd = static_cast<NSWindow*>(_handle);
 		const NSSize size = [wnd.contentView convertSizeToBacking: wnd.contentView.frame.size];
-		return cvec2f64(size.width, size.height).into<usize>();
+		return cvec2f64(size.width, size.height);
 	}
 
 	void window::set_title(std::u8string_view title) {

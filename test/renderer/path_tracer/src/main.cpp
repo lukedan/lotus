@@ -112,9 +112,9 @@ private:
 		cam_control = lotus::camera_control<f32>(cam_params);
 	}
 
-	void _on_resize(lsys::window_events::resize &resize) override {
+	void _on_resize(lsys::window_events::resize&) override {
 		frame_index = 0;
-		const cvec2u32 sz = resize.new_size;
+		const cvec2u32 sz = _get_back_buffer_size();
 		cam_params.aspect_ratio = sz[0] / static_cast<f32>(sz[1]);
 		rt_result = _context->request_image2d(
 			u8"Raytracing result", sz, 1, lgpu::format::r32g32b32a32_float,
@@ -149,7 +149,7 @@ private:
 		}
 
 		const lotus::camera<f32> cam = cam_params.into_camera();
-		const cvec2u32 window_size = _get_window_size();
+		const cvec2u32 window_size = _get_back_buffer_size();
 
 		f32 tan_half_fovy = tan(cam_params.fov_y_radians * 0.5f);
 		auto right_half = cam.unit_right * tan_half_fovy * cam_params.aspect_ratio;

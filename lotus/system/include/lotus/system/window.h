@@ -50,7 +50,7 @@ namespace lotus::system {
 		}
 
 		/// Returns the size of this window's client area.
-		[[nodiscard]] cvec2s get_size() const {
+		[[nodiscard]] cvec2f64 get_size() const {
 			return platform::window::get_size();
 		}
 

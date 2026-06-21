@@ -35,7 +35,7 @@ public:
 			float2 mouse;
 			float2 mouse_down;
 			float2 mouse_drag;
-			int2 resolution;
+			uint2 resolution;
 			float time;
 		};
 
@@ -55,7 +55,7 @@ public:
 		lotus::cvec2f32 mouse = uninitialized; ///< Mouse position in pixels.
 		lotus::cvec2f32 mouse_down = uninitialized; ///< Mouse position in pixels.
 		lotus::cvec2f32 mouse_drag = uninitialized; ///< Mouse position in pixels.
-		lotus::cvec2<i32> resolution = uninitialized; ///< Screen resolution.
+		lotus::cvec2u32 resolution = uninitialized; ///< Screen resolution.
 		f32 time; ///< Total run time.
 	};
 

@@ -181,7 +181,7 @@ namespace lotus::helpers {
 					quit = quit || msg_type == system::message_type::quit;
 				} while (msg_type != system::message_type::none);
 
-				if (_get_window_size() == zero) {
+				if (_get_back_buffer_size() == zero) {
 					continue;
 				}
 
@@ -213,8 +213,12 @@ namespace lotus::helpers {
 
 
 		/// Returns the current window size.
-		[[nodiscard]] cvec2u32 _get_window_size() const {
+		[[nodiscard]] cvec2f64 _get_window_size() const {
 			return _window_size;
+		}
+		/// Returns the size of the back buffer in pixels.
+		[[nodiscard]] cvec2u32 _get_back_buffer_size() const {
+			return _back_buffer_size;
 		}
 
 
@@ -487,7 +491,8 @@ namespace lotus::helpers {
 		renderer::pool _constant_pool = nullptr; ///< Pool used for constant buffers.
 		renderer::pool _constant_upload_pool = nullptr; ///< Pool used for uploading constant buffers.
 
-		cvec2u32 _window_size = zero; ///< Current window size.
+		cvec2f64 _window_size = zero; ///< Current window size.
+		cvec2u32 _back_buffer_size = zero; ///< Current back buffer size in pixels.
 
 
 		/// Wraps an object created by \p new with a \p std::unique_ptr.
@@ -497,9 +502,11 @@ namespace lotus::helpers {
 
 		/// Updates ImGUI window size, then calls \ref _on_resize().
 		void _on_resize_raw(system::window_events::resize &resize) {
-			_imgui_sctx->on_resize(resize);
-			_swap_chain.resize(resize.new_size);
 			_window_size = resize.new_size;
+			_back_buffer_size = _window_size.into<u32>();
+
+			_imgui_sctx->on_resize(resize);
+			_swap_chain.resize(_back_buffer_size);
 			_on_resize(resize);
 		}
 		/// Filters out ImGUI mouse move events.
@@ -590,7 +597,7 @@ namespace lotus::helpers {
 			ImGui::Render();
 			_imgui_rctx->render(
 				renderer::image2d_color(_swap_chain, gpu::color_render_target_access::create_preserve_and_write()),
-				_get_window_size(), uploader, _imgui_pool
+				_get_back_buffer_size(), uploader, _imgui_pool
 			);
 
 			// upload constants

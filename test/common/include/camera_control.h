@@ -17,7 +17,7 @@ namespace lotus {
 		/// Called when the mouse moves.
 		///
 		/// \return whether the camera has been updated.
-		bool on_mouse_move(cvec2i32 new_position) {
+		bool on_mouse_move(cvec2f64 new_position) {
 			bool changed = false;
 
 			cvec2<T> offset = (new_position - _prev_mouse).template into<T>();
@@ -101,7 +101,7 @@ namespace lotus {
 		bool _is_rotating = false; ///< Whether this camera is being rotated.
 		bool _is_zooming = false; ///< Whether this camera is being zoomed in and out.
 		bool _is_moving = false; ///< Whether the camera is being moved.
-		cvec2i32 _prev_mouse = zero; ///< Previous mouse position.
+		cvec2f64 _prev_mouse = zero; ///< Previous mouse position.
 		/// The mouse button that triggered the last action.
 		system::mouse_button _trigger_button = system::mouse_button::num_enumerators;
 	};

@@ -185,7 +185,7 @@ namespace lotus::gpu::backends::vulkan {
 		}
 
 		vk::SwapchainCreateInfoKHR info;
-		const cvec2s size = wnd.get_size();
+		const cvec2s size = wnd.get_size().into<usize>();
 		info
 			.setSurface(result._surface.get())
 			.setMinImageCount(static_cast<u32>(frame_count))

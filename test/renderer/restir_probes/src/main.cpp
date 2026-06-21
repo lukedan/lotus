@@ -337,8 +337,8 @@ protected:
 		rng = std::default_random_engine(std::random_device{}());
 	}
 
-	void _on_resize(lsys::window_events::resize &resize) override {
-		cvec2u32 sz = resize.new_size;
+	void _on_resize(lsys::window_events::resize&) override {
+		cvec2u32 sz = _get_back_buffer_size();
 		cam_params.aspect_ratio = sz[0] / static_cast<f32>(sz[1]);
 		path_tracer_accum = _context->request_image2d(u8"Path Tracer Accumulation Buffer", sz, 1, lgpu::format::r32g32b32a32_float, lgpu::image_usage_mask::shader_read | lgpu::image_usage_mask::shader_write, runtime_tex_pool);
 	}
@@ -381,7 +381,7 @@ protected:
 		{
 			auto frame_tmr = _graphics_queue.start_timer(u8"Frame");
 
-			const cvec2u32 window_size = _get_window_size();
+			const cvec2u32 window_size = _get_back_buffer_size();
 
 			cvec2f32 taa_jitter = taa_samples[std::min(taa_phase, static_cast<u32>(taa_samples.size()))] - cvec2f32::filled(0.5f);
 			auto cam = cam_params.into_camera(lotus::matm::divide(taa_jitter, (2u * window_size).into<f32>()));
@@ -915,7 +915,7 @@ protected:
 				_debug_renderer->flush(
 					lren::image2d_color(_swap_chain, lgpu::color_render_target_access::create_preserve_and_write()),
 					lren::image2d_depth_stencil(g_buf.depth_stencil, lgpu::depth_render_target_access::create_preserve_and_write()),
-					_get_window_size(),
+					_get_back_buffer_size(),
 					cam.projection_view_matrix,
 					uploader
 				);

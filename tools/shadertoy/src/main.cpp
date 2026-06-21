@@ -36,9 +36,9 @@ protected:
 	lren::pool _resource_pool = nullptr;
 
 	bool _mouse_down = false;
-	lotus::cvec2i32 _mouse_pos = zero;
-	lotus::cvec2i32 _mouse_down_pos = zero;
-	lotus::cvec2i32 _mouse_drag_pos = zero;
+	lotus::cvec2f64 _mouse_pos = zero;
+	lotus::cvec2f64 _mouse_down_pos = zero;
+	lotus::cvec2f64 _mouse_drag_pos = zero;
 
 	std::chrono::high_resolution_clock::time_point _start_time;
 	u64 _frame_index = 0;
@@ -151,7 +151,7 @@ protected:
 				);
 				out.current_frame = _context->request_image2d(
 					lstr::assume_utf8(output_name),
-					_get_window_size(), 1, pass::output_image_format,
+					_get_back_buffer_size(), 1, pass::output_image_format,
 					lgpu::image_usage_mask::color_render_target | lgpu::image_usage_mask::shader_read,
 					_resource_pool
 				);
@@ -162,7 +162,7 @@ protected:
 		globals_buf_data.mouse = _mouse_pos.into<f32>();
 		globals_buf_data.mouse_down = _mouse_down_pos.into<f32>();
 		globals_buf_data.mouse_drag = _mouse_drag_pos.into<f32>();
-		globals_buf_data.resolution = _get_window_size().into<i32>();
+		globals_buf_data.resolution = _get_back_buffer_size();
 		globals_buf_data.time = std::chrono::duration<f32>(std::chrono::high_resolution_clock::now() - _start_time).count();
 
 		// render all passes
@@ -215,7 +215,7 @@ protected:
 					{}
 				);
 
-				auto pass = _gfx_q.begin_pass(std::move(color_surfaces), nullptr, _get_window_size(), pit->first);
+				auto pass = _gfx_q.begin_pass(std::move(color_surfaces), nullptr, _get_back_buffer_size(), pit->first);
 				pass.draw_instanced(
 					{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list, std::move(resource_bindings),
 					_vert_shader, pit->second.shader, state, 1, pit->first
@@ -253,7 +253,7 @@ protected:
 						_swap_chain, lgpu::color_render_target_access::create_clear(lotus::cvec4f64(1.0, 0.0, 0.0, 0.0))
 					)
 				},
-				nullptr, _get_window_size(), u8"Main blit pass"
+				nullptr, _get_back_buffer_size(), u8"Main blit pass"
 			);
 			pass.draw_instanced(
 				{}, 3, nullptr, 0, lgpu::primitive_topology::triangle_list, std::move(resource_bindings),

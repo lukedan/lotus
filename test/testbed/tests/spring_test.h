@@ -59,6 +59,9 @@ public:
 		ImGui::SliderFloat("Compressed Stiffness", &_compressed_stiffness, 0.0f, 10000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderFloat("Stretched Stiffness", &_stretched_stiffness, 0.0f, 10000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderFloat("Height", &_height, 2.0f, 150.0f);
+
+		ImGui::Separator();
+		physics_test::gui();
 	}
 
 	static std::string get_name() {
@@ -68,7 +71,6 @@ public:
 		return test_category::rigid_body_physics;
 	}
 private:
-	std::deque<lotus::physics::body> _bodies;
 	lotus::collision::shape _box_shape;
 	lotus::collision::shape _plane_shape;
 

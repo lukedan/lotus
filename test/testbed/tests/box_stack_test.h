@@ -31,12 +31,6 @@ public:
 			_platform_shape = lotus::collision::shape::create(std::move(platform_poly));
 		}
 
-		{
-			auto [bullet_poly, bullet_poly_props] = create_box_shape(vec3::filled(1.0f));
-			_bullet_shape = lotus::collision::shape::create(std::move(bullet_poly));
-			_bullet_properties = bullet_poly_props.get_body_properties(_density);
-		}
-
 		auto material = lotus::physics::material_properties(
 			_static_friction, _dynamic_friction, _restitution
 		);
@@ -137,16 +131,7 @@ public:
 		ImGui::SliderFloat("Box Density", &_density, 0.0f, 100.0f);
 
 		ImGui::Separator();
-		if (ImGui::Button("Shoot Box")) {
-			_shoot_box();
-		}
 		physics_test::gui();
-	}
-
-	void on_key_down(lotus::system::window_events::key_down &kd) override {
-		if (kd.key_code == lotus::system::key::space) {
-			_shoot_box();
-		}
 	}
 
 	static std::string get_name() {
@@ -156,8 +141,6 @@ public:
 		return test_category::rigid_body_physics;
 	}
 protected:
-	std::deque<lotus::physics::body> _bodies;
-
 	bool _rotate_90 = false;
 	bool _fix_first_row = false;
 	bool _use_platform = false;
@@ -175,20 +158,4 @@ protected:
 	lotus::collision::shape _plane_shape;
 	lotus::collision::shape _box_shape;
 	lotus::collision::shape _platform_shape;
-	lotus::collision::shape _bullet_shape;
-	lotus::physics::body_properties _bullet_properties = lotus::uninitialized;
-
-	void _shoot_box() {
-		auto material = lotus::physics::material_properties(_static_friction, _dynamic_friction, _restitution);
-		_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
-			_bullet_shape,
-			material,
-			_bullet_properties,
-			lotus::physics::body_state::from_position_velocity(
-				_get_test_context().camera_params.position,
-				uquats::identity(),
-				_get_test_context().camera.unit_forward * 50.0f
-			)
-		)));
-	}
 };

@@ -68,8 +68,6 @@ public:
 		return test_category::rigid_body_physics;
 	}
 private:
-	std::deque<lotus::physics::body> _bodies;
-
 	f32 _box_size[3]{ 0.2f, 0.5f, 0.8f };
 	f32 _angular_velocity = 10.0f;
 	f32 _perturbation = 0.01f;

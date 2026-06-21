@@ -66,6 +66,9 @@ public:
 		ImGui::SliderFloat("Gap", &_gap, 1.0f, 10.0f);
 		ImGui::SliderFloat("Height", &_height, 2.0f, 150.0f);
 		ImGui::Checkbox("Double Pin", &_double_pin);
+
+		ImGui::Separator();
+		physics_test::gui();
 	}
 
 	static std::string get_name() {
@@ -75,7 +78,6 @@ public:
 		return test_category::rigid_body_physics;
 	}
 private:
-	std::deque<lotus::physics::body> _bodies;
 	lotus::collision::shape _box_shape;
 	lotus::collision::shape _plane_shape;
 

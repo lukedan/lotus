@@ -34,6 +34,7 @@ namespace lotus::helpers {
 			_shader_utils(gpu::shader_utility::create()) {
 
 			_window = _wrap(new auto(_app.create_window()));
+			_window->set_title(app_name);
 		}
 		/// Default virtual destructor.
 		virtual ~application() = default;

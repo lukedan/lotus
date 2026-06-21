@@ -60,8 +60,8 @@ public:
 			const auto x = static_cast<int>(std::floor(pos[0]));
 			const auto y = static_cast<int>(std::floor(pos[1]));
 			const auto gather_res = gather_zero({ x, y });
-			const f32 lx = pos[0] - x;
-			const f32 ly = pos[1] - y;
+			const f32 lx = pos[0] - static_cast<f32>(x);
+			const f32 ly = pos[1] - static_cast<f32>(y);
 			return {
 				std::lerp(
 					std::lerp(gather_res(0, 0), gather_res(0, 1), lx),
@@ -122,8 +122,8 @@ public:
 		}
 
 		void impulse(vec2 pos, f32 strength, f32 dt) override {
-			const auto x = static_cast<u32>(std::round(pos[0] * _h.get_size()[0]));
-			const auto y = static_cast<u32>(std::round(pos[1] * _h.get_size()[1]));
+			const auto x = static_cast<u32>(std::round(pos[0] * static_cast<f32>(_h.get_size()[0])));
+			const auto y = static_cast<u32>(std::round(pos[1] * static_cast<f32>(_h.get_size()[1])));
 			_h(x, y) += strength * dt;
 		}
 
@@ -132,7 +132,7 @@ public:
 			_solve_horizontal(dt);
 			_solve_vertical(dt);
 			const auto [new_vol, new_cells] = _volume();
-			_distribute_volume((vol - new_vol) / new_cells);
+			_distribute_volume((vol - new_vol) / static_cast<f32>(new_cells));
 		}
 		[[nodiscard]] f32 height(u32 x, u32 y) const override {
 			return _h(x, y);
@@ -149,7 +149,7 @@ public:
 		void _solve_horizontal(f32 dt) {
 			const u32 w = _h.get_size()[0];
 			const u32 h = _h.get_size()[1];
-			const f32 cell_size = _get_test()._grid_size[0] / (w - 1);
+			const f32 cell_size = _get_test()._grid_size[0] / static_cast<f32>(w - 1);
 			const f32 constant = _get_test()._gravity * (dt * dt) / (cell_size * cell_size);
 
 			std::vector<f32> e(w);
@@ -183,7 +183,7 @@ public:
 		void _solve_vertical(f32 dt) {
 			const u32 w = _h.get_size()[0];
 			const u32 h = _h.get_size()[1];
-			const f32 cell_size = _get_test()._grid_size[1] / (h - 1);
+			const f32 cell_size = _get_test()._grid_size[1] / static_cast<f32>(h - 1);
 			const f32 constant = _get_test()._gravity * (dt * dt) / (cell_size * cell_size);
 
 			std::vector<f32> e(h);
@@ -304,7 +304,7 @@ public:
 			grid2<f32> rx(ux.get_size());
 			for (u32 y = 0; y < ux.get_size()[1]; ++y) {
 				for (u32 x = 0; x < ux.get_size()[0]; ++x) {
-					const vec2 p(x, y);
+					const vec2 p = cvec2u32(x, y).into<scalar>();
 					const f32 vx = ux(x, y);
 					const f32 vy = uy.sample_zero(p + offy).first;
 					const auto [smp, gather] = ux.sample_zero(p - vec2(vx, vy) * dt);
@@ -468,7 +468,7 @@ public:
 			_method->impulse(vec2(_impulse_pos[0], _impulse_pos[1]), _impulse_vel, dt);
 		}
 		for (u32 i = 0; i < iterations; ++i) {
-			_method->timestep(dt / iterations);
+			_method->timestep(dt / static_cast<f32>(iterations));
 		}
 	}
 
@@ -577,7 +577,7 @@ protected:
 			return lotus::matm::multiply(x, y);
 		};
 		const auto fract = [](f32 x) {
-			return x - static_cast<int>(x);
+			return x - static_cast<f32>(static_cast<int>(x));
 		};
 		const auto fractv = [](auto x) {
 			return x - x.template into<int>().template into<f32>();
@@ -606,9 +606,9 @@ protected:
 		const auto w = _terrain.get_size()[0];
 		const auto h = _terrain.get_size()[1];
 		for (u32 y = 0; y < h; ++y) {
-			const f32 yp = _terrain_freq * (_grid_size[1] * y / (h - 1) + _terrain_phase[1]);
+			const f32 yp = _terrain_freq * (_grid_size[1] * static_cast<f32>(y) / static_cast<f32>(h - 1) + _terrain_phase[1]);
 			for (u32 x = 0; x < w; ++x) {
-				const f32 xp = _terrain_freq * (_grid_size[0] * x / (w - 1) + _terrain_phase[0]);
+				const f32 xp = _terrain_freq * (_grid_size[0] * static_cast<f32>(x) / static_cast<f32>(w - 1) + _terrain_phase[0]);
 				_terrain(x, y) = _terrain_offset + _terrain_amp * noise(vec2(xp, yp));
 			}
 		}
@@ -620,7 +620,7 @@ protected:
 
 	template <typename Callback> static void _draw_heightfield(
 		Callback &&height,
-		lotus::cvec2u32 sz,
+		cvec2u32 sz,
 		debug_render &render,
 		vec2 cell_size,
 		lotus::linear_rgba_f32 color,
@@ -636,7 +636,7 @@ protected:
 				const u32 x0y1 = x1y1 - 1;
 				const u32 x1y0 = x1y1 - sz[0];
 				const u32 x0y0 = x0y1 - sz[0];
-				pos.emplace_back(x * cell_size[0], height(x, y), y * cell_size[1]);
+				pos.emplace_back(static_cast<f32>(x) * cell_size[0], height(x, y), static_cast<f32>(y) * cell_size[1]);
 				if (x > 0 && y > 0) {
 					indices.emplace_back(x0y0);
 					indices.emplace_back(x1y1);

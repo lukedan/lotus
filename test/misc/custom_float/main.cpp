@@ -55,7 +55,8 @@ int main() {
 	constexpr u64 f64_interval = 2100000000;
 	for (u64 i = 0; ; ) {
 		if (i % (f64_interval * 10000000) == 0) {
-			lotus::log().debug("f64 -> f32  {:.1f}%", 100.0 * i / static_cast<f64>(std::numeric_limits<u64>::max()));
+			const f64 progress = static_cast<f64>(i) / static_cast<f64>(std::numeric_limits<u64>::max());
+			lotus::log().debug("f64 -> f32  {:.1f}%", 100.0 * progress);
 		}
 
 		lotus::crash_if(!test_f64_to_f32(std::bit_cast<f64>(i)));

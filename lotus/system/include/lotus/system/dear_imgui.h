@@ -12,7 +12,7 @@ namespace lotus::system::dear_imgui {
 	class context {
 	public:
 		/// Creates a new Dear ImGui system context.
-		[[nodiscard]] inline static context create() {
+		[[nodiscard]] static context create() {
 			auto &io = ImGui::GetIO();
 			io.BackendPlatformName = "imgui_impl_lotus_system";
 			io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
@@ -22,12 +22,12 @@ namespace lotus::system::dear_imgui {
 		/// Called when the window is resized.
 		void on_resize(window_events::resize &e) {
 			auto &io = ImGui::GetIO();
-			io.DisplaySize = ImVec2(e.new_size[0], e.new_size[1]);
+			io.DisplaySize = ImVec2(static_cast<f32>(e.new_size[0]), static_cast<f32>(e.new_size[1]));
 		}
 		/// Called when a mouse move event is detected.
 		void on_mouse_move(window_events::mouse::move &e) {
 			auto &io = ImGui::GetIO();
-			io.AddMousePosEvent(e.new_position[0], e.new_position[1]);
+			io.AddMousePosEvent(static_cast<f32>(e.new_position[0]), static_cast<f32>(e.new_position[1]));
 		}
 		/// Called when the mouse leaves the window.
 		void on_mouse_leave() {
@@ -42,7 +42,7 @@ namespace lotus::system::dear_imgui {
 			_mouse_buttons |= 1u << std::to_underlying(e.button);
 
 			auto &io = ImGui::GetIO();
-			io.AddMousePosEvent(e.position[0], e.position[1]);
+			io.AddMousePosEvent(static_cast<f32>(e.position[0]), static_cast<f32>(e.position[1]));
 			io.AddMouseButtonEvent(_mouse_button_mapping[e.button], true);
 		}
 		/// Called when a mouse up event is detected.
@@ -53,13 +53,13 @@ namespace lotus::system::dear_imgui {
 			}
 
 			auto &io = ImGui::GetIO();
-			io.AddMousePosEvent(e.position[0], e.position[1]);
+			io.AddMousePosEvent(static_cast<f32>(e.position[0]), static_cast<f32>(e.position[1]));
 			io.AddMouseButtonEvent(_mouse_button_mapping[e.button], false);
 		}
 		/// Called when a mouse scroll event is detected.
 		void on_mouse_scroll(window_events::mouse::scroll &e) {
 			auto &io = ImGui::GetIO();
-			io.AddMousePosEvent(e.position[0], e.position[1]);
+			io.AddMousePosEvent(static_cast<f32>(e.position[0]), static_cast<f32>(e.position[1]));
 			io.AddMouseWheelEvent(e.offset[0], e.offset[1]);
 		}
 		/// Called when mouse capture is broken externally.

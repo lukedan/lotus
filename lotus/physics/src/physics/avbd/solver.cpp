@@ -160,7 +160,7 @@ namespace lotus::physics::avbd {
 
 		// initialize pin dual variables
 		result.pin_duals.reserve(pins.size());
-		for (const constraints::pin &pin : pins) {
+		for (usize i = 0; i < pins.size(); ++i) {
 			_pin_dual &dual = result.pin_duals.emplace_back(zero);
 			// TODO warm starting
 			dual.stiffness = vec3::filled(1000.0f);

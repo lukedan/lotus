@@ -93,7 +93,7 @@ public:
 
 		for (u32 x = 0; x < 5; ++x) {
 			for (u32 y = 0; y < 5; ++y) {
-				const vec3 start(0.01f * x, 0.01f * y, 0.0f);
+				const vec3 start(0.01f * static_cast<scalar>(x), 0.01f * static_cast<scalar>(y), 0.0f);
 				const vec3 end = start + vec3(0.0f, 0.0f, _length_m);
 
 				_create_straight_rod_avbd(
@@ -163,7 +163,7 @@ private:
 		const float volume = 0.25f * static_cast<f32>(lotus::constants::pi) * diameter * diameter * (end - start).norm();
 		const float total_mass = volume * density;
 
-		const vec3 part_offset = (end - start) / (num_parts - 1);
+		const vec3 part_offset = (end - start) / static_cast<scalar>(num_parts - 1);
 		const scalar inv_part_mass = static_cast<scalar>(num_parts) / total_mass;
 		const scalar inv_inertia_mass = 8.0f * inv_part_mass / (diameter * diameter);
 
@@ -173,7 +173,7 @@ private:
 			lotus::physics::particle_properties props = lotus::uninitialized;
 			props.inverse_mass = i < 2 ? 0.0f : inv_part_mass;
 			solver.particles.emplace_back(lotus::physics::particle::create(
-				props, lotus::physics::particle_state::stationary_at(start + part_offset * i)
+				props, lotus::physics::particle_state::stationary_at(start + part_offset * static_cast<scalar>(i))
 			));
 		}
 

@@ -278,9 +278,9 @@ namespace lotus {
 				s /= squared_magnitude();
 			}
 			return {
-				{ 1 - s * (yy + zz), s * (xy - zw),     s * (xz + yw)     },
-				{ s * (xy + zw),     1 - s * (xx + zz), s * (yz - xw)     },
-				{ s * (xz - yw),     s * (yz + xw),     1 - s * (xx + yy) }
+				{ 1.0f - s * (yy + zz), s * (xy - zw),        s * (xz + yw)        },
+				{ s * (xy + zw),        1.0f - s * (xx + zz), s * (yz - xw)        },
+				{ s * (xz - yw),        s * (yz + xw),        1.0f - s * (xx + yy) },
 			};
 		}
 		/// Returns a vector containing the x, y, z, and w components of this quaternion.
@@ -293,13 +293,15 @@ namespace lotus {
 		}
 
 		/// Rotates a vector.
-		template <typename Vec> [[nodiscard]] constexpr auto rotate(const Vec &v1) const {
-			static_assert(Vec::dimensionality == 3, "Incorrect dimensionality");
-			T s = w();
-			auto v = axis();
-			auto result = (2 * vec::dot(v, v1)) * v + (s * s - v.squared_norm()) * v1 + (2 * s) * vec::cross(v, v1);
+		template <typename Vec> [[nodiscard]] constexpr auto rotate(
+			const Vec &v1
+		) const requires (Vec::dimensionality == 3) {
+			const T s = w();
+			const cvec3<T> v = axis();
+			const cvec3<T> result =
+				(2.0f * vec::dot(v, v1)) * v + (s * s - v.squared_norm()) * v1 + (2.0f * s) * vec::cross(v, v1);
 			if constexpr (Kind == quaternion_kind::arbitrary) {
-				result /= squared_magnitude();
+				return result / squared_magnitude();
 			}
 			return result;
 		}

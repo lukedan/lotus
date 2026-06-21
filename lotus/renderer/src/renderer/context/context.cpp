@@ -1079,7 +1079,7 @@ namespace lotus::renderer {
 							u64 ticks = raw_results[tmr.second_timestamp] - raw_results[tmr.first_timestamp];
 							auto &res = queue_res.emplace_back(nullptr);
 							/*res.name = std::move(tmr.name);*/
-							res.duration_ms = static_cast<f32>((ticks * 1000) / frequency);
+							res.duration_ms = static_cast<f32>(static_cast<f64>(ticks * 1000) / frequency);
 						}
 					}
 				}

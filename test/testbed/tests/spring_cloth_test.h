@@ -26,7 +26,7 @@ public:
 		auto side_segs = static_cast<usize>(_side_segments);
 
 		scalar cloth_mass = _cloth_density * _cloth_size * _cloth_size * 0.001f; // assume 1mm thick
-		scalar node_mass = cloth_mass / (side_segs * side_segs);
+		scalar node_mass = cloth_mass / static_cast<scalar>(side_segs * side_segs);
 		scalar segment_length = _cloth_size / static_cast<scalar>(side_segs - 1);
 
 		auto &surface = _render.surfaces.emplace_back();
@@ -38,9 +38,11 @@ public:
 				if (x == 0 && (y == 0 || y == side_segs - 1)) {
 					prop = lotus::physics::particle_properties::kinematic();
 				}
-				auto state = lotus::physics::particle_state::stationary_at(
-					{ x * segment_length, _cloth_size, y * segment_length - 0.5f * _cloth_size }
-				);
+				auto state = lotus::physics::particle_state::stationary_at({
+					static_cast<scalar>(x) * segment_length,
+					_cloth_size,
+					static_cast<scalar>(y) * segment_length - 0.5f * _cloth_size
+				});
 				pid[x][y] = static_cast<u32>(_engine.particles.size());
 				_engine.particles.emplace_back(lotus::physics::particle::create(prop, state));
 			}

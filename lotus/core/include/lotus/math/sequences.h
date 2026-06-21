@@ -22,7 +22,7 @@ namespace lotus::sequences {
 			F result = 0;
 			u32 i = 0;
 			while (index > 0) {
-				result += _coefficients[i] * (index % _base);
+				result += _coefficients[i] * static_cast<F>(index % _base);
 				index /= _base;
 				++i;
 			}
@@ -31,7 +31,7 @@ namespace lotus::sequences {
 	private:
 		/// Initializes \ref _coefficients.
 		constexpr explicit halton(u32 base) : _base(base) {
-			F rcp = F(1) / _base;
+			F rcp = 1 / static_cast<F>(_base);
 			F cur = rcp;
 			for (u32 i = 0; i < NumBits; ++i, cur *= rcp) {
 				_coefficients[i] = cur;
@@ -70,7 +70,7 @@ namespace lotus::sequences {
 		/// Initializes \ref _coefficients.
 		constexpr hammersley() {
 			for (u32 i = 0; i < NumBits; ++i) {
-				_coefficients[i] = static_cast<F>(1) / (2u << i);
+				_coefficients[i] = 1 / static_cast<F>(2u << i);
 			}
 		}
 

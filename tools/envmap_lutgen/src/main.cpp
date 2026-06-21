@@ -115,9 +115,9 @@ int main() {
 	}
 
 	for (u32 i_n_dot_v = 0; i_n_dot_v < samples_n_dot_v; ++i_n_dot_v) {
-		f32 n_dot_v = i_n_dot_v / static_cast<f32>(samples_n_dot_v - 1);
+		f32 n_dot_v = static_cast<f32>(i_n_dot_v) / static_cast<f32>(samples_n_dot_v - 1);
 		for (u32 i_roughness = 0; i_roughness < samples_roughness; ++i_roughness) {
-			f32 roughness = i_roughness / static_cast<f32>(samples_roughness);
+			f32 roughness = static_cast<f32>(i_roughness) / static_cast<f32>(samples_roughness);
 
 			cvec2f64 values = integrate_brdf(roughness, n_dot_v, seq_bits);
 			cvec2<u16> values_f16 = lotus::matm::operation([](f64 x) {

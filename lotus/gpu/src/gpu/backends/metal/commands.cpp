@@ -26,7 +26,8 @@ namespace lotus::gpu::backends::metal {
 			desc->setTexture(fb._color_rts[i]);
 			std::visit(
 				[&](const auto &v) {
-					desc->setClearColor(MTL::ClearColor(v[0], v[1], v[2], v[3]));
+					const cvec4f64 vf64 = v.template into<f64>();
+					desc->setClearColor(MTL::ClearColor(vf64[0], vf64[1], vf64[2], vf64[3]));
 				},
 				rt_access.clear_value.value
 			);

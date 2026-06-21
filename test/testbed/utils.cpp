@@ -213,8 +213,18 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::plane&, mat
 	lotus::linear_rgba_f32 color = visual ? visual->color : lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f);
 	if (wireframe) {
 		for (int x = -size; x <= size; ++x) {
-			draw_line(vx * x + vy * -size, vx * x + vy * size, transform, color);
-			draw_line(vy * x + vx * -size, vy * x + vx * size, transform, color);
+			draw_line(
+				vx * static_cast<f32>(x) + vy * -static_cast<f32>(size),
+				vx * static_cast<f32>(x) + vy * static_cast<f32>(size),
+				transform,
+				color
+			);
+			draw_line(
+				vy * static_cast<f32>(x) + vx * -static_cast<f32>(size),
+				vy * static_cast<f32>(x) + vx * static_cast<f32>(size),
+				transform,
+				color
+			);
 		}
 	} else {
 		const scalar scale_ls = 10.0f;
@@ -281,7 +291,11 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::convex_poly
 				vec3 last_vert = (transform * vec4(poly.get_vertex(face.vertex_indices.back()) + offset, 1.0f)).block<3, 1>(0, 0);
 				for (usize i = 0; i < face.vertex_indices.size(); ++i) {
 					const vec3 vert = (transform * vec4(poly.get_vertex(face.vertex_indices[i]) + offset, 1.0f)).block<3, 1>(0, 0);
-					draw_line(last_vert, vert, lotus::linear_rgba_f32(0.0f, i / static_cast<float>(face.vertex_indices.size() - 1), 0.0f, 1.0f));
+					draw_line(
+						last_vert,
+						vert,
+						lotus::linear_rgba_f32(0.0f, static_cast<f32>(i) / static_cast<f32>(face.vertex_indices.size() - 1), 0.0f, 1.0f)
+					);
 					last_vert = vert;
 				}
 			}
@@ -710,7 +724,7 @@ void debug_render::flush(
 		ssao_constants.smoothing               = ctx->ssao_smoothing;
 		q.run_compute_shader_with_thread_dimensions(
 			ctx->ssao_cs,
-			cvec3u32(size, 1),
+			cvec3u32(size, 1u),
 			{
 				{
 					{ 1, ctx->asset_manager->get_samplers() }
@@ -788,8 +802,8 @@ void debug_render::flush(
 		const f32 tan_fov_y = std::tan(0.5f * ctx->camera_params.fov_y_radians);
 		point_constants.projection_view = ctx->camera.projection_view_matrix.into<f32>();
 		point_constants.view = ctx->camera.view_matrix.into<f32>();
-		point_constants.down = -ctx->camera.unit_up * tan_fov_y / size[1];
-		point_constants.right = ctx->camera.unit_right * tan_fov_y * ctx->camera_params.aspect_ratio / size[0];
+		point_constants.down = -ctx->camera.unit_up * tan_fov_y / static_cast<f32>(size[1]);
+		point_constants.right = ctx->camera.unit_right * tan_fov_y * ctx->camera_params.aspect_ratio / static_cast<f32>(size[0]);
 		point_constants.opacity_multiplier = ctx->point_opacity;
 		shader_types::line_shader_constants line_constants;
 		line_constants.projection_view = ctx->camera.projection_view_matrix.into<f32>();

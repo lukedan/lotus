@@ -31,8 +31,6 @@ public:
 			}
 		}
 
-		auto i = box_props.inverse_inertia * box_props.inertia;
-
 		auto material = lotus::physics::material_properties(0.0f, 0.0f, 0.0f);
 
 		{

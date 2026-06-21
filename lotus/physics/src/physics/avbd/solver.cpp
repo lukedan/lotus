@@ -143,6 +143,15 @@ namespace lotus::physics::avbd {
 				result.constraint_association[find_body_idx(pin.body2)].pin_constraints.emplace_back(i);
 			}
 		}
+		for (usize i = 0; i < hinges.size(); ++i) {
+			const constraints::hinge &hinge = hinges[i];
+			if (hinge.body1) {
+				result.constraint_association[find_body_idx(hinge.body1)].hinge_constraints.emplace_back(i);
+			}
+			if (hinge.body2) {
+				result.constraint_association[find_body_idx(hinge.body2)].hinge_constraints.emplace_back(i);
+			}
+		}
 
 		// initialize contact dual variables
 		result.contact_duals.reserve(contacts.size());
@@ -165,6 +174,15 @@ namespace lotus::physics::avbd {
 			// TODO warm starting
 			dual.stiffness = vec3::filled(1000.0f);
 			dual.force     = zero;
+		}
+
+		// initialize hinge dual variables
+		result.hinge_duals.reserve(hinges.size());
+		for (usize i = 0; i < hinges.size(); ++i) {
+			_hinge_dual &dual = result.hinge_duals.emplace_back(zero);
+			// TODO warm starting
+			dual.stiffness = 1000.0f;
+			dual.force     = 0.0f;
 		}
 
 		return result;
@@ -333,6 +351,32 @@ namespace lotus::physics::avbd {
 				h.set_block(3, 3, hrot);
 			}
 
+			// hinge terms
+			for (const u32 ci : constraint_association.hinge_constraints) {
+				const constraints::hinge &hinge = hinges[ci];
+				const _hinge_dual &dual = bdata.hinge_duals[ci];
+
+				vec3 r1 = hinge.get_global_axis1();
+				vec3 r2 = hinge.get_global_axis2();
+				if (cur_body == hinge.body2) {
+					std::swap(r1, r2);
+				}
+
+				const scalar c = hinge_constant - vec::dot(r1, r2);
+				const scalar force = dual.stiffness * c + dual.force;
+
+				const vec3 dcdw = vec::cross(r2, r1);
+				const mat33 d2cdw2 = -vec::cross_matrix(r1) * vec::cross_matrix(r2);
+
+				vec3 frot = f.block<3, 1>(3, 0);
+				frot -= force * dcdw;
+				f.set_block(3, 0, frot);
+
+				mat33s hrot = h.block<3, 3>(3, 3);
+				hrot += dual.stiffness * dcdw * dcdw.transposed() + force * d2cdw2;
+				h.set_block(3, 3, hrot);
+			}
+
 			// solve
 			const auto decomposition = lup_decomposition<6, scalar>::compute(h);
 			const scalar det = decomposition.determinant();
@@ -380,6 +424,15 @@ namespace lotus::physics::avbd {
 			const vec3 c = pin.get_global_position1() - pin.get_global_position2();
 			dual.force = dual.force + matm::multiply(dual.stiffness, c);
 			dual.stiffness = matm::min(dual.stiffness + matm::abs(c), vec3::filled(maximum_stiffness));
+		}
+
+		for (usize ci = 0; ci < hinges.size(); ++ci) {
+			const constraints::hinge &hinge = hinges[ci];
+			_hinge_dual &dual = bdata.hinge_duals[ci];
+
+			const scalar c = hinge_constant - vec::dot(hinge.get_global_axis1(), hinge.get_global_axis2());
+			dual.force = dual.force + dual.stiffness * c;
+			dual.stiffness = std::min(dual.stiffness + std::abs(c), maximum_stiffness);
 		}
 	}
 

@@ -18,6 +18,7 @@ target_sources(lotus_physics
 
 		"include/lotus/physics/avbd/constraints/contact.h"
 		"include/lotus/physics/avbd/constraints/cosserat_rod.h"
+		"include/lotus/physics/avbd/constraints/hinge.h"
 		"include/lotus/physics/avbd/constraints/pin.h"
 		"include/lotus/physics/avbd/constraints/spring.h"
 

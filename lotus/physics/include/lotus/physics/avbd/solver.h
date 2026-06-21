@@ -9,6 +9,7 @@
 #include "lotus/physics/world.h"
 #include "lotus/physics/avbd/constraints/contact.h"
 #include "lotus/physics/avbd/constraints/cosserat_rod.h"
+#include "lotus/physics/avbd/constraints/hinge.h"
 #include "lotus/physics/avbd/constraints/pin.h"
 #include "lotus/physics/avbd/constraints/spring.h"
 
@@ -24,6 +25,10 @@ namespace lotus::physics::avbd {
 		constexpr static scalar stiffness_ramping = 10.0f; ///< β - the speed at which stiffness increases.
 		constexpr static scalar minimum_stiffness = 1.0f; ///< Minimum value of k.
 		constexpr static scalar maximum_stiffness = 10000000000.0f; ///< Maximum value of k.
+
+		// not an elegant solution, but works
+		/// Constant added to hinge constraints to allow the stiffness to increase normally. Must be greater than 1.
+		constexpr static scalar hinge_constant = 2.0f;
 
 		/// Advances the simulation by one timestep.
 		void timestep(scalar dt, u32 iters);
@@ -44,6 +49,7 @@ namespace lotus::physics::avbd {
 		std::vector<constraints::rigid_body_contact> contacts; ///< All contacts in the current time step.
 		std::vector<constraints::spring> springs; ///< All spring constraints.
 		std::vector<constraints::pin> pins; ///< All pin constraints.
+		std::vector<constraints::hinge> hinges; ///< All hinge constraints.
 	private:
 		/// Clamped contact force.
 		struct _contact_force {
@@ -84,6 +90,15 @@ namespace lotus::physics::avbd {
 			vec3 stiffness = zero; ///< Soft stiffness.
 			vec3 force = zero; ///< The force applied during this step.
 		};
+		/// Dual variables for a hinge constraint.
+		struct _hinge_dual {
+			/// Zero initialization.
+			_hinge_dual(zero_t) {
+			}
+
+			scalar stiffness = 0.0f; ///< Soft stiffness.
+			scalar force = 0.0f; ///< The force applied during this step.
+		};
 
 		/// Data associated with all rigid bodies within a single time step.
 		struct _body_step_data {
@@ -92,6 +107,7 @@ namespace lotus::physics::avbd {
 				std::vector<u32> contact_constraints; ///< Related contact constraints.
 				std::vector<u32> spring_constraints; ///< Related spring constraints.
 				std::vector<u32> pin_constraints; ///< Related pin constraints.
+				std::vector<u32> hinge_constraints; ///< Related hinge constraints.
 			};
 
 			std::vector<body_position> initial_positions; ///< Initial positions.
@@ -100,6 +116,7 @@ namespace lotus::physics::avbd {
 
 			std::vector<_contact_dual> contact_duals; ///< Dual variables for contact constraints.
 			std::vector<_pin_dual> pin_duals; ///< Dual variables for pin constraints.
+			std::vector<_hinge_dual> hinge_duals; ///< Dual variables for hinge constraints.
 		};
 		/// Data associated with all particles within a single time step.
 		struct _particle_step_data {

@@ -24,7 +24,7 @@ public:
 		const lotus::physics::material_properties material(0.0f, 0.0f, 0.0f);
 
 		const auto add_pin = [&](lotus::physics::body *body1, lotus::physics::body *body2, vec3 point_ws) {
-			lotus::physics::avbd::constraints::pin &pin = _solver.pins.emplace_back();
+			lotus::physics::avbd::constraints::pin &pin = _solver.pins.emplace_back(lotus::zero);
 			pin.body1 = body1;
 			pin.body2 = body2;
 			pin.local_position1 = body1 ? body1->state.position.global_to_local(point_ws) : point_ws;

@@ -6,6 +6,10 @@
 namespace lotus::physics::avbd::constraints {
 	/// Constraint that fixes two points on the two bodies at the same place. Also known as ball and socket joint.
 	struct pin {
+		/// Zero initialization.
+		pin(zero_t) {
+		}
+
 		body *body1 = nullptr; ///< The first body.
 		body *body2 = nullptr; ///< The second body.
 		vec3 local_position1 = zero; ///< Position on the first body.

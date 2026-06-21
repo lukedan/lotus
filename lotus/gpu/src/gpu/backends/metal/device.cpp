@@ -35,8 +35,8 @@ namespace lotus::gpu::backends::metal {
 
 	/// Default resource options for argument buffers. Assumes that we don't need to read from the argument buffer.
 	constexpr static MTL::ResourceOptions _arg_buffer_options =
-		MTL::ResourceOptionCPUCacheModeWriteCombined |
-		MTL::ResourceStorageModeShared               |
+		MTL::ResourceCPUCacheModeWriteCombined |
+		MTL::ResourceStorageModeShared         |
 		MTL::ResourceHazardTrackingModeUntracked;
 
 	descriptor_pool device::create_descriptor_pool(
@@ -565,7 +565,7 @@ namespace lotus::gpu::backends::metal {
 			fmt,
 			cvec3u32(size, 1u),
 			mip_levels,
-			MTL::ResourceOptionCPUCacheModeWriteCombined | MTL::ResourceStorageModePrivate,
+			MTL::ResourceCPUCacheModeWriteCombined | MTL::ResourceStorageModePrivate,
 			usages
 		);
 		auto img = NS::TransferPtr(_dev->newTexture(descriptor.get()));
@@ -584,7 +584,7 @@ namespace lotus::gpu::backends::metal {
 			fmt,
 			size,
 			mip_levels,
-			MTL::ResourceOptionCPUCacheModeWriteCombined | MTL::ResourceStorageModePrivate,
+			MTL::ResourceCPUCacheModeWriteCombined | MTL::ResourceStorageModePrivate,
 			usages
 		);
 		auto img = NS::TransferPtr(_dev->newTexture(descriptor.get()));
@@ -804,7 +804,7 @@ namespace lotus::gpu::backends::metal {
 	) {
 		NS::SharedPtr<NS::Data> data =
 			NS::RetainPtr(heap._heap->resolveCounterRange(NS::Range(first, timestamps.size())));
-		auto *result = static_cast<const MTL4::TimestampHeapEntry*>(data->mutableBytes());
+		auto *result = static_cast<const MTL4::TimestampHeapEntry*>(data->bytes());
 		crash_if(data->length() < timestamps.size() * sizeof(MTL4::TimestampHeapEntry));
 		for (usize i = 0; i < timestamps.size(); i++) {
 			timestamps[i] = result[i].timestamp;

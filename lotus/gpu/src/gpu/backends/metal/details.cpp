@@ -208,9 +208,9 @@ namespace lotus::gpu::backends::metal::_details {
 
 		MTL::ResourceOptions to_resource_options(_details::memory_type_index i) {
 			constexpr static enums::sequential_mapping<memory_type_index, MTL::ResourceOptions> table{
-				std::pair(memory_type_index::shared_cpu_cached,   MTL::ResourceStorageModeShared | MTL::ResourceOptionCPUCacheModeDefault      ),
-				std::pair(memory_type_index::shared_cpu_uncached, MTL::ResourceStorageModeShared | MTL::ResourceOptionCPUCacheModeWriteCombined),
-				std::pair(memory_type_index::device_private,      MTL::ResourceStorageModePrivate                                              ),
+				std::pair(memory_type_index::shared_cpu_cached,   MTL::ResourceStorageModeShared | MTL::ResourceCPUCacheModeDefaultCache ),
+				std::pair(memory_type_index::shared_cpu_uncached, MTL::ResourceStorageModeShared | MTL::ResourceCPUCacheModeWriteCombined),
+				std::pair(memory_type_index::device_private,      MTL::ResourceStorageModePrivate                                        ),
 			};
 			return table[i];
 		}

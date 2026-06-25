@@ -50,6 +50,8 @@ namespace lotus::physics::avbd {
 		std::vector<constraints::spring> springs; ///< All spring constraints.
 		std::vector<constraints::pin> pins; ///< All pin constraints.
 		std::vector<constraints::hinge> hinges; ///< All hinge constraints.
+
+		bool has_indefinite_hessians = false; ///< Whether the last step produced indefinite Hessians.
 	private:
 		/// Clamped contact force.
 		struct _contact_force {

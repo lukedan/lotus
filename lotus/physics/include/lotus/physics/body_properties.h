@@ -32,20 +32,21 @@ namespace lotus::physics {
 		}
 		/// Initializes a body with the given inertia matrix and mass.
 		[[nodiscard]] static constexpr body_properties create(mat33s i, scalar m) {
-			return body_properties(i, i.inverse(), 1.0f / m);
+			return body_properties(i, i.inverse(), m, 1.0f / m);
 		}
 		/// Initializes a body with infinity mass, which is not affected by external forces or torques.
 		[[nodiscard]] static constexpr body_properties kinematic() {
-			return body_properties(zero, zero, zero);
+			return body_properties(zero, zero, zero, zero);
 		}
 
 		mat33s inertia = uninitialized; ///< Inertia matrix.
 		mat33s inverse_inertia = uninitialized; ///< Inverse of the inertia matrix.
+		scalar mass; ///< Mass.
 		scalar inverse_mass; ///< Inverse mass.
 	protected:
 		/// Initializes all fields of this struct.
-		constexpr body_properties(mat33s i, mat33s inv_i, scalar inv_m) :
-			inertia(i), inverse_inertia(inv_i), inverse_mass(inv_m) {
+		constexpr body_properties(mat33s i, mat33s inv_i, scalar m, scalar inv_m) :
+			inertia(i), inverse_inertia(inv_i), mass(m), inverse_mass(inv_m) {
 		}
 	};
 

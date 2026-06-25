@@ -125,13 +125,17 @@ namespace lotus::physics::avbd {
 			// initial position
 			result.initial_positions.emplace_back(b->state.position);
 
+			const vec3 delta_velocity =
+				dt * physics_world->gravity + b->applied_impulse * b->properties.inverse_mass;
+			const vec3 delta_angular_velocity =
+				dt * b->state.velocity.angular + b->properties.inverse_inertia * b->applied_torque;
+
 			// compute inertial position
 			body_position &inertial_pos = result.inertial_positions.emplace_back(uninitialized);
-			inertial_pos.position =
-				b->state.position.position + dt * (b->state.velocity.linear + dt * physics_world->gravity);
+			inertial_pos.position = b->state.position.position + dt * (b->state.velocity.linear + delta_velocity);
 			inertial_pos.orientation = quatu::normalize(
 				b->state.position.orientation +
-				0.5f * quat::from_vec3_xyz(dt * b->state.velocity.angular) * b->state.position.orientation
+				0.5f * quat::from_vec3_xyz(delta_angular_velocity) * b->state.position.orientation
 			);
 		}
 
@@ -227,8 +231,8 @@ namespace lotus::physics::avbd {
 	}
 
 	void solver::_solve_bodies(scalar dt, const _body_step_data &bdata) {
-		using _vec6 = column_vector<6, scalar>;
-		using _mat66 = matrix<6, 6, scalar>;
+		using _vec6 = column_vector<6, f64>;
+		using _mat66 = matrix<6, 6, f64>;
 
 		const std::span<body *const> bodies = physics_world->get_bodies();
 		for (usize bi = 0; bi < bodies.size(); ++bi) {
@@ -251,8 +255,8 @@ namespace lotus::physics::avbd {
 				inertia_ws * 2.0f * (cur_pos.orientation * inertial_pos.orientation.conjugate()).axis()
 			);
 			_mat66 h = (1.0f / (dt * dt)) * mat::concat_rows(
-				mat::concat_columns((1.0f / cur_body->properties.inverse_mass) * mat33s::identity(), mat33s(zero)),
-				mat::concat_columns(mat33s(zero), inertia_ws)
+				mat::concat_columns(cur_body->properties.mass * mat33f64::identity(), mat33f64(zero)),
+				mat::concat_columns(mat33f64(zero), inertia_ws.into<f64>())
 			);
 
 			// contact terms
@@ -295,7 +299,7 @@ namespace lotus::physics::avbd {
 						dual_point.stiffness[1] * (dctdx * dctdx.transposed()) +
 						dual_point.stiffness[2] * (dcbdx * dcbdx.transposed());
 
-					mat33s hrot = h.block<3, 3>(3, 3);
+					mat33f64 hrot = h.block<3, 3>(3, 3);
 					hrot +=
 						dual_point.force[0] * d2cndq2 +
 						dual_point.force[1] * d2ctdq2 +
@@ -328,11 +332,11 @@ namespace lotus::physics::avbd {
 				const _vec6 dcdx = sign * _vec6(d_norm, vec::cross(r, d_norm));
 				const _mat66 ddt = dcdx * dcdx.transposed();
 
-				const mat33s rx = vec::cross_matrix(r);
+				const mat33f64 rx = vec::cross_matrix(r).into<f64>();
 				_mat66 b = _mat66::identity();
 				b.set_block(3, 0, rx);
 				b.set_block(0, 3, -rx);
-				b.set_block(3, 3, sign * rx * vec::cross_matrix(d - sign * r));
+				b.set_block(3, 3, sign * rx * vec::cross_matrix(d - sign * r).into<f64>());
 
 				f -= stiffness * c * dcdx;
 
@@ -371,7 +375,7 @@ namespace lotus::physics::avbd {
 					dual.stiffness[1] * dcdx.column(1) * dcdx.column(1).transposed() +
 					dual.stiffness[2] * dcdx.column(2) * dcdx.column(2).transposed();
 
-				mat33s hrot = h.block<3, 3>(3, 3);
+				mat33f64 hrot = h.block<3, 3>(3, 3);
 				hrot += force[0] * d2cdwx2 + force[1] * d2cdwy2 + force[2] * d2cdwz2;
 				h.set_block(3, 3, hrot);
 			}
@@ -393,28 +397,30 @@ namespace lotus::physics::avbd {
 				const vec3 dcdw = vec::cross(r2, r1);
 				const mat33 d2cdw2 = -vec::cross_matrix(r1) * vec::cross_matrix(r2);
 
-				vec3 frot = f.block<3, 1>(3, 0);
+				cvec3f64 frot = f.block<3, 1>(3, 0);
 				frot -= force * dcdw;
 				f.set_block(3, 0, frot);
 
-				mat33s hrot = h.block<3, 3>(3, 3);
+				mat33f64 hrot = h.block<3, 3>(3, 3);
 				hrot += dual.stiffness * dcdw * dcdw.transposed() + force * d2cdw2;
 				h.set_block(3, 3, hrot);
 			}
 
 			// solve
-			const auto decomposition = lup_decomposition<6, scalar>::compute(h);
-			const scalar det = decomposition.determinant();
+			const auto decomposition = lup_decomposition<6, f64>::compute(h);
+			const f64 det = decomposition.determinant();
 			if (!std::isfinite(det) || std::abs(det) < 1e-6) {
-				log().debug("Indefinite Hessian");
+				has_indefinite_hessians = true;
 				continue;
 			}
 			const _vec6 delta_x = decomposition.solve(f);
 
 			// update
-			cur_pos.position += delta_x.block<3, 1>(0, 0);
+			const vec3 delta_p = delta_x.block<3, 1>(0, 0).into<f32>();
+			const vec3 delta_q = delta_x.block<3, 1>(3, 0).into<f32>();
+			cur_pos.position += delta_p;
 			cur_pos.orientation = quatu::normalize(
-				cur_pos.orientation + 0.5f * quat::from_vec3_xyz(delta_x.block<3, 1>(3, 0)) * cur_pos.orientation
+				cur_pos.orientation + 0.5f * quat::from_vec3_xyz(delta_q) * cur_pos.orientation
 			);
 		}
 	}
@@ -465,6 +471,9 @@ namespace lotus::physics::avbd {
 		const std::span<body *const> bodies = physics_world->get_bodies();
 		for (usize i = 0; i < bodies.size(); ++i) {
 			body *cur_body = bodies[i];
+			cur_body->applied_impulse = zero;
+			cur_body->applied_torque = zero;
+
 			if (cur_body->properties.inverse_mass <= 0.0f) {
 				continue;
 			}

@@ -57,6 +57,8 @@ namespace lotus::physics {
 		body_properties properties = uninitialized; ///< The properties of this body.
 		body_state state = uninitialized; ///< The state of this body.
 		body_state prev_state = uninitialized; ///< Body state after the previous timestep.
+		vec3 applied_impulse = zero; ///< Impulse applied externally.
+		vec3 applied_torque = zero; ///< Torque applied externally.
 		void *user_data; ///< User data.
 	};
 	/// Data associated with a single particle.

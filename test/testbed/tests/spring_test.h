@@ -31,7 +31,7 @@ public:
 			));
 			_world.add_body(body);
 			{
-				lotus::physics::avbd::constraints::spring &spring = _solver.springs.emplace_back();
+				lotus::physics::constraints::spring &spring = _world.springs.emplace_back();
 				spring.body1 = &body;
 				spring.body2 = prev_body;
 				spring.local_position1 = vec3(-0.5f * _box_size, 0.0f, 0.0f);

@@ -1,8 +1,5 @@
 #pragma once
 
-#include <lotus/physics/sequential_impulse/solver.h>
-#include <lotus/physics/world.h>
-
 #include "../physics_test.h"
 
 class angular_momentum_test : public physics_test {

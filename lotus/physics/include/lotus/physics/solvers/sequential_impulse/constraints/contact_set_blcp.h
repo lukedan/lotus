@@ -7,7 +7,7 @@
 #include "lotus/physics/common.h"
 #include "lotus/physics/body.h"
 
-namespace lotus::physics::sequential_impulse::constraints {
+namespace lotus::physics::solvers::sequential_impulse::constraints {
 	/// Contact constraints between a set of bodies solved using the splitting box LCP solver.
 	struct contact_set_blcp {
 	public:

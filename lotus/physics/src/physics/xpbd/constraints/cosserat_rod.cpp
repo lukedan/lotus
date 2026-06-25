@@ -1,9 +1,9 @@
-#include "lotus/physics/xpbd/constraints/cosserat_rod.h"
+#include "lotus/physics/solvers/xpbd/constraints/cosserat_rod.h"
 
 /// \file
 /// Projection implementation of Cosserat rod constraints.
 
-namespace lotus::physics::xpbd::constraints::cosserat_rod {
+namespace lotus::physics::solvers::xpbd::constraints::cosserat_rod {
 	void stretch_shear::project(
 		particle &p1, particle &p2, physics::orientation &o, scalar inv_dt2, lagrangians &lambda
 	) const {

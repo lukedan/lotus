@@ -1,6 +1,6 @@
 #pragma once
 
-#include <lotus/physics/xpbd/solver.h>
+#include <lotus/physics/solvers/xpbd/solver.h>
 
 #include "../test.h"
 #include "../utils.h"
@@ -14,7 +14,7 @@ public:
 		_bodies.clear();
 		_world = lotus::physics::world();
 		_world.gravity = { 0.0f, -10.0f, 0.0f };
-		_engine = lotus::physics::xpbd::solver();
+		_engine = lotus::physics::solvers::xpbd::solver();
 		_engine.physics_world = &_world;
 
 		_render = debug_render();
@@ -140,7 +140,7 @@ public:
 protected:
 	std::deque<lotus::physics::body> _bodies;
 	lotus::physics::world _world;
-	lotus::physics::xpbd::solver _engine;
+	lotus::physics::solvers::xpbd::solver _engine;
 	debug_render _render;
 	scalar _world_time = 0.0f;
 

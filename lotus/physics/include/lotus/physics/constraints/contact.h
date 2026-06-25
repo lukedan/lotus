@@ -6,7 +6,7 @@
 #include "lotus/collision/algorithms/contact_manifold.h"
 #include "lotus/physics/body.h"
 
-namespace lotus::physics::avbd::constraints {
+namespace lotus::physics::constraints {
 	/// Rigid body contact constraint.
 	struct rigid_body_contact {
 		/// A contact point.

@@ -6,7 +6,7 @@
 #include "lotus/common.h"
 #include "lotus/math/vector.h"
 
-namespace lotus::physics::xpbd::constraints {
+namespace lotus::physics::solvers::xpbd::constraints {
 	/// Bending constraint between two triangles that share a single edge.
 	struct bend {
 		/// Properties of a bending constraint.

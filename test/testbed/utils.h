@@ -6,9 +6,9 @@
 #include <lotus/color.h>
 #include <lotus/math/vector.h>
 #include <lotus/utils/camera.h>
-#include <lotus/physics/avbd/solver.h>
-#include <lotus/physics/sequential_impulse/solver.h>
-#include <lotus/physics/xpbd/solver.h>
+#include <lotus/physics/solvers/avbd/solver.h>
+#include <lotus/physics/solvers/sequential_impulse/solver.h>
+#include <lotus/physics/solvers/xpbd/solver.h>
 #include <lotus/renderer/context/asset_manager.h>
 
 using namespace lotus::types;
@@ -107,9 +107,9 @@ public:
 	void draw_physics_body(const lotus::collision::shapes::sphere&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_physics_body(const lotus::collision::shapes::convex_polyhedron&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_world(const lotus::physics::world&);
-	void draw_system(lotus::physics::avbd::solver&);
-	void draw_system(lotus::physics::sequential_impulse::solver&);
-	void draw_system(lotus::physics::xpbd::solver&);
+	void draw_system(lotus::physics::solvers::avbd::solver&);
+	void draw_system(lotus::physics::solvers::sequential_impulse::solver&);
+	void draw_system(lotus::physics::solvers::xpbd::solver&);
 
 
 	void flush(

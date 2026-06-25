@@ -1,20 +1,21 @@
 #pragma once
 
 /// \file
-/// Spring constraints for AVBD.
+/// Pinning constraints for AVBD.
 
 #include "lotus/physics/body.h"
 
-namespace lotus::physics::avbd::constraints {
-	/// A spring constraint.
-	struct spring {
+namespace lotus::physics::constraints {
+	/// Constraint that fixes two points on the two bodies at the same place. Also known as ball and socket joint.
+	struct pin {
+		/// Zero initialization.
+		pin(zero_t) {
+		}
+
 		body *body1 = nullptr; ///< The first body.
 		body *body2 = nullptr; ///< The second body.
-		vec3 local_position1 = zero; ///< Local position on the first body.
-		vec3 local_position2 = zero; ///< Local position on the second body.
-		scalar initial_length = 0.0f; ///< Initial length of this constraint.
-		scalar compressed_stiffness = 0.0f; ///< Stiffness when this spring is compressed.
-		scalar stretched_stiffness = 0.0f; ///< Stiffness when this spring is stretched.
+		vec3 local_position1 = zero; ///< Position on the first body.
+		vec3 local_position2 = zero; ///< Position on the second body.
 		bool disable_collision = false; ///< Disables collision between \ref body1 and \ref body2.
 
 		/// Returns \ref local_position1 translated to global coordinates.

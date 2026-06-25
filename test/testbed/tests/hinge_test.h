@@ -31,13 +31,13 @@ public:
 
 		{
 			const vec3 pin_pos = vec3(0.5f * _door_size[0], 0.5f * _door_size[1] + _height, 0.0f);
-			lotus::physics::avbd::constraints::pin &pin = _solver.pins.emplace_back(lotus::zero);
+			lotus::physics::constraints::pin &pin = _world.pins.emplace_back(lotus::zero);
 			pin.body1 = &door;
 			pin.local_position1 = door.state.position.global_to_local(pin_pos);
 			pin.local_position2 = pin_pos;
 		}
 		{
-			lotus::physics::avbd::constraints::hinge &hinge = _solver.hinges.emplace_back(lotus::zero);
+			lotus::physics::constraints::hinge &hinge = _world.hinges.emplace_back(lotus::zero);
 			hinge.body1 = &door;
 			hinge.local_axis1 = { 0.0f, 1.0f, 0.0f };
 			hinge.local_axis2 = { 0.0f, 1.0f, 0.0f };

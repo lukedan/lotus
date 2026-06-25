@@ -55,7 +55,7 @@ protected:
 	lotus::physics::world _world;
 	//lotus::physics::xpbd::solver _solver;
 	//lotus::physics::sequential_impulse::solver _solver;
-	lotus::physics::avbd::solver _solver;
+	lotus::physics::solvers::avbd::solver _solver;
 	debug_render _render;
 	std::deque<lotus::physics::body> _bodies;
 

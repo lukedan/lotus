@@ -1,9 +1,5 @@
 #pragma once
 
-#include <lotus/physics/sequential_impulse/solver.h>
-#include <lotus/physics/xpbd/solver.h>
-#include <lotus/physics/world.h>
-
 #include "../physics_test.h"
 
 class box_stack_test : public physics_test {

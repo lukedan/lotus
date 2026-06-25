@@ -1,11 +1,11 @@
-#include "lotus/physics/xpbd/solver.h"
+#include "lotus/physics/solvers/xpbd/solver.h"
 
 /// \file
 /// Implementation of the XPBD solver.
 
 #include "lotus/physics/world.h"
 
-namespace lotus::physics::xpbd {
+namespace lotus::physics::solvers::xpbd {
 	void solver::timestep(scalar dt, u32 iters) {
 		scalar dt2 = dt * dt;
 		scalar inv_dt2 = 1.0f / dt2;

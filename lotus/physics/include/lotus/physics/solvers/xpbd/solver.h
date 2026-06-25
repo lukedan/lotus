@@ -20,7 +20,7 @@ namespace lotus::physics {
 	class world;
 }
 
-namespace lotus::physics::xpbd {
+namespace lotus::physics::solvers::xpbd {
 	/// The XPBD solver.
 	class solver {
 	public:

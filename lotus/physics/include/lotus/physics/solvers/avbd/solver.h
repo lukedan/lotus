@@ -7,17 +7,17 @@
 
 #include "lotus/physics/body.h"
 #include "lotus/physics/world.h"
-#include "lotus/physics/avbd/constraints/contact.h"
-#include "lotus/physics/avbd/constraints/cosserat_rod.h"
-#include "lotus/physics/avbd/constraints/hinge.h"
-#include "lotus/physics/avbd/constraints/pin.h"
-#include "lotus/physics/avbd/constraints/spring.h"
+#include "lotus/physics/solvers/avbd/constraints/cosserat_rod.h"
 
 namespace lotus::physics {
 	class world;
 }
 
-namespace lotus::physics::avbd {
+namespace lotus::physics::solvers::avbd {
+	namespace constraints {
+		using namespace ::lotus::physics::constraints;
+	}
+
 	/// The AVBD solver.
 	class solver {
 	public:
@@ -45,11 +45,6 @@ namespace lotus::physics::avbd {
 		std::vector<constraints::cosserat_rod::bend_twist> rod_bend_twist_constraints;
 		/// All Cosserat rod stretching-shearing constraints.
 		std::vector<constraints::cosserat_rod::stretch_shear> rod_stretch_shear_constraints;
-
-		std::vector<constraints::rigid_body_contact> contacts; ///< All contacts in the current time step.
-		std::vector<constraints::spring> springs; ///< All spring constraints.
-		std::vector<constraints::pin> pins; ///< All pin constraints.
-		std::vector<constraints::hinge> hinges; ///< All hinge constraints.
 
 		bool has_indefinite_hessians = false; ///< Whether the last step produced indefinite Hessians.
 	private:

@@ -7,6 +7,10 @@
 
 #include "lotus/collision/algorithms/contact_manifold.h"
 #include "lotus/physics/body.h"
+#include "lotus/physics/constraints/hinge.h"
+#include "lotus/physics/constraints/spring.h"
+#include "lotus/physics/constraints/contact.h"
+#include "lotus/physics/constraints/pin.h"
 
 namespace lotus::physics {
 	/// A physics world that contains bodies that interact.
@@ -42,6 +46,11 @@ namespace lotus::physics {
 		vec3 gravity = zero; ///< Gravity.
 		/// Enlarges all objects by this threshold for preventing flickering contacts.
 		scalar collision_threshold = 0.001f;
+
+		std::vector<constraints::rigid_body_contact> contacts; ///< All contacts in the current time step.
+		std::vector<constraints::spring> springs; ///< All spring constraints.
+		std::vector<constraints::pin> pins; ///< All pin constraints.
+		std::vector<constraints::hinge> hinges; ///< All hinge constraints.
 	private:
 		std::vector<body*> _bodies; ///< The list of bodies in this world.
 	};

@@ -5,7 +5,7 @@
 
 #include "lotus/physics/body.h"
 
-namespace lotus::physics::avbd::constraints {
+namespace lotus::physics::constraints {
 	/// A hinge constraint.
 	struct hinge {
 		/// Zero initialization.

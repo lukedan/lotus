@@ -1,4 +1,4 @@
-#include "lotus/physics/xpbd/constraints/contact.h"
+#include "lotus/physics/solvers/xpbd/constraints/contact.h"
 
 /// \file
 /// Implementation of contact constraints.
@@ -6,7 +6,7 @@
 #include "lotus/math/vector.h"
 #include "lotus/math/quaternion.h"
 
-namespace lotus::physics::xpbd::constraints {
+namespace lotus::physics::solvers::xpbd::constraints {
 	body_contact::correction body_contact::correction::compute(
 		body &b1, body &b2, vec3 r1, vec3 r2, vec3 dir, scalar c
 	) {

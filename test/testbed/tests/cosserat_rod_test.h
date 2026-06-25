@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lotus/physics/avbd/solver.h"
+#include "lotus/physics/solvers/avbd/solver.h"
 
 #include "../test.h"
 
@@ -76,13 +76,13 @@ public:
 		_world_avbd = lotus::physics::world();
 		_world_avbd.gravity = vec3(0.0f, -9.8f, 0.0f);
 		_world_avbd.add_body(_sphere_avbd);
-		_solver_avbd = lotus::physics::avbd::solver();
+		_solver_avbd = lotus::physics::solvers::avbd::solver();
 		_solver_avbd.physics_world = &_world_avbd;
 
 		_world_xpbd = lotus::physics::world();
 		_world_xpbd.gravity = vec3(0.0f, -9.8f, 0.0f);
 		_world_xpbd.add_body(_sphere_xpbd);
-		_solver_xpbd = lotus::physics::xpbd::solver();
+		_solver_xpbd = lotus::physics::solvers::xpbd::solver();
 		_solver_xpbd.physics_world = &_world_xpbd;
 
 		_render = debug_render();
@@ -139,9 +139,9 @@ private:
 	lotus::physics::body _sphere_xpbd = lotus::uninitialized;
 
 	lotus::physics::world _world_avbd;
-	lotus::physics::avbd::solver _solver_avbd;
+	lotus::physics::solvers::avbd::solver _solver_avbd;
 	lotus::physics::world _world_xpbd;
-	lotus::physics::xpbd::solver _solver_xpbd;
+	lotus::physics::solvers::xpbd::solver _solver_xpbd;
 	debug_render _render;
 	scalar _time = 0.0f;
 	scalar _collider_time = 0.0f;
@@ -180,7 +180,7 @@ private:
 		// add orientations
 		const auto first_ori = static_cast<u32>(solver.orientations.size());
 		const uquats all_ori = lotus::quat::from_normalized_from_to(
-			lotus::physics::avbd::constraints::cosserat_rod::direction_basis,
+			lotus::physics::solvers::avbd::constraints::cosserat_rod::direction_basis,
 			lotus::vecu::normalize(part_offset)
 		);
 		for (u32 i = 1; i < num_parts; ++i) {
@@ -213,7 +213,7 @@ private:
 		_create_straight_rod(
 			_solver_xpbd,
 			[&](u32 o1, u32 o2, uquats initial_bend) {
-				lotus::physics::xpbd::constraints::cosserat_rod::bend_twist &constraint =
+				lotus::physics::solvers::xpbd::constraints::cosserat_rod::bend_twist &constraint =
 					_solver_xpbd.rod_bend_twist_constraints.emplace_back(lotus::uninitialized);
 				constraint.orientation1 = o1;
 				constraint.orientation2 = o2;
@@ -221,7 +221,7 @@ private:
 				constraint.compliance   = 1.0f / k_bt;
 			},
 			[&](u32 p1, u32 p2, u32 o, scalar len) {
-				lotus::physics::xpbd::constraints::cosserat_rod::stretch_shear &constraint =
+				lotus::physics::solvers::xpbd::constraints::cosserat_rod::stretch_shear &constraint =
 					_solver_xpbd.rod_stretch_shear_constraints.emplace_back(lotus::uninitialized);
 				constraint.particle1          = p1;
 				constraint.particle2          = p2;
@@ -242,7 +242,7 @@ private:
 		_create_straight_rod(
 			_solver_avbd,
 			[&](u32 o1, u32 o2, uquats init_bend) {
-				lotus::physics::avbd::constraints::cosserat_rod::bend_twist &constraint =
+				lotus::physics::solvers::avbd::constraints::cosserat_rod::bend_twist &constraint =
 					_solver_avbd.rod_bend_twist_constraints.emplace_back(lotus::uninitialized);
 				constraint.orientation1 = o1;
 				constraint.orientation2 = o2;
@@ -250,7 +250,7 @@ private:
 				constraint.stiffness    = k_bt;
 			},
 			[&](u32 p1, u32 p2, u32 o, scalar len) {
-				lotus::physics::avbd::constraints::cosserat_rod::stretch_shear &constraint =
+				lotus::physics::solvers::avbd::constraints::cosserat_rod::stretch_shear &constraint =
 					_solver_avbd.rod_stretch_shear_constraints.emplace_back(lotus::uninitialized);
 				constraint.particle1      = p1;
 				constraint.particle2      = p2;

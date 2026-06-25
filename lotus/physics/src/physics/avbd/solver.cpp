@@ -1,4 +1,4 @@
-#include "lotus/physics/avbd/solver.h"
+#include "lotus/physics/solvers/avbd/solver.h"
 
 /// \file
 /// Implementation of the AVBD solver.
@@ -7,7 +7,7 @@
 
 #include "lotus/physics/world.h"
 
-namespace lotus::physics::avbd {
+namespace lotus::physics::solvers::avbd {
 	solver::_contact_force solver::_contact_force::clamp(
 		vec3 force, const material_properties &mat1, const material_properties &mat2
 	) {
@@ -76,19 +76,19 @@ namespace lotus::physics::avbd {
 	void solver::_update_body_contacts() {
 		// collect pairs of bodies that have collision disabled explicitly
 		std::set<std::pair<body*, body*>> collision_disabled;
-		for (const constraints::spring &spring : springs) {
+		for (const constraints::spring &spring : physics_world->springs) {
 			if (spring.disable_collision && spring.body1 && spring.body2) {
 				collision_disabled.emplace(spring.body1, spring.body2);
 				collision_disabled.emplace(spring.body2, spring.body1);
 			}
 		}
-		for (const constraints::pin &pin : pins) {
+		for (const constraints::pin &pin : physics_world->pins) {
 			if (pin.disable_collision && pin.body1 && pin.body2) {
 				collision_disabled.emplace(pin.body1, pin.body2);
 				collision_disabled.emplace(pin.body2, pin.body1);
 			}
 		}
-		for (const constraints::hinge &hinge : hinges) {
+		for (const constraints::hinge &hinge : physics_world->hinges) {
 			if (hinge.disable_collision && hinge.body1 && hinge.body2) {
 				collision_disabled.emplace(hinge.body1, hinge.body2);
 				collision_disabled.emplace(hinge.body2, hinge.body1);
@@ -96,12 +96,12 @@ namespace lotus::physics::avbd {
 		}
 
 		std::vector<world::rigid_body_collision> new_contacts = physics_world->detect_collisions();
-		contacts.clear();
+		physics_world->contacts.clear();
 		for (const world::rigid_body_collision &c : new_contacts) {
 			if (collision_disabled.find(std::make_pair(c.body1, c.body2)) != collision_disabled.end()) {
 				continue;
 			}
-			constraints::rigid_body_contact &new_contact = contacts.emplace_back();
+			constraints::rigid_body_contact &new_contact = physics_world->contacts.emplace_back();
 			new_contact.body1    = c.body1;
 			new_contact.body2    = c.body2;
 			new_contact.tangents = tangent_frame<scalar>::from_normal(c.contact_manifold.normal);
@@ -149,13 +149,13 @@ namespace lotus::physics::avbd {
 			std::abort();
 		};
 		result.constraint_association.resize(bodies.size(), {});
-		for (usize i = 0; i < contacts.size(); ++i) {
-			const constraints::rigid_body_contact &contact = contacts[i];
+		for (usize i = 0; i < physics_world->contacts.size(); ++i) {
+			const constraints::rigid_body_contact &contact = physics_world->contacts[i];
 			result.constraint_association[find_body_idx(contact.body1)].contact_constraints.emplace_back(i);
 			result.constraint_association[find_body_idx(contact.body2)].contact_constraints.emplace_back(i);
 		}
-		for (usize i = 0; i < springs.size(); ++i) {
-			const constraints::spring &spring = springs[i];
+		for (usize i = 0; i < physics_world->springs.size(); ++i) {
+			const constraints::spring &spring = physics_world->springs[i];
 			if (spring.body1) {
 				result.constraint_association[find_body_idx(spring.body1)].spring_constraints.emplace_back(i);
 			}
@@ -163,8 +163,8 @@ namespace lotus::physics::avbd {
 				result.constraint_association[find_body_idx(spring.body2)].spring_constraints.emplace_back(i);
 			}
 		}
-		for (usize i = 0; i < pins.size(); ++i) {
-			const constraints::pin &pin = pins[i];
+		for (usize i = 0; i < physics_world->pins.size(); ++i) {
+			const constraints::pin &pin = physics_world->pins[i];
 			if (pin.body1) {
 				result.constraint_association[find_body_idx(pin.body1)].pin_constraints.emplace_back(i);
 			}
@@ -172,8 +172,8 @@ namespace lotus::physics::avbd {
 				result.constraint_association[find_body_idx(pin.body2)].pin_constraints.emplace_back(i);
 			}
 		}
-		for (usize i = 0; i < hinges.size(); ++i) {
-			const constraints::hinge &hinge = hinges[i];
+		for (usize i = 0; i < physics_world->hinges.size(); ++i) {
+			const constraints::hinge &hinge = physics_world->hinges[i];
 			if (hinge.body1) {
 				result.constraint_association[find_body_idx(hinge.body1)].hinge_constraints.emplace_back(i);
 			}
@@ -183,8 +183,8 @@ namespace lotus::physics::avbd {
 		}
 
 		// initialize contact dual variables
-		result.contact_duals.reserve(contacts.size());
-		for (const constraints::rigid_body_contact &contact : contacts) {
+		result.contact_duals.reserve(physics_world->contacts.size());
+		for (const constraints::rigid_body_contact &contact : physics_world->contacts) {
 			_contact_dual &dual = result.contact_duals.emplace_back();
 			dual.contact_points.reserve(contact.contact_points.size());
 			for (const constraints::rigid_body_contact::point &contact_point : contact.contact_points) {
@@ -197,8 +197,8 @@ namespace lotus::physics::avbd {
 		}
 
 		// initialize pin dual variables
-		result.pin_duals.reserve(pins.size());
-		for (usize i = 0; i < pins.size(); ++i) {
+		result.pin_duals.reserve(physics_world->pins.size());
+		for (usize i = 0; i < physics_world->pins.size(); ++i) {
 			_pin_dual &dual = result.pin_duals.emplace_back(zero);
 			// TODO warm starting
 			dual.stiffness = vec3::filled(1000.0f);
@@ -206,8 +206,8 @@ namespace lotus::physics::avbd {
 		}
 
 		// initialize hinge dual variables
-		result.hinge_duals.reserve(hinges.size());
-		for (usize i = 0; i < hinges.size(); ++i) {
+		result.hinge_duals.reserve(physics_world->hinges.size());
+		for (usize i = 0; i < physics_world->hinges.size(); ++i) {
 			_hinge_dual &dual = result.hinge_duals.emplace_back(zero);
 			// TODO warm starting
 			dual.stiffness = 1000.0f;
@@ -261,7 +261,7 @@ namespace lotus::physics::avbd {
 
 			// contact terms
 			for (const u32 ci : constraint_association.contact_constraints) {
-				const constraints::rigid_body_contact &contact = contacts[ci];
+				const constraints::rigid_body_contact &contact = physics_world->contacts[ci];
 				const _contact_dual &dual = bdata.contact_duals[ci];
 				const scalar sign = cur_body == contact.body1 ? 1.0f : -1.0f;
 				for (usize cpi = 0; cpi < contact.contact_points.size(); ++cpi) {
@@ -310,7 +310,7 @@ namespace lotus::physics::avbd {
 
 			// spring terms
 			for (const u32 ci : constraint_association.spring_constraints) {
-				const constraints::spring &spring = springs[ci];
+				const constraints::spring &spring = physics_world->springs[ci];
 
 				const vec3 r1 =
 					spring.body1 ?
@@ -351,7 +351,7 @@ namespace lotus::physics::avbd {
 
 			// pin terms
 			for (const u32 ci : constraint_association.pin_constraints) {
-				const constraints::pin &pin = pins[ci];
+				const constraints::pin &pin = physics_world->pins[ci];
 				const _pin_dual &dual = bdata.pin_duals[ci];
 
 				const scalar sign = cur_body == pin.body1 ? 1.0 : -1.0f;
@@ -382,7 +382,7 @@ namespace lotus::physics::avbd {
 
 			// hinge terms
 			for (const u32 ci : constraint_association.hinge_constraints) {
-				const constraints::hinge &hinge = hinges[ci];
+				const constraints::hinge &hinge = physics_world->hinges[ci];
 				const _hinge_dual &dual = bdata.hinge_duals[ci];
 
 				vec3 r1 = hinge.get_global_axis1();
@@ -426,8 +426,8 @@ namespace lotus::physics::avbd {
 	}
 
 	void solver::_update_body_dual_variables(_body_step_data &bdata) {
-		for (usize ci = 0; ci < contacts.size(); ++ci) {
-			const constraints::rigid_body_contact &contact = contacts[ci];
+		for (usize ci = 0; ci < physics_world->contacts.size(); ++ci) {
+			const constraints::rigid_body_contact &contact = physics_world->contacts[ci];
 			_contact_dual &dual = bdata.contact_duals[ci];
 			for (usize cpi = 0; cpi < contact.contact_points.size(); ++cpi) {
 				const constraints::rigid_body_contact::point &contact_point = contact.contact_points[cpi];
@@ -448,8 +448,8 @@ namespace lotus::physics::avbd {
 			}
 		}
 
-		for (usize ci = 0; ci < pins.size(); ++ci) {
-			const constraints::pin &pin = pins[ci];
+		for (usize ci = 0; ci < physics_world->pins.size(); ++ci) {
+			const constraints::pin &pin = physics_world->pins[ci];
 			_pin_dual &dual = bdata.pin_duals[ci];
 
 			const vec3 c = pin.get_global_position1() - pin.get_global_position2();
@@ -457,8 +457,8 @@ namespace lotus::physics::avbd {
 			dual.stiffness = matm::min(dual.stiffness + matm::abs(c), vec3::filled(maximum_stiffness));
 		}
 
-		for (usize ci = 0; ci < hinges.size(); ++ci) {
-			const constraints::hinge &hinge = hinges[ci];
+		for (usize ci = 0; ci < physics_world->hinges.size(); ++ci) {
+			const constraints::hinge &hinge = physics_world->hinges[ci];
 			_hinge_dual &dual = bdata.hinge_duals[ci];
 
 			const scalar c = hinge_constant - vec::dot(hinge.get_global_axis1(), hinge.get_global_axis2());

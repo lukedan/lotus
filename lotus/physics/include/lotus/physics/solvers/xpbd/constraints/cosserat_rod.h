@@ -6,7 +6,7 @@
 #include "lotus/physics/common.h"
 #include "lotus/physics/body.h"
 
-namespace lotus::physics::xpbd::constraints::cosserat_rod {
+namespace lotus::physics::solvers::xpbd::constraints::cosserat_rod {
 	/// The basis vector chosen as the local direction of the rod.
 	constexpr static vec3 direction_basis = { 0.0f, 0.0f, 1.0f };
 

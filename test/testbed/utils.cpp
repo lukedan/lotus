@@ -322,38 +322,7 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 		);
 	}
 
-	// debug stuff
-	if (ctx->draw_body_velocities) {
-		for (const lotus::physics::body *b : world.get_bodies()) {
-			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.linear, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
-			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.angular, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
-		}
-	}
-}
-
-
-void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
-	draw_world(*solver.physics_world);
-
-	if (ctx->draw_particles) {
-		for (const lotus::physics::particle &p : solver.particles) {
-			draw_point(p.state.position, lotus::linear_rgba_f32(0.0f, 1.0f, 1.0f, 1.0f));
-		}
-	}
-
-	if (ctx->draw_orientations) {
-		for (const lotus::physics::avbd::constraints::cosserat_rod::stretch_shear &c : solver.rod_stretch_shear_constraints) {
-			const vec3 p1 = solver.particles[c.particle1].state.position;
-			const vec3 p2 = solver.particles[c.particle2].state.position;
-			draw_frame(
-				solver.orientations[c.orientation].state.orientation,
-				0.5f * (p1 + p2),
-				(p1 - p2).norm() * 0.3f
-			);
-		}
-	}
-
-	for (const auto &c : solver.contacts) {
+	for (const auto &c : world.contacts) {
 		for (const auto &cp : c.contact_points) {
 			const vec3 p1 = c.body1->state.position.local_to_global(cp.local_position1);
 			const vec3 p2 = c.body2->state.position.local_to_global(cp.local_position2);
@@ -372,12 +341,7 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 		}
 	}
 
-	// segments
-	for (const lotus::physics::avbd::constraints::cosserat_rod::stretch_shear &constraint : solver.rod_stretch_shear_constraints) {
-		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f));
-	}
-
-	for (const lotus::physics::avbd::constraints::spring &spring : solver.springs) {
+	for (const lotus::physics::constraints::spring &spring : world.springs) {
 		const vec3 p1 = spring.get_global_position1();
 		const vec3 p2 = spring.get_global_position2();
 		const scalar len_percentage = (p1 - p2).norm() / spring.initial_length;
@@ -392,7 +356,7 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 		);
 	}
 
-	for (const lotus::physics::avbd::constraints::pin &pin : solver.pins) {
+	for (const lotus::physics::constraints::pin &pin : world.pins) {
 		const vec3 p1 = pin.get_global_position1();
 		const vec3 p2 = pin.get_global_position2();
 		if (pin.body1) {
@@ -405,13 +369,50 @@ void debug_render::draw_system(lotus::physics::avbd::solver &solver) {
 		draw_point(p1, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
 		draw_point(p2, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
 	}
+
+	// debug stuff
+	if (ctx->draw_body_velocities) {
+		for (const lotus::physics::body *b : world.get_bodies()) {
+			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.linear, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
+			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.angular, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
+		}
+	}
 }
 
-void debug_render::draw_system(lotus::physics::sequential_impulse::solver &solver) {
+
+void debug_render::draw_system(lotus::physics::solvers::avbd::solver &solver) {
+	draw_world(*solver.physics_world);
+
+	if (ctx->draw_particles) {
+		for (const lotus::physics::particle &p : solver.particles) {
+			draw_point(p.state.position, lotus::linear_rgba_f32(0.0f, 1.0f, 1.0f, 1.0f));
+		}
+	}
+
+	if (ctx->draw_orientations) {
+		for (const lotus::physics::solvers::avbd::constraints::cosserat_rod::stretch_shear &c : solver.rod_stretch_shear_constraints) {
+			const vec3 p1 = solver.particles[c.particle1].state.position;
+			const vec3 p2 = solver.particles[c.particle2].state.position;
+			draw_frame(
+				solver.orientations[c.orientation].state.orientation,
+				0.5f * (p1 + p2),
+				(p1 - p2).norm() * 0.3f
+			);
+		}
+	}
+
+
+	// segments
+	for (const lotus::physics::solvers::avbd::constraints::cosserat_rod::stretch_shear &constraint : solver.rod_stretch_shear_constraints) {
+		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f));
+	}
+}
+
+void debug_render::draw_system(lotus::physics::solvers::sequential_impulse::solver &solver) {
 	draw_world(*solver.physics_world);
 
 	// debug stuff
-	using contact_set_t = lotus::physics::sequential_impulse::constraints::contact_set_blcp;
+	using contact_set_t = lotus::physics::solvers::sequential_impulse::constraints::contact_set_blcp;
 	for (contact_set_t &contact_set : solver.contact_constraints) {
 		for (usize i = 0; i < contact_set.contacts_info.size(); ++i) {
 			const contact_set_t::contact_info &ci = contact_set.contacts_info[i];
@@ -426,7 +427,7 @@ void debug_render::draw_system(lotus::physics::sequential_impulse::solver &solve
 	}
 }
 
-void debug_render::draw_system(lotus::physics::xpbd::solver &solver) {
+void debug_render::draw_system(lotus::physics::solvers::xpbd::solver &solver) {
 	draw_world(*solver.physics_world);
 
 	if (ctx->draw_particles) {
@@ -436,7 +437,7 @@ void debug_render::draw_system(lotus::physics::xpbd::solver &solver) {
 	}
 
 	if (ctx->draw_orientations) {
-		for (const lotus::physics::xpbd::constraints::cosserat_rod::stretch_shear &c : solver.rod_stretch_shear_constraints) {
+		for (const lotus::physics::solvers::xpbd::constraints::cosserat_rod::stretch_shear &c : solver.rod_stretch_shear_constraints) {
 			const vec3 p1 = solver.particles[c.particle1].state.position;
 			const vec3 p2 = solver.particles[c.particle2].state.position;
 			draw_frame(
@@ -470,7 +471,7 @@ void debug_render::draw_system(lotus::physics::xpbd::solver &solver) {
 	}
 
 	// segments
-	for (const lotus::physics::xpbd::constraints::cosserat_rod::stretch_shear &constraint : solver.rod_stretch_shear_constraints) {
+	for (const lotus::physics::solvers::xpbd::constraints::cosserat_rod::stretch_shear &constraint : solver.rod_stretch_shear_constraints) {
 		draw_line(solver.particles[constraint.particle1].state.position, solver.particles[constraint.particle2].state.position, lotus::linear_rgba_f32(1.0f, 1.0f, 1.0f, 1.0f));
 	}
 

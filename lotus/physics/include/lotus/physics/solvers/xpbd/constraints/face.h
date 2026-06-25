@@ -7,7 +7,7 @@
 #include "lotus/math/matrix.h"
 #include "lotus/math/vector.h"
 
-namespace lotus::physics::xpbd::constraints {
+namespace lotus::physics::solvers::xpbd::constraints {
 	/// An elastic triangular face.
 	///
 	/// \sa Bender et al., Position-Based Simulation of Continuous Materials

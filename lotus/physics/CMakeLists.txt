@@ -16,25 +16,26 @@ target_sources(lotus_physics
 		"include/lotus/collision/contact.h"
 		"include/lotus/collision/shape.h"
 
-		"include/lotus/physics/avbd/constraints/contact.h"
-		"include/lotus/physics/avbd/constraints/cosserat_rod.h"
-		"include/lotus/physics/avbd/constraints/hinge.h"
-		"include/lotus/physics/avbd/constraints/pin.h"
-		"include/lotus/physics/avbd/constraints/spring.h"
+		"include/lotus/physics/constraints/contact.h"
+		"include/lotus/physics/constraints/hinge.h"
+		"include/lotus/physics/constraints/pin.h"
+		"include/lotus/physics/constraints/spring.h"
 
-		"include/lotus/physics/avbd/solver.h"
+		"include/lotus/physics/solvers/avbd/constraints/cosserat_rod.h"
 
-		"include/lotus/physics/sequential_impulse/constraints/contact_set_blcp.h"
+		"include/lotus/physics/solvers/avbd/solver.h"
 
-		"include/lotus/physics/sequential_impulse/solver.h"
+		"include/lotus/physics/solvers/sequential_impulse/constraints/contact_set_blcp.h"
 
-		"include/lotus/physics/xpbd/constraints/bend.h"
-		"include/lotus/physics/xpbd/constraints/contact.h"
-		"include/lotus/physics/xpbd/constraints/cosserat_rod.h"
-		"include/lotus/physics/xpbd/constraints/face.h"
-		"include/lotus/physics/xpbd/constraints/spring.h"
+		"include/lotus/physics/solvers/sequential_impulse/solver.h"
 
-		"include/lotus/physics/xpbd/solver.h"
+		"include/lotus/physics/solvers/xpbd/constraints/bend.h"
+		"include/lotus/physics/solvers/xpbd/constraints/contact.h"
+		"include/lotus/physics/solvers/xpbd/constraints/cosserat_rod.h"
+		"include/lotus/physics/solvers/xpbd/constraints/face.h"
+		"include/lotus/physics/solvers/xpbd/constraints/spring.h"
+
+		"include/lotus/physics/solvers/xpbd/solver.h"
 
 		"include/lotus/physics/body.h"
 		"include/lotus/physics/body_properties.h"

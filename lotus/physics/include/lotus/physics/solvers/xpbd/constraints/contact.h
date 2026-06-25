@@ -6,7 +6,7 @@
 #include "lotus/physics/common.h"
 #include "lotus/physics/body.h"
 
-namespace lotus::physics::xpbd::constraints {
+namespace lotus::physics::solvers::xpbd::constraints {
 	/// A contact constraint between two bodies.
 	struct body_contact {
 		/// Data associated with a correction.

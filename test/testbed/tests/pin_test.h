@@ -4,7 +4,7 @@
 
 class pin_test : public physics_test {
 public:
-	explicit pin_test(const test_context &tctx) : physics_test(tctx) {
+	explicit pin_test(test_context &tctx) : physics_test(tctx) {
 	}
 
 	void soft_reset() override {

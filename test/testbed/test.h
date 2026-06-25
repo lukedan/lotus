@@ -30,7 +30,7 @@ constexpr const char *const test_category_names[] = {
 class test {
 public:
 	/// Initializes \ref _test_context.
-	explicit test(const test_context &test_ctx) : _test_context(&test_ctx) {
+	explicit test(test_context &test_ctx) : _test_context(&test_ctx) {
 	}
 	/// Default virtual destructor.
 	virtual ~test() = default;
@@ -53,11 +53,14 @@ public:
 	/// Key press callback.
 	virtual void on_key_down(lotus::system::window_events::key_down&) {
 	}
+	/// Key release callback.
+	virtual void on_key_up(lotus::system::window_events::key_up&) {
+	}
 protected:
 	/// Retrieves the test context.
-	[[nodiscard]] const test_context &_get_test_context() const {
+	[[nodiscard]] test_context &_get_test_context() const {
 		return *_test_context;
 	}
 private:
-	const test_context *_test_context; ///< The test context.
+	test_context *_test_context; ///< The test context.
 };

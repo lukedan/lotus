@@ -4,7 +4,7 @@
 
 class physics_test : public test {
 public:
-	explicit physics_test(const test_context &tctx) : test(tctx) {
+	explicit physics_test(test_context &tctx) : test(tctx) {
 	}
 
 	void timestep(scalar dt, u32 iters) override {
@@ -39,6 +39,10 @@ public:
 	void gui() override {
 		if (ImGui::Button("Shoot")) {
 			_shoot_bullet();
+		}
+		if (_solver.has_indefinite_hessians) {
+			ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Indefinite Hessians");
+			_solver.has_indefinite_hessians = false;
 		}
 	}
 

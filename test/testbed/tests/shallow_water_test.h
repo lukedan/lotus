@@ -442,7 +442,7 @@ public:
 		}
 	};
 
-	explicit shallow_water_test(const test_context &tctx) : test(tctx) {
+	explicit shallow_water_test(test_context &tctx) : test(tctx) {
 	}
 
 	void soft_reset() override {

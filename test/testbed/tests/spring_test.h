@@ -4,7 +4,7 @@
 
 class spring_test : public physics_test {
 public:
-	explicit spring_test(const test_context &tctx) : physics_test(tctx) {
+	explicit spring_test(test_context &tctx) : physics_test(tctx) {
 	}
 
 	void soft_reset() override {
@@ -39,6 +39,7 @@ public:
 				spring.initial_length = (spring.get_global_position1() - spring.get_global_position2()).norm();
 				spring.compressed_stiffness = _compressed_stiffness;
 				spring.stretched_stiffness = _stretched_stiffness;
+				spring.disable_collision = _disable_collisions;
 			}
 			prev_body = &body;
 		}
@@ -59,6 +60,7 @@ public:
 		ImGui::SliderFloat("Compressed Stiffness", &_compressed_stiffness, 0.0f, 10000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderFloat("Stretched Stiffness", &_stretched_stiffness, 0.0f, 10000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderFloat("Height", &_height, 2.0f, 150.0f);
+		ImGui::Checkbox("Disable Collisions", &_disable_collisions);
 
 		ImGui::Separator();
 		physics_test::gui();
@@ -80,4 +82,5 @@ private:
 	f32 _compressed_stiffness = 0.0f;
 	f32 _stretched_stiffness = 100.0f;
 	f32 _height = 5.0f;
+	bool _disable_collisions = false;
 };

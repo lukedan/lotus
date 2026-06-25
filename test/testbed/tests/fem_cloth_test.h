@@ -7,7 +7,7 @@
 
 class fem_cloth_test : public test {
 public:
-	explicit fem_cloth_test(const test_context &tctx) : test(tctx) {
+	explicit fem_cloth_test(test_context &tctx) : test(tctx) {
 	}
 
 	void soft_reset() override {

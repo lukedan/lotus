@@ -6,7 +6,7 @@
 
 class cosserat_rod_test : public test {
 public:
-	explicit cosserat_rod_test(const test_context &tctx) : test(tctx) {
+	explicit cosserat_rod_test(test_context &tctx) : test(tctx) {
 	}
 
 	void timestep(scalar dt, u32 iterations) override {

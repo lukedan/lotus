@@ -7,7 +7,7 @@
 
 class spring_cloth_test : public test {
 public:
-	explicit spring_cloth_test(const test_context &tctx) : test(tctx) {
+	explicit spring_cloth_test(test_context &tctx) : test(tctx) {
 	}
 
 	void soft_reset() override {

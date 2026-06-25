@@ -1,12 +1,10 @@
 #pragma once
 
-#pragma once
-
 #include "../physics_test.h"
 
 class hinge_test : public physics_test {
 public:
-	explicit hinge_test(const test_context &tctx) : physics_test(tctx) {
+	explicit hinge_test(test_context &tctx) : physics_test(tctx) {
 	}
 
 	void soft_reset() override {

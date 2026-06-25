@@ -7,7 +7,7 @@
 
 class angular_momentum_test : public physics_test {
 public:
-	explicit angular_momentum_test(const test_context &tctx) : physics_test(tctx) {
+	explicit angular_momentum_test(test_context &tctx) : physics_test(tctx) {
 	}
 
 	void soft_reset() override {

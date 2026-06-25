@@ -18,7 +18,7 @@ public:
 	using random_engine = std::default_random_engine;
 	static constexpr int max_verts = 1000;
 
-	explicit convex_hull_test(const test_context &tctx) :
+	explicit convex_hull_test(test_context &tctx) :
 		test(tctx),
 		_convex_hull_storage(hull::create_storage_for_num_vertices(max_verts)) {
 	}

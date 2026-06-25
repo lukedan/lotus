@@ -340,6 +340,11 @@ protected:
 			_test->on_key_down(kd);
 		}
 	}
+	void _on_key_up(lotus::system::window_events::key_up &ku) override {
+		if (_test) {
+			_test->on_key_up(ku);
+		}
+	}
 };
 
 int main(int argc, char **argv) {

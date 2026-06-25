@@ -8,7 +8,7 @@
 
 class box_stack_test : public physics_test {
 public:
-	explicit box_stack_test(const test_context &tctx) : physics_test(tctx) {
+	explicit box_stack_test(test_context &tctx) : physics_test(tctx) {
 	}
 
 	void soft_reset() override {

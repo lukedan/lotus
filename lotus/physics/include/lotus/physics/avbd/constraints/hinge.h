@@ -16,6 +16,7 @@ namespace lotus::physics::avbd::constraints {
 		body *body2 = nullptr; ///< The second body.
 		vec3 local_axis1 = zero; ///< Normalized rotation axis that will be aligned with \ref local_axis2.
 		vec3 local_axis2 = zero; ///< Normalized rotation axis that will be aligned with \ref local_axis1.
+		bool disable_collision = false; ///< Disables collision between \ref body1 and \ref body2.
 
 		/// Returns \ref local_axis1 transformed into the global coordinate space.
 		[[nodiscard]] vec3 get_global_axis1() const {

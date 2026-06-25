@@ -14,6 +14,7 @@ namespace lotus::physics::avbd::constraints {
 		body *body2 = nullptr; ///< The second body.
 		vec3 local_position1 = zero; ///< Position on the first body.
 		vec3 local_position2 = zero; ///< Position on the second body.
+		bool disable_collision = false; ///< Disables collision between \ref body1 and \ref body2.
 
 		/// Returns \ref local_position1 translated to global coordinates.
 		[[nodiscard]] vec3 get_global_position1() const {

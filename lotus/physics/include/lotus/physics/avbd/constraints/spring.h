@@ -15,6 +15,7 @@ namespace lotus::physics::avbd::constraints {
 		scalar initial_length = 0.0f; ///< Initial length of this constraint.
 		scalar compressed_stiffness = 0.0f; ///< Stiffness when this spring is compressed.
 		scalar stretched_stiffness = 0.0f; ///< Stiffness when this spring is stretched.
+		bool disable_collision = false; ///< Disables collision between \ref body1 and \ref body2.
 
 		/// Returns \ref local_position1 translated to global coordinates.
 		[[nodiscard]] vec3 get_global_position1() const {

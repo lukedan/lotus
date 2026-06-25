@@ -3,7 +3,8 @@
 /// \file
 /// Implementation of the AVBD solver.
 
-#include "lotus/logging.h"
+#include <set>
+
 #include "lotus/physics/world.h"
 
 namespace lotus::physics::avbd {
@@ -73,9 +74,33 @@ namespace lotus::physics::avbd {
 	}
 
 	void solver::_update_body_contacts() {
+		// collect pairs of bodies that have collision disabled explicitly
+		std::set<std::pair<body*, body*>> collision_disabled;
+		for (const constraints::spring &spring : springs) {
+			if (spring.disable_collision && spring.body1 && spring.body2) {
+				collision_disabled.emplace(spring.body1, spring.body2);
+				collision_disabled.emplace(spring.body2, spring.body1);
+			}
+		}
+		for (const constraints::pin &pin : pins) {
+			if (pin.disable_collision && pin.body1 && pin.body2) {
+				collision_disabled.emplace(pin.body1, pin.body2);
+				collision_disabled.emplace(pin.body2, pin.body1);
+			}
+		}
+		for (const constraints::hinge &hinge : hinges) {
+			if (hinge.disable_collision && hinge.body1 && hinge.body2) {
+				collision_disabled.emplace(hinge.body1, hinge.body2);
+				collision_disabled.emplace(hinge.body2, hinge.body1);
+			}
+		}
+
 		std::vector<world::rigid_body_collision> new_contacts = physics_world->detect_collisions();
 		contacts.clear();
 		for (const world::rigid_body_collision &c : new_contacts) {
+			if (collision_disabled.find(std::make_pair(c.body1, c.body2)) != collision_disabled.end()) {
+				continue;
+			}
 			constraints::rigid_body_contact &new_contact = contacts.emplace_back();
 			new_contact.body1    = c.body1;
 			new_contact.body2    = c.body2;

@@ -44,7 +44,8 @@ namespace lotus::physics {
 			return column_vector<6, scalar>(linear, angular);
 		}
 
-		/// Returns the global linear velocity at the given offset.
+		/// Returns the global linear velocity at the given offset. The offset is in world space with respect to the
+		/// object's center of mass.
 		[[nodiscard]] vec3 get_velocity_at(vec3 local_offset) const {
 			return linear + vec::cross(angular, local_offset);
 		}

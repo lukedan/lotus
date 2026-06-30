@@ -42,7 +42,7 @@ namespace lotus::physics {
 				state.velocity.linear += dt * external_accel;
 				state.velocity.angular += dt * external_angular_accel;
 			}
-			}
+		}
 		/// Performs explicit time integration on body position. This function does not update previous state.
 		void position_integration(scalar dt) {
 			state.position.position += dt * state.velocity.linear;

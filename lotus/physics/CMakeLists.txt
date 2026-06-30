@@ -25,8 +25,6 @@ target_sources(lotus_physics
 
 		"include/lotus/physics/solvers/avbd/solver.h"
 
-		"include/lotus/physics/solvers/sequential_impulse/constraints/contact_set_blcp.h"
-
 		"include/lotus/physics/solvers/sequential_impulse/solver.h"
 
 		"include/lotus/physics/solvers/xpbd/constraints/bend.h"
@@ -53,8 +51,6 @@ target_sources(lotus_physics
 		"src/collision/contact.cpp"
 
 		"src/physics/avbd/solver.cpp"
-
-		"src/physics/sequential_impulse/constraints/contact_set_blcp.cpp"
 
 		"src/physics/sequential_impulse/solver.cpp"
 

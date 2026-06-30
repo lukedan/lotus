@@ -150,9 +150,6 @@ namespace lotus::physics::solvers::avbd {
 		) const {
 			return _compute_raw_contact_error(contact, contact_point) - contact_damping * dual_point.initial_error;
 		}
-		/// Updates all contact constraints. This needs to happen before the association between bodies and
-		/// constraints are computed in \ref _prepare_bodies().
-		void _update_body_contacts();
 		/// Prepares rigid body simulation by computing body step data for all bodies.
 		[[nodiscard]] _body_step_data _prepare_bodies(scalar dt) const;
 		/// Computes initial estimates for all rigid bodies.

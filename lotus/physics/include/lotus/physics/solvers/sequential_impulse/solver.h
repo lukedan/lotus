@@ -1,25 +1,21 @@
 #pragma once
 
 /// \file
-/// The rigid body solver.
+/// The sequential impulse solver.
 
-#include <span>
-
-#include "lotus/physics/solvers/sequential_impulse/constraints/contact_set_blcp.h"
+#include "lotus/physics/constraints/contact.h"
 
 namespace lotus::physics {
 	class world;
 }
 
 namespace lotus::physics::solvers::sequential_impulse {
-	/// The rigid body solver.
+	/// The sequential impulse solver.
 	class solver {
 	public:
 		/// Solves all contacts.
 		void timestep(scalar delta_time, u32 iters);
 
 		world *physics_world = nullptr; ///< The physics world.
-
-		std::vector<constraints::contact_set_blcp> contact_constraints; ///< Contact constraints.
 	};
 }

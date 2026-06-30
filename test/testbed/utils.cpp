@@ -410,21 +410,6 @@ void debug_render::draw_system(lotus::physics::solvers::avbd::solver &solver) {
 
 void debug_render::draw_system(lotus::physics::solvers::sequential_impulse::solver &solver) {
 	draw_world(*solver.physics_world);
-
-	// debug stuff
-	using contact_set_t = lotus::physics::solvers::sequential_impulse::constraints::contact_set_blcp;
-	for (contact_set_t &contact_set : solver.contact_constraints) {
-		for (usize i = 0; i < contact_set.contacts_info.size(); ++i) {
-			const contact_set_t::contact_info &ci = contact_set.contacts_info[i];
-			if (ctx->draw_contact_points) {
-				draw_point(ci.contact, lotus::linear_rgba_f32(1.0f, 1.0f, 0.0f, 0.0f));
-			}
-			if (ctx->draw_contact_normals) {
-				const vec3 impulse = contact_set.get_impulse(i);
-				draw_line(ci.contact, ci.contact + impulse, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
-			}
-		}
-	}
 }
 
 void debug_render::draw_system(lotus::physics::solvers::xpbd::solver &solver) {

@@ -15,6 +15,7 @@
 #include "tests/box_stack_test.h"
 #include "tests/cosserat_rod_test.h"
 #include "tests/fem_cloth_test.h"
+#include "tests/friction_test.h"
 #include "tests/hinge_test.h"
 #include "tests/pin_test.h"
 #include "tests/polyhedron_test.h"
@@ -353,6 +354,7 @@ int main(int argc, char **argv) {
 	app.register_test<box_stack_test>();
 	app.register_test<cosserat_rod_test>();
 	app.register_test<fem_cloth_test>();
+	app.register_test<friction_test>();
 	app.register_test<hinge_test>();
 	app.register_test<pin_test>();
 	app.register_test<convex_hull_test>();

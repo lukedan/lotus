@@ -10,8 +10,6 @@ public:
 	void soft_reset() override {
 		physics_test::soft_reset();
 
-		_bodies.clear();
-
 		lotus::physics::body_properties box_props = lotus::uninitialized;
 		{
 			auto [box_poly, box_poly_props] = create_box_shape(vec3(_box_size[0], _box_size[1], _box_size[2]));

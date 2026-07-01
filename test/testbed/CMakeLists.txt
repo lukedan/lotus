@@ -8,6 +8,7 @@ function(add_testbed_executable GPU_BACKEND)
 			"tests/box_stack_test.h"
 			"tests/cosserat_rod_test.h"
 			"tests/fem_cloth_test.h"
+			"tests/friction_test.h"
 			"tests/hinge_test.h"
 			"tests/pin_test.h"
 			"tests/polyhedron_test.h"

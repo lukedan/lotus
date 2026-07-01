@@ -10,7 +10,6 @@ public:
 	void soft_reset() override {
 		physics_test::soft_reset();
 
-		_bodies.clear();
 		_world.gravity = vec3(0.0f, -9.8f, 0.0f);
 
 		_plane_shape = lotus::collision::shape::create(lotus::collision::shapes::plane());

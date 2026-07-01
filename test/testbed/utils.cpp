@@ -577,7 +577,7 @@ void debug_render::flush(
 		auto pass = q.begin_pass({}, lotus::renderer::image2d_depth_stencil(
 			depth_stencil, lotus::gpu::depth_render_target_access::create_preserve_and_write(), lotus::gpu::stencil_render_target_access::create_preserve_and_write()
 		), size, u8"Shadow Stencil");
-		if (!shadow_mesh_verts.empty()) {
+		if (!shadow_mesh_indices.empty()) {
 			pass.draw_instanced(
 				{ lotus::renderer::input_buffer_binding(0, shadow_vert_buf, 0, sizeof(cvec3f32), lotus::gpu::input_buffer_rate::per_vertex, vertex_input_elements) },
 				static_cast<u32>(shadow_mesh_verts.size()),

@@ -113,6 +113,12 @@ namespace lotus {
 		) : elements{} {
 			_set_vector<0>(*this, std::forward<Args>(data)...);
 		}
+		/// Initializes a vector from an array.
+		constexpr matrix(const T (&arr)[dimensionality]) requires _details::vector_type<matrix> {
+			for (usize i = 0; i < dimensionality; ++i) {
+				operator[](i) = arr[i];
+			}
+		}
 		/// Default move constructor.
 		constexpr matrix(matrix&&) = default;
 		/// Default copy constructor.

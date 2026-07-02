@@ -129,6 +129,8 @@ private:
 	}
 	void _solver_gui(lotus::physics::solvers::avbd::solver &solver) {
 		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);
+		ImGui::SliderFloat("Contact Damping", &solver.contact_damping, 0.0f, 1.0f);
+		ImGui::SliderFloat("Stiffness Ramping", &solver.stiffness_ramping, 1.0f, 1000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
 		if (solver.has_indefinite_hessians) {
 			ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Indefinite Hessians");
 			solver.has_indefinite_hessians = false;

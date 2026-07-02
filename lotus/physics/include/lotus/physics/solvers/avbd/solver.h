@@ -21,8 +21,6 @@ namespace lotus::physics::solvers::avbd {
 	/// The AVBD solver.
 	class solver {
 	public:
-		constexpr static scalar contact_damping = 0.95f; ///< α - explosive error correction prevention.
-		constexpr static scalar stiffness_ramping = 10.0f; ///< β - the speed at which stiffness increases.
 		constexpr static scalar minimum_stiffness = 1.0f; ///< Minimum value of k.
 		constexpr static scalar maximum_stiffness = 10000000000.0f; ///< Maximum value of k.
 
@@ -35,6 +33,8 @@ namespace lotus::physics::solvers::avbd {
 
 		world *physics_world = nullptr; ///< The physics world.
 		u32 num_iterations = 8; ///< The number of iterations per time step.
+		scalar contact_damping = 0.95f; ///< α - explosive error correction prevention.
+		scalar stiffness_ramping = 10.0f; ///< β - the speed at which stiffness increases.
 
 		std::vector<particle> particles; ///< The list of particles.
 		std::vector<orientation> orientations; ///< The list of orientations.
@@ -153,8 +153,6 @@ namespace lotus::physics::solvers::avbd {
 		}
 		/// Prepares rigid body simulation by computing body step data for all bodies.
 		[[nodiscard]] _body_step_data _prepare_bodies(scalar dt) const;
-		/// Computes initial estimates for all rigid bodies.
-		void _init_solve_bodies(scalar dt, const _body_step_data&);
 		/// Updates all rigid bodies by a single iteration.
 		void _solve_bodies(scalar dt, const _body_step_data&);
 		/// Updates all rigid body dual variables.

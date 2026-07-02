@@ -30,11 +30,8 @@ namespace lotus::physics::solvers::avbd {
 
 
 	void solver::timestep(scalar dt) {
-		physics_world->update_contact_constraints();
-
 		// prepare rigid bodies
 		_body_step_data body_step_data = _prepare_bodies(dt);
-		_init_solve_bodies(dt, body_step_data);
 
 		// prepare particles
 		particle_prev_accelerations.resize(particles.size(), zero);
@@ -75,12 +72,12 @@ namespace lotus::physics::solvers::avbd {
 	solver::_body_step_data solver::_prepare_bodies(scalar dt) const {
 		_body_step_data result;
 
-		const std::span<const body *const> bodies = physics_world->get_bodies();
+		const std::span<body *const> bodies = physics_world->get_bodies();
 
 		// compute initial and inertial positions
 		result.initial_positions.reserve(bodies.size());
 		result.inertial_positions.reserve(bodies.size());
-		for (const body *b : bodies) {
+		for (body *b : bodies) {
 			// initial position
 			result.initial_positions.emplace_back(b->state.position);
 
@@ -96,6 +93,17 @@ namespace lotus::physics::solvers::avbd {
 				b->state.position.orientation +
 				0.5f * quat::from_vec3_xyz(delta_angular_velocity) * b->state.position.orientation
 			);
+
+			// advect
+			b->state.position = inertial_pos;
+		}
+
+		// detect contacts using advected positions
+		physics_world->update_contact_constraints();
+
+		// reset to initial positions for dual variable initialization
+		for (usize i = 0; i < bodies.size(); ++i) {
+			bodies[i]->state.position = result.initial_positions[i];
 		}
 
 		// compute inverse constraint association
@@ -174,19 +182,6 @@ namespace lotus::physics::solvers::avbd {
 		}
 
 		return result;
-	}
-
-	void solver::_init_solve_bodies(scalar dt, const _body_step_data &bdata) {
-		const std::span<body *const> bodies = physics_world->get_bodies();
-		for (usize i = 0; i < bodies.size(); ++i) {
-			body *cur_body = bodies[i];
-			if (cur_body->properties.inverse_mass <= 0.0f) {
-				continue;
-			}
-
-			const body_position inertial_pos = bdata.inertial_positions[i];
-			//cur_body->state.position = inertial_pos;
-		}
 	}
 
 	void solver::_solve_bodies(scalar dt, const _body_step_data &bdata) {

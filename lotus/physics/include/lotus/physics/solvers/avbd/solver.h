@@ -31,9 +31,10 @@ namespace lotus::physics::solvers::avbd {
 		constexpr static scalar hinge_constant = 2.0f;
 
 		/// Advances the simulation by one timestep.
-		void timestep(scalar dt, u32 iters);
+		void timestep(scalar dt);
 
 		world *physics_world = nullptr; ///< The physics world.
+		u32 num_iterations = 8; ///< The number of iterations per time step.
 
 		std::vector<particle> particles; ///< The list of particles.
 		std::vector<orientation> orientations; ///< The list of orientations.

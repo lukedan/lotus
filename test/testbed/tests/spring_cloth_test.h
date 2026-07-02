@@ -86,14 +86,14 @@ public:
 		_world.add_body(*_sphere);
 	}
 
-	void timestep(scalar dt, u32 iterations) override {
+	void timestep(scalar dt) override {
 		_world_time += dt;
 		_sphere->state.position.position = {
 			_sphere_travel * std::cos((2.0f * lotus::physics::pi / _sphere_period) * _world_time),
 			_sphere_yz[0],
 			_sphere_yz[1]
 		};
-		_engine.timestep(dt, iterations);
+		_engine.timestep(dt);
 	}
 
 	void render(
@@ -106,6 +106,7 @@ public:
 	}
 
 	void gui() override {
+		ImGui_SliderT<u32>("Num Iterations", &_engine.num_iterations, 1, 100);
 		ImGui::SliderInt("Cloth Partitions", &_side_segments, 2, 100);
 		ImGui::SliderFloat("Cloth Size", &_cloth_size, 0.0f, 3.0f);
 		ImGui::SliderFloat("Cloth Density", &_cloth_density, 0.0f, 20000.0f);

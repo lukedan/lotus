@@ -14,8 +14,9 @@ namespace lotus::physics::solvers::sequential_impulse {
 	class solver {
 	public:
 		/// Solves all contacts.
-		void timestep(scalar delta_time, u32 iters);
+		void timestep(scalar delta_time);
 
 		world *physics_world = nullptr; ///< The physics world.
+		u32 num_iterations = 8; ///< The number of iterations per time step.
 	};
 }

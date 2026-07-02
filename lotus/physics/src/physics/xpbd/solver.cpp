@@ -6,7 +6,7 @@
 #include "lotus/physics/world.h"
 
 namespace lotus::physics::solvers::xpbd {
-	void solver::timestep(scalar dt, u32 iters) {
+	void solver::timestep(scalar dt) {
 		scalar dt2 = dt * dt;
 		scalar inv_dt2 = 1.0f / dt2;
 
@@ -65,7 +65,7 @@ namespace lotus::physics::solvers::xpbd {
 		rod_bend_twist_lagrangians.resize(rod_bend_twist_constraints.size(), zero);
 		std::ranges::fill(rod_bend_twist_lagrangians, zero);
 
-		for (usize i = 0; i < iters; ++i) {
+		for (usize i = 0; i < num_iterations; ++i) {
 			// project body contact constraints
 			for (usize j = 0; j < contact_constraints.size(); ++j) {
 				contact_constraints[j].project(contact_lambdas[j].first, contact_lambdas[j].second);

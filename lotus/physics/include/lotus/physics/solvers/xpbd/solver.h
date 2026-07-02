@@ -25,7 +25,7 @@ namespace lotus::physics::solvers::xpbd {
 	class solver {
 	public:
 		/// Executes one time step with the given delta time in seconds and the given number of iterations.
-		void timestep(scalar dt, u32 iters);
+		void timestep(scalar dt);
 
 
 		/// Handles the collision between a plane and a particle.
@@ -37,6 +37,7 @@ namespace lotus::physics::solvers::xpbd {
 
 
 		world *physics_world = nullptr; ///< The physics world.
+		u32 num_iterations = 8; ///< The number of iterations per time step.
 
 		std::vector<particle> particles; ///< The list of particles.
 		std::vector<orientation> orientations; ///< The list of orientations.

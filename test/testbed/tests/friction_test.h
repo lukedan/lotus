@@ -56,6 +56,9 @@ public:
 	}
 
 	void gui() override {
+		physics_test::gui();
+
+		ImGui::Separator();
 		ImGui::SliderFloat("Angle", &_angle, 0.0f, 90.0f);
 		ImGui::SliderFloat("Distance", &_distance, 0.0f, 50.0f);
 		ImGui::SliderFloat("Height", &_height, 0.0f, 10.0f);

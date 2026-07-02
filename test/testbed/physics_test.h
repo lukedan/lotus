@@ -4,11 +4,31 @@
 
 class physics_test : public test {
 public:
+	using solver_variant = std::variant<
+		lotus::physics::solvers::sequential_impulse::solver,
+		lotus::physics::solvers::avbd::solver,
+		lotus::physics::solvers::xpbd::solver
+	>;
+	struct solver_creator {
+		const char *name;
+		void (*creator)(solver_variant&);
+	};
+	constexpr static std::array<solver_creator, 3> solver_creators = { {
+		{ "Sequential Impulse", [](solver_variant &v) { v.emplace<lotus::physics::solvers::sequential_impulse::solver>(); } },
+		{ "AVBD", [](solver_variant &v) { v.emplace<lotus::physics::solvers::avbd::solver>(); } },
+		{ "XPBD", [](solver_variant &v) { v.emplace<lotus::physics::solvers::xpbd::solver>(); } },
+	} };
+
 	explicit physics_test(test_context &tctx) : test(tctx) {
 	}
 
-	void timestep(scalar dt, u32 iters) override {
-		_solver.timestep(dt, iters);
+	void timestep(scalar dt) override {
+		std::visit(
+			[dt](auto &solver) {
+				solver.timestep(dt);
+			},
+			_solver
+		);
 	}
 
 	void render(
@@ -16,15 +36,25 @@ public:
 		lotus::renderer::constant_uploader &uploader,
 		lotus::renderer::recorded_resources::swap_chain swap_chain, cvec2u32 size
 	) override {
-		_render.draw_system(_solver);
+		std::visit(
+			[this](const auto &solver) {
+				_render.draw_system(solver);
+			},
+			_solver
+		);
 		_render.flush(ctx, q, uploader, swap_chain, size);
 	}
 
 	void soft_reset() override {
 		_bodies.clear();
 		_world = lotus::physics::world();
-		_solver = decltype(_solver)();
-		_solver.physics_world = &_world;
+		std::visit(
+			[this]<typename Solver>(Solver &solver) {
+				solver = Solver();
+				solver.physics_world = &_world;
+			},
+			_solver
+		);
 
 		_render = debug_render();
 		_render.ctx = &_get_test_context();
@@ -37,12 +67,26 @@ public:
 	}
 
 	void gui() override {
+		if (ImGui::BeginCombo("Solver", solver_creators[_solver.index()].name)) {
+			for (usize i = 0; i < solver_creators.size(); ++i) {
+				const solver_creator &creator = solver_creators[i];
+				if (ImGui::Selectable(creator.name, i == _solver.index())) {
+					creator.creator(_solver);
+					soft_reset();
+				}
+			}
+			ImGui::EndCombo();
+		}
+		std::visit(
+			[this](auto &solver) {
+				_solver_gui(solver);
+			},
+			_solver
+		);
+
+		ImGui::Separator();
 		if (ImGui::Button("Shoot")) {
 			_shoot_bullet();
-		}
-		if (_solver.has_indefinite_hessians) {
-			ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Indefinite Hessians");
-			_solver.has_indefinite_hessians = false;
 		}
 	}
 
@@ -53,9 +97,7 @@ public:
 	}
 protected:
 	lotus::physics::world _world;
-	//lotus::physics::xpbd::solver _solver;
-	//lotus::physics::sequential_impulse::solver _solver;
-	lotus::physics::solvers::avbd::solver _solver;
+	solver_variant _solver;
 	debug_render _render;
 	std::deque<lotus::physics::body> _bodies;
 
@@ -81,4 +123,18 @@ private:
 	scalar _bullet_static_friction = 0.0f;
 	scalar _bullet_dynamic_friction = 0.0f;
 	scalar _bullet_restitution = 0.0f;
+
+	void _solver_gui(lotus::physics::solvers::sequential_impulse::solver &solver) {
+		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);
+	}
+	void _solver_gui(lotus::physics::solvers::avbd::solver &solver) {
+		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);
+		if (solver.has_indefinite_hessians) {
+			ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Indefinite Hessians");
+			solver.has_indefinite_hessians = false;
+		}
+	}
+	void _solver_gui(lotus::physics::solvers::xpbd::solver &solver) {
+		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);
+	}
 };

@@ -86,14 +86,14 @@ public:
 		)));
 	}
 
-	void timestep(scalar dt, u32 iterations) override {
+	void timestep(scalar dt) override {
 		_world_time += dt;
 		_sphere->state.position.position = {
 			_sphere_travel * std::cos((2.0f * lotus::physics::pi / _sphere_period) * _world_time),
 			_sphere_yz[0],
 			_sphere_yz[1]
 		};
-		_engine.timestep(dt, iterations);
+		_engine.timestep(dt);
 	}
 
 	void render(
@@ -106,6 +106,8 @@ public:
 	}
 
 	void gui() override {
+		ImGui_SliderT<u32>("Num Iterations", &_engine.num_iterations, 1, 100);
+
 		if (ImGui::Combo("Face Constraint Projection", &_face_projection, "Exact\0Gauss-Seidel\0\0")) {
 			_engine.face_constraint_projection_type =
 				static_cast<lotus::physics::solvers::xpbd::constraints::face::projection_type>(_face_projection);

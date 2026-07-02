@@ -9,7 +9,7 @@ public:
 	explicit cosserat_rod_test(test_context &tctx) : test(tctx) {
 	}
 
-	void timestep(scalar dt, u32 iterations) override {
+	void timestep(scalar dt) override {
 		// move the rods around
 		const auto pos_at = [](scalar t) {
 			return 0.2f * vec3(std::sin(t), std::sin(1.3f * t), 0.0f);
@@ -37,8 +37,8 @@ public:
 		_sphere_xpbd.state.position.position += collider_offset;
 
 
-		_solver_avbd.timestep(dt, iterations);
-		_solver_xpbd.timestep(dt, iterations);
+		_solver_avbd.timestep(dt);
+		_solver_xpbd.timestep(dt);
 
 		_time += dt * _move_scale;
 		_collider_time += dt * _collider_move_scale;
@@ -108,6 +108,9 @@ public:
 	}
 
 	void gui() override {
+		ImGui_SliderT<u32>("AVBD Iterations", &_solver_avbd.num_iterations, 1, 100);
+		ImGui_SliderT<u32>("XPBD Iterations", &_solver_xpbd.num_iterations, 1, 100);
+
 		const u32 min_segments = 2;
 		const u32 max_segments = 100;
 		ImGui::SliderScalar("Num Segments", ImGuiDataType_U32, &_segments, &min_segments, &max_segments);

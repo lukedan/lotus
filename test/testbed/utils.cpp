@@ -380,7 +380,7 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 }
 
 
-void debug_render::draw_system(lotus::physics::solvers::avbd::solver &solver) {
+void debug_render::draw_system(const lotus::physics::solvers::avbd::solver &solver) {
 	draw_world(*solver.physics_world);
 
 	if (ctx->draw_particles) {
@@ -408,11 +408,11 @@ void debug_render::draw_system(lotus::physics::solvers::avbd::solver &solver) {
 	}
 }
 
-void debug_render::draw_system(lotus::physics::solvers::sequential_impulse::solver &solver) {
+void debug_render::draw_system(const lotus::physics::solvers::sequential_impulse::solver &solver) {
 	draw_world(*solver.physics_world);
 }
 
-void debug_render::draw_system(lotus::physics::solvers::xpbd::solver &solver) {
+void debug_render::draw_system(const lotus::physics::solvers::xpbd::solver &solver) {
 	draw_world(*solver.physics_world);
 
 	if (ctx->draw_particles) {

@@ -61,14 +61,14 @@ public:
 	}
 
 	void gui() override {
+		physics_test::gui();
+
+		ImGui::Separator();
 		ImGui::SliderInt("Num Boxes", &_num_boxes, 1, 10);
 		ImGui::SliderFloat("Box Size", &_box_size, 0.1f, 2.0f);
 		ImGui::SliderFloat("Gap", &_gap, 1.0f, 10.0f);
 		ImGui::SliderFloat("Height", &_height, 2.0f, 150.0f);
 		ImGui::Checkbox("Double Pin", &_double_pin);
-
-		ImGui::Separator();
-		physics_test::gui();
 	}
 
 	static std::string get_name() {

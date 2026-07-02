@@ -29,7 +29,7 @@ namespace lotus::physics::solvers::avbd {
 	}
 
 
-	void solver::timestep(scalar dt, u32 iters) {
+	void solver::timestep(scalar dt) {
 		physics_world->update_contact_constraints();
 
 		// prepare rigid bodies
@@ -45,7 +45,7 @@ namespace lotus::physics::solvers::avbd {
 		const _orientation_step_data orientation_step_data = _prepare_orientations();
 
 		// iterations
-		for (u32 iter = 0; iter < iters; ++iter) {
+		for (u32 iter = 0; iter < num_iterations; ++iter) {
 			_solve_bodies(dt, body_step_data);
 			_solve_particles(dt, particle_step_data);
 			_solve_orientations(orientation_step_data);

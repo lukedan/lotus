@@ -26,7 +26,7 @@ public:
 		_convex_hull = nullptr;
 	}
 
-	void timestep(scalar, u32) override {
+	void timestep(scalar) override {
 		if (_cur_vertex < _vertices.size()) {
 			_convex_hull.add_vertex(_vertices[_cur_vertex]);
 			++_cur_vertex;

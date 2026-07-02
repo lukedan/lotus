@@ -60,7 +60,7 @@ public:
 				_time_accum += target;
 				auto timestep_beg = std::chrono::high_resolution_clock::now();
 				for (; _time_accum >= _time_step; _time_accum -= _time_step) {
-					_test->timestep(_time_step, _iters);
+					_test->timestep(_time_step);
 					consumed += _time_step;
 
 					auto timestep_end = std::chrono::high_resolution_clock::now();
@@ -108,7 +108,6 @@ protected:
 	bool _test_running = false; ///< Whether the test is currently running.
 	f32 _time_scale = 100.0f; ///< Time scaling.
 	f32 _time_step = 1.0f / 60.0f; ///< Time step.
-	int _iters = 8; ///< Solver iterations.
 
 	f32 _max_frametime = 0.1f; ///< Maximum frame time.
 	scalar _simulation_speed = 0.0f; ///< Simulation speed.
@@ -185,10 +184,9 @@ protected:
 				}
 				ImGui::SliderFloat("Time Scaling", &_time_scale, 0.0f, 100.0f, "%.1f%%");
 				ImGui::SliderFloat("Time Step", &_time_step, 0.001f, 0.1f, "%.3fs", ImGuiSliderFlags_Logarithmic);
-				ImGui::SliderInt("Iterations", &_iters, 1, 100);
 				if (ImGui::Button("Execute Single Time Step")) {
 					if (_test) {
-						_test->timestep(_time_step, _iters);
+						_test->timestep(_time_step);
 					}
 				}
 				if (ImGui::Button("Soft Reset")) {

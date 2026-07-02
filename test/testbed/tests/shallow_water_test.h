@@ -458,7 +458,7 @@ public:
 		}
 	}
 
-	void timestep(scalar dt, u32 iterations) override {
+	void timestep(scalar dt) override {
 		if (!_method) {
 			return;
 		}
@@ -467,8 +467,8 @@ public:
 			_impulse = false;
 			_method->impulse(vec2(_impulse_pos[0], _impulse_pos[1]), _impulse_vel, dt);
 		}
-		for (u32 i = 0; i < iterations; ++i) {
-			_method->timestep(dt / static_cast<f32>(iterations));
+		for (int i = 0; i < _substeps; ++i) {
+			_method->timestep(dt / static_cast<f32>(_substeps));
 		}
 	}
 
@@ -516,6 +516,7 @@ public:
 				_method->soft_reset();
 			}
 		}
+		ImGui::SliderInt("Substeps", &_substeps, 1, 100);
 		ImGui::SliderInt2("Divisions", _size, 4, 2048);
 		ImGui::SliderFloat2("Grid Size", _grid_size, 1.0f, 1000.0f);
 		ImGui::SliderFloat("Water Height", &_water_height, 0.0f, 10.0f);
@@ -552,6 +553,7 @@ protected:
 	debug_render _render;
 	std::unique_ptr<method_base> _method;
 
+	int _substeps = 1;
 	int _size[2] = { 128, 128 };
 	f32 _grid_size[2] = { 10.0f, 10.0f };
 	f32 _water_height = 2.0f;

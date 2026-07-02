@@ -86,12 +86,12 @@ public:
 	}
 
 	void gui() override {
+		physics_test::gui();
+
+		ImGui::Separator();
 		ImGui::SliderFloat3("Door Size", _door_size, 0.01f, 3.0f);
 		ImGui::SliderFloat("Height", &_height, 0.0f, 1.0f);
 		ImGui::Checkbox("Add Walls", &_add_walls);
-
-		ImGui::Separator();
-		physics_test::gui();
 	}
 
 	static std::string get_name() {

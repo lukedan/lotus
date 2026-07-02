@@ -3,6 +3,8 @@
 #include <vector>
 #include <list>
 
+#include <imgui.h>
+
 #include <lotus/color.h>
 #include <lotus/math/vector.h>
 #include <lotus/utils/camera.h>
@@ -107,9 +109,9 @@ public:
 	void draw_physics_body(const lotus::collision::shapes::sphere&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_physics_body(const lotus::collision::shapes::convex_polyhedron&, mat44s transform, const body_visual*, bool wireframe);
 	void draw_world(const lotus::physics::world&);
-	void draw_system(lotus::physics::solvers::avbd::solver&);
-	void draw_system(lotus::physics::solvers::sequential_impulse::solver&);
-	void draw_system(lotus::physics::solvers::xpbd::solver&);
+	void draw_system(const lotus::physics::solvers::avbd::solver&);
+	void draw_system(const lotus::physics::solvers::sequential_impulse::solver&);
+	void draw_system(const lotus::physics::solvers::xpbd::solver&);
 
 
 	void flush(
@@ -148,4 +150,16 @@ inline std::pair<
 	box_verts.emplace_back(-half_size[0], -half_size[1],  half_size[2]);
 	box_verts.emplace_back(-half_size[0], -half_size[1], -half_size[2]);
 	return lotus::collision::shapes::convex_polyhedron::bake(box_verts);
+}
+
+template <typename> struct imgui_data_type {
+};
+template <> struct imgui_data_type<u32> {
+	constexpr static ImGuiDataType value = ImGuiDataType_U32;
+};
+template <typename T> constexpr ImGuiDataType imgui_data_type_v = imgui_data_type<T>::value;
+template <typename T> bool ImGui_SliderT(
+	const char *label, T *data, T min, T max, const char *format = nullptr, ImGuiSliderFlags flags = 0
+) {
+	ImGui::SliderScalar(label, imgui_data_type_v<T>, data, &min, &max, format, flags);
 }

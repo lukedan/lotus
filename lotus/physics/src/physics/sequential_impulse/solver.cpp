@@ -6,14 +6,14 @@
 #include "lotus/physics/world.h"
 
 namespace lotus::physics::solvers::sequential_impulse {
-	void solver::timestep(scalar dt, u32 iters) {
+	void solver::timestep(scalar dt) {
 		physics_world->update_contact_constraints();
 
 		std::vector<std::vector<vec3>> lambdas;
 		for (const constraints::rigid_body_contact &contact : physics_world->contacts) {
 			lambdas.emplace_back(contact.contact_points.size(), zero);
 		}
-		for (u32 iter = 0; iter < iters; ++iter) {
+		for (u32 iter = 0; iter < num_iterations; ++iter) {
 			for (usize ci = 0; ci < physics_world->contacts.size(); ++ci) {
 				const constraints::rigid_body_contact &contact = physics_world->contacts[ci];
 				std::vector<vec3> &lambda_array = lambdas[ci];

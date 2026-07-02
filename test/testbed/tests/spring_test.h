@@ -54,6 +54,9 @@ public:
 	}
 
 	void gui() override {
+		physics_test::gui();
+
+		ImGui::Separator();
 		ImGui::SliderInt("Num Boxes", &_num_boxes, 1, 10);
 		ImGui::SliderFloat("Box Size", &_box_size, 0.1f, 2.0f);
 		ImGui::SliderFloat("Gap", &_gap, 1.0f, 10.0f);
@@ -61,9 +64,6 @@ public:
 		ImGui::SliderFloat("Stretched Stiffness", &_stretched_stiffness, 0.0f, 10000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderFloat("Height", &_height, 2.0f, 150.0f);
 		ImGui::Checkbox("Disable Collisions", &_disable_collisions);
-
-		ImGui::Separator();
-		physics_test::gui();
 	}
 
 	static std::string get_name() {

@@ -50,7 +50,8 @@ public:
 		_world = lotus::physics::world();
 		std::visit(
 			[this]<typename Solver>(Solver &solver) {
-				solver = Solver();
+				Solver old_solver = std::exchange(solver, Solver());
+				_copy_settings_to(solver, old_solver);
 				solver.physics_world = &_world;
 			},
 			_solver
@@ -124,10 +125,10 @@ private:
 	scalar _bullet_dynamic_friction = 0.0f;
 	scalar _bullet_restitution = 0.0f;
 
-	void _solver_gui(lotus::physics::solvers::sequential_impulse::solver &solver) {
+	void _solver_gui(lotus::physics::solvers::sequential_impulse::solver &solver) const {
 		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);
 	}
-	void _solver_gui(lotus::physics::solvers::avbd::solver &solver) {
+	void _solver_gui(lotus::physics::solvers::avbd::solver &solver) const {
 		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);
 		ImGui::SliderFloat("Contact Damping", &solver.contact_damping, 0.0f, 1.0f);
 		ImGui::SliderFloat("Stiffness Ramping", &solver.stiffness_ramping, 1.0f, 1000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
@@ -136,7 +137,19 @@ private:
 			solver.has_indefinite_hessians = false;
 		}
 	}
-	void _solver_gui(lotus::physics::solvers::xpbd::solver &solver) {
+	void _solver_gui(lotus::physics::solvers::xpbd::solver &solver) const {
 		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);
+	}
+
+	void _copy_settings_to(lotus::physics::solvers::sequential_impulse::solver &new_solver, const lotus::physics::solvers::sequential_impulse::solver &old_solver) const {
+		new_solver.num_iterations = old_solver.num_iterations;
+	}
+	void _copy_settings_to(lotus::physics::solvers::avbd::solver &new_solver, const lotus::physics::solvers::avbd::solver &old_solver) const {
+		new_solver.num_iterations = old_solver.num_iterations;
+		new_solver.contact_damping = old_solver.contact_damping;
+		new_solver.stiffness_ramping = old_solver.stiffness_ramping;
+	}
+	void _copy_settings_to(lotus::physics::solvers::xpbd::solver &new_solver, const lotus::physics::solvers::xpbd::solver &old_solver) const {
+		new_solver.num_iterations = old_solver.num_iterations;
 	}
 };

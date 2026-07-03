@@ -6,6 +6,7 @@
 #include "lotus/physics/world.h"
 
 namespace lotus::physics::solvers::sequential_impulse {
+#pragma region "Contact Constraints"
 	vec3 solver::_contact_constraint_data::point_data::update_lambda(
 		vec3 delta, const constraints::rigid_body_contact &contact
 	) {
@@ -47,7 +48,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 	}
 
 	solver::_contact_constraint_data solver::_contact_constraint_data::prepare(
-		const constraints::rigid_body_contact &contact, scalar baumgarte, scalar rcp_dt
+		const constraints::rigid_body_contact &contact, scalar baumgarte_coeff
 	) {
 		_contact_constraint_data result;
 
@@ -66,7 +67,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 				compute_effective_mass(contact, result, pdata, contact.tangents.tangent),
 				compute_effective_mass(contact, result, pdata, contact.tangents.bitangent)
 			};
-			pdata.stabilization = baumgarte * rcp_dt * vec::dot(
+			pdata.stabilization = baumgarte_coeff * vec::dot(
 				contact.tangents.normal,
 				contact.body1->state.position.position + pdata.offset1 -
 				(contact.body2->state.position.position + pdata.offset2)
@@ -74,15 +75,6 @@ namespace lotus::physics::solvers::sequential_impulse {
 		}
 
 		return result;
-	}
-
-	void solver::_contact_constraint_data::apply_impulses(
-		const constraints::rigid_body_contact &contact, vec3 off1, vec3 off2, vec3 impulse
-	) {
-		contact.body1->state.velocity.linear += contact.body1->properties.inverse_mass * -impulse;
-		contact.body1->state.velocity.angular += inverse_inertia1 * vec::cross(off1, -impulse);
-		contact.body2->state.velocity.linear += contact.body2->properties.inverse_mass * impulse;
-		contact.body2->state.velocity.angular += inverse_inertia2 * vec::cross(off2, impulse);
 	}
 
 	void solver::_contact_constraint_data::velocity_update(const constraints::rigid_body_contact &contact) {
@@ -97,13 +89,79 @@ namespace lotus::physics::solvers::sequential_impulse {
 			const vec3 delta_lambda =
 				pdata.update_lambda(matm::divide(nominator, pdata.effective_mass), contact);
 			const vec3 impulse = contact.tangents.get_tangent_to_world_matrix() * delta_lambda;
-			apply_impulses(contact, pdata.offset1, pdata.offset2, impulse);
+			_apply_impulses(
+				contact.body1,
+				contact.body2,
+				inverse_inertia1,
+				inverse_inertia2,
+				pdata.offset1,
+				pdata.offset2,
+				impulse
+			);
 		}
 	}
+#pragma endregion
+
+
+#pragma region "Pin Constraints"
+	mat33s solver::_pin_constraint_data::compute_effective_mass(
+		mat33s inv_i1, mat33s inv_i2, scalar inv_m1, scalar inv_m2, vec3 o1, vec3 o2
+	) {
+		const mat33s r1x = vec::cross_matrix(o1);
+		const mat33s r2x = vec::cross_matrix(o2);
+		return mat33s::identity() * (inv_m1 + inv_m2) - r1x * inv_i1 * r1x - r2x * inv_i2 * r2x;
+	}
+
+	solver::_pin_constraint_data solver::_pin_constraint_data::prepare(
+		const constraints::pin &pin, scalar baumgarte_coeff
+	) {
+		_pin_constraint_data result;
+
+		if (pin.body1) {
+			const mat33s rot1 = pin.body1->state.position.orientation.into_rotation_matrix();
+			result.offset1 = pin.body1->state.position.orientation.rotate(pin.local_position1);
+			result.inverse_inertia1 = rot1 * pin.body1->properties.inverse_inertia * rot1.transposed();
+		} else {
+			result.offset1 = pin.local_position1;
+		}
+		if (pin.body2) {
+			const mat33s rot2 = pin.body2->state.position.orientation.into_rotation_matrix();
+			result.offset2 = pin.body2->state.position.orientation.rotate(pin.local_position2);
+			result.inverse_inertia2 = rot2 * pin.body2->properties.inverse_inertia * rot2.transposed();
+		} else {
+			result.offset2 = pin.local_position2;
+		}
+		result.inv_effective_mass = compute_effective_mass(
+			result.inverse_inertia1,
+			result.inverse_inertia2,
+			pin.body1 ? pin.body1->properties.inverse_mass : 0.0f,
+			pin.body2 ? pin.body2->properties.inverse_mass : 0.0f,
+			result.offset1,
+			result.offset2
+		).inverse();
+		const vec3 diff =
+			(pin.body1 ? pin.body1->state.position.local_to_global(pin.local_position1) : pin.local_position1) -
+			(pin.body2 ? pin.body2->state.position.local_to_global(pin.local_position2) : pin.local_position2);
+		result.stabilization = diff * baumgarte_coeff;
+
+		return result;
+	}
+
+	void solver::_pin_constraint_data::velocity_update(const constraints::pin &pin) {
+		const vec3 rel_velocity =
+			(pin.body1 ? pin.body1->state.velocity.get_velocity_at(offset1) : zero) -
+			(pin.body2 ? pin.body2->state.velocity.get_velocity_at(offset2) : zero);
+
+		const vec3 delta_lambda = inv_effective_mass * (rel_velocity + stabilization);
+		lambda += delta_lambda;
+		_apply_impulses(pin.body1, pin.body2, inverse_inertia1, inverse_inertia2, offset1, offset2, delta_lambda);
+	}
+#pragma endregion
 
 
 	void solver::timestep(scalar dt) {
 		const scalar rcp_dt = 1.0f / dt;
+		const scalar baumgarte_coeff = baumgarte_stabilization * rcp_dt;
 
 		// advect
 		for (body *b : physics_world->get_bodies()) {
@@ -115,13 +173,34 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 		std::vector<_contact_constraint_data> contact_data;
 		for (const constraints::rigid_body_contact &contact : physics_world->contacts) {
-			contact_data.emplace_back(_contact_constraint_data::prepare(contact, baumgarte_stabilization, rcp_dt));
+			contact_data.emplace_back(_contact_constraint_data::prepare(contact, baumgarte_coeff));
+		}
+
+		std::vector<_pin_constraint_data> pin_data;
+		for (const constraints::pin &pin : physics_world->pins) {
+			pin_data.emplace_back(_pin_constraint_data::prepare(pin, baumgarte_coeff));
 		}
 
 		for (u32 iter = 0; iter < num_velocity_iterations; ++iter) {
 			for (usize ci = 0; ci < physics_world->contacts.size(); ++ci) {
 				contact_data[ci].velocity_update(physics_world->contacts[ci]);
 			}
+			for (usize ci = 0; ci < physics_world->pins.size(); ++ci) {
+				pin_data[ci].velocity_update(physics_world->pins[ci]);
+			}
+		}
+	}
+
+	void solver::_apply_impulses(
+		body *body1, body *body2, mat33s inv_i1, mat33s inv_i2, vec3 off1, vec3 off2, vec3 impulse
+	) {
+		if (body1) {
+			body1->state.velocity.linear += body1->properties.inverse_mass * -impulse;
+			body1->state.velocity.angular += inv_i1 * vec::cross(off1, -impulse);
+		}
+		if (body2) {
+			body2->state.velocity.linear += body2->properties.inverse_mass * impulse;
+			body2->state.velocity.angular += inv_i2 * vec::cross(off2, impulse);
 		}
 	}
 }

@@ -4,6 +4,7 @@
 /// The sequential impulse solver.
 
 #include "lotus/physics/constraints/contact.h"
+#include "lotus/physics/constraints/pin.h"
 
 namespace lotus::physics {
 	class world;
@@ -55,14 +56,38 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 			/// Precomputes necessary information for the given contact constraint.
 			[[nodiscard]] static _contact_constraint_data prepare(
-				const constraints::rigid_body_contact&, scalar baumgarte, scalar rcp_dt
+				const constraints::rigid_body_contact&, scalar baumgarte_coeff
 			);
-
-			/// Applies the given impulse immediately to the two bodies.
-			void apply_impulses(const constraints::rigid_body_contact&, vec3 off1, vec3 off2, vec3 impulse);
 
 			/// Iterates over all contact points and updates the impulse estimates and body velocities.
 			void velocity_update(const constraints::rigid_body_contact&);
 		};
+		/// Precomputed data and state for a pin constraint.
+		struct _pin_constraint_data {
+			vec3 offset1 = zero; ///< Offset of the pin point from the first body's center of mass.
+			vec3 offset2 = zero; ///< Offset of the pin point from the second body's center of mass.
+			mat33s inverse_inertia1 = zero; ///< Rotated inverse inertia of the first body.
+			mat33s inverse_inertia2 = zero; ///< Rotated inverse inertia of the second body.
+			mat33s inv_effective_mass = zero; ///< Inverse effective mass.
+			vec3 stabilization = zero; ///< Baumgarte stabilization term.
+
+			vec3 lambda = zero; ///< Total applied impulse.
+
+			/// Computes the effective mass.
+			[[nodiscard]] static mat33s compute_effective_mass(
+				mat33s inv_i1, mat33s inv_i2, scalar inv_m1, scalar inv_m2, vec3 o1, vec3 o2
+			);
+
+			/// Precomputes necessary information for the given pin constraint.
+			[[nodiscard]] static _pin_constraint_data prepare(const constraints::pin&, scalar baumgarte_coeff);
+
+			/// Updates the impulse estimate and body velocities.
+			void velocity_update(const constraints::pin&);
+		};
+
+		/// Immediately Applies \p -impulse to the \p body1, and \p impulse to the second \p body2.
+		static void _apply_impulses(
+			body *body1, body *body2, mat33s inv_i1, mat33s inv_i2, vec3 off1, vec3 off2, vec3 impulse
+		);
 	};
 }

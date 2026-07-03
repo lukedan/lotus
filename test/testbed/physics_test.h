@@ -126,7 +126,8 @@ private:
 	scalar _bullet_restitution = 0.0f;
 
 	void _solver_gui(lotus::physics::solvers::sequential_impulse::solver &solver) const {
-		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);
+		ImGui_SliderT<u32>("Num Velocity Iterations", &solver.num_velocity_iterations, 1, 100);
+		ImGui::SliderFloat("Baumgarte Stabilization", &solver.baumgarte_stabilization, 0.0f, 1.0f);
 	}
 	void _solver_gui(lotus::physics::solvers::avbd::solver &solver) const {
 		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);
@@ -142,7 +143,8 @@ private:
 	}
 
 	void _copy_settings_to(lotus::physics::solvers::sequential_impulse::solver &new_solver, const lotus::physics::solvers::sequential_impulse::solver &old_solver) const {
-		new_solver.num_iterations = old_solver.num_iterations;
+		new_solver.num_velocity_iterations = old_solver.num_velocity_iterations;
+		new_solver.baumgarte_stabilization = old_solver.baumgarte_stabilization;
 	}
 	void _copy_settings_to(lotus::physics::solvers::avbd::solver &new_solver, const lotus::physics::solvers::avbd::solver &old_solver) const {
 		new_solver.num_iterations = old_solver.num_iterations;

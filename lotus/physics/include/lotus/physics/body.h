@@ -25,13 +25,14 @@ namespace lotus::physics {
 			return result;
 		}
 
-		/// Applies an impulse to this body.
-		void apply_impulse(vec3 pos_ws, vec3 impulse_ws) {
+		/// Applies an impulse to this body at the given position relative to its center of mass by immediately
+		/// modifying its velocities.
+		void apply_impulse_immediate(vec3 relative_pos, vec3 impulse_ws) {
 			state.velocity.linear += impulse_ws * properties.inverse_mass;
 			state.velocity.angular +=
 				state.position.orientation.rotate(
 					properties.inverse_inertia * state.position.orientation.inverse().rotate(
-						vec::cross(pos_ws - state.position.position, impulse_ws)
+						vec::cross(relative_pos, impulse_ws)
 					)
 				);
 		}

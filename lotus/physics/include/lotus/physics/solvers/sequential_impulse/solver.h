@@ -17,6 +17,52 @@ namespace lotus::physics::solvers::sequential_impulse {
 		void timestep(scalar delta_time);
 
 		world *physics_world = nullptr; ///< The physics world.
-		u32 num_iterations = 8; ///< The number of iterations per time step.
+		u32 num_velocity_iterations = 8; ///< The number of velocity iterations per time step.
+		scalar baumgarte_stabilization = 0.1f; ///< Baumgarte stabilization coefficient.
+	private:
+		/// Precomputed data and state for a contact constraint.
+		struct _contact_constraint_data {
+			/// Data about a single contact point.
+			struct point_data {
+				/// Zero initialization.
+				point_data(zero_t) {
+				}
+
+				vec3 offset1 = zero; ///< Offset of the contact point from the first body's center of mass.
+				vec3 offset2 = zero; ///< Offset of the contact point from the second body's center of mass.
+				vec3 effective_mass = zero; ///< Effective mass at this contact point.
+				scalar stabilization = 0.0f; ///< Baumgarte stabilization term.
+
+				vec3 lambda = zero; ///< Total applied impulse.
+
+				/// Applies the given delta to \ref lambda, applies clamping, and returns the amount by which
+				/// \ref lambda has changed.
+				[[nodiscard]] vec3 update_lambda(vec3 delta, const constraints::rigid_body_contact&);
+			};
+
+			std::vector<point_data> points; ///< Data for all contact points.
+			mat33s inverse_inertia1 = zero; ///< Rotated inverse inertia of the first body.
+			mat33s inverse_inertia2 = zero; ///< Rotated inverse inertia of the second body.
+
+			/// Computes the effective mass projected onto the given axis.
+			[[nodiscard]] static scalar compute_effective_mass(
+				mat33s inv_i1, mat33s inv_i2, scalar inv_m1, scalar inv_m2, vec3 o1, vec3 o2, vec3 axis
+			);
+			/// \overload
+			[[nodiscard]] static scalar compute_effective_mass(
+				const constraints::rigid_body_contact&, const _contact_constraint_data&, const point_data&, vec3 axis
+			);
+
+			/// Precomputes necessary information for the given contact constraint.
+			[[nodiscard]] static _contact_constraint_data prepare(
+				const constraints::rigid_body_contact&, scalar baumgarte, scalar rcp_dt
+			);
+
+			/// Applies the given impulse immediately to the two bodies.
+			void apply_impulses(const constraints::rigid_body_contact&, vec3 off1, vec3 off2, vec3 impulse);
+
+			/// Iterates over all contact points and updates the impulse estimates and body velocities.
+			void velocity_update(const constraints::rigid_body_contact&);
+		};
 	};
 }

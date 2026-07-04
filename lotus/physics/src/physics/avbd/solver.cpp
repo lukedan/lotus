@@ -370,8 +370,8 @@ namespace lotus::physics::solvers::avbd {
 			const _vec6 delta_x = decomposition.solve(f);
 
 			// update
-			const vec3 delta_p = delta_x.block<3, 1>(0, 0).into<f32>();
-			const vec3 delta_q = delta_x.block<3, 1>(3, 0).into<f32>();
+			const vec3 delta_p = delta_x.block<3, 1>(0, 0).into<scalar>();
+			const vec3 delta_q = delta_x.block<3, 1>(3, 0).into<scalar>();
 			cur_pos.position += delta_p;
 			cur_pos.orientation = quatu::normalize(
 				cur_pos.orientation + 0.5f * quat::from_vec3_xyz(delta_q) * cur_pos.orientation

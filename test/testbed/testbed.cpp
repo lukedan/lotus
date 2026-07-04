@@ -118,7 +118,7 @@ protected:
 	lotus::renderer::context::queue _gfx_q = nullptr;
 	/// Sensitivity for scrolling to move the camera closer and further from the focus point.
 	f32 _scroll_sensitivity = 0.95f;
-	lotus::camera_control<scalar> _camera_control = nullptr;
+	lotus::camera_control<f32> _camera_control = nullptr;
 
 	test_context _test_context; ///< Test context.
 	std::vector<_test_creator> _tests; ///< The list of tests.
@@ -251,11 +251,11 @@ protected:
 
 	void _reset_camera() {
 		const vec2 window_size = _get_back_buffer_size().into<scalar>();
-		_test_context.camera_params = lotus::camera_parameters<scalar>::create_look_at(
+		_test_context.camera_params = lotus::camera_parameters<f32>::create_look_at(
 			lotus::zero,
 			{ 3.0f, 4.0f, 5.0f },
 			{ 0.0f, 1.0f, 0.0f },
-			window_size[0] / std::max<scalar>(1.0f, window_size[1])
+			window_size[0] / std::max<f32>(1.0f, window_size[1])
 		);
 		_test_context.update_camera();
 	}
@@ -309,7 +309,7 @@ protected:
 
 		_gfx_q = _context->get_queue(0);
 
-		_camera_control = lotus::camera_control<scalar>(_test_context.camera_params);
+		_camera_control = lotus::camera_control<f32>(_test_context.camera_params);
 	}
 
 	void _on_resize(lotus::system::window_events::resize&) override {
@@ -329,7 +329,7 @@ protected:
 		_camera_control.on_mouse_up(up.button);
 	}
 	void _on_mouse_scroll(lotus::system::window_events::mouse::scroll &scroll) override {
-		vec3 diff = _test_context.camera_params.position - _test_context.camera_params.look_at;
+		cvec3f32 diff = _test_context.camera_params.position - _test_context.camera_params.look_at;
 		diff *= std::pow(_scroll_sensitivity, scroll.offset[1]);
 		_test_context.camera_params.position = _test_context.camera_params.look_at + diff;
 		_test_context.update_camera();

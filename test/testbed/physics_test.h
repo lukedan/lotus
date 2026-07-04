@@ -86,6 +86,7 @@ public:
 		);
 
 		ImGui::Separator();
+		ImGui::SliderFloat("Bullet Velocity", &_bullet_velocity, 0.0f, 50.0f);
 		if (ImGui::Button("Shoot")) {
 			_shoot_bullet();
 		}
@@ -109,30 +110,30 @@ protected:
 			material,
 			_bullet_properties,
 			lotus::physics::body_state::from_position_velocity(
-				_get_test_context().camera_params.position,
+				_get_test_context().camera_params.position.into<scalar>(),
 				uquats::identity(),
-				_get_test_context().camera.unit_forward * _bullet_velocity
+				(_get_test_context().camera.unit_forward * _bullet_velocity).into<scalar>()
 			)
 		)));
 	}
 private:
 	lotus::collision::shape _bullet_shape;
 	lotus::physics::body_properties _bullet_properties = lotus::uninitialized;
-	scalar _bullet_size = 1.0f;
-	scalar _bullet_velocity = 50.0f;
-	scalar _bullet_density = 1.0f;
-	scalar _bullet_static_friction = 0.0f;
-	scalar _bullet_dynamic_friction = 0.0f;
-	scalar _bullet_restitution = 0.0f;
+	f32 _bullet_size = 1.0f;
+	f32 _bullet_velocity = 50.0f;
+	f32 _bullet_density = 1.0f;
+	f32 _bullet_static_friction = 0.0f;
+	f32 _bullet_dynamic_friction = 0.0f;
+	f32 _bullet_restitution = 0.0f;
 
 	void _solver_gui(lotus::physics::solvers::sequential_impulse::solver &solver) const {
 		ImGui_SliderT<u32>("Num Velocity Iterations", &solver.num_velocity_iterations, 1, 100);
-		ImGui::SliderFloat("Baumgarte Stabilization", &solver.baumgarte_stabilization, 0.0f, 1.0f);
+		ImGui_SliderT<scalar>("Baumgarte Stabilization", &solver.baumgarte_stabilization, 0.0f, 1.0f);
 	}
 	void _solver_gui(lotus::physics::solvers::avbd::solver &solver) const {
 		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);
-		ImGui::SliderFloat("Contact Damping", &solver.contact_damping, 0.0f, 1.0f);
-		ImGui::SliderFloat("Stiffness Ramping", &solver.stiffness_ramping, 1.0f, 1000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
+		ImGui_SliderT<scalar>("Contact Damping", &solver.contact_damping, 0.0f, 1.0f);
+		ImGui_SliderT<scalar>("Stiffness Ramping", &solver.stiffness_ramping, 1.0f, 1000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
 		if (solver.has_indefinite_hessians) {
 			ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Indefinite Hessians");
 			solver.has_indefinite_hessians = false;

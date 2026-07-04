@@ -29,14 +29,14 @@ public:
 		));
 		_world.add_body(door);
 
-		{
+		if (_pin) {
 			const vec3 pin_pos = vec3(0.5f * _door_size[0], 0.5f * _door_size[1] + _height, 0.0f);
 			lotus::physics::constraints::pin &pin = _world.pins.emplace_back(lotus::zero);
 			pin.body1 = &door;
 			pin.local_position1 = door.state.position.global_to_local(pin_pos);
 			pin.local_position2 = pin_pos;
 		}
-		{
+		if (_hinge) {
 			lotus::physics::constraints::hinge &hinge = _world.hinges.emplace_back(lotus::zero);
 			hinge.body1 = &door;
 			hinge.local_axis1 = { 0.0f, 1.0f, 0.0f };
@@ -91,6 +91,8 @@ public:
 		ImGui::Separator();
 		ImGui::SliderFloat3("Door Size", _door_size, 0.01f, 3.0f);
 		ImGui::SliderFloat("Height", &_height, 0.0f, 1.0f);
+		ImGui::Checkbox("Use Pin", &_pin);
+		ImGui::Checkbox("Use Hinge", &_hinge);
 		ImGui::Checkbox("Add Walls", &_add_walls);
 	}
 
@@ -106,5 +108,7 @@ private:
 
 	f32 _door_size[3] = { 1.0f, 2.3f, 0.1f };
 	f32 _height = 0.1f;
+	bool _pin = true;
+	bool _hinge = true;
 	bool _add_walls = false;
 };

@@ -14,7 +14,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 			std::min(contact.body1->material.dynamic_friction, contact.body2->material.dynamic_friction);
 		const vec3 old_lambda = lambda;
 		lambda += delta;
-		lambda[0] = std::max(lambda[0], 0.0f) + stabilization / effective_mass[0];
+		lambda[0] = std::max<scalar>(lambda[0], 0.0f) + stabilization / effective_mass[0];
 		const scalar max_friction_force = friction_coefficient * lambda[0];
 		lambda[1] = std::clamp(lambda[1], -max_friction_force, max_friction_force);
 		lambda[2] = std::clamp(lambda[2], -max_friction_force, max_friction_force);
@@ -103,6 +103,43 @@ namespace lotus::physics::solvers::sequential_impulse {
 #pragma endregion
 
 
+#pragma region "Hinge Constraints"
+	solver::_hinge_constraint_data solver::_hinge_constraint_data::prepare(
+		const constraints::hinge &hinge, scalar baumgarte_coeff
+	) {
+		_hinge_constraint_data result;
+
+		result.axis1 = hinge.get_global_axis1();
+		result.axis2 = hinge.get_global_axis2();
+		result.inverse_inertia1 = hinge.body1 ? hinge.body1->get_rotated_inverse_inertia() : zero;
+		result.inverse_inertia2 = hinge.body2 ? hinge.body2->get_rotated_inverse_inertia() : zero;
+
+		const mat33s sum_r_invi =
+			vec::cross_matrix(result.axis1) * (hinge.body1 ? hinge.body1->properties.inverse_inertia : zero) +
+			vec::cross_matrix(result.axis2) * (hinge.body2 ? hinge.body2->properties.inverse_inertia : zero);
+		result.inv_effective_mass =
+			(sum_r_invi.transposed() * sum_r_invi + mat33s::identity()).inverse() * sum_r_invi.transposed();
+		result.stabilization = baumgarte_coeff * (result.axis1 - result.axis2);
+
+		return result;
+	}
+
+	void solver::_hinge_constraint_data::velocity_update(const constraints::hinge &hinge) {
+		const vec3 rel_velocity =
+			vec::cross(hinge.body1 ? hinge.body1->state.velocity.angular : zero, axis1) -
+			vec::cross(hinge.body2 ? hinge.body2->state.velocity.angular : zero, axis2);
+		const vec3 delta_lambda = inv_effective_mass * (rel_velocity + stabilization);
+		lambda += delta_lambda;
+		if (hinge.body1) {
+			hinge.body1->state.velocity.angular += inverse_inertia1 * delta_lambda;
+		}
+		if (hinge.body2) {
+			hinge.body2->state.velocity.angular += inverse_inertia2 * -delta_lambda;
+		}
+	}
+#pragma endregion
+
+
 #pragma region "Pin Constraints"
 	mat33s solver::_pin_constraint_data::compute_effective_mass(
 		mat33s inv_i1, mat33s inv_i2, scalar inv_m1, scalar inv_m2, vec3 o1, vec3 o2
@@ -118,16 +155,14 @@ namespace lotus::physics::solvers::sequential_impulse {
 		_pin_constraint_data result;
 
 		if (pin.body1) {
-			const mat33s rot1 = pin.body1->state.position.orientation.into_rotation_matrix();
 			result.offset1 = pin.body1->state.position.orientation.rotate(pin.local_position1);
-			result.inverse_inertia1 = rot1 * pin.body1->properties.inverse_inertia * rot1.transposed();
+			result.inverse_inertia1 = pin.body1->get_rotated_inverse_inertia();
 		} else {
 			result.offset1 = pin.local_position1;
 		}
 		if (pin.body2) {
-			const mat33s rot2 = pin.body2->state.position.orientation.into_rotation_matrix();
 			result.offset2 = pin.body2->state.position.orientation.rotate(pin.local_position2);
-			result.inverse_inertia2 = rot2 * pin.body2->properties.inverse_inertia * rot2.transposed();
+			result.inverse_inertia2 = pin.body2->get_rotated_inverse_inertia();
 		} else {
 			result.offset2 = pin.local_position2;
 		}
@@ -139,9 +174,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 			result.offset1,
 			result.offset2
 		).inverse();
-		const vec3 diff =
-			(pin.body1 ? pin.body1->state.position.local_to_global(pin.local_position1) : pin.local_position1) -
-			(pin.body2 ? pin.body2->state.position.local_to_global(pin.local_position2) : pin.local_position2);
+		const vec3 diff = pin.get_global_position1() - pin.get_global_position2();
 		result.stabilization = diff * baumgarte_coeff;
 
 		return result;
@@ -165,6 +198,13 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 		// advect
 		for (body *b : physics_world->get_bodies()) {
+			b->state.velocity.linear += b->applied_impulse * b->properties.inverse_mass;
+			b->state.velocity.angular += b->state.position.orientation.rotate(
+				b->properties.inverse_inertia * b->state.position.orientation.conjugate().rotate(b->applied_impulse)
+			);
+			b->applied_impulse = zero;
+			b->applied_torque = zero;
+
 			b->position_integration(dt);
 			b->velocity_integration(dt, physics_world->gravity, zero);
 		}
@@ -172,11 +212,14 @@ namespace lotus::physics::solvers::sequential_impulse {
 		physics_world->update_contact_constraints();
 
 		std::vector<_contact_constraint_data> contact_data;
+		std::vector<_hinge_constraint_data> hinge_data;
+		std::vector<_pin_constraint_data> pin_data;
 		for (const constraints::rigid_body_contact &contact : physics_world->contacts) {
 			contact_data.emplace_back(_contact_constraint_data::prepare(contact, baumgarte_coeff));
 		}
-
-		std::vector<_pin_constraint_data> pin_data;
+		for (const constraints::hinge &hinge : physics_world->hinges) {
+			hinge_data.emplace_back(_hinge_constraint_data::prepare(hinge, baumgarte_coeff));
+		}
 		for (const constraints::pin &pin : physics_world->pins) {
 			pin_data.emplace_back(_pin_constraint_data::prepare(pin, baumgarte_coeff));
 		}
@@ -184,6 +227,9 @@ namespace lotus::physics::solvers::sequential_impulse {
 		for (u32 iter = 0; iter < num_velocity_iterations; ++iter) {
 			for (usize ci = 0; ci < physics_world->contacts.size(); ++ci) {
 				contact_data[ci].velocity_update(physics_world->contacts[ci]);
+			}
+			for (usize ci = 0; ci < physics_world->hinges.size(); ++ci) {
+				hinge_data[ci].velocity_update(physics_world->hinges[ci]);
 			}
 			for (usize ci = 0; ci < physics_world->pins.size(); ++ci) {
 				pin_data[ci].velocity_update(physics_world->pins[ci]);

@@ -53,6 +53,12 @@ namespace lotus::physics {
 			);
 		}
 
+		/// Returns the inertia tensor rotated to world coordinates.
+		[[nodiscard]] mat33s get_rotated_inverse_inertia() const {
+			const mat33s rot = state.position.orientation.into_rotation_matrix();
+			return rot * properties.inverse_inertia * rot.transposed();
+		}
+
 		collision::shape *body_shape; ///< The shape of this body.
 		material_properties material = uninitialized; ///< The material of this body.
 		body_properties properties = uninitialized; ///< The properties of this body.

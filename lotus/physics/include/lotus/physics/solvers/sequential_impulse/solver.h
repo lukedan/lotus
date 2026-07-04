@@ -4,6 +4,7 @@
 /// The sequential impulse solver.
 
 #include "lotus/physics/constraints/contact.h"
+#include "lotus/physics/constraints/hinge.h"
 #include "lotus/physics/constraints/pin.h"
 
 namespace lotus::physics {
@@ -61,6 +62,23 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 			/// Iterates over all contact points and updates the impulse estimates and body velocities.
 			void velocity_update(const constraints::rigid_body_contact&);
+		};
+		/// Precomputed data and state for a hinge constraint.
+		struct _hinge_constraint_data {
+			vec3 axis1 = zero; ///< Axis in world space on the first body.
+			vec3 axis2 = zero; ///< Axis in world space on the second body.
+			mat33s inverse_inertia1 = zero; ///< Rotated inverse inertia of the first body.
+			mat33s inverse_inertia2 = zero; ///< Rotated inverse inertia of the second body.
+			mat33s inv_effective_mass = zero; ///< Inverse effective mass.
+			vec3 stabilization = zero; ///< Baumgarte stabilization term.
+
+			vec3 lambda = zero; ///< Total applied torque.
+
+			/// Precomputes necessary information for the given hinge constraint.
+			[[nodiscard]] static _hinge_constraint_data prepare(const constraints::hinge&, scalar baumgarte_coeff);
+
+			/// Updates the torque estimate and body velocities.
+			void velocity_update(const constraints::hinge&);
 		};
 		/// Precomputed data and state for a pin constraint.
 		struct _pin_constraint_data {

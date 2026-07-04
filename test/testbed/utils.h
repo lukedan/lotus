@@ -30,8 +30,8 @@ struct test_context {
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> ssao_cs = nullptr;
 	lotus::renderer::assets::handle<lotus::renderer::assets::shader> sky_ps = nullptr;
 	lotus::renderer::assets::manager *asset_manager = nullptr;
-	lotus::camera_parameters<scalar> camera_params = lotus::uninitialized;
-	lotus::camera<scalar> camera = lotus::uninitialized;
+	lotus::camera_parameters<f32> camera_params = lotus::uninitialized;
+	lotus::camera<f32> camera = lotus::uninitialized;
 	lotus::renderer::pool resource_pool = nullptr;
 	lotus::renderer::pool upload_pool = nullptr;
 
@@ -156,6 +156,12 @@ template <typename> struct imgui_data_type {
 };
 template <> struct imgui_data_type<u32> {
 	constexpr static ImGuiDataType value = ImGuiDataType_U32;
+};
+template <> struct imgui_data_type<f32> {
+	constexpr static ImGuiDataType value = ImGuiDataType_Float;
+};
+template <> struct imgui_data_type<f64> {
+	constexpr static ImGuiDataType value = ImGuiDataType_Double;
 };
 template <typename T> constexpr ImGuiDataType imgui_data_type_v = imgui_data_type<T>::value;
 template <typename T> bool ImGui_SliderT(

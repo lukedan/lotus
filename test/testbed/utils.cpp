@@ -18,7 +18,7 @@ void debug_render::draw_point(vec3 p, lotus::linear_rgba_f32 color, scalar size)
 	if (size <= 0.0f) {
 		size = ctx->point_size;
 	}
-	point_vertices.emplace_back(p, color, size);
+	point_vertices.emplace_back(p.into<f32>(), color, size);
 }
 
 void debug_render::draw_line(vec3 a, vec3 b, lotus::linear_rgba_f32 color) {
@@ -72,10 +72,10 @@ void debug_render::draw_body(
 		first_vert = static_cast<u32>(mesh_vertices.size());
 		for (usize i = 0; i < positions.size(); ++i) {
 			vertex &vert = mesh_vertices.emplace_back();
-			vert.position       = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0).into<f32>();
-			vert.position_ls = positions[i];
-			vert.color          = color;
-			vert.normal         = lotus::vecu::normalize(normal_transform * normals[i]).into<f32>();
+			vert.position    = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0).into<f32>();
+			vert.position_ls = positions[i].into<f32>();
+			vert.color       = color;
+			vert.normal      = lotus::vecu::normalize(normal_transform * normals[i]).into<f32>();
 		}
 	}
 	for (usize i = 0; i < indices.size(); i += 3) {
@@ -348,11 +348,11 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 		draw_line(
 			p1,
 			p2,
-			lotus::linear_rgba_f32::from_vec4(
+			lotus::linear_rgba_f32::from_vec4((
 				len_percentage < 1.0f ?
 				lotus::mat::lerp(vec4(1.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 1.0f), len_percentage) :
 				lotus::mat::lerp(vec4(0.0f, 0.0f, 1.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 1.0f), 2.0f - len_percentage)
-			)
+			).into<f32>())
 		);
 	}
 
@@ -528,7 +528,7 @@ void debug_render::flush(
 		}
 		for (u32 i = 0; i < num_verts; ++i) {
 			const scalar extrude_factor = 100.0f;
-			shadow_mesh_verts.emplace_back(shadow_mesh_verts[i] - main_light_dir * extrude_factor);
+			shadow_mesh_verts.emplace_back((shadow_mesh_verts[i] - main_light_dir * extrude_factor).into<f32>());
 		}
 		for (usize i = 0; i < mesh_indices.size(); i += 3) {
 			u32 i0 = mesh_indices[i];
@@ -614,8 +614,8 @@ void debug_render::flush(
 			)
 		);
 		shader_types::light_constants constants;
-		constants.light_direction = light_dir;
-		constants.light_color     = light_color;
+		constants.light_direction = light_dir.into<f32>();
+		constants.light_color     = light_color.into<f32>();
 
 		auto pass = q.begin_pass(
 			{ lotus::renderer::image2d_color(swap_chain, lotus::gpu::color_render_target_access::create_preserve_and_write()) },
@@ -701,10 +701,10 @@ void debug_render::flush(
 		shader_types::ssao_constants ssao_constants;
 		ssao_constants.inv_projection          = ctx->camera.projection_matrix.inverse().into<f32>();
 		ssao_constants.image_size              = size;
-		ssao_constants.rcp_image_size          = lotus::matm::reciprocal(size.into<scalar>());
+		ssao_constants.rcp_image_size          = lotus::matm::reciprocal(size.into<f32>());
 		ssao_constants.angular_samples         = angular_samples;
 		ssao_constants.radial_samples          = radial_samples;
-		ssao_constants.depth_linearize_mul_add = ctx->camera.depth_linearization_constants;
+		ssao_constants.depth_linearize_mul_add = ctx->camera.depth_linearization_constants.into<f32>();
 		ssao_constants.radius_pixels_1m        = 0.5f * static_cast<f32>(size[1]) * radius_ws / std::tan(0.5f * ctx->camera_params.fov_y_radians);
 		ssao_constants.radius_ws               = radius_ws;
 		ssao_constants.smoothing               = ctx->ssao_smoothing;
@@ -741,7 +741,7 @@ void debug_render::flush(
 			)
 		);
 		shader_types::sky_constants constants;
-		constants.color = sky_color;
+		constants.color = sky_color.into<f32>();
 
 		auto pass = q.begin_pass(
 			{ lotus::renderer::image2d_color(swap_chain, lotus::gpu::color_render_target_access::create_preserve_and_write()) },

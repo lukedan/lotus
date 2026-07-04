@@ -33,7 +33,7 @@ public:
 		scalar box_rotx = std::cos(box_rotation);
 		scalar box_roty = std::sin(box_rotation);
 		for (int i = 0; i < _box_count; ++i) {
-			const vec3 box_size = vec3(_size_min) + vec3(_size_step) * i;
+			const vec3 box_size = (cvec3f32(_size_min) + cvec3f32(_size_step) * i).into<scalar>();
 			auto [box_poly, box_poly_props] = create_box_shape(box_size);
 			lotus::collision::shape &shape = _box_shapes.emplace_back(lotus::collision::shape::create(std::move(box_poly)));
 			const lotus::physics::body_properties box_props = box_poly_props.get_body_properties(1.0f);

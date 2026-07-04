@@ -378,7 +378,7 @@ template <
 			auto out = ctx.out();
 			out = std::format_to(std::move(out), "{{");
 			for (size_t row = 0; row < Rows; ++row) {
-				out = std::format_to(std::move(out), row == 0 ? "{{" : ", {{");
+				out = std::format_to(std::move(out), "{}", row == 0 ? "{" : ", {");
 				for (size_t col = 0; col < Cols; ++col) {
 					if (col != 0) {
 						out = std::format_to(std::move(out), ", ");

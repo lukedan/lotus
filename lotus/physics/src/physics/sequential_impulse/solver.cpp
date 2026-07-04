@@ -115,8 +115,9 @@ namespace lotus::physics::solvers::sequential_impulse {
 		result.inverse_inertia2 = hinge.body2 ? hinge.body2->get_rotated_inverse_inertia() : zero;
 
 		const mat33s sum_r_invi =
-			vec::cross_matrix(result.axis1) * (hinge.body1 ? hinge.body1->properties.inverse_inertia : zero) +
-			vec::cross_matrix(result.axis2) * (hinge.body2 ? hinge.body2->properties.inverse_inertia : zero);
+			vec::cross_matrix(result.axis1) * result.inverse_inertia1 +
+			vec::cross_matrix(result.axis2) * result.inverse_inertia2;
+		// TODO use sum of inverse mass to modulate regularization term?
 		result.inv_effective_mass =
 			(sum_r_invi.transposed() * sum_r_invi + mat33s::identity()).inverse() * sum_r_invi.transposed();
 		result.stabilization = baumgarte_coeff * (result.axis1 - result.axis2);

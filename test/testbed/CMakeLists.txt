@@ -6,6 +6,7 @@ function(add_testbed_executable GPU_BACKEND)
 		PRIVATE
 			"tests/angular_momentum_test.h"
 			"tests/box_stack_test.h"
+			"tests/car_test.h"
 			"tests/cosserat_rod_test.h"
 			"tests/fem_cloth_test.h"
 			"tests/friction_test.h"

@@ -13,6 +13,7 @@
 #include "utils.h"
 #include "tests/angular_momentum_test.h"
 #include "tests/box_stack_test.h"
+#include "tests/car_test.h"
 #include "tests/cosserat_rod_test.h"
 #include "tests/fem_cloth_test.h"
 #include "tests/friction_test.h"
@@ -350,6 +351,7 @@ int main(int argc, char **argv) {
 	testbed_app app(argc, argv);
 	app.register_test<angular_momentum_test>();
 	app.register_test<box_stack_test>();
+	app.register_test<car_test>();
 	app.register_test<cosserat_rod_test>();
 	app.register_test<fem_cloth_test>();
 	app.register_test<friction_test>();

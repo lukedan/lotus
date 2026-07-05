@@ -57,7 +57,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 			/// Precomputes necessary information for the given contact constraint.
 			[[nodiscard]] static _contact_constraint_data prepare(
-				const constraints::rigid_body_contact&, scalar baumgarte_coeff
+				const constraints::rigid_body_contact&, scalar baumgarte_coeff, scalar collision_threshold
 			);
 
 			/// Iterates over all contact points and updates the impulse estimates and body velocities.

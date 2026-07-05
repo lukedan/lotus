@@ -48,7 +48,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 	}
 
 	solver::_contact_constraint_data solver::_contact_constraint_data::prepare(
-		const constraints::rigid_body_contact &contact, scalar baumgarte_coeff
+		const constraints::rigid_body_contact &contact, scalar baumgarte_coeff, scalar collision_threshold
 	) {
 		_contact_constraint_data result;
 
@@ -67,11 +67,11 @@ namespace lotus::physics::solvers::sequential_impulse {
 				compute_effective_mass(contact, result, pdata, contact.tangents.tangent),
 				compute_effective_mass(contact, result, pdata, contact.tangents.bitangent)
 			};
-			pdata.stabilization = baumgarte_coeff * vec::dot(
+			pdata.stabilization = baumgarte_coeff * (vec::dot(
 				contact.tangents.normal,
-				contact.body1->state.position.position + pdata.offset1 -
+				(contact.body1->state.position.position + pdata.offset1) -
 				(contact.body2->state.position.position + pdata.offset2)
-			);
+			) - collision_threshold);
 		}
 
 		return result;
@@ -201,7 +201,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 		for (body *b : physics_world->get_bodies()) {
 			b->state.velocity.linear += b->applied_impulse * b->properties.inverse_mass;
 			b->state.velocity.angular += b->state.position.orientation.rotate(
-				b->properties.inverse_inertia * b->state.position.orientation.conjugate().rotate(b->applied_impulse)
+				b->properties.inverse_inertia * b->state.position.orientation.conjugate().rotate(b->applied_torque)
 			);
 			b->applied_impulse = zero;
 			b->applied_torque = zero;
@@ -210,13 +210,36 @@ namespace lotus::physics::solvers::sequential_impulse {
 			b->velocity_integration(dt, physics_world->gravity, zero);
 		}
 
+		// apply spring forces
+		// TODO implicit formulation
+		for (const constraints::spring &spring : physics_world->springs) {
+			const vec3 diff = spring.get_global_position1() - spring.get_global_position2();
+			const scalar diff_len = diff.norm();
+			const scalar stretch = diff_len - spring.initial_length;
+			const scalar force_mag =
+				(stretch > 0.0f ? spring.stretched_stiffness : spring.compressed_stiffness) * stretch;
+			const vec3 impulse = diff * (dt * force_mag / diff_len);
+			if (spring.body1) {
+				spring.body1->apply_impulse_immediate(
+					spring.body1->state.position.orientation.rotate(spring.local_position1), -impulse
+				);
+			}
+			if (spring.body2) {
+				spring.body2->apply_impulse_immediate(
+					spring.body2->state.position.orientation.rotate(spring.local_position2), impulse
+				);
+			}
+		}
+
 		physics_world->update_contact_constraints();
 
 		std::vector<_contact_constraint_data> contact_data;
 		std::vector<_hinge_constraint_data> hinge_data;
 		std::vector<_pin_constraint_data> pin_data;
 		for (const constraints::rigid_body_contact &contact : physics_world->contacts) {
-			contact_data.emplace_back(_contact_constraint_data::prepare(contact, baumgarte_coeff));
+			contact_data.emplace_back(_contact_constraint_data::prepare(
+				contact, baumgarte_coeff, physics_world->collision_threshold
+			));
 		}
 		for (const constraints::hinge &hinge : physics_world->hinges) {
 			hinge_data.emplace_back(_hinge_constraint_data::prepare(hinge, baumgarte_coeff));

@@ -274,17 +274,37 @@ namespace lotus {
 			}
 			return result;
 		}
+		/// Returns a subvector.
+		template <usize Size> [[nodiscard]] constexpr auto subvector(
+			usize components
+		) const requires _details::vector_type<matrix> {
+			if constexpr (Rows == 1) {
+				return block<1, Size>(0, components);
+			} else {
+				return block<Size, 1>(components, 0);
+			}
+		}
 
 		/// Sets a submatrix to the given value.
 		template <usize RowCount, usize ColCount> constexpr void set_block(
 			usize row_start, usize col_start, matrix<RowCount, ColCount, T> mat
-		) {
+		) requires (RowCount <= Rows && ColCount <= Cols) {
 			crash_if(row_start + RowCount > Rows);
 			crash_if(col_start + ColCount > Cols);
 			for (usize srcy = 0, dsty = row_start; srcy < RowCount; ++srcy, ++dsty) {
 				for (usize srcx = 0, dstx = col_start; srcx < ColCount; ++srcx, ++dstx) {
 					elements[dsty][dstx] = std::move(mat(srcy, srcx));
 				}
+			}
+		}
+		/// Sets a subvector to the given value.
+		template <usize OtherRows, usize OtherCols> constexpr void set_subvector(
+			usize start, matrix<OtherRows, OtherCols, T> vec
+		) requires _details::vector_type<matrix> {
+			if constexpr (Rows == 1) {
+				set_block(0, start, std::move(vec));
+			} else {
+				set_block(start, 0, std::move(vec));
 			}
 		}
 

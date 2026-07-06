@@ -87,8 +87,8 @@ public:
 	void draw_point(vec3 p, lotus::linear_rgba_f32 color, scalar size = 0.0f);
 	void draw_line(vec3 a, vec3 b, lotus::linear_rgba_f32 color);
 	void draw_line(vec3 a, vec3 b, mat44s transform, lotus::linear_rgba_f32 color) {
-		const vec3 ta = (transform * vec4(a, 1.0f)).block<3, 1>(0, 0);
-		const vec3 tb = (transform * vec4(b, 1.0f)).block<3, 1>(0, 0);
+		const vec3 ta = (transform * vec4(a, 1.0f)).subvector<3>(0);
+		const vec3 tb = (transform * vec4(b, 1.0f)).subvector<3>(0);
 		draw_line(ta, tb, color);
 	}
 

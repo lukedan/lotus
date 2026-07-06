@@ -64,7 +64,7 @@ void debug_render::draw_body(
 		first_vert = static_cast<u32>(line_vertices.size());
 		for (usize i = 0; i < positions.size(); ++i) {
 			line_vertex &vert = line_vertices.emplace_back();
-			vert.position = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0).into<f32>();
+			vert.position = (transform * vec4(positions[i], 1.0f)).subvector<3>(0).into<f32>();
 			vert.color    = color;
 		}
 	} else {
@@ -72,7 +72,7 @@ void debug_render::draw_body(
 		first_vert = static_cast<u32>(mesh_vertices.size());
 		for (usize i = 0; i < positions.size(); ++i) {
 			vertex &vert = mesh_vertices.emplace_back();
-			vert.position    = (transform * vec4(positions[i], 1.0f)).block<3, 1>(0, 0).into<f32>();
+			vert.position    = (transform * vec4(positions[i], 1.0f)).subvector<3>(0).into<f32>();
 			vert.position_ls = positions[i].into<f32>();
 			vert.color       = color;
 			vert.normal      = lotus::vecu::normalize(normal_transform * normals[i]).into<f32>();
@@ -288,9 +288,9 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::convex_poly
 			// draw faces
 			for (const lotus::collision::shapes::convex_polyhedron::face &face : poly.faces) {
 				const vec3 offset = face.normal * 0.01f;
-				vec3 last_vert = (transform * vec4(poly.get_vertex(face.vertex_indices.back()) + offset, 1.0f)).block<3, 1>(0, 0);
+				vec3 last_vert = (transform * vec4(poly.get_vertex(face.vertex_indices.back()) + offset, 1.0f)).subvector<3>(0);
 				for (usize i = 0; i < face.vertex_indices.size(); ++i) {
-					const vec3 vert = (transform * vec4(poly.get_vertex(face.vertex_indices[i]) + offset, 1.0f)).block<3, 1>(0, 0);
+					const vec3 vert = (transform * vec4(poly.get_vertex(face.vertex_indices[i]) + offset, 1.0f)).subvector<3>(0);
 					draw_line(
 						last_vert,
 						vert,

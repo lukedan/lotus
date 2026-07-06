@@ -172,9 +172,9 @@ namespace lotus::physics::solvers::xpbd::constraints {
 
 			auto delta_x = dep_dx_t_over_m * delta_lambda;
 			lambda += delta_lambda;
-			p1 += r_t * delta_x.block<3, 1>(0, 0);
-			p2 += r_t * delta_x.block<3, 1>(3, 0);
-			p3 += r_t * delta_x.block<3, 1>(6, 0);
+			p1 += r_t * delta_x.subvector<3>(0);
+			p2 += r_t * delta_x.subvector<3>(3);
+			p3 += r_t * delta_x.subvector<3>(6);
 		}
 
 		constraint_properties properties = uninitialized; ///< The properties of this constraint.

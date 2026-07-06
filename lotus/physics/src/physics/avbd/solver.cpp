@@ -19,7 +19,7 @@ namespace lotus::physics::solvers::avbd {
 		// clamp friction force
 		const scalar static_friction_force = std::min(mat1.static_friction, mat2.static_friction) * force[0];
 		const scalar dynamic_friction_force = std::min(mat1.dynamic_friction, mat2.dynamic_friction) * force[0];
-		const vec2 friction_force = force.block<2, 1>(1, 0);
+		const vec2 friction_force = force.subvector<2>(1);
 		if (friction_force.squared_norm() >= static_friction_force * static_friction_force) {
 			const scalar scale = dynamic_friction_force / std::max<scalar>(1e-6f, friction_force.norm());
 			result.force = vec3(force[0], friction_force * scale);
@@ -351,9 +351,9 @@ namespace lotus::physics::solvers::avbd {
 				const vec3 dcdw = vec::cross(r2, r1);
 				const mat33 d2cdw2 = -vec::cross_matrix(r1) * vec::cross_matrix(r2);
 
-				cvec3f64 frot = f.block<3, 1>(3, 0);
+				cvec3f64 frot = f.subvector<3>(3);
 				frot -= force * dcdw;
-				f.set_block(3, 0, frot);
+				f.set_subvector(3, frot);
 
 				mat33f64 hrot = h.block<3, 3>(3, 3);
 				hrot += dual.stiffness * dcdw * dcdw.transposed() + force * d2cdw2;
@@ -370,8 +370,8 @@ namespace lotus::physics::solvers::avbd {
 			const _vec6 delta_x = decomposition.solve(f);
 
 			// update
-			const vec3 delta_p = delta_x.block<3, 1>(0, 0).into<scalar>();
-			const vec3 delta_q = delta_x.block<3, 1>(3, 0).into<scalar>();
+			const vec3 delta_p = delta_x.subvector<3>(0).into<scalar>();
+			const vec3 delta_q = delta_x.subvector<3>(3).into<scalar>();
 			cur_pos.position += delta_p;
 			cur_pos.orientation = quatu::normalize(
 				cur_pos.orientation + 0.5f * quat::from_vec3_xyz(delta_q) * cur_pos.orientation
@@ -396,7 +396,7 @@ namespace lotus::physics::solvers::avbd {
 					dual_point.stiffness[0] += stiffness_ramping * std::abs(c[0]);
 				}
 				if (!force.friction_clamped) {
-					dual_point.stiffness += vec3(0.0f, stiffness_ramping * matm::abs(c.block<2, 1>(1, 0)));
+					dual_point.stiffness += vec3(0.0f, stiffness_ramping * matm::abs(c.subvector<2>(1)));
 				}
 				dual_point.stiffness = matm::min(dual_point.stiffness, vec3::filled(maximum_stiffness));
 			}

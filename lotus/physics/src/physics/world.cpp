@@ -9,22 +9,6 @@
 #include "lotus/collision/contact.h"
 
 namespace lotus::physics {
-	tangent_frame<scalar> world::select_tangent_frame_for_contact(
-		const body &b1, const body &b2, vec3 local_pos1, vec3 local_pos2, vec3 contact_normal
-	) {
-		const vec3 rel_velocity =
-			b1.state.velocity.get_velocity_at(b1.state.position.orientation.rotate(local_pos1)) -
-			b2.state.velocity.get_velocity_at(b2.state.position.orientation.rotate(local_pos2));
-		const vec3 bitangent_dir = vec::cross(contact_normal, rel_velocity);
-		const scalar bitangent_len = bitangent_dir.squared_norm();
-		if (bitangent_len < epsilons::contact_tangent) {
-			return tangent_frame<scalar>::from_normal(contact_normal);
-		}
-		const vec3 bitangent = bitangent_dir / std::sqrt(bitangent_len);
-		const vec3 tangent = vec::cross(bitangent, contact_normal);
-		return tangent_frame<scalar>::from_ntb(contact_normal, tangent, bitangent);
-	}
-
 	std::vector<world::rigid_body_collision> world::detect_collisions() const {
 		// collect pairs of bodies that have collision disabled explicitly
 		// TODO this is suboptimal - need perfect ordering between bodies
@@ -88,13 +72,7 @@ namespace lotus::physics {
 			constraints::rigid_body_contact &constraint = contacts.emplace_back();
 			constraint.body1 = col.body1;
 			constraint.body2 = col.body2;
-			constraint.tangents = select_tangent_frame_for_contact(
-				*col.body1,
-				*col.body2,
-				col.contact_manifold.points[0].local_position1,
-				col.contact_manifold.points[0].local_position2,
-				col.contact_manifold.normal
-			);
+			constraint.tangents = tangent_frame<scalar>::from_normal(col.contact_manifold.normal);
 			for (const collision::contact_manifold::point &manifold_pt : col.contact_manifold.points) {
 				constraints::rigid_body_contact::point &pt = constraint.contact_points.emplace_back();
 				pt.local_position1 = manifold_pt.local_position1;

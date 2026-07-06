@@ -32,14 +32,15 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 				vec3 offset1 = zero; ///< Offset of the contact point from the first body's center of mass.
 				vec3 offset2 = zero; ///< Offset of the contact point from the second body's center of mass.
-				vec3 effective_mass = zero; ///< Effective mass at this contact point.
+				scalar inv_effective_mass_n = 0.0f; ///< Inverse effective mass along the normal.
+				mat22s inv_effective_mass_t = zero; ///< Inverse effective mass along the tangent plane.
 				scalar stabilization = 0.0f; ///< Baumgarte stabilization term.
 
 				vec3 lambda = zero; ///< Total applied impulse.
 
-				/// Applies the given delta to \ref lambda, applies clamping, and returns the amount by which
-				/// \ref lambda has changed.
-				[[nodiscard]] vec3 update_lambda(vec3 delta, const constraints::rigid_body_contact&);
+				/// Applies lambda using the given relative velocity in tangent space, applies clamping, and returns
+				/// the amount by which \ref lambda has changed.
+				[[nodiscard]] vec3 update_lambda(vec3 tangential_velocity, const constraints::rigid_body_contact&);
 			};
 
 			std::vector<point_data> points; ///< Data for all contact points.
@@ -103,7 +104,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 			void velocity_update(const constraints::pin&);
 		};
 
-		/// Immediately Applies \p -impulse to the \p body1, and \p impulse to the second \p body2.
+		/// Immediately Applies \p impulse to the \p body1, and \p -impulse to the second \p body2.
 		static void _apply_impulses(
 			body *body1, body *body2, mat33s inv_i1, mat33s inv_i2, vec3 off1, vec3 off2, vec3 impulse
 		);

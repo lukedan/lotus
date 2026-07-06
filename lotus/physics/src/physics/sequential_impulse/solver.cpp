@@ -8,16 +8,32 @@
 namespace lotus::physics::solvers::sequential_impulse {
 #pragma region "Contact Constraints"
 	vec3 solver::_contact_constraint_data::point_data::update_lambda(
-		vec3 delta, const constraints::rigid_body_contact &contact
+		vec3 tangential_velocity, const constraints::rigid_body_contact &contact
 	) {
-		const scalar friction_coefficient =
-			std::min(contact.body1->material.dynamic_friction, contact.body2->material.dynamic_friction);
 		const vec3 old_lambda = lambda;
+		const vec3 delta = -vec3(
+			inv_effective_mass_n * tangential_velocity[0],
+			inv_effective_mass_t * tangential_velocity.subvector<2>(1)
+		);
 		lambda += delta;
-		lambda[0] = std::max<scalar>(lambda[0], 0.0f) + stabilization / effective_mass[0];
-		const scalar max_friction_force = friction_coefficient * lambda[0];
-		lambda[1] = std::clamp(lambda[1], -max_friction_force, max_friction_force);
-		lambda[2] = std::clamp(lambda[2], -max_friction_force, max_friction_force);
+
+		// clamp normal impulse
+		lambda[0] = std::min<scalar>(lambda[0], 0.0f) - stabilization * inv_effective_mass_n;
+
+		// clamp friction impulse
+		const scalar static_friction =
+			std::min(contact.body1->material.static_friction, contact.body2->material.static_friction);
+		const scalar dynamic_friction =
+			std::min(contact.body1->material.dynamic_friction, contact.body2->material.dynamic_friction);
+		const scalar max_static_friction_force = static_friction * std::max(0.0f, -lambda[0]);
+		const vec2 tangential_force = lambda.subvector<2>(1);
+		const scalar tangential_force_mag = tangential_force.norm();
+		if (tangential_force_mag > max_static_friction_force) {
+			const vec2 clamped_force =
+				tangential_force * (dynamic_friction * std::max(0.0f, -lambda[0]) / tangential_force_mag);
+			lambda.set_subvector(1, clamped_force);
+		}
+
 		return lambda - old_lambda;
 	}
 
@@ -52,6 +68,8 @@ namespace lotus::physics::solvers::sequential_impulse {
 	) {
 		_contact_constraint_data result;
 
+		const scalar sum_inv_mass = contact.body1->properties.inverse_mass + contact.body2->properties.inverse_mass;
+
 		const mat33s rot1 = contact.body1->state.position.orientation.into_rotation_matrix();
 		const mat33s rot2 = contact.body2->state.position.orientation.into_rotation_matrix();
 		result.inverse_inertia1 = rot1 * contact.body1->properties.inverse_inertia * rot1.transposed();
@@ -62,11 +80,19 @@ namespace lotus::physics::solvers::sequential_impulse {
 			point_data &pdata = result.points.emplace_back(zero);
 			pdata.offset1 = contact.body1->state.position.orientation.rotate(point.local_position1);
 			pdata.offset2 = contact.body2->state.position.orientation.rotate(point.local_position2);
-			pdata.effective_mass = {
-				compute_effective_mass(contact, result, pdata, contact.tangents.normal),
-				compute_effective_mass(contact, result, pdata, contact.tangents.tangent),
-				compute_effective_mass(contact, result, pdata, contact.tangents.bitangent)
-			};
+			pdata.inv_effective_mass_n =
+				1.0f / compute_effective_mass(contact, result, pdata, contact.tangents.normal);
+			{ // compute tangential effective mass
+				const matrix<3, 2, scalar> n =
+					mat::concat_columns(contact.tangents.tangent, contact.tangents.bitangent);
+				const mat33s r1x = vec::cross_matrix(pdata.offset1);
+				const mat33s r2x = vec::cross_matrix(pdata.offset2);
+				const mat33s sum_inertia_term =
+					r1x * contact.body1->properties.inverse_inertia * r1x +
+					r2x * contact.body2->properties.inverse_inertia * r2x;
+				pdata.inv_effective_mass_t =
+					(sum_inv_mass * mat22s::identity() - n.transposed() * sum_inertia_term * n).inverse();
+			}
 			pdata.stabilization = baumgarte_coeff * (vec::dot(
 				contact.tangents.normal,
 				(contact.body1->state.position.position + pdata.offset1) -
@@ -84,10 +110,8 @@ namespace lotus::physics::solvers::sequential_impulse {
 			const vec3 rel_velocity =
 				contact.body1->state.velocity.get_velocity_at(pdata.offset1) -
 				contact.body2->state.velocity.get_velocity_at(pdata.offset2);
-			const vec3 nominator = contact.tangents.get_world_to_tangent_matrix() * rel_velocity;
-
-			const vec3 delta_lambda =
-				pdata.update_lambda(matm::divide(nominator, pdata.effective_mass), contact);
+			const vec3 tangential_velocity = contact.tangents.get_world_to_tangent_matrix() * rel_velocity;
+			const vec3 delta_lambda = pdata.update_lambda(tangential_velocity, contact);
 			const vec3 impulse = contact.tangents.get_tangent_to_world_matrix() * delta_lambda;
 			_apply_impulses(
 				contact.body1,
@@ -186,7 +210,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 			(pin.body1 ? pin.body1->state.velocity.get_velocity_at(offset1) : zero) -
 			(pin.body2 ? pin.body2->state.velocity.get_velocity_at(offset2) : zero);
 
-		const vec3 delta_lambda = inv_effective_mass * (rel_velocity + stabilization);
+		const vec3 delta_lambda = inv_effective_mass * -(rel_velocity + stabilization);
 		lambda += delta_lambda;
 		_apply_impulses(pin.body1, pin.body2, inverse_inertia1, inverse_inertia2, offset1, offset2, delta_lambda);
 	}
@@ -206,7 +230,6 @@ namespace lotus::physics::solvers::sequential_impulse {
 			b->applied_impulse = zero;
 			b->applied_torque = zero;
 
-			b->position_integration(dt);
 			b->velocity_integration(dt, physics_world->gravity, zero);
 		}
 
@@ -259,18 +282,22 @@ namespace lotus::physics::solvers::sequential_impulse {
 				pin_data[ci].velocity_update(physics_world->pins[ci]);
 			}
 		}
+
+		for (body *b : physics_world->get_bodies()) {
+			b->position_integration(dt);
+		}
 	}
 
 	void solver::_apply_impulses(
 		body *body1, body *body2, mat33s inv_i1, mat33s inv_i2, vec3 off1, vec3 off2, vec3 impulse
 	) {
 		if (body1) {
-			body1->state.velocity.linear += body1->properties.inverse_mass * -impulse;
-			body1->state.velocity.angular += inv_i1 * vec::cross(off1, -impulse);
+			body1->state.velocity.linear += body1->properties.inverse_mass * impulse;
+			body1->state.velocity.angular += inv_i1 * vec::cross(off1, impulse);
 		}
 		if (body2) {
-			body2->state.velocity.linear += body2->properties.inverse_mass * impulse;
-			body2->state.velocity.angular += inv_i2 * vec::cross(off2, impulse);
+			body2->state.velocity.linear += body2->properties.inverse_mass * -impulse;
+			body2->state.velocity.angular += inv_i2 * vec::cross(off2, -impulse);
 		}
 	}
 }

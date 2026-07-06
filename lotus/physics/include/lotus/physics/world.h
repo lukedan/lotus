@@ -31,12 +31,6 @@ namespace lotus::physics {
 			collision::contact_manifold contact_manifold; ///< The contact manifold.
 		};
 
-		/// Computes a contact tangent frame so that the tangent is aligned with the relative velocity at the contact
-		/// point.
-		[[nodiscard]] static tangent_frame<scalar> select_tangent_frame_for_contact(
-			const body&, const body&, vec3 local_pos1, vec3 local_pos2, vec3 contact_normal
-		);
-
 		/// Detects collisions between all rigid bodies in this world.
 		[[nodiscard]] std::vector<rigid_body_collision> detect_collisions() const;
 		/// Detects collisions and updates \ref contacts.

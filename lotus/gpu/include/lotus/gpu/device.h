@@ -6,6 +6,7 @@
 #include <optional>
 
 #include "lotus/common.h"
+#include "lotus/profiler.h"
 #include LOTUS_GPU_BACKEND_INCLUDE_COMMON
 #include LOTUS_GPU_BACKEND_INCLUDE_DEVICE
 #include "acceleration_structure.h"
@@ -59,6 +60,7 @@ namespace lotus::gpu {
 		/// Acquires the next back buffer and returns its index in this swap chain. This should only be called once
 		/// per frame.
 		[[nodiscard]] back_buffer_info acquire_back_buffer(swap_chain &swapchain) {
+			profiler::scope p1;
 			std::tuple<backend::image2d, backend::fence*, swap_chain_status> back_buf =
 				backend::device::acquire_back_buffer(swapchain);
 			back_buffer_info result = nullptr;

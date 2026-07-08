@@ -5,6 +5,7 @@
 
 #include <set>
 
+#include "lotus/profiler.h"
 #include "lotus/collision/algorithms/contact_manifold.h"
 #include "lotus/collision/contact.h"
 
@@ -63,6 +64,8 @@ namespace lotus::physics {
 	}
 
 	void world::update_contact_constraints() {
+		profiler::scope p1;
+
 		// TODO get rid of detect_collisions() and update the constraints array directly
 		const std::vector<rigid_body_collision> collisions = detect_collisions();
 		// TODO persistence

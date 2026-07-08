@@ -3,6 +3,7 @@
 /// \file
 /// Implementation of the per-queue pseudo-execution context.
 
+#include "lotus/profiler.h"
 #include "lotus/utils/misc.h"
 #include "lotus/renderer/context/context.h"
 
@@ -32,6 +33,8 @@ namespace lotus::renderer::execution {
 	}
 
 	void queue_pseudo_context::pseudo_execute_next_command() {
+		profiler::scope p1;
+
 		std::visit(
 			[&](const auto &cmd) {
 				_q.ctx.execution_log(

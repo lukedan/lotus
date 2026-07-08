@@ -7,6 +7,7 @@
 #include <queue>
 
 #include "lotus/logging.h"
+#include "lotus/profiler.h"
 #include "lotus/memory/stack_allocator.h"
 #include "lotus/renderer/context/execution/descriptors.h"
 #include "lotus/renderer/context/execution/queue_context.h"
@@ -420,6 +421,8 @@ namespace lotus::renderer {
 	}
 
 	std::vector<batch_statistics_early> context::execute_all() {
+		profiler::scope p1;
+
 		crash_if(std::this_thread::get_id() != _thread);
 
 		auto &batch_data = _batch_data.emplace_back();
@@ -434,61 +437,68 @@ namespace lotus::renderer {
 
 		// step 1: pseudo-execute all commands, gather resource transitions and barriers
 		std::vector<u32> command_order;
-		while (true) {
-			u32 next_queue_index = get_num_queues();
-			{ // find a queue that can be executed
-				bool has_commands = false;
-				auto next_global_sub_index = global_submission_index::max;
-				for (u32 queue_i = 0; queue_i < get_num_queues(); ++queue_i) {
-					auto &qctx = bctx.get_queue_pseudo_context(queue_i);
-					if (qctx.is_pseudo_execution_finished()) {
-						continue;
+		{
+			profiler::scope p2(u8"Pseudo Execution");
+			while (true) {
+				u32 next_queue_index = get_num_queues();
+				{ // find a queue that can be executed
+					bool has_commands = false;
+					auto next_global_sub_index = global_submission_index::max;
+					for (u32 queue_i = 0; queue_i < get_num_queues(); ++queue_i) {
+						auto &qctx = bctx.get_queue_pseudo_context(queue_i);
+						if (qctx.is_pseudo_execution_finished()) {
+							continue;
+						}
+						has_commands = true;
+						if (qctx.is_pseudo_execution_blocked()) {
+							continue;
+						}
+						auto &cmd = qctx.get_next_pseudo_execution_command();
+						if (cmd.index < next_global_sub_index) {
+							next_global_sub_index = cmd.index;
+							next_queue_index = queue_i;
+						}
 					}
-					has_commands = true;
-					if (qctx.is_pseudo_execution_blocked()) {
-						continue;
-					}
-					auto &cmd = qctx.get_next_pseudo_execution_command();
-					if (cmd.index < next_global_sub_index) {
-						next_global_sub_index = cmd.index;
-						next_queue_index = queue_i;
+					if (next_queue_index >= _queues.size()) {
+						crash_if(has_commands); // no command can be executed; most likely loop in the dependency graph
+						break; // otherwise, we've finished pseudo-execution
 					}
 				}
-				if (next_queue_index >= _queues.size()) {
-					crash_if(has_commands); // no command can be executed; most likely loop in the dependency graph
-					break; // otherwise, we've finished pseudo-execution
-				}
+				command_order.emplace_back(next_queue_index);
+				bctx.get_queue_pseudo_context(next_queue_index).pseudo_execute_next_command();
 			}
-			command_order.emplace_back(next_queue_index);
-			bctx.get_queue_pseudo_context(next_queue_index).pseudo_execute_next_command();
 		}
 
-		// step 2: process all dependencies
-		for (u32 i = 0; i < get_num_queues(); ++i) {
-			bctx.get_queue_pseudo_context(i).process_dependency_acquisitions();
-		}
-		for (u32 i = 0; i < get_num_queues(); ++i) {
-			bctx.get_queue_pseudo_context(i).gather_semaphore_values();
-		}
-		for (u32 i = 0; i < get_num_queues(); ++i) {
-			bctx.get_queue_pseudo_context(i).finalize_dependency_processing();
+		{ // step 2: process all dependencies
+			profiler::scope p2(u8"Dependencies");
+			for (u32 i = 0; i < get_num_queues(); ++i) {
+				bctx.get_queue_pseudo_context(i).process_dependency_acquisitions();
+			}
+			for (u32 i = 0; i < get_num_queues(); ++i) {
+				bctx.get_queue_pseudo_context(i).gather_semaphore_values();
+			}
+			for (u32 i = 0; i < get_num_queues(); ++i) {
+				bctx.get_queue_pseudo_context(i).finalize_dependency_processing();
+			}
 		}
 
-		// step 3: execute all commands, respecting previously gathered dependencies and transitions
-		for (u32 i = 0; i < get_num_queues(); ++i) {
-			bctx.get_queue_context(i).start_execution();
-		}
-		// execute commands in the same order as they're logically executed
-		// TODO: this is just to make the Vulkan validation layer happy - is this absolutely necessary?
-		for (u32 qi : command_order) {
-			execution::queue_context &qctx = bctx.get_queue_context(qi);
-			crash_if(qctx.is_finished());
-			qctx.execute_next_command();
-		}
-		for (u32 i = 0; i < get_num_queues(); ++i) {
-			execution::queue_context &qctx = bctx.get_queue_context(i);
-			crash_if(!qctx.is_finished());
-			qctx.finish_execution();
+		{ // step 3: execute all commands, respecting previously gathered dependencies and transitions
+			profiler::scope p2(u8"Command Execution");
+			for (u32 i = 0; i < get_num_queues(); ++i) {
+				bctx.get_queue_context(i).start_execution();
+			}
+			// execute commands in the same order as they're logically executed
+			// TODO: this is just to make the Vulkan validation layer happy - is this absolutely necessary?
+			for (u32 qi : command_order) {
+				execution::queue_context &qctx = bctx.get_queue_context(qi);
+				crash_if(qctx.is_finished());
+				qctx.execute_next_command();
+			}
+			for (u32 i = 0; i < get_num_queues(); ++i) {
+				execution::queue_context &qctx = bctx.get_queue_context(i);
+				crash_if(!qctx.is_finished());
+				qctx.finish_execution();
+			}
 		}
 
 		// finalize & clean up
@@ -928,6 +938,8 @@ namespace lotus::renderer {
 	}
 
 	void context::_maybe_update_swap_chain(_details::swap_chain &chain) {
+		profiler::scope p1;
+
 		if (chain.current_image) {
 			return; // already acquired; don't update
 		}

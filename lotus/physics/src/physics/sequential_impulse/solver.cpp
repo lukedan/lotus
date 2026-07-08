@@ -3,6 +3,8 @@
 /// \file
 /// Implementation of the rigid body solver.
 
+#include "lotus/profiler.h"
+
 #include "lotus/physics/world.h"
 
 namespace lotus::physics::solvers::sequential_impulse {
@@ -218,6 +220,8 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 
 	void solver::timestep(scalar dt) {
+		profiler::scope p1;
+
 		const scalar rcp_dt = 1.0f / dt;
 		const scalar baumgarte_coeff = baumgarte_stabilization * rcp_dt;
 
@@ -272,6 +276,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 		}
 
 		for (u32 iter = 0; iter < num_velocity_iterations; ++iter) {
+			profiler::scope p2(u8"Velocity Iteration");
 			for (usize ci = 0; ci < physics_world->contacts.size(); ++ci) {
 				contact_data[ci].velocity_update(physics_world->contacts[ci]);
 			}

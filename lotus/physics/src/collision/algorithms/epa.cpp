@@ -3,6 +3,7 @@
 /// \file
 /// Implementation of the expanding polytope algorithm.
 
+#include "lotus/profiler.h"
 #include "lotus/algorithms/convex_hull.h"
 #include "lotus/collision/shapes/convex_polyhedron.h"
 
@@ -19,6 +20,8 @@ namespace lotus::collision::epa {
 
 
 	result epa(polyhedron_pair input, gjk::result gjk_state) {
+		profiler::scope p1;
+
 		using convex_hull = incremental_convex_hull;
 
 		auto bookmark = get_scratch_bookmark();

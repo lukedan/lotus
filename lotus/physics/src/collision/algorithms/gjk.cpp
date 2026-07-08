@@ -3,13 +3,14 @@
 /// \file
 /// Implementation of the GJK and EPA algorithm.
 
-#include <cassert>
-
+#include "lotus/profiler.h"
 #include "lotus/memory/stack_allocator.h"
 #include "lotus/collision/shapes/convex_polyhedron.h"
 
 namespace lotus::collision::gjk {
 	result gjk(polyhedron_pair input, persistent_result pstate) {
+		profiler::scope p1;
+
 		auto bookmark = get_scratch_bookmark();
 
 		transient_result tstate = uninitialized;

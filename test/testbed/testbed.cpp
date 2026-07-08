@@ -129,6 +129,9 @@ protected:
 	void _process_imgui() override {
 		if (ImGui::Begin("Testbed", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
 			if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen)) {
+				if (ImGui::Button("Open CPU Profiler")) {
+					_show_cpu_profiler_window();
+				}
 				ImGui::Checkbox("Wireframe Surfaces", &_test_context.wireframe_surfaces);
 				ImGui::Checkbox("Wireframe Bodies", &_test_context.wireframe_bodies);
 				ImGui::Checkbox("Body Velocity", &_test_context.draw_body_velocities);

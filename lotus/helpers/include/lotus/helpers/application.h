@@ -3,9 +3,11 @@
 /// \file
 /// Basic implementation of an application class.
 
+#include <stack>
 #include <fstream>
 
 #include <lotus/utils/strings.h>
+#include <lotus/profiler.h>
 #include <lotus/system/application.h>
 #include <lotus/system/window.h>
 #include <lotus/gpu/context.h>
@@ -16,6 +18,7 @@
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <lotus/system/dear_imgui.h>
 #include <lotus/renderer/dear_imgui.h>
 #include <lotus/renderer/debug_drawing.h>
@@ -458,6 +461,10 @@ namespace lotus::helpers {
 			}
 			ImGui::End();
 		}
+		/// Indicates that the profiler window should be shown.
+		void _show_cpu_profiler_window() {
+			_profiler_open = true;
+		}
 	private:
 		/*
 		/// Information about constant buffers and how many times they're used.
@@ -479,6 +486,11 @@ namespace lotus::helpers {
 			u32 count = 0; ///< The number of times it's used.
 		};
 		*/
+
+		bool _profiler_open = true; ///< Whether the profiler is open.
+		bool _profiler_frozen = false; ///< Whether the profiler is frozen.
+		f32 _profiler_scale = 1.0f; ///< Scale for the profiler view.
+		std::vector<profiler::thread_samples> _profiler_frame; ///< Currently displayed profiler frame.
 
 		std::unique_ptr<system::dear_imgui::context> _imgui_sctx; ///< System context for ImGUI.
 		std::unique_ptr<renderer::dear_imgui::context> _imgui_rctx; ///< Graphics context for ImGUI.
@@ -574,8 +586,159 @@ namespace lotus::helpers {
 			}
 		}
 
+		/// Shows an ImGUI window with CPU profiler statistics.
+		void _process_cpu_profiler_window() {
+			const auto into_seconds = [](profiler::clock_t::duration d) {
+				return std::chrono::duration<f64>(d).count();
+			};
+			const auto format_seconds = [](f64 seconds) -> std::string {
+				if (seconds > 0.1f) {
+					return std::format("{:g}s", seconds);
+				}
+				if (seconds > 0.1f / 1000.0f) {
+					return std::format("{:g}ms", seconds * 1000.0f);
+				}
+				if (seconds > 0.1f / 1000000.0f) {
+					return std::format("{:g}us", seconds * 1000000.0f);
+				}
+				return std::format("{:g}ns", seconds * 1000000000.0f);
+			};
+
+			if (!_profiler_open) {
+				return;
+			}
+
+			ImGui::SetNextWindowSize(ImVec2(1000.0f, 300.0f), ImGuiCond_FirstUseEver);
+			if (ImGui::Begin("CPU Profiler", &_profiler_open)) {
+				ImGui::Checkbox("Frozen", &_profiler_frozen);
+				ImGui::SameLine();
+				ImGui::SliderFloat("Scale", &_profiler_scale, 0.0f, 1.0f);
+
+				// find min/max timestamps
+				profiler::clock_t::time_point timestamp_min = profiler::clock_t::time_point::max();
+				profiler::clock_t::time_point timestamp_max = profiler::clock_t::time_point::min();
+				for (const profiler::thread_samples &t : _profiler_frame) {
+					for (const profiler::samples &s : t.samples) {
+						if (!s.timestamps.empty()) {
+							timestamp_min = std::min(timestamp_min, s.timestamps.front().time);
+							break;
+						}
+					}
+					for (auto it = t.samples.rbegin(); it != t.samples.rend(); ++it) {
+						if (!it->timestamps.empty()) {
+							timestamp_max = std::max(timestamp_max, it->timestamps.back().time);
+							break;
+						}
+					}
+				}
+				const f64 duration = into_seconds(timestamp_max - timestamp_min);
+
+				const f32 window_width = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
+				ImGui::SetNextWindowContentSize(ImVec2(window_width / _profiler_scale, 0.0f));
+				constexpr ImGuiWindowFlags enable_all_scrollbars =
+					ImGuiWindowFlags_AlwaysHorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar;
+				if (ImGui::BeginChild("Profiler Contents", ImVec2(0.0f, 0.0f), 0, enable_all_scrollbars)) {
+					const f32 scroll_x = ImGui::GetScrollX();
+					const f32 bar_height = ImGui::GetTextLineHeight();
+					const f64 time_scale = window_width / (_profiler_scale * duration);
+					for (usize ti = 0; ti < _profiler_frame.size(); ++ti) {
+						ImGui::PushID(static_cast<int>(ti));
+						const profiler::thread_samples &thread = _profiler_frame[ti];
+
+						ImGui::SetCursorPosX(scroll_x);
+						ImGui::Text("%s", std::format("Thread {}", thread.thread_id).c_str());
+						const ImVec2 cursor = ImGui::GetCursorPos();
+						usize max_stack_depth = 0;
+						for (usize bi = 0; bi < thread.samples.size(); ++bi) {
+							ImGui::PushID(static_cast<int>(bi));
+							const profiler::samples &samples = thread.samples[bi];
+
+							std::stack<profiler::timestamp> sample_stack;
+							for (usize si = 0; si < samples.timestamps.size(); ++si) {
+								ImGui::PushID(static_cast<int>(si));
+								const profiler::timestamp &ts = samples.timestamps[si];
+
+								if (ts.label) {
+									sample_stack.emplace(ts);
+								} else {
+									crash_if(sample_stack.empty());
+									const profiler::timestamp tbeg = sample_stack.top();
+									sample_stack.pop();
+									const usize stack_depth = sample_stack.size();
+									max_stack_depth = std::max(stack_depth, max_stack_depth);
+
+									const f64 beg = into_seconds(tbeg.time - timestamp_min);
+									const f64 end = into_seconds(ts.time - timestamp_min);
+									const auto *label = reinterpret_cast<const char*>(tbeg.label);
+									const f64 xbeg = time_scale * beg;
+									const f64 xend = xbeg + time_scale * (end - beg);
+									const f64 clamped_xbeg = std::max<f64>(scroll_x, xbeg);
+									const f64 clamped_xend = std::min<f64>(scroll_x + window_width, xend);
+									if (clamped_xbeg < clamped_xend) {
+										ImGui::SetCursorPos(cursor + ImVec2(
+											static_cast<f32>(clamped_xbeg),
+											bar_height * static_cast<f32>(stack_depth)
+										));
+										ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
+										ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+										ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+										std::string full_label = label;
+										if (clamped_xbeg > xbeg) {
+											full_label = "< " + full_label;
+										}
+										if (clamped_xend < xend) {
+											full_label += " >";
+										}
+										const auto width =
+											std::max<f32>(FLT_MIN, static_cast<f32>(clamped_xend - clamped_xbeg));
+										if (ImGui::Button(full_label.c_str(), ImVec2(width, bar_height))) {
+											_profiler_scale = static_cast<f32>((end - beg) / duration);
+											ImGui::SetScrollX(static_cast<f32>(
+												beg * (window_width / (duration * _profiler_scale))
+											));
+										}
+										if (ImGui::IsItemHovered()) {
+											if (ImGui::BeginTooltip()) {
+												ImGui::Text("%s", label);
+												ImGui::Text(
+													"%s - %s",
+													format_seconds(beg).c_str(),
+													format_seconds(end).c_str()
+												);
+												ImGui::Text(
+													"Duration: %s",
+													format_seconds(into_seconds(ts.time - tbeg.time)).c_str()
+												);
+												ImGui::EndTooltip();
+											}
+										}
+										ImGui::PopStyleColor();
+										ImGui::PopStyleVar(2);
+									}
+								}
+								ImGui::PopID();
+							}
+							ImGui::PopID();
+						}
+						ImGui::PopID();
+					}
+				}
+				ImGui::EndChild();
+			}
+			ImGui::End();
+		}
+
 		/// Processes a single frame.
 		void _process_frame_full() {
+			profiler::thread_manager::get_thread_data().flush();
+			const std::vector<profiler::thread_samples> profiler_output =
+				profiler::thread_manager::instance().flush();
+			if (!_profiler_frozen) {
+				_profiler_frame = profiler_output;
+			}
+
+			profiler::scope p1(u8"Frame");
+
 			auto frame_cpu_begin = std::chrono::high_resolution_clock::now();
 
 			renderer::dependency asset_dep = _context->request_dependency(u8"Asset upload dependency");
@@ -592,14 +755,17 @@ namespace lotus::helpers {
 
 			_process_frame(uploader, constant_dep, asset_dep);
 
-			// ImGUI
-			ImGui::NewFrame();
-			_process_imgui();
-			ImGui::Render();
-			_imgui_rctx->render(
+			{ // ImGUI
+				profiler::scope p2(u8"ImGUI");
+				ImGui::NewFrame();
+				_process_cpu_profiler_window();
+				_process_imgui();
+				ImGui::Render();
+				_imgui_rctx->render(
 				renderer::image2d_color(_swap_chain, gpu::color_render_target_access::create_preserve_and_write()),
 				_get_back_buffer_size(), uploader, _imgui_pool
 			);
+			}
 
 			// upload constants
 			uploader.end_frame(constant_dep);

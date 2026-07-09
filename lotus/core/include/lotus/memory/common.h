@@ -32,7 +32,7 @@ namespace lotus::memory {
 		/// Allocates memory.
 		[[nodiscard]] std::byte *allocate(size_alignment);
 		/// Frees memory.
-		void free(std::byte*);
+		void free(void*);
 
 		/// Allocator using the basic raw allocation functions.
 		class allocator {
@@ -42,7 +42,7 @@ namespace lotus::memory {
 				return raw::allocate(s);
 			}
 			/// Frees the given memory block.
-			void free(std::byte *ptr) const {
+			void free(void *ptr) const {
 				raw::free(ptr);
 			}
 		};

@@ -202,8 +202,8 @@ namespace lotus::memory {
 		static stack_allocator &for_this_thread();
 
 		usize page_size = 8 * 1024 * 1024; /// Size of a page.
-		std::byte *(*allocate_page)(memory::size_alignment) = memory::raw::allocate; ///< Used to allocate the pages.
-		void (*free_page)(std::byte*) = memory::raw::free; ///< Used to free a page.
+		std::byte *(*allocate_page)(size_alignment) = raw::allocate; ///< Used to allocate the pages.
+		void (*free_page)(void*) = raw::free; ///< Used to free a page.
 	protected:
 		/// Reference to a page.
 		struct _page_ref {
@@ -218,10 +218,10 @@ namespace lotus::memory {
 
 			/// Allocates a block of memory from this page. If there's not enough space within this page, this
 			/// function returns \p nullptr. The returned memory block is not initialized.
-			[[nodiscard]] std::byte *allocate(memory::size_alignment);
+			[[nodiscard]] std::byte *allocate(size_alignment);
 			/// \overload
-			template <typename T> [[nodiscard]] void *allocate() {
-				return allocate(memory::size_alignment::of<T>());
+			template <typename T> [[nodiscard]] T *allocate() {
+				return static_cast<T*>(static_cast<void*>(allocate(size_alignment::of<T>())));
 			}
 
 			/// Calls the destructor of \ref header, then empties this page and re-allocate the header.
@@ -269,10 +269,10 @@ namespace lotus::memory {
 			_page_header(uninitialized_t) {
 			}
 			/// Creates a header object with the given reference to the previous page.
-			[[nodiscard]] static _page_header create(_page_ref prev, void (*free)(std::byte*));
+			[[nodiscard]] static _page_header create(_page_ref prev, void (*free)(void*));
 
 			_page_ref previous = uninitialized; ///< The previous page.
-			void (*free_page)(std::byte*); ///< The function that should be used to free this page.
+			void (*free_page)(void*); ///< The function that should be used to free this page.
 		};
 		/// Bookmark data.
 		struct _bookmark {
@@ -289,8 +289,8 @@ namespace lotus::memory {
 
 		/// Creates a new page and allocates a \ref _page_ref at the front to the current top page.
 		[[nodiscard]] _page_ref _allocate_new_page(_page_ref prev, usize size) const {
-			auto result = _page_ref::to_new_page(allocate_page(memory::size_alignment(size, alignof(_page_header))), size);
-			result.header = new (result.allocate<_page_header>()) _page_header(_page_header::create(prev, free_page));
+			auto result = _page_ref::to_new_page(allocate_page(size_alignment(size, alignof(_page_header))), size);
+			result.header = std::construct_at(result.allocate<_page_header>(), _page_header::create(prev, free_page));
 			return result;
 		}
 		/// \overload

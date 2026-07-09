@@ -20,7 +20,7 @@ namespace lotus::memory {
 		std::byte *allocate(size_alignment s) {
 			// we may need to massage the size and alignment to satisfy the allocator's requirements
 			[[maybe_unused]] const usize align = std::max(s.alignment, sizeof(void*));
-			[[maybe_unused]] const usize aligned_size = memory::align_up(s.size, align);
+			[[maybe_unused]] const usize aligned_size = align_up(s.size, align);
 			return static_cast<std::byte*>(
 #ifdef LOTUS_USE_MIMALLOC
 				mi_aligned_alloc(s.alignment, s.size)
@@ -34,7 +34,7 @@ namespace lotus::memory {
 			);
 		}
 
-		void free(std::byte *ptr) {
+		void free(void *ptr) {
 #ifdef LOTUS_USE_MIMALLOC
 			mi_free(ptr);
 #else

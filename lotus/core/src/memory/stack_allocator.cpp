@@ -26,7 +26,7 @@ namespace lotus::memory {
 	}
 
 
-	stack_allocator::_page_header stack_allocator::_page_header::create(_page_ref prev, void (*free)(std::byte*)) {
+	stack_allocator::_page_header stack_allocator::_page_header::create(_page_ref prev, void (*free)(void*)) {
 		_page_header result = uninitialized;
 		result.previous = prev;
 		result.free_page = free;

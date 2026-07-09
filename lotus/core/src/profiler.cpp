@@ -10,7 +10,7 @@ namespace lotus::profiler {
 		for (auto it = _thread_mapping.begin(); it != _thread_mapping.end(); ) {
 			thread_samples &s = result.emplace_back();
 			s.thread_id = it->first;
-			s.samples   = std::move(it->second.samples);
+			s.batches   = std::move(it->second.samples);
 
 			if (!it->second.accumulator) {
 				it = _thread_mapping.erase(it);

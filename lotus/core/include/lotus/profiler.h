@@ -10,12 +10,33 @@
 #include <unordered_map>
 #include <vector>
 
+#ifdef __aarch64__
+#	include <arm_acle.h>
+#endif
+
 #include "lotus/common.h"
 
 namespace lotus::profiler {
 	struct thread_accumulator;
 
-	using clock_t = std::chrono::high_resolution_clock; ///< Clock used for profiler events.
+	using time_t = u64; ///< Timer value.
+
+	/// Retrieves the timer.
+	[[nodiscard]] inline time_t get_timer() {
+#ifdef __aarch64__
+		return __arm_rsr64("CNTVCT_EL0");
+#else
+#	error "Not implemented"
+#endif
+	}
+	/// Returns the frequency of \ref get_timer().
+	[[nodiscard]] inline u64 get_timer_frequency() {
+#ifdef __aarch64__
+		return __arm_rsr64("CNTFRQ_EL0");
+#else
+#	error "Not implemented"
+#endif
+	}
 
 	/// A single timestamp.
 	struct timestamp {
@@ -26,14 +47,14 @@ namespace lotus::profiler {
 		[[nodiscard]] static timestamp now(const char8_t *label) {
 			timestamp result = zero;
 			result.label = label;
-			result.time  = clock_t::now();
+			result.time  = get_timer();
 			return result;
 		}
 
 		/// The label of this timestamp. \p nullptr indicates the timestamp is being popped, while a valid label
 		/// indicates the timestamp is being pushed.
 		const char8_t *label = nullptr;
-		clock_t::time_point time; ///< The timestamp.
+		time_t time; ///< The timestamp.
 	};
 
 	/// An array of samples.
@@ -42,7 +63,7 @@ namespace lotus::profiler {
 	};
 	/// Samples collected from a thread.
 	struct thread_samples {
-		std::deque<samples> samples; ///< All samples.
+		std::deque<samples> batches; ///< All batches of samples.
 		std::thread::id thread_id; ///< The ID of this thread.
 	};
 

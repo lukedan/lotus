@@ -335,6 +335,17 @@ namespace lotus {
 			}
 			return true;
 		}
+		/// Returns \p true if any element of this matrix is true.
+		[[nodiscard]] constexpr bool any_true() const requires std::is_same_v<T, bool> {
+			for (const auto &row : elements) {
+				for (const bool elem : row) {
+					if (elem) {
+						return true;
+					}
+				}
+			}
+			return false;
+		}
 
 		/// Default equality and inequality comparisons.
 		[[nodiscard]] friend bool operator==(const matrix&, const matrix&) = default;
@@ -493,6 +504,15 @@ namespace lotus {
 				return static_cast<T>(1.0f / v);
 			}, m);
 		}
+		/// Memberwise absolute value.
+		template <
+			usize R, usize C, typename T
+		> [[nodiscard]] constexpr static matrix<R, C, T> abs(const matrix<R, C, T> &m) {
+			return operation([](const T &val) {
+				return std::abs(val);
+			}, m);
+		}
+
 		/// Memberwise equality of two matrices.
 		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, bool> equals(
 			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
@@ -501,12 +521,45 @@ namespace lotus {
 				return lhs == rhs;
 			}, lhs, rhs);
 		}
-		/// Memberwise absolute value.
-		template <
-			usize R, usize C, typename T
-		> [[nodiscard]] constexpr static matrix<R, C, T> abs(const matrix<R, C, T> &m) {
-			return operation([](const T &val) {
-				return std::abs(val);
+		/// Memberwise comparison of two matrices.
+		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, bool> greater(
+			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
+		) {
+			return operation([](const T &lhs, const T &rhs) {
+				return lhs > rhs;
+			}, lhs, rhs);
+		}
+		/// Memberwise comparison of two matrices.
+		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, bool> less(
+			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
+		) {
+			return operation([](const T &lhs, const T &rhs) {
+				return lhs < rhs;
+			}, lhs, rhs);
+		}
+		/// Memberwise comparison of two matrices.
+		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, bool> greater_or_equal(
+			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
+		) {
+			return operation([](const T &lhs, const T &rhs) {
+				return lhs >= rhs;
+			}, lhs, rhs);
+		}
+		/// Memberwise comparison of two matrices.
+		template <usize R, usize C, typename T> [[nodiscard]] constexpr static matrix<R, C, bool> less_or_equal(
+			const matrix<R, C, T> &lhs, const matrix<R, C, T> &rhs
+		) {
+			return operation([](const T &lhs, const T &rhs) {
+				return lhs <= rhs;
+			}, lhs, rhs);
+		}
+
+		/// Memberwise logical not.
+		template <usize R, usize C> [[nodiscard]] constexpr static matrix<R, C, bool> logical_not(
+			const matrix<R, C, bool> &m
+		) {
+			return operation([](bool val) {
+				return !val;
 			}, m);
 		}
 	};

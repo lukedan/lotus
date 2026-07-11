@@ -167,5 +167,5 @@ template <typename T> constexpr ImGuiDataType imgui_data_type_v = imgui_data_typ
 template <typename T> bool ImGui_SliderT(
 	const char *label, T *data, T min, T max, const char *format = nullptr, ImGuiSliderFlags flags = 0
 ) {
-	ImGui::SliderScalar(label, imgui_data_type_v<T>, data, &min, &max, format, flags);
+	return ImGui::SliderScalar(label, imgui_data_type_v<T>, data, &min, &max, format, flags);
 }

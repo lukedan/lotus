@@ -591,7 +591,7 @@ namespace lotus::helpers {
 
 			const u64 frequency = profiler::get_timer_frequency();
 			const auto into_seconds = [frequency](profiler::time_t d) {
-				return d / static_cast<f64>(frequency);
+				return static_cast<f64>(d) / static_cast<f64>(frequency);
 			};
 			const auto format_seconds = [](f64 seconds) -> std::string {
 				if (seconds > 0.1f) {

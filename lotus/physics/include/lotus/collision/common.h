@@ -6,6 +6,7 @@
 #include "lotus/math/constants.h"
 #include "lotus/math/vector.h"
 #include "lotus/math/quaternion.h"
+#include "lotus/math/aab.h"
 
 namespace lotus::collision {
 	/// Type definitions for the physics engine.
@@ -21,6 +22,7 @@ namespace lotus::collision {
 		using mat34s = mat34<scalar>; ///< 3x4 matrix type.
 		using mat43s = matrix<4, 3, scalar>; ///< 4x3 matrix type.
 		using mat44s = mat44<scalar>; ///< 4x4 matrix type.
+		using aab3s = aab3<scalar>; ///< 3D axis-aligned bounding box.
 	}
 
 	inline namespace constants {

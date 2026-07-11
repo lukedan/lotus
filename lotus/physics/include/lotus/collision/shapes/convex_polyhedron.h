@@ -116,5 +116,16 @@ namespace lotus::collision::shapes {
 		/// Returns the range that this polyhedron covers when projected onto the given axis, assuming that it has
 		/// the given transform.
 		[[nodiscard]] axis_projection project_onto_axis_with_transform(vec3, body_position) const;
+
+		/// Returns the tight AAB of this polyhedron with the given transform applied.
+		[[nodiscard]] constexpr aab3s get_aabb_with_transform(const body_position &bp) const {
+			aab3s result = aab3s::create_infinity().negated();
+			for (const vec3 p : vertices) {
+				const vec3 tp = bp.local_to_global(p);
+				result.min = matm::min(result.min, tp);
+				result.max = matm::max(result.max, tp);
+			}
+			return result;
+		}
 	};
 }

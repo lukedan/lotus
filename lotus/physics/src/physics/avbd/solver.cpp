@@ -3,6 +3,7 @@
 /// \file
 /// Implementation of the AVBD solver.
 
+#include "lotus/profiler.h"
 #include "lotus/physics/world.h"
 
 namespace lotus::physics::solvers::avbd {
@@ -72,12 +73,21 @@ namespace lotus::physics::solvers::avbd {
 	solver::_body_step_data solver::_prepare_bodies(scalar dt) const {
 		_body_step_data result;
 
-		const std::span<body *const> bodies = physics_world->get_bodies();
+		physics_world->update_contact_constraints();
+
+		const usize num_bodies = physics_world->get_num_bodies();
+		result.bodies.reserve(num_bodies);
+		physics_world->for_each_body([&](body *b) {
+			result.bodies.emplace_back(b);
+		});
+		physics_world->for_each_contact([&](const constraints::rigid_body_contact &contact) {
+			result.contacts.emplace_back(&contact);
+		});
 
 		// compute initial and inertial positions
-		result.initial_positions.reserve(bodies.size());
-		result.inertial_positions.reserve(bodies.size());
-		for (body *b : bodies) {
+		result.initial_positions.reserve(result.bodies.size());
+		result.inertial_positions.reserve(result.bodies.size());
+		for (body *b : result.bodies) {
 			// initial position
 			result.initial_positions.emplace_back(b->state.position);
 
@@ -93,31 +103,20 @@ namespace lotus::physics::solvers::avbd {
 				b->state.position.orientation +
 				0.5f * quat::from_vec3_xyz(delta_angular_velocity) * b->state.position.orientation
 			);
-
-			// advect
-			b->state.position = inertial_pos;
-		}
-
-		// detect contacts using advected positions
-		physics_world->update_contact_constraints();
-
-		// reset to initial positions for dual variable initialization
-		for (usize i = 0; i < bodies.size(); ++i) {
-			bodies[i]->state.position = result.initial_positions[i];
 		}
 
 		// compute inverse constraint association
 		const auto find_body_idx = [&](const body *b) -> usize {
-			for (usize ib = 0; ib < bodies.size(); ++ib) {
-				if (bodies[ib] == b) {
+			for (usize ib = 0; ib < result.bodies.size(); ++ib) {
+				if (result.bodies[ib] == b) {
 					return ib;
 				}
 			}
 			std::abort();
 		};
-		result.constraint_association.resize(bodies.size(), {});
-		for (usize i = 0; i < physics_world->contacts.size(); ++i) {
-			const constraints::rigid_body_contact &contact = physics_world->contacts[i];
+		result.constraint_association.resize(result.bodies.size(), {});
+		for (usize i = 0; i < result.contacts.size(); ++i) {
+			const constraints::rigid_body_contact &contact = *result.contacts[i];
 			result.constraint_association[find_body_idx(contact.body1)].contact_constraints.emplace_back(i);
 			result.constraint_association[find_body_idx(contact.body2)].contact_constraints.emplace_back(i);
 		}
@@ -150,16 +149,16 @@ namespace lotus::physics::solvers::avbd {
 		}
 
 		// initialize contact dual variables
-		result.contact_duals.reserve(physics_world->contacts.size());
-		for (const constraints::rigid_body_contact &contact : physics_world->contacts) {
+		result.contact_duals.reserve(result.contacts.size());
+		for (const constraints::rigid_body_contact *contact : result.contacts) {
 			_contact_dual &dual = result.contact_duals.emplace_back();
-			dual.contact_points.reserve(contact.contact_points.size());
-			for (const constraints::rigid_body_contact::point &contact_point : contact.contact_points) {
+			dual.contact_points.reserve(contact->contact_points.size());
+			for (const constraints::rigid_body_contact::point &contact_point : contact->contact_points) {
 				_contact_dual::point &point = dual.contact_points.emplace_back(zero);
 				// TODO warm starting
 				point.stiffness     = vec3::filled(1000.0f);
 				point.force         = zero;
-				point.initial_error = _compute_raw_contact_error(contact, contact_point);
+				point.initial_error = _compute_raw_contact_error(*contact, contact_point);
 			}
 		}
 
@@ -188,9 +187,10 @@ namespace lotus::physics::solvers::avbd {
 		using _vec6 = column_vector<6, f64>;
 		using _mat66 = matrix<6, 6, f64>;
 
-		const std::span<body *const> bodies = physics_world->get_bodies();
-		for (usize bi = 0; bi < bodies.size(); ++bi) {
-			body *cur_body = bodies[bi];
+		profiler::scope p1;
+
+		for (usize bi = 0; bi < bdata.bodies.size(); ++bi) {
+			body *cur_body = bdata.bodies[bi];
 			crash_if(cur_body->state.position.position.has_nan());
 			body_position &cur_pos = cur_body->state.position;
 			if (cur_body->properties.inverse_mass <= 0.0f) {
@@ -215,7 +215,7 @@ namespace lotus::physics::solvers::avbd {
 
 			// contact terms
 			for (const u32 ci : constraint_association.contact_constraints) {
-				const constraints::rigid_body_contact &contact = physics_world->contacts[ci];
+				const constraints::rigid_body_contact &contact = *bdata.contacts[ci];
 				const _contact_dual &dual = bdata.contact_duals[ci];
 				const scalar sign = cur_body == contact.body1 ? 1.0f : -1.0f;
 				for (usize cpi = 0; cpi < contact.contact_points.size(); ++cpi) {
@@ -380,8 +380,8 @@ namespace lotus::physics::solvers::avbd {
 	}
 
 	void solver::_update_body_dual_variables(_body_step_data &bdata) {
-		for (usize ci = 0; ci < physics_world->contacts.size(); ++ci) {
-			const constraints::rigid_body_contact &contact = physics_world->contacts[ci];
+		for (usize ci = 0; ci < bdata.contacts.size(); ++ci) {
+			const constraints::rigid_body_contact &contact = *bdata.contacts[ci];
 			_contact_dual &dual = bdata.contact_duals[ci];
 			for (usize cpi = 0; cpi < contact.contact_points.size(); ++cpi) {
 				const constraints::rigid_body_contact::point &contact_point = contact.contact_points[cpi];
@@ -422,9 +422,8 @@ namespace lotus::physics::solvers::avbd {
 	}
 
 	void solver::_compute_body_velocities(scalar dt, const _body_step_data &bdata) {
-		const std::span<body *const> bodies = physics_world->get_bodies();
-		for (usize i = 0; i < bodies.size(); ++i) {
-			body *cur_body = bodies[i];
+		for (usize i = 0; i < bdata.bodies.size(); ++i) {
+			body *cur_body = bdata.bodies[i];
 			cur_body->applied_impulse = zero;
 			cur_body->applied_torque = zero;
 
@@ -437,6 +436,8 @@ namespace lotus::physics::solvers::avbd {
 			cur_body->state.velocity.linear = (cur_body->state.position.position - initial_pos.position) / dt;
 			cur_body->state.velocity.angular =
 				(2.0f / dt) * (cur_body->state.position.orientation * initial_pos.orientation.conjugate()).axis();
+
+			physics_world->on_body_moved(cur_body);
 		}
 	}
 

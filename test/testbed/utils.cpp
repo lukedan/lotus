@@ -196,6 +196,33 @@ void debug_render::draw_box(mat44s transform, lotus::linear_rgba_f32 color, bool
 	draw_body(_vertices, _normals, _indices, transform, color, wireframe);
 }
 
+void debug_render::draw_aab(aab3s bb, lotus::linear_rgba_f32 color) {
+	const auto first_index = static_cast<u32>(line_vertices.size());
+	line_vertices.emplace_back(vec3(bb.min[0], bb.min[1], bb.min[2]), color);
+	line_vertices.emplace_back(vec3(bb.min[0], bb.min[1], bb.max[2]), color);
+	line_vertices.emplace_back(vec3(bb.min[0], bb.max[1], bb.min[2]), color);
+	line_vertices.emplace_back(vec3(bb.min[0], bb.max[1], bb.max[2]), color);
+	line_vertices.emplace_back(vec3(bb.max[0], bb.min[1], bb.min[2]), color);
+	line_vertices.emplace_back(vec3(bb.max[0], bb.min[1], bb.max[2]), color);
+	line_vertices.emplace_back(vec3(bb.max[0], bb.max[1], bb.min[2]), color);
+	line_vertices.emplace_back(vec3(bb.max[0], bb.max[1], bb.max[2]), color);
+
+	line_indices.emplace_back(first_index);     line_indices.emplace_back(first_index + 1);
+	line_indices.emplace_back(first_index);     line_indices.emplace_back(first_index + 2);
+	line_indices.emplace_back(first_index + 1); line_indices.emplace_back(first_index + 3);
+	line_indices.emplace_back(first_index + 2); line_indices.emplace_back(first_index + 3);
+
+	line_indices.emplace_back(first_index);     line_indices.emplace_back(first_index + 4);
+	line_indices.emplace_back(first_index + 1); line_indices.emplace_back(first_index + 5);
+	line_indices.emplace_back(first_index + 2); line_indices.emplace_back(first_index + 6);
+	line_indices.emplace_back(first_index + 3); line_indices.emplace_back(first_index + 7);
+
+	line_indices.emplace_back(first_index + 4); line_indices.emplace_back(first_index + 5);
+	line_indices.emplace_back(first_index + 4); line_indices.emplace_back(first_index + 6);
+	line_indices.emplace_back(first_index + 5); line_indices.emplace_back(first_index + 7);
+	line_indices.emplace_back(first_index + 6); line_indices.emplace_back(first_index + 7);
+}
+
 void debug_render::draw_frame(uquats ori, vec3 pos, scalar size) {
 	const vec3 x = ori.rotate(vec3(size, 0.0f, 0.0f));
 	const vec3 y = ori.rotate(vec3(0.0f, size, 0.0f));
@@ -304,7 +331,7 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::convex_poly
 }
 
 void debug_render::draw_world(const lotus::physics::world &world) {
-	for (const lotus::physics::body *b : world.get_bodies()) {
+	world.for_each_body([&](const lotus::physics::body *b) {
 		const body_visual *visual = nullptr;
 		if (b->user_data) {
 			visual = static_cast<const body_visual*>(b->user_data);
@@ -320,9 +347,20 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 			},
 			b->body_shape->value
 		);
-	}
 
-	for (const auto &c : world.contacts) {
+		if (ctx->draw_body_aabbs) {
+			const lotus::physics::world::body_data &bdata = world.get_body_data(b);
+			const lotus::physics::world::timestamp_t timestamp = bdata.aabb_timestamp.value_or(0);
+			draw_aab(
+				bdata.aabb,
+				timestamp == world.get_timestamp() ?
+				lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f) :
+				lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f)
+			);
+		}
+	});
+
+	world.for_each_contact([&](const lotus::physics::constraints::rigid_body_contact &c) {
 		for (const auto &cp : c.contact_points) {
 			const vec3 p1 = c.body1->state.position.local_to_global(cp.local_position1);
 			const vec3 p2 = c.body2->state.position.local_to_global(cp.local_position2);
@@ -339,7 +377,7 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 				draw_line(p2, c.body2->state.position.position, lotus::linear_rgba_f32(1.0f, 0.0f, 1.0f, 1.0f));
 			}
 		}
-	}
+	});
 
 	for (const lotus::physics::constraints::spring &spring : world.springs) {
 		const vec3 p1 = spring.get_global_position1();
@@ -372,10 +410,10 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 
 	// debug stuff
 	if (ctx->draw_body_velocities) {
-		for (const lotus::physics::body *b : world.get_bodies()) {
+		world.for_each_body([&](const lotus::physics::body *b) {
 			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.linear, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
 			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.angular, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
-		}
+		});
 	}
 }
 

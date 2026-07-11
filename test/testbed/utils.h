@@ -38,6 +38,7 @@ struct test_context {
 	bool wireframe_surfaces = false;
 	bool wireframe_bodies = false;
 	bool draw_body_velocities = true;
+	bool draw_body_aabbs = true;
 	bool draw_contact_points = true;
 	bool draw_contact_normals = false;
 	bool draw_contact_relationships = false;
@@ -102,6 +103,7 @@ public:
 	);
 	void draw_sphere(mat44s transform, lotus::linear_rgba_f32 color, bool wireframe);
 	void draw_box(mat44s transform, lotus::linear_rgba_f32 color, bool wireframe);
+	void draw_aab(aab3s bb, lotus::linear_rgba_f32 color);
 
 	void draw_frame(uquats ori, vec3 pos, scalar size);
 

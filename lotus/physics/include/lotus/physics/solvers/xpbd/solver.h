@@ -4,12 +4,11 @@
 /// The XPBD solver.
 
 #include <vector>
-#include <list>
 #include <deque>
-#include <optional>
 
 #include "lotus/collision/shape.h"
 #include "lotus/physics/body.h"
+#include "lotus/physics/constraints/contact.h"
 #include "constraints/spring.h"
 #include "constraints/contact.h"
 #include "constraints/cosserat_rod.h"
@@ -21,6 +20,10 @@ namespace lotus::physics {
 }
 
 namespace lotus::physics::solvers::xpbd {
+	namespace constraints {
+		using namespace ::lotus::physics::constraints;
+	}
+
 	/// The XPBD solver.
 	class solver {
 	public:

@@ -84,6 +84,15 @@ public:
 			},
 			_solver
 		);
+		u32 num_contacts = 0;
+		for (const auto &[k, v] : _world.get_overlap_map()) {
+			if (v.contact) {
+				++num_contacts;
+			}
+		}
+		ImGui_SliderT("AABB Prediction", &_world.aabb_prediction, 0.0f, 1.0f);
+		ImGui::Text("Overlaps: %u", static_cast<u32>(_world.get_overlap_map().size()));
+		ImGui::Text("Contacts: %u", num_contacts);
 
 		ImGui::Separator();
 		ImGui::SliderFloat("Bullet Velocity", &_bullet_velocity, 0.0f, 50.0f);

@@ -3,84 +3,130 @@
 /// \file
 /// Implementation of the physics world.
 
-#include <set>
-
+#include "lotus/logging.h"
 #include "lotus/profiler.h"
 #include "lotus/collision/algorithms/contact_manifold.h"
 #include "lotus/collision/contact.h"
 
 namespace lotus::physics {
-	std::vector<world::rigid_body_collision> world::detect_collisions() const {
+	void world::overlap_data::update_contact(body *body1, body *body2) {
+		if (body1->body_shape->get_type() > body2->body_shape->get_type()) {
+			std::swap(body1, body2);
+		}
+		const std::optional<collision::contact_manifold> col = collision::contact::detect(
+			*body1->body_shape, body1->state.position, *body2->body_shape, body2->state.position
+		);
+		if (col && !col->points.empty()) {
+			constraints::rigid_body_contact &constraint = contact.emplace();
+			constraint.body1 = body1;
+			constraint.body2 = body2;
+			constraint.tangents = tangent_frame<scalar>::from_normal(col->normal);
+			for (const collision::contact_manifold::point &manifold_pt : col->points) {
+				constraints::rigid_body_contact::point &pt = constraint.contact_points.emplace_back();
+				pt.local_position1 = manifold_pt.local_position1;
+				pt.local_position2 = manifold_pt.local_position2;
+			}
+		} else {
+			contact.reset();
+		}
+	}
+
+
+	void world::update_contact_constraints() {
+		profiler::scope p1;
+
+		++_timestamp;
+
 		// collect pairs of bodies that have collision disabled explicitly
-		// TODO this is suboptimal - need perfect ordering between bodies
-		std::set<std::pair<body*, body*>> collision_disabled;
+		std::unordered_set<body_pair, body_pair_hash> collision_disabled;
 		for (const constraints::spring &spring : springs) {
 			if (spring.disable_collision && spring.body1 && spring.body2) {
 				collision_disabled.emplace(spring.body1, spring.body2);
-				collision_disabled.emplace(spring.body2, spring.body1);
 			}
 		}
 		for (const constraints::pin &pin : pins) {
 			if (pin.disable_collision && pin.body1 && pin.body2) {
 				collision_disabled.emplace(pin.body1, pin.body2);
-				collision_disabled.emplace(pin.body2, pin.body1);
 			}
 		}
 		for (const constraints::hinge &hinge : hinges) {
 			if (hinge.disable_collision && hinge.body1 && hinge.body2) {
 				collision_disabled.emplace(hinge.body1, hinge.body2);
-				collision_disabled.emplace(hinge.body2, hinge.body1);
 			}
 		}
 
-		std::vector<rigid_body_collision> result;
-		for (size_t i = 0; i < _bodies.size(); ++i) {
-			body *const body_i = _bodies[i];
-			const bool kinematic_i = body_i->properties.inverse_mass <= 0.0f;
-			for (size_t j = i + 1; j < _bodies.size(); ++j) {
-				body *const body_j = _bodies[j];
-				const bool kinematic_j = body_j->properties.inverse_mass <= 0.0f;
-				if (kinematic_i && kinematic_j) {
-					continue;
-				}
-				if (collision_disabled.contains(std::make_pair(body_i, body_j))) {
-					continue;
-				}
+		{ // first detach everything from the tree and remove existing overlap pairs
+			profiler::scope p2(u8"Erase Old AABBs");
 
-				body *body1 = body_i;
-				body *body2 = body_j;
-				if (body1->body_shape->get_type() > body2->body_shape->get_type()) {
-					std::swap(body1, body2);
+			for (body *cur : _bodies_to_update) {
+				body_data &bdata = _body_map.at(cur);
+				_body_bvh.detach(bdata.node);
+				for (body *other : bdata.overlaps) {
+					_overlap.erase(body_pair(cur, other));
+					_body_map.at(other).overlaps.erase(cur);
 				}
-				const std::optional<collision::contact_manifold> col = collision::contact::detect(
-					*body1->body_shape, body1->state.position, *body2->body_shape, body2->state.position
-				);
-				if (col && !col->points.empty()) {
-					result.emplace_back(*body1, *body2, col.value());
-				}
+				bdata.overlaps.clear();
 			}
 		}
-		return result;
+
+		{ // update all existing contacts
+			profiler::scope p2(u8"Unchanged AABBs");
+
+			for (auto it = _overlap.begin(); it != _overlap.end(); ++it) {
+				it->second.update_contact(it->first);
+			}
+		}
+
+		{ // then perform collision detection and re-insert everything into the tree
+			profiler::scope p2(u8"Reinsert Updated AABBs");
+
+			for (body *cur : _bodies_to_update) {
+				const bool cur_kinematic = cur->properties.inverse_mass <= 0.0f;
+				body_data &bdata = _body_map.at(cur);
+
+				// find new overlap pairs and collisions
+				{
+					profiler::scope p3(u8"BVH Query");
+					_body_bvh.query_aab(bdata.aabb, [&](const body_bvh::leaf_node *other_node) {
+						body *other = other_node->value;
+						if (cur_kinematic && other->properties.inverse_mass <= 0.0f) {
+							return; // no collision between kinematic bodies
+						}
+						if (collision_disabled.contains(body_pair(cur, other))) {
+							return;
+						}
+
+						bdata.overlaps.emplace(other);
+						_body_map.at(other).overlaps.emplace(cur);
+						auto [overlap_it, inserted] = _overlap.emplace(body_pair(cur, other), overlap_data());
+						crash_if(!inserted);
+						overlap_it->second.update_contact(overlap_it->first);
+					});
+				}
+
+				// insert into BVH
+				_body_bvh.insert(bdata.node, bdata.aabb);
+			}
+		}
+
+		_bodies_to_update.clear();
 	}
 
-	void world::update_contact_constraints() {
-		profiler::scope p1;
+	void world::on_body_moved(body *b) {
+		const aab3s tight_aab = b->body_shape->get_aabb_with_transform(b->state.position);
+		body_data &bdata = _body_map.at(b);
+		if (!bdata.aabb.contains(tight_aab)) {
+			bdata.set_aabb(_get_expanded_aab(tight_aab, b->state.velocity.linear), _timestamp);
+			_bodies_to_update.emplace(b);
+		}
+	}
 
-		// TODO get rid of detect_collisions() and update the constraints array directly
-		const std::vector<rigid_body_collision> collisions = detect_collisions();
-		// TODO persistence
-		contacts.clear();
-		contacts.reserve(collisions.size());
-		for (const rigid_body_collision &col : collisions) {
-			constraints::rigid_body_contact &constraint = contacts.emplace_back();
-			constraint.body1 = col.body1;
-			constraint.body2 = col.body2;
-			constraint.tangents = tangent_frame<scalar>::from_normal(col.contact_manifold.normal);
-			for (const collision::contact_manifold::point &manifold_pt : col.contact_manifold.points) {
-				constraints::rigid_body_contact::point &pt = constraint.contact_points.emplace_back();
-				pt.local_position1 = manifold_pt.local_position1;
-				pt.local_position2 = manifold_pt.local_position2;
-			}
+	void world::_maybe_validate_bvh() const {
+		if constexpr (validate_bvh) {
+			_body_bvh.validate([](const body_bvh::node *n, const char8_t *msg) {
+				log().error("Node {:x}: {}", reinterpret_cast<intptr_t>(n), reinterpret_cast<const char*>(msg));
+				pause_for_debugger();
+			});
 		}
 	}
 }

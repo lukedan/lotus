@@ -26,24 +26,29 @@ namespace lotus::physics::solvers::xpbd {
 				);
 			}
 		}
-		for (body *b : physics_world->get_bodies()) {
+		physics_world->for_each_body([&](body *b) {
 			b->prev_state = b->state;
 			// TODO external torque
 			b->velocity_integration(dt, physics_world->gravity, zero);
 			b->position_integration(dt);
-		}
+			physics_world->on_body_moved(b);
+		});
 
 		{ // detect collisions
+			physics_world->update_contact_constraints();
 			contact_constraints.clear();
-			const std::vector<world::rigid_body_collision> collisions = physics_world->detect_collisions();
-			for (const world::rigid_body_collision &info : collisions) {
+			physics_world->for_each_contact([&](const constraints::rigid_body_contact &contact) {
 				// TODO better storage
-				for (const collision::contact_manifold::point &cp : info.contact_manifold.points) {
+				for (const constraints::rigid_body_contact::point &cp : contact.contact_points) {
 					contact_constraints.emplace_back(constraints::body_contact::create_for(
-						*info.body1, *info.body2, cp.local_position1, cp.local_position2, info.contact_manifold.normal
+						*contact.body1,
+						*contact.body2,
+						cp.local_position1,
+						cp.local_position2,
+						contact.tangents.normal
 					));
 				}
-			}
+			});
 		}
 
 		// solve constraints
@@ -72,7 +77,7 @@ namespace lotus::physics::solvers::xpbd {
 			}
 
 			// handle body-particle collisions
-			for (const body *b : physics_world->get_bodies()) {
+			physics_world->for_each_body([&](body *b) {
 				if (b->properties.inverse_mass == 0.0f) {
 					for (particle &p : particles) {
 						std::visit(
@@ -83,7 +88,7 @@ namespace lotus::physics::solvers::xpbd {
 						);
 					}
 				}
-			}
+			});
 
 			// project spring constraints
 			for (usize j = 0; j < particle_spring_constraints.size(); ++j) {
@@ -155,7 +160,7 @@ namespace lotus::physics::solvers::xpbd {
 		for (orientation &o : orientations) {
 			o.state.angular_velocity = (2.0f / dt) * (o.state.orientation * o.prev_orientation.conjugate()).axis();
 		}
-		for (body *b : physics_world->get_bodies()) {
+		physics_world->for_each_body([&](body *b) {
 			b->prev_state.velocity = b->state.velocity;
 
 			b->state.velocity.linear = (b->state.position.position - b->prev_state.position.position) / dt;
@@ -164,7 +169,7 @@ namespace lotus::physics::solvers::xpbd {
 			if (dq.w() < 0.0f) {
 				b->state.velocity.angular = -b->state.velocity.angular;
 			}
-		}
+		});
 
 		// velocity solve
 		for (usize i = 0; i < contact_constraints.size(); ++i) {

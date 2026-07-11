@@ -226,7 +226,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 		const scalar baumgarte_coeff = baumgarte_stabilization * rcp_dt;
 
 		// advect
-		for (body *b : physics_world->get_bodies()) {
+		physics_world->for_each_body([&](body *b) {
 			b->state.velocity.linear += b->applied_impulse * b->properties.inverse_mass;
 			b->state.velocity.angular += b->state.position.orientation.rotate(
 				b->properties.inverse_inertia * b->state.position.orientation.conjugate().rotate(b->applied_torque)
@@ -235,7 +235,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 			b->applied_torque = zero;
 
 			b->velocity_integration(dt, physics_world->gravity, zero);
-		}
+		});
 
 		// apply spring forces
 		// TODO implicit formulation
@@ -263,11 +263,11 @@ namespace lotus::physics::solvers::sequential_impulse {
 		std::vector<_contact_constraint_data> contact_data;
 		std::vector<_hinge_constraint_data> hinge_data;
 		std::vector<_pin_constraint_data> pin_data;
-		for (const constraints::rigid_body_contact &contact : physics_world->contacts) {
+		physics_world->for_each_contact([&](const constraints::rigid_body_contact &contact) {
 			contact_data.emplace_back(_contact_constraint_data::prepare(
 				contact, baumgarte_coeff, physics_world->collision_threshold
 			));
-		}
+		});
 		for (const constraints::hinge &hinge : physics_world->hinges) {
 			hinge_data.emplace_back(_hinge_constraint_data::prepare(hinge, baumgarte_coeff));
 		}
@@ -277,8 +277,12 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 		for (u32 iter = 0; iter < num_velocity_iterations; ++iter) {
 			profiler::scope p2(u8"Velocity Iteration");
-			for (usize ci = 0; ci < physics_world->contacts.size(); ++ci) {
-				contact_data[ci].velocity_update(physics_world->contacts[ci]);
+			{
+				usize ci = 0;
+				physics_world->for_each_contact([&](const constraints::rigid_body_contact &contact) {
+					contact_data[ci].velocity_update(contact);
+					++ci;
+				});
 			}
 			for (usize ci = 0; ci < physics_world->hinges.size(); ++ci) {
 				hinge_data[ci].velocity_update(physics_world->hinges[ci]);
@@ -288,9 +292,12 @@ namespace lotus::physics::solvers::sequential_impulse {
 			}
 		}
 
-		for (body *b : physics_world->get_bodies()) {
-			b->position_integration(dt);
-		}
+		physics_world->for_each_body([&](body *b) {
+			if (b->properties.inverse_mass > 0.0f) {
+				b->position_integration(dt);
+				physics_world->on_body_moved(b);
+			}
+		});
 	}
 
 	void solver::_apply_impulses(

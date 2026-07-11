@@ -16,7 +16,7 @@ namespace lotus::collision::shapes {
 		sphere(uninitialized_t) {
 		}
 		/// Creates a new uniform sphere shape with the given radius.
-		[[nodiscard]] inline static sphere from_radius(scalar r) {
+		[[nodiscard]] static sphere from_radius(scalar r) {
 			sphere result = uninitialized;
 			result.offset = zero;
 			result.radius = r;
@@ -35,9 +35,18 @@ namespace lotus::collision::shapes {
 			const scalar diag = 0.4f * mass * radius * radius;
 			return physics::body_properties::create(mat33s::diagonal(diag, diag, diag), mass);
 		}
+
+		/// Returns the world space AABB of the sphere.
+		[[nodiscard]] constexpr aab3s get_aabb_with_transform(const body_position &bp) const {
+			return aab3s::create_from_center_half_size(bp.local_to_global(offset), vec3::filled(radius));
+		}
 	};
 
 	/// An infinitely large plane that passes through the origin and spans through the X-Y plane.
 	struct plane {
+		/// Returns an AABB that covers the entire space.
+		[[nodiscard]] constexpr aab3s get_aabb_with_transform(const body_position&) const {
+			return aab3s::create_infinity();
+		}
 	};
 }

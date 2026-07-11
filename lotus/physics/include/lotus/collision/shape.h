@@ -24,7 +24,7 @@ namespace lotus::collision {
 		using storage = std::variant<shapes::plane, shapes::sphere, shapes::convex_polyhedron>;
 
 		/// Creates a new shape.
-		template <typename Shape> [[nodiscard]] inline static shape create(Shape s) {
+		template <typename Shape> [[nodiscard]] static shape create(Shape s) {
 			shape result;
 			result.value.emplace<Shape>(std::move(s));
 			return result;
@@ -33,6 +33,13 @@ namespace lotus::collision {
 		/// Returns the type of the stored shape.
 		[[nodiscard]] type get_type() const {
 			return static_cast<type>(value.index());
+		}
+
+		/// Returns the tight AABB of this body with the given transform applied.
+		[[nodiscard]] aab3s get_aabb_with_transform(const body_position &pos) const {
+			return std::visit([&](const auto &shape) {
+				return shape.get_aabb_with_transform(pos);
+			}, value);
 		}
 
 		storage value; ///< The value of this shape.

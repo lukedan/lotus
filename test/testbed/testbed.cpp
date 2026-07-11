@@ -135,6 +135,7 @@ protected:
 				ImGui::Checkbox("Wireframe Surfaces", &_test_context.wireframe_surfaces);
 				ImGui::Checkbox("Wireframe Bodies", &_test_context.wireframe_bodies);
 				ImGui::Checkbox("Body Velocity", &_test_context.draw_body_velocities);
+				ImGui::Checkbox("Body AABB", &_test_context.draw_body_aabbs);
 				ImGui::Checkbox("Contact Points", &_test_context.draw_contact_points);
 				ImGui::Checkbox("Contact Normals", &_test_context.draw_contact_normals);
 				ImGui::Checkbox("Contact Relationships", &_test_context.draw_contact_relationships);

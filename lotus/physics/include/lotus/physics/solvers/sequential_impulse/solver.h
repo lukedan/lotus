@@ -19,8 +19,9 @@ namespace lotus::physics::solvers::sequential_impulse {
 		void timestep(scalar delta_time);
 
 		world *physics_world = nullptr; ///< The physics world.
-		u32 num_velocity_iterations = 8; ///< The number of velocity iterations per time step.
-		scalar baumgarte_stabilization = 0.1f; ///< Baumgarte stabilization coefficient.
+		u32 num_substeps = 4;
+		u32 num_velocity_iterations = 2; ///< The number of velocity iterations per time step.
+		scalar baumgarte_stabilization = 0.01f; ///< Baumgarte stabilization coefficient.
 	private:
 		/// Precomputed data and state for a contact constraint.
 		struct _contact_constraint_data {
@@ -41,26 +42,22 @@ namespace lotus::physics::solvers::sequential_impulse {
 				/// Applies lambda using the given relative velocity in tangent space, applies clamping, and returns
 				/// the amount by which \ref lambda has changed.
 				[[nodiscard]] vec3 update_lambda(vec3 tangential_velocity, const constraints::rigid_body_contact&);
+				/// Applies an impulse that corresponds to the given delta lambda value.
+				void apply_impulses_for_delta_lambda(
+					vec3 delta_lambda, const constraints::rigid_body_contact&, const _contact_constraint_data&
+				) const;
 			};
 
 			std::vector<point_data> points; ///< Data for all contact points.
 			mat33s inverse_inertia1 = zero; ///< Rotated inverse inertia of the first body.
 			mat33s inverse_inertia2 = zero; ///< Rotated inverse inertia of the second body.
 
-			/// Computes the effective mass projected onto the given axis.
-			[[nodiscard]] static scalar compute_effective_mass(
-				mat33s inv_i1, mat33s inv_i2, scalar inv_m1, scalar inv_m2, vec3 o1, vec3 o2, vec3 axis
-			);
-			/// \overload
-			[[nodiscard]] static scalar compute_effective_mass(
-				const constraints::rigid_body_contact&, const _contact_constraint_data&, const point_data&, vec3 axis
-			);
+			/// Zero initialization.
+			_contact_constraint_data(zero_t) {
+			}
 
 			/// Precomputes necessary information for the given contact constraint.
-			[[nodiscard]] static _contact_constraint_data prepare(
-				const constraints::rigid_body_contact&, scalar baumgarte_coeff, scalar collision_threshold
-			);
-
+			void prepare(const constraints::rigid_body_contact&, scalar baumgarte_coeff, scalar collision_threshold);
 			/// Iterates over all contact points and updates the impulse estimates and body velocities.
 			void velocity_update(const constraints::rigid_body_contact&);
 		};
@@ -75,11 +72,16 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 			vec3 lambda = zero; ///< Total applied torque.
 
-			/// Precomputes necessary information for the given hinge constraint.
-			[[nodiscard]] static _hinge_constraint_data prepare(const constraints::hinge&, scalar baumgarte_coeff);
+			/// Zero initialization.
+			_hinge_constraint_data(zero_t) {
+			}
 
+			/// Precomputes necessary information for the given hinge constraint.
+			void prepare(const constraints::hinge&, scalar baumgarte_coeff);
 			/// Updates the torque estimate and body velocities.
 			void velocity_update(const constraints::hinge&);
+			/// Applies impulses to the bodies corresponding to the given delta lambda value.
+			void apply_impulses_for_delta_lambda(vec3 delta_lambda, const constraints::hinge&) const;
 		};
 		/// Precomputed data and state for a pin constraint.
 		struct _pin_constraint_data {
@@ -92,16 +94,21 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 			vec3 lambda = zero; ///< Total applied impulse.
 
+			/// Zero initialization.
+			_pin_constraint_data(zero_t) {
+			}
+
 			/// Computes the effective mass.
 			[[nodiscard]] static mat33s compute_effective_mass(
 				mat33s inv_i1, mat33s inv_i2, scalar inv_m1, scalar inv_m2, vec3 o1, vec3 o2
 			);
 
 			/// Precomputes necessary information for the given pin constraint.
-			[[nodiscard]] static _pin_constraint_data prepare(const constraints::pin&, scalar baumgarte_coeff);
-
+			void prepare(const constraints::pin&, scalar baumgarte_coeff);
 			/// Updates the impulse estimate and body velocities.
 			void velocity_update(const constraints::pin&);
+			/// Applies impulses to the bodies corresponding to the given delta lambda value.
+			void apply_impulses_for_delta_lambda(vec3 delta_lambda, const constraints::pin&) const;
 		};
 
 		/// Immediately Applies \p impulse to the \p body1, and \p -impulse to the second \p body2.

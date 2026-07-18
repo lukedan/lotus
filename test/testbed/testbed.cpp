@@ -38,6 +38,8 @@ public:
 
 	/// Renders all objects.
 	void render(lotus::renderer::constant_uploader &uploader) {
+		lotus::profiler::scope p1;
+
 		if (_test) {
 			_test->render(*_context, _gfx_q, uploader, _swap_chain, _get_back_buffer_size());
 		} else {

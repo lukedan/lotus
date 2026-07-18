@@ -69,15 +69,7 @@ namespace lotus::physics {
 			}
 		}
 
-		{ // update all existing contacts
-			profiler::scope p2(u8"Unchanged AABBs");
-
-			for (auto it = _overlap.begin(); it != _overlap.end(); ++it) {
-				it->second.update_contact(it->first);
-			}
-		}
-
-		{ // then perform collision detection and re-insert everything into the tree
+		{ // then re-insert everything into the tree with updated AABBs
 			profiler::scope p2(u8"Reinsert Updated AABBs");
 
 			for (body *cur : _bodies_to_update) {
@@ -100,12 +92,19 @@ namespace lotus::physics {
 						_body_map.at(other).overlaps.emplace(cur);
 						auto [overlap_it, inserted] = _overlap.emplace(body_pair(cur, other), overlap_data());
 						crash_if(!inserted);
-						overlap_it->second.update_contact(overlap_it->first);
 					});
 				}
 
 				// insert into BVH
 				_body_bvh.insert(bdata.node, bdata.aabb);
+			}
+		}
+
+		{ // finally, update all existing contacts
+			profiler::scope p2(u8"Detect Collisions");
+
+			for (auto it = _overlap.begin(); it != _overlap.end(); ++it) {
+				it->second.update_contact(it->first);
 			}
 		}
 

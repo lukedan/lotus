@@ -209,8 +209,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 		profiler::scope p1;
 
 		const scalar substep_dt = full_dt / static_cast<scalar>(num_substeps);
-		const scalar rcp_substep_dt = 1.0f / substep_dt;
-		const scalar baumgarte_coeff = baumgarte_stabilization * rcp_substep_dt;
+		const scalar baumgarte_coeff = baumgarte_stabilization;
 
 		physics_world->update_contact_constraints();
 

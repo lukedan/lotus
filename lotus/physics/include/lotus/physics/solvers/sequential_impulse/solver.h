@@ -21,7 +21,7 @@ namespace lotus::physics::solvers::sequential_impulse {
 		world *physics_world = nullptr; ///< The physics world.
 		u32 num_substeps = 4;
 		u32 num_velocity_iterations = 2; ///< The number of velocity iterations per time step.
-		scalar baumgarte_stabilization = 0.01f; ///< Baumgarte stabilization coefficient.
+		scalar baumgarte_stabilization = 10.0f; ///< Baumgarte stabilization coefficient.
 	private:
 		/// Precomputed data and state for a contact constraint.
 		struct _contact_constraint_data {

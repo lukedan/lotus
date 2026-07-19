@@ -138,7 +138,7 @@ private:
 	void _solver_gui(lotus::physics::solvers::sequential_impulse::solver &solver) const {
 		ImGui_SliderT<u32>("Num Velocity Iterations", &solver.num_velocity_iterations, 1, 100);
 		ImGui_SliderT<u32>("Num Substeps", &solver.num_substeps, 1, 100);
-		ImGui_SliderT<scalar>("Baumgarte Stabilization", &solver.baumgarte_stabilization, 0.0f, 1.0f);
+		ImGui_SliderT<scalar>("Baumgarte Stabilization", &solver.baumgarte_stabilization, 0.0f, 100.0f);
 	}
 	void _solver_gui(lotus::physics::solvers::avbd::solver &solver) const {
 		ImGui_SliderT<u32>("Num Iterations", &solver.num_iterations, 1, 100);

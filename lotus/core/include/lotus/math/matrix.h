@@ -244,20 +244,6 @@ namespace lotus {
 			return result;
 		}
 
-		/// Returns the i-th row.
-		[[nodiscard]] constexpr matrix<1, Cols, T> row(usize r) const {
-			matrix<1, Cols, T> result = zero;
-			result.elements[0] = elements[r];
-			return result;
-		}
-		/// Returns the i-th column.
-		[[nodiscard]] constexpr matrix<Rows, 1, T> column(usize c) const {
-			matrix<Rows, 1, T> result = zero;
-			for (usize i = 0; i < Rows; ++i) {
-				result(i, 0) = elements[i][c];
-			}
-			return result;
-		}
 		/// Returns a submatrix.
 		template <
 			usize RowCount, usize ColCount
@@ -273,6 +259,14 @@ namespace lotus {
 				}
 			}
 			return result;
+		}
+		/// Returns the i-th row.
+		[[nodiscard]] constexpr matrix<1, Cols, T> row(usize r) const {
+			return block<1, Cols>(r, 0);
+		}
+		/// Returns the i-th column.
+		[[nodiscard]] constexpr matrix<Rows, 1, T> column(usize c) const {
+			return block<Rows, 1>(0, c);
 		}
 		/// Returns a subvector.
 		template <usize Size> [[nodiscard]] constexpr auto subvector(
@@ -296,6 +290,14 @@ namespace lotus {
 					elements[dsty][dstx] = std::move(mat(srcy, srcx));
 				}
 			}
+		}
+		/// Sets a row to the given value.
+		constexpr void set_row(usize r, matrix<1, Cols, T> mat) {
+			set_block(r, 0, std::move(mat));
+		}
+		/// Sets a column to the given value.
+		constexpr void set_column(usize c, matrix<Rows, 1, T> mat) {
+			set_block(0, c, std::move(mat));
 		}
 		/// Sets a subvector to the given value.
 		template <usize OtherRows, usize OtherCols> constexpr void set_subvector(

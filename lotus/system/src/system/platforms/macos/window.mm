@@ -67,7 +67,9 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 
 @end
 
-@implementation lotus_window
+@implementation lotus_window {
+	NSEventModifierFlags _modifier_mask; ///< Pressed modifier keys.
+}
 
 /// Converts a mouse position from the window's base coordinate system to its backing coordinate system.
 - (lotus::cvec2f64)convert_mouse_position: (NSPoint)pos {
@@ -228,6 +230,33 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 		);
 		wnd->on_key_up(event);
 	}
+}
+
+- (void)flagsChanged: (NSEvent*)e {
+	const _window_ptr_t wnd = [self get_window_ptr];
+    // left and right keys are separately encoded in NSEventModifierFlagDeviceIndependentFlagsMask
+    // so this should be fine
+	const bool is_press_event = lotus::bit_mask::contains_all(e.modifierFlags, _modifier_mask);
+
+	if (is_press_event) {
+		if (wnd->on_key_down) {
+			lotus::system::window_events::key_down event(
+				lotus::system::platforms::macos::_details::conversions::to_key(e.keyCode),
+				[self convert_modifier_keys: e.modifierFlags]
+			);
+			wnd->on_key_down(event);
+		}
+	} else {
+		if (wnd->on_key_up) {
+			lotus::system::window_events::key_up event(
+				lotus::system::platforms::macos::_details::conversions::to_key(e.keyCode),
+				[self convert_modifier_keys: e.modifierFlags]
+			);
+			wnd->on_key_up(event);
+		}
+	}
+
+	_modifier_mask = e.modifierFlags;
 }
 
 - (void)sendEvent: (NSEvent*)event {

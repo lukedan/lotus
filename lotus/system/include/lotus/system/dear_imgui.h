@@ -201,6 +201,7 @@ namespace lotus::system::dear_imgui {
 			io.AddKeyEvent(ImGuiMod_Ctrl,  bit_mask::contains<modifier_key_mask::control>(mods));
 			io.AddKeyEvent(ImGuiMod_Shift, bit_mask::contains<modifier_key_mask::shift  >(mods));
 			io.AddKeyEvent(ImGuiMod_Alt,   bit_mask::contains<modifier_key_mask::alt    >(mods));
+			io.AddKeyEvent(ImGuiMod_Super, bit_mask::contains<modifier_key_mask::super  >(mods));
 		}
 	};
 }

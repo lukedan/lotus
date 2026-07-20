@@ -559,28 +559,24 @@ namespace lotus::helpers {
 			_imgui_sctx->on_capture_broken();
 			_on_capture_broken();
 		}
-		// TODO these handlers may need more work
 		/// Filters out ImGUI key down events.
 		void _on_key_down_raw(system::window_events::key_down &down) {
-			if (ImGui::GetIO().WantCaptureKeyboard) {
-				_imgui_sctx->on_key_down(down);
-			} else {
+			_imgui_sctx->on_key_down(down);
+			if (!ImGui::GetIO().WantCaptureKeyboard) {
 				_on_key_down(down);
 			}
 		}
 		/// Filters out ImGUI key up events.
 		void _on_key_up_raw(system::window_events::key_up &up) {
-			if (ImGui::GetIO().WantCaptureKeyboard) {
-				_imgui_sctx->on_key_up(up);
-			} else {
+			_imgui_sctx->on_key_up(up);
+			if (!ImGui::GetIO().WantCaptureKeyboard) {
 				_on_key_up(up);
 			}
 		}
 		/// Filters out ImGUI text input events.
 		void _on_text_input_raw(system::window_events::text_input &text) {
+			_imgui_sctx->on_text_input(text);
 			if (ImGui::GetIO().WantCaptureKeyboard) {
-				_imgui_sctx->on_text_input(text);
-			} else {
 				_on_text_input(text);
 			}
 		}

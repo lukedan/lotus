@@ -583,6 +583,10 @@ namespace lotus::helpers {
 
 		/// Shows an ImGUI window with CPU profiler statistics.
 		void _process_cpu_profiler_window() {
+			if (!_profiler_open) {
+				return;
+			}
+
 			profiler::scope p1;
 
 			const u64 frequency = profiler::get_timer_frequency();
@@ -601,10 +605,6 @@ namespace lotus::helpers {
 				}
 				return std::format("{:g}ns", seconds * 1000000000.0f);
 			};
-
-			if (!_profiler_open) {
-				return;
-			}
 
 			const char *const left_arrow = "<";
 			const char *const right_arrow = ">";
@@ -637,6 +637,7 @@ namespace lotus::helpers {
 				const f64 duration = into_seconds(timestamp_max - timestamp_min);
 
 				const f32 window_width = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
+				const f32 region_left_screen = ImGui::GetCursorScreenPos().x;
 				ImGui::SetNextWindowContentSize(ImVec2(window_width / _profiler_scale, 0.0f));
 				constexpr ImGuiWindowFlags enable_all_scrollbars =
 					ImGuiWindowFlags_AlwaysHorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar;
@@ -775,6 +776,31 @@ namespace lotus::helpers {
 							ImGui::PopID();
 						}
 						ImGui::PopID();
+					}
+
+					// handle mouse scrolling
+					constexpr ImGuiHoveredFlags window_hover_flags =
+						ImGuiHoveredFlags_RootAndChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem;
+					const f32 wheel_delta = ImGui::GetIO().MouseWheel;
+					if (ImGui::IsWindowHovered(window_hover_flags) && wheel_delta != 0.0f) {
+						switch (ImGui::GetIO().KeyMods) {
+						case ImGuiMod_Shift:
+							ImGui::SetScrollX(scroll_x + 100.0f * wheel_delta);
+							break;
+						case ImGuiMod_Ctrl:
+							{
+								const f32 new_scale =
+									std::clamp(_profiler_scale * std::pow(0.95f, wheel_delta), 0.0f, 1.0f);
+								// preserve mouse cursor position
+								const f32 mouse_pos = ImGui::GetMousePos().x - region_left_screen;
+								// (mouse_pos + scroll_x) * scale = (mouse_pos + new_scroll_x) * new_scale
+								const f32 new_scroll =
+									(scroll_x + mouse_pos) * (_profiler_scale / new_scale) - mouse_pos;
+								ImGui::SetScrollX(new_scroll);
+								_profiler_scale = new_scale;
+							}
+							break;
+						}
 					}
 				}
 				ImGui::EndChild();

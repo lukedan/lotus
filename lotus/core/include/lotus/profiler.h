@@ -7,6 +7,7 @@
 #include <thread>
 #include <mutex>
 #include <deque>
+#include <map>
 #include <unordered_map>
 #include <vector>
 
@@ -57,9 +58,21 @@ namespace lotus::profiler {
 		time_t time; ///< The timestamp.
 	};
 
+	/// Analysis result of a stack frame.
+	struct analysis_stack_frame {
+		std::map<const char8_t*, analysis_stack_frame> children; /// Children stack frames.
+
+		time_t total_time_inclusive = 0; ///< Total time spent in this stack frame, including its children.
+		time_t total_time_exclusive = 0; ///< Total time spent in this stack frame, excluding its children.
+		u64 count = 0; ///< The number of times this stack frame is called by its parent.
+	};
+
 	/// An array of samples.
 	struct samples {
 		std::deque<timestamp> timestamps; ///< Timestamps.
+
+		/// Analyzes all samples.
+		[[nodiscard]] analysis_stack_frame analyze() const;
 	};
 	/// Samples collected from a thread.
 	struct thread_samples {

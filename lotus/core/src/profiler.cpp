@@ -3,7 +3,65 @@
 /// \file
 /// CPU profiler implementation.
 
+#include "lotus/memory/stack_allocator.h"
+
 namespace lotus::profiler {
+	analysis_stack_frame samples::analyze() const {
+		analysis_stack_frame result;
+
+		{ // populate the tree
+			/// Information about the current stack frame.
+			struct _stack_frame {
+				/// Initializes all fields of this struct.
+				_stack_frame(analysis_stack_frame &f, timestamp beg) : frame(&f), begin(beg) {
+				}
+
+				analysis_stack_frame *frame = nullptr; ///< The analysis stack frame.
+				timestamp begin = zero; ///< The beginning of this stack frame.
+			};
+
+			auto bookmark = get_scratch_bookmark();
+			auto stack = bookmark.create_vector_array<_stack_frame>();
+			for (const timestamp &ts : timestamps) {
+				if (ts.label) {
+					analysis_stack_frame *cur_frame = stack.empty() ? &result : stack.back().frame;
+					auto [it, inserted] = cur_frame->children.try_emplace(ts.label);
+					stack.emplace_back(it->second, ts);
+				} else {
+					crash_if(stack.empty());
+					_stack_frame sf = stack.back();
+					stack.pop_back();
+
+					++sf.frame->count;
+					sf.frame->total_time_inclusive += ts.time - sf.begin.time;
+				}
+			}
+		}
+
+		{ // compute exclusive time
+			auto bookmark = get_scratch_bookmark();
+			auto stack = bookmark.create_vector_array<analysis_stack_frame*>();
+			// compute top-level inclusive time, and push all children onto the stack for evaluation
+			for (auto &[name, child] : result.children) {
+				result.total_time_inclusive += child.total_time_inclusive;
+				stack.emplace_back(&child);
+			}
+			while (!stack.empty()) {
+				analysis_stack_frame *cur = stack.back();
+				stack.pop_back();
+
+				cur->total_time_exclusive = cur->total_time_inclusive;
+				for (auto &[name, child] : cur->children) {
+					cur->total_time_exclusive -= child.total_time_inclusive;
+					stack.emplace_back(&child);
+				}
+			}
+		}
+
+		return result;
+	}
+
+
 	std::vector<thread_samples> thread_manager::flush() {
 		std::scoped_lock lock(_lock);
 		std::vector<thread_samples> result;

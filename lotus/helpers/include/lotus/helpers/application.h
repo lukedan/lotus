@@ -487,7 +487,9 @@ namespace lotus::helpers {
 		*/
 
 		bool _profiler_open = true; ///< Whether the profiler is open.
-		bool _profiler_frozen = false; ///< Whether the profiler is frozen.
+		bool _profiler_running = true; ///< Whether the profiler is frozen.
+		bool _profiler_capture = false; ///< Set to \p true to capture a single frame.
+		int _profiler_mode = 0; ///< Flame graph or tree view.
 		f32 _profiler_scale = 1.0f; ///< Scale for the profiler view.
 		std::vector<profiler::thread_samples> _profiler_frame; ///< Currently displayed profiler frame.
 
@@ -613,199 +615,292 @@ namespace lotus::helpers {
 
 			ImGui::SetNextWindowSize(ImVec2(1000.0f, 300.0f), ImGuiCond_FirstUseEver);
 			if (ImGui::Begin("CPU Profiler", &_profiler_open)) {
-				ImGui::Checkbox("Frozen", &_profiler_frozen);
+				ImGui::Checkbox("##RUN", &_profiler_running);
 				ImGui::SameLine();
-				ImGui::SliderFloat("Scale", &_profiler_scale, 0.0f, 1.0f);
-
-				// find min/max timestamps
-				profiler::time_t timestamp_min = std::numeric_limits<profiler::time_t>::max();
-				profiler::time_t timestamp_max = std::numeric_limits<profiler::time_t>::min();
-				for (const profiler::thread_samples &t : _profiler_frame) {
-					for (const profiler::samples &s : t.batches) {
-						if (!s.timestamps.empty()) {
-							timestamp_min = std::min(timestamp_min, s.timestamps.front().time);
-							break;
-						}
-					}
-					for (auto it = t.batches.rbegin(); it != t.batches.rend(); ++it) {
-						if (!it->timestamps.empty()) {
-							timestamp_max = std::max(timestamp_max, it->timestamps.back().time);
-							break;
-						}
-					}
+				if (ImGui::Button("Capture")) {
+					_profiler_capture = true;
 				}
-				const f64 duration = into_seconds(timestamp_max - timestamp_min);
 
-				const f32 window_width = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
-				const f32 region_left_screen = ImGui::GetCursorScreenPos().x;
-				ImGui::SetNextWindowContentSize(ImVec2(window_width / _profiler_scale, 0.0f));
-				constexpr ImGuiWindowFlags enable_all_scrollbars =
-					ImGuiWindowFlags_AlwaysHorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar;
-				if (ImGui::BeginChild("Profiler Contents", ImVec2(0.0f, 0.0f), 0, enable_all_scrollbars)) {
-					const f32 scroll_x = ImGui::GetScrollX();
-					const f32 bar_height = ImGui::GetTextLineHeight();
-					const f64 time_scale = window_width / (_profiler_scale * duration);
-					for (usize ti = 0; ti < _profiler_frame.size(); ++ti) {
-						ImGui::PushID(static_cast<int>(ti));
-						const profiler::thread_samples &thread = _profiler_frame[ti];
+				ImGui::SameLine(0.0f, 20.0f);
+				ImGui::RadioButton("Flame Graph", &_profiler_mode, 0);
+				ImGui::SameLine();
+				ImGui::RadioButton("Tree View", &_profiler_mode, 1);
 
-						ImGui::SetCursorPosX(scroll_x);
-						ImGui::Text("%s", std::format("Thread {}", thread.thread_id).c_str());
-						const ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
-						usize max_stack_depth = 0;
-						for (usize bi = 0; bi < thread.batches.size(); ++bi) {
-							ImGui::PushID(static_cast<int>(bi));
-							const profiler::samples &samples = thread.batches[bi];
+				if (_profiler_mode == 0) {
+					// find min/max timestamps
+					profiler::time_t timestamp_min = std::numeric_limits<profiler::time_t>::max();
+					profiler::time_t timestamp_max = std::numeric_limits<profiler::time_t>::min();
+					for (const profiler::thread_samples &t : _profiler_frame) {
+						for (const profiler::samples &s : t.batches) {
+							if (!s.timestamps.empty()) {
+								timestamp_min = std::min(timestamp_min, s.timestamps.front().time);
+								break;
+							}
+						}
+						for (auto it = t.batches.rbegin(); it != t.batches.rend(); ++it) {
+							if (!it->timestamps.empty()) {
+								timestamp_max = std::max(timestamp_max, it->timestamps.back().time);
+								break;
+							}
+						}
+					}
+					const f64 duration = into_seconds(timestamp_max - timestamp_min);
 
-							std::stack<profiler::timestamp> sample_stack;
-							for (usize si = 0; si < samples.timestamps.size(); ++si) {
-								const profiler::timestamp &ts = samples.timestamps[si];
+					const f32 window_width = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize;
+					const f32 region_left_screen = ImGui::GetCursorScreenPos().x;
+					ImGui::SetNextWindowContentSize(ImVec2(window_width / _profiler_scale, 0.0f));
+					constexpr ImGuiWindowFlags enable_all_scrollbars =
+						ImGuiWindowFlags_AlwaysHorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar;
+					if (ImGui::BeginChild("Profiler Contents", ImVec2(0.0f, 0.0f), 0, enable_all_scrollbars)) {
+						const f32 scroll_x = ImGui::GetScrollX();
+						const f32 bar_height = ImGui::GetTextLineHeight();
+						const f64 time_scale = window_width / (_profiler_scale * duration);
+						for (usize ti = 0; ti < _profiler_frame.size(); ++ti) {
+							ImGui::PushID(static_cast<int>(ti));
+							const profiler::thread_samples &thread = _profiler_frame[ti];
 
-								if (ts.label) {
-									sample_stack.emplace(ts);
-									continue;
-								}
+							ImGui::SetCursorPosX(scroll_x);
+							ImGui::Text("%s", std::format("Thread {}", thread.thread_id).c_str());
+							const ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
+							usize max_stack_depth = 0;
+							for (usize bi = 0; bi < thread.batches.size(); ++bi) {
+								ImGui::PushID(static_cast<int>(bi));
+								const profiler::samples &samples = thread.batches[bi];
 
-								crash_if(sample_stack.empty());
-								const profiler::timestamp tbeg = sample_stack.top();
-								sample_stack.pop();
-								const usize stack_depth = sample_stack.size();
-								max_stack_depth = std::max(stack_depth, max_stack_depth);
+								std::stack<profiler::timestamp> sample_stack;
+								for (usize si = 0; si < samples.timestamps.size(); ++si) {
+									const profiler::timestamp &ts = samples.timestamps[si];
 
-								const f64 beg = into_seconds(tbeg.time - timestamp_min);
-								const f64 end = into_seconds(ts.time - timestamp_min);
-								const auto *label = reinterpret_cast<const char*>(tbeg.label);
-								const f64 xbeg = time_scale * beg;
-								const f64 xend = xbeg + time_scale * (end - beg);
-								const f64 clamped_xbeg = std::max<f64>(scroll_x, xbeg);
-								const f64 clamped_xend = std::min<f64>(scroll_x + window_width, xend);
-								if (clamped_xbeg < clamped_xend) {
-									ImGui::PushID(static_cast<int>(si));
-
-									const ImVec2 rect_min = ImVec2(
-										static_cast<f32>(clamped_xbeg),
-										bar_height * static_cast<f32>(stack_depth)
-									);
-									const ImVec2 rect_size = ImVec2(
-										std::max<f32>(FLT_MIN, static_cast<f32>(clamped_xend - clamped_xbeg)),
-										bar_height
-									);
-									const ImVec2 rect_min_ss = cursor_screen + rect_min;
-									const ImVec2 rect_max_ss = cursor_screen + rect_min + rect_size;
-
-									const bool hover = ImGui::IsMouseHoveringRect(rect_min_ss, rect_max_ss);
-									if (hover && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-										_profiler_scale = static_cast<f32>((end - beg) / duration);
-										ImGui::SetScrollX(static_cast<f32>(
-											beg * (window_width / (duration * _profiler_scale))
-										));
+									if (ts.label) {
+										sample_stack.emplace(ts);
+										continue;
 									}
 
-									ImGui::GetWindowDrawList()->AddRectFilled(
-										rect_min_ss,
-										rect_max_ss,
-										ImGui::GetColorU32(hover ? ImGuiCol_ButtonHovered : ImGuiCol_Button)
-									);
-									ImGui::GetWindowDrawList()->AddRect(
-										rect_min_ss,
-										rect_max_ss,
-										ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, std::min(rect_size.x, 1.0f)))
-									);
-									if (rect_size.x > 1.0f) { // don't draw text (costly) if the rect is too small
-										ImVec2 text_pos = rect_min_ss;
-										ImVec4 clip_rect =
-											ImVec4(rect_min_ss.x, rect_min_ss.y, rect_max_ss.x, rect_max_ss.y);
-										if (clamped_xbeg > xbeg) {
-											ImGui::GetWindowDrawList()->AddText(
-												ImGui::GetFont(),
-												ImGui::GetFontSize(),
-												text_pos,
-												ImGui::GetColorU32(ImGuiCol_TextLink),
-												left_arrow,
-												nullptr,
-												0.0f,
-												&clip_rect
-											);
-											text_pos.x += left_arrow_width;
-											clip_rect.x += left_arrow_width;
-										}
-										if (clamped_xend < xend) {
-											ImGui::GetWindowDrawList()->AddText(
-												ImGui::GetFont(),
-												ImGui::GetFontSize(),
-												ImVec2(rect_max_ss.x - right_arrow_width, text_pos.y),
-												ImGui::GetColorU32(ImGuiCol_TextLink),
-												right_arrow,
-												nullptr,
-												0.0f,
-												&clip_rect
-											);
-											clip_rect.z -= right_arrow_width;
-										}
-										ImGui::GetWindowDrawList()->AddText(
-											ImGui::GetFont(),
-											ImGui::GetFontSize(),
-											text_pos + ImVec2(3.0f, 0.0f),
-											ImGui::GetColorU32(ImGuiCol_Text),
-											label,
-											nullptr,
-											0.0f,
-											&clip_rect
+									crash_if(sample_stack.empty());
+									const profiler::timestamp tbeg = sample_stack.top();
+									sample_stack.pop();
+									const usize stack_depth = sample_stack.size();
+									max_stack_depth = std::max(stack_depth, max_stack_depth);
+
+									const f64 beg = into_seconds(tbeg.time - timestamp_min);
+									const f64 end = into_seconds(ts.time - timestamp_min);
+									const auto *label = reinterpret_cast<const char*>(tbeg.label);
+									const f64 xbeg = time_scale * beg;
+									const f64 xend = xbeg + time_scale * (end - beg);
+									const f64 clamped_xbeg = std::max<f64>(scroll_x, xbeg);
+									const f64 clamped_xend = std::min<f64>(scroll_x + window_width, xend);
+									if (clamped_xbeg < clamped_xend) {
+										ImGui::PushID(static_cast<int>(si));
+
+										const ImVec2 rect_min = ImVec2(
+											static_cast<f32>(clamped_xbeg),
+											bar_height * static_cast<f32>(stack_depth)
 										);
-									}
+										const ImVec2 rect_size = ImVec2(
+											std::max<f32>(FLT_MIN, static_cast<f32>(clamped_xend - clamped_xbeg)),
+											bar_height
+										);
+										const ImVec2 rect_min_ss = cursor_screen + rect_min;
+										const ImVec2 rect_max_ss = cursor_screen + rect_min + rect_size;
 
-									if (hover) {
-										if (ImGui::BeginTooltip()) {
-											ImGui::Text("%s", label);
-											ImGui::Text(
-												"%s - %s",
-												format_seconds(beg).c_str(),
-												format_seconds(end).c_str()
-											);
-											ImGui::Text(
-												"Duration: %s",
-												format_seconds(into_seconds(ts.time - tbeg.time)).c_str()
-											);
-											ImGui::EndTooltip();
+										const bool hover = ImGui::IsMouseHoveringRect(rect_min_ss, rect_max_ss);
+										if (hover && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+											_profiler_scale = static_cast<f32>((end - beg) / duration);
+											ImGui::SetScrollX(static_cast<f32>(
+												beg * (window_width / (duration * _profiler_scale))
+											));
 										}
-									}
 
-									ImGui::PopID();
+										ImGui::GetWindowDrawList()->AddRectFilled(
+											rect_min_ss,
+											rect_max_ss,
+											ImGui::GetColorU32(hover ? ImGuiCol_ButtonHovered : ImGuiCol_Button)
+										);
+										ImGui::GetWindowDrawList()->AddRect(
+											rect_min_ss,
+											rect_max_ss,
+											ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, std::min(rect_size.x, 1.0f)))
+										);
+										// don't draw text (costly) if the rect is too small
+										if (rect_size.x > 1.0f) {
+											ImVec2 text_pos = rect_min_ss;
+											ImVec4 clip_rect =
+												ImVec4(rect_min_ss.x, rect_min_ss.y, rect_max_ss.x, rect_max_ss.y);
+											if (clamped_xbeg > xbeg) {
+												ImGui::GetWindowDrawList()->AddText(
+													ImGui::GetFont(),
+													ImGui::GetFontSize(),
+													text_pos,
+													ImGui::GetColorU32(ImGuiCol_TextLink),
+													left_arrow,
+													nullptr,
+													0.0f,
+													&clip_rect
+												);
+												text_pos.x += left_arrow_width;
+												clip_rect.x += left_arrow_width;
+											}
+											if (clamped_xend < xend) {
+												ImGui::GetWindowDrawList()->AddText(
+													ImGui::GetFont(),
+													ImGui::GetFontSize(),
+													ImVec2(rect_max_ss.x - right_arrow_width, text_pos.y),
+													ImGui::GetColorU32(ImGuiCol_TextLink),
+													right_arrow,
+													nullptr,
+													0.0f,
+													&clip_rect
+												);
+												clip_rect.z -= right_arrow_width;
+											}
+											ImGui::GetWindowDrawList()->AddText(
+												ImGui::GetFont(),
+												ImGui::GetFontSize(),
+												text_pos + ImVec2(3.0f, 0.0f),
+												ImGui::GetColorU32(ImGuiCol_Text),
+												label,
+												nullptr,
+												0.0f,
+												&clip_rect
+											);
+										}
+
+										if (hover) {
+											if (ImGui::BeginTooltip()) {
+												ImGui::Text("%s", label);
+												ImGui::Text(
+													"%s - %s",
+													format_seconds(beg).c_str(),
+													format_seconds(end).c_str()
+												);
+												ImGui::Text(
+													"Duration: %s",
+													format_seconds(into_seconds(ts.time - tbeg.time)).c_str()
+												);
+												ImGui::EndTooltip();
+											}
+										}
+
+										ImGui::PopID();
+									}
 								}
+								ImGui::PopID();
 							}
 							ImGui::PopID();
 						}
-						ImGui::PopID();
-					}
 
-					// handle mouse scrolling
-					constexpr ImGuiHoveredFlags window_hover_flags =
-						ImGuiHoveredFlags_RootAndChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem;
-					const f32 wheel_delta = ImGui::GetIO().MouseWheel;
-					if (ImGui::IsWindowHovered(window_hover_flags) && wheel_delta != 0.0f) {
-						switch (ImGui::GetIO().KeyMods) {
-						case ImGuiMod_Shift:
-							ImGui::SetScrollX(scroll_x + 100.0f * wheel_delta);
-							break;
-						case ImGuiMod_Ctrl:
-							{
-								const f32 new_scale =
-									std::clamp(_profiler_scale * std::pow(0.95f, wheel_delta), 0.0f, 1.0f);
-								// preserve mouse cursor position
-								const f32 mouse_pos = ImGui::GetMousePos().x - region_left_screen;
-								// (mouse_pos + scroll_x) * scale = (mouse_pos + new_scroll_x) * new_scale
-								const f32 new_scroll =
-									(scroll_x + mouse_pos) * (_profiler_scale / new_scale) - mouse_pos;
-								ImGui::SetScrollX(new_scroll);
-								_profiler_scale = new_scale;
+						// handle mouse scrolling
+						constexpr ImGuiHoveredFlags window_hover_flags =
+							ImGuiHoveredFlags_RootAndChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem;
+						const f32 wheel_delta = ImGui::GetIO().MouseWheel;
+						if (ImGui::IsWindowHovered(window_hover_flags) && wheel_delta != 0.0f) {
+							switch (ImGui::GetIO().KeyMods) {
+							case ImGuiMod_Shift:
+								ImGui::SetScrollX(scroll_x + 100.0f * wheel_delta);
+								break;
+							case ImGuiMod_Ctrl:
+								{
+									const f32 new_scale =
+										std::clamp(_profiler_scale * std::pow(0.95f, wheel_delta), 0.0f, 1.0f);
+									// preserve mouse cursor position
+									const f32 mouse_pos = ImGui::GetMousePos().x - region_left_screen;
+									// (mouse_pos + scroll_x) * scale = (mouse_pos + new_scroll_x) * new_scale
+									const f32 new_scroll =
+										(scroll_x + mouse_pos) * (_profiler_scale / new_scale) - mouse_pos;
+									ImGui::SetScrollX(new_scroll);
+									_profiler_scale = new_scale;
+								}
+								break;
 							}
-							break;
 						}
+						ImGui::EndChild();
+					}
+				} else { // tree mode
+					if (ImGui::BeginTable("Profiler Contents", 4, ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersV | ImGuiTableFlags_RowBg)) {
+						ImGui::TableSetupColumn("Function",       ImGuiTableColumnFlags_WidthStretch);
+						ImGui::TableSetupColumn("Count",          ImGuiTableColumnFlags_WidthFixed);
+						ImGui::TableSetupColumn("Time Inclusive", ImGuiTableColumnFlags_WidthFixed);
+						ImGui::TableSetupColumn("Time Exclusive", ImGuiTableColumnFlags_WidthFixed);
+
+						ImGui::TableSetupScrollFreeze(1, 1);
+						ImGui::TableHeadersRow();
+
+						for (usize ti = 0; ti < _profiler_frame.size(); ++ti) {
+							ImGui::PushID(static_cast<int>(ti));
+							const profiler::thread_samples &thread = _profiler_frame[ti];
+
+							for (usize bi = 0; bi < thread.batches.size(); ++bi) {
+								ImGui::PushID(static_cast<int>(bi));
+								const profiler::samples &batch = thread.batches[bi];
+								const profiler::analysis_stack_frame analysis = batch.analyze();
+
+								const profiler::time_t total_time = analysis.total_time_inclusive;
+
+								const auto _print_stack_frame =
+									[&](
+										this const auto &self,
+										const char8_t *name,
+										const profiler::analysis_stack_frame &sf
+									) -> void {
+										ImGui::TableNextRow();
+										ImGui::TableNextColumn();
+										ImGui::AlignTextToFramePadding();
+										bool open = false;
+										if (sf.children.empty()) {
+											ImGui::Indent();
+											ImGui::Text("%s", reinterpret_cast<const char*>(name));
+											ImGui::Unindent();
+										} else {
+											open = ImGui::TreeNodeEx(
+												reinterpret_cast<const char*>(name),
+												ImGuiTreeNodeFlags_SpanAllColumns
+											);
+										}
+
+										ImGui::TableNextColumn();
+										ImGui::Text("%" PRIu64, sf.count);
+
+										ImGui::TableNextColumn();
+										ImGui::ProgressBar(
+											static_cast<f32>(
+												static_cast<f64>(sf.total_time_inclusive) /
+												static_cast<f64>(total_time)
+											),
+											ImVec2(-FLT_MIN, 0.0f),
+											format_seconds(into_seconds(sf.total_time_inclusive)).c_str()
+										);
+
+										ImGui::TableNextColumn();
+										ImGui::ProgressBar(
+											static_cast<f32>(
+												static_cast<f64>(sf.total_time_exclusive) /
+												static_cast<f64>(total_time)
+											),
+											ImVec2(-FLT_MIN, 0.0f),
+											format_seconds(into_seconds(sf.total_time_exclusive)).c_str()
+										);
+
+										if (open) {
+											for (const auto &[child_name, child] : sf.children) {
+												self(child_name, child);
+											}
+											ImGui::TreePop();
+										}
+									};
+
+								const std::string root_name = std::format("Thread {}", thread.thread_id);
+								_print_stack_frame(reinterpret_cast<const char8_t*>(root_name.c_str()), analysis);
+
+								ImGui::PopID();
+							}
+							ImGui::PopID();
+						}
+
+						ImGui::EndTable();
 					}
 				}
-				ImGui::EndChild();
+				ImGui::End();
 			}
-			ImGui::End();
 		}
 
 		/// Processes a single frame.
@@ -813,8 +908,9 @@ namespace lotus::helpers {
 			profiler::thread_manager::get_thread_data().flush();
 			const std::vector<profiler::thread_samples> profiler_output =
 				profiler::thread_manager::instance().flush();
-			if (!_profiler_frozen) {
+			if (_profiler_running || _profiler_capture) {
 				_profiler_frame = profiler_output;
+				_profiler_capture = false;
 			}
 
 			profiler::scope p1(u8"Frame");

@@ -829,70 +829,68 @@ namespace lotus::helpers {
 							ImGui::PushID(static_cast<int>(ti));
 							const profiler::thread_samples &thread = _profiler_frame[ti];
 
-							for (usize bi = 0; bi < thread.batches.size(); ++bi) {
-								ImGui::PushID(static_cast<int>(bi));
-								const profiler::samples &batch = thread.batches[bi];
-								const profiler::analysis_stack_frame analysis = batch.analyze();
-
-								const profiler::time_t total_time = analysis.total_time_inclusive;
-
-								const auto _print_stack_frame =
-									[&](
-										this const auto &self,
-										const char8_t *name,
-										const profiler::analysis_stack_frame &sf
-									) -> void {
-										ImGui::TableNextRow();
-										ImGui::TableNextColumn();
-										ImGui::AlignTextToFramePadding();
-										bool open = false;
-										if (sf.children.empty()) {
-											ImGui::Indent();
-											ImGui::Text("%s", reinterpret_cast<const char*>(name));
-											ImGui::Unindent();
-										} else {
-											open = ImGui::TreeNodeEx(
-												reinterpret_cast<const char*>(name),
-												ImGuiTreeNodeFlags_SpanAllColumns
-											);
-										}
-
-										ImGui::TableNextColumn();
-										ImGui::Text("%" PRIu64, sf.count);
-
-										ImGui::TableNextColumn();
-										ImGui::ProgressBar(
-											static_cast<f32>(
-												static_cast<f64>(sf.total_time_inclusive) /
-												static_cast<f64>(total_time)
-											),
-											ImVec2(-FLT_MIN, 0.0f),
-											format_seconds(into_seconds(sf.total_time_inclusive)).c_str()
-										);
-
-										ImGui::TableNextColumn();
-										ImGui::ProgressBar(
-											static_cast<f32>(
-												static_cast<f64>(sf.total_time_exclusive) /
-												static_cast<f64>(total_time)
-											),
-											ImVec2(-FLT_MIN, 0.0f),
-											format_seconds(into_seconds(sf.total_time_exclusive)).c_str()
-										);
-
-										if (open) {
-											for (const auto &[child_name, child] : sf.children) {
-												self(child_name, child);
-											}
-											ImGui::TreePop();
-										}
-									};
-
-								const std::string root_name = std::format("Thread {}", thread.thread_id);
-								_print_stack_frame(reinterpret_cast<const char8_t*>(root_name.c_str()), analysis);
-
-								ImGui::PopID();
+							profiler::analysis_stack_frame analysis;
+							for (const profiler::samples &batch : thread.batches) {
+								batch.analyze(analysis);
 							}
+
+							const profiler::time_t total_time = analysis.total_time_inclusive;
+
+							const auto _print_stack_frame =
+								[&](
+									this const auto &self,
+									const char8_t *name,
+									const profiler::analysis_stack_frame &sf
+								) -> void {
+									ImGui::TableNextRow();
+									ImGui::TableNextColumn();
+									ImGui::AlignTextToFramePadding();
+									bool open = false;
+									if (sf.children.empty()) {
+										ImGui::Indent();
+										ImGui::Text("%s", reinterpret_cast<const char*>(name));
+										ImGui::Unindent();
+									} else {
+										open = ImGui::TreeNodeEx(
+											reinterpret_cast<const char*>(name),
+											ImGuiTreeNodeFlags_SpanAllColumns
+										);
+									}
+
+									ImGui::TableNextColumn();
+									ImGui::Text("%" PRIu64, sf.count);
+
+									ImGui::TableNextColumn();
+									ImGui::ProgressBar(
+										static_cast<f32>(
+											static_cast<f64>(sf.total_time_inclusive) /
+											static_cast<f64>(total_time)
+										),
+										ImVec2(-FLT_MIN, 0.0f),
+										format_seconds(into_seconds(sf.total_time_inclusive)).c_str()
+									);
+
+									ImGui::TableNextColumn();
+									ImGui::ProgressBar(
+										static_cast<f32>(
+											static_cast<f64>(sf.total_time_exclusive) /
+											static_cast<f64>(total_time)
+										),
+										ImVec2(-FLT_MIN, 0.0f),
+										format_seconds(into_seconds(sf.total_time_exclusive)).c_str()
+									);
+
+									if (open) {
+										for (const auto &[child_name, child] : sf.children) {
+											self(child_name, child);
+										}
+										ImGui::TreePop();
+									}
+								};
+
+							const std::string root_name = std::format("Thread {}", thread.thread_id);
+							_print_stack_frame(reinterpret_cast<const char8_t*>(root_name.c_str()), analysis);
+
 							ImGui::PopID();
 						}
 

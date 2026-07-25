@@ -6,9 +6,7 @@
 #include "lotus/memory/stack_allocator.h"
 
 namespace lotus::profiler {
-	analysis_stack_frame samples::analyze() const {
-		analysis_stack_frame result;
-
+	void samples::analyze(analysis_stack_frame &result) const {
 		{ // populate the tree
 			/// Information about the current stack frame.
 			struct _stack_frame {
@@ -57,8 +55,6 @@ namespace lotus::profiler {
 				}
 			}
 		}
-
-		return result;
 	}
 
 

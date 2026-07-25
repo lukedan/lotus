@@ -71,8 +71,8 @@ namespace lotus::profiler {
 	struct samples {
 		std::deque<timestamp> timestamps; ///< Timestamps.
 
-		/// Analyzes all samples.
-		[[nodiscard]] analysis_stack_frame analyze() const;
+		/// Analyzes all samples and merges the result into the given analysis object.
+		void analyze(analysis_stack_frame&) const;
 	};
 	/// Samples collected from a thread.
 	struct thread_samples {

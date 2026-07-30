@@ -326,7 +326,7 @@ namespace lotus::memory {
 
 namespace lotus {
 	/// Shorthand for creating a memory bookmark for scratch memory on the current thread.
-	[[nodiscard]] inline static memory::stack_allocator::scoped_bookmark get_scratch_bookmark() {
+	[[nodiscard]] inline memory::stack_allocator::scoped_bookmark get_scratch_bookmark() {
 		return memory::stack_allocator::for_this_thread().bookmark();
 	}
 }

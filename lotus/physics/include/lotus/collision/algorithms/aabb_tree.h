@@ -4,6 +4,7 @@
 /// Axis aligned bounding box trees.
 
 #include "lotus/memory/common.h"
+#include "lotus/memory/stack_allocator.h"
 #include "lotus/profiler.h"
 #include "lotus/math/aab.h"
 #include "lotus/collision/common.h"

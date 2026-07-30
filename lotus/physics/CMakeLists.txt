@@ -4,6 +4,7 @@ configure_lotus_module(lotus_physics)
 target_include_directories(lotus_physics PUBLIC "include/")
 target_sources(lotus_physics
 	PUBLIC
+		"include/lotus/collision/algorithms/aabb_tree.h"
 		"include/lotus/collision/algorithms/contact_manifold.h"
 		"include/lotus/collision/algorithms/epa.h"
 		"include/lotus/collision/algorithms/gjk.h"

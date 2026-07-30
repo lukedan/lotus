@@ -249,7 +249,6 @@ namespace lotus::collision {
 			}
 
 			auto bookmark = get_scratch_bookmark();
-
 			auto stack = bookmark.create_vector_array<intermediate_node*>(1u, _root);
 			while (!stack.empty()) {
 				intermediate_node *const cur = stack.back();
@@ -261,6 +260,46 @@ namespace lotus::collision {
 					}
 					if (cur->is_child_leaf(i)) {
 						callback(static_cast<leaf_node*>(cur->_children[i]));
+					} else {
+						stack.emplace_back(static_cast<intermediate_node*>(cur->_children[i]));
+					}
+				}
+			}
+		}
+		/// Calls \p intersect_only1 with all leaves that intersect \p b1 but not \p b2, calls \p intersect_only2
+		/// with all leaves that intersect \p b2 but not \p b1, and calls \p intersect_both with all leaves that
+		/// intersect both \p b1 and \p b2.
+		template <typename Cb1, typename Cb2, typename CbBoth> void query_dual_aab(
+			aab3s b1, aab3s b2, Cb1 intersect_only1, Cb2 intersect_only2, CbBoth intersect_both
+		) const {
+			if (!_root) {
+				return;
+			}
+
+			auto bookmark = get_scratch_bookmark();
+			auto stack = bookmark.create_vector_array<intermediate_node*>(1u, _root);
+			while (!stack.empty()) {
+				intermediate_node *const cur = stack.back();
+				stack.pop_back();
+
+				for (index_t i = 0; i < Order; ++i) {
+					if (!cur->_children[i]) {
+						continue;
+					}
+					const bool intersect1 = aab3s::intersects(cur->_children_aabb[i], b1);
+					const bool intersect2 = aab3s::intersects(cur->_children_aabb[i], b2);
+					if (!intersect1 && !intersect2) {
+						continue;
+					}
+					if (cur->is_child_leaf(i)) {
+						auto *leaf = static_cast<leaf_node*>(cur->_children[i]);
+						if (!intersect1) {
+							intersect_only2(leaf);
+						} else if (!intersect2) {
+							intersect_only1(leaf);
+						} else {
+							intersect_both(leaf);
+						}
 					} else {
 						stack.emplace_back(static_cast<intermediate_node*>(cur->_children[i]));
 					}

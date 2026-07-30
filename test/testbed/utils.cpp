@@ -331,34 +331,34 @@ void debug_render::draw_physics_body(const lotus::collision::shapes::convex_poly
 }
 
 void debug_render::draw_world(const lotus::physics::world &world) {
-	world.for_each_body([&](const lotus::physics::body *b) {
+	for (const std::unique_ptr<lotus::physics::world::body_data> &bdata : world.get_bodies()) {
+		const lotus::physics::body &b = bdata->this_body;
 		const body_visual *visual = nullptr;
-		if (b->user_data) {
-			visual = static_cast<const body_visual*>(b->user_data);
+		if (b.user_data) {
+			visual = static_cast<const body_visual*>(b.user_data);
 		}
 
 		auto mat = mat44s::identity();
-		mat.set_block(0, 0, b->state.position.orientation.into_rotation_matrix());
-		mat.set_block(0, 3, b->state.position.position);
+		mat.set_block(0, 0, b.state.position.orientation.into_rotation_matrix());
+		mat.set_block(0, 3, b.state.position.position);
 
 		std::visit(
 			[&](const auto &shape) {
 				draw_physics_body(shape, mat, visual, ctx->wireframe_bodies);
 			},
-			b->body_shape->value
+			b.body_shape->value
 		);
 
 		if (ctx->draw_body_aabbs) {
-			const lotus::physics::world::body_data &bdata = world.get_body_data(b);
-			const lotus::physics::world::timestamp_t timestamp = bdata.aabb_timestamp.value_or(0);
+			const lotus::physics::world::timestamp_t timestamp = bdata->aabb_timestamp.value_or(0);
 			draw_aab(
-				bdata.aabb,
+				bdata->aabb,
 				timestamp == world.get_timestamp() ?
 				lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f) :
 				lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f)
 			);
 		}
-	});
+	}
 
 	world.for_each_contact([&](const lotus::physics::constraints::rigid_body_contact &c) {
 		for (const auto &cp : c.contact_points) {
@@ -410,10 +410,11 @@ void debug_render::draw_world(const lotus::physics::world &world) {
 
 	// debug stuff
 	if (ctx->draw_body_velocities) {
-		world.for_each_body([&](const lotus::physics::body *b) {
-			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.linear, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
-			draw_line(b->state.position.position, b->state.position.position + b->state.velocity.angular, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
-		});
+		for (const std::unique_ptr<lotus::physics::world::body_data> &bdata : world.get_bodies()) {
+			lotus::physics::body &b = bdata->this_body;
+			draw_line(b.state.position.position, b.state.position.position + b.state.velocity.linear, lotus::linear_rgba_f32(1.0f, 0.0f, 0.0f, 1.0f));
+			draw_line(b.state.position.position, b.state.position.position + b.state.velocity.angular, lotus::linear_rgba_f32(0.0f, 1.0f, 0.0f, 1.0f));
+		}
 	}
 }
 

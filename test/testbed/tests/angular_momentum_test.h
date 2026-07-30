@@ -29,30 +29,27 @@ public:
 		auto material = lotus::physics::material_properties(0.0f, 0.0f, 0.0f);
 
 		{
-			lotus::physics::body &b = _bodies.emplace_back(lotus::physics::body::create(
+			lotus::physics::world::body_data *bdata = _world.add_body(lotus::physics::body::create(
 				_box_shape, material, box_props,
 				lotus::physics::body_state::stationary_at(vec3(-2.0f, 0.0f, 0.0f), uquats::identity())
 			));
-			b.state.velocity.angular = vec3(_angular_velocity, _perturbation, _perturbation);
-			_world.add_body(b);
+			bdata->this_body.state.velocity.angular = vec3(_angular_velocity, _perturbation, _perturbation);
 		}
 
 		{
-			lotus::physics::body &b = _bodies.emplace_back(lotus::physics::body::create(
+			lotus::physics::world::body_data *bdata = _world.add_body(lotus::physics::body::create(
 				_box_shape, material, box_props,
 				lotus::physics::body_state::stationary_at(vec3(0.0f, 0.0f, 0.0f), uquats::identity())
 			));
-			b.state.velocity.angular = vec3(_perturbation, _angular_velocity, _perturbation);
-			_world.add_body(b);
+			bdata->this_body.state.velocity.angular = vec3(_perturbation, _angular_velocity, _perturbation);
 		}
 
 		{
-			lotus::physics::body &b = _bodies.emplace_back(lotus::physics::body::create(
+			lotus::physics::world::body_data *bdata = _world.add_body(lotus::physics::body::create(
 				_box_shape, material, box_props,
 				lotus::physics::body_state::stationary_at(vec3(2.0f, 0.0f, 0.0f), uquats::identity())
 			));
-			b.state.velocity.angular = vec3(_perturbation, _perturbation, _angular_velocity);
-			_world.add_body(b);
+			bdata->this_body.state.velocity.angular = vec3(_perturbation, _perturbation, _angular_velocity);
 		}
 	}
 

@@ -26,13 +26,14 @@ namespace lotus::physics::solvers::xpbd {
 				);
 			}
 		}
-		physics_world->for_each_body([&](body *b) {
-			b->prev_state = b->state;
+		for (const std::unique_ptr<world::body_data> &body_data : physics_world->get_bodies()) {
+			body &b = body_data->this_body;
+			b.prev_state = b.state;
 			// TODO external torque
-			b->velocity_integration(dt, physics_world->gravity, zero);
-			b->position_integration(dt);
-			physics_world->on_body_moved(b);
-		});
+			b.velocity_integration(dt, physics_world->gravity, zero);
+			b.position_integration(dt);
+			physics_world->on_body_moved(body_data.get());
+		}
 
 		{ // detect collisions
 			physics_world->update_contact_constraints();
@@ -77,18 +78,19 @@ namespace lotus::physics::solvers::xpbd {
 			}
 
 			// handle body-particle collisions
-			physics_world->for_each_body([&](body *b) {
-				if (b->properties.inverse_mass == 0.0f) {
+			for (const std::unique_ptr<world::body_data> &body_data : physics_world->get_bodies()) {
+				body &b = body_data->this_body;
+				if (b.properties.inverse_mass == 0.0f) {
 					for (particle &p : particles) {
 						std::visit(
 							[&](const auto &shape) {
-								handle_shape_particle_collision(shape, b->state, p.state.position);
+								handle_shape_particle_collision(shape, b.state, p.state.position);
 							},
-							b->body_shape->value
+							b.body_shape->value
 						);
 					}
 				}
-			});
+			}
 
 			// project spring constraints
 			for (usize j = 0; j < particle_spring_constraints.size(); ++j) {
@@ -160,16 +162,17 @@ namespace lotus::physics::solvers::xpbd {
 		for (orientation &o : orientations) {
 			o.state.angular_velocity = (2.0f / dt) * (o.state.orientation * o.prev_orientation.conjugate()).axis();
 		}
-		physics_world->for_each_body([&](body *b) {
-			b->prev_state.velocity = b->state.velocity;
+		for (const std::unique_ptr<world::body_data> &body_data : physics_world->get_bodies()) {
+			body &b = body_data->this_body;
+			b.prev_state.velocity = b.state.velocity;
 
-			b->state.velocity.linear = (b->state.position.position - b->prev_state.position.position) / dt;
-			uquats dq = b->state.position.orientation * b->prev_state.position.orientation.inverse();
-			b->state.velocity.angular = dq.axis() * (2.0f / dt);
+			b.state.velocity.linear = (b.state.position.position - b.prev_state.position.position) / dt;
+			uquats dq = b.state.position.orientation * b.prev_state.position.orientation.inverse();
+			b.state.velocity.angular = dq.axis() * (2.0f / dt);
 			if (dq.w() < 0.0f) {
-				b->state.velocity.angular = -b->state.velocity.angular;
+				b.state.velocity.angular = -b.state.velocity.angular;
 			}
-		});
+		}
 
 		// velocity solve
 		for (usize i = 0; i < contact_constraints.size(); ++i) {

@@ -109,7 +109,7 @@ namespace lotus::physics::solvers::avbd {
 			};
 
 			// TODO get rid of these two
-			std::vector<body*> bodies; ///< Body pointers.
+			std::vector<world::body_data*> bodies; ///< Body pointers.
 			std::vector<const physics::constraints::rigid_body_contact*> contacts; ///< Contact constraints.
 
 			std::vector<body_position> initial_positions; ///< Initial positions.

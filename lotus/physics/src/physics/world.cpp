@@ -9,7 +9,9 @@
 #include "lotus/collision/contact.h"
 
 namespace lotus::physics {
-	void world::overlap_data::update_contact(body *body1, body *body2) {
+	void world::overlap_data::update_contact(body &b1, body &b2) {
+		body *body1 = &b1;
+		body *body2 = &b2;
 		if (body1->body_shape->get_type() > body2->body_shape->get_type()) {
 			std::swap(body1, body2);
 		}
@@ -38,85 +40,146 @@ namespace lotus::physics {
 		++_timestamp;
 
 		// collect pairs of bodies that have collision disabled explicitly
-		std::unordered_set<body_pair, body_pair_hash> collision_disabled;
-		for (const constraints::spring &spring : springs) {
-			if (spring.disable_collision && spring.body1 && spring.body2) {
-				collision_disabled.emplace(spring.body1, spring.body2);
-			}
-		}
-		for (const constraints::pin &pin : pins) {
-			if (pin.disable_collision && pin.body1 && pin.body2) {
-				collision_disabled.emplace(pin.body1, pin.body2);
-			}
-		}
-		for (const constraints::hinge &hinge : hinges) {
-			if (hinge.disable_collision && hinge.body1 && hinge.body2) {
-				collision_disabled.emplace(hinge.body1, hinge.body2);
-			}
-		}
-
-		{ // first detach everything from the tree and remove existing overlap pairs
-			profiler::scope p2(u8"Erase Old AABBs");
-
-			for (body *cur : _bodies_to_update) {
-				body_data &bdata = _body_map.at(cur);
-				_body_bvh.detach(bdata.node);
-				for (body *other : bdata.overlaps) {
-					_overlap.erase(body_pair(cur, other));
-					_body_map.at(other).overlaps.erase(cur);
+		std::vector<std::pair<body*, body*>> collision_disabled;
+		{
+			for (const constraints::spring &spring : springs) {
+				if (spring.disable_collision && spring.body1 && spring.body2) {
+					collision_disabled.emplace_back(std::minmax(spring.body1, spring.body2));
 				}
-				bdata.overlaps.clear();
 			}
+			for (const constraints::pin &pin : pins) {
+				if (pin.disable_collision && pin.body1 && pin.body2) {
+					collision_disabled.emplace_back(std::minmax(pin.body1, pin.body2));
+				}
+			}
+			for (const constraints::hinge &hinge : hinges) {
+				if (hinge.disable_collision && hinge.body1 && hinge.body2) {
+					collision_disabled.emplace_back(std::minmax(hinge.body1, hinge.body2));
+				}
+			}
+			std::ranges::sort(collision_disabled);
+			const auto to_erase = std::ranges::unique(collision_disabled);
+			collision_disabled.erase(to_erase.begin(), to_erase.end());
+		}
+		const auto is_collision_disabled = [&](body_data *lhs, body_data *rhs) {
+			const std::pair<body*, body*> bodies = std::minmax(&lhs->this_body, &rhs->this_body);
+			auto it = std::ranges::lower_bound(collision_disabled, bodies);
+			return it != collision_disabled.end() && *it == bodies;
+		};
+
+		std::ranges::stable_sort(_bodies_to_update, [](const _body_aabb_update &lhs, const _body_aabb_update &rhs) {
+			return lhs.target < rhs.target;
+		});
+		{
+			const auto to_erase = std::ranges::unique(
+				_bodies_to_update, [](const _body_aabb_update &lhs, const _body_aabb_update &rhs) {
+					return lhs.target == rhs.target;
+				}
+			);
+			_bodies_to_update.erase(to_erase.begin(), to_erase.end());
 		}
 
-		{ // then re-insert everything into the tree with updated AABBs
-			profiler::scope p2(u8"Reinsert Updated AABBs");
+		std::vector<_body_aabb_update> bodies_to_update;
+		std::vector<_body_aabb_update> bodies_to_add;
+		for (const _body_aabb_update &update : _bodies_to_update) {
+			if (update.target->node->get_parent()) {
+				bodies_to_update.emplace_back(update);
+			} else {
+				bodies_to_add.emplace_back(update);
+			}
+		}
+		_bodies_to_update.clear();
 
-			for (body *cur : _bodies_to_update) {
-				const bool cur_kinematic = cur->properties.inverse_mass <= 0.0f;
-				body_data &bdata = _body_map.at(cur);
+		{
+			profiler::scope p2(u8"Update AABBs");
 
-				// find new overlap pairs and collisions
-				{
-					profiler::scope p3(u8"BVH Query");
-					_body_bvh.query_aab(bdata.aabb, [&](const body_bvh::leaf_node *other_node) {
-						body *other = other_node->value;
-						if (cur_kinematic && other->properties.inverse_mass <= 0.0f) {
-							return; // no collision between kinematic bodies
+			// update each body, recording removed and added overlaps
+			std::vector<body_data_pair> add_contacts;
+			std::vector<body_data_pair> remove_contacts;
+			for (const _body_aabb_update &cur : bodies_to_update) {
+				_body_bvh.query_dual_aab(
+					cur.target->aabb, cur.new_aabb,
+					[&](const body_bvh::leaf_node *other) {
+						if (cur.target != other->value) {
+							remove_contacts.emplace_back(std::minmax(cur.target, other->value));
 						}
-						if (collision_disabled.contains(body_pair(cur, other))) {
-							return;
+					}, [&](const body_bvh::leaf_node *other) {
+						if (cur.target != other->value) {
+							add_contacts.emplace_back(std::minmax(cur.target, other->value));
 						}
+					}, [](const body_bvh::leaf_node*) {
+						// do nothing if the overlap is still there
+					}
+				);
+				cur.target->set_aabb(cur.new_aabb, _timestamp);
+				_body_bvh.update(cur.target->node, cur.new_aabb);
+			}
 
-						bdata.overlaps.emplace(other);
-						_body_map.at(other).overlaps.emplace(cur);
-						auto [overlap_it, inserted] = _overlap.emplace(body_pair(cur, other), overlap_data());
+			// process removed and added overlaps
+			std::ranges::sort(add_contacts);
+			std::ranges::sort(remove_contacts);
+			auto add_it = add_contacts.begin();
+			auto remove_it = remove_contacts.begin();
+			while (add_it != add_contacts.end() || remove_it != remove_contacts.end()) {
+				// disregard an overlap if it's in both sets - its status hasn't changed
+				while (add_it != add_contacts.end() && remove_it != remove_contacts.end() && *add_it == *remove_it) {
+					++add_it;
+					++remove_it;
+				}
+				if (add_it == add_contacts.end() && remove_it == remove_contacts.end()) {
+					break;
+				}
+				// choose whether to process add or remove event
+				if (remove_it == remove_contacts.end() || (add_it != add_contacts.end() && *add_it < *remove_it)) {
+					// process add event
+					if (!is_collision_disabled(add_it->first, add_it->second)) {
+						const auto [it, inserted] = _overlaps.emplace(*add_it, overlap_data());
 						crash_if(!inserted);
-					});
+					}
+					++add_it;
+				} else {
+					const bool found = _overlaps.erase(*remove_it) != 0;
+					if (!found) {
+						crash_if(!is_collision_disabled(remove_it->first, remove_it->second));
+					}
+					++remove_it;
 				}
+			}
+		}
 
-				// insert into BVH
-				_body_bvh.insert(bdata.node, bdata.aabb);
+		{ // insert new bodies
+			profiler::scope p2(u8"Insert Bodies");
+
+			for (const _body_aabb_update &add : bodies_to_add) {
+				add.target->aabb = add.new_aabb;
+				_body_bvh.query_aab(add.new_aabb, [&](const body_bvh::leaf_node *other) {
+					if (is_collision_disabled(add.target, other->value)) {
+						return;
+					}
+					const auto [it, inserted] =
+						_overlaps.emplace(std::minmax(add.target, other->value), overlap_data());
+					crash_if(!inserted);
+				});
+				_body_bvh.insert(add.target->node, add.new_aabb);
 			}
 		}
 
 		{ // finally, update all existing contacts
 			profiler::scope p2(u8"Detect Collisions");
 
-			for (auto it = _overlap.begin(); it != _overlap.end(); ++it) {
-				it->second.update_contact(it->first);
+			for (auto it = _overlaps.begin(); it != _overlaps.end(); ++it) {
+				it->second.update_contact(it->first.first->this_body, it->first.second->this_body);
 			}
 		}
-
-		_bodies_to_update.clear();
 	}
 
-	void world::on_body_moved(body *b) {
-		const aab3s tight_aab = b->body_shape->get_aabb_with_transform(b->state.position);
-		body_data &bdata = _body_map.at(b);
-		if (!bdata.aabb.contains(tight_aab)) {
-			bdata.set_aabb(_get_expanded_aab(tight_aab, b->state.velocity.linear), _timestamp);
-			_bodies_to_update.emplace(b);
+	void world::on_body_moved(body_data *bdata) {
+		const aab3s tight_aab =
+			bdata->this_body.body_shape->get_aabb_with_transform(bdata->this_body.state.position);
+		if (!bdata->aabb.contains(tight_aab)) {
+			_bodies_to_update.emplace_back(
+				bdata, _get_expanded_aab(tight_aab, bdata->this_body.state.velocity.linear)
+			);
 		}
 	}
 

@@ -225,18 +225,19 @@ namespace lotus::physics::solvers::sequential_impulse {
 
 		for (u32 substep = 0; substep < num_substeps; ++substep) {
 			// advect
-			physics_world->for_each_body([&](body *b) {
+			for (const std::unique_ptr<world::body_data> &body_data : physics_world->get_bodies()) {
+				body &b = body_data->this_body;
 				if (substep == 0) {
-					b->state.velocity.linear += b->applied_impulse * b->properties.inverse_mass;
-					b->state.velocity.angular += b->state.position.orientation.rotate(
-						b->properties.inverse_inertia * b->state.position.orientation.conjugate().rotate(b->applied_torque)
+					b.state.velocity.linear += b.applied_impulse * b.properties.inverse_mass;
+					b.state.velocity.angular += b.state.position.orientation.rotate(
+						b.properties.inverse_inertia * b.state.position.orientation.conjugate().rotate(b.applied_torque)
 					);
-					b->applied_impulse = zero;
-					b->applied_torque = zero;
+					b.applied_impulse = zero;
+					b.applied_torque = zero;
 				}
 
-				b->velocity_integration(substep_dt, physics_world->gravity, zero);
-			});
+				b.velocity_integration(substep_dt, physics_world->gravity, zero);
+			}
 
 			// apply spring forces
 			// TODO implicit formulation
@@ -317,14 +318,15 @@ namespace lotus::physics::solvers::sequential_impulse {
 				}
 			}
 
-			physics_world->for_each_body([&](body *b) {
-				if (b->properties.inverse_mass > 0.0f) {
-					b->position_integration(substep_dt);
+			for (const std::unique_ptr<world::body_data> &body_data : physics_world->get_bodies()) {
+				body &b = body_data->this_body;
+				if (b.properties.inverse_mass > 0.0f) {
+					b.position_integration(substep_dt);
 					if (substep + 1 == num_substeps) {
-						physics_world->on_body_moved(b);
+						physics_world->on_body_moved(body_data.get());
 					}
 				}
-			});
+			}
 		}
 	}
 

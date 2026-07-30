@@ -23,11 +23,10 @@ public:
 
 		const lotus::physics::material_properties material(0.0f, 0.0f, 0.0f);
 
-		lotus::physics::body &door = _bodies.emplace_back(lotus::physics::body::create(
+		lotus::physics::body &door = _world.add_body(lotus::physics::body::create(
 			_door_shape, material, door_props,
 			lotus::physics::body_state::stationary_at(vec3(0.0f, 0.5f * _door_size[1] + _height, 0.0f), uquats::identity())
-		));
-		_world.add_body(door);
+		))->this_body;
 
 		if (_pin) {
 			const vec3 pin_pos = vec3(0.5f * _door_size[0], 0.5f * _door_size[1] + _height, 0.0f);
@@ -43,45 +42,45 @@ public:
 			hinge.local_axis2 = { 0.0f, 1.0f, 0.0f };
 		}
 
-		_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+		_world.add_body(lotus::physics::body::create(
 			_plane_shape, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
 				lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::physics::pi)
 			)
-		)));
+		));
 		if (_add_walls) {
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			_world.add_body(lotus::physics::body::create(
 				_plane_shape, material,
 				lotus::physics::body_properties::kinematic(),
 				lotus::physics::body_state::stationary_at(
 					vec3(5.0f, 0.0f, 0.0f),
 					lotus::quat::from_normalized_axis_angle(vec3(0.0f, 1.0f, 0.0f), -0.5f * lotus::physics::pi)
 				)
-			)));
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			));
+			_world.add_body(lotus::physics::body::create(
 				_plane_shape, material,
 				lotus::physics::body_properties::kinematic(),
 				lotus::physics::body_state::stationary_at(
 					vec3(-5.0f, 0.0f, 0.0f),
 					lotus::quat::from_normalized_axis_angle(vec3(0.0f, 1.0f, 0.0f), 0.5f * lotus::physics::pi)
 				)
-			)));
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			));
+			_world.add_body(lotus::physics::body::create(
 				_plane_shape, material,
 				lotus::physics::body_properties::kinematic(),
 				lotus::physics::body_state::stationary_at(
 					vec3(0.0f, 0.0f, 5.0f),
 					lotus::quat::from_normalized_axis_angle(vec3(0.0f, 1.0f, 0.0f), lotus::physics::pi)
 				)
-			)));
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			));
+			_world.add_body(lotus::physics::body::create(
 				_plane_shape, material,
 				lotus::physics::body_properties::kinematic(),
 				lotus::physics::body_state::stationary_at(
 					vec3(0.0f, 0.0f, -5.0f), uquats::identity()
 				)
-			)));
+			));
 		}
 	}
 

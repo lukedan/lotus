@@ -21,58 +21,21 @@ namespace lotus::physics {
 	public:
 		constexpr static bool validate_bvh = false; ///< Whether to validate the BVH after each operation.
 
-		/// A pair of bodies. Comparison ignores the order of the two.
-		struct body_pair {
-			/// Initializes this object to empty.
-			body_pair() = default;
-			/// Initializes all fields of this struct.
-			body_pair(body *b1, body *b2) : body1(b1), body2(b2) {
-			}
-
-			body *body1 = nullptr; ///< The first body.
-			body *body2 = nullptr; ///< The second body.
-
-			/// Equality comparison. Ignores the order of the two bodies.
-			[[nodiscard]] friend bool operator==(const body_pair &lhs, const body_pair &rhs) {
-				return
-					(lhs.body1 == rhs.body1 && lhs.body2 == rhs.body2) ||
-					(lhs.body2 == rhs.body1 && lhs.body1 == rhs.body2);
-			}
-		};
-		/// Hashing for a pair of bodies.
-		struct body_pair_hash {
-			/// The hashing function.
-			[[nodiscard]] constexpr usize operator()(const body_pair &bs) const {
-				std::hash<body*> ptr_hasher;
-				usize h1 = ptr_hasher(bs.body1);
-				usize h2 = ptr_hasher(bs.body2);
-				if (h1 > h2) {
-					std::swap(h1, h2);
-				}
-				return hash_combine(h1, h2);
-			}
-		};
-		/// Data associated with two bodies with overlapping AABBs.
-		struct overlap_data {
-			std::optional<constraints::rigid_body_contact> contact; ///< Contact constraint.
-
-			/// Updates overlap data given the two bodies.
-			void update_contact(body*, body*);
-			/// \overload
-			void update_contact(body_pair bodies) {
-				update_contact(bodies.body1, bodies.body2);
-			}
-		};
 		using timestamp_t = u64; ///< Timestamp type.
-		/// Map of bodies with overlapping AABBs, and associated contacts if any.
-		using overlap_map = std::unordered_map<body_pair, overlap_data, body_pair_hash>;
-		using body_bvh = collision::aabb_tree<body*>; ///< BVH containing bodies.
+		struct body_data;
+		using body_bvh = collision::aabb_tree<body_data*>; ///< BVH containing bodies.
 		/// Data associated with a body.
 		struct body_data {
-			[[no_unique_address]] static_optional<timestamp_t, true> aabb_timestamp; ///< Timestamp of when this AABB was last updated.
+			/// Initializes \ref this_body;
+			explicit body_data(body b) : this_body(std::move(b)) {
+			}
+
+			body this_body; ///< The body.
+
+			/// Timestamp of when this AABB was last updated.
+			[[no_unique_address]] static_optional<timestamp_t, true> aabb_timestamp;
 			aab3s aabb = zero; ///< The AABB of this body.
 			body_bvh::leaf_node *node = nullptr; ///< Node in the AABB tree.
-			std::set<body*> overlaps; ///< Other bodies with overlapping AABB nodes.
 
 			/// Sets the AABB alongside with \ref aabb_timestamp.
 			void set_aabb(aab3s bb, timestamp_t timestamp) {
@@ -81,34 +44,51 @@ namespace lotus::physics {
 			}
 		};
 
+		using body_data_pair = std::pair<body_data*, body_data*>; ///< A pair of \ref body_data pointers.
+		/// Hash function for \ref body_data_pair.
+		struct body_pair_hash {
+			/// The hash function.
+			[[nodiscard]] constexpr static usize operator()(const body_data_pair &p) {
+				std::hash<body_data*> ptr_hash;
+				return hash_combine(ptr_hash(p.first), ptr_hash(p.second));
+			}
+		};
+		/// Data associated with two bodies with overlapping AABBs.
+		struct overlap_data {
+			std::optional<constraints::rigid_body_contact> contact; ///< Contact constraint.
+
+			/// Updates overlap data given the two bodies.
+			void update_contact(body&, body&);
+		};
+		/// Map of bodies with overlapping AABBs, and associated contacts if any.
+		using overlap_map = std::unordered_map<body_data_pair, overlap_data, body_pair_hash>;
+
 
 		/// Adds a body to this world.
-		void add_body(body &b) {
-			const aab3s aabb =
-				_get_expanded_aab(b.body_shape->get_aabb_with_transform(b.state.position), b.state.velocity.linear);
-			body_bvh::leaf_node *node = _body_bvh.create_node(&b);
-			auto [it, inserted] = _body_map.emplace(&b, body_data());
-			crash_if(!inserted);
-			it->second.node = node;
-			it->second.set_aabb(aabb, _timestamp);
-			_bodies_to_update.emplace(&b);
+		body_data *add_body(body raw_body) {
+			body_data *bdata = &*_bodies.emplace_back(std::make_unique<body_data>(std::move(raw_body)));
+			body *b = &bdata->this_body;
+
+			const aab3s aabb = _get_expanded_aab(
+				b->body_shape->get_aabb_with_transform(b->state.position), b->state.velocity.linear
+			);
+
+			body_bvh::leaf_node *node = _body_bvh.create_node(bdata);
+			bdata->node = node;
+			bdata->set_aabb(aabb, _timestamp);
+
+			_bodies_to_update.emplace_back(bdata, aabb);
+
+			return bdata;
 		}
-		/// Calls the given callback for each body.
-		template <typename Cb> void for_each_body(Cb &&cb) {
-			for (const auto &[b, bd] : _body_map) {
-				cb(b);
-			}
-		}
-		/// \overload
-		template <typename Cb> void for_each_body(Cb &&cb) const {
-			for (const auto &[b, bd] : _body_map) {
-				cb(static_cast<const body*>(b));
-			}
+		/// Returns the list of bodies.
+		[[nodiscard]] std::span<const std::unique_ptr<body_data>> get_bodies() const {
+			return _bodies;
 		}
 
 		/// Calls the given callback for each contact constraint.
 		template <typename Cb> void for_each_contact(Cb &&cb) const {
-			for (const auto &[k, v] : _overlap) {
+			for (const auto &[k, v] : _overlaps) {
 				if (v.contact) {
 					cb(v.contact.value());
 				}
@@ -119,27 +99,19 @@ namespace lotus::physics {
 		void update_contact_constraints();
 
 		/// Marks the body for an AABB update if necessary.
-		void on_body_moved(body*);
+		void on_body_moved(body_data*);
 
 		/// Returns the overlap map.
-		[[nodiscard]] const overlap_map &get_overlap_map() const {
-			return _overlap;
+		[[nodiscard]] const overlap_map &get_overlaps() const {
+			return _overlaps;
 		}
 		/// Returns the body BVH.
 		[[nodiscard]] const body_bvh &get_body_bvh() const {
 			return _body_bvh;
 		}
-		/// Returns the data associated with the given body..
-		[[nodiscard]] const body_data &get_body_data(const body *b) const {
-			return _body_map.at(const_cast<body*>(b)); // TODO evil!
-		}
 		/// Returns the world timestamp.
 		[[nodiscard]] timestamp_t get_timestamp() const {
 			return _timestamp;
-		}
-		/// Returns the number of bodies in this world.
-		[[nodiscard]] usize get_num_bodies() const {
-			return _body_map.size();
 		}
 
 		vec3 gravity = zero; ///< Gravity.
@@ -154,11 +126,24 @@ namespace lotus::physics {
 		std::vector<constraints::pin> pins; ///< All pin constraints.
 		std::vector<constraints::hinge> hinges; ///< All hinge constraints.
 	private:
+		/// Information about updating the AABB of a body.
+		struct _body_aabb_update {
+			/// Zero initialization.
+			_body_aabb_update(zero_t) {
+			}
+			/// Initializes all fields of this struct.
+			_body_aabb_update(body_data *t, aab3s new_bb) : target(t), new_aabb(new_bb) {
+			}
+
+			body_data *target = nullptr; ///< The body to update.
+			aab3s new_aabb = zero; ///< New AABB.
+		};
+
 		timestamp_t _timestamp = 0; ///< Timestamp incremented each time \ref update_contact_constraints() is called.
 		body_bvh _body_bvh; ///< Bodies in this world.
-		std::unordered_map<body*, body_data> _body_map; ///< Body data.
-		std::unordered_set<body*> _bodies_to_update; ///< Bodies that have invalid overlap data.
-		overlap_map _overlap; ///< All contacts in the current time step.
+		std::vector<std::unique_ptr<body_data>> _bodies; ///< All bodies.
+		std::vector<_body_aabb_update> _bodies_to_update; ///< Bodies that have invalid overlap data.
+		overlap_map _overlaps; ///< All contacts in the current time step.
 
 		/// Validates the BVH if enabled.
 		void _maybe_validate_bvh() const;

@@ -11,22 +11,22 @@ public:
 		_world.gravity = vec3(0.0f, -9.8f, 0.0f);
 
 		_plane_shape = lotus::collision::shape::create(lotus::collision::shapes::plane());
-		_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+		_world.add_body(lotus::physics::body::create(
 			_plane_shape,
 			lotus::physics::material_properties(_ground_friction, _ground_friction, 0.0f),
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
 				lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::physics::pi)
 			)
-		)));
-		_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+		));
+		_world.add_body(lotus::physics::body::create(
 			_plane_shape,
 			lotus::physics::material_properties(_ground_friction, _ground_friction, 0.0f),
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
 				lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), -(90.0f - _angle) * lotus::physics::pi / 180.0f)
 			)
-		)));
+		));
 
 		scalar pos = 0.0f;
 		scalar box_rotation = _angle * lotus::physics::pi / 180.0f;
@@ -39,7 +39,7 @@ public:
 			const lotus::physics::body_properties box_props = box_poly_props.get_body_properties(1.0f);
 
 			const f32 friction = _box_friction_min + i * _box_friction_step;
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			_world.add_body(lotus::physics::body::create(
 				shape,
 				lotus::physics::material_properties(friction, friction, 0.0f),
 				box_props,
@@ -49,7 +49,7 @@ public:
 					vec3(pos + 0.5f * box_size[0], _height, 0.0f),
 					lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), box_rotation)
 				)
-			)));
+			));
 
 			pos += 1.0f + box_size[0];
 		}

@@ -46,7 +46,6 @@ public:
 	}
 
 	void soft_reset() override {
-		_bodies.clear();
 		_world = lotus::physics::world();
 		std::visit(
 			[this]<typename Solver>(Solver &solver) {
@@ -85,13 +84,13 @@ public:
 			_solver
 		);
 		u32 num_contacts = 0;
-		for (const auto &[k, v] : _world.get_overlap_map()) {
+		for (const auto &[k, v] : _world.get_overlaps()) {
 			if (v.contact) {
 				++num_contacts;
 			}
 		}
 		ImGui_SliderT("AABB Prediction", &_world.aabb_prediction, 0.0f, 1.0f);
-		ImGui::Text("Overlaps: %u", static_cast<u32>(_world.get_overlap_map().size()));
+		ImGui::Text("Overlaps: %u", static_cast<u32>(_world.get_overlaps().size()));
 		ImGui::Text("Contacts: %u", num_contacts);
 
 		ImGui::Separator();
@@ -110,11 +109,10 @@ protected:
 	lotus::physics::world _world;
 	solver_variant _solver;
 	debug_render _render;
-	std::deque<lotus::physics::body> _bodies;
 
 	void _shoot_bullet() {
 		auto material = lotus::physics::material_properties(_bullet_static_friction, _bullet_dynamic_friction, _bullet_restitution);
-		_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+		_world.add_body(lotus::physics::body::create(
 			_bullet_shape,
 			material,
 			_bullet_properties,
@@ -123,7 +121,7 @@ protected:
 				uquats::identity(),
 				(_get_test_context().camera.unit_forward * _bullet_velocity).into<scalar>()
 			)
-		)));
+		));
 	}
 private:
 	lotus::collision::shape _bullet_shape;

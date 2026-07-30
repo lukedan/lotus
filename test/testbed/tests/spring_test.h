@@ -25,11 +25,10 @@ public:
 
 		lotus::physics::body *prev_body = nullptr;
 		for (int i = 0; i < _num_boxes; ++i) {
-			lotus::physics::body &body = _bodies.emplace_back(lotus::physics::body::create(
+			lotus::physics::body &body = _world.add_body(lotus::physics::body::create(
 				_box_shape, material, box_props,
 				lotus::physics::body_state::stationary_at(vec3(_gap * (static_cast<f32>(i) + 1), 0.0f, 0.0f), uquats::identity())
-			));
-			_world.add_body(body);
+			))->this_body;
 			{
 				lotus::physics::constraints::spring &spring = _world.springs.emplace_back();
 				spring.body1 = &body;
@@ -44,13 +43,13 @@ public:
 			prev_body = &body;
 		}
 
-		_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+		_world.add_body(lotus::physics::body::create(
 			_plane_shape, material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
 				vec3(0.0f, -_height, 0.0f), lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::physics::pi)
 			)
-		)));
+		));
 	}
 
 	void gui() override {

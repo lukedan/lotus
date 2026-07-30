@@ -77,12 +77,11 @@ public:
 			wheel_props = wheel_poly_props.get_body_properties(_wheel_density);
 		}
 
-		_body = &_bodies.emplace_back(lotus::physics::body::create(
+		_body = &_world.add_body(lotus::physics::body::create(
 			_body_shape, body_material, body_props, lotus::physics::body_state::stationary_at(
 				vec3(0.0f, _initial_pos_y, 0.0f), uquats::identity()
 			)
-		));
-		_world.add_body(*_body);
+		))->this_body;
 
 		for (u32 side = 0; side < 2; ++side) {
 			const f32 side_sign = side == 0 ? 1.0f : -1.0f;
@@ -90,13 +89,12 @@ public:
 				const f32 z = -0.5f * _wheel_spacing + index * _wheel_spacing;
 
 				// create arm
-				lotus::physics::body &arm = _bodies.emplace_back(lotus::physics::body::create(
+				lotus::physics::body &arm = _world.add_body(lotus::physics::body::create(
 					_arm_shape, body_material, arm_props, lotus::physics::body_state::stationary_at(
 						vec3(side_sign * 0.5f * (_width - _arm_length), _initial_pos_y - 0.5f * _body_size[1] - _body_lift, z),
 						uquats::identity()
 					)
-				));
-				_world.add_body(arm);
+				))->this_body;
 
 				{ // attach arm to body
 					const vec3 pin_pos = arm.state.position.position - vec3(side_sign * 0.5f * _arm_length, 0.0f, 0.0f);
@@ -126,13 +124,12 @@ public:
 				}
 
 				// create wheel
-				lotus::physics::body &wheel = _bodies.emplace_back(lotus::physics::body::create(
+				lotus::physics::body &wheel = _world.add_body(lotus::physics::body::create(
 					_wheel_shape, wheel_material, wheel_props, lotus::physics::body_state::stationary_at(
 						vec3(side_sign * 0.5f * _width, _initial_pos_y - 0.5f * _body_size[1] - _body_lift, z),
 						uquats::identity()
 					)
-				));
-				_world.add_body(wheel);
+				))->this_body;
 				_wheels.emplace_back(side, index, _world.hinges.size(), wheel);
 
 				{ // attach wheel to body
@@ -154,13 +151,13 @@ public:
 			}
 		}
 
-		_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+		_world.add_body(lotus::physics::body::create(
 			_plane_shape, ground_material,
 			lotus::physics::body_properties::kinematic(),
 			lotus::physics::body_state::stationary_at(
 				lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::physics::pi)
 			)
-		)));
+		));
 	}
 
 	void timestep(scalar dt) override {
@@ -223,6 +220,7 @@ public:
 		ImGui::SliderFloat("Body Lift", &_body_lift, -1.0f, 1.0f);
 		ImGui::SliderFloat3("Body Size", _body_size, 0.0f, 10.0f);
 		// TODO
+		ImGui::SliderFloat("Wheel Pivot", &_wheel_pivot, 0.0f, 0.1f);
 		ImGui::Combo("Wheel Type", &_wheel_type, wheel_type_names, static_cast<int>(wheel_type::count));
 		ImGui::SliderInt("Wheel Subdivision", &_wheel_subdivision, 3, 50);
 		ImGui::SliderFloat("Wheel Static Friction", &_wheel_static_friction, 0.0f, 2.0f);
@@ -302,7 +300,7 @@ private:
 	f32 _spring_position = 0.1f;
 
 	f32 _wheel_spacing = 2.5f;
-	f32 _wheel_pivot = 0.2f;
+	f32 _wheel_pivot = 0.0f;
 	f32 _wheel_radius = 0.3f;
 	f32 _wheel_width = 0.2f;
 	int _wheel_type = static_cast<int>(wheel_type::staggered_poly);

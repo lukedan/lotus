@@ -31,54 +31,54 @@ public:
 		);
 
 		if (_use_platform) {
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			_world.add_body(lotus::physics::body::create(
 				_platform_shape, material,
 				lotus::physics::body_properties::kinematic(),
 				lotus::physics::body_state::stationary_at(
 					vec3(0.0f, -0.05f, 0.0f), uquats::identity()
 				)
-			)));
+			));
 		} else {
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			_world.add_body(lotus::physics::body::create(
 				_plane_shape, material,
 				lotus::physics::body_properties::kinematic(),
 				lotus::physics::body_state::stationary_at(
 					lotus::zero, lotus::quat::from_normalized_axis_angle(vec3(1.0f, 0.0f, 0.0f), -0.5f * lotus::physics::pi)
 				)
-			)));
+			));
 		}
 		if (_add_walls) {
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			_world.add_body(lotus::physics::body::create(
 				_plane_shape, material,
 				lotus::physics::body_properties::kinematic(),
 				lotus::physics::body_state::stationary_at(
 					vec3(10.0f, 0.0f, 0.0f),
 					lotus::quat::from_normalized_axis_angle(vec3(0.0f, 1.0f, 0.0f), -0.5f * lotus::physics::pi)
 				)
-			)));
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			));
+			_world.add_body(lotus::physics::body::create(
 				_plane_shape, material,
 				lotus::physics::body_properties::kinematic(),
 				lotus::physics::body_state::stationary_at(
 					vec3(-10.0f, 0.0f, 0.0f),
 					lotus::quat::from_normalized_axis_angle(vec3(0.0f, 1.0f, 0.0f), 0.5f * lotus::physics::pi)
 				)
-			)));
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			));
+			_world.add_body(lotus::physics::body::create(
 				_plane_shape, material,
 				lotus::physics::body_properties::kinematic(),
 				lotus::physics::body_state::stationary_at(
 					vec3(0.0f, 0.0f, 10.0f),
 					lotus::quat::from_normalized_axis_angle(vec3(0.0f, 1.0f, 0.0f), lotus::physics::pi)
 				)
-			)));
-			_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+			));
+			_world.add_body(lotus::physics::body::create(
 				_plane_shape, material,
 				lotus::physics::body_properties::kinematic(),
 				lotus::physics::body_state::stationary_at(
 					vec3(0.0f, 0.0f, -10.0f), uquats::identity()
 				)
-			)));
+			));
 		}
 
 		scalar x = -(_box_size[0] + _gap[0]) * (static_cast<f32>(_box_count[0]) - 1.0f) / 2.0f;
@@ -101,11 +101,11 @@ public:
 						vec3(cx, y, 0.0f), uquats::identity()
 					);
 				}
-				_world.add_body(_bodies.emplace_back(lotus::physics::body::create(
+				_world.add_body(lotus::physics::body::create(
 					_box_shape, material,
 					_fix_first_row && yi == 0 ? lotus::physics::body_properties::kinematic() : box_props,
 					state
-				)));
+				));
 			}
 		}
 	}

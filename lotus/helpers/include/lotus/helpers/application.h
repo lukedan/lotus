@@ -816,11 +816,13 @@ namespace lotus::helpers {
 						ImGui::EndChild();
 					}
 				} else { // tree mode
-					if (ImGui::BeginTable("Profiler Contents", 4, ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersV | ImGuiTableFlags_RowBg)) {
+					if (ImGui::BeginTable("Profiler Contents", 6, ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersV | ImGuiTableFlags_RowBg)) {
 						ImGui::TableSetupColumn("Function",       ImGuiTableColumnFlags_WidthStretch);
 						ImGui::TableSetupColumn("Count",          ImGuiTableColumnFlags_WidthFixed);
 						ImGui::TableSetupColumn("Time Inclusive", ImGuiTableColumnFlags_WidthFixed);
 						ImGui::TableSetupColumn("Time Exclusive", ImGuiTableColumnFlags_WidthFixed);
+						ImGui::TableSetupColumn("Avg Time Incl.", ImGuiTableColumnFlags_WidthFixed);
+						ImGui::TableSetupColumn("Avg Time Excl.", ImGuiTableColumnFlags_WidthFixed);
 
 						ImGui::TableSetupScrollFreeze(1, 1);
 						ImGui::TableHeadersRow();
@@ -878,6 +880,18 @@ namespace lotus::helpers {
 										),
 										ImVec2(-FLT_MIN, 0.0f),
 										format_seconds(into_seconds(sf.total_time_exclusive)).c_str()
+									);
+
+									ImGui::TableNextColumn();
+									ImGui::Text(
+										"%s",
+										format_seconds(into_seconds(sf.total_time_inclusive / sf.count)).c_str()
+									);
+
+									ImGui::TableNextColumn();
+									ImGui::Text(
+										"%s",
+										format_seconds(into_seconds(sf.total_time_exclusive / sf.count)).c_str()
 									);
 
 									if (open) {

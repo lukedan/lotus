@@ -219,6 +219,13 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 		);
 		wnd->on_key_down(event);
 	}
+	if (wnd->on_text_input) {
+		NSString *chars = e.characters;
+		if (chars.length > 0) {
+			lotus::system::window_events::text_input event(reinterpret_cast<const char8_t*>(chars.UTF8String));
+			wnd->on_text_input(event);
+		}
+	}
 }
 
 - (void)keyUp: (NSEvent*)e {
@@ -234,8 +241,8 @@ using _custom_event_type_t = lotus::system::platforms::macos::_details::custom_e
 
 - (void)flagsChanged: (NSEvent*)e {
 	const _window_ptr_t wnd = [self get_window_ptr];
-    // left and right keys are separately encoded in NSEventModifierFlagDeviceIndependentFlagsMask
-    // so this should be fine
+	// left and right keys are separately encoded in NSEventModifierFlagDeviceIndependentFlagsMask
+	// so this should be fine
 	const bool is_press_event = lotus::bit_mask::contains_all(e.modifierFlags, _modifier_mask);
 
 	if (is_press_event) {

@@ -4,6 +4,7 @@
 /// Axis aligned bounding box trees.
 
 #include "lotus/memory/common.h"
+#include "lotus/profiler.h"
 #include "lotus/math/aab.h"
 #include "lotus/collision/common.h"
 
@@ -32,6 +33,10 @@ namespace lotus::collision {
 			[[nodiscard]] aab3s get_child_bounding_box(index_t i) const {
 				return _children_aabb[i];
 			}
+			/// Returns the number of primitives in the i-th child.
+			[[nodiscard]] u32 get_child_num_primitives(index_t i) const {
+				return _children_num_primitives[i];
+			}
 			/// Returns whether the i-th child is a leaf.
 			[[nodiscard]] bool is_child_leaf(index_t i) const {
 				return _is_leaf & (1u << i);
@@ -58,36 +63,31 @@ namespace lotus::collision {
 				}
 				return result;
 			}
-			/// Returns an estimate of this subtree's depth by assuming it's perfectly balanced.
-			[[nodiscard]] u32 get_depth_estimate() const {
-				// number of nodes N for depth d with order k is:
-				//   N = 1 + k + k^2 + ... + k^(d - 1)
-				// then:
-				//   k * N = N + k^d - 1
-				//     k^d = (k - 1) * N + 1
-				//       d = log_k((k - 1) * N + 1)
-				const u32 k_d = (Order - 1) * _size + 1;
-				return 1 + static_cast<u32>(std::bit_width(k_d - 1) / std::bit_width(Order));
-			}
-			/// Returns an estimate of the i-th child's subtree depth.
-			[[nodiscard]] u32 get_child_depth_estimate(index_t i) const {
-				if (!_children[i]) {
-					return 0;
+			/// Returns the number of primitives in this subtree.
+			[[nodiscard]] u32 compute_num_primitives() const {
+				u32 result = 0;
+				for (const u32 n : _children_num_primitives) {
+					result += n;
 				}
-				if (is_child_leaf(i)) {
-					return 1;
-				}
-				return static_cast<intermediate_node*>(_children[i])->get_depth_estimate();
+				return result;
 			}
 		private:
 			std::array<aab3s, Order> _children_aabb = {}; ///< The bounding box of all children.
 			std::array<node*, Order> _children = {}; ///< Children of this node.
+			/// The total number of primitives in each child.
+			std::array<u32, Order> _children_num_primitives = {};
 			intermediate_node *_parent = nullptr; ///< The parent node.
-			/// The total number of nodes in this subtree. This requires only O(1) update for rotations (promotions)
-			/// instead of O(log(n)) for depth.
-			u32 _size = 1;
 			index_t _parent_index = 0; ///< Index of this node in the parent.
 			minimum_unsigned_type_bits_t<Order> _is_leaf = 0; ///< Bits indicating whether each child is a leaf.
+
+			/// Fetches AABB information from the parent.
+			[[nodiscard]] aab3s &_aabb_in_parent() const {
+				return _parent->_children_aabb[_parent_index];
+			}
+			/// Fetches the number of primitives from the parent.
+			[[nodiscard]] u32 &_num_primitives_in_parent() const {
+				return _parent->_children_num_primitives[_parent_index];
+			}
 
 			/// Sets that the i-th child is a leaf.
 			void _set_child_leaf(index_t i) {
@@ -119,6 +119,15 @@ namespace lotus::collision {
 		private:
 			intermediate_node *_parent = nullptr; ///< The parent node.
 			index_t _parent_index = 0; ///< Index of this node in the parent.
+
+			/// Fetches AABB information from the parent.
+			[[nodiscard]] aab3s &_aabb_in_parent() const {
+				return _parent->_children_aabb[_parent_index];
+			}
+			/// Fetches the number of primitives from the parent.
+			[[nodiscard]] u32 &_num_primitives_in_parent() const {
+				return _parent->_children_num_primitives[_parent_index];
+			}
 		};
 
 		/// Initializes the AABB tree.
@@ -149,27 +158,27 @@ namespace lotus::collision {
 			return new (_allocator.allocate(memory::size_alignment::of<leaf_node>())) leaf_node(std::move(value));
 		}
 		/// Inserts a node into this tree.
-		void insert(leaf_node *node, aab3s bb) {
+		void insert(leaf_node *node, aab3s bb, u32 num_primitives = 1) {
 			crash_if(node->_parent != nullptr);
 			if (!_root) {
 				_root = new (
 					_allocator.allocate(memory::size_alignment::of<intermediate_node>())
 				) intermediate_node();
-				return _insert_at(_root, 0, node, bb);
+				return _insert_at(_root, 0, node, bb, num_primitives);
 			}
 			for (intermediate_node *cur = _root; cur; ) {
 				scalar best_cost = std::numeric_limits<scalar>::max();
 				index_t best_child = 0;
 				for (index_t i = 0; i < Order; ++i) {
 					if (!cur->_children[i]) {
-						return _insert_at(cur, i, node, bb);
+						return _insert_at(cur, i, node, bb, num_primitives);
 					}
 					const aab3s cur_bb = cur->_children_aabb[i];
-					const scalar cur_heuristic = heuristic(cur_bb);
-					const scalar new_heuristic = heuristic(aab3s::minimum_containing({ cur_bb, bb }));
-					const u32 depth_estimate = cur->get_child_depth_estimate(i);
-					const scalar estimated_cost =
-						static_cast<scalar>(depth_estimate) * (new_heuristic - cur_heuristic);
+					const scalar cur_heuristic = heuristic(cur_bb, cur->get_child_num_primitives(i));
+					const scalar new_heuristic = heuristic(
+						aab3s::minimum_containing({ cur_bb, bb }), cur->get_child_num_primitives(i) + num_primitives
+					);
+					const scalar estimated_cost = new_heuristic - cur_heuristic;
 					if (estimated_cost < best_cost) {
 						best_cost = estimated_cost;
 						best_child = i;
@@ -177,7 +186,7 @@ namespace lotus::collision {
 				}
 
 				if (cur->is_child_leaf(best_child)) {
-					return _insert_at(cur, best_child, node, bb);
+					return _insert_at(cur, best_child, node, bb, num_primitives);
 				} else {
 					cur = static_cast<intermediate_node*>(cur->_children[best_child]);
 				}
@@ -192,11 +201,19 @@ namespace lotus::collision {
 		}
 		/// Updates the given node to have a new bounding box.
 		void update(leaf_node *n, aab3s new_bb) {
-			n->_parent->_children_aabb[n->_parent_index] = new_bb;
+			n->_aabb_in_parent() = new_bb;
 			for (intermediate_node *cur = n->_parent; cur->_parent; cur = cur->_parent) {
-				cur->_parent->_children_aabb[cur->_parent_index] = cur->compute_aabb();
+				cur->_aabb_in_parent() = cur->compute_aabb();
 			}
-			// TODO optimize the tree
+
+			// optimize the tree
+			for (intermediate_node *cur = n->_parent; cur->_parent; ) {
+				const std::optional<index_t> promotion = _find_best_promotion(cur);
+				if (!promotion) {
+					break;
+				}
+				_promote(cur, promotion.value()); // cur replaces its parent - no need to update
+			}
 		}
 		/// Detaches the leaf node from this tree without freeing it. The node will need to be disposed of manually.
 		void detach(leaf_node *leaf) {
@@ -225,7 +242,7 @@ namespace lotus::collision {
 					_allocator.free(cur);
 					++nodes_erased;
 				} else { // update parent with new abb
-					parent->_children_aabb[cur->_parent_index] = cur->compute_aabb();
+					cur->_aabb_in_parent() = cur->compute_aabb();
 				}
 
 				cur = parent;
@@ -356,10 +373,6 @@ namespace lotus::collision {
 				const intermediate_node *cur = stack.back();
 				stack.pop_back();
 
-				if (cur->compute_size() != cur->_size) {
-					error_callback(cur, u8"Incorrect size");
-				}
-
 				// check children
 				for (index_t i = 0; i < Order; ++i) {
 					if (!cur->_children[i]) {
@@ -384,6 +397,9 @@ namespace lotus::collision {
 						if (child->compute_aabb() != cur->_children_aabb[i]) {
 							error_callback(child, u8"Incorrect aabb");
 						}
+						if (child->compute_num_primitives() != cur->_children_num_primitives[i]) {
+							error_callback(child, u8"Incorrect size");
+						}
 						stack.emplace_back(child);
 					}
 				}
@@ -391,17 +407,17 @@ namespace lotus::collision {
 		}
 
 		/// Surface area heuristic.
-		[[nodiscard]] constexpr static scalar heuristic(aab3s bb) {
+		[[nodiscard]] constexpr static scalar heuristic(aab3s bb, u32 num_primitives) {
 			const vec3 sz = bb.signed_size();
-			return sz[0] * sz[1] + sz[0] * sz[2] + sz[1] * sz[2];
+			const scalar area = sz[0] * sz[1] + sz[0] * sz[2] + sz[1] * sz[2];
+			return static_cast<scalar>(num_primitives) * area;
 		}
 	private:
 		intermediate_node *_root = nullptr; ///< The root node.
 		[[no_unique_address]] Allocator _allocator; ///< Allocator.
 
 		/// Inserts the given node at the given location.
-		void _insert_at(intermediate_node *parent, index_t index, leaf_node *node, aab3s bb) {
-			u32 nodes_inserted = 1;
+		void _insert_at(intermediate_node *parent, index_t index, leaf_node *node, aab3s bb, u32 num_primitives) {
 			if (parent->is_child_leaf(index)) {
 				leaf_node *old_child = static_cast<leaf_node*>(parent->_children[index]);
 				auto *new_child =
@@ -414,15 +430,14 @@ namespace lotus::collision {
 				new_child->_parent_index = index;
 				new_child->_children[0] = old_child;
 				new_child->_children_aabb[0] = parent->_children_aabb[index];
+				new_child->_children_num_primitives[0] = parent->_children_num_primitives[index];
 				new_child->_set_child_leaf(0);
-				new_child->_size = 1;
 
 				old_child->_parent = new_child;
 				old_child->_parent_index = 0;
 
 				parent = new_child;
 				index = 1;
-				++nodes_inserted;
 			} else {
 				crash_if(parent->_children[index] != nullptr);
 			}
@@ -433,17 +448,49 @@ namespace lotus::collision {
 			// update parent
 			parent->_children[index] = node;
 			parent->_children_aabb[index] = bb;
+			parent->_children_num_primitives[index] = num_primitives;
 			parent->_set_child_leaf(index);
 
 			// update path to root
 			for (intermediate_node *cur = parent; cur->_parent; cur = cur->_parent) {
-				cur->_size += nodes_inserted;
-				aab3s &cur_bb = cur->_parent->_children_aabb[cur->_parent_index];
+				cur->_num_primitives_in_parent() += num_primitives;
+				aab3s &cur_bb = cur->_aabb_in_parent();
 				cur_bb = aab3s::minimum_containing({ cur_bb, bb });
 			}
-			_root->_size += nodes_inserted;
 		}
 
+		/// Finds the promotion that would result in the most heuristic reduction for the tree.
+		[[nodiscard]] static std::optional<index_t> _find_best_promotion(intermediate_node *node) {
+			// the heuristic of the parent node will not change - we only need to focus on the child node
+			const scalar original_heuristic = heuristic(node->_aabb_in_parent(), node->_num_primitives_in_parent());
+
+			aab3s parent_bb_no_this = aab3s::create_infinity().negated();
+			u32 parent_num_prims_no_this = 0;
+			for (index_t i = 0; i < Order; ++i) {
+				if (i == node->_parent_index) {
+					continue;
+				}
+				parent_bb_no_this =
+					aab3s::minimum_containing({ parent_bb_no_this, node->_parent->_children_aabb[i] });
+				parent_num_prims_no_this += node->_parent->_children_num_primitives[i];
+			}
+
+			std::optional<index_t> best_promotion;
+			scalar best_heuristic = std::numeric_limits<scalar>::max();
+			for (index_t i = 0; i < Order; ++i) {
+				const aab3s new_bb =
+					node->_children[i] ?
+					aab3s::minimum_containing({ parent_bb_no_this, node->_children_aabb[i] }) :
+					parent_bb_no_this;
+				const u32 new_num_primitives = parent_num_prims_no_this + node->_children_num_primitives[i];
+				const scalar new_heuristic = heuristic(new_bb, new_num_primitives);
+				if (new_heuristic < best_heuristic) {
+					best_promotion = i;
+					best_heuristic = new_heuristic;
+				}
+			}
+			return best_heuristic < original_heuristic ? best_promotion : std::nullopt;
+		}
 		/// Rotates a given node with its parent, replacing the children at the given index with the parent node.
 		void _promote(intermediate_node *node, index_t replace_id) {
 			intermediate_node *const parent = node->_parent;
@@ -452,7 +499,11 @@ namespace lotus::collision {
 			// link node with parent->parent
 			node->_parent = parent->_parent;
 			node->_parent_index = parent->_parent_index;
-			(node->_parent ? node->_parent->_children[node->_parent_index] : _root) = node;
+			if (node->_parent) {
+				node->_parent->_children[node->_parent_index] = node;
+			} else {
+				_root = node;
+			}
 			// aabb unchanged
 
 			// link child with parent
@@ -473,13 +524,15 @@ namespace lotus::collision {
 			// link parent with node
 			node->_children[replace_id] = parent;
 			node->_set_child_non_leaf(replace_id);
+			parent->_parent = node;
+			parent->_parent_index = replace_id;
 
 			// update AABB
 			parent->_children_aabb[old_parent_index] = node->_children_aabb[replace_id];
 			node->_children_aabb[replace_id] = parent->compute_aabb();
-			// update size
-			node->_size = parent->_size;
-			parent->_size = parent->compute_size();
+			// update num primitives
+			parent->_children_num_primitives[old_parent_index] = node->_children_num_primitives[replace_id];
+			node->_children_num_primitives[replace_id] = parent->compute_num_primitives();
 		}
 	};
 }

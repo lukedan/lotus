@@ -97,22 +97,30 @@ namespace lotus::physics {
 			std::vector<body_data_pair> add_contacts;
 			std::vector<body_data_pair> remove_contacts;
 			for (const _body_aabb_update &cur : bodies_to_update) {
-				_body_bvh.query_dual_aab(
-					cur.target->aabb, cur.new_aabb,
-					[&](const body_bvh::leaf_node *other) {
-						if (cur.target != other->value) {
-							remove_contacts.emplace_back(std::minmax(cur.target, other->value));
+				{
+					profiler::scope p3(u8"Dual Query");
+					_body_bvh.query_dual_aab(
+						cur.target->aabb, cur.new_aabb,
+						[&](const body_bvh::leaf_node *other) {
+							if (cur.target != other->value) {
+								remove_contacts.emplace_back(std::minmax(cur.target, other->value));
+							}
+						}, [&](const body_bvh::leaf_node *other) {
+							if (cur.target != other->value) {
+								add_contacts.emplace_back(std::minmax(cur.target, other->value));
+							}
+						}, [](const body_bvh::leaf_node*) {
+							// do nothing if the overlap is still there
 						}
-					}, [&](const body_bvh::leaf_node *other) {
-						if (cur.target != other->value) {
-							add_contacts.emplace_back(std::minmax(cur.target, other->value));
-						}
-					}, [](const body_bvh::leaf_node*) {
-						// do nothing if the overlap is still there
-					}
-				);
-				cur.target->set_aabb(cur.new_aabb, _timestamp);
-				_body_bvh.update(cur.target->node, cur.new_aabb);
+					);
+				}
+
+				{
+					profiler::scope p3(u8"Update");
+					cur.target->set_aabb(cur.new_aabb, _timestamp);
+					_body_bvh.update(cur.target->node, cur.new_aabb);
+					_maybe_validate_bvh();
+				}
 			}
 
 			// process removed and added overlaps

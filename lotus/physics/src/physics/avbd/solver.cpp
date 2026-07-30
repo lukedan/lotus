@@ -3,7 +3,7 @@
 /// \file
 /// Implementation of the AVBD solver.
 
-#include "lotus/profiler.h"
+#include "lotus/utils/profiler.h"
 #include "lotus/physics/world.h"
 
 namespace lotus::physics::solvers::avbd {

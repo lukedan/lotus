@@ -6,7 +6,7 @@
 #include <optional>
 
 #include "lotus/common.h"
-#include "lotus/profiler.h"
+#include "lotus/utils/profiler.h"
 #include LOTUS_GPU_BACKEND_INCLUDE_COMMON
 #include LOTUS_GPU_BACKEND_INCLUDE_DEVICE
 #include "acceleration_structure.h"

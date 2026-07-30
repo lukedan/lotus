@@ -1,7 +1,7 @@
 #pragma once
 
 /// \file
-/// Utilities for handling ISO/IEC 14496-12 (MPEG) files.
+/// Header-only utilities for handling ISO/IEC 14496-12 (MPEG) files.
 
 #include <bit>
 #include <concepts>

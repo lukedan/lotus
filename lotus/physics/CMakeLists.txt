@@ -61,4 +61,4 @@ target_sources(lotus_physics
 		"src/physics/xpbd/solver.cpp"
 
 		"src/physics/world.cpp")
-target_link_libraries(lotus_physics PUBLIC lotus_core)
+target_link_libraries(lotus_physics PUBLIC lotus_core lotus_utils)

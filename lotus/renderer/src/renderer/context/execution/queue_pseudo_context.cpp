@@ -3,7 +3,7 @@
 /// \file
 /// Implementation of the per-queue pseudo-execution context.
 
-#include "lotus/profiler.h"
+#include "lotus/utils/profiler.h"
 #include "lotus/utils/misc.h"
 #include "lotus/renderer/context/context.h"
 

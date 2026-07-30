@@ -1,15 +1,16 @@
 #pragma once
 
 /// \file
-/// Basic implementation of an application class.
+/// Basic header-only implementation of an application class.
 
 #include <stack>
 #include <fstream>
 
 #include <lotus/utils/strings.h>
-#include <lotus/profiler.h>
+#include <lotus/utils/profiler.h>
 #include <lotus/system/application.h>
 #include <lotus/system/window.h>
+#include <lotus/system/thread_handle.h>
 #include <lotus/gpu/context.h>
 #include <lotus/gpu/device.h>
 #include <lotus/renderer/context/context.h>
@@ -43,6 +44,8 @@ namespace lotus::helpers {
 
 		/// Initializes GPU resources. This should be called immediately after the constructor.
 		void initialize() {
+			system::thread_handle::current().set_name(u8"Application Thread");
+
 			gpu::context_options gpu_context_options = gpu::context_options::none;
 
 			// parse command line args
@@ -596,16 +599,24 @@ namespace lotus::helpers {
 				return static_cast<f64>(d) / static_cast<f64>(frequency);
 			};
 			const auto format_seconds = [](f64 seconds) -> std::string {
-				if (seconds > 0.1f) {
-					return std::format("{:g}s", seconds);
+				if (seconds > 0.1) {
+					return std::format("{:g} s", seconds);
 				}
-				if (seconds > 0.1f / 1000.0f) {
-					return std::format("{:g}ms", seconds * 1000.0f);
+				if (seconds > 0.1 / 1000.0) {
+					return std::format("{:g} ms", seconds * 1000.0);
 				}
-				if (seconds > 0.1f / 1000000.0f) {
-					return std::format("{:g}us", seconds * 1000000.0f);
+				if (seconds > 0.1 / 1000000.0) {
+					return std::format("{:g} us", seconds * 1000000.0);
 				}
-				return std::format("{:g}ns", seconds * 1000000000.0f);
+				return std::format("{:g} ns", seconds * 1000000000.0);
+			};
+			const auto get_thread_descriptor = [](const profiler::thread_samples &thread) -> std::string {
+				const char *name =
+					thread.name.empty() ? nullptr : reinterpret_cast<const char*>(thread.name.c_str());
+				return
+					thread.name.empty() ?
+					std::format("Thread: {}", thread.thread_id) :
+					std::format("Thread: {} ({})", name, thread.thread_id);
 			};
 
 			const char *const left_arrow = "<";
@@ -660,7 +671,7 @@ namespace lotus::helpers {
 							const profiler::thread_samples &thread = _profiler_frame[ti];
 
 							ImGui::SetCursorPosX(scroll_x);
-							ImGui::Text("%s", std::format("Thread {}", thread.thread_id).c_str());
+							ImGui::Text("%s", get_thread_descriptor(thread).c_str());
 							const ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
 							usize max_stack_depth = 0;
 							for (usize bi = 0; bi < thread.batches.size(); ++bi) {
@@ -902,7 +913,7 @@ namespace lotus::helpers {
 									}
 								};
 
-							const std::string root_name = std::format("Thread {}", thread.thread_id);
+							const std::string root_name = get_thread_descriptor(thread);
 							_print_stack_frame(reinterpret_cast<const char8_t*>(root_name.c_str()), analysis);
 
 							ImGui::PopID();

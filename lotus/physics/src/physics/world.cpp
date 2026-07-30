@@ -4,7 +4,7 @@
 /// Implementation of the physics world.
 
 #include "lotus/logging.h"
-#include "lotus/profiler.h"
+#include "lotus/utils/profiler.h"
 #include "lotus/collision/algorithms/contact_manifold.h"
 #include "lotus/collision/contact.h"
 

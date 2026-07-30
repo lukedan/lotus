@@ -3,7 +3,7 @@
 /// \file
 /// Implementation of the GJK and EPA algorithm.
 
-#include "lotus/profiler.h"
+#include "lotus/utils/profiler.h"
 #include "lotus/memory/stack_allocator.h"
 #include "lotus/collision/shapes/convex_polyhedron.h"
 

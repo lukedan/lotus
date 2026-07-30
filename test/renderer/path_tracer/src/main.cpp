@@ -21,7 +21,7 @@
 #include <lotus/renderer/loaders/gltf_loader.h>
 #include <lotus/renderer/loaders/fbx_loader.h>
 
-#include <lotus/helpers/application.h>
+#include <lotus/utils/application.h>
 
 #include <scene.h>
 #include <camera_control.h>

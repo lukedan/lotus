@@ -13,7 +13,7 @@
 #include <lotus/renderer/context/asset_manager.h>
 #include <lotus/renderer/context/constant_uploader.h>
 
-#include <lotus/helpers/application.h>
+#include <lotus/utils/application.h>
 
 #include "common.h"
 #include "pass.h"

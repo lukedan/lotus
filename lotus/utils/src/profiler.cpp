@@ -1,9 +1,10 @@
-#include "lotus/profiler.h"
+#include "lotus/utils/profiler.h"
 
 /// \file
 /// CPU profiler implementation.
 
 #include "lotus/memory/stack_allocator.h"
+#include "lotus/system/thread_handle.h"
 
 namespace lotus::profiler {
 	void samples::analyze(analysis_stack_frame &result) const {
@@ -63,8 +64,9 @@ namespace lotus::profiler {
 		std::vector<thread_samples> result;
 		for (auto it = _thread_mapping.begin(); it != _thread_mapping.end(); ) {
 			thread_samples &s = result.emplace_back();
-			s.thread_id = it->first;
 			s.batches   = std::move(it->second.samples);
+			s.thread_id = it->first;
+			s.name      = it->second.name;
 
 			if (!it->second.accumulator) {
 				it = _thread_mapping.erase(it);
@@ -97,6 +99,9 @@ namespace lotus::profiler {
 		crash_if(it == _thread_mapping.end());
 		crash_if(!it->second.accumulator);
 		it->second.samples.emplace_back(std::move(s));
+
+		// also update thread name
+		it->second.name = system::thread_handle::current().get_name();
 	}
 
 	void thread_manager::_unregister_thread(std::thread::id id, samples s) {

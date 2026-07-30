@@ -8,6 +8,7 @@ target_sources(lotus_system
 		"include/lotus/system/dear_imgui.h"
 		"include/lotus/system/dialog.h"
 		"include/lotus/system/identifier.h"
+		"include/lotus/system/thread_handle.h"
 		"include/lotus/system/window.h")
 
 target_include_directories(lotus_system PUBLIC "include/")
@@ -21,11 +22,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 			"include/lotus/system/platforms/macos/common.h"
 			"include/lotus/system/platforms/macos/details.h"
 			"include/lotus/system/platforms/macos/dialog.h"
+			"include/lotus/system/platforms/macos/thread_handle.h"
 			"include/lotus/system/platforms/macos/window.h"
 		PRIVATE
 			"src/system/platforms/macos/application.mm"
 			"src/system/platforms/macos/details.mm"
 			"src/system/platforms/macos/dialog.mm"
+			"src/system/platforms/macos/thread_handle.mm"
 			"src/system/platforms/macos/window.mm")
 	set(LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR "lotus/system/platforms/macos/")
 
@@ -58,4 +61,5 @@ target_compile_definitions(lotus_system
 		"LOTUS_SYSTEM_PLATFORM_INCLUDE_APPLICATION=<${LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR}application.h>"
 		"LOTUS_SYSTEM_PLATFORM_INCLUDE_COMMON=<${LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR}common.h>"
 		"LOTUS_SYSTEM_PLATFORM_INCLUDE_DIALOG=<${LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR}dialog.h>"
-		"LOTUS_SYSTEM_PLATFORM_INCLUDE_WINDOW=<${LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR}window.h>")
+		"LOTUS_SYSTEM_PLATFORM_INCLUDE_WINDOW=<${LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR}window.h>"
+		"LOTUS_SYSTEM_PLATFORM_INCLUDE_THREAD_HANDLE=<${LOTUS_SYSTEM_PLATFORM_INCLUDE_DIR}thread_handle.h>")

@@ -77,6 +77,7 @@ namespace lotus::profiler {
 	/// Samples collected from a thread.
 	struct thread_samples {
 		std::deque<samples> batches; ///< All batches of samples.
+		std::u8string name; ///< The name of this thread.
 		std::thread::id thread_id; ///< The ID of this thread.
 	};
 
@@ -87,6 +88,7 @@ namespace lotus::profiler {
 		/// Data associated with a single thread.
 		struct thread_data {
 			std::deque<samples> samples; ///< Accumulated samples, potentially over multiple frames.
+			std::u8string name; ///< The name of this thread.
 			/// The accumulator for this thread. When the thread terminates, this will be reset to \p nullptr.
 			thread_accumulator *accumulator = nullptr;
 		};

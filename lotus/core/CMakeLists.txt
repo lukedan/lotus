@@ -47,7 +47,6 @@ target_sources(lotus_core
 		"include/lotus/enums.h"
 		"include/lotus/index.h"
 		"include/lotus/logging.h"
-		"include/lotus/profiler.h"
 		"include/lotus/types.h"
 	PRIVATE
 		"src/algorithms/convex_hull.cpp"
@@ -63,8 +62,7 @@ target_sources(lotus_core
 
 		"src/utils/misc.cpp"
 
-		"src/logging.cpp"
-		"src/profiler.cpp")
+		"src/logging.cpp")
 
 if("${LOTUS_USE_ALLOCATOR}" STREQUAL "mimalloc")
 	find_package(mimalloc CONFIG REQUIRED)

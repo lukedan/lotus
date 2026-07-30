@@ -8,7 +8,7 @@
 #include <lotus/math/sequences.h>
 #include <lotus/utils/camera.h>
 #include <lotus/renderer/g_buffer.h>
-#include <lotus/helpers/application.h>
+#include <lotus/utils/application.h>
 
 #include <lotus/renderer/shader_types_include_wrapper.h>
 namespace shader_types {

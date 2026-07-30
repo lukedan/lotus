@@ -4,7 +4,7 @@
 #include <memory>
 #include <functional>
 
-#include <lotus/helpers/application.h>
+#include <lotus/utils/application.h>
 #include <lotus/math/matrix.h>
 #include <lotus/math/vector.h>
 #include <lotus/utils/camera.h>

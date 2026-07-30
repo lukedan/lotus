@@ -84,7 +84,7 @@ if(WIN32 AND LOTUS_GPU_USE_DIRECTX12)
 	add_gpu_backend_include_definitions(lotus_gpu_directx12 "lotus/gpu/backends/directx12/")
 	target_link_libraries(lotus_gpu_directx12
 		PUBLIC
-			lotus_core lotus_system d3d12 dxgi dxguid d3dcompiler dxcompiler Microsoft::DirectX-Headers)
+			lotus_core lotus_system lotus_utils d3d12 dxgi dxguid d3dcompiler dxcompiler Microsoft::DirectX-Headers)
 	target_compile_definitions(lotus_gpu_directx12
 		PUBLIC
 			"LOTUS_GPU_DXC_HEADER=<dxcapi.h>")
@@ -164,7 +164,7 @@ if(LOTUS_GPU_USE_VULKAN)
 	add_gpu_backend_include_definitions(lotus_gpu_vulkan "lotus/gpu/backends/vulkan/")
 	target_link_libraries(lotus_gpu_vulkan
 		PUBLIC
-			lotus_core lotus_system Vulkan::Vulkan SPIRV_Reflect Microsoft::DirectX-Headers)
+			lotus_core lotus_system lotus_utils Vulkan::Vulkan SPIRV_Reflect Microsoft::DirectX-Headers)
 	target_compile_definitions(lotus_gpu_vulkan
 		PUBLIC
 			VULKAN_HPP_NO_EXCEPTIONS)
@@ -251,6 +251,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND LOTUS_GPU_USE_METAL)
 		PUBLIC
 			lotus_core
 			lotus_system
+			lotus_utils
 			"${QUARTZ_CORE_LIB}"
 			"${METAL_LIB}"
 			Microsoft::DirectX-Headers

@@ -7,7 +7,7 @@
 #include <queue>
 
 #include "lotus/logging.h"
-#include "lotus/profiler.h"
+#include "lotus/utils/profiler.h"
 #include "lotus/memory/stack_allocator.h"
 #include "lotus/renderer/context/execution/descriptors.h"
 #include "lotus/renderer/context/execution/queue_context.h"

@@ -3,7 +3,7 @@
 /// \file
 /// Implementation of the rigid body solver.
 
-#include "lotus/profiler.h"
+#include "lotus/utils/profiler.h"
 
 #include "lotus/physics/world.h"
 

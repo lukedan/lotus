@@ -21,20 +21,26 @@ namespace lotus::physics {
 		/// If true, the node will be updated in place. If false, the node will be detached and then reinserted into
 		/// the BVH. For now, setting this to \p false seems to result in faster lookups.
 		constexpr static bool use_bvh_updates = false;
+		constexpr static bool enable_aabb_timestamps = false; ///< Whether or not to timestamp AABBs for debugging.
 
 		using timestamp_t = u64; ///< Timestamp type.
+		/// Unique indices allocated to bodies.
+		enum class unique_id_t : u64 {
+			invalid = 0
+		};
 		struct body_data;
 		using body_bvh = collision::aabb_tree<body_data*>; ///< BVH containing bodies.
 		/// Data associated with a body.
 		struct body_data {
 			/// Initializes \ref this_body;
-			explicit body_data(body b) : this_body(std::move(b)) {
+			body_data(body b, unique_id_t id) : this_body(std::move(b)), unique_id(id) {
 			}
 
 			body this_body; ///< The body.
 
 			/// Timestamp of when this AABB was last updated.
-			[[no_unique_address]] static_optional<timestamp_t, true> aabb_timestamp;
+			[[no_unique_address]] static_optional<timestamp_t, enable_aabb_timestamps> aabb_timestamp;
+			unique_id_t unique_id = unique_id_t::invalid; ///< Unique ID of this object.
 			aab3s aabb = zero; ///< The AABB of this body.
 			body_bvh::leaf_node *node = nullptr; ///< Node in the AABB tree.
 
@@ -45,13 +51,41 @@ namespace lotus::physics {
 			}
 		};
 
-		using body_data_pair = std::pair<body_data*, body_data*>; ///< A pair of \ref body_data pointers.
+		/// A pair of \ref body_data pointers.
+		struct body_data_pair {
+			/// Default constructor.
+			body_data_pair() = default;
+			/// Sorts the two pointers.
+			body_data_pair(body_data *a, body_data *b) : first(a), second(b) {
+				if (first->unique_id > second->unique_id) {
+					std::swap(first, second);
+				}
+			}
+
+			body_data *first = nullptr; ///< The body with the smaller unique ID.
+			body_data *second = nullptr; ///< The body with the larger unique ID.
+
+			/// Equality.
+			[[nodiscard]] friend constexpr bool operator==(const body_data_pair &lhs, const body_data_pair &rhs) {
+				return
+					lhs.first->unique_id == rhs.first->unique_id && lhs.second->unique_id == rhs.second->unique_id;
+			}
+			/// Comparison.
+			[[nodiscard]] friend constexpr std::strong_ordering operator<=>(
+				const body_data_pair &lhs, const body_data_pair &rhs
+			) {
+				if (lhs.first->unique_id == rhs.first->unique_id) {
+					return lhs.second->unique_id <=> rhs.second->unique_id;
+				}
+				return lhs.first->unique_id <=> rhs.first->unique_id;
+			}
+		};
 		/// Hash function for \ref body_data_pair.
 		struct body_pair_hash {
 			/// The hash function.
 			[[nodiscard]] constexpr static usize operator()(const body_data_pair &p) {
-				std::hash<body_data*> ptr_hash;
-				return hash_combine(ptr_hash(p.first), ptr_hash(p.second));
+				std::hash<unique_id_t> id_hash;
+				return hash_combine(id_hash(p.first->unique_id), id_hash(p.second->unique_id));
 			}
 		};
 		/// Data associated with two bodies with overlapping AABBs.
@@ -67,7 +101,9 @@ namespace lotus::physics {
 
 		/// Adds a body to this world.
 		body_data *add_body(body raw_body) {
-			body_data *bdata = &*_bodies.emplace_back(std::make_unique<body_data>(std::move(raw_body)));
+			_id_alloc = static_cast<unique_id_t>(std::to_underlying(_id_alloc) + 1);
+
+			body_data *bdata = &*_bodies.emplace_back(std::make_unique<body_data>(std::move(raw_body), _id_alloc));
 			body *b = &bdata->this_body;
 
 			const aab3s aabb = _get_expanded_aab(
@@ -143,6 +179,7 @@ namespace lotus::physics {
 		timestamp_t _timestamp = 0; ///< Timestamp incremented each time \ref update_contact_constraints() is called.
 		body_bvh _body_bvh; ///< Bodies in this world.
 		std::vector<std::unique_ptr<body_data>> _bodies; ///< All bodies.
+		unique_id_t _id_alloc = unique_id_t::invalid; ///< ID allocator for bodies.
 		std::vector<_body_aabb_update> _bodies_to_update; ///< Bodies that have invalid overlap data.
 		overlap_map _overlaps; ///< All contacts in the current time step.
 

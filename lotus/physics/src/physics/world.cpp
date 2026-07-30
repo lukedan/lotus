@@ -68,7 +68,7 @@ namespace lotus::physics {
 		};
 
 		std::ranges::stable_sort(_bodies_to_update, [](const _body_aabb_update &lhs, const _body_aabb_update &rhs) {
-			return lhs.target < rhs.target;
+			return lhs.target->unique_id < rhs.target->unique_id;
 		});
 		{
 			const auto to_erase = std::ranges::unique(
@@ -103,11 +103,11 @@ namespace lotus::physics {
 						cur.target->aabb, cur.new_aabb,
 						[&](const body_bvh::leaf_node *other) {
 							if (cur.target != other->value) {
-								remove_contacts.emplace_back(std::minmax(cur.target, other->value));
+								remove_contacts.emplace_back(cur.target, other->value);
 							}
 						}, [&](const body_bvh::leaf_node *other) {
 							if (cur.target != other->value) {
-								add_contacts.emplace_back(std::minmax(cur.target, other->value));
+								add_contacts.emplace_back(cur.target, other->value);
 							}
 						}, [](const body_bvh::leaf_node*) {
 							// do nothing if the overlap is still there
@@ -170,7 +170,7 @@ namespace lotus::physics {
 						return;
 					}
 					const auto [it, inserted] =
-						_overlaps.emplace(std::minmax(add.target, other->value), overlap_data());
+						_overlaps.emplace(body_data_pair(add.target, other->value), overlap_data());
 					crash_if(!inserted);
 				});
 				_body_bvh.insert(add.target->node, add.new_aabb);

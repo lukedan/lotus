@@ -5,9 +5,7 @@
 
 #include <set>
 #include <unordered_map>
-#include <unordered_set>
 
-#include "lotus/collision/algorithms/contact_manifold.h"
 #include "lotus/collision/algorithms/aabb_tree.h"
 #include "lotus/physics/body.h"
 #include "lotus/physics/constraints/hinge.h"
@@ -20,6 +18,9 @@ namespace lotus::physics {
 	class world {
 	public:
 		constexpr static bool validate_bvh = false; ///< Whether to validate the BVH after each operation.
+		/// If true, the node will be updated in place. If false, the node will be detached and then reinserted into
+		/// the BVH. For now, setting this to \p false seems to result in faster lookups.
+		constexpr static bool use_bvh_updates = false;
 
 		using timestamp_t = u64; ///< Timestamp type.
 		struct body_data;

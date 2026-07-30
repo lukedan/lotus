@@ -118,7 +118,12 @@ namespace lotus::physics {
 				{
 					profiler::scope p3(u8"Update");
 					cur.target->set_aabb(cur.new_aabb, _timestamp);
-					_body_bvh.update(cur.target->node, cur.new_aabb);
+					if constexpr (use_bvh_updates) {
+						_body_bvh.update(cur.target->node, cur.new_aabb);
+					} else {
+						_body_bvh.detach(cur.target->node);
+						_body_bvh.insert(cur.target->node, cur.new_aabb);
+					}
 					_maybe_validate_bvh();
 				}
 			}

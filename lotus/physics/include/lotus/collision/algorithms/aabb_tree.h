@@ -89,6 +89,16 @@ namespace lotus::collision {
 				return _parent->_children_num_primitives[_parent_index];
 			}
 
+			/// Returns whether this node is empty.
+			[[nodiscard]] bool _is_empty() const {
+				for (const node *child : _children) {
+					if (child) {
+						return false;
+					}
+				}
+				return true;
+			}
+
 			/// Sets that the i-th child is a leaf.
 			void _set_child_leaf(index_t i) {
 				_is_leaf |= 1u << i;
@@ -208,11 +218,11 @@ namespace lotus::collision {
 
 			// optimize the tree
 			for (intermediate_node *cur = n->_parent; cur->_parent; ) {
-				const std::optional<index_t> promotion = _find_best_promotion(cur);
-				if (!promotion) {
-					break;
+				if (const std::optional<index_t> promotion = _find_best_promotion(cur)) {
+					_promote(cur, promotion.value()); // cur replaces its parent - no need to update
+				} else {
+					cur = cur->_parent;
 				}
-				_promote(cur, promotion.value()); // cur replaces its parent - no need to update
 			}
 		}
 		/// Detaches the leaf node from this tree without freeing it. The node will need to be disposed of manually.
@@ -221,6 +231,7 @@ namespace lotus::collision {
 				return;
 			}
 
+			const u32 primitives_removed = std::exchange(leaf->_num_primitives_in_parent(), 0);
 			intermediate_node *old_parent = std::exchange(leaf->_parent, nullptr);
 
 			// update parent
@@ -228,27 +239,28 @@ namespace lotus::collision {
 			old_parent->_set_child_non_leaf(leaf->_parent_index);
 
 			// update path to root
-			u32 nodes_erased = 1;
 			for (intermediate_node *cur = old_parent; cur->_parent; ) {
 				intermediate_node *parent = cur->_parent;
 
-				cur->_size -= nodes_erased;
-				if (cur->_size == 1) { // erase empty node
+				cur->_num_primitives_in_parent() -= primitives_removed;
+				if (cur->_is_empty()) { // erase empty node
 					// update parent
 					parent->_children[cur->_parent_index] = nullptr;
 
 					// destroy cur
 					std::destroy_at(cur);
 					_allocator.free(cur);
-					++nodes_erased;
 				} else { // update parent with new abb
 					cur->_aabb_in_parent() = cur->compute_aabb();
 				}
 
 				cur = parent;
 			}
-			crash_if(_root->_size <= nodes_erased);
-			_root->_size -= nodes_erased;
+			if (_root->_is_empty()) {
+				std::destroy_at(_root);
+				_allocator.free(_root);
+				_root = nullptr;
+			}
 		}
 		/// Erases the given leaf from this tree and frees it.
 		void erase(leaf_node *leaf) {

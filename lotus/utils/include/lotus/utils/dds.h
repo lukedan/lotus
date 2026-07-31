@@ -8,7 +8,7 @@
 
 #include "lotus/common.h"
 #include "lotus/enums.h"
-#include "misc.h"
+#include "lotus/utils/misc.h"
 
 namespace lotus {
 	namespace dds {

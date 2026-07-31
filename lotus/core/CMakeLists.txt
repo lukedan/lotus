@@ -34,9 +34,7 @@ target_sources(lotus_core
 		"include/lotus/memory/managed_allocator.h"
 		"include/lotus/memory/stack_allocator.h"
 
-		"include/lotus/utils/camera.h"
 		"include/lotus/utils/custom_float.h"
-		"include/lotus/utils/dds.h"
 		"include/lotus/utils/misc.h"
 		"include/lotus/utils/static_function.h"
 		"include/lotus/utils/strings.h"

@@ -87,6 +87,7 @@ namespace lotus::collision {
 				face_idx = static_cast<face_id>(i);
 			}
 		}
+		crash_if(face_idx == face_id::invalid);
 		return face_idx;
 	}
 

@@ -21,7 +21,7 @@ namespace lotus::physics {
 		/// If true, the node will be updated in place. If false, the node will be detached and then reinserted into
 		/// the BVH. For now, setting this to \p false seems to result in faster lookups.
 		constexpr static bool use_bvh_updates = false;
-		constexpr static bool enable_aabb_timestamps = false; ///< Whether or not to timestamp AABBs for debugging.
+		constexpr static bool enable_aabb_timestamps = true; ///< Whether or not to timestamp AABBs for debugging.
 
 		using timestamp_t = u64; ///< Timestamp type.
 		/// Unique indices allocated to bodies.
@@ -90,13 +90,16 @@ namespace lotus::physics {
 		};
 		/// Data associated with two bodies with overlapping AABBs.
 		struct overlap_data {
+			/// Initializes \ref bodies.
+			explicit overlap_data(body_data_pair bs) : bodies(bs) {
+			}
+
+			body_data_pair bodies; ///< The pair of bodies.
 			std::optional<constraints::rigid_body_contact> contact; ///< Contact constraint.
 
-			/// Updates overlap data given the two bodies.
-			void update_contact(body&, body&);
+			/// Updates the contact.
+			void update_contact();
 		};
-		/// Map of bodies with overlapping AABBs, and associated contacts if any.
-		using overlap_map = std::unordered_map<body_data_pair, overlap_data, body_pair_hash>;
 
 
 		/// Adds a body to this world.
@@ -125,9 +128,9 @@ namespace lotus::physics {
 
 		/// Calls the given callback for each contact constraint.
 		template <typename Cb> void for_each_contact(Cb &&cb) const {
-			for (const auto &[k, v] : _overlaps) {
-				if (v.contact) {
-					cb(v.contact.value());
+			for (const overlap_data &overlap : _overlaps) {
+				if (overlap.contact) {
+					cb(overlap.contact.value());
 				}
 			}
 		}
@@ -139,7 +142,7 @@ namespace lotus::physics {
 		void on_body_moved(body_data*);
 
 		/// Returns the overlap map.
-		[[nodiscard]] const overlap_map &get_overlaps() const {
+		[[nodiscard]] const std::vector<overlap_data> &get_overlaps() const {
 			return _overlaps;
 		}
 		/// Returns the body BVH.
@@ -181,7 +184,7 @@ namespace lotus::physics {
 		std::vector<std::unique_ptr<body_data>> _bodies; ///< All bodies.
 		unique_id_t _id_alloc = unique_id_t::invalid; ///< ID allocator for bodies.
 		std::vector<_body_aabb_update> _bodies_to_update; ///< Bodies that have invalid overlap data.
-		overlap_map _overlaps; ///< All contacts in the current time step.
+		std::vector<overlap_data> _overlaps; ///< All potential contacts in the current time step.
 
 		/// Validates the BVH if enabled.
 		void _maybe_validate_bvh() const;

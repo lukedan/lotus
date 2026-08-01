@@ -84,8 +84,8 @@ public:
 			_solver
 		);
 		u32 num_contacts = 0;
-		for (const auto &[k, v] : _world.get_overlaps()) {
-			if (v.contact) {
+		for (const lotus::physics::world::overlap_data &overlap : _world.get_overlaps()) {
+			if (overlap.contact) {
 				++num_contacts;
 			}
 		}

@@ -9,9 +9,9 @@
 #include "lotus/collision/contact.h"
 
 namespace lotus::physics {
-	void world::overlap_data::update_contact(body &b1, body &b2) {
-		body *body1 = &b1;
-		body *body2 = &b2;
+	void world::overlap_data::update_contact() {
+		body *body1 = &bodies.first->this_body;
+		body *body2 = &bodies.second->this_body;
 		if (body1->body_shape->get_type() > body2->body_shape->get_type()) {
 			std::swap(body1, body2);
 		}
@@ -128,60 +128,63 @@ namespace lotus::physics {
 				}
 			}
 
-			// process removed and added overlaps
+			{ // insert new bodies
+				profiler::scope p3(u8"Insert Bodies");
+				for (const _body_aabb_update &add : bodies_to_add) {
+					add.target->aabb = add.new_aabb;
+					_body_bvh.query_aab(add.new_aabb, [&](const body_bvh::leaf_node *other) {
+						if (is_collision_disabled(add.target, other->value)) {
+							return;
+						}
+						add_contacts.emplace_back(body_data_pair(add.target, other->value));
+					});
+					_body_bvh.insert(add.target->node, add.new_aabb);
+				}
+			}
+
+			// process removed and added overlaps by three-way "merging" them with the current list of overlaps
 			std::ranges::sort(add_contacts);
 			std::ranges::sort(remove_contacts);
+			std::vector<overlap_data> old_overlaps = std::exchange(_overlaps, {});
 			auto add_it = add_contacts.begin();
 			auto remove_it = remove_contacts.begin();
-			while (add_it != add_contacts.end() || remove_it != remove_contacts.end()) {
-				// disregard an overlap if it's in both sets - its status hasn't changed
+			auto overlap_it = old_overlaps.begin();
+			while (
+				add_it != add_contacts.end() ||
+				remove_it != remove_contacts.end() ||
+				overlap_it != old_overlaps.end()
+			) {
+				// disregard overlaps that are both added and removed - its status hasn't changed
 				while (add_it != add_contacts.end() && remove_it != remove_contacts.end() && *add_it == *remove_it) {
 					++add_it;
 					++remove_it;
 				}
-				if (add_it == add_contacts.end() && remove_it == remove_contacts.end()) {
-					break;
-				}
-				// choose whether to process add or remove event
-				if (remove_it == remove_contacts.end() || (add_it != add_contacts.end() && *add_it < *remove_it)) {
-					// process add event
-					if (!is_collision_disabled(add_it->first, add_it->second)) {
-						const auto [it, inserted] = _overlaps.emplace(*add_it, overlap_data());
-						crash_if(!inserted);
-					}
+				// check if we take from the add queue
+				if (
+					add_it != add_contacts.end() &&
+					(remove_it == remove_contacts.end() || *add_it < *remove_it) &&
+					(overlap_it == old_overlaps.end() || *add_it < overlap_it->bodies)
+				) {
+					_overlaps.emplace_back(*add_it);
 					++add_it;
-				} else {
-					const bool found = _overlaps.erase(*remove_it) != 0;
-					if (!found) {
-						crash_if(!is_collision_disabled(remove_it->first, remove_it->second));
-					}
+					continue;
+				}
+				// otherwise, process an old overlap
+				crash_if(overlap_it == old_overlaps.end());
+				if (remove_it == remove_contacts.end() || *remove_it != overlap_it->bodies) {
+					// take from the old queue
+					_overlaps.emplace_back(std::move(*overlap_it));
+				} else { // this overlap is erased - ignore
 					++remove_it;
 				}
-			}
-		}
-
-		{ // insert new bodies
-			profiler::scope p2(u8"Insert Bodies");
-
-			for (const _body_aabb_update &add : bodies_to_add) {
-				add.target->aabb = add.new_aabb;
-				_body_bvh.query_aab(add.new_aabb, [&](const body_bvh::leaf_node *other) {
-					if (is_collision_disabled(add.target, other->value)) {
-						return;
-					}
-					const auto [it, inserted] =
-						_overlaps.emplace(body_data_pair(add.target, other->value), overlap_data());
-					crash_if(!inserted);
-				});
-				_body_bvh.insert(add.target->node, add.new_aabb);
+				++overlap_it;
 			}
 		}
 
 		{ // finally, update all existing contacts
 			profiler::scope p2(u8"Detect Collisions");
-
-			for (auto it = _overlaps.begin(); it != _overlaps.end(); ++it) {
-				it->second.update_contact(it->first.first->this_body, it->first.second->this_body);
+			for (overlap_data &overlap : _overlaps) {
+				overlap.update_contact();
 			}
 		}
 	}

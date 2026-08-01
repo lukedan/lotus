@@ -79,6 +79,9 @@ namespace lotus::collision::contact {
 			return std::nullopt;
 		}
 		const epa::result epa_res = epa::epa(pair, gjk_res);
+		if (epa_res.normal.has_nan()) {
+			return std::nullopt;
+		}
 		return contact_manifold::compute_for_polyhedra(pair, epa_res);
 	}
 }

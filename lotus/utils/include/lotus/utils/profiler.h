@@ -148,6 +148,7 @@ namespace lotus::profiler {
 
 	/// A profiler scope.
 	struct scope {
+	public:
 		/// Begins a scope with the given name.
 		explicit scope(const char8_t *label) {
 			thread_manager::get_thread_data().push(label);
@@ -163,8 +164,19 @@ namespace lotus::profiler {
 		scope &operator=(const scope&) = delete;
 		/// Ends the scope.
 		~scope() {
-			thread_manager::get_thread_data().pop();
+			if (!_ended) {
+				end();
+			}
 		}
+
+		/// Ends this scope.
+		void end() {
+			crash_if(_ended);
+			thread_manager::get_thread_data().pop();
+			_ended = true;
+		}
+	private:
+		bool _ended = false; ///< Whether the scope has ended.
 	};
 
 

@@ -102,7 +102,7 @@ namespace lotus::collision::shapes {
 
 			// sort counter-clockwise
 			const vec3 ref_point = poly.get_vertex(f.vertex_indices[0]);
-			const auto sort_range = [&poly, &f, ref_point](this auto self, std::span<vertex_id> range) {
+			const auto sort_range = [&poly, &f, ref_point](this auto &self, std::span<vertex_id> range) {
 				if (range.size() < 2) {
 					return;
 				}

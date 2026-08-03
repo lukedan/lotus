@@ -79,7 +79,7 @@ namespace lotus::system::platforms::macos::_details {
 			{ kVK_Return,              key::enter         },
 			{ kVK_Tab,                 key::tab           },
 			{ kVK_Space,               key::space         },
-			{ kVK_Delete,              key::del           },
+			{ kVK_Delete,              key::backspace     }, // Remap delete to backspace
 			{ kVK_Escape,              key::escape        },
 			{ kVK_Command,             key::left_control  },
 			{ kVK_Shift,               key::left_shift    },

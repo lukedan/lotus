@@ -8,6 +8,7 @@
 #include <any>
 #include <memory>
 #include <thread>
+#include <atomic>
 #include <mutex>
 #include <condition_variable>
 
@@ -32,12 +33,13 @@ namespace lotus::job_system {
 
 			// these are protected by the lock
 			std::vector<job_data*> consumers; ///< All jobs that depend on this resource.
+			bool has_producer = false; ///< Whether there is a producer task for this resource.
 			bool value_ready = false;
 
 			/// Returns the value cast to the given type. Crashes if it doesn't match.
-			template <typename T> const T &get() const {
+			template <typename T> T &get() {
 				crash_if(type != typeid(T));
-				const T *ptr = std::any_cast<T>(&value);
+				T *ptr = std::any_cast<T>(&value);
 				crash_if(!ptr);
 				return *ptr;
 			}
@@ -52,9 +54,13 @@ namespace lotus::job_system {
 
 		/// Job data containing the job itself, references to inputs/outputs, and synchronization info.
 		struct job_data {
-			static_function<void(const job_data&)> job = nullptr; ///< The job function.
+			static_function<void(const job_data&, u32)> job = nullptr; ///< The job function.
 			std::vector<resource_ptr> inputs; ///< Job inputs.
 			std::vector<resource_ptr> outputs; ///< Job outputs.
+
+			std::optional<u32> count; ///< The number of parallel duplicate instances of this job to run.
+			std::atomic<u32> start_count = 0; ///< The number of instances of this job that has started running.
+			std::atomic<u32> finish_count = 0; ///< The number of instances of this job that has finished running.
 
 			// protected by the lock
 			u32 num_pending_inputs = 0; ///< Number of inputs that are not ready yet.
@@ -91,6 +97,118 @@ namespace lotus::job_system {
 		};
 		/// Shorthand for \ref array_like_tuple::type.
 		template <usize Count, typename T> using array_like_tuple_t = array_like_tuple<Count, T>::type;
+
+		/// Helpers for mono jobs.
+		namespace mono {
+			/// Job function traits.
+			template <typename> struct func_traits;
+			/// Specialization for function pointers.
+			template <typename Output, typename ...Inputs> struct func_traits<Output(*)(Inputs...)> {
+				using input_type = std::tuple<Inputs...>; ///< All input types.
+				using output_type = Output; ///< Output type.
+			};
+			/// Shorthand for \ref func_traits::input_type.
+			template <typename T> using func_input_type_t = func_traits<T>::input_type;
+			/// Shorthand for \ref func_traits::output_type.
+			template <typename T> using func_output_type_t = func_traits<T>::output_type;
+			/// Job function input count.
+			template <typename T> constexpr u32 func_input_count_v = std::tuple_size_v<func_input_type_t<T>>;
+			/// Job function output count.
+			template <typename T> constexpr u32 func_output_count_v = std::tuple_size_v<func_output_type_t<T>>;
+
+			/// Handler for job arguments.
+			template <typename> struct args_handler;
+			/// End of recursion.
+			template <> struct args_handler<std::tuple<>> {
+				/// Resolves the given arguments.
+				[[nodiscard]] static std::tuple<> resolve_inputs(std::span<const resource_ptr>) {
+					return {};
+				}
+				/// Does nothing.
+				template <typename Tuple> static void apply_outputs(Tuple&&, std::span<const resource_ptr>) {
+				}
+			};
+			/// Specialization for tuples.
+			template <typename First, typename ...Rest> struct args_handler<std::tuple<First, Rest...>> {
+				/// Resolves the given arguments.
+				[[nodiscard]] static std::tuple<First, Rest...> resolve_inputs(std::span<const resource_ptr> args) {
+					// TODO use template for
+					using type = std::remove_cvref_t<First>;
+					return std::tuple_cat(
+						std::tuple<First>(args[0]->get<type>()),
+						args_handler<std::tuple<Rest...>>::resolve_inputs(args.subspan<1>())
+					);
+				}
+				/// Applies the given outputs.
+				template <typename Tuple> static void apply_outputs(Tuple &&out, std::span<const resource_ptr> args) {
+					// TODO use template for
+					constexpr usize tuple_index = std::tuple_size_v<Tuple> - 1 - sizeof...(Rest);
+					args[0]->set<First>(std::get<tuple_index>(std::move(out)));
+					args_handler<std::tuple<Rest...>>::apply_outputs(std::move(out), args.subspan<1>());
+				}
+			};
+		}
+		/// Helpers for multi jobs.
+		namespace multi {
+			/// Job function traits.
+			template <typename> struct func_traits;
+			/// Specialization for function pointers.
+			template <typename Output, typename ...Inputs> struct func_traits<Output(*)(u32, Inputs...)> {
+				using input_type = std::tuple<Inputs...>; ///< All input types.
+				using output_type = Output; ///< Output type.
+			};
+			/// Shorthand for \ref func_traits::input_type.
+			template <typename T> using func_input_type_t = func_traits<T>::input_type;
+			/// Shorthand for \ref func_traits::output_type.
+			template <typename T> using func_output_type_t = func_traits<T>::output_type;
+			/// Job function input count.
+			template <typename T> constexpr u32 func_input_count_v = std::tuple_size_v<func_input_type_t<T>>;
+			/// Job function output count.
+			template <typename T> constexpr u32 func_output_count_v = std::tuple_size_v<func_output_type_t<T>>;
+
+			/// Handler for job arguments.
+			template <typename> struct args_handler;
+			/// End of recursion.
+			template <> struct args_handler<std::tuple<>> {
+				/// Does nothing.
+				static void prepare_inputs(std::span<const resource_ptr>, u32) {
+				}
+				/// Returns empty.
+				[[nodiscard]] static std::tuple<> resolve_inputs(std::span<const resource_ptr>, u32) {
+					return {};
+				}
+				/// Does nothing.
+				template <typename Tuple> static void apply_outputs(Tuple&&, std::span<const resource_ptr>, u32) {
+				}
+			};
+			/// Specialization for tuples.
+			template <typename First, typename ...Rest> struct args_handler<std::tuple<First, Rest...>> {
+				/// Prepares inputs.
+				static void prepare_inputs(std::span<const resource_ptr> outputs, u32 count) {
+					outputs[0]->value.emplace<std::vector<First>>(count);
+					args_handler<std::tuple<Rest...>>::prepare_inputs(outputs.subspan<1>(), count);
+				}
+				/// Resolves the given arguments.
+				[[nodiscard]] static std::tuple<First, Rest...> resolve_inputs(
+					std::span<const resource_ptr> args, u32 index
+				) {
+					// TODO use template for
+					return std::tuple_cat(
+						std::tuple<First>(args[0]->get<std::vector<First>>()[index]),
+						args_handler<std::tuple<Rest...>>::resolve_inputs(args.subspan<1>(), index)
+					);
+				}
+				/// Applies the given outputs.
+				template <typename Tuple> static void apply_outputs(
+					Tuple &&out, std::span<const resource_ptr> args, u32 index
+				) {
+					// TODO use template for
+					constexpr usize tuple_index = std::tuple_size_v<Tuple> - 1 - sizeof...(Rest);
+					args[0]->get<std::vector<First>>()[index] = std::get<tuple_index>(std::move(out));
+					args_handler<std::tuple<Rest...>>::apply_outputs(std::move(out), args.subspan<1>(), index);
+				}
+			};
+		}
 	}
 
 	/// Handle used to reference a resource used as input/output of jobs.
@@ -100,6 +218,10 @@ namespace lotus::job_system {
 		/// Returns whether this handle is valid.
 		[[nodiscard]] bool is_valid() const {
 			return _resource.get();
+		}
+		/// \overload
+		[[nodiscard]] explicit operator bool() const {
+			return is_valid();
 		}
 	private:
 		_details::resource_ptr _resource; ///< The resource.
@@ -130,6 +252,7 @@ namespace lotus::job_system {
 			resource_handle result = create_resource<T>();
 			result._resource->value.emplace<T>(std::move(obj));
 			// no need to lock since this resource is just being created
+			result._resource->has_producer = true;
 			result._resource->value_ready = true;
 			return result;
 		}
@@ -143,17 +266,37 @@ namespace lotus::job_system {
 		}
 
 		/// Schedules a new job. The job will run as soon as all inputs are ready.
-		template <typename ...Outputs, typename ...Inputs> void schedule_job(
-			std::tuple<Outputs...> (*job_func)(Inputs...),
-			_details::array_like_tuple_t<sizeof...(Inputs), resource_handle> inputs,
-			_details::array_like_tuple_t<sizeof...(Outputs), resource_handle> outputs
+		template <typename JobFunc> void schedule_mono_job(
+			JobFunc job_func,
+			_details::array_like_tuple_t<_details::mono::func_input_count_v<JobFunc>, resource_handle> inputs,
+			_details::array_like_tuple_t<_details::mono::func_output_count_v<JobFunc>, resource_handle> outputs
 		) {
 			_details::job_ptr job = std::make_unique<_details::job_data>();
 			_move_into_vector(inputs, job->inputs);
 			_move_into_vector(outputs, job->outputs);
-			job->job = [job_func](const _details::job_data &job_data) {
-				_job_wrapper(job_func, job_data);
+			job->job = [job_func](const _details::job_data &job_data, u32) {
+				_mono_job_wrapper(job_func, job_data);
 			};
+			_control->schedule_job(std::move(job));
+		}
+		/// Schedules a number of identical independent jobs that can run in parallel. The inputs and outputs must be
+		/// \p std::vector types.
+		template <typename JobFunc> void schedule_multi_job(
+			JobFunc job_func,
+			_details::array_like_tuple_t<_details::multi::func_input_count_v<JobFunc>, resource_handle> inputs,
+			_details::array_like_tuple_t<_details::multi::func_output_count_v<JobFunc>, resource_handle> outputs,
+			u32 count
+		) {
+			_details::job_ptr job = std::make_unique<_details::job_data>();
+			_move_into_vector(inputs, job->inputs);
+			_move_into_vector(outputs, job->outputs);
+			job->count = count;
+			job->job = [job_func](const _details::job_data &job_data, u32 index) {
+				_multi_job_wrapper(job_func, job_data, index);
+			};
+			// TODO do this before running the job to save memory?
+			using output_handler = _details::multi::args_handler<_details::multi::func_input_type_t<JobFunc>>;
+			output_handler::prepare_inputs(job->outputs, count);
 			_control->schedule_job(std::move(job));
 		}
 	private:
@@ -180,6 +323,10 @@ namespace lotus::job_system {
 			std::vector<_details::job_ptr> _waiting_jobs; ///< Jobs that have inputs that are not ready.
 			std::queue<_details::job_ptr> _pending_jobs; ///< Jobs that can run next.
 			bool _terminate = false; ///< Whether or not to terminate.
+
+			/// Marks the given resource as ready without notifying \ref _signal. The caller should be holding the
+			/// lock.
+			void _mark_resource_ready_locked(_details::resource_data*);
 		};
 
 		std::vector<_details::worker_data> _workers; ///< Worker threads.
@@ -203,38 +350,31 @@ namespace lotus::job_system {
 				_move_into_vector<Tuple, Index + 1>(tuple, vec);
 			}
 		}
-		/// Retrieves a tuple of all job inputs.
-		template <typename First, typename ...Rest> [[nodiscard]] static std::tuple<First, Rest...> _resolve_inputs(
-			std::span<const _details::resource_ptr> args
-		) {
-			// TODO use template for
-			if constexpr (sizeof...(Rest) > 0) {
-				return std::tuple_cat(
-					std::tuple<First>(args[0]->get<First>()),
-					_resolve_inputs<Rest...>(args.subspan<1>())
-				);
-			} else {
-				return std::tuple<First>(args[0]->get<First>());
-			}
-		}
-		/// Copies outputs into all resources.
-		template <typename First, typename ...Rest, typename Tuple> static void _apply_outputs(
-			Tuple &&out, std::span<const _details::resource_ptr> args
-		) {
-			// TODO use template for
-			constexpr usize tuple_index = std::tuple_size_v<Tuple> - 1 - sizeof...(Rest);
-			args[0]->set<First>(std::get<tuple_index>(std::move(out)));
-			if constexpr (sizeof...(Rest) > 0) {
-				_apply_outputs<Tuple, Rest...>(std::move(out), args.subspan<1>());
-			}
-		}
-		/// Wrapper for a job function. Handles input and output parameters.
-		template <typename ...Outputs, typename ...Inputs> static void _job_wrapper(
-			std::tuple<Outputs...> (*job)(Inputs...), const _details::job_data &job_data
-		) {
-			_apply_outputs<Outputs...>(
-				std::apply(job, _resolve_inputs<Inputs...>(job_data.inputs)),
+
+		/// Wrapper for a mono job function. Handles input and output parameters.
+		template <typename JobFunc> static void _mono_job_wrapper(JobFunc job, const _details::job_data &job_data) {
+			using input_handler = _details::mono::args_handler<_details::mono::func_input_type_t<JobFunc>>;
+			using output_handler = _details::mono::args_handler<_details::mono::func_output_type_t<JobFunc>>;
+			output_handler::apply_outputs(
+				std::apply(job, input_handler::resolve_inputs(job_data.inputs)),
 				job_data.outputs
+			);
+		}
+
+		/// Wrapper for a multi job function. Handles input and output parameters.
+		template <typename JobFunc> static void _multi_job_wrapper(
+			JobFunc job, const _details::job_data &job_data, u32 index
+		) {
+			using input_handler = _details::multi::args_handler<_details::multi::func_input_type_t<JobFunc>>;
+			using output_handler = _details::multi::args_handler<_details::multi::func_input_type_t<JobFunc>>;
+			output_handler::apply_outputs(
+				std::apply(
+					[job, index]<typename ...Args>(Args &&...args) {
+						return job(index, std::forward<Args>(args)...);
+					},
+					input_handler::resolve_inputs(job_data.inputs, index)
+				),
+				job_data.outputs, index
 			);
 		}
 	};

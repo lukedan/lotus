@@ -26,36 +26,59 @@ namespace lotus::job_system {
 				_signal.wait(lock);
 				continue;
 			}
-			_details::job_ptr job = std::move(_pending_jobs.front());
-			_pending_jobs.pop();
 
-			// run job with lock released
-			lock.unlock();
-			job->job(*job);
-			lock.lock();
+			_details::job_ptr job;
+			if (_pending_jobs.front()->count.has_value()) {
+				job = _pending_jobs.front();
 
-			// notify other jobs
-			for (const _details::resource_ptr &output : job->outputs) {
-				output->value_ready = true;
-				for (_details::job_data *consumer : output->consumers) {
-					--consumer->num_pending_inputs;
-					if (consumer->num_pending_inputs == 0) {
-						// move job to pending queue
-						bool found_job = false;
-						for (auto it = _waiting_jobs.begin(); it != _waiting_jobs.end(); ++it) {
-							if (it->get() == consumer) {
-								found_job = true;
-								_pending_jobs.emplace(std::move(*it));
-								std::swap(*it, _waiting_jobs.back());
-								_waiting_jobs.pop_back();
-								break;
-							}
-						}
-						crash_if(!found_job);
-					}
+				// check if all work has been allocated
+				if (job->start_count >= job->count.value()) {
+					// pop job to start running other jobs, but don't mark ready yet
+					_pending_jobs.pop();
+					continue;
 				}
+
+				// run unlocked
+				lock.unlock();
+				bool mark_finish = false;
+				while (true) {
+					// increment start counter to figure out which job to run
+					const u32 index = job->start_count.fetch_add(1);
+					if (index >= job->count.value()) {
+						break;
+					}
+
+					job->job(*job, index);
+
+					// increment finish counter, and notify if all jobs have been ran
+					const u32 finish_index = job->finish_count.fetch_add(1);
+					crash_if(finish_index >= job->count.value());
+					mark_finish = finish_index + 1 == job->count.value();
+				}
+				lock.lock();
+
+				if (mark_finish) {
+					for (const _details::resource_ptr &output : job->outputs) {
+						_mark_resource_ready_locked(output.get());
+					}
+					_signal.notify_all();
+				}
+			} else {
+				// mono job
+				job = std::move(_pending_jobs.front());
+				_pending_jobs.pop();
+
+				// run unlocked
+				lock.unlock();
+				job->job(*job, 0);
+				lock.lock();
+
+				// notify other jobs
+				for (const _details::resource_ptr &output : job->outputs) {
+					_mark_resource_ready_locked(output.get());
+				}
+				_signal.notify_all();
 			}
-			_signal.notify_all();
 		}
 	}
 
@@ -75,10 +98,21 @@ namespace lotus::job_system {
 			}
 		}
 
+		// check and mark outputs
+		for (const _details::resource_ptr &output : job->outputs) {
+			crash_if(output->has_producer);
+			output->has_producer = true;
+		}
+
 		// add to pending jobs
 		if (job->num_pending_inputs == 0) {
+			const bool is_multi = job->count.has_value();
 			_pending_jobs.emplace(std::move(job));
-			_signal.notify_one();
+			if (is_multi) {
+				_signal.notify_all();
+			} else {
+				_signal.notify_one();
+			}
 		} else {
 			_waiting_jobs.emplace_back(std::move(job));
 		}
@@ -106,6 +140,27 @@ namespace lotus::job_system {
 		}
 
 		_signal.notify_all();
+	}
+
+	void manager::_control_block::_mark_resource_ready_locked(_details::resource_data *rsrc) {
+		rsrc->value_ready = true;
+		for (_details::job_data *consumer : rsrc->consumers) {
+			--consumer->num_pending_inputs;
+			if (consumer->num_pending_inputs == 0) {
+				// move job to pending queue
+				bool found_job = false;
+				for (auto it = _waiting_jobs.begin(); it != _waiting_jobs.end(); ++it) {
+					if (it->get() == consumer) {
+						found_job = true;
+						_pending_jobs.emplace(std::move(*it));
+						std::swap(*it, _waiting_jobs.back());
+						_waiting_jobs.pop_back();
+						break;
+					}
+				}
+				crash_if(!found_job);
+			}
+		}
 	}
 
 

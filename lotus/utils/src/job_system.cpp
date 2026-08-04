@@ -15,6 +15,7 @@ namespace lotus::job_system {
 
 		std::unique_lock lock(_job_lock);
 		while (true) {
+			profiler::thread_manager::get_thread_data().flush();
 			profiler::scope p1(u8"Wake Up");
 
 			if (_terminate) {
@@ -149,9 +150,11 @@ namespace lotus::job_system {
 	}
 
 	manager::~manager() {
-		_control->terminate();
-		for (_details::worker_data &worker : _workers) {
-			worker.thread.join();
+		if (_control) {
+			_control->terminate();
+			for (_details::worker_data &worker : _workers) {
+				worker.thread.join();
+			}
 		}
 	}
 

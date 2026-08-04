@@ -54,7 +54,8 @@ namespace lotus::job_system {
 
 		/// Job data containing the job itself, references to inputs/outputs, and synchronization info.
 		struct job_data {
-			static_function<void(const job_data&, u32)> job = nullptr; ///< The job function.
+			/// The job function. Returns whether all outputs are ready.
+			static_function<bool(job_data&)> job = nullptr;
 			std::vector<resource_ptr> inputs; ///< Job inputs.
 			std::vector<resource_ptr> outputs; ///< Job outputs.
 
@@ -97,6 +98,26 @@ namespace lotus::job_system {
 		};
 		/// Shorthand for \ref array_like_tuple::type.
 		template <usize Count, typename T> using array_like_tuple_t = array_like_tuple<Count, T>::type;
+
+		/// Applies the given operation to types in the given tuple.
+		template <typename, template <typename> typename> struct apply_to_tuple;
+		/// Specialization for functionality.
+		template <
+			template <typename> typename Func, typename ...Args
+		> struct apply_to_tuple<std::tuple<Args...>, Func> {
+			using type = std::tuple<Func<Args>...>; ///< Type.
+		};
+		/// Shorthand for \ref apply_to_tuple::type.
+		template <
+			typename Tuple, template <typename> typename Func
+		> using apply_to_tuple_t = apply_to_tuple<Tuple, Func>::type;
+
+		/// Returns the type \p std::span<const T>.
+		template <typename T> struct const_span {
+			using type = std::span<const T>; ///< Type.
+		};
+		/// Shorthand for \ref const_span::type.
+		template <typename T> using const_span_t = typename const_span<T>::type;
 
 		/// Helpers for mono jobs.
 		namespace mono {
@@ -174,11 +195,17 @@ namespace lotus::job_system {
 				static void prepare_inputs(std::span<const resource_ptr>, u32) {
 				}
 				/// Returns empty.
-				[[nodiscard]] static std::tuple<> resolve_inputs(std::span<const resource_ptr>, u32) {
+				[[nodiscard]] static std::tuple<> get_spans(std::span<const resource_ptr>) {
 					return {};
 				}
 				/// Does nothing.
-				template <typename Tuple> static void apply_outputs(Tuple&&, std::span<const resource_ptr>, u32) {
+				template <typename SpanTuple, typename OutputTuple> static void set(
+					SpanTuple, OutputTuple&&, u32
+				) {
+				}
+				/// Returns empty.
+				template <typename SpanTuple> static std::tuple<> get(SpanTuple, u32) {
+					return {};
 				}
 			};
 			/// Specialization for tuples.
@@ -189,23 +216,31 @@ namespace lotus::job_system {
 					args_handler<std::tuple<Rest...>>::prepare_inputs(outputs.subspan<1>(), count);
 				}
 				/// Resolves the given arguments.
-				[[nodiscard]] static std::tuple<First, Rest...> resolve_inputs(
-					std::span<const resource_ptr> args, u32 index
+				[[nodiscard]] static std::tuple<std::span<First>, std::span<Rest>...> get_spans(
+					std::span<const resource_ptr> args
 				) {
 					// TODO use template for
 					return std::tuple_cat(
-						std::tuple<First>(args[0]->get<std::vector<First>>()[index]),
-						args_handler<std::tuple<Rest...>>::resolve_inputs(args.subspan<1>(), index)
+						std::tuple<std::span<First>>(args[0]->get<std::vector<First>>()),
+						args_handler<std::tuple<Rest...>>::get_spans(args.subspan<1>())
 					);
 				}
-				/// Applies the given outputs.
-				template <typename Tuple> static void apply_outputs(
-					Tuple &&out, std::span<const resource_ptr> args, u32 index
+				/// Sets the element at \p index in each span to the corresponding element in \p output.
+				template <typename SpanTuple, typename OutputTuple> static void set(
+					SpanTuple spans, OutputTuple &&output, u32 index
 				) {
 					// TODO use template for
-					constexpr usize tuple_index = std::tuple_size_v<Tuple> - 1 - sizeof...(Rest);
-					args[0]->get<std::vector<First>>()[index] = std::get<tuple_index>(std::move(out));
-					args_handler<std::tuple<Rest...>>::apply_outputs(std::move(out), args.subspan<1>(), index);
+					constexpr usize tuple_index = std::tuple_size_v<SpanTuple> - 1 - sizeof...(Rest);
+					std::get<tuple_index>(spans)[index] = std::move(std::get<tuple_index>(output));
+					args_handler<std::tuple<Rest...>>::set(std::move(output), spans, index);
+				}
+				/// Returns the element at \p index in each span.
+				template <typename SpanTuple> static std::tuple<First, Rest...> get(SpanTuple spans, u32 index) {
+					constexpr usize tuple_index = std::tuple_size_v<SpanTuple> - 1 - sizeof...(Rest);
+					return std::tuple_cat(
+						std::tuple<First>(std::get<tuple_index>(spans)[index]),
+						args_handler<std::tuple<Rest...>>::get(spans, index)
+					);
 				}
 			};
 		}
@@ -234,6 +269,8 @@ namespace lotus::job_system {
 	/// Manager for a number of job threads.
 	class manager {
 	public:
+		constexpr static u32 default_batch_size = 8; ///< Default batch size for multi jobs.
+
 		/// Default move constructor.
 		manager(manager&&) = default;
 		/// Creates a new manager object and spawns the given number of worker threads.
@@ -274,14 +311,14 @@ namespace lotus::job_system {
 			_details::job_ptr job = std::make_unique<_details::job_data>();
 			_move_into_vector(inputs, job->inputs);
 			_move_into_vector(outputs, job->outputs);
-			job->job = [job_func](const _details::job_data &job_data, u32) {
-				_mono_job_wrapper(job_func, job_data);
+			job->job = [job_func](_details::job_data &job_data) {
+				return _mono_job_wrapper(job_func, job_data);
 			};
 			_control->schedule_job(std::move(job));
 		}
 		/// Schedules a number of identical independent jobs that can run in parallel. The inputs and outputs must be
 		/// \p std::vector types.
-		template <typename JobFunc> void schedule_multi_job(
+		template <u32 BatchSize, typename JobFunc> void schedule_multi_job(
 			JobFunc job_func,
 			_details::array_like_tuple_t<_details::multi::func_input_count_v<JobFunc>, resource_handle> inputs,
 			_details::array_like_tuple_t<_details::multi::func_output_count_v<JobFunc>, resource_handle> outputs,
@@ -291,13 +328,22 @@ namespace lotus::job_system {
 			_move_into_vector(inputs, job->inputs);
 			_move_into_vector(outputs, job->outputs);
 			job->count = count;
-			job->job = [job_func](const _details::job_data &job_data, u32 index) {
-				_multi_job_wrapper(job_func, job_data, index);
+			job->job = [job_func](_details::job_data &job_data) {
+				return _multi_job_wrapper<BatchSize>(job_func, job_data);
 			};
 			// TODO do this before running the job to save memory?
 			using output_handler = _details::multi::args_handler<_details::multi::func_input_type_t<JobFunc>>;
 			output_handler::prepare_inputs(job->outputs, count);
 			_control->schedule_job(std::move(job));
+		}
+		/// Overload of \ref schedule_multi_job() with a default batch size.
+		template <typename JobFunc> void schedule_multi_job(
+			JobFunc job_func,
+			_details::array_like_tuple_t<_details::multi::func_input_count_v<JobFunc>, resource_handle> inputs,
+			_details::array_like_tuple_t<_details::multi::func_output_count_v<JobFunc>, resource_handle> outputs,
+			u32 count
+		) {
+			schedule_multi_job<default_batch_size>(job_func, std::move(inputs), std::move(outputs), count);
 		}
 	private:
 		/// Pinned data shared between all threads.
@@ -352,30 +398,56 @@ namespace lotus::job_system {
 		}
 
 		/// Wrapper for a mono job function. Handles input and output parameters.
-		template <typename JobFunc> static void _mono_job_wrapper(JobFunc job, const _details::job_data &job_data) {
+		template <typename JobFunc> static bool _mono_job_wrapper(JobFunc job, _details::job_data &job_data) {
 			using input_handler = _details::mono::args_handler<_details::mono::func_input_type_t<JobFunc>>;
 			using output_handler = _details::mono::args_handler<_details::mono::func_output_type_t<JobFunc>>;
 			output_handler::apply_outputs(
 				std::apply(job, input_handler::resolve_inputs(job_data.inputs)),
 				job_data.outputs
 			);
+			return true;
 		}
 
 		/// Wrapper for a multi job function. Handles input and output parameters.
-		template <typename JobFunc> static void _multi_job_wrapper(
-			JobFunc job, const _details::job_data &job_data, u32 index
+		template <u32 BatchSize, typename JobFunc> static bool _multi_job_wrapper(
+			JobFunc job, _details::job_data &job_data
 		) {
-			using input_handler = _details::multi::args_handler<_details::multi::func_input_type_t<JobFunc>>;
-			using output_handler = _details::multi::args_handler<_details::multi::func_input_type_t<JobFunc>>;
-			output_handler::apply_outputs(
-				std::apply(
-					[job, index]<typename ...Args>(Args &&...args) {
-						return job(index, std::forward<Args>(args)...);
-					},
-					input_handler::resolve_inputs(job_data.inputs, index)
-				),
-				job_data.outputs, index
-			);
+			using func_input_t = _details::multi::func_input_type_t<JobFunc>;
+			using func_output_t = _details::multi::func_output_type_t<JobFunc>;
+			using input_spans_t = _details::apply_to_tuple_t<func_input_t, _details::const_span_t>;
+			using output_spans_t = _details::apply_to_tuple_t<func_output_t, std::span>;
+			input_spans_t input_spans = _details::multi::args_handler<func_input_t>::get_spans(job_data.inputs);
+			output_spans_t output_spans = _details::multi::args_handler<func_input_t>::get_spans(job_data.outputs);
+			constexpr u32 batch_size = BatchSize;
+
+			const u32 count = job_data.count.value();
+			bool outputs_ready = false;
+			while (true) {
+				const u32 start_index = job_data.start_count.fetch_add(batch_size);
+				if (start_index >= count) {
+					break;
+				}
+				const u32 cur_batch_size = std::min(batch_size, count - start_index);
+				for (u32 i = 0; i < cur_batch_size; ++i) {
+					const u32 cur_index = start_index + i;
+					_details::multi::args_handler<func_output_t>::set(
+						output_spans,
+						std::apply(
+							[job, cur_index]<typename ...Args>(Args &&...args) {
+								return job(cur_index, std::forward<Args>(args)...);
+							},
+							_details::multi::args_handler<func_input_t>::get(input_spans, cur_index)
+						),
+						cur_index
+					);
+				}
+				const u32 finish_index = job_data.finish_count.fetch_add(cur_batch_size);
+				if (finish_index + cur_batch_size == count) {
+					outputs_ready = true;
+					break;
+				}
+			}
+			return outputs_ready;
 		}
 	};
 }

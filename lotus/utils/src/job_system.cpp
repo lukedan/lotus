@@ -30,50 +30,25 @@ namespace lotus::job_system {
 			_details::job_ptr job;
 			if (_pending_jobs.front()->count.has_value()) {
 				job = _pending_jobs.front();
-
 				// check if all work has been allocated
 				if (job->start_count >= job->count.value()) {
 					// pop job to start running other jobs, but don't mark ready yet
 					_pending_jobs.pop();
 					continue;
 				}
-
-				// run unlocked
-				lock.unlock();
-				bool mark_finish = false;
-				while (true) {
-					// increment start counter to figure out which job to run
-					const u32 index = job->start_count.fetch_add(1);
-					if (index >= job->count.value()) {
-						break;
-					}
-
-					job->job(*job, index);
-
-					// increment finish counter, and notify if all jobs have been ran
-					const u32 finish_index = job->finish_count.fetch_add(1);
-					crash_if(finish_index >= job->count.value());
-					mark_finish = finish_index + 1 == job->count.value();
-				}
-				lock.lock();
-
-				if (mark_finish) {
-					for (const _details::resource_ptr &output : job->outputs) {
-						_mark_resource_ready_locked(output.get());
-					}
-					_signal.notify_all();
-				}
 			} else {
 				// mono job
 				job = std::move(_pending_jobs.front());
 				_pending_jobs.pop();
+			}
 
-				// run unlocked
-				lock.unlock();
-				job->job(*job, 0);
-				lock.lock();
+			// run unlocked
+			lock.unlock();
+			const bool mark_finish = job->job(*job);
+			lock.lock();
 
-				// notify other jobs
+			// notify other jobs
+			if (mark_finish) {
 				for (const _details::resource_ptr &output : job->outputs) {
 					_mark_resource_ready_locked(output.get());
 				}

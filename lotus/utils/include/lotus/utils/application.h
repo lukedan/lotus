@@ -684,6 +684,7 @@ namespace lotus::helpers {
 
 									if (ts.label) {
 										sample_stack.emplace(ts);
+										max_stack_depth = std::max(sample_stack.size(), max_stack_depth);
 										continue;
 									}
 
@@ -691,7 +692,6 @@ namespace lotus::helpers {
 									const profiler::timestamp tbeg = sample_stack.top();
 									sample_stack.pop();
 									const usize stack_depth = sample_stack.size();
-									max_stack_depth = std::max(stack_depth, max_stack_depth);
 
 									const f64 beg = into_seconds(tbeg.time - timestamp_min);
 									const f64 end = into_seconds(ts.time - timestamp_min);
@@ -798,6 +798,8 @@ namespace lotus::helpers {
 								ImGui::PopID();
 							}
 							ImGui::PopID();
+
+							ImGui::Dummy(ImVec2(0.0f, bar_height * static_cast<f32>(max_stack_depth)));
 						}
 
 						// handle mouse scrolling

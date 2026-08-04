@@ -24,6 +24,7 @@ namespace lotus::job_system {
 			// wait for a new job
 			if (_pending_jobs.empty()) {
 				p1.end(); // don't profile wait times
+				profiler::thread_manager::get_thread_data().flush();
 				_signal.wait(lock);
 				continue;
 			}
